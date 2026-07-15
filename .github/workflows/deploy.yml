@@ -1,0 +1,28 @@
+name: Deploy to SFTP
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy files
+        run: |
+          mkdir deploy
+          cp .htaccess api.php apple-touch-icon.png data.json favicon.png index.html slots.html deploy/
+
+      - name: Upload via SFTP
+        uses: Dylan700/sftp-upload-action@latest
+        with:
+          server: access-5019959932.webspace-host.com
+          port: '22'
+          username: su533209
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: 'deploy/*'
+          remote_path: '/codevermittler/heldenbuch2'
+          delete: 'false'
