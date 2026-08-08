@@ -139,7 +139,7 @@ const styles = `
   .char-name { font-family:'Cinzel Decorative',serif; font-size:28px; color:var(--gold); line-height:1.2; }
   .char-meta { font-family:'Cinzel',serif; font-size:13px; color:var(--parchment-dim); margin-top:6px; }
 
-  /* Heldenwechsel im Bogenkopf (iPad + Desktop; auf dem Handy nicht gerendert) */
+  /* Heldenwechsel im Bogenkopf (alle Größen) */
   .char-switch { display:flex; align-items:center; gap:6px; min-width:0; position:relative; }
   .char-step { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; background:none; border:1px solid transparent; border-radius:4px; color:var(--gold-dim); font-size:15px; cursor:pointer; transition:color 0.15s, border-color 0.15s; }
   .char-step:hover { color:var(--gold); border-color:var(--border-bright); }
@@ -159,6 +159,11 @@ const styles = `
     .char-step { width:44px; height:44px; font-size:17px; }
     .char-switch-menu { left:50px; }
     .char-switch-item { min-height:44px; }
+  }
+  @media (max-width:640px) {
+    /* Auf dem Handy füllt die Liste die Bogenbreite, statt rechts
+       aus dem Bildschirm zu laufen. */
+    .char-switch-menu { left:0; right:0; max-width:none; }
   }
   .class-badges { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
   .saves-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px; }
@@ -1109,16 +1114,6 @@ function App() {
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
-  // Der Heldenwechsel im Kopf entfällt auf dem Handy — dort ist der Platz zu
-  // knapp, und die untere Leiste führt ohnehin zurück zur Liste.
-  const PHONE_MQ = '(max-width:640px)';
-  const [isPhone, setIsPhone] = useState(() => window.matchMedia(PHONE_MQ).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(PHONE_MQ);
-    const onChange = e => setIsPhone(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
   const [charMenuOpen, setCharMenuOpen] = useState(false);
   const [ec,     setEc]      = useState(null);
   const [wf,     setWf]      = useState(newWeapon());
@@ -2048,7 +2043,7 @@ function App() {
       <div className="sheet">
         <div className="sheet-header">
           <div style={{minWidth:0,flex:1}}>
-            {isPhone || switchList.length < 2 ? (
+            {switchList.length < 2 ? (
               <div className="char-name">{cur.name}</div>
             ) : (
               <div className={"char-switch"+(charMenuOpen?" open":"")}>
