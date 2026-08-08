@@ -106,7 +106,7 @@ const styles = `
   .sidebar.collapsed { transform:translateX(-260px); margin-right:-260px; }
   .sidebar-toggle { position:fixed; top:50%; transform:translateY(-50%); z-index:20; background:var(--bg-deep); border:1px solid var(--border); border-left:none; border-radius:0 5px 5px 0; padding:12px 5px; cursor:pointer; color:var(--text-muted); font-size:11px; line-height:1; transition:left 0.25s ease, background 0.15s, color 0.15s; }
   .sidebar-toggle:hover { background:var(--bg-panel); color:var(--gold); border-color:var(--border-bright); }
-  @media (max-width:640px) { .sidebar-toggle { display:none !important; } }
+  @media (max-width:1024px) { .sidebar-toggle { display:none !important; } }
   .sidebar-header { padding:20px 16px 12px; border-bottom:1px solid var(--border); text-align:center; }
   .sidebar-title { font-family:'Cinzel Decorative',serif; font-size:14px; color:var(--gold); line-height:1.4; }
   .sidebar-subtitle { font-family:'Cinzel',serif; font-size:10px; color:var(--text-muted); letter-spacing:0.15em; text-transform:uppercase; margin-top:4px; }
@@ -207,6 +207,9 @@ const styles = `
   .skill-row:last-child { border-bottom:none; }
   .skill-row:hover { background:var(--bg-hover); }
   .skill-prof-btn { width:16px; height:16px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:8px; }
+  .skill-prof-btn.expertise { width:22px; font-size:7px; }
+  .chip-remove { padding:2px 4px; }
+  .joat-toggle { padding:3px 10px; }
   .skill-prof-btn.active { background:var(--gold-dim); border-color:var(--gold); }
   .skill-name { font-family:'EB Garamond',serif; font-size:14px; color:var(--text-secondary); flex:1; }
   .skill-value { font-family:'Cinzel',serif; font-size:13px; font-weight:600; min-width:28px; text-align:right; }
@@ -506,7 +509,7 @@ const styles = `
   .mobile-nav-btn.active .mobile-nav-icon { filter:drop-shadow(0 0 4px var(--gold-dim)); }
   .mobile-fab { display:none; }
 
-  @media (max-width:640px) {
+  @media (max-width:1024px) {
     .app { flex-direction:column; height:100svh; }
     .sidebar { display:none; }
     .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-height:0; }
@@ -557,9 +560,134 @@ const styles = `
     .form-full { grid-column:1; }
     .form-stats { grid-template-columns:repeat(3,1fr); }
   }
-  @media (min-width:641px) {
+  @media (min-width:1025px) {
     .desktop-sheet { display:block; }
     .mobile-sheet { display:none; }
+  }
+
+  /* ── Tablet (641–1024px): Touch-Bogen, aber mehrspaltig ────────── */
+  @media (min-width:641px) and (max-width:1024px) {
+    .sheet { padding:20px 24px; max-width:920px; margin:0 auto; }
+    .mobile-sheet .sheet { padding:20px 24px; }
+    .sticky-header { margin:-8px -24px 0; padding:8px 24px 0; }
+    .stats-grid { grid-template-columns:repeat(6,1fr); }
+    .skills-layout { grid-template-columns:1fr 1fr; }
+    .spells-list { grid-template-columns:1fr 1fr; }
+    .features-grid { grid-template-columns:1fr 1fr; }
+    .profs-grid { grid-template-columns:1fr 1fr; }
+    .inv-grid { grid-template-columns:repeat(4,1fr); }
+    .slots-grid { grid-template-columns:repeat(3,1fr); }
+    .currency-row { grid-template-columns:repeat(5,1fr); }
+    .form-grid { grid-template-columns:1fr 1fr; }
+    .form-full { grid-column:1 / -1; }
+    .form-overlay { padding:24px; align-items:center; }
+    .form-modal { border-radius:10px; max-height:88svh; border-bottom:1px solid var(--border); }
+    .combat-row { flex-wrap:wrap; overflow-x:visible; }
+    .combat-box { min-width:110px; }
+    .combat-label { display:block; }
+    .combat-label-short { display:none; }
+    .inv-col-rarity { display:table-cell; }
+    .inv-col-weight { display:table-cell; }
+    .inv-mobile-meta { display:none; }
+    .char-name { font-size:24px; }
+    .mobile-fab { bottom:88px; right:24px; }
+  }
+
+  /* ── Touch-Geräte: Aktionen ohne Hover erreichbar ──────────────── */
+  @media (hover:none) {
+    .wn-actions,
+    .spell-actions,
+    .feature-actions,
+    .inv-item-delete { opacity:1; }
+    .feature-actions { background:rgba(0,0,0,0.65); }
+  }
+
+  /* ── Touch-Geräte: Tippziele fingertauglich ────────────────────────
+     Dicht stehende Punkte brauchen echte Größe plus Abstand; eine nur
+     vergrößerte Trefferfläche würde die Nachbarn überlappen.        */
+  @media (hover:none), (pointer:coarse) {
+    .res-mini-bar { gap:12px; min-height:40px; padding:6px 0 8px; }
+    .res-mini-group { gap:8px; padding:4px 8px; }
+    .res-mini-slot-group { gap:8px; padding:4px 6px; }
+    .res-mini-pip { width:22px; height:22px; }
+    .res-mini-sep { margin:0 4px; }
+
+    .skill-row { padding:10px 12px; gap:10px; }
+    .skill-prof-btn { width:28px; height:28px; font-size:12px; }
+    .skill-prof-btn.expertise { width:34px; font-size:10px; }
+
+    .save-box { padding:12px 12px; min-height:48px; }
+    .save-pip { width:18px; height:18px; }
+
+    .slot-pip { width:30px; height:30px; }
+    .slot-max-btn { width:30px; height:30px; font-size:14px; }
+
+    .btn-icon { min-width:44px; min-height:44px; padding:10px 14px; }
+    .chip-remove { min-width:40px; min-height:40px; padding:8px; }
+    .panel-edit-btn { min-height:40px; }
+    .joat-toggle { min-height:40px; padding:8px 14px; }
+    .mobile-back { min-height:44px; padding:10px 14px; }
+    .mobile-nav-btn { min-height:48px; }
+    .btn-sm-del, .btn-sm-add { min-height:40px; }
+
+    .wn-actions button,
+    .spell-actions button,
+    .feature-actions button { min-width:40px; min-height:40px; }
+    .inv-item-delete { min-width:44px; min-height:44px; font-size:16px; }
+
+    /* 16px verhindert das automatische Hineinzoomen von iOS Safari
+       beim Fokussieren eines Eingabefelds. */
+    .form-input, input, select, textarea { font-size:16px; min-height:44px; }
+    textarea { min-height:96px; }
+  }
+
+  /* ── Touch-Geräte: Lesbarkeit und Luft ─────────────────────────────
+     Nichts unter 11px. Gleichmäßig winzige Typografie lässt eine Seite
+     überladen wirken, auch wenn der Inhalt es nicht ist.            */
+  @media (hover:none), (pointer:coarse) {
+    .combat-label-short,
+    .inv-card-meta,
+    .res-mini-slot-grade,
+    .spell-card-school-footer,
+    .spell-card-stat-label,
+    .combat-label,
+    .currency-label,
+    .form-stat-label,
+    .inv-tag,
+    .res-mini-label,
+    .stat-label,
+    .wn-prop-tag,
+    .ws-stat-label { font-size:11px; }
+
+    .btn-sm-add,
+    .feature-source,
+    .form-label,
+    .inv-card-rarity-label,
+    .inv-rarity,
+    .mobile-nav-label,
+    .prop-tag,
+    .resource-restore-btn,
+    .save-label,
+    .sidebar-subtitle,
+    .skill-attr-badge,
+    .slot-restore-btn,
+    .slot-row-label,
+    .spell-card-school-label,
+    .spell-delete,
+    .sync-box-title,
+    .sync-change-btn,
+    .tag-chip,
+    .tag-filter-btn,
+    .ws-cr-badge,
+    .ws-filter-btn,
+    .ws-stat-mod,
+    .ws-tag { font-size:12px; }
+
+    .section-title { font-size:12px; margin-bottom:14px; letter-spacing:0.16em; }
+    .stats-section { margin-bottom:32px; }
+    .skill-name { font-size:15px; }
+    .skill-value { font-size:15px; min-width:34px; }
+    .save-value { font-size:15px; }
   }
 `;
 
@@ -932,13 +1060,23 @@ function App() {
   const [charSearch,   setCharSearch]   = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   useEffect(() => { if (sel) setSidebarCollapsed(true); else setSidebarCollapsed(false); }, [sel]);
+  // Muss mit dem CSS-Breakpoint (max-width:1024px) übereinstimmen: nur der
+  // aktive Bogen wird gerendert, statt beide zu bauen und einen zu verstecken.
+  const TOUCH_MQ = '(max-width:1024px)';
+  const [isTouchLayout, setIsTouchLayout] = useState(() => window.matchMedia(TOUCH_MQ).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(TOUCH_MQ);
+    const onChange = e => setIsTouchLayout(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   const [ec,     setEc]      = useState(null);
   const [wf,     setWf]      = useState(newWeapon());
   const [wfEditId, setWfEditId] = useState(null);
   const [sf,     setSf]      = useState(newSpell());
   const [itf,    setItf]     = useState(newItem());
   const [exSpell,setExSpell] = useState(null);
-  const [collapsedLevels, setCollapsedLevels] = useState(() => window.innerWidth < 641 ? new Set([0,1,2,3,4,5,6,7,8,9]) : new Set());
+  const [collapsedLevels, setCollapsedLevels] = useState(() => window.innerWidth < 1025 ? new Set([0,1,2,3,4,5,6,7,8,9]) : new Set());
   const [spellTagFilter, setSpellTagFilter] = useState({classes:[], dmg:[]});
   const [openUnprepared, setOpenUnprepared] = useState(new Set());
   const [exItem, setExItem]  = useState(null);
@@ -2093,9 +2231,10 @@ function App() {
               <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:10,flexWrap:"wrap"}}>
                 <div style={{fontSize:11,color:"var(--text-muted)",fontStyle:"italic"}}>⬤ = Übung · ⬤⬤ = Expertise · Klick zum Wechseln</div>
                 <button
+                  className="joat-toggle"
                   onClick={toggleJoAT}
                   style={{
-                    padding:"3px 10px",borderRadius:3,cursor:"pointer",fontFamily:"'Cinzel',serif",fontSize:10,
+                    borderRadius:3,cursor:"pointer",fontFamily:"'Cinzel',serif",fontSize:10,
                     letterSpacing:"0.08em",textTransform:"uppercase",
                     background: cur.jackOfAllTrades ? "var(--gold-dim)" : "var(--bg-card)",
                     border: `1px solid ${cur.jackOfAllTrades ? "var(--gold)" : "var(--border)"}`,
@@ -2123,14 +2262,12 @@ function App() {
                       return (
                         <div className="skill-row" key={sk.key}>
                           <button
-                            className="skill-prof-btn"
+                            className={"skill-prof-btn"+(isE?" expertise":"")}
                             onClick={()=>toggleSkill(sk.key)}
                             style={{
                               background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
                               borderColor: col,
                               color: col,
-                              fontSize: isE ? 7 : 8,
-                              width: isE ? 22 : 16,
                             }}
                             title={isE?"Expertise (Klick: entfernen)":isP?"Übung (Klick: Expertise)":"Kein Bonus (Klick: Übung hinzufügen)"}
                           >{pip}</button>
@@ -2163,7 +2300,7 @@ function App() {
                     {items.map((item,i) => (
                       <div key={i} style={{display:'flex',alignItems:'center',padding:'6px 10px',borderBottom:'1px solid var(--border)',gap:8}}>
                         <div style={{flex:1,fontFamily:"'EB Garamond',serif",fontSize:14,color:'var(--text-secondary)'}}>{item}</div>
-                        <button onClick={()=>del(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13,padding:'2px 4px',lineHeight:1}}>✕</button>
+                        <button className="chip-remove" onClick={()=>del(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13,lineHeight:1}}>✕</button>
                       </div>
                     ))}
                     <div style={{display:'flex',gap:6,padding:'6px 10px'}}>
@@ -3214,7 +3351,7 @@ function App() {
         </div>
 
         <div className="main">
-          {mv==="list" && (
+          {isTouchLayout && mv==="list" && (
             <div className="mobile-list-screen">
               <div style={{padding:"16px 12px 12px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
                 <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:16,color:"var(--gold)"}}>⚔ Heldenbuch ⚔</div>
@@ -3264,7 +3401,7 @@ function App() {
               </div>
             </div>
           )}
-          {mv==="sheet" && (
+          {isTouchLayout && mv==="sheet" && (
             <div className="mobile-sheet">
               <div className="mobile-topbar">
                 <button className="mobile-back" onClick={()=>setMv("list")}>← Helden</button>
@@ -3283,10 +3420,10 @@ function App() {
               <Sheet />
             </div>
           )}
-          <div className="desktop-sheet"><Sheet /></div>
+          {!isTouchLayout && <div className="desktop-sheet"><Sheet /></div>}
         </div>
 
-        <nav className="mobile-bottom-nav" style={{left: sidebarCollapsed ? 0 : 260}}>
+        <nav className="mobile-bottom-nav" style={{left: (isTouchLayout || sidebarCollapsed) ? 0 : 260}}>
           <div className="mobile-bottom-nav-inner-wrap">
             {mv==="list" ? (
               <button className="mobile-nav-btn active">
