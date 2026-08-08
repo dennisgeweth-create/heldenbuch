@@ -1043,8 +1043,6 @@ function App() {
   const [statsEdit,  setStatsEdit]  = useState(false);
   const [showSF, setShowSF]  = useState(false);
   const [sfEditId, setSfEditId] = useState(null);
-  const [invSearch,  setInvSearch]  = useState('');
-  const invSearchRef = useRef('');
   const [invRarity,  setInvRarity]  = useState('all');
   const [imgViewer,  setImgViewer]  = useState(null);  // {name, imageData}
   const [itemViewer,    setItemViewer]    = useState(null);
@@ -1158,6 +1156,12 @@ function App() {
   const isDmRef = useRef(false);
   const dmPassRef = useRef('');
 
+  // charsRef muss synchron mitlaufen: save() difft gegen charsRef.current und
+  // stellt jeden dort vorhandenen, in der neuen Liste fehlenden Charakter zur
+  // Löschung auf dem Server. Eine veraltete Referenz löscht also echte Daten.
+  // Deshalb nur über applyChars setzen — nie setChars(...) allein aufrufen.
+  const applyChars = (next) => { charsRef.current = next; setChars(next); };
+
   // charsRef is set synchronously in save() and load ops — NOT via useEffect
   // selRef is updated directly in selectChar below
   useEffect(() => { libRef.current = userLibrary; }, [userLibrary]);
@@ -1220,7 +1224,7 @@ function App() {
     setSvUrl(url); setSvCode(code); setSvPass(pass);
     if (url && code && pass) {
       // Load localStorage immediately for instant display while server loads
-      try { const v=localStorage.getItem('dnd_chars'); if(v) { const parsed=JSON.parse(v); setChars(parsed); charsRef.current=parsed; } } catch {}
+      try { const v=localStorage.getItem('dnd_chars'); if(v) applyChars(JSON.parse(v)); } catch {}
       try { const lib=localStorage.getItem('hb_library'); if(lib) setUserLibrary(JSON.parse(lib)); } catch {}
       // Load server data on startup — but only apply if no unsaved local changes
       apiLoadChars(url, code, pass).then(d => {
@@ -1228,8 +1232,7 @@ function App() {
         if (d.library) { setUserLibrary(d.library); safeSetItem('hb_library', JSON.stringify(d.library)); }
         if (!pendingRef.current) {
           // No unsaved local changes — server is authoritative
-          charsRef.current = d.chars || [];
-          setChars(d.chars || []);
+          applyChars(d.chars || []);
           localStorage.setItem('dnd_chars', JSON.stringify(d.chars || []));
         }
         // If pendingRef=true: local has newer unsaved data — keep it, interval will push to server
@@ -1238,11 +1241,7 @@ function App() {
         setSyncStatus('ok'); setSyncMsg('Lokal ✓');
       });
     } else {
-      // charsRef muss hier mitgesetzt werden: patchChar/updSlots/updSP bilden
-      // ihre Änderung über charsRef.current ab. Bliebe die Referenz leer,
-      // ergäbe die erste Bearbeitung ein leeres Array und würde alle
-      // Charaktere überschreiben.
-      try { const v=localStorage.getItem('dnd_chars'); if(v) { const parsed=JSON.parse(v); setChars(parsed); charsRef.current=parsed; } } catch {}
+      try { const v=localStorage.getItem('dnd_chars'); if(v) applyChars(JSON.parse(v)); } catch {}
       setShowSetup(true);
     }
   }, []);
@@ -1358,8 +1357,7 @@ function App() {
       const data = await apiLoad(url, code, pass);
       // User explicitly requested reload — always apply server data
       pendingRef.current = false;   // cancel any pending local saves
-      charsRef.current = data.chars || [];
-      setChars(data.chars || []);
+      applyChars(data.chars || []);
       localStorage.setItem('dnd_chars', JSON.stringify(data.chars || []));
       if (data.library) { setUserLibrary(data.library); safeSetItem('hb_library', JSON.stringify(data.library)); }
       if (data.has_dm) setHasDmMode(true);
@@ -1400,8 +1398,7 @@ function App() {
 
   const save = (u) => {
     const prev = charsRef.current;
-    charsRef.current = u;
-    setChars(u);
+    applyChars(u);
 
     const prevMap = new Map(prev.map(c => [c.id, c]));
     const newMap  = new Map(u.map(c => [c.id, c]));
@@ -1465,8 +1462,7 @@ function App() {
       localStorage.setItem('sv_code', code.toUpperCase());
       localStorage.setItem('sv_pass', pass);
       setSvUrl(url); setSvCode(code.toUpperCase()); setSvPass(pass);
-      charsRef.current = data.chars || [];
-      setChars(data.chars || []);
+      applyChars(data.chars || []);
       pendingRef.current = false;
       localStorage.setItem('dnd_chars', JSON.stringify(data.chars || []));
       if (data.library) { setUserLibrary(data.library); safeSetItem('hb_library', JSON.stringify(data.library)); }
@@ -1493,8 +1489,8 @@ function App() {
 
   const saveChar = () => {
     if (!ec.name.trim()) return;
-    const exists = chars.find(c=>c.id===ec.id);
-    save(exists ? chars.map(c=>c.id===ec.id?ec:c) : [...chars,ec]);
+    const exists = charsRef.current.find(c=>c.id===ec.id);
+    save(exists ? charsRef.current.map(c=>c.id===ec.id?ec:c) : [...charsRef.current,ec]);
     if (exists) {
       const prev = charsRef.current.find(c=>c.id===ec.id);
       const charChanges = {};
@@ -1517,7 +1513,7 @@ function App() {
   };
   const deleteChar = () => {
     if (!confirm(cur.name+" wirklich löschen?")) return;
-    save(chars.filter(c=>c.id!==sel)); selectChar(null); setMv("list");
+    save(charsRef.current.filter(c=>c.id!==selRef.current)); selectChar(null); setMv("list");
   };
   const addWeapon = () => {
     if (!wf.name.trim()) return;
@@ -1589,9 +1585,9 @@ function App() {
   });
   const doTransfer = (targetId, ids) => {
     const items = (cur.inventory||[]).filter(i=>ids.has(i.id));
-    const target = chars.find(c=>c.id===targetId);
-    const updated = chars.map(c => {
-      if (c.id === sel) return {...c, inventory:(c.inventory||[]).filter(i=>!ids.has(i.id))};
+    const target = charsRef.current.find(c=>c.id===targetId);
+    const updated = charsRef.current.map(c => {
+      if (c.id === selRef.current) return {...c, inventory:(c.inventory||[]).filter(i=>!ids.has(i.id))};
       if (c.id === targetId) return {...c, inventory:[...(c.inventory||[]),...items.map(i=>({...i,id:Date.now().toString()+Math.random().toString(36).slice(2)}))]};
       return c;
     });
@@ -1762,7 +1758,7 @@ function App() {
     save(charsRef.current.map(c=>c.id===selRef.current?{...c,archived:true}:c));
     selectChar(null); setMv("list");
   };
-  const unarchiveChar = id => save(chars.map(c=>c.id===id?{...c,archived:false}:c));
+  const unarchiveChar = id => save(charsRef.current.map(c=>c.id===id?{...c,archived:false}:c));
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
   const AdventureLog = ({onClose, isDmMode}) => {
