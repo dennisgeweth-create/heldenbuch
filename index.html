@@ -110,7 +110,6 @@ const styles = `
   .sidebar-header { padding:20px 16px 12px; border-bottom:1px solid var(--border); text-align:center; }
   .sidebar-title { font-family:'Cinzel Decorative',serif; font-size:14px; color:var(--gold); line-height:1.4; }
   .sidebar-subtitle { font-family:'Cinzel',serif; font-size:10px; color:var(--text-muted); letter-spacing:0.15em; text-transform:uppercase; margin-top:4px; }
-  .dragon-divider { color:var(--gold-dim); font-size:18px; margin:6px 0; }
   .char-list { flex:1; overflow-y:auto; padding:8px; }
   .char-list::-webkit-scrollbar { width:4px; }
   .char-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
@@ -451,17 +450,28 @@ const styles = `
   .icon-picker-btn:hover { background:var(--bg-hover); border-color:var(--gold-dim); transform:scale(1.15); }
   .icon-picker-btn.selected { border-color:var(--gold); background:var(--bg-panel); }
 
-  .sync-box { margin:8px; padding:10px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; }
-  .sync-box-title { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
-  .sync-status { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
   .sync-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   .sync-dot.ok   { background:#52b788; box-shadow:0 0 4px #52b78880; }
   .sync-dot.busy { background:var(--gold); box-shadow:0 0 4px var(--gold-dim); animation:pulse 1s infinite; }
   .sync-dot.err  { background:var(--crimson-bright); }
   .sync-dot.idle { background:var(--border-bright); }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  .sync-change-btn { display:block; width:100%; margin-top:4px; padding:5px 8px; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; text-align:center; }
-  .sync-change-btn:hover { border-color:var(--border-bright); color:var(--text-secondary); }
+  /* Fußbereich der Seitenleiste: Primäraktion, Werkzeuge, Sync — drei
+     Ebenen mit abgestuftem Gewicht statt einem Stapel gleicher Knöpfe. */
+  .sidebar-footer { padding:8px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px; }
+  .sidebar-footer .btn-new { margin:0; }
+  .sidebar-tools { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .btn-tool { padding:9px 4px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:var(--text-secondary); font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.02em; cursor:pointer; text-align:center; white-space:nowrap; }
+  .btn-tool:hover { border-color:var(--border-bright); color:var(--text-primary); background:var(--bg-hover); }
+  .sync-line { display:flex; align-items:center; gap:6px; padding:4px 2px 0; font-family:'Cinzel',serif; font-size:11px; color:var(--text-muted); }
+  .sync-line-code { color:var(--gold); }
+  .sync-line-msg { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sync-line-ver { margin-left:auto; font-size:9px; opacity:0.6; flex-shrink:0; }
+  .sync-actions { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:6px; }
+  .btn-sync { padding:7px 3px; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.02em; text-transform:uppercase; cursor:pointer; text-align:center; white-space:nowrap; }
+  .btn-sync:hover { border-color:var(--border-bright); color:var(--text-primary); }
+  .btn-sync.dm { border-color:#c060a0; color:#c060a0; }
+  .btn-sync.dm.active { background:rgba(192,96,160,0.1); }
   .btn-save { padding:8px 20px; background:linear-gradient(135deg,#7a5c10,var(--gold-dim)); border:1px solid var(--gold-dim); border-radius:3px; color:var(--gold-bright); font-family:'Cinzel',serif; font-size:12px; cursor:pointer; }
   .btn-save:hover { background:linear-gradient(135deg,var(--gold-dim),#a07820); }
   .btn-cancel { padding:8px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Cinzel',serif; font-size:12px; cursor:pointer; }
@@ -626,6 +636,8 @@ const styles = `
     .chip-remove { min-width:40px; min-height:40px; padding:8px; }
     .panel-edit-btn { min-height:40px; }
     .joat-toggle { min-height:40px; padding:8px 14px; }
+    .btn-tool { min-height:44px; font-size:12px; }
+    .btn-sync { min-height:44px; font-size:11px; }
     .mobile-back { min-height:44px; padding:10px 14px; }
     .mobile-nav-btn { min-height:48px; }
     .btn-sm-del, .btn-sm-add { min-height:40px; }
@@ -1036,6 +1048,8 @@ function App() {
   const [logEntries,   setLogEntries]   = useState([]);
   const [logLoading,   setLogLoading]   = useState(false);
   const [showAdventLog,setShowAdventLog]= useState(false);
+  // Die Taverne (slots.html) ist aktuell aus dem Menü genommen; Modal und
+  // Zustand bleiben, damit ein Eintrag sie wieder erreichbar macht.
   const [showSlots, setShowSlots] = useState(false);
   const [adventEntries,setAdventEntries]= useState([]);
   const [adventSearch, setAdventSearch] = useState('');
@@ -3296,8 +3310,7 @@ function App() {
         <div className={"sidebar"+(sidebarCollapsed?" collapsed":"")}>
           <div className="sidebar-header">
             <div className="sidebar-title">⚔ Heldenbuch ⚔</div>
-            <div className="sidebar-subtitle">Dungeons &amp; Dragons</div>
-            <div className="dragon-divider">🐉</div>
+            <div className="sidebar-subtitle">Dungeons &amp; Dragons · 🐉</div>
           </div>
           <div className="char-list">
             <div style={{padding:'6px 8px 0'}}>
@@ -3311,41 +3324,38 @@ function App() {
             </div>
             <CharList />
           </div>
-          <button className="btn-new" onClick={openNew}>✦ Neuer Charakter</button>
-          <button className="btn-new" style={{marginTop:4,background:'linear-gradient(135deg,#1a2a3a,#0d1a26)',borderColor:'var(--border-bright)',color:'var(--text-muted)'}} onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank verwalten</button>
-          <button className="btn-new" style={{marginTop:4,background:'linear-gradient(135deg,#1a2a3a,#0d1a26)',borderColor:'var(--border-bright)',color:'var(--text-muted)'}} onClick={()=>{
-            setAdventSearch(''); setAdventTabFilter([]);
-            setShowAdventLog(true);
-            const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
-            if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
-          }}>📖 Abenteuerlog</button>
-          <button className="btn-new" style={{marginTop:4,background:'linear-gradient(135deg,#2a1a08,#1a0e04)',borderColor:'#4a3010',color:'#c9a84c'}} onClick={()=>setShowSlots(true)}>🎰 Taverne des Glücks</button>
-          <div className="sync-box">
-            <div className="sync-box-title">☁️ Server-Sync <span style={{fontSize:8,color:'var(--text-muted)',fontFamily:"'Cinzel',serif",letterSpacing:'0.05em',textTransform:'none'}}>v3.8.2</span></div>
+          <div className="sidebar-footer">
+            <button className="btn-new" onClick={openNew}>✦ Neuer Charakter</button>
+            <div className="sidebar-tools">
+              <button className="btn-tool" onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
+              <button className="btn-tool" onClick={()=>{
+                setAdventSearch(''); setAdventTabFilter([]);
+                setShowAdventLog(true);
+                const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+                if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
+              }}>📖 Abenteuerlog</button>
+            </div>
             {svCode ? (
               <>
-                <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:"var(--text-muted)",marginBottom:4}}>
-                  Gruppe: <span style={{color:"var(--gold)"}}>{svCode}</span>
-                </div>
-                <div className="sync-status">
+                <div className="sync-line">
                   <div className={"sync-dot "+(syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
-                  <span style={{color:"var(--text-muted)",fontSize:11}}>{syncMsg||"Verbunden"}</span>
+                  <span className="sync-line-code">{svCode}</span>
+                  <span className="sync-line-msg">· {syncMsg||"Verbunden"}</span>
+                  <span className="sync-line-ver">v3.8.2</span>
                 </div>
-                <button className="sync-change-btn" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺ Neu laden</button>
-                {hasDmMode && !isDmMode && (
-                  <button className="sync-change-btn" style={{borderColor:'#c060a0',color:'#c060a0'}} onClick={()=>{setDmLoginInput('');setDmLoginErr('');setShowDmLogin(true);}}>
-                    🔮 DM-Modus
-                  </button>
-                )}
-                {isDmMode && (
-                  <button className="sync-change-btn" style={{borderColor:'#c060a0',color:'#c060a0',background:'rgba(192,96,160,0.1)'}} onClick={doDmLogout}>
-                    🔮 DM aktiv — Abmelden
-                  </button>
-                )}
-                <button className="sync-change-btn" onClick={signOut}>⎋ Abmelden</button>
+                <div className="sync-actions">
+                  <button className="btn-sync" title="Daten neu vom Server laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺ Laden</button>
+                  {hasDmMode && !isDmMode && (
+                    <button className="btn-sync dm" title="In den DM-Modus wechseln" onClick={()=>{setDmLoginInput('');setDmLoginErr('');setShowDmLogin(true);}}>🔮 DM</button>
+                  )}
+                  {isDmMode && (
+                    <button className="btn-sync dm active" title="DM-Modus verlassen" onClick={doDmLogout}>🔮 DM aus</button>
+                  )}
+                  <button className="btn-sync" title="Von der Gruppe abmelden" onClick={signOut}>⎋ Abmelden</button>
+                </div>
               </>
             ) : (
-              <button className="sync-change-btn" onClick={()=>setShowSetup(true)}>⚙️ Server verbinden</button>
+              <button className="btn-sync" onClick={()=>setShowSetup(true)}>⚙️ Server verbinden</button>
             )}
           </div>
         </div>
@@ -3365,27 +3375,17 @@ function App() {
                     </span>
                   </div>
                 )}
-                <button onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}
-                  style={{marginTop:10,width:"100%",padding:"8px",fontFamily:"'Cinzel',serif",fontSize:11,
-                    background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:4,
-                    color:"var(--text-muted)",cursor:"pointer",letterSpacing:"0.08em"}}>
-                  📚 Datenbank verwalten
-                </button>
-                <button onClick={()=>{
-                  setAdventSearch(''); setAdventTabFilter([]);
-                  setShowAdventLog(true);
-                }}
-                  style={{marginTop:4,width:"100%",padding:"8px",fontFamily:"'Cinzel',serif",fontSize:11,
-                    background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:4,
-                    color:"var(--text-muted)",cursor:"pointer",letterSpacing:"0.08em"}}>
-                  📖 Abenteuerlog
-                </button>
-                <button onClick={()=>setShowSlots(true)}
-                  style={{marginTop:4,width:"100%",padding:"8px",fontFamily:"'Cinzel',serif",fontSize:11,
-                    background:"linear-gradient(135deg,#2a1a08,#1a0e04)",border:"1px solid #4a3010",borderRadius:4,
-                    color:"#c9a84c",cursor:"pointer",letterSpacing:"0.08em"}}>
-                  🎰 Taverne des Glücks
-                </button>
+                <div className="sidebar-tools" style={{marginTop:10}}>
+                  <button className="btn-tool" onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}>
+                    📚 Datenbank
+                  </button>
+                  <button className="btn-tool" onClick={()=>{
+                    setAdventSearch(''); setAdventTabFilter([]);
+                    setShowAdventLog(true);
+                  }}>
+                    📖 Abenteuerlog
+                  </button>
+                </div>
               </div>
               <div style={{padding:8}}>
                 <div style={{padding:'6px 0 4px'}}>
