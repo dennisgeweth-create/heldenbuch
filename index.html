@@ -3418,7 +3418,7 @@ function App() {
                   <div className={"sync-dot "+(syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
                   <span className="sync-line-code">{svCode}</span>
                   <span className="sync-line-msg">· {syncMsg||"Verbunden"}</span>
-                  <span className="sync-line-ver">v3.8.2</span>
+                  <span className="sync-line-ver">v3.9</span>
                 </div>
                 <div className="sync-actions">
                   <button className="btn-sync" title="Daten neu vom Server laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺ Laden</button>
