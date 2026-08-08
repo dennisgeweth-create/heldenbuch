@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
 
+env:
+  SFTP_HOST: access-5019959932.webspace-host.com
+  SFTP_USER: su533209
+  REMOTE_DIR: /codevermittler/heldenbuch2
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -15,14 +20,35 @@ jobs:
         run: |
           mkdir deploy
           cp .htaccess api.php apple-touch-icon.png data.json favicon.png index.html slots.html deploy/
+          echo "Zu übertragen:"
+          ls -l deploy/
 
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      # lftp statt einer fertigen Action, weil diese still fehlschlagen kann:
+      # mirror meldet jede Datei einzeln und der Exit-Code bricht den Lauf ab.
+      # --env-password hält das Passwort aus der Prozessliste heraus.
       - name: Upload via SFTP
-        uses: Dylan700/sftp-upload-action@latest
-        with:
-          server: access-5019959932.webspace-host.com
-          port: '22'
-          username: su533209
-          password: ${{ secrets.SFTP_PASSWORD }}
-          uploads: |
-            ./deploy/ => /codevermittler/heldenbuch2/
-          delete: false
+        env:
+          LFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+        run: |
+          lftp -u "$SFTP_USER" --env-password "sftp://$SFTP_HOST" <<EOF
+            set sftp:auto-confirm yes;
+            set cmd:fail-exit yes;
+            mirror --reverse --verbose --no-perms --continue ./deploy/ $REMOTE_DIR/;
+            bye
+          EOF
+
+      - name: Verify deployed file
+        run: |
+          echo "Prüfe, ob die ausgelieferte index.html der eben gebauten entspricht:"
+          LOCAL=$(sha256sum deploy/index.html | cut -d' ' -f1)
+          REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/index.html?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
+          echo "lokal:  $LOCAL"
+          echo "server: $REMOTE"
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "::error::Die ausgelieferte Datei stimmt nicht mit der hochgeladenen überein."
+            exit 1
+          fi
+          echo "Übereinstimmung bestätigt."
