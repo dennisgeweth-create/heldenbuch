@@ -1233,7 +1233,11 @@ function App() {
         setSyncStatus('ok'); setSyncMsg('Lokal ✓');
       });
     } else {
-      try { const v=localStorage.getItem('dnd_chars'); if(v) setChars(JSON.parse(v)); } catch {}
+      // charsRef muss hier mitgesetzt werden: patchChar/updSlots/updSP bilden
+      // ihre Änderung über charsRef.current ab. Bliebe die Referenz leer,
+      // ergäbe die erste Bearbeitung ein leeres Array und würde alle
+      // Charaktere überschreiben.
+      try { const v=localStorage.getItem('dnd_chars'); if(v) { const parsed=JSON.parse(v); setChars(parsed); charsRef.current=parsed; } } catch {}
       setShowSetup(true);
     }
   }, []);
