@@ -169,15 +169,17 @@ const styles = `
   .sticky-header { position:sticky; top:0; z-index:10; background:var(--bg-void); margin:-8px -24px 0; padding:8px 24px 0; margin-bottom:12px; }
   .combat-row { display:flex; gap:8px; flex-wrap:wrap; padding-bottom:6px; }
   .res-mini-bar { display:flex; flex-wrap:wrap; align-items:center; padding:4px 0 6px; min-height:24px; gap:6px; }
+  /* Die mitscrollende Leiste ist reine Anzeige — kein cursor:pointer und
+     keine Hover-Flächen. Umgeschaltet wird in den eigenen Bereichen
+     (slot-pip, sorcery-pip), damit ein Fehlgriff hier keinen Zauberplatz
+     verbraucht. Die title-Tooltips bleiben erhalten. */
   .res-mini-group { display:flex; align-items:center; gap:3px; flex:0 0 auto; padding:2px 6px; border-radius:3px; }
-  .res-mini-group:hover { background:var(--bg-hover); }
   .res-mini-label { font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); letter-spacing:0.06em; margin-right:2px; white-space:nowrap; flex-shrink:0; }
-  .res-mini-pip { display:inline-block; width:9px; height:9px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); flex-shrink:0; cursor:pointer; transition:all 0.12s; }
+  .res-mini-pip { display:inline-block; width:9px; height:9px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); flex-shrink:0; transition:all 0.12s; }
   .res-mini-pip.on { background:var(--gold-dim); border-color:var(--gold); box-shadow:0 0 3px rgba(201,168,76,0.5); }
   .res-mini-slot-grade { font-family:'Cinzel',serif; font-size:8px; color:var(--text-muted); min-width:8px; }
   .res-mini-sep { width:1px; background:var(--border); align-self:stretch; flex-shrink:0; margin:0 2px; }
-  .res-mini-slot-group { display:flex; align-items:center; gap:2px; padding:2px 3px; border-radius:3px; cursor:pointer; }
-  .res-mini-slot-group:hover { background:var(--bg-hover); }
+  .res-mini-slot-group { display:flex; align-items:center; gap:2px; padding:2px 3px; border-radius:3px; }
   .combat-box { flex:1; min-width:80px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:10px; text-align:center; }
   .combat-label { font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
   .combat-label-short { display:none; font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
@@ -616,11 +618,14 @@ const styles = `
      Dicht stehende Punkte brauchen echte Größe plus Abstand; eine nur
      vergrößerte Trefferfläche würde die Nachbarn überlappen.        */
   @media (hover:none), (pointer:coarse) {
-    .res-mini-bar { gap:12px; min-height:40px; padding:6px 0 8px; }
-    .res-mini-group { gap:8px; padding:4px 8px; }
-    .res-mini-slot-group { gap:8px; padding:4px 6px; }
-    .res-mini-pip { width:22px; height:22px; }
-    .res-mini-sep { margin:0 4px; }
+    /* Mittelweg zwischen der ursprünglichen (9px) und der auf Touch-Ziele
+       vergrößerten Fassung (22px). Da hier nichts mehr angetippt wird,
+       zählt nur noch Lesbarkeit, nicht die Trefferfläche. */
+    .res-mini-bar { gap:9px; min-height:32px; padding:5px 0 7px; }
+    .res-mini-group { gap:5px; padding:3px 7px; }
+    .res-mini-slot-group { gap:5px; padding:3px 4px; }
+    .res-mini-pip { width:15px; height:15px; }
+    .res-mini-sep { margin:0 3px; }
 
     .skill-row { padding:10px 12px; gap:10px; }
     .skill-prof-btn { width:28px; height:28px; font-size:12px; }
@@ -2165,7 +2170,7 @@ function App() {
                   {activeSlots.map(l=>{
                     const s=slots[l]; const avail=s.max-s.used;
                     return (
-                      <span key={l} className="res-mini-slot-group" title={"Grad "+l+": "+avail+"/"+s.max} onClick={()=>togSlot(l,avail>0?s.max-avail:s.max-1)}>
+                      <span key={l} className="res-mini-slot-group" title={"Grad "+l+": "+avail+"/"+s.max}>
                         <span className="res-mini-slot-grade">{l}</span>
                         {Array.from({length:s.max}).map((_,i)=>(
                           <span key={i} className={"res-mini-pip"+(i<avail?" on":"")} />
@@ -2180,7 +2185,7 @@ function App() {
                   <span className="res-mini-label" style={{color:"var(--arcane-bright)"}}>ZPU</span>
                   {Array.from({length:sp.max}).map((_,i)=>{
                     const avail=sp.max-sp.used;
-                    return <span key={i} className={"res-mini-pip"+(i<avail?" on":"")} style={i<avail?{background:"var(--arcane-bright)",borderColor:"var(--arcane-bright)"}:{borderColor:"var(--arcane-bright)"}} onClick={()=>togSP(i)} />;
+                    return <span key={i} className={"res-mini-pip"+(i<avail?" on":"")} style={i<avail?{background:"var(--arcane-bright)",borderColor:"var(--arcane-bright)"}:{borderColor:"var(--arcane-bright)"}} />;
                   })}
                 </div>
               )}
