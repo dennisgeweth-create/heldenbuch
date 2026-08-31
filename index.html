@@ -492,7 +492,11 @@ const styles = `
   .rte-btn-bold { font-weight:700; }
   .rte-btn-italic { font-style:italic; }
   .rte-btn-underline { text-decoration:underline; }
-  .rte-content { padding:8px 10px; min-height:80px; outline:none; font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); line-height:1.6; }
+  /* Hoehe setzt RichEditor inline aus rows; hier nur das Scrollverhalten,
+     damit langer Text im Feld bleibt statt den Dialog zu strecken. */
+  .rte-content { padding:8px 10px; outline:none; overflow-y:auto; box-sizing:border-box; font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); line-height:1.6; }
+  .rte-content::-webkit-scrollbar { width:4px; }
+  .rte-content::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
   .rte-content:empty::before { content:attr(data-placeholder); color:var(--text-muted); pointer-events:none; font-style:italic; }
   .rte-content ul { margin:4px 0 4px 16px; padding:0; }
   .rte-content ol { margin:4px 0 4px 16px; padding:0; }
@@ -974,7 +978,11 @@ const RichEditor = ({ value, onChange, placeholder, rows }) => {
     setShowEmoji(false);
   };
 
-  const minH = rows ? rows * 24 : 80;
+  // Feste Hoehe statt mitwachsend: ein contentEditable waechst sonst mit dem
+  // Inhalt und schiebt bei langen Beschreibungen die Speichern-Knoepfe aus
+  // dem Blick. Untergrenze 96px (rund vier Zeilen) — mit zwei Zeilen laesst
+  // sich schlecht schreiben. Laengere Texte scrollen im Feld.
+  const boxH = Math.max(rows ? rows * 24 : 80, 96);
 
   return (
     <div className="rte-wrap" onClick={()=>ref.current?.focus()}>
@@ -1010,7 +1018,7 @@ const RichEditor = ({ value, onChange, placeholder, rows }) => {
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder||'Hier schreiben...'}
-        style={{minHeight:minH}}
+        style={{height:boxH}}
         onInput={()=>onChange(ref.current?.innerHTML||'')}
         onBlur={()=>{setShowEmoji(false);onChange(ref.current?.innerHTML||'');}}
       />
