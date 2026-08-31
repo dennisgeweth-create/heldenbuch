@@ -11,16 +11,16 @@
        dahin lief die Darstellung in der Ersatzschrift. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0a0806; font-family: serif; }
+    body { background: #0f1011; font-family: 'Roboto', sans-serif; }
     #root { height: 100vh; }
     #loading { height: 100vh; display: flex; flex-direction: column; align-items: center;
-               justify-content: center; color: #c9a84c; font-size: 18px; background: #0a0806; gap: 16px; }
+               justify-content: center; color: #e05a5a; font-size: 18px; background: #0f1011; gap: 16px; }
     #errmsg { display:none; background:#3a1010; border:1px solid #8b1a1a; border-radius:6px;
               padding:16px 24px; color:#e87070; font-size:13px; max-width:500px;
               white-space:pre-wrap; font-family:monospace; }
@@ -96,16 +96,21 @@ const styles = `
   /* Schriften werden im <head> geladen, nicht mehr per @import von hier. */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg-void: #0a0806; --bg-deep: #110e0a; --bg-card: #1a1510;
-    --bg-panel: #221c14; --bg-hover: #2a2218;
-    --border: #3d3020; --border-bright: #6b5230;
-    --gold: #c9a84c; --gold-bright: #e8c96a; --gold-dim: #7a6030;
-    --crimson: #8b1a1a; --crimson-bright: #c0392b;
-    --parchment: #e8d5a3; --parchment-dim: #c8aa78;
-    --text-primary: #e8d5a3; --text-secondary: #c8aa78; --text-muted: #9a8060;
+    /* Neutrale dunkle Flaechen mit rotem Akzent, angelehnt an D&D Beyond.
+       Die Variablennamen (--gold, --parchment) sind historisch und werden
+       an ueber 200 Stellen referenziert; sie tragen jetzt Rot bzw. Hellgrau.
+       --gold ist der Akzent als Schrift (heller, damit lesbar), --crimson
+       derselbe Akzent als Flaeche. */
+    --bg-void: #0f1011; --bg-deep: #141618; --bg-card: #1a1c1e;
+    --bg-panel: #212427; --bg-hover: #2a2e32;
+    --border: #2e3236; --border-bright: #454b52;
+    --gold: #e05a5a; --gold-bright: #f07878; --gold-dim: #8f3030;
+    --crimson: #c53131; --crimson-bright: #e04545;
+    --parchment: #e4e6e8; --parchment-dim: #b8bdc2;
+    --text-primary: #e4e6e8; --text-secondary: #b8bdc2; --text-muted: #8b9198;
     --arcane: #6a3fa0; --arcane-bright: #9b59b6;
   }
-  body { font-family:'EB Garamond',serif; background:var(--bg-void); color:var(--text-primary); min-height:100vh; }
+  body { font-family:'Roboto',sans-serif; background:var(--bg-void); color:var(--text-primary); min-height:100vh; }
 
   .app { display:flex; height:100vh; overflow:hidden; position:relative; }
   .sidebar { width:260px; min-width:260px; background:var(--bg-deep); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; transform:translateX(0); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); }
@@ -114,8 +119,8 @@ const styles = `
   .sidebar-toggle:hover { background:var(--bg-panel); color:var(--gold); border-color:var(--border-bright); }
   @media (max-width:1024px) { .sidebar-toggle { display:none !important; } }
   .sidebar-header { padding:20px 16px 12px; border-bottom:1px solid var(--border); text-align:center; }
-  .sidebar-title { font-family:'Cinzel Decorative',serif; font-size:14px; color:var(--gold); line-height:1.4; }
-  .sidebar-subtitle { font-family:'Cinzel',serif; font-size:10px; color:var(--text-muted); letter-spacing:0.15em; text-transform:uppercase; margin-top:4px; }
+  .sidebar-title { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--gold); line-height:1.4; }
+  .sidebar-subtitle { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); letter-spacing:0.15em; text-transform:uppercase; margin-top:4px; }
   .char-list { flex:1; overflow-y:auto; padding:8px; }
   .char-list::-webkit-scrollbar { width:4px; }
   .char-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
@@ -123,10 +128,10 @@ const styles = `
   .char-item:hover { background:var(--bg-hover); border-color:var(--border); }
   .char-item.active { background:var(--bg-panel); border-color:var(--gold-dim); }
   .char-item.active::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold); border-radius:4px 0 0 4px; }
-  .char-item-name { font-family:'Cinzel',serif; font-size:13px; color:var(--text-primary); }
+  .char-item-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); }
   .char-item-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
-  .char-level-badge { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:var(--bg-void); border:1px solid var(--border); border-radius:3px; padding:1px 6px; font-family:'Cinzel',serif; font-size:11px; color:var(--gold-dim); }
-  .btn-new { margin:8px; padding:10px; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; border-radius:4px; color:var(--parchment); font-family:'Cinzel',serif; font-size:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.08em; }
+  .char-level-badge { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:var(--bg-void); border:1px solid var(--border); border-radius:3px; padding:1px 6px; font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--gold-dim); }
+  .btn-new { margin:8px; padding:10px; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; border-radius:4px; color:var(--parchment); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.08em; }
   .btn-new:hover { background:linear-gradient(135deg,var(--crimson-bright),var(--crimson)); }
   .main { flex:1; overflow-y:auto; background:var(--bg-void); padding-bottom:72px; }
   .main::-webkit-scrollbar { width:6px; }
@@ -134,7 +139,7 @@ const styles = `
 
   .empty-state { height:100%; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:16px; padding:40px; }
   .empty-rune { font-size:80px; opacity:0.2; }
-  .empty-title { font-family:'Cinzel',serif; font-size:20px; }
+  .empty-title { font-family:'Roboto Condensed',sans-serif; font-size:20px; }
   .empty-sub { font-size:14px; opacity:0.6; text-align:center; }
 
   .sheet { padding:24px; max-width:900px; margin:0 auto; }
@@ -142,8 +147,8 @@ const styles = `
   .app.sb-collapsed .sticky-header { margin-left:-24px; margin-right:-24px; }
   .sheet-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); position:relative; }
   .sheet-header::after { content:''; position:absolute; bottom:-1px; left:0; width:120px; height:1px; background:var(--gold); }
-  .char-name { font-family:'Cinzel Decorative',serif; font-size:28px; color:var(--gold); line-height:1.2; }
-  .char-meta { font-family:'Cinzel',serif; font-size:13px; color:var(--parchment-dim); margin-top:6px; }
+  .char-name { font-family:'Roboto Condensed',sans-serif; font-size:28px; color:var(--gold); line-height:1.2; }
+  .char-meta { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--parchment-dim); margin-top:6px; }
 
   /* Heldenwechsel im Bogenkopf (alle Größen) */
   .char-switch { display:flex; align-items:center; gap:6px; min-width:0; position:relative; }
@@ -159,8 +164,8 @@ const styles = `
   .char-switch-item:hover { background:var(--bg-hover); }
   .char-switch-item.current { background:var(--bg-card); }
   .char-switch-item-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; border:1px solid; }
-  .char-switch-item-name { font-family:'Cinzel',serif; font-size:13px; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .char-switch-item-sub { font-size:11px; color:var(--text-muted); margin-left:auto; flex-shrink:0; font-family:'Cinzel',serif; }
+  .char-switch-item-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .char-switch-item-sub { font-size:11px; color:var(--text-muted); margin-left:auto; flex-shrink:0; font-family:'Roboto Condensed',sans-serif; }
   @media (hover:none), (pointer:coarse) {
     .char-step { width:44px; height:44px; font-size:17px; }
     .char-switch-menu { left:50px; }
@@ -178,24 +183,24 @@ const styles = `
   .save-box.prof { border-color:var(--gold-dim); background:var(--bg-panel); }
   .save-pip { width:14px; height:14px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); flex-shrink:0; }
   .save-box.prof .save-pip { background:var(--gold-dim); border-color:var(--gold); }
-  .save-label { font-family:'Cinzel',serif; font-size:10px; color:var(--text-muted); text-transform:uppercase; flex:1; }
+  .save-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); text-transform:uppercase; flex:1; }
   .save-box.prof .save-label { color:var(--text-secondary); }
-  .save-value { font-family:'Cinzel',serif; font-size:14px; font-weight:600; }
+  .save-value { font-family:'Roboto Condensed',sans-serif; font-size:14px; font-weight:600; }
   .save-box.prof .save-value { color:var(--gold); }
   .multiclass-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
   .multiclass-row select, .multiclass-row input { flex:1; }
   .btn-sm-del { padding:4px 8px; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); cursor:pointer; font-size:12px; }
   .btn-sm-del:hover { border-color:var(--crimson); color:var(--crimson-bright); }
-  .btn-sm-add { padding:5px 10px; background:none; border:1px dashed var(--border); border-radius:3px; color:var(--text-muted); font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; width:100%; margin-top:4px; }
+  .btn-sm-add { padding:5px 10px; background:none; border:1px dashed var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; width:100%; margin-top:4px; }
   .btn-sm-add:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
-  .class-badge { padding:6px 14px; border-radius:3px; font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; border:1px solid; }
+  .class-badge { padding:6px 14px; border-radius:3px; font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; border:1px solid; }
   .header-actions { display:flex; gap:8px; }
-  .btn-icon { padding:7px 12px; border-radius:3px; font-size:12px; cursor:pointer; border:1px solid var(--border); background:var(--bg-panel); color:var(--text-secondary); font-family:'Cinzel',serif; }
+  .btn-icon { padding:7px 12px; border-radius:3px; font-size:12px; cursor:pointer; border:1px solid var(--border); background:var(--bg-panel); color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; }
   .btn-icon:hover { border-color:var(--border-bright); color:var(--text-primary); }
   .btn-delete:hover { border-color:var(--crimson); color:var(--crimson-bright); }
 
   .hp-bar-container { margin-bottom:20px; }
-  .hp-bar-label { display:flex; justify-content:space-between; font-family:'Cinzel',serif; font-size:11px; color:var(--text-muted); margin-bottom:6px; }
+  .hp-bar-label { display:flex; justify-content:space-between; font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); margin-bottom:6px; }
   .hp-bar-track { height:12px; background:var(--bg-card); border:1px solid var(--border); border-radius:2px; overflow:hidden; position:relative; }
   .hp-bar-fill { height:100%; background:linear-gradient(90deg,#6b1010,var(--crimson-bright)); transition:width 0.5s; border-radius:2px; }
 
@@ -207,36 +212,36 @@ const styles = `
      (slot-pip, sorcery-pip), damit ein Fehlgriff hier keinen Zauberplatz
      verbraucht. Die title-Tooltips bleiben erhalten. */
   .res-mini-group { display:flex; align-items:center; gap:3px; flex:0 0 auto; padding:2px 6px; border-radius:3px; }
-  .res-mini-label { font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); letter-spacing:0.06em; margin-right:2px; white-space:nowrap; flex-shrink:0; }
+  .res-mini-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); letter-spacing:0.06em; margin-right:2px; white-space:nowrap; flex-shrink:0; }
   .res-mini-pip { display:inline-block; width:9px; height:9px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); flex-shrink:0; transition:all 0.12s; }
   .res-mini-pip.on { background:var(--gold-dim); border-color:var(--gold); box-shadow:0 0 3px rgba(201,168,76,0.5); }
-  .res-mini-slot-grade { font-family:'Cinzel',serif; font-size:8px; color:var(--text-muted); min-width:8px; }
+  .res-mini-slot-grade { font-family:'Roboto Condensed',sans-serif; font-size:8px; color:var(--text-muted); min-width:8px; }
   .res-mini-sep { width:1px; background:var(--border); align-self:stretch; flex-shrink:0; margin:0 2px; }
   .res-mini-slot-group { display:flex; align-items:center; gap:2px; padding:2px 3px; border-radius:3px; }
   .combat-box { flex:1; min-width:80px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:10px; text-align:center; }
-  .combat-label { font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
-  .combat-label-short { display:none; font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
-  .combat-value { font-family:'Cinzel',serif; font-size:22px; color:var(--gold); margin-top:4px; }
+  .combat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
+  .combat-label-short { display:none; font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
+  .combat-value { font-family:'Roboto Condensed',sans-serif; font-size:22px; color:var(--gold); margin-top:4px; }
 
   .tabs { display:none; }
-  .tab { padding:10px 20px; font-family:'Cinzel',serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; border-radius:4px 4px 0 0; }
+  .tab { padding:10px 20px; font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; border-radius:4px 4px 0 0; }
   .tab:hover { color:var(--text-secondary); background:var(--bg-panel); }
   .tab.active { color:var(--gold); border-bottom-color:var(--gold); background:var(--bg-panel); }
 
   .stats-section { margin-bottom:24px; }
-  .section-title { font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:12px; }
+  .section-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:12px; }
   .stats-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
   .stat-box { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:12px 8px; text-align:center; }
-  .stat-label { font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.15em; color:var(--text-muted); text-transform:uppercase; }
-  .stat-value { font-family:'Cinzel Decorative',serif; font-size:26px; color:var(--text-primary); line-height:1.1; margin:4px 0; }
-  .stat-mod { font-family:'Cinzel',serif; font-size:12px; padding:2px 8px; border-radius:2px; background:var(--bg-void); border:1px solid var(--border); color:var(--gold-dim); display:inline-block; }
+  .stat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.15em; color:var(--text-muted); text-transform:uppercase; }
+  .stat-value { font-family:'Roboto Condensed',sans-serif; font-size:26px; color:var(--text-primary); line-height:1.1; margin:4px 0; }
+  .stat-mod { font-family:'Roboto Condensed',sans-serif; font-size:12px; padding:2px 8px; border-radius:2px; background:var(--bg-void); border:1px solid var(--border); color:var(--gold-dim); display:inline-block; }
 
   .skills-layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px; }
   .skill-group { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
   .skill-group-header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); background:var(--bg-panel); }
-  .skill-attr-badge { font-family:'Cinzel',serif; font-size:10px; font-weight:700; padding:2px 7px; border-radius:2px; background:var(--bg-void); border:1px solid; }
-  .skill-attr-name { font-family:'Cinzel',serif; font-size:11px; color:var(--text-muted); }
-  .skill-attr-mod { font-family:'Cinzel Decorative',serif; font-size:15px; margin-left:auto; }
+  .skill-attr-badge { font-family:'Roboto Condensed',sans-serif; font-size:10px; font-weight:700; padding:2px 7px; border-radius:2px; background:var(--bg-void); border:1px solid; }
+  .skill-attr-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
+  .skill-attr-mod { font-family:'Roboto Condensed',sans-serif; font-size:15px; margin-left:auto; }
   .skill-row { display:flex; align-items:center; gap:8px; padding:6px 12px; border-bottom:1px solid var(--border); }
   .skill-row:last-child { border-bottom:none; }
   .skill-row:hover { background:var(--bg-hover); }
@@ -245,28 +250,28 @@ const styles = `
   .chip-remove { padding:2px 4px; }
   .joat-toggle { padding:3px 10px; }
   .skill-prof-btn.active { background:var(--gold-dim); border-color:var(--gold); }
-  .skill-name { font-family:'EB Garamond',serif; font-size:14px; color:var(--text-secondary); flex:1; }
-  .skill-value { font-family:'Cinzel',serif; font-size:13px; font-weight:600; min-width:28px; text-align:right; }
+  .skill-name { font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); flex:1; }
+  .skill-value { font-family:'Roboto Condensed',sans-serif; font-size:13px; font-weight:600; min-width:28px; text-align:right; }
   .skill-value.prof { color:var(--gold); }
   .skill-value.no-prof { color:var(--text-muted); }
 
   .weapon-table { width:100%; border-collapse:collapse; margin-bottom:12px; }
   .weapon-table thead tr { border-bottom:2px solid var(--border-bright); }
-  .weapon-table th { font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-muted); padding:6px 8px; text-align:left; white-space:nowrap; }
+  .weapon-table th { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-muted); padding:6px 8px; text-align:left; white-space:nowrap; }
   .weapon-table th.center { text-align:center; }
   .weapon-row td { padding:9px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
   .weapon-row:hover td { background:var(--bg-hover); }
   .weapon-row.expanded td { border-bottom:none; }
   .weapon-row.equipped td { background:rgba(201,168,76,0.06); }
   .weapon-row.equipped .wn-name { color:var(--gold); }
-  .weapon-desc-row td { padding:4px 10px 12px 10px; border-bottom:1px solid var(--border); font-family:'EB Garamond',serif; font-size:15px; color:var(--text-secondary); font-style:normal; line-height:1.6; }
-  .wn-name { font-family:'Cinzel',serif; font-size:14px; color:var(--parchment); cursor:pointer; }
+  .weapon-desc-row td { padding:4px 10px 12px 10px; border-bottom:1px solid var(--border); font-family:'Roboto',sans-serif; font-size:15px; color:var(--text-secondary); font-style:normal; line-height:1.6; }
+  .wn-name { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--parchment); cursor:pointer; }
   .wn-name:hover { color:var(--gold); }
   .wn-prof { text-align:center; color:var(--gold); font-size:13px; }
   .wn-attr { text-align:center; }
-  .wn-range { font-family:'Cinzel',serif; font-size:12px; color:var(--text-secondary); text-align:center; }
-  .wn-bonus { font-family:'Cinzel Decorative',serif; font-size:14px; color:var(--crimson-bright); text-align:center; }
-  .wn-damage { font-family:'Cinzel',serif; font-size:13px; color:var(--gold); text-align:center; white-space:nowrap; }
+  .wn-range { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); text-align:center; }
+  .wn-bonus { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--crimson-bright); text-align:center; }
+  .wn-damage { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--gold); text-align:center; white-space:nowrap; }
   .wn-dtype { font-size:12px; color:var(--text-muted); text-align:center; }
   .wn-actions { text-align:right; white-space:nowrap; opacity:0; transition:opacity 0.15s; }
   .weapon-row:hover .wn-actions { opacity:1; }
@@ -276,50 +281,49 @@ const styles = `
   /* Tags durchgehend ausgefüllt statt nur umrandet, Beschriftung eine Stufe
      heller (text-secondary statt text-muted): hebt den Textkontrast von
      4,53:1 auf rund 7,6:1. */
-  .wn-prop-tag { font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; padding:1px 6px; background:var(--bg-hover); border:1px solid var(--border-bright); border-radius:2px; color:var(--text-secondary); }
+  .wn-prop-tag { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; padding:1px 6px; background:var(--bg-hover); border:1px solid var(--border-bright); border-radius:2px; color:var(--text-secondary); }
   .weapon-props { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
-  .prop-tag { padding:2px 8px; border-radius:2px; font-family:'Cinzel',serif; font-size:10px; background:var(--bg-hover); border:1px solid var(--border-bright); color:var(--text-secondary); }
+  .prop-tag { padding:2px 8px; border-radius:2px; font-family:'Roboto Condensed',sans-serif; font-size:10px; background:var(--bg-hover); border:1px solid var(--border-bright); color:var(--text-secondary); }
 
 
   .spell-level-group { margin-bottom:24px; }
   .spell-level-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
-  .spell-level-title { font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); }
-  .spell-level-count { font-family:'Cinzel',serif; font-size:12px; color:var(--text-muted); margin-left:auto; }
+  .spell-level-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); }
+  .spell-level-count { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-muted); margin-left:auto; }
   .spells-list { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; align-items:start; }
   /* ── Spell card – D&D card layout ── */
-  /* Gedämpftes Pergament: der Karten-Charakter bleibt, die Blendung im
-     abgedunkelten Raum sinkt (Luminanz 0,88 -> 0,44). Die Trennlinien sind
-     entsprechend kräftiger, damit die Struktur auf dem dunkleren Grund trägt. */
-  .spell-card { border-radius:6px; cursor:pointer; position:relative; overflow:hidden; border:2px solid; background:#bdb29b; display:flex; flex-direction:column; transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; box-shadow:0 3px 10px rgba(0,0,0,0.5); }
+  /* Dunkle Karte im D&D-Beyond-Schema; die Zauberschule traegt der farbige
+     Kopfbalken und der Rahmen. */
+  .spell-card { border-radius:6px; cursor:pointer; position:relative; overflow:hidden; border:2px solid; background:var(--bg-card); display:flex; flex-direction:column; transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; box-shadow:0 3px 10px rgba(0,0,0,0.5); }
   @media (hover:hover) { .spell-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.6); } }
   /* Header: name + level/school bar */
   .spell-card-header { display:flex; flex-direction:column; align-items:center; padding:6px 8px 5px; text-align:center; position:relative; }
-  .spell-card-name { font-family:'Cinzel',serif; font-size:13px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:0.06em; line-height:1.2; }
-  .spell-card-school-label { font-family:'EB Garamond',serif; font-size:10px; color:rgba(255,255,255,0.85); margin-top:2px; font-style:italic; }
+  .spell-card-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; font-weight:700; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.06em; line-height:1.2; }
+  .spell-card-school-label { font-family:'Roboto',sans-serif; font-size:10px; color:var(--parchment-dim); margin-top:2px; font-style:italic; }
   /* Stats grid: 2×2 like the card */
-  .spell-card-stats-grid { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid rgba(0,0,0,0.25); }
-  .spell-card-stat-cell { padding:5px 7px; border-right:1px solid rgba(0,0,0,0.25); border-bottom:1px solid rgba(0,0,0,0.25); }
+  .spell-card-stats-grid { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid rgba(255,255,255,0.09); }
+  .spell-card-stat-cell { padding:5px 7px; border-right:1px solid rgba(255,255,255,0.09); border-bottom:1px solid rgba(255,255,255,0.09); }
   .spell-card-stat-cell:nth-child(even) { border-right:none; }
   .spell-card-stat-cell:nth-last-child(-n+2) { border-bottom:none; }
-  .spell-card-stat-label { font-family:'Cinzel',serif; font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1px; }
-  .spell-card-stat-value { font-family:'EB Garamond',serif; font-size:12px; color:#1a1a1a; line-height:1.2; }
+  .spell-card-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1px; }
+  .spell-card-stat-value { font-family:'Roboto',sans-serif; font-size:12px; color:var(--text-primary); line-height:1.2; }
   /* Body: description area */
-  .spell-card-body { background:#bdb29b; flex:1; display:flex; flex-direction:column; }
+  .spell-card-body { background:var(--bg-card); flex:1; display:flex; flex-direction:column; }
   .spell-card-desc-wrap { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.45s ease; overflow:hidden; }
   .spell-card-desc-wrap > div { min-height:0; }
   .spell-card.expanded .spell-card-desc-wrap { grid-template-rows:1fr; }
-  .spell-card-desc { font-family:'EB Garamond',serif; font-size:12px; color:#1a1a1a; line-height:1.5; padding:7px 8px 6px; white-space:pre-wrap; border-top:1px solid rgba(0,0,0,0.22); }
+  .spell-card-desc { font-family:'Roboto',sans-serif; font-size:12px; color:var(--text-secondary); line-height:1.5; padding:7px 8px 6px; white-space:pre-wrap; border-top:1px solid rgba(255,255,255,0.09); }
   /* Tags row */
-  .spell-card-tags { display:flex; flex-wrap:wrap; gap:3px; padding:4px 7px; border-top:1px solid rgba(0,0,0,0.16); background:#b3a892; }
+  .spell-card-tags { display:flex; flex-wrap:wrap; gap:3px; padding:4px 7px; border-top:1px solid rgba(255,255,255,0.07); background:var(--bg-panel); }
   /* Footer: school name + prep toggle */
-  .spell-card-footer { display:flex; align-items:center; justify-content:space-between; padding:3px 7px; border-top:1px solid rgba(0,0,0,0.15); }
-  .spell-card-school-footer { font-family:'Cinzel',serif; font-size:8px; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; }
+  .spell-card-footer { display:flex; align-items:center; justify-content:space-between; padding:3px 7px; border-top:1px solid rgba(255,255,255,0.09); }
+  .spell-card-school-footer { font-family:'Roboto Condensed',sans-serif; font-size:8px; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; }
   /* Actions */
   .spell-actions { display:flex; gap:2px; }
-  .spell-delete { background:rgba(0,0,0,0.16); border:none; color:rgba(0,0,0,0.6); cursor:pointer; font-size:10px; padding:2px 5px; border-radius:3px; }
-  .spell-card:hover .spell-delete { color:rgba(0,0,0,0.7); }
-  .spell-edit-btn { background:rgba(0,0,0,0.5); border:none; color:rgba(255,255,255,0.6); cursor:pointer; font-size:11px; padding:2px 5px; border-radius:3px; font-family:'Cinzel',serif; }
-  .spell-delete:hover { color:#e74c3c; background:rgba(0,0,0,0.7); }
+  .spell-delete { background:rgba(255,255,255,0.10); border:none; color:var(--text-muted); cursor:pointer; font-size:10px; padding:2px 5px; border-radius:3px; }
+  .spell-card:hover .spell-delete { color:var(--text-primary); }
+  .spell-edit-btn { background:rgba(0,0,0,0.5); border:none; color:var(--text-secondary); cursor:pointer; font-size:11px; padding:2px 5px; border-radius:3px; font-family:'Roboto Condensed',sans-serif; }
+  .spell-delete:hover { color:var(--crimson-bright); background:rgba(255,255,255,0.16); }
   .spell-edit-btn:hover { color:var(--gold); background:rgba(0,0,0,0.7); }
   .features-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; align-items:start; }
   .profs-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:8px; }
@@ -327,9 +331,9 @@ const styles = `
   @media (hover:hover) { .feature-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.5); border-color:var(--gold); } }
   .feature-card-banner { height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; gap:8px; position:relative; flex-shrink:0; background:linear-gradient(135deg,#3a2a08 0%,#5a420f80 100%); }
   .feature-card-orb { width:36px; height:36px; border-radius:50%; border:2px solid rgba(201,168,76,0.5); background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
-  .feature-card-name { font-family:'Cinzel',serif; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); flex:1; line-height:1.3; }
+  .feature-card-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); flex:1; line-height:1.3; }
   .feature-card-body { padding:10px 10px 8px; flex:1; display:flex; flex-direction:column; gap:4px; }
-  .feature-source { font-family:'Cinzel',serif; font-size:10px; color:var(--parchment-dim); font-style:italic; }
+  .feature-source { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--parchment-dim); font-style:italic; }
   .feature-card-desc-wrap { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.25s ease; overflow:hidden; border-top:0px solid rgba(255,255,255,0.07); margin-top:0; }
   .feature-card-desc-wrap > div { min-height:0; padding:0 10px; }
   .feature-card.expanded .feature-card-desc-wrap { grid-template-rows:1fr; border-top-width:1px; margin-top:4px; padding-bottom:10px; }
@@ -339,23 +343,23 @@ const styles = `
   .feature-card:hover .feature-actions { opacity:1; }
   .slots-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:14px 16px; margin-bottom:20px; }
   .slots-panel-header { display:flex; align-items:center; margin-bottom:10px; }
-  .panel-edit-btn { background:none; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px 8px; font-family:'Cinzel',serif; margin-left:auto; transition:all 0.15s; }
+  .panel-edit-btn { background:none; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px 8px; font-family:'Roboto Condensed',sans-serif; margin-left:auto; transition:all 0.15s; }
   .panel-edit-btn:hover { border-color:var(--gold-dim); color:var(--gold); }
   .panel-edit-btn.active { border-color:var(--gold-dim); color:var(--gold); background:rgba(201,168,76,0.1); }
-  .slots-title { font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:12px; }
+  .slots-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:12px; }
   .slots-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
   .slot-row { display:flex; flex-direction:column; gap:5px; }
-  .slot-row-label { font-family:'Cinzel',serif; font-size:10px; color:var(--text-muted); text-transform:uppercase; }
+  .slot-row-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); text-transform:uppercase; }
   .slot-pips { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
   .slot-pip { width:18px; height:18px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); cursor:pointer; flex-shrink:0; }
   .slot-pip.available { background:var(--gold-dim); border-color:var(--gold); box-shadow:0 0 5px rgba(201,168,76,0.4); }
   .slot-pip.used { border-color:var(--border); opacity:0.3; }
   .slot-max-btn { width:16px; height:16px; border-radius:3px; border:1px dashed var(--border); background:none; color:var(--text-muted); cursor:pointer; font-size:10px; }
   .slot-max-btn:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
-  .slot-restore-btn { font-family:'Cinzel',serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; }
+  .slot-restore-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; }
   .slot-restore-btn:hover { border-color:var(--arcane-bright); color:var(--arcane-bright); }
   .sorcery-panel { background:var(--bg-card); border:1px solid var(--arcane-bright); border-radius:6px; padding:14px 16px; margin-bottom:16px; }
-  .sorcery-title { font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--arcane-bright); margin-bottom:10px; }
+  .sorcery-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--arcane-bright); margin-bottom:10px; }
   .sorcery-pips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
   .sorcery-pip { width:22px; height:22px; border-radius:50%; border:1px solid var(--arcane-bright); cursor:pointer; transition:all 0.15s; }
   .sorcery-pip.available { background:var(--arcane); box-shadow:0 0 6px rgba(155,89,182,0.6); }
@@ -363,68 +367,68 @@ const styles = `
   .resource-list { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
   .resource-item { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 12px; position:relative; }
   .resource-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .resource-name-label { font-family:'Cinzel',serif; font-size:13px; color:var(--text-primary); flex:1; }
+  .resource-name-label { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; }
   .resource-del { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; opacity:0.6; padding:0 4px; }
   .resource-del:hover { color:var(--crimson-bright); opacity:1; }
   .resource-pips { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
   .resource-pip { width:20px; height:20px; border-radius:4px; border:1px solid; cursor:pointer; transition:all 0.15s; }
-  .resource-restore-btn { font-family:'Cinzel',serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; display:block; }
+  .resource-restore-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; display:block; }
   .tpl-search-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-  .tpl-search-input { flex:1; min-width:160px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'EB Garamond',serif; font-size:14px; outline:none; }
+  .tpl-search-input { flex:1; min-width:160px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'Roboto',sans-serif; font-size:14px; outline:none; }
   .tpl-search-input:focus { border-color:var(--gold-dim); }
-  .tpl-filter-select { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-secondary); padding:8px 8px; font-family:'Cinzel',serif; font-size:11px; outline:none; }
+  .tpl-filter-select { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-secondary); padding:8px 8px; font-family:'Roboto Condensed',sans-serif; font-size:11px; outline:none; }
   .tpl-list { max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
   .tpl-list::-webkit-scrollbar { width:4px; }
   .tpl-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
   .tpl-item { background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:10px 12px; cursor:pointer; display:flex; align-items:flex-start; gap:10px; }
   .tpl-item:hover { border-color:var(--gold-dim); background:var(--bg-panel); }
-  .tpl-item-orb { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Cinzel Decorative',serif; font-size:11px; flex-shrink:0; border:1px solid; }
+  .tpl-item-orb { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Roboto Condensed',sans-serif; font-size:11px; flex-shrink:0; border:1px solid; }
   .tpl-item-body { flex:1; min-width:0; }
-  .tpl-item-name { font-family:'Cinzel',serif; font-size:14px; color:var(--text-primary); }
+  .tpl-item-name { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-primary); }
   .tpl-item-meta { font-size:12px; color:var(--text-muted); margin-top:2px; }
   .tpl-item-desc { font-size:12px; color:var(--text-secondary); margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .tpl-count { font-family:'Cinzel',serif; font-size:11px; color:var(--text-muted); margin-bottom:8px; }
+  .tpl-count { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); margin-bottom:8px; }
   .ws-filters { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
-  .ws-filter-btn { padding:3px 10px; border-radius:12px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); font-family:'Cinzel',serif; font-size:10px; cursor:pointer; }
+  .ws-filter-btn { padding:3px 10px; border-radius:12px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10px; cursor:pointer; }
   .ws-filter-btn.active { border-color:#52b788; color:#52b788; background:rgba(82,183,136,0.1); }
   .ws-card { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 12px; cursor:pointer; transition:all 0.15s; }
   .ws-card:hover { border-color:#52b78860; }
   .ws-card.expanded { border-color:#52b788; }
   .ws-card-header { display:flex; align-items:center; gap:8px; }
-  .ws-cr-badge { width:32px; height:32px; border-radius:50%; background:rgba(82,183,136,0.15); border:1px solid #52b78880; display:flex; align-items:center; justify-content:center; font-family:'Cinzel Decorative',serif; font-size:10px; color:#52b788; flex-shrink:0; }
-  .ws-card-name { font-family:'Cinzel',serif; font-size:14px; color:var(--text-primary); flex:1; }
+  .ws-cr-badge { width:32px; height:32px; border-radius:50%; background:rgba(82,183,136,0.15); border:1px solid #52b78880; display:flex; align-items:center; justify-content:center; font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#52b788; flex-shrink:0; }
+  .ws-card-name { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-primary); flex:1; }
   .ws-card-meta { font-size:11px; color:var(--text-muted); }
   .ws-tags { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
   .ws-tag { padding:2px 7px; border-radius:10px; font-size:10px; background:var(--bg-hover); border:1px solid var(--border-bright); color:var(--text-secondary); }
   .ws-stats-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin:10px 0 6px; }
   .ws-stat { background:var(--bg-void); border:1px solid var(--border); border-radius:4px; text-align:center; padding:4px 2px; }
-  .ws-stat-label { font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; }
+  .ws-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; }
   .ws-stat-val { font-size:14px; font-weight:bold; color:var(--text-primary); }
   .ws-stat-mod { font-size:10px; color:var(--text-muted); }
   .ws-abilities { font-size:12px; color:var(--text-secondary); margin-bottom:6px; line-height:1.6; }
   .ws-actions { display:flex; flex-direction:column; gap:4px; }
   .ws-action { background:var(--bg-void); border-radius:3px; padding:5px 8px; font-size:12px; color:var(--text-secondary); }
-  .ws-action-name { font-family:'Cinzel',serif; font-size:11px; color:var(--text-primary); margin-bottom:2px; }
+  .ws-action-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-primary); margin-bottom:2px; }
 
-  .notes-area { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:14px; font-family:'EB Garamond',serif; font-size:15px; color:var(--text-secondary); line-height:1.7; min-height:120px; white-space:pre-wrap; }
+  .notes-area { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:14px; font-family:'Roboto',sans-serif; font-size:15px; color:var(--text-secondary); line-height:1.7; min-height:120px; white-space:pre-wrap; }
   .inv-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
-  .inv-tag { font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.06em; padding:2px 7px; border-radius:10px; border:1px solid var(--border-bright); color:var(--text-secondary); background:var(--bg-hover); text-transform:uppercase; cursor:default; }
+  .inv-tag { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.06em; padding:2px 7px; border-radius:10px; border:1px solid var(--border-bright); color:var(--text-secondary); background:var(--bg-hover); text-transform:uppercase; cursor:default; }
   .inv-tag.active { border-color:var(--gold); color:var(--gold); background:var(--gold-dim)20; }
   .tag-filter-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  .tag-filter-btn { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.06em; padding:4px 10px; border-radius:12px; border:1px solid var(--border-bright); color:var(--text-secondary); background:var(--bg-hover); cursor:pointer; text-transform:uppercase; transition:all 0.15s; }
+  .tag-filter-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.06em; padding:4px 10px; border-radius:12px; border:1px solid var(--border-bright); color:var(--text-secondary); background:var(--bg-hover); cursor:pointer; text-transform:uppercase; transition:all 0.15s; }
   .tag-filter-btn:hover { border-color:var(--gold-dim); color:var(--text-secondary); }
   .tag-filter-btn.active { border-color:var(--gold); color:var(--gold); background:var(--gold-dim)25; }
   .tag-input-wrap { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:6px; background:var(--bg-void); border:1px solid var(--border); border-radius:4px; min-height:38px; cursor:text; }
   /* war background:var(--gold-dim)30 — kein gueltiger Farbwert, der Chip
      blieb dadurch ungefuellt. */
-  .tag-chip { display:flex; align-items:center; gap:3px; font-family:'Cinzel',serif; font-size:10px; padding:2px 8px 2px 10px; border-radius:10px; background:rgba(122,96,48,0.28); border:1px solid var(--gold-dim); color:var(--gold); }
+  .tag-chip { display:flex; align-items:center; gap:3px; font-family:'Roboto Condensed',sans-serif; font-size:10px; padding:2px 8px 2px 10px; border-radius:10px; background:rgba(122,96,48,0.28); border:1px solid var(--gold-dim); color:var(--gold); }
   .tag-chip-del { cursor:pointer; font-size:12px; line-height:1; color:var(--text-muted); margin-left:2px; background:none; border:none; padding:0; }
   .tag-chip-del:hover { color:var(--crimson-bright); }
-  .tag-text-input { background:none; border:none; outline:none; color:var(--text-primary); font-family:'EB Garamond',serif; font-size:13px; min-width:80px; flex:1; padding:2px 4px; }
+  .tag-text-input { background:none; border:none; outline:none; color:var(--text-primary); font-family:'Roboto',sans-serif; font-size:13px; min-width:80px; flex:1; padding:2px 4px; }
   .note-card { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:border-color 0.2s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   @media (hover:hover) { .note-card:hover { border-color:var(--border-bright); } }
   .note-card-header { display:flex; align-items:center; gap:8px; }
-  .note-card-title { font-family:'Cinzel',serif; font-size:13px; color:var(--text-primary); flex:1; }
+  .note-card-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; }
   .note-card-preview { font-size:12px; color:var(--text-muted); margin-top:4px; font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
   .note-card-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.25s ease; overflow:hidden; }
   .note-card-body.open { grid-template-rows:1fr; }
@@ -436,22 +440,22 @@ const styles = `
   .currency-box { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 8px; text-align:center; }
   .currency-box:hover { border-color:var(--border-bright); }
   .currency-icon { font-size:20px; line-height:1; margin-bottom:4px; }
-  .currency-label { font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:6px; }
-  .currency-input { width:100%; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); font-family:'Cinzel Decorative',serif; font-size:16px; text-align:center; padding:4px 2px; outline:none; }
+  .currency-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:6px; }
+  .currency-input { width:100%; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); font-family:'Roboto Condensed',sans-serif; font-size:16px; text-align:center; padding:4px 2px; outline:none; }
   .currency-input:focus { border-color:var(--gold-dim); }
   .inv-mobile-meta { display:none; }
   .inv-table { width:100%; border-collapse:collapse; }
-  .inv-table th { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  .inv-table th { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
   .inv-table th.right { text-align:right; }
-  .inv-table td { padding:9px 10px; border-bottom:1px solid var(--border); font-family:'EB Garamond',serif; font-size:14px; color:var(--text-secondary); vertical-align:middle; }
+  .inv-table td { padding:9px 10px; border-bottom:1px solid var(--border); font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); vertical-align:middle; }
   .inv-table tr:hover td { background:var(--bg-hover); }
   .inv-item-name { color:var(--text-primary); font-size:15px; }
-  .inv-item-qty { font-family:'Cinzel',serif; font-size:13px; color:var(--gold); text-align:right; }
-  .inv-item-weight { font-family:'Cinzel',serif; font-size:12px; color:var(--text-muted); text-align:right; }
+  .inv-item-qty { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--gold); text-align:right; }
+  .inv-item-weight { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-muted); text-align:right; }
   .inv-item-delete { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; opacity:0; padding:2px 4px; }
   .inv-table tr:hover .inv-item-delete { opacity:1; }
   .inv-item-delete:hover { color:var(--crimson-bright); }
-  .inv-rarity { padding:1px 7px; border-radius:2px; font-family:'Cinzel',serif; font-size:10px; border:1px solid; display:inline-block; }
+  .inv-rarity { padding:1px 7px; border-radius:2px; font-family:'Roboto Condensed',sans-serif; font-size:10px; border:1px solid; display:inline-block; }
   /* Inventory card grid - same layout as spell cards */
   .inv-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:start; }
   .inv-card { border-radius:6px; cursor:pointer; overflow:hidden; border:2px solid; background:var(--bg-panel); display:flex; flex-direction:column; box-shadow:0 3px 10px rgba(0,0,0,0.5); transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; }
@@ -460,10 +464,10 @@ const styles = `
   .inv-card-icon { font-size:28px; line-height:1; margin-bottom:6px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
   /* Pergament statt Weiß: reines Weiß auf fast schwarzem Grund überstrahlt
      im abgedunkelten Raum (Halation) und bricht aus der warmen Palette aus. */
-  .inv-card-name { font-family:'Cinzel',serif; font-size:11px; font-weight:700; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.06em; line-height:1.3; }
-  .inv-card-rarity-label { font-family:'EB Garamond',serif; font-size:10px; color:var(--parchment-dim); margin-top:2px; font-style:italic; }
+  .inv-card-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; font-weight:700; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.06em; line-height:1.3; }
+  .inv-card-rarity-label { font-family:'Roboto',sans-serif; font-size:10px; color:var(--parchment-dim); margin-top:2px; font-style:italic; }
   .inv-card-footer { display:flex; align-items:center; justify-content:space-between; padding:3px 7px; border-top:1px solid rgba(232,213,163,0.12); background:rgba(0,0,0,0.25); }
-  .inv-card-meta { font-family:'Cinzel',serif; font-size:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; }
+  .inv-card-meta { font-family:'Roboto Condensed',sans-serif; font-size:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; }
   .inv-card-body-wrap { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.35s ease; overflow:hidden; }
   .inv-card-body-wrap > div { min-height:0; }
   .inv-card.expanded .inv-card-body-wrap { grid-template-rows:1fr; }
@@ -478,7 +482,7 @@ const styles = `
   .rte-btn-bold { font-weight:700; }
   .rte-btn-italic { font-style:italic; }
   .rte-btn-underline { text-decoration:underline; }
-  .rte-content { padding:8px 10px; min-height:80px; outline:none; font-family:'EB Garamond',serif; font-size:14px; color:var(--text-secondary); line-height:1.6; }
+  .rte-content { padding:8px 10px; min-height:80px; outline:none; font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); line-height:1.6; }
   .rte-content:empty::before { content:attr(data-placeholder); color:var(--text-muted); pointer-events:none; font-style:italic; }
   .rte-content ul { margin:4px 0 4px 16px; padding:0; }
   .rte-content ol { margin:4px 0 4px 16px; padding:0; }
@@ -506,48 +510,48 @@ const styles = `
   .sidebar-footer { padding:8px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px; }
   .sidebar-footer .btn-new { margin:0; }
   .sidebar-tools { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .btn-tool { padding:9px 4px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:var(--text-secondary); font-family:'Cinzel',serif; font-size:11px; letter-spacing:0.02em; cursor:pointer; text-align:center; white-space:nowrap; }
+  .btn-tool { padding:9px 4px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.02em; cursor:pointer; text-align:center; white-space:nowrap; }
   .btn-tool:hover { border-color:var(--border-bright); color:var(--text-primary); background:var(--bg-hover); }
-  .sync-line { display:flex; align-items:center; gap:6px; padding:4px 2px 0; font-family:'Cinzel',serif; font-size:11px; color:var(--text-muted); }
+  .sync-line { display:flex; align-items:center; gap:6px; padding:4px 2px 0; font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
   .sync-line-code { color:var(--gold); }
   .sync-line-msg { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sync-line-ver { margin-left:auto; font-size:9px; opacity:0.6; flex-shrink:0; }
   .sync-actions { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:6px; }
-  .btn-sync { padding:7px 3px; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.02em; text-transform:uppercase; cursor:pointer; text-align:center; white-space:nowrap; }
+  .btn-sync { padding:7px 3px; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.02em; text-transform:uppercase; cursor:pointer; text-align:center; white-space:nowrap; }
   .btn-sync:hover { border-color:var(--border-bright); color:var(--text-primary); }
   .btn-sync.dm { border-color:#c060a0; color:#c060a0; }
   .btn-sync.dm.active { background:rgba(192,96,160,0.1); }
-  .btn-save { padding:8px 20px; background:linear-gradient(135deg,#7a5c10,var(--gold-dim)); border:1px solid var(--gold-dim); border-radius:3px; color:var(--gold-bright); font-family:'Cinzel',serif; font-size:12px; cursor:pointer; }
+  .btn-save { padding:8px 20px; background:linear-gradient(135deg,#7a5c10,var(--gold-dim)); border:1px solid var(--gold-dim); border-radius:3px; color:var(--gold-bright); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; }
   .btn-save:hover { background:linear-gradient(135deg,var(--gold-dim),#a07820); }
-  .btn-cancel { padding:8px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Cinzel',serif; font-size:12px; cursor:pointer; }
+  .btn-cancel { padding:8px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; }
   .btn-cancel:hover { border-color:var(--border-bright); color:var(--text-primary); }
-  .btn-add { padding:8px 16px; border:1px dashed var(--border); border-radius:4px; background:none; color:var(--text-muted); font-family:'Cinzel',serif; font-size:11px; cursor:pointer; letter-spacing:0.08em; text-transform:uppercase; width:100%; margin-top:8px; }
+  .btn-add { padding:8px 16px; border:1px dashed var(--border); border-radius:4px; background:none; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:11px; cursor:pointer; letter-spacing:0.08em; text-transform:uppercase; width:100%; margin-top:8px; }
   .btn-add:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
 
   .form-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; backdrop-filter:blur(4px); }
   .confirm-box { background:var(--bg-deep); border:1px solid var(--border-bright); border-radius:8px; padding:28px 28px 20px; max-width:380px; width:100%; text-align:center; box-shadow:0 16px 48px rgba(0,0,0,0.7); }
   .confirm-icon { font-size:32px; margin-bottom:12px; }
-  .confirm-msg { font-family:'EB Garamond',serif; font-size:16px; color:var(--text-primary); line-height:1.5; margin-bottom:24px; }
+  .confirm-msg { font-family:'Roboto',sans-serif; font-size:16px; color:var(--text-primary); line-height:1.5; margin-bottom:24px; }
   .confirm-actions { display:flex; gap:10px; justify-content:center; }
-  .confirm-ok { padding:9px 28px; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; border-radius:4px; color:var(--parchment); font-family:'Cinzel',serif; font-size:12px; cursor:pointer; letter-spacing:0.08em; }
+  .confirm-ok { padding:9px 28px; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; border-radius:4px; color:var(--parchment); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; letter-spacing:0.08em; }
   .confirm-ok:hover { background:linear-gradient(135deg,#a02020,#8b1010); }
-  .confirm-cancel { padding:9px 20px; background:none; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); font-family:'Cinzel',serif; font-size:12px; cursor:pointer; letter-spacing:0.08em; }
+  .confirm-cancel { padding:9px 20px; background:none; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; letter-spacing:0.08em; }
   .confirm-cancel:hover { border-color:var(--border-bright); color:var(--text-secondary); }
   .form-modal { background:var(--bg-deep); border:1px solid var(--border-bright); border-radius:8px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto; padding:24px; }
   .form-modal::-webkit-scrollbar { width:4px; }
   .form-modal::-webkit-scrollbar-thumb { background:var(--border-bright); }
-  .form-title { font-family:'Cinzel Decorative',serif; font-size:18px; color:var(--gold); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .form-title { font-family:'Roboto Condensed',sans-serif; font-size:18px; color:var(--gold); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border); }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
   .form-full { grid-column:1/-1; }
   .form-group { display:flex; flex-direction:column; gap:4px; }
-  .form-label { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px; }
-  .form-input, .form-select, .form-textarea { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'EB Garamond',serif; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
+  .form-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px; }
+  .form-input, .form-select, .form-textarea { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'Roboto',sans-serif; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
   .form-input:focus, .form-select:focus, .form-textarea:focus { border-color:var(--gold-dim); }
   .form-select option { background:var(--bg-deep); }
   .form-textarea { resize:vertical; min-height:80px; }
   .form-stats { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:12px 0; }
   .form-stat-group { display:flex; flex-direction:column; gap:4px; align-items:center; }
-  .form-stat-label { font-family:'Cinzel',serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; }
+  .form-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; }
   .form-stat-input { width:100%; text-align:center; }
   .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
 
@@ -559,7 +563,7 @@ const styles = `
   .mobile-nav-btn:hover { background:var(--bg-hover); }
   .mobile-nav-btn.active { background:var(--bg-panel); }
   .mobile-nav-icon { font-size:20px; line-height:1; }
-  .mobile-nav-label { font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); }
+  .mobile-nav-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); }
   .mobile-nav-btn.active .mobile-nav-label { color:var(--gold); }
   .mobile-nav-btn.active .mobile-nav-icon { filter:drop-shadow(0 0 4px var(--gold-dim)); }
   .mobile-fab { display:none; }
@@ -569,8 +573,8 @@ const styles = `
     .sidebar { display:none; }
     .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-height:0; }
     .mobile-topbar { display:flex; align-items:center; gap:10px; flex-shrink:0; padding:10px 14px; background:var(--bg-deep); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
-    .mobile-back { background:none; border:1px solid var(--border); border-radius:4px; color:var(--gold-dim); padding:6px 10px; font-family:'Cinzel',serif; font-size:12px; cursor:pointer; white-space:nowrap; }
-    .mobile-topbar-title { font-family:'Cinzel',serif; font-size:13px; color:var(--text-primary); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mobile-back { background:none; border:1px solid var(--border); border-radius:4px; color:var(--gold-dim); padding:6px 10px; font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; white-space:nowrap; }
+    .mobile-topbar-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mobile-topbar-actions { display:flex; gap:6px; }
     .mobile-list-screen { display:flex; flex-direction:column; flex:1; overflow-y:auto; background:var(--bg-deep); padding-bottom:80px; }
     .mobile-bottom-nav { padding:4px 4px; left:0; }
@@ -1033,7 +1037,7 @@ const LogTab = ({charId, isDmMode}) => {
               }
             }}
               title={inc?'Klicken zum Ausschließen':exc?'Klicken zum Zurücksetzen':'Klicken zum Einschließen'}
-              style={{padding:'3px 8px',borderRadius:12,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',
+              style={{padding:'3px 8px',borderRadius:12,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',
                 textTransform:'uppercase',letterSpacing:'0.05em',border:'1px solid',
                 background:inc?'var(--gold)':exc?'rgba(200,60,60,0.25)':'var(--bg-card)',
                 borderColor:inc?'var(--gold)':exc?'#c83c3c':'var(--border)',
@@ -1052,14 +1056,14 @@ const LogTab = ({charId, isDmMode}) => {
             borderLeft:'3px solid '+tabColor(e.tab), alignItems:'flex-start'}}>
             <div style={{fontSize:13,flexShrink:0}}>{LOG_TAB_ICONS[e.tab]||'📌'}</div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:'var(--text-primary)',lineHeight:1.3}}>{e.action}</div>
+              <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-primary)',lineHeight:1.3}}>{e.action}</div>
               {e.details && Object.keys(e.details).length>0 && (
                 <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>
                   {Object.entries(e.details).map(([k,v])=>k+': '+v).join(' · ')}
                 </div>
               )}
             </div>
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0}}>{fmt(e.created_at)}</div>
+            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0}}>{fmt(e.created_at)}</div>
           </div>
         ))}
       </div>
@@ -1913,7 +1917,7 @@ function App() {
                 return (
                   <button key={t} onClick={()=>handleTabClick(t)}
                     title={inc?'Klicken zum Ausschließen':exc?'Klicken zum Zurücksetzen':'Klicken zum Einschließen'}
-                    style={{padding:'3px 8px',borderRadius:12,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',
+                    style={{padding:'3px 8px',borderRadius:12,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',
                       textTransform:'uppercase',letterSpacing:'0.05em',border:'1px solid',
                       background:inc?'var(--gold)':exc?'rgba(200,60,60,0.25)':'var(--bg-card)',
                       borderColor:inc?'var(--gold)':exc?'#c83c3c':'var(--border)',
@@ -1934,28 +1938,28 @@ function App() {
                   borderLeft:'3px solid '+tabColor(e.tab),alignItems:'flex-start'}}>
                   <div style={{fontSize:13,flexShrink:0}}>{TAB_ICONS2[e.tab]||'📌'}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    {e.char_name && <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--gold-dim)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:2}}>{e.char_name}</div>}
-                    <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:'var(--text-primary)',lineHeight:1.3}}>{e.action}</div>
+                    {e.char_name && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--gold-dim)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:2}}>{e.char_name}</div>}
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-primary)',lineHeight:1.3}}>{e.action}</div>
                     {e.details && Object.keys(e.details).length>0 && (
                       <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>
                         {Object.entries(e.details).map(([k,v])=>k+': '+v).join(' · ')}
                       </div>
                     )}
                   </div>
-                  <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0}}>{fmt(e.created_at)}</div>
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0}}>{fmt(e.created_at)}</div>
                 </div>
               ))}
             </div>
-            {alLoading && <div style={{textAlign:'center',padding:'12px',color:'var(--text-muted)',fontFamily:"'Cinzel',serif",fontSize:11}}>Lade...</div>}
+            {alLoading && <div style={{textAlign:'center',padding:'12px',color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11}}>Lade...</div>}
             {!alLoading && alHasMore && (
               <div style={{textAlign:'center',padding:'10px'}}>
                 <button onClick={loadMore}
-                  style={{fontFamily:"'Cinzel',serif",fontSize:11,padding:'6px 16px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text-muted)',borderRadius:4,cursor:'pointer'}}>
+                  style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,padding:'6px 16px',background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text-muted)',borderRadius:4,cursor:'pointer'}}>
                   Mehr laden
                 </button>
               </div>
             )}
-            {!alHasMore && alEntries.length>0 && <div style={{textAlign:'center',padding:'10px',fontFamily:"'Cinzel',serif",fontSize:10,color:'var(--text-muted)'}}>Alle {alEntries.length} Einträge geladen</div>}
+            {!alHasMore && alEntries.length>0 && <div style={{textAlign:'center',padding:'10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:'var(--text-muted)'}}>Alle {alEntries.length} Einträge geladen</div>}
           </div>
         </div>
       </div>
@@ -1974,7 +1978,7 @@ function App() {
         <div style={{display:"flex",gap:4,padding:"4px 8px 0",marginBottom:8}}>
           <button
             onClick={()=>setShowArchive(false)}
-            style={{flex:1,padding:"5px 0",fontFamily:"'Cinzel',serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
+            style={{flex:1,padding:"5px 0",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
               background:!showArchive?"var(--bg-panel)":"none",border:"1px solid",
               borderColor:!showArchive?"var(--gold-dim)":"var(--border)",
               color:!showArchive?"var(--gold)":"var(--text-muted)",borderRadius:"3px 0 0 3px",cursor:"pointer"}}>
@@ -1982,7 +1986,7 @@ function App() {
           </button>
           <button
             onClick={()=>setShowArchive(true)}
-            style={{flex:1,padding:"5px 0",fontFamily:"'Cinzel',serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
+            style={{flex:1,padding:"5px 0",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
               background:showArchive?"var(--bg-panel)":"none",border:"1px solid",
               borderColor:showArchive?"var(--gold-dim)":"var(--border)",
               color:showArchive?"var(--gold)":"var(--text-muted)",borderRadius:"0 3px 3px 0",cursor:"pointer",marginLeft:-1}}>
@@ -1993,7 +1997,7 @@ function App() {
         {list.length === 0 && (
           <div style={{padding:"40px 20px",textAlign:"center",color:"var(--text-muted)"}}>
             <div style={{fontSize:36,marginBottom:12,opacity:0.3}}>{showArchive?"📦":"⚔"}</div>
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:14}}>
+            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14}}>
               {showArchive ? "Archiv ist leer" : "Noch keine Helden"}
             </div>
             <div style={{fontSize:12,marginTop:6,opacity:0.6}}>
@@ -2019,11 +2023,11 @@ function App() {
               <div className="char-item-sub">{c.race} · {c.charClass}{(c.multiclasses||[]).length>0 ? ' / '+(c.multiclasses.map(m=>m.charClass).join(' / ')) : ''}</div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-              <div style={{background:"var(--bg-void)",border:"1px solid var(--border)",borderRadius:3,padding:"1px 6px",fontFamily:"'Cinzel',serif",fontSize:11,color:"var(--gold-dim)",whiteSpace:"nowrap"}}>Lv {(c.level||1)+(c.multiclasses||[]).reduce((s,m)=>s+(m.level||0),0)}</div>
+              <div style={{background:"var(--bg-void)",border:"1px solid var(--border)",borderRadius:3,padding:"1px 6px",fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--gold-dim)",whiteSpace:"nowrap"}}>Lv {(c.level||1)+(c.multiclasses||[]).reduce((s,m)=>s+(m.level||0),0)}</div>
               {showArchive && (
                 <button
                   onClick={e=>{e.stopPropagation();unarchiveChar(c.id);}}
-                  style={{padding:"3px 7px",fontSize:10,fontFamily:"'Cinzel',serif",
+                  style={{padding:"3px 7px",fontSize:10,fontFamily:"'Roboto Condensed',sans-serif",
                     background:"none",border:"1px solid var(--gold-dim)",borderRadius:3,
                     color:"var(--gold-dim)",cursor:"pointer",whiteSpace:"nowrap"}}
                   title="Charakter reaktivieren">
@@ -2118,7 +2122,7 @@ function App() {
                 <button title="Reaktivieren"
                   onClick={()=>unarchiveChar(cur.id)}
                   style={{padding:"4px 10px",background:"none",border:"1px solid var(--gold-dim)",borderRadius:3,
-                    color:"var(--gold-dim)",fontSize:12,fontFamily:"'Cinzel',serif",cursor:"pointer",opacity:0.8,letterSpacing:"0.05em"}}
+                    color:"var(--gold-dim)",fontSize:12,fontFamily:"'Roboto Condensed',sans-serif",cursor:"pointer",opacity:0.8,letterSpacing:"0.05em"}}
                   onMouseEnter={e=>{e.currentTarget.style.opacity="1";}}
                   onMouseLeave={e=>{e.currentTarget.style.opacity="0.8";}}>
                   ↩ aktiv
@@ -2152,13 +2156,13 @@ function App() {
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               {statsEdit ? (
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Cinzel',serif"}}>Akt.</label>
+                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Akt.</label>
                   <input type="number" value={cur.hp} onChange={e=>patchChar({hp:Number(e.target.value)})}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid var(--crimson-bright)",borderRadius:3,color:"var(--crimson-bright)",fontSize:13,textAlign:"center"}}/>
-                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Cinzel',serif"}}>Max</label>
+                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Max</label>
                   <input type="number" value={cur.maxHp} onChange={e=>patchChar({maxHp:Number(e.target.value)})}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:3,color:"var(--parchment)",fontSize:13,textAlign:"center"}}/>
-                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Cinzel',serif"}}>Temp</label>
+                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Temp</label>
                   <input type="number" value={cur.tempHp||0} onChange={e=>patchChar({tempHp:Number(e.target.value)})}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid #4a90d9",borderRadius:3,color:"#7ab8f5",fontSize:13,textAlign:"center"}}/>
                 </div>
@@ -2200,7 +2204,7 @@ function App() {
                 <div className="combat-label">{s.i} {s.l}</div>
                 <div className="combat-label-short">{s.s}</div>
                 <input type="number" value={cur[s.k]} onChange={e=>patchChar({[s.k]:Number(e.target.value)})}
-                  style={{width:56,padding:"3px 4px",background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:3,color:"var(--gold)",fontSize:18,textAlign:"center",display:"block",margin:"4px auto 0",fontFamily:"'Cinzel',serif"}}/>
+                  style={{width:56,padding:"3px 4px",background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:3,color:"var(--gold)",fontSize:18,textAlign:"center",display:"block",margin:"4px auto 0",fontFamily:"'Roboto Condensed',sans-serif"}}/>
               </div>
             )).concat([
               <div className="combat-box" key="ini">
@@ -2308,7 +2312,7 @@ function App() {
                     {statsEdit ? (
                       <input type="number" min={1} max={30} value={cur[k]}
                         onChange={e=>patchChar({[k]:Math.max(1,Math.min(30,Number(e.target.value)))})}
-                        style={{width:52,padding:"4px 2px",background:"var(--bg-void)",border:"1px solid var(--gold)",borderRadius:3,color:"var(--gold)",fontSize:22,textAlign:"center",display:"block",margin:"4px auto",fontFamily:"'Cinzel',serif"}}/>
+                        style={{width:52,padding:"4px 2px",background:"var(--bg-void)",border:"1px solid var(--gold)",borderRadius:3,color:"var(--gold)",fontSize:22,textAlign:"center",display:"block",margin:"4px auto",fontFamily:"'Roboto Condensed',sans-serif"}}/>
                     ) : (
                       <div className="stat-value">{cur[k]}</div>
                     )}
@@ -2341,7 +2345,7 @@ function App() {
                   className="joat-toggle"
                   onClick={toggleJoAT}
                   style={{
-                    borderRadius:3,cursor:"pointer",fontFamily:"'Cinzel',serif",fontSize:10,
+                    borderRadius:3,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,
                     letterSpacing:"0.08em",textTransform:"uppercase",
                     background: cur.jackOfAllTrades ? "var(--gold-dim)" : "var(--bg-card)",
                     border: `1px solid ${cur.jackOfAllTrades ? "var(--gold)" : "var(--border)"}`,
@@ -2406,7 +2410,7 @@ function App() {
                     {items.length===0 && <div style={{padding:'8px 12px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Einträge.</div>}
                     {items.map((item,i) => (
                       <div key={i} style={{display:'flex',alignItems:'center',padding:'6px 10px',borderBottom:'1px solid var(--border)',gap:8}}>
-                        <div style={{flex:1,fontFamily:"'EB Garamond',serif",fontSize:14,color:'var(--text-secondary)'}}>{item}</div>
+                        <div style={{flex:1,fontFamily:"'Roboto',sans-serif",fontSize:14,color:'var(--text-secondary)'}}>{item}</div>
                         <button className="chip-remove" onClick={()=>del(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13,lineHeight:1}}>✕</button>
                       </div>
                     ))}
@@ -2461,11 +2465,11 @@ function App() {
               {/* AC summary box */}
               <div style={{background:'var(--bg-card)',border:'1px solid '+(computedAC!==null?'var(--gold-dim)':'var(--border)'),borderRadius:6,padding:'10px 14px',marginBottom:16,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:'var(--text-muted)',letterSpacing:'0.1em',textTransform:'uppercase'}}>🛡 Rüstungsklasse</span>
-                  <span style={{fontFamily:"'Cinzel Decorative',serif",fontSize:26,color: computedAC!==null?'var(--gold)':'var(--text-muted)'}}>{displayAC}</span>
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)',letterSpacing:'0.1em',textTransform:'uppercase'}}>🛡 Rüstungsklasse</span>
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:26,color: computedAC!==null?'var(--gold)':'var(--text-muted)'}}>{displayAC}</span>
                 </div>
                 {computedAC!==null ? (
-                  <div style={{fontSize:12,color:'var(--text-muted)',fontFamily:"'Cinzel',serif",lineHeight:1.7}}>
+                  <div style={{fontSize:12,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",lineHeight:1.7}}>
                     {(() => {
                       const dex = mod(cur.dex);
                       const parts = [];
@@ -2514,7 +2518,7 @@ function App() {
                 ) : (
                   <div style={{fontSize:12,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Rüstung angelegt — Basis 10 + GES-Mod ({fmod(cur.dex)})</div>
                 )}
-                {warnMultiArmor && <div style={{fontSize:11,color:'var(--crimson-bright)',fontFamily:"'Cinzel',serif"}}>⚠️ Mehrere Rüstungen angelegt!</div>}
+                {warnMultiArmor && <div style={{fontSize:11,color:'var(--crimson-bright)',fontFamily:"'Roboto Condensed',sans-serif"}}>⚠️ Mehrere Rüstungen angelegt!</div>}
               </div>
 
               {/* Equipment list */}
@@ -2546,7 +2550,7 @@ function App() {
                           {item.equipped ? '🛡' : '○'}
                         </button>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontFamily:"'Cinzel',serif",fontSize:13,color:item.equipped?'var(--gold)':'var(--text-primary)'}}>
+                          <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:item.equipped?'var(--gold)':'var(--text-primary)'}}>
                             {item.name}
                             {item.equipped && <span style={{marginLeft:8,fontSize:9,letterSpacing:'0.1em',color:'var(--gold-dim)'}}>ANGELEGT</span>}
                           </div>
@@ -2566,7 +2570,7 @@ function App() {
 
               {/* Common armor templates */}
               <div style={{marginTop:16}}>
-                <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Vorlagen</div>
+                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Vorlagen</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                   {[
                     {name:'Lederrüstung',type:'light',baseAC:11},{name:'Verstärkte Lederrüstung',type:'light',baseAC:12},{name:'Lederlamellenrüstung',type:'light',baseAC:13},
@@ -2577,7 +2581,7 @@ function App() {
                   ].map(tpl=>(
                     <button key={tpl.name}
                       onClick={()=>{setEqForm({...tpl,id:Date.now().toString(),equipped:false,notes:''});setEqEditId(null);setShowEF(true);}}
-                      style={{padding:'3px 10px',borderRadius:12,border:'1px solid var(--border)',background:'var(--bg-card)',color:'var(--text-muted)',fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em'}}>
+                      style={{padding:'3px 10px',borderRadius:12,border:'1px solid var(--border)',background:'var(--bg-card)',color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em'}}>
                       {tpl.name}
                     </button>
                   ))}
@@ -2603,18 +2607,18 @@ function App() {
                         {b.active?'✦':'◇'}
                       </button>
                       <input
-                        style={{flex:1,background:'transparent',border:'none',borderBottom:'1px solid var(--border)',outline:'none',fontFamily:"'Cinzel',serif",fontSize:12,color:'var(--text-primary)',padding:'2px 4px'}}
+                        style={{flex:1,background:'transparent',border:'none',borderBottom:'1px solid var(--border)',outline:'none',fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-primary)',padding:'2px 4px'}}
                         defaultValue={b.name}
                         onBlur={e=>updAcBonus(b.id,{name:e.target.value})}
                         key={'bn_'+b.id}
                       />
                       <input type="number" min={-5} max={20}
-                        style={{width:52,background:'transparent',border:'1px solid var(--border)',borderRadius:3,outline:'none',fontFamily:"'Cinzel Decorative',serif",fontSize:14,color:b.active?'var(--gold)':'var(--text-muted)',padding:'2px 6px',textAlign:'center'}}
+                        style={{width:52,background:'transparent',border:'1px solid var(--border)',borderRadius:3,outline:'none',fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:b.active?'var(--gold)':'var(--text-muted)',padding:'2px 6px',textAlign:'center'}}
                         defaultValue={b.bonus}
                         onBlur={e=>updAcBonus(b.id,{bonus:+e.target.value})}
                         key={'bv_'+b.id}
                       />
-                      <span style={{fontSize:11,color:'var(--text-muted)',fontFamily:"'Cinzel',serif",minWidth:20}}>RK</span>
+                      <span style={{fontSize:11,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",minWidth:20}}>RK</span>
                       <button onClick={()=>delAcBonus(b.id)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',padding:'2px 4px',fontSize:13}}>✕</button>
                     </div>
                   ))
@@ -2677,7 +2681,7 @@ function App() {
                           </td>
                           <td><span className="wn-name" onClick={()=>{setWf({...w,properties:w.properties||[]});setWfEditId(w.id);setShowWF(true);}}>{w.name||"—"}</span></td>
                           <td className="wn-prof">{w.proficient ? "✓" : ""}</td>
-                          <td className="wn-attr"><span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:"var(--text-muted)"}}>{attrLabel}</span></td>
+                          <td className="wn-attr"><span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>{attrLabel}</span></td>
                           <td className="wn-range">{w.range||"—"}</td>
                           <td className="wn-bonus">{bonus>=0?"+"+bonus:bonus}</td>
                           <td className="wn-damage">{dmgStr}</td>
@@ -2756,7 +2760,7 @@ function App() {
                     {spEdit && sp.max>0 && <button className="slot-max-btn" onClick={()=>spChgMax(-1)} title="Max verringern">−</button>}
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                    <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:18,color:"var(--arcane-bright)"}}>
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:18,color:"var(--arcane-bright)"}}>
                       {sp.max-sp.used} <span style={{fontSize:11,color:"var(--text-muted)"}}>/ {sp.max}</span>
                     </div>
                     {sp.used>0 && <button className="slot-restore-btn" style={{borderColor:"var(--arcane-bright)",color:"var(--arcane-bright)"}} onClick={()=>updSP({...sp,used:0})}>↺ Wiederherstellen (Lange Rast)</button>}
@@ -2783,14 +2787,14 @@ function App() {
                       <div className="resource-header">
                         <input
                           className="form-input"
-                          style={{padding:"3px 6px",fontSize:13,fontFamily:"'Cinzel',serif",flex:1,background:"transparent",border:"none",borderBottom:"1px solid var(--border)",borderRadius:0,color:"var(--text-primary)"}}
+                          style={{padding:"3px 6px",fontSize:13,fontFamily:"'Roboto Condensed',sans-serif",flex:1,background:"transparent",border:"none",borderBottom:"1px solid var(--border)",borderRadius:0,color:"var(--text-primary)"}}
                           key={`res_name_${res.id}_${res.name}`}
                           defaultValue={res.name}
                           onBlur={e=>updResource(res.id,{name:e.target.value})}
                         />
                         <input
                           className="form-input"
-                          style={{padding:"3px 6px",fontSize:11,fontFamily:"'Cinzel',serif",width:52,background:"transparent",border:"none",borderBottom:"1px solid var(--border)",borderRadius:0,color:"var(--text-muted)"}}
+                          style={{padding:"3px 6px",fontSize:11,fontFamily:"'Roboto Condensed',sans-serif",width:52,background:"transparent",border:"none",borderBottom:"1px solid var(--border)",borderRadius:0,color:"var(--text-muted)"}}
                           key={`res_abbr_${res.id}_${res.abbr}`}
                           defaultValue={res.abbr||""}
                           placeholder="Kürzel"
@@ -2814,8 +2818,8 @@ function App() {
                       </div>
                     ) : (
                       <div className="resource-header">
-                        <div style={{fontFamily:"'Cinzel',serif",fontSize:13,color:res.color||"#c9a84c",flex:1}}>{res.name||"Ressource"}</div>
-                        <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"'Cinzel',serif"}}>{res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</div>
+                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:res.color||"#c9a84c",flex:1}}>{res.name||"Ressource"}</div>
+                        <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>{res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</div>
                       </div>
                     )}
                     <div className="resource-pips">
@@ -2836,7 +2840,7 @@ function App() {
                       })}
                       {resEdit && <button className="slot-max-btn" onClick={()=>updResource(res.id,{max:Math.min(30,res.max+1)})}>+</button>}
                       {resEdit && res.max>0 && <button className="slot-max-btn" onClick={()=>updResource(res.id,{max:Math.max(0,res.max-1),used:Math.min(res.used,res.max-1)})}>−</button>}
-                      <span style={{fontFamily:"'Cinzel Decorative',serif",fontSize:14,color:res.color||"#c9a84c",marginLeft:4}}>
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:res.color||"#c9a84c",marginLeft:4}}>
                         {res.max-res.used}<span style={{fontSize:10,color:"var(--text-muted)"}}>/{res.max}</span>
                       </span>
                     </div>
@@ -2861,7 +2865,7 @@ function App() {
                 <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12,alignItems:'center'}}>
                   {allSpellClasses.map(c=>{const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=spellTagFilter.classes.includes(c);
                     return <button key={c} onClick={()=>setSpellTagFilter(f=>({...f,classes:on?f.classes.filter(x=>x!==c):[...f.classes,c]}))}
-                      style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em',
+                      style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em',
                         border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>
                       {c}
                     </button>;
@@ -2871,13 +2875,13 @@ function App() {
                     const on = spellTagFilter.dmg.includes(d);
                     return (
                       <button key={d} onClick={()=>setSpellTagFilter(f=>({...f,dmg:f.dmg.includes(d)?f.dmg.filter(x=>x!==d):[...f.dmg,d]}))}
-                        style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em',
+                        style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em',
                           border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>
                         ⚔️ {d}
                       </button>
                     );
                   })}
-                  {filterActive && <button onClick={()=>setSpellTagFilter({classes:[],dmg:[]})} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11,fontFamily:"'Cinzel',serif",padding:'2px 6px'}}>✕ zurücksetzen</button>}
+                  {filterActive && <button onClick={()=>setSpellTagFilter({classes:[],dmg:[]})} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11,fontFamily:"'Roboto Condensed',sans-serif",padding:'2px 6px'}}>✕ zurücksetzen</button>}
                 </div>
               );
             })()}
@@ -2913,7 +2917,7 @@ function App() {
                                 transition:"all 0.15s"
                               }} title={i<avail ? "Slot verfügbar" : "Slot verbraucht"} />;
                             })}
-                            <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:"var(--gold)",marginLeft:2,opacity:0.85}}>
+                            <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:"var(--gold)",marginLeft:2,opacity:0.85}}>
                               {slots[l].max-slots[l].used}/{slots[l].max}
                             </span>
                           </div>
@@ -2955,19 +2959,19 @@ function App() {
                             {/* Stats: 2×2 grid */}
                             <div className="spell-card-stats-grid" style={{background:'#ede8df'}}>
                               <div className="spell-card-stat-cell">
-                                <div className="spell-card-stat-label" style={{color:sc.bg}}>Wirkzeit</div>
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Wirkzeit</div>
                                 <div className="spell-card-stat-value">{s.castingTime||'—'}</div>
                               </div>
                               <div className="spell-card-stat-cell">
-                                <div className="spell-card-stat-label" style={{color:sc.bg}}>Reichweite</div>
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Reichweite</div>
                                 <div className="spell-card-stat-value">{s.range||'—'}</div>
                               </div>
                               <div className="spell-card-stat-cell">
-                                <div className="spell-card-stat-label" style={{color:sc.bg}}>Komponenten</div>
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Komponenten</div>
                                 <div className="spell-card-stat-value">{s.components||'—'}</div>
                               </div>
                               <div className="spell-card-stat-cell">
-                                <div className="spell-card-stat-label" style={{color:sc.bg}}>Dauer</div>
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Dauer</div>
                                 <div className="spell-card-stat-value">{s.duration||'—'}</div>
                               </div>
                             </div>
@@ -2978,15 +2982,13 @@ function App() {
                             {/* Tags row */}
                             {(spellClasses.length>0||spellDmgTags.length>0) && (
                               <div className="spell-card-tags">
-                                {/* Ausgefüllt statt getönt: die Tags sitzen auf heller
-                                    Pergament-Zeile, dort war Farbe-auf-Farbe nicht lesbar.
-                                    Die Füllung ist die abgedunkelte Klassen- bzw.
-                                    Schadensfarbe, der Rand behält den vollen Farbton. */}
+                                {/* Getoent statt gefuellt: die Karte ist jetzt dunkel,
+                                    dort traegt die Farbe selbst als Schrift. */}
                                 {spellClasses.map(c=>{const col=CC_COLORS[c]||'#c9a84c';
-                                  return <span key={c} style={{padding:'1px 6px',borderRadius:8,fontFamily:"'Cinzel',serif",fontSize:8,letterSpacing:'0.05em',background:`linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)), ${col}`,border:'1px solid '+col+'cc',color:'#f0e6d0'}}>{c}</span>;
+                                  return <span key={c} style={{padding:'1px 6px',borderRadius:8,fontFamily:"'Roboto Condensed',sans-serif",fontSize:8,letterSpacing:'0.05em',background:col+'22',border:'1px solid '+col+'80',color:col}}>{c}</span>;
                                 })}
                                 {spellDmgTags.map(d=>{const col=DMG_COLORS[d]||'#a0a0a0';
-                                  return <span key={d} style={{padding:'1px 6px',borderRadius:8,fontFamily:"'Cinzel',serif",fontSize:8,letterSpacing:'0.05em',background:`linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)), ${col}`,border:'1px solid '+col+'cc',color:'#f0e6d0'}}>⚔ {d}</span>;
+                                  return <span key={d} style={{padding:'1px 6px',borderRadius:8,fontFamily:"'Roboto Condensed',sans-serif",fontSize:8,letterSpacing:'0.05em',background:col+'22',border:'1px solid '+col+'80',color:col}}>⚔ {d}</span>;
                                 })}
                               </div>
                             )}
@@ -3016,7 +3018,7 @@ function App() {
                             <div style={{marginTop:8}}>
                               <div
                                 onClick={()=>setOpenUnprepared(prev=>{const s=new Set(prev);s.has(l)?s.delete(l):s.add(l);return s;})}
-                                style={{cursor:'pointer',fontFamily:"'Cinzel',serif",fontSize:10,color:'var(--text-muted)',letterSpacing:'0.1em',
+                                style={{cursor:'pointer',fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:'var(--text-muted)',letterSpacing:'0.1em',
                                   textTransform:'uppercase',display:'flex',alignItems:'center',gap:6,padding:'4px 0',
                                   borderTop:'1px solid var(--border)',userSelect:'none'}}>
                                 <span style={{fontSize:9,transition:'transform 0.2s',transform:openUnprepared.has(l)?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
@@ -3086,7 +3088,7 @@ function App() {
                                     {w.abilities && w.abilities.map((a,ai)=><div key={ai} style={{marginBottom:3}}>• {a}</div>)}
                                     {w.actions && w.actions.map((a,ai)=>(
                                       <div key={ai} style={{marginTop:4,borderTop:"1px solid #52b78830",paddingTop:4}}>
-                                        <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:"#52b788",marginBottom:2}}>⚔ {a.name}</div>
+                                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"#52b788",marginBottom:2}}>⚔ {a.name}</div>
                                         <div style={{fontSize:12}}>{a.desc}</div>
                                       </div>
                                     ))}
@@ -3151,14 +3153,14 @@ function App() {
                     <div className="currency-label" style={{color:c.color}}>{c.label}</div>
                     <div className="currency-input" style={{color:c.color,borderColor:c.color+'40',
                       display:'flex',alignItems:'center',justifyContent:'center',
-                      fontFamily:"'Cinzel Decorative',serif",fontSize:16,minHeight:32}}>
+                      fontFamily:"'Roboto Condensed',sans-serif",fontSize:16,minHeight:32}}>
                       {val}
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:10,color:"var(--text-muted)",textAlign:"right",marginBottom:20}}>
+            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:"var(--text-muted)",textAlign:"right",marginBottom:20}}>
               Gesamtwert: <span style={{color:"var(--gold)"}}>{totalGp.toFixed(2)} GM</span>
             </div>
 
@@ -3226,7 +3228,7 @@ function App() {
                         checked={filtered.length>0 && filtered.every(i=>transferSel.has(i.id))}
                         onChange={e=>{ if(e.target.checked) setTransferSel(new Set(filtered.map(i=>i.id))); else setTransferSel(new Set()); }}
                         style={{cursor:'pointer',accentColor:'var(--gold)'}}/>
-                      <span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:'var(--text-muted)'}}>Alle auswählen</span>
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)'}}>Alle auswählen</span>
                     </div>
                   )}
                   <div>
@@ -3236,7 +3238,7 @@ function App() {
                           checked={filtered.length>0 && filtered.every(i=>transferSel.has(i.id))}
                           onChange={e=>{ if(e.target.checked) setTransferSel(new Set(filtered.map(i=>i.id))); else setTransferSel(new Set()); }}
                           style={{cursor:'pointer',accentColor:'var(--gold)'}}/>
-                        <span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:'var(--text-muted)'}}>Alle auswählen</span>
+                        <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)'}}>Alle auswählen</span>
                       </div>
                     )}
                     <div className="inv-grid">
@@ -3259,7 +3261,7 @@ function App() {
                             <div className="inv-card-header" style={{background:`linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`, borderBottom:`1px solid ${r.color}55`, position:'relative'}}>
                               <div style={{position:'absolute',top:5,left:6,background:'var(--bg-void)',color:'var(--parchment)',
                                 border:`1px solid ${r.color}77`,
-                                fontFamily:"'Cinzel',serif",fontSize:9,fontWeight:700,lineHeight:1,
+                                fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,fontWeight:700,lineHeight:1,
                                 padding:'2px 5px',borderRadius:8,minWidth:16,textAlign:'center',
                                 display:item.qty>1?'block':'none'}}>
                                 {item.qty}
@@ -3277,15 +3279,15 @@ function App() {
                                       style={{width:'100%',borderRadius:4,marginBottom:6,cursor:'zoom-in',display:'block',objectFit:'contain',maxHeight:180}}
                                       onClick={e=>{e.stopPropagation();setImgViewer({name:item.name,imageData:item.imageData});}} />
                                   )}
-                                  {item.description && <div style={{fontFamily:"'EB Garamond',serif",fontSize:12,color:'var(--text-secondary)',lineHeight:1.45,marginBottom:4}} dangerouslySetInnerHTML={{__html:item.description}} />}
-                                  {item.source && <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>📦 {item.source}</div>}
+                                  {item.description && <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--text-secondary)',lineHeight:1.45,marginBottom:4}} dangerouslySetInnerHTML={{__html:item.description}} />}
+                                  {item.source && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>📦 {item.source}</div>}
                                   {(item.tags||[]).length>0 && (
                                     <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:4}}>
                                       {(item.tags||[]).map(t=><span key={t} className={"inv-tag"+(invTagFilter.includes(t)?" active":"")}
                                         onClick={e=>{e.stopPropagation();if(!transferMode)setInvTagFilter(invTagFilter.includes(t)?invTagFilter.filter(x=>x!==t):[...invTagFilter,t]);}}>{t}</span>)}
                                     </div>
                                   )}
-                                  {item.weight && <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase'}}>{item.weight} kg</div>}
+                                  {item.weight && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase'}}>{item.weight} kg</div>}
                                 </div>
                                 <div className="inv-card-footer">
                                   {transferMode
@@ -3308,8 +3310,8 @@ function App() {
                     </div>
                   </div>
                   <div style={{marginTop:10,display:'flex',gap:12,flexWrap:'wrap'}}>
-                    {totalWeight>0 && <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:"var(--text-muted)"}}>Gesamtgewicht: <span style={{color:"var(--text-secondary)"}}>{totalWeight.toFixed(2)} kg</span></div>}
-                    {(invRarity!=='all'||invTagFilter.length>0) && <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:"var(--text-muted)"}}>{filtered.length} von {inv.length} Gegenständen</div>}
+                    {totalWeight>0 && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>Gesamtgewicht: <span style={{color:"var(--text-secondary)"}}>{totalWeight.toFixed(2)} kg</span></div>}
+                    {(invRarity!=='all'||invTagFilter.length>0) && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>{filtered.length} von {inv.length} Gegenständen</div>}
                   </div>
                 </div>
               );
@@ -3328,14 +3330,14 @@ function App() {
                 <>
                   {allNoteTags.length>0 && (
                     <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12,alignItems:'center'}}>
-                      <span style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.1em',textTransform:'uppercase'}}>Filter:</span>
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.1em',textTransform:'uppercase'}}>Filter:</span>
                       {allNoteTags.map(t=>(
                         <button key={t} className={"tag-filter-btn"+(noteTagFilter.includes(t)?' active':'')}
                           onClick={()=>setNoteTagFilter(noteTagFilter.includes(t)?noteTagFilter.filter(x=>x!==t):[...noteTagFilter,t])}>
                           {t}
                         </button>
                       ))}
-                      {noteTagFilter.length>0 && <button onClick={()=>setNoteTagFilter([])} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11,fontFamily:"'Cinzel',serif",padding:'2px 6px'}}>✕ zurücksetzen</button>}
+                      {noteTagFilter.length>0 && <button onClick={()=>setNoteTagFilter([])} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11,fontFamily:"'Roboto Condensed',sans-serif",padding:'2px 6px'}}>✕ zurücksetzen</button>}
                     </div>
                   )}
                   {filtered.length===0
@@ -3369,7 +3371,7 @@ function App() {
                                 <div>
                                   {!isEx
                                     ? <div className="note-card-preview">{note.content.length>120?note.content.slice(0,120)+'…':note.content}</div>
-                                    : <div style={{marginTop:8,fontFamily:"'EB Garamond',serif",fontSize:15,color:"var(--text-secondary)",lineHeight:1.7,whiteSpace:"pre-wrap",paddingBottom:4}}>{note.content}</div>
+                                    : <div style={{marginTop:8,fontFamily:"'Roboto',sans-serif",fontSize:15,color:"var(--text-secondary)",lineHeight:1.7,whiteSpace:"pre-wrap",paddingBottom:4}}>{note.content}</div>
                                   }
                                 </div>
                               </div>
@@ -3466,13 +3468,13 @@ function App() {
           {isTouchLayout && mv==="list" && (
             <div className="mobile-list-screen">
               <div style={{padding:"16px 12px 12px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
-                <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:16,color:"var(--gold)"}}>⚔ Heldenbuch ⚔</div>
-                <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:"var(--text-muted)",letterSpacing:"0.15em",textTransform:"uppercase",marginTop:4}}>Dungeons &amp; Dragons · 🐉</div>
+                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:16,color:"var(--gold)"}}>⚔ Heldenbuch ⚔</div>
+                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:"var(--text-muted)",letterSpacing:"0.15em",textTransform:"uppercase",marginTop:4}}>Dungeons &amp; Dragons · 🐉</div>
                 {/* Sync status on mobile list */}
                 {svCode && (
                   <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:6}}>
                     <div className={"sync-dot "+(syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
-                    <span style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.08em'}}>
+                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.08em'}}>
                       {svCode} · {syncMsg||'Verbunden'}
                     </span>
                   </div>
@@ -3580,7 +3582,7 @@ function App() {
               <input className="form-input" type="number" min="1" max="20" value={ec.level}
                 onChange={e=>setEc({...ec,level:Math.max(1,Math.min(20,+e.target.value))})}
                 style={{maxWidth:64,textAlign:"center"}} placeholder="Stufe"/>
-              <div style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Cinzel',serif",whiteSpace:"nowrap",alignSelf:"center"}}>Hauptklasse</div>
+              <div style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif",whiteSpace:"nowrap",alignSelf:"center"}}>Hauptklasse</div>
             </div>
             {(ec.multiclasses||[]).map((mc,i)=>(
               <div className="multiclass-row" key={i} style={{marginBottom:8}}>
@@ -3604,7 +3606,7 @@ function App() {
               {isDmMode && (
                 <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginRight:"auto"}}>
                   <input type="checkbox" checked={ec.dmOnly||false} onChange={e=>setEc({...ec,dmOnly:e.target.checked})} style={{width:16,height:16,cursor:"pointer",accentColor:"#c060a0"}} />
-                  <span style={{fontFamily:"'Cinzel',serif",fontSize:11,color:"#c060a0"}}>🔮 Nur DM-Modus</span>
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"#c060a0"}}>🔮 Nur DM-Modus</span>
                 </label>
               )}
               <button className="btn-cancel" onClick={()=>setShowCF(false)}>Abbrechen</button>
@@ -3648,7 +3650,7 @@ function App() {
               </div>
               <div className="form-group" style={{justifyContent:"flex-end"}}>
                 <div className="form-label">Optionen</div>
-                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontFamily:"'Cinzel',serif",fontSize:12,color:"var(--text-secondary)",padding:"8px 0"}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:"var(--text-secondary)",padding:"8px 0"}}>
                   <input type="checkbox" style={{accentColor:"var(--gold)",width:15,height:15}}
                     checked={wf.proficient!==false}
                     onChange={e=>setWf({...wf,proficient:e.target.checked})} />
@@ -3661,7 +3663,7 @@ function App() {
                   {WPROPS.map(p => {
                     const on=(wf.properties||[]).includes(p);
                     return <button key={p} onClick={()=>setWf({...wf,properties:on?(wf.properties||[]).filter(x=>x!==p):[...(wf.properties||[]),p]})}
-                      style={{padding:"4px 12px",borderRadius:12,border:"1px solid",fontFamily:"'Cinzel',serif",fontSize:10,cursor:"pointer",
+                      style={{padding:"4px 12px",borderRadius:12,border:"1px solid",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:"pointer",
                         borderColor:on?"var(--gold)":"var(--border)",background:on?"var(--bg-panel)":"var(--bg-card)",color:on?"var(--gold)":"var(--text-muted)"}}>{p}</button>;
                   })}
                 </div>
@@ -3756,7 +3758,7 @@ function App() {
                   {['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c=>{
                     const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=(sf.classes||[]).includes(c);
                     return <button key={c} type="button" onClick={()=>setSf(f=>({...f,classes:on?(f.classes||[]).filter(x=>x!==c):[...(f.classes||[]),c]}))}
-                      style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>{c}</button>;
+                      style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>{c}</button>;
                   })}
                 </div>
               </div>
@@ -3767,7 +3769,7 @@ function App() {
                     const on=(sf.damageTags||[]).includes(d);
                     const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'}[d]||'#aaa';
                     return <button key={d} type="button" onClick={()=>setSf(f=>({...f,damageTags:on?(f.damageTags||[]).filter(x=>x!==d):[...(f.damageTags||[]),d]}))}
-                      style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>⚔️ {d}</button>;
+                      style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>⚔️ {d}</button>;
                   })}
                 </div>
               </div>
@@ -3793,13 +3795,13 @@ function App() {
                 <div className="form-label">Tags</div>
                 <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:4,padding:'6px 8px',display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',minHeight:38}}>
                   {(nf.tags||[]).map((t,i)=>(
-                    <span key={i} style={{display:'inline-flex',alignItems:'center',gap:4,background:'var(--bg-panel)',border:'1px solid var(--border-bright)',borderRadius:12,padding:'2px 8px',fontFamily:"'Cinzel',serif",fontSize:10,color:'var(--gold)',letterSpacing:'0.06em'}}>
+                    <span key={i} style={{display:'inline-flex',alignItems:'center',gap:4,background:'var(--bg-panel)',border:'1px solid var(--border-bright)',borderRadius:12,padding:'2px 8px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:'var(--gold)',letterSpacing:'0.06em'}}>
                       {t}
                       <button onClick={()=>setNf({...nf,tags:(nf.tags||[]).filter((_,j)=>j!==i)})} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11,padding:0,lineHeight:1}}>✕</button>
                     </span>
                   ))}
                   <input
-                    style={{flex:1,minWidth:80,background:'transparent',border:'none',outline:'none',fontFamily:"'EB Garamond',serif",fontSize:14,color:'var(--text-primary)'}}
+                    style={{flex:1,minWidth:80,background:'transparent',border:'none',outline:'none',fontFamily:"'Roboto',sans-serif",fontSize:14,color:'var(--text-primary)'}}
                     placeholder={(nf.tags||[]).length===0?"z.B. Kampagne":"+ Tag..."}
                     onKeyDown={e=>{
                       if((e.key==='Enter'||e.key===','||e.key===';')&&e.target.value.trim()){
@@ -3843,7 +3845,7 @@ function App() {
               return (
                 <div style={{marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                    <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:isDmMode?'#c060a0':'var(--gold)',letterSpacing:'0.15em',textTransform:'uppercase'}}>
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:isDmMode?'#c060a0':'var(--gold)',letterSpacing:'0.15em',textTransform:'uppercase'}}>
                       {isDmMode?'🔮 DM-Datenbank':'📚 Aus Datenbank'}
                     </div>
                     <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>{activeItems.length} Einträge</div>
@@ -3863,7 +3865,7 @@ function App() {
                         <button key={i} data-name={(item.name||'').toLowerCase()}
                           onClick={()=>setItf({...newItem(),...item,id:Date.now().toString()})}
                           title={item.description||item.source||''}
-                          style={{padding:'3px 10px',borderRadius:12,fontFamily:"'Cinzel',serif",fontSize:10,cursor:'pointer',
+                          style={{padding:'3px 10px',borderRadius:12,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:'pointer',
                             border:'1px solid '+(isDmItem?'#c060a060':r.color+'60'),
                             background:isDmItem?'rgba(192,96,160,0.12)':r.color+'15',
                             color:isDmItem?'#c060a0':r.color,letterSpacing:'0.05em'}}>
@@ -3900,13 +3902,13 @@ function App() {
                     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,padding:'8px 12px',background:'var(--bg-void)',borderRadius:6,border:'1px solid var(--border)'}}>
                       <span style={{fontSize:32}}>{itf.icon||'🎒'}</span>
                       <div>
-                        <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:'var(--gold)'}}>Ausgewählt</div>
+                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--gold)'}}>Ausgewählt</div>
                         <div style={{fontSize:12,color:'var(--text-muted)'}}>Klicke ein Icon um es auszuwählen</div>
                       </div>
                     </div>
                     {ICON_CATS.map(cat=>(
                       <div key={cat.label} style={{marginBottom:10}}>
-                        <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:5}}>{cat.label}</div>
+                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:5}}>{cat.label}</div>
                         <div className="icon-picker-grid">
                           {cat.icons.map(ic=>(
                             <button key={ic} className={"icon-picker-btn"+(itf.icon===ic?" selected":"")}
@@ -3987,7 +3989,7 @@ function App() {
                         style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--crimson)',border:'none',color:'#fff',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</button>
                     </div>
                   )}
-                  <label style={{flex:1,padding:'10px 14px',background:'var(--bg-card)',border:'1px dashed var(--border)',borderRadius:6,cursor:'pointer',textAlign:'center',fontSize:12,color:'var(--text-muted)',fontFamily:"'Cinzel',serif",letterSpacing:'0.05em'}}>
+                  <label style={{flex:1,padding:'10px 14px',background:'var(--bg-card)',border:'1px dashed var(--border)',borderRadius:6,cursor:'pointer',textAlign:'center',fontSize:12,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",letterSpacing:'0.05em'}}>
                     📷 Bild auswählen
                     <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{
                       const file = e.target.files?.[0];
@@ -4035,7 +4037,7 @@ function App() {
             <div className="form-modal" style={{maxWidth:420}}>
               <div className="form-title">➤ Gegenstände übergeben</div>
               <div style={{marginBottom:16}}>
-                <div style={{fontSize:12,color:"var(--text-muted)",fontFamily:"'Cinzel',serif",marginBottom:8,letterSpacing:"0.1em",textTransform:"uppercase"}}>Ausgewählte Gegenstände</div>
+                <div style={{fontSize:12,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif",marginBottom:8,letterSpacing:"0.1em",textTransform:"uppercase"}}>Ausgewählte Gegenstände</div>
                 <div style={{background:"var(--bg-void)",borderRadius:4,padding:"8px 10px",maxHeight:140,overflowY:"auto"}}>
                   {transferItems.map(item=>{
                     const r = RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
@@ -4049,7 +4051,7 @@ function App() {
                   })}
                 </div>
               </div>
-              <div style={{fontSize:12,color:"var(--text-muted)",fontFamily:"'Cinzel',serif",marginBottom:8,letterSpacing:"0.1em",textTransform:"uppercase"}}>An wen übergeben?</div>
+              <div style={{fontSize:12,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif",marginBottom:8,letterSpacing:"0.1em",textTransform:"uppercase"}}>An wen übergeben?</div>
               {!isDmMode && cur.dmOnly && (
                 <div style={{fontSize:12,color:"#c060a0",fontStyle:"italic",marginBottom:8,padding:"6px 10px",background:"rgba(192,96,160,0.08)",borderRadius:4,border:"1px solid rgba(192,96,160,0.2)"}}>
                   🔮 DM-Held kann nur im DM-Modus Gegenstände an normale Helden übergeben.
@@ -4072,7 +4074,7 @@ function App() {
                         onMouseLeave={e=>e.currentTarget.style.borderColor=c.dmOnly?"rgba(192,96,160,0.4)":"var(--border)"}>
                         <div style={{width:8,height:8,borderRadius:"50%",background:c.dmOnly?"#c060a0":cc.bg,border:"1px solid "+(c.dmOnly?"#c060a0":cc.border),flexShrink:0}}/>
                         <div style={{flex:1}}>
-                          <div style={{fontFamily:"'Cinzel',serif",fontSize:13,color:c.dmOnly?"#c060a0":"var(--text-primary)",display:"flex",alignItems:"center",gap:5}}>
+                          <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:c.dmOnly?"#c060a0":"var(--text-primary)",display:"flex",alignItems:"center",gap:5}}>
                             {c.dmOnly && <span style={{fontSize:10}}>🔮</span>}
                             {c.name||"Unbenannt"}
                           </div>
@@ -4109,13 +4111,13 @@ function App() {
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
                 <span style={{fontSize:28}}>🪙</span>
                 <div>
-                  <div style={{fontFamily:"'Cinzel',serif",fontSize:14,color:coinPopover.color,fontWeight:700,letterSpacing:'0.08em'}}>{coinPopover.label}</div>
-                  <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:20,color:'var(--text-primary)',lineHeight:1}}>{cur}</div>
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:coinPopover.color,fontWeight:700,letterSpacing:'0.08em'}}>{coinPopover.label}</div>
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:20,color:'var(--text-primary)',lineHeight:1}}>{cur}</div>
                 </div>
               </div>
               {/* Input */}
               <div style={{marginBottom:12}}>
-                <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:5}}>Betrag</div>
+                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:5}}>Betrag</div>
                 <input
                   autoFocus
                   type="number" min="0"
@@ -4127,7 +4129,7 @@ function App() {
                   }}
                   style={{width:'100%',boxSizing:'border-box',background:'var(--bg-void)',
                     border:`1px solid ${coinPopover.color}60`,borderRadius:4,
-                    color:'var(--text-primary)',fontFamily:"'Cinzel Decorative',serif",
+                    color:'var(--text-primary)',fontFamily:"'Roboto Condensed',sans-serif",
                     fontSize:18,textAlign:'center',padding:'8px 4px',outline:'none'}}
                   placeholder="0"
                 />
@@ -4136,14 +4138,14 @@ function App() {
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
                 <button
                   onClick={()=>apply(1)}
-                  style={{padding:'10px',fontFamily:"'Cinzel',serif",fontSize:13,fontWeight:700,
+                  style={{padding:'10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,fontWeight:700,
                     background:`${coinPopover.color}25`,border:`1px solid ${coinPopover.color}80`,
                     color:coinPopover.color,borderRadius:5,cursor:'pointer',letterSpacing:'0.05em'}}>
                   + Hinzufügen
                 </button>
                 <button
                   onClick={()=>apply(-1)}
-                  style={{padding:'10px',fontFamily:"'Cinzel',serif",fontSize:13,fontWeight:700,
+                  style={{padding:'10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,fontWeight:700,
                     background:'rgba(180,60,60,0.15)',border:'1px solid rgba(180,60,60,0.5)',
                     color:'#e07070',borderRadius:5,cursor:'pointer',letterSpacing:'0.05em'}}>
                   − Wegnehmen
@@ -4151,16 +4153,16 @@ function App() {
               </div>
               {/* Direct set */}
               <div style={{borderTop:'1px solid var(--border)',paddingTop:10,display:'flex',gap:8,alignItems:'center'}}>
-                <span style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',whiteSpace:'nowrap'}}>Direkt setzen</span>
+                <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',whiteSpace:'nowrap'}}>Direkt setzen</span>
                 <button
                   onClick={()=>{ if(coinDelta!=='') { updCurrency(coinPopover.key, Math.max(0,parseInt(coinDelta)||0)); setCoinPopover(null); }}}
-                  style={{flex:1,padding:'5px',fontFamily:"'Cinzel',serif",fontSize:11,
+                  style={{flex:1,padding:'5px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,
                     background:'var(--bg-card)',border:'1px solid var(--border)',
                     color:'var(--text-muted)',borderRadius:4,cursor:'pointer'}}>
                   = Setzen
                 </button>
                 <button onClick={()=>setCoinPopover(null)}
-                  style={{padding:'5px 10px',fontFamily:"'Cinzel',serif",fontSize:11,
+                  style={{padding:'5px 10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,
                     background:'none',border:'1px solid var(--border)',
                     color:'var(--text-muted)',borderRadius:4,cursor:'pointer'}}>
                   ✕
@@ -4183,8 +4185,8 @@ function App() {
               <div style={{background:`linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`,borderBottom:`1px solid ${r.color}55`,padding:'16px 18px 14px',display:'flex',gap:14,alignItems:'flex-start'}}>
                 <div style={{fontSize:40,lineHeight:1,filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',flexShrink:0}}>{icon}</div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Cinzel',serif",fontSize:15,fontWeight:700,color:'var(--text-primary)',textTransform:'uppercase',letterSpacing:'0.06em',lineHeight:1.3}}>{item.name}</div>
-                  <div style={{fontFamily:"'EB Garamond',serif",fontSize:12,color:'var(--parchment-dim)',marginTop:4,fontStyle:'italic'}}>
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:15,fontWeight:700,color:'var(--text-primary)',textTransform:'uppercase',letterSpacing:'0.06em',lineHeight:1.3}}>{item.name}</div>
+                  <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--parchment-dim)',marginTop:4,fontStyle:'italic'}}>
                     {r.label}
                     {item.qty>1?` · ×${item.qty}`:''}
                     {item.weight?` · ${item.weight} kg`:''}
@@ -4204,11 +4206,11 @@ function App() {
                 )}
                 <div style={{flex:1,minWidth:0}}>
                   {item.description && (
-                    <div style={{fontFamily:"'EB Garamond',serif",fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,marginBottom:8}}
+                    <div style={{fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,marginBottom:8}}
                       dangerouslySetInnerHTML={{__html:item.description}} />
                   )}
                   {item.source && (
-                    <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>📦 {item.source}</div>
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>📦 {item.source}</div>
                   )}
                   {(item.tags||[]).length>0 && (
                     <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
@@ -4216,14 +4218,14 @@ function App() {
                     </div>
                   )}
                   {!item.description && !item.source && (item.tags||[]).length===0 && (
-                    <div style={{fontFamily:"'EB Garamond',serif",fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine weiteren Infos.</div>
+                    <div style={{fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine weiteren Infos.</div>
                   )}
                 </div>
               </div>
               {/* Footer */}
               <div style={{display:'flex',gap:8,padding:'10px 18px',background:'var(--bg-deep)',borderTop:'1px solid var(--border)'}}>
                 <button className="btn-icon" style={{flex:1}} onClick={()=>{setItemViewer(null);setItf({...item});setItfEditId(item.id);setShowIF(true);}}>✎ Bearbeiten</button>
-                <button style={{padding:'8px 14px',background:'rgba(180,60,60,0.15)',border:'1px solid rgba(180,60,60,0.4)',borderRadius:3,color:'#e07070',cursor:'pointer',fontFamily:"'Cinzel',serif",fontSize:11}}
+                <button style={{padding:'8px 14px',background:'rgba(180,60,60,0.15)',border:'1px solid rgba(180,60,60,0.4)',borderRadius:3,color:'#e07070',cursor:'pointer',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11}}
                   onClick={()=>{setItemViewer(null);delItem(item.id);}}>✕ Löschen</button>
                 <button className="btn-cancel" onClick={()=>setItemViewer(null)}>Schließen</button>
               </div>
@@ -4238,9 +4240,9 @@ function App() {
           <div style={{maxWidth:'90vw',maxHeight:'90vh',display:'flex',flexDirection:'column',alignItems:'center',gap:12}} onClick={e=>e.stopPropagation()}>
             <img src={imgViewer.imageData} alt={imgViewer.name}
               style={{maxWidth:'85vw',maxHeight:'80vh',objectFit:'contain',borderRadius:8,boxShadow:'0 8px 40px rgba(0,0,0,0.8)',border:'2px solid rgba(232,213,163,0.18)'}} />
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:14,color:'var(--parchment)',letterSpacing:'0.1em',textTransform:'uppercase'}}>{imgViewer.name}</div>
+            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:'var(--parchment)',letterSpacing:'0.1em',textTransform:'uppercase'}}>{imgViewer.name}</div>
             <button onClick={()=>setImgViewer(null)}
-              style={{padding:'6px 20px',fontFamily:"'Cinzel',serif",fontSize:11,background:'rgba(232,213,163,0.10)',border:'1px solid rgba(232,213,163,0.28)',color:'var(--text-secondary)',borderRadius:4,cursor:'pointer',letterSpacing:'0.08em'}}>
+              style={{padding:'6px 20px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,background:'rgba(232,213,163,0.10)',border:'1px solid rgba(232,213,163,0.28)',color:'var(--text-secondary)',borderRadius:4,cursor:'pointer',letterSpacing:'0.08em'}}>
               ✕ Schließen
             </button>
           </div>
@@ -4265,7 +4267,7 @@ function App() {
             display:'flex',flexDirection:'column'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
               padding:'10px 14px',background:'#0d0905',borderBottom:'1px solid #2a1e10',flexShrink:0}}>
-              <span style={{fontFamily:"'Cinzel',serif",fontSize:12,color:'#c9a84c',
+              <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'#c9a84c',
                 textTransform:'uppercase',letterSpacing:'0.12em'}}>🎰 Taverne des Glücks</span>
               <button onClick={()=>setShowSlots(false)} style={{
                 background:'none',border:'1px solid #2a1e10',color:'#7a6040',
@@ -4293,13 +4295,13 @@ function App() {
         return (
           <div className="form-overlay">
             <div className="form-modal" style={{maxWidth:600,height:'85vh',display:'flex',flexDirection:'column'}}>
-              <div className="form-title">📚 Datenbank verwalten {isDmMode && <span style={{fontSize:11,color:'#c060a0',fontFamily:"'Cinzel',serif",marginLeft:8}}>🔮 DM-Modus</span>}</div>
+              <div className="form-title">📚 Datenbank verwalten {isDmMode && <span style={{fontSize:11,color:'#c060a0',fontFamily:"'Roboto Condensed',sans-serif",marginLeft:8}}>🔮 DM-Modus</span>}</div>
 
               {/* Tabs */}
               <div style={{display:'flex',gap:4,marginBottom:14,flexShrink:0}}>
                 {types.map(t=>(
                   <button key={t.k} onClick={()=>{setDbTab(t.k);setDbForm(null);setDbFormId(null);setDbGradeFilter('');setDbExpandedEntry(null);}}
-                    style={{flex:1,padding:'7px 4px',fontFamily:"'Cinzel',serif",fontSize:11,cursor:'pointer',border:'1px solid',borderRadius:4,
+                    style={{flex:1,padding:'7px 4px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,cursor:'pointer',border:'1px solid',borderRadius:4,
                       borderColor:dbTab===t.k?'var(--gold)':'var(--border)',
                       background:dbTab===t.k?'var(--bg-panel)':'var(--bg-card)',
                       color:dbTab===t.k?'var(--gold)':'var(--text-muted)'}}>
@@ -4311,7 +4313,7 @@ function App() {
               {/* Form or List */}
               {dbForm ? (
                 <div style={{flex:1,overflowY:'auto'}}>
-                  <div style={{fontFamily:"'Cinzel',serif",fontSize:12,color:'var(--gold)',marginBottom:12}}>{dbFormId?'Eintrag bearbeiten':'Neuer Eintrag'}</div>
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--gold)',marginBottom:12}}>{dbFormId?'Eintrag bearbeiten':'Neuer Eintrag'}</div>
 
                   {/* SPELL FORM */}
                   {dbTab==='spell' && (
@@ -4359,7 +4361,7 @@ function App() {
                           {['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c=>{
                             const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=(dbForm.classes||[]).includes(c);
                             return <button key={c} type="button" onClick={()=>setDbForm(f=>({...f,classes:on?(f.classes||[]).filter(x=>x!==c):[...(f.classes||[]),c]}))}
-                              style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>{c}</button>;
+                              style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>{c}</button>;
                           })}
                         </div>
                       </div>
@@ -4370,7 +4372,7 @@ function App() {
                             const on=(dbForm.damageTags||[]).includes(d);
                             const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'}[d]||'#aaa';
                             return <button key={d} type="button" onClick={()=>setDbForm(f=>({...f,damageTags:on?(f.damageTags||[]).filter(x=>x!==d):[...(f.damageTags||[]),d]}))}
-                              style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>⚔️ {d}</button>;
+                              style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>⚔️ {d}</button>;
                           })}
                         </div>
                       </div>
@@ -4404,7 +4406,7 @@ function App() {
                           {WPN_PROPS.map(p=>{
                             const on=(dbForm.properties||[]).includes(p);
                             return <button key={p} onClick={()=>setDbForm(f=>({...f,properties:on?(f.properties||[]).filter(x=>x!==p):[...(f.properties||[]),p]}))}
-                              style={{padding:'4px 12px',borderRadius:12,border:'1px solid',fontFamily:"'Cinzel',serif",fontSize:10,cursor:'pointer',
+                              style={{padding:'4px 12px',borderRadius:12,border:'1px solid',fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:'pointer',
                                 borderColor:on?'var(--gold)':'var(--border)',background:on?'var(--bg-panel)':'var(--bg-card)',color:on?'var(--gold)':'var(--text-muted)'}}>{p}</button>;
                           })}
                         </div>
@@ -4458,7 +4460,7 @@ function App() {
                         <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:6,marginTop:4}}>
                           {[['str','STR'],['dex','GES'],['con','KON'],['int','INT'],['wis','WEI'],['cha','CHA']].map(([k,l])=>(
                             <div key={k}>
-                              <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textAlign:'center',marginBottom:3,letterSpacing:'0.1em'}}>{l}</div>
+                              <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textAlign:'center',marginBottom:3,letterSpacing:'0.1em'}}>{l}</div>
                               <input className="form-input" type="number" min={1} max={30} style={{textAlign:'center',padding:'6px 4px'}} value={dbForm[k]} onChange={e=>setDbForm(f=>({...f,[k]:+e.target.value}))}/>
                             </div>
                           ))}
@@ -4509,7 +4511,7 @@ function App() {
                                 <div className="form-title" style={{marginBottom:10}}>Icon wählen</div>
                                 {ICON_CATS2.map(cat=>(
                                   <div key={cat.label} style={{marginBottom:8}}>
-                                    <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{cat.label}</div>
+                                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{cat.label}</div>
                                     <div className="icon-picker-grid">
                                       {cat.icons.map(ic=>(
                                         <button key={ic} className={"icon-picker-btn"+((dbForm.icon||'🎒')===ic?" selected":"")}
@@ -4667,7 +4669,7 @@ function App() {
                                       window[wkt]=on?activeTags.filter(x=>x!==t):[...activeTags,t];
                                       setDbListTick(n=>n+1);
                                     }}
-                                    style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',
+                                    style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',
                                       border:`1px solid ${on?col:col+'50'}`,background:on?col+'20':'transparent',
                                       color:on?col:'var(--text-muted)'}}>
                                     {t}
@@ -4683,7 +4685,7 @@ function App() {
                             </div>
                           )}
                           {(q||activeTags.length>0) && (
-                            <div style={{fontSize:10,color:'var(--text-muted)',fontFamily:"'Cinzel',serif",marginTop:4}}>
+                            <div style={{fontSize:10,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",marginTop:4}}>
                               {filtered.length} / {entries.length} Einträge
                             </div>
                           )}
@@ -4706,7 +4708,7 @@ function App() {
                                       <div style={{flex:1,minWidth:0}}>
                                         <div style={{display:'flex',alignItems:'center',gap:6}}>
                                           {dbTab==='item' && <span style={{fontSize:16}}>{e.icon||'🎒'}</span>}
-                                          <div style={{fontFamily:"'Cinzel',serif",fontSize:13,color:'var(--text-primary)'}}>{e.name}</div>
+                                          <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:'var(--text-primary)'}}>{e.name}</div>
                                         </div>
                                         <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
                                           {dbTab==='spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`}
@@ -4723,7 +4725,7 @@ function App() {
                                         {dbTab==='spell' && (<>
                                           <div><strong>Reichw.</strong> {e.range||'—'} · <strong>Dauer</strong> {e.duration||'—'} · <strong>Komp.</strong> {e.components||'—'}</div>
                                           {(e.classes||[]).length>0 && <div style={{marginTop:4}}><strong>Klassen:</strong> {e.classes.join(', ')}</div>}
-                                          {e.description && <div style={{marginTop:6,fontFamily:"'EB Garamond',serif",fontSize:13,color:'var(--text-secondary)',whiteSpace:'pre-wrap'}}>{e.description.slice(0,300)}{e.description.length>300?'…':''}</div>}
+                                          {e.description && <div style={{marginTop:6,fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-secondary)',whiteSpace:'pre-wrap'}}>{e.description.slice(0,300)}{e.description.length>300?'…':''}</div>}
                                         </>)}
                                         {dbTab==='weapon' && (<>
                                           <div><strong>Reichw.</strong> {e.range||'—'} · <strong>Eigenschaften:</strong> {(e.properties||[]).join(', ')||'—'}</div>
@@ -4828,7 +4830,7 @@ function App() {
               </div>
               <div className="form-group form-full" style={{display:'flex',alignItems:'center',gap:10}}>
                 <input type="checkbox" id="eq-equipped" checked={!!eqForm.equipped} onChange={e=>setEqForm({...eqForm,equipped:e.target.checked})} style={{width:16,height:16,cursor:'pointer',accentColor:'var(--gold)'}} />
-                <label htmlFor="eq-equipped" style={{fontFamily:"'Cinzel',serif",fontSize:12,color:'var(--text-muted)',cursor:'pointer'}}>Jetzt anlegen</label>
+                <label htmlFor="eq-equipped" style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-muted)',cursor:'pointer'}}>Jetzt anlegen</label>
               </div>
             </div>
             <div className="form-actions">
@@ -4849,7 +4851,7 @@ function App() {
         <div className="form-overlay">
           <div className="form-modal" style={{maxWidth:380}}>
             <div className="form-title" style={{color:'#c060a0'}}>🔮 DM-Modus betreten</div>
-            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:16,fontFamily:"'EB Garamond',serif"}}>
+            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:16,fontFamily:"'Roboto',sans-serif"}}>
               Gib das DM-Passwort ein um Zugriff auf den Dungeon Master Bereich zu erhalten.
             </div>
             <div className="form-group">
@@ -4887,7 +4889,7 @@ function App() {
             <div style={{display:"flex",gap:0,marginBottom:16,borderRadius:4,overflow:"hidden",border:"1px solid var(--border)"}}>
               {[["login","🔑 Anmelden"],["register","✦ Neue Gruppe"]].map(([m,l])=>(
                 <button key={m} onClick={()=>{setSetupMode(m);setSetupErr('');}}
-                  style={{flex:1,padding:"9px 4px",fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:"0.08em",
+                  style={{flex:1,padding:"9px 4px",fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,letterSpacing:"0.08em",
                     cursor:"pointer",border:"none",
                     background:setupMode===m?"var(--gold-dim)":"var(--bg-card)",
                     color:setupMode===m?"var(--gold-bright)":"var(--text-muted)"}}>
@@ -4907,7 +4909,7 @@ function App() {
                 <input className="form-input" placeholder="z.B. ABENTEURER" maxLength={20}
                   value={setupForm.code}
                   onChange={e=>setSetupForm({...setupForm,code:e.target.value.toUpperCase()})}
-                  style={{fontFamily:"'Cinzel Decorative',serif",letterSpacing:"0.1em"}} />
+                  style={{fontFamily:"'Roboto Condensed',sans-serif",letterSpacing:"0.1em"}} />
                 <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>Buchstaben, Zahlen, - und _ erlaubt</div>
               </div>
               <div className="form-group">
@@ -4945,7 +4947,7 @@ function App() {
           <div className="form-modal" style={{maxWidth:580}}>
             <div className="form-title">
               {showTpl==='spell' ? '📖 Zauber aus SRD wählen' : showTpl==='wildshape' ? '🐺 Tierverwandlung – Bestiar' : '📖 Waffe aus SRD wählen'}
-              <span style={{fontSize:11,fontFamily:"'EB Garamond',serif",color:"var(--text-muted)",marginLeft:10,fontWeight:"normal"}}>SRD 5.1 – Creative Commons</span>
+              <span style={{fontSize:11,fontFamily:"'Roboto',sans-serif",color:"var(--text-muted)",marginLeft:10,fontWeight:"normal"}}>SRD 5.1 – Creative Commons</span>
             </div>
             <div className="tpl-search-bar">
               <input className="tpl-search-input" placeholder="Suchen..." autoFocus
@@ -4973,13 +4975,13 @@ function App() {
               return (
                 <>
                   <div className="ws-filters">
-                    <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:"var(--text-muted)",alignSelf:"center"}}>CR:</span>
+                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:"var(--text-muted)",alignSelf:"center"}}>CR:</span>
                     {['all',...allCRs].map(cr => (
                       <button key={cr} className={"ws-filter-btn"+(wsFilter.cr===cr?" active":"")} onClick={()=>setWsFilter(f=>({...f,cr:cr}))}>{cr==='all'?'Alle':cr}</button>
                     ))}
                   </div>
                   <div className="ws-filters">
-                    <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:"var(--text-muted)",alignSelf:"center"}}>Tag:</span>
+                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:"var(--text-muted)",alignSelf:"center"}}>Tag:</span>
                     {['all',...allTags].map(tag => (
                       <button key={tag} className={"ws-filter-btn"+(wsFilter.tag===tag?" active":"")} onClick={()=>setWsFilter(f=>({...f,tag:tag}))}>{tag==='all'?'Alle':tag}</button>
                     ))}
@@ -4993,7 +4995,7 @@ function App() {
                           <div className="ws-card-header" onClick={()=>setWsExpand(isExp?null:('cust_'+w.name))}>
                             <div className="ws-cr-badge" style={{borderColor:'var(--gold-dim)',color:'var(--gold)'}}>CR {w.cr}</div>
                             <div style={{flex:1}}>
-                              <div className="ws-card-name">{w.name} <span style={{fontSize:9,color:'var(--gold)',fontFamily:"'Cinzel',serif"}}>★</span></div>
+                              <div className="ws-card-name">{w.name} <span style={{fontSize:9,color:'var(--gold)',fontFamily:"'Roboto Condensed',sans-serif"}}>★</span></div>
                               <div className="ws-card-meta">{w.size} · {w.type} · RK {w.ac} · TP {w.hp}</div>
                               <div className="ws-tags">{(w.tags||[]).map(t=><span className="ws-tag" key={t}>{t}</span>)}</div>
                             </div>
@@ -5082,7 +5084,7 @@ function App() {
                     {CLASSES_LIST.map(c=>{
                       const on=tplClassFilter.includes(c);const col=CLASS_COLORS_MAP[c]||'#c9a84c';
                       return <button key={c} onClick={()=>setTplClassFilter(f=>on?f.filter(x=>x!==c):[...f,c])}
-                        style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',
+                        style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',
                           border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>
                         {c}
                       </button>;
@@ -5091,20 +5093,20 @@ function App() {
                       const on=tplDmgFilter.includes(d);
                       const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0','Schall':'#c0a0e0'}[d]||'#aaa';
                       return <button key={d} onClick={()=>setTplDmgFilter(f=>on?f.filter(x=>x!==d):[...f,d])}
-                        style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Cinzel',serif",fontSize:9,cursor:'pointer',
+                        style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',
                           border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>
                         ⚔️ {d}
                       </button>;
                     })}
                     {hasTagFilter && <button onClick={()=>{setTplClassFilter([]);setTplDmgFilter([]);}}
-                      style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:10,fontFamily:"'Cinzel',serif",padding:'2px 6px'}}>
+                      style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:10,fontFamily:"'Roboto Condensed',sans-serif",padding:'2px 6px'}}>
                       ✕ zurücksetzen
                     </button>}
                   </div>
                   <div className="tpl-count">{filtered.length + customSpells.length} Zauber gefunden</div>
                   <div className="tpl-list">
                     {customSpells.length>0 && (<>
-                      <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--gold)',letterSpacing:'0.15em',marginBottom:6,paddingBottom:4,borderBottom:'1px solid var(--border)'}}>★ EIGENE EINTRÄGE</div>
+                      <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--gold)',letterSpacing:'0.15em',marginBottom:6,paddingBottom:4,borderBottom:'1px solid var(--border)'}}>★ EIGENE EINTRÄGE</div>
                       {customSpells.map((s,i) => {
                         const sc = SC[s.school]||SC["Hervorrufung"];
                         return (
@@ -5148,7 +5150,7 @@ function App() {
                   <div className="tpl-count">{filtered.length + customWeapons.length} Waffen gefunden</div>
                   <div className="tpl-list">
                     {customWeapons.length>0 && (<>
-                      <div style={{fontFamily:"'Cinzel',serif",fontSize:9,color:'var(--gold)',letterSpacing:'0.15em',marginBottom:6,paddingBottom:4,borderBottom:'1px solid var(--border)'}}>★ EIGENE EINTRÄGE</div>
+                      <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--gold)',letterSpacing:'0.15em',marginBottom:6,paddingBottom:4,borderBottom:'1px solid var(--border)'}}>★ EIGENE EINTRÄGE</div>
                       {customWeapons.map((w,i) => (
                         <div className="tpl-item" key={'c'+i} style={{borderColor:'var(--gold-dim)'}}>
                           <div className="tpl-item-orb" style={{backgroundColor:"var(--crimson)",borderColor:"#a02020",color:"#e87070",fontSize:10}} onClick={()=>pickWeapon(w)}>{w.damage}</div>
