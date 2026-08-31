@@ -12,6 +12,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Regeldaten und reine Hilfsfunktionen liegen ausgelagert; beide sind
+       klassische Skripte ohne JSX und muessen vor dem Anwendungscode laufen. -->
+  <script src="js/data.js"></script>
+  <script src="js/util.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
@@ -69,6 +74,14 @@
     const apiDmLoad        = (url, code, pass, dmPass)   => apiRequest(url, 'dm_load',         { code, password: pass, dm_password: dmPass });
     const apiDmSaveLibrary = (url, code, pass, dmPass, dmLibrary) => apiRequest(url, 'dm_save_library', { code, password: pass, dm_password: dmPass, dm_library: dmLibrary });
     const apiSetDmPassword = (url, code, pass, dmPass)   => apiRequest(url, 'set_dm_password', { code, password: pass, dm_password: dmPass });
+    // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
+    // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils
+    // dreizeilig — jede Umbenennung haette alle elf treffen muessen.
+    const serverCreds = () => ({
+      url:  localStorage.getItem('sv_url')  || '',
+      code: localStorage.getItem('sv_code') || '',
+      pass: localStorage.getItem('sv_pass') || '',
+    });
     const safeSetItem = (key, value) => {
       try {
         if (typeof value === 'string' && value.length > 2500000) return; // >2.5MB — skip, too large
@@ -92,949 +105,6 @@
 
 
 
-const styles = `
-  /* Schriften werden im <head> geladen, nicht mehr per @import von hier. */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    /* Neutrale dunkle Flaechen mit rotem Akzent, angelehnt an D&D Beyond.
-       Die Variablennamen (--gold, --parchment) sind historisch und werden
-       an ueber 200 Stellen referenziert; sie tragen jetzt Rot bzw. Hellgrau.
-       --gold ist der Akzent als Schrift (heller, damit lesbar), --crimson
-       derselbe Akzent als Flaeche. */
-    --bg-void: #0f1011; --bg-deep: #141618; --bg-card: #1a1c1e;
-    --bg-panel: #212427; --bg-hover: #2a2e32;
-    --border: #2e3236; --border-bright: #454b52;
-    --gold: #e05a5a; --gold-bright: #f07878; --gold-dim: #8f3030;
-    --crimson: #c53131; --crimson-bright: #e04545;
-    --parchment: #e4e6e8; --parchment-dim: #b8bdc2;
-    --text-primary: #e4e6e8; --text-secondary: #b8bdc2; --text-muted: #8b9198;
-    --arcane: #6a3fa0; --arcane-bright: #9b59b6;
-  }
-  body { font-family:'Roboto',sans-serif; background:var(--bg-void); color:var(--text-primary); min-height:100vh; }
-
-  .app { display:flex; height:100vh; overflow:hidden; position:relative; }
-  .sidebar { width:260px; min-width:260px; background:var(--bg-deep); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; transform:translateX(0); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); }
-  .sidebar.collapsed { transform:translateX(-260px); margin-right:-260px; }
-  .sidebar-toggle { position:fixed; top:50%; transform:translateY(-50%); z-index:20; background:var(--bg-deep); border:1px solid var(--border); border-left:none; border-radius:0 5px 5px 0; padding:12px 5px; cursor:pointer; color:var(--text-muted); font-size:11px; line-height:1; transition:left 0.25s ease, background 0.15s, color 0.15s; }
-  .sidebar-toggle:hover { background:var(--bg-panel); color:var(--gold); border-color:var(--border-bright); }
-  @media (max-width:1024px) { .sidebar-toggle { display:none !important; } }
-  .sidebar-header { padding:20px 16px 12px; border-bottom:1px solid var(--border); text-align:center; }
-  .sidebar-title { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--gold); line-height:1.4; }
-  .sidebar-subtitle { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); letter-spacing:0.15em; text-transform:uppercase; margin-top:4px; }
-  .char-list { flex:1; overflow-y:auto; padding:8px; }
-  .char-list::-webkit-scrollbar { width:4px; }
-  .char-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
-  .char-item { padding:10px 12px; margin-bottom:4px; border-radius:4px; cursor:pointer; border:1px solid transparent; transition:all 0.2s; position:relative; }
-  .char-item:hover { background:var(--bg-hover); border-color:var(--border); }
-  .char-item.active { background:var(--bg-panel); border-color:var(--gold-dim); }
-  .char-item.active::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold); border-radius:4px 0 0 4px; }
-  .char-item-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); }
-  .char-item-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
-  .char-level-badge { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:var(--bg-void); border:1px solid var(--border); border-radius:3px; padding:1px 6px; font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--gold-dim); }
-  .btn-new { margin:8px; padding:10px; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; border-radius:4px; color:var(--parchment); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.08em; }
-  .btn-new:hover { background:linear-gradient(135deg,var(--crimson-bright),var(--crimson)); }
-  .main { flex:1; overflow-y:auto; background:var(--bg-void); padding-bottom:72px; }
-  .main::-webkit-scrollbar { width:6px; }
-  .main::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-
-  .empty-state { height:100%; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:16px; padding:40px; }
-  .empty-rune { font-size:80px; opacity:0.2; }
-  .empty-title { font-family:'Roboto Condensed',sans-serif; font-size:20px; }
-  .empty-sub { font-size:14px; opacity:0.6; text-align:center; }
-
-  .sheet { padding:24px; max-width:900px; margin:0 auto; }
-  .app.sb-collapsed .sheet { max-width:none; }
-  .app.sb-collapsed .sticky-header { margin-left:-24px; margin-right:-24px; }
-  .sheet-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); position:relative; }
-  .sheet-header::after { content:''; position:absolute; bottom:-1px; left:0; width:120px; height:1px; background:var(--gold); }
-  .char-name { font-family:'Roboto Condensed',sans-serif; font-size:28px; color:var(--gold); line-height:1.2; }
-  .char-meta { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--parchment-dim); margin-top:6px; }
-
-  /* Heldenwechsel im Bogenkopf (alle Größen) */
-  .char-switch { display:flex; align-items:center; gap:6px; min-width:0; position:relative; }
-  .char-step { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; background:none; border:1px solid transparent; border-radius:4px; color:var(--gold-dim); font-size:15px; cursor:pointer; transition:color 0.15s, border-color 0.15s; }
-  .char-step:hover { color:var(--gold); border-color:var(--border-bright); }
-  .char-name-btn { display:flex; align-items:baseline; gap:8px; min-width:0; background:none; border:none; padding:0; cursor:pointer; text-align:left; }
-  .char-name-btn .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .char-name-caret { font-size:13px; color:var(--gold-dim); flex-shrink:0; transition:transform 0.15s; }
-  .char-name-btn:hover .char-name-caret { color:var(--gold); }
-  .char-switch.open .char-name-caret { transform:rotate(180deg); }
-  .char-switch-menu { position:absolute; top:calc(100% + 6px); left:38px; z-index:30; min-width:230px; max-width:320px; max-height:50vh; overflow-y:auto; background:var(--bg-panel); border:1px solid var(--border-bright); border-radius:6px; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:4px; }
-  .char-switch-item { display:flex; align-items:center; gap:8px; width:100%; padding:8px 10px; background:none; border:none; border-radius:4px; cursor:pointer; text-align:left; }
-  .char-switch-item:hover { background:var(--bg-hover); }
-  .char-switch-item.current { background:var(--bg-card); }
-  .char-switch-item-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; border:1px solid; }
-  .char-switch-item-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .char-switch-item-sub { font-size:11px; color:var(--text-muted); margin-left:auto; flex-shrink:0; font-family:'Roboto Condensed',sans-serif; }
-  @media (hover:none), (pointer:coarse) {
-    .char-step { width:44px; height:44px; font-size:17px; }
-    .char-switch-menu { left:50px; }
-    .char-switch-item { min-height:44px; }
-  }
-  @media (max-width:640px) {
-    /* Auf dem Handy füllt die Liste die Bogenbreite, statt rechts
-       aus dem Bildschirm zu laufen. */
-    .char-switch-menu { left:0; right:0; max-width:none; }
-  }
-  .class-badges { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
-  .saves-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px; }
-  .save-box { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:8px 10px; cursor:pointer; }
-  .save-box:hover { border-color:var(--border-bright); }
-  .save-box.prof { border-color:var(--gold-dim); background:var(--bg-panel); }
-  .save-pip { width:14px; height:14px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); flex-shrink:0; }
-  .save-box.prof .save-pip { background:var(--gold-dim); border-color:var(--gold); }
-  .save-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); text-transform:uppercase; flex:1; }
-  .save-box.prof .save-label { color:var(--text-secondary); }
-  .save-value { font-family:'Roboto Condensed',sans-serif; font-size:14px; font-weight:600; }
-  .save-box.prof .save-value { color:var(--gold); }
-  .multiclass-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-  .multiclass-row select, .multiclass-row input { flex:1; }
-  .btn-sm-del { padding:4px 8px; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); cursor:pointer; font-size:12px; }
-  .btn-sm-del:hover { border-color:var(--crimson); color:var(--crimson-bright); }
-  .btn-sm-add { padding:5px 10px; background:none; border:1px dashed var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; width:100%; margin-top:4px; }
-  .btn-sm-add:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
-  .class-badge { padding:6px 14px; border-radius:3px; font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; border:1px solid; }
-  .header-actions { display:flex; gap:8px; }
-  .btn-icon { padding:7px 12px; border-radius:3px; font-size:12px; cursor:pointer; border:1px solid var(--border); background:var(--bg-panel); color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; }
-  .btn-icon:hover { border-color:var(--border-bright); color:var(--text-primary); }
-  .btn-delete:hover { border-color:var(--crimson); color:var(--crimson-bright); }
-
-  .hp-bar-container { margin-bottom:20px; }
-  .hp-bar-label { display:flex; justify-content:space-between; font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); margin-bottom:6px; }
-  .hp-bar-track { height:12px; background:var(--bg-card); border:1px solid var(--border); border-radius:2px; overflow:hidden; position:relative; }
-  .hp-bar-fill { height:100%; background:linear-gradient(90deg,#6b1010,var(--crimson-bright)); transition:width 0.5s; border-radius:2px; }
-
-  .sticky-header { position:sticky; top:0; z-index:10; background:var(--bg-void); margin:-8px -24px 0; padding:8px 24px 0; margin-bottom:12px; }
-  .combat-row { display:flex; gap:8px; flex-wrap:wrap; padding-bottom:6px; }
-  .res-mini-bar { display:flex; flex-wrap:wrap; align-items:center; padding:4px 0 6px; min-height:24px; gap:6px; }
-  /* Die mitscrollende Leiste ist reine Anzeige — kein cursor:pointer und
-     keine Hover-Flächen. Umgeschaltet wird in den eigenen Bereichen
-     (slot-pip, sorcery-pip), damit ein Fehlgriff hier keinen Zauberplatz
-     verbraucht. Die title-Tooltips bleiben erhalten. */
-  .res-mini-group { display:flex; align-items:center; gap:3px; flex:0 0 auto; padding:2px 6px; border-radius:3px; }
-  .res-mini-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); letter-spacing:0.06em; margin-right:2px; white-space:nowrap; flex-shrink:0; }
-  .res-mini-pip { display:inline-block; width:9px; height:9px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); flex-shrink:0; transition:all 0.12s; }
-  .res-mini-pip.on { background:var(--gold-dim); border-color:var(--gold); box-shadow:0 0 3px rgba(201,168,76,0.5); }
-  .res-mini-slot-grade { font-family:'Roboto Condensed',sans-serif; font-size:8px; color:var(--text-muted); min-width:8px; }
-  .res-mini-sep { width:1px; background:var(--border); align-self:stretch; flex-shrink:0; margin:0 2px; }
-  .res-mini-slot-group { display:flex; align-items:center; gap:2px; padding:2px 3px; border-radius:3px; }
-  .combat-box { flex:1; min-width:80px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:10px; text-align:center; }
-  .combat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
-  .combat-label-short { display:none; font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; }
-  .combat-value { font-family:'Roboto Condensed',sans-serif; font-size:22px; color:var(--gold); margin-top:4px; }
-
-  .tabs { display:none; }
-  .tab { padding:10px 20px; font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; border-radius:4px 4px 0 0; }
-  .tab:hover { color:var(--text-secondary); background:var(--bg-panel); }
-  .tab.active { color:var(--gold); border-bottom-color:var(--gold); background:var(--bg-panel); }
-
-  .stats-section { margin-bottom:24px; }
-  .section-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:12px; }
-  .stats-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
-  .stat-box { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:12px 8px; text-align:center; }
-  .stat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.15em; color:var(--text-muted); text-transform:uppercase; }
-  .stat-value { font-family:'Roboto Condensed',sans-serif; font-size:26px; color:var(--text-primary); line-height:1.1; margin:4px 0; }
-  .stat-mod { font-family:'Roboto Condensed',sans-serif; font-size:12px; padding:2px 8px; border-radius:2px; background:var(--bg-void); border:1px solid var(--border); color:var(--gold-dim); display:inline-block; }
-
-  .skills-layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px; }
-  .skill-group { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
-  .skill-group-header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); background:var(--bg-panel); }
-  .skill-attr-badge { font-family:'Roboto Condensed',sans-serif; font-size:10px; font-weight:700; padding:2px 7px; border-radius:2px; background:var(--bg-void); border:1px solid; }
-  .skill-attr-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
-  .skill-attr-mod { font-family:'Roboto Condensed',sans-serif; font-size:15px; margin-left:auto; }
-  .skill-row { display:flex; align-items:center; gap:8px; padding:6px 12px; border-bottom:1px solid var(--border); }
-  .skill-row:last-child { border-bottom:none; }
-  .skill-row:hover { background:var(--bg-hover); }
-  .skill-prof-btn { width:16px; height:16px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:8px; }
-  .skill-prof-btn.expertise { width:22px; font-size:7px; }
-  .chip-remove { padding:2px 4px; }
-  .joat-toggle { padding:3px 10px; }
-  .skill-prof-btn.active { background:var(--gold-dim); border-color:var(--gold); }
-  .skill-name { font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); flex:1; }
-  .skill-value { font-family:'Roboto Condensed',sans-serif; font-size:13px; font-weight:600; min-width:28px; text-align:right; }
-  .skill-value.prof { color:var(--gold); }
-  .skill-value.no-prof { color:var(--text-muted); }
-
-  /* Die frühere Waffentabelle (.weapon-table/.weapon-row/.wn-*) ist durch die
-     Waffenkarten weiter unten ersetzt; ihre Regeln sind mit ihr entfallen.
-     Tags durchgehend ausgefüllt statt nur umrandet, Beschriftung eine Stufe
-     heller (text-secondary statt text-muted): hebt den Textkontrast von
-     4,53:1 auf rund 7,6:1. */
-  .weapon-props { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
-
-  /* ── Waffen als Karten ────────────────────────────────────────────
-     Format wie eine Spielkarte (5:7, also 2,5 x 3,5 Zoll). Das Bild fuellt
-     die ganze Karte, Name und Kampfwerte liegen darueber. Damit der Text
-     auf jedem Bild lesbar bleibt, traegt er einen dunklen Verlauf als
-     Unterlage — nicht Transparenz, sonst haengt der Kontrast am Motiv. */
-  .weapon-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; align-items:start; margin-bottom:12px; }
-  .weapon-card { aspect-ratio:5/7; position:relative; border-radius:8px; cursor:pointer; overflow:hidden; border:2px solid var(--border); background:var(--bg-card); box-shadow:0 3px 10px rgba(0,0,0,0.5); transition:transform 0.15s,box-shadow 0.15s,border-color 0.15s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-  .weapon-card.equipped { border-color:var(--crimson); }
-  @media (hover:hover) { .weapon-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.6); } }
-  /* Bildebene fuellt die Karte vollstaendig. */
-  .weapon-card-img { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle at 50% 40%, var(--bg-hover) 0%, var(--bg-void) 100%); overflow:hidden; }
-  .weapon-card-img img { width:100%; height:100%; object-fit:cover; display:block; }
-  .weapon-card-glyph { font-size:46px; opacity:0.26; }
-  .weapon-equip-btn { position:absolute; top:6px; right:6px; width:30px; height:30px; border-radius:4px; border:1px solid rgba(255,255,255,0.35); background:rgba(0,0,0,0.6); color:var(--parchment-dim); font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; z-index:3; transition:all 0.15s; }
-  .weapon-card.equipped .weapon-equip-btn { color:var(--gold-bright); border-color:var(--crimson); background:rgba(197,49,49,0.55); }
-  /* Textebene unten, mit Verlauf gegen das Bild abgesetzt. */
-  .weapon-card-info { position:absolute; left:0; right:0; bottom:0; z-index:2; padding-top:30px;
-    background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.70) 30%, rgba(0,0,0,0.90) 60%, rgba(0,0,0,0.95) 100%); }
-  .weapon-card-name { font-family:'Roboto Condensed',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#f2f4f6; text-align:center; padding:0 7px 2px; line-height:1.25; text-shadow:0 1px 3px rgba(0,0,0,0.9); }
-  .weapon-card-meta { font-family:'Roboto',sans-serif; font-size:10px; color:var(--parchment-dim); text-align:center; padding:0 7px 6px; font-style:italic; text-shadow:0 1px 3px rgba(0,0,0,0.9); }
-  .weapon-card-stats { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid rgba(255,255,255,0.16); background:rgba(0,0,0,0.55); }
-  .weapon-card-stat { padding:4px 4px 5px; text-align:center; }
-  .weapon-card-stat + .weapon-card-stat { border-left:1px solid rgba(255,255,255,0.16); }
-  .weapon-card-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:8px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--parchment-dim); }
-  .weapon-card-stat-value { font-family:'Roboto Condensed',sans-serif; font-size:14px; line-height:1.25; color:#f2f4f6; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
-  .weapon-card-stat-value.atk { color:var(--gold-bright); }
-  /* ── Effekte ──────────────────────────────────────────────────────
-     Editor im Bearbeiten-Dialog, Chips in der Anzeige. */
-  .fx-editor { display:flex; flex-direction:column; gap:6px; }
-  .fx-empty { font-size:11px; color:var(--text-muted); font-style:italic; line-height:1.5; }
-  .fx-row { display:grid; grid-template-columns:1fr 116px 66px 30px; gap:5px; align-items:center; }
-  .fx-row .form-select, .fx-row .form-input { padding:6px 7px; font-size:12px; min-height:0; }
-  .fx-value { text-align:center; }
-  .fx-del { background:none; border:1px solid var(--border); border-radius:3px; color:var(--text-muted); cursor:pointer; font-size:11px; height:30px; }
-  .fx-del:hover { color:var(--crimson-bright); border-color:var(--crimson); }
-  .fx-add { margin-top:2px; }
-  .fx-preview { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
-  .fx-chip { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.04em; padding:2px 8px; border-radius:10px; background:rgba(106,63,160,0.30); border:1px solid var(--arcane-bright); color:#d5b6ee; white-space:nowrap; }
-  /* Werte, die gerade von einem Gegenstand veraendert werden. */
-  .fx-touched { color:var(--arcane-bright) !important; }
-  .fx-mark { font-size:9px; color:var(--arcane-bright); vertical-align:super; margin-left:1px; }
-  .fx-panel { background:var(--bg-card); border:1px solid var(--arcane); border-radius:6px; padding:12px 14px; margin-bottom:16px; }
-  .fx-panel-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--arcane-bright); margin-bottom:8px; }
-  .fx-src { display:flex; align-items:baseline; gap:8px; padding:4px 0; border-top:1px solid var(--border); flex-wrap:wrap; }
-  .fx-src:first-of-type { border-top:none; }
-  .fx-src-name { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); min-width:120px; }
-  /* Handy: das Ziel bekommt eine eigene Zeile, darunter Modus/Wert/Löschen. */
-  @media (max-width:640px) {
-    .fx-row { grid-template-columns:1fr 74px 44px; grid-template-areas:"t t t" "m v d"; }
-    .fx-row .fx-target { grid-area:t; }
-    .fx-row .fx-mode { grid-area:m; }
-    .fx-row .fx-value { grid-area:v; }
-    .fx-row .fx-del { grid-area:d; }
-  }
-  /* Auf Tablets bleibt die einzeilige Aufteilung, braucht aber mehr Breite,
-     weil die Schrift dort auf Tippgroesse waechst. Die Handy-Regel oben darf
-     das nicht abbekommen, deshalb die Untergrenze. */
-  @media (hover:none) and (min-width:641px), (pointer:coarse) and (min-width:641px) {
-    .fx-row { grid-template-columns:1fr 138px 78px 44px; }
-  }
-  /* Trennt zwei Bereiche innerhalb eines Tabs deutlicher als blosser Abstand. */
-  .section-divider { height:1px; background:linear-gradient(90deg, transparent 0%, var(--border-bright) 50%, transparent 100%); margin:24px 0 18px; }
-  .prop-tag { padding:2px 8px; border-radius:2px; font-family:'Roboto Condensed',sans-serif; font-size:10px; background:var(--bg-hover); border:1px solid var(--border-bright); color:var(--text-secondary); }
-
-
-  .spell-level-group { margin-bottom:24px; }
-  .spell-level-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
-  .spell-level-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); }
-  .spell-level-count { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-muted); margin-left:auto; }
-  .spells-list { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; align-items:start; }
-  /* ── Spell card – D&D card layout ── */
-  /* Dunkle Karte im D&D-Beyond-Schema; die Zauberschule traegt der farbige
-     Kopfbalken und der Rahmen. */
-  .spell-card { border-radius:6px; cursor:pointer; position:relative; overflow:hidden; border:2px solid; background:var(--bg-card); display:flex; flex-direction:column; transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; box-shadow:0 3px 10px rgba(0,0,0,0.5); }
-  @media (hover:hover) { .spell-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.6); } }
-  /* Header: name + level/school bar */
-  .spell-card-header { display:flex; flex-direction:column; align-items:center; padding:6px 8px 5px; text-align:center; position:relative; }
-  .spell-card-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; font-weight:700; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.06em; line-height:1.2; }
-  .spell-card-school-label { font-family:'Roboto',sans-serif; font-size:10px; color:var(--parchment-dim); margin-top:2px; font-style:italic; }
-  /* Stats grid: 2×2 like the card */
-  /* Hintergrund gehoert hierher, nicht als Inline-Stil: die Karte ist dunkel,
-     die Werte stehen in --text-primary. Ein heller Grund liess sie unsichtbar
-     werden (weiss auf weiss). */
-  .spell-card-stats-grid { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid rgba(255,255,255,0.09); background:var(--bg-panel); }
-  .spell-card-stat-cell { padding:5px 7px; border-right:1px solid rgba(255,255,255,0.09); border-bottom:1px solid rgba(255,255,255,0.09); }
-  .spell-card-stat-cell:nth-child(even) { border-right:none; }
-  .spell-card-stat-cell:nth-last-child(-n+2) { border-bottom:none; }
-  .spell-card-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1px; }
-  .spell-card-stat-value { font-family:'Roboto',sans-serif; font-size:12px; color:var(--text-primary); line-height:1.2; }
-  /* Body: description area */
-  .spell-card-body { background:var(--bg-card); flex:1; display:flex; flex-direction:column; }
-  .spell-card-desc-wrap { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.45s ease; overflow:hidden; }
-  .spell-card-desc-wrap > div { min-height:0; }
-  .spell-card.expanded .spell-card-desc-wrap { grid-template-rows:1fr; }
-  .spell-card-desc { font-family:'Roboto',sans-serif; font-size:12px; color:var(--text-secondary); line-height:1.5; padding:7px 8px 6px; white-space:pre-wrap; border-top:1px solid rgba(255,255,255,0.09); }
-  /* Tags row */
-  .spell-card-tags { display:flex; flex-wrap:wrap; gap:3px; padding:4px 7px; border-top:1px solid rgba(255,255,255,0.07); background:var(--bg-panel); }
-  /* Footer: school name + prep toggle */
-  .spell-card-footer { display:flex; align-items:center; justify-content:space-between; padding:3px 7px; border-top:1px solid rgba(255,255,255,0.09); }
-  .spell-card-school-footer { font-family:'Roboto Condensed',sans-serif; font-size:8px; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; }
-  /* Actions */
-  .spell-actions { display:flex; gap:2px; }
-  .spell-delete { background:rgba(255,255,255,0.10); border:none; color:var(--text-muted); cursor:pointer; font-size:10px; padding:2px 5px; border-radius:3px; }
-  .spell-card:hover .spell-delete { color:var(--text-primary); }
-  .spell-edit-btn { background:rgba(0,0,0,0.5); border:none; color:var(--text-secondary); cursor:pointer; font-size:11px; padding:2px 5px; border-radius:3px; font-family:'Roboto Condensed',sans-serif; }
-  .spell-delete:hover { color:var(--crimson-bright); background:rgba(255,255,255,0.16); }
-  .spell-edit-btn:hover { color:var(--gold); background:rgba(0,0,0,0.7); }
-  .features-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; align-items:start; }
-  .profs-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:8px; }
-  .feature-card { border-radius:8px; cursor:pointer; position:relative; overflow:hidden; border:1px solid var(--gold-dim); background:var(--bg-deep); display:flex; flex-direction:column; transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-  @media (hover:hover) { .feature-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.5); border-color:var(--gold); } }
-  .feature-card-banner { height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; gap:8px; position:relative; flex-shrink:0; background:linear-gradient(135deg,#3a2a08 0%,#5a420f80 100%); }
-  .feature-card-orb { width:36px; height:36px; border-radius:50%; border:2px solid rgba(201,168,76,0.5); background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
-  .feature-card-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); flex:1; line-height:1.3; }
-  .feature-card-body { padding:10px 10px 8px; flex:1; display:flex; flex-direction:column; gap:4px; }
-  .feature-source { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--parchment-dim); font-style:italic; }
-  .feature-card-desc-wrap { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.25s ease; overflow:hidden; border-top:0px solid rgba(255,255,255,0.07); margin-top:0; }
-  .feature-card-desc-wrap > div { min-height:0; padding:0 10px; }
-  .feature-card.expanded .feature-card-desc-wrap { grid-template-rows:1fr; border-top-width:1px; margin-top:4px; padding-bottom:10px; }
-  .feature-card.expanded .feature-card-desc-wrap > div { padding-bottom:2px; }
-  .feature-card-desc { font-size:14px; color:var(--text-secondary); line-height:1.6; margin-top:6px; white-space:pre-wrap; }
-  .feature-actions { position:absolute; top:6px; right:6px; display:flex; gap:2px; opacity:0; transition:opacity 0.15s; background:rgba(0,0,0,0.5); border-radius:4px; padding:1px; }
-  .feature-card:hover .feature-actions { opacity:1; }
-  .slots-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:14px 16px; margin-bottom:20px; }
-  .slots-panel-header { display:flex; align-items:center; margin-bottom:10px; }
-  .panel-edit-btn { background:none; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px 8px; font-family:'Roboto Condensed',sans-serif; margin-left:auto; transition:all 0.15s; }
-  .panel-edit-btn:hover { border-color:var(--gold-dim); color:var(--gold); }
-  .panel-edit-btn.active { border-color:var(--gold-dim); color:var(--gold); background:rgba(201,168,76,0.1); }
-  .slots-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--gold-dim); margin-bottom:12px; }
-  .slots-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .slot-row { display:flex; flex-direction:column; gap:5px; }
-  .slot-row-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); text-transform:uppercase; }
-  .slot-pips { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
-  .slot-pip { width:18px; height:18px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); cursor:pointer; flex-shrink:0; }
-  .slot-pip.available { background:var(--gold-dim); border-color:var(--gold); box-shadow:0 0 5px rgba(201,168,76,0.4); }
-  .slot-pip.used { border-color:var(--border); opacity:0.3; }
-  .slot-max-btn { width:16px; height:16px; border-radius:3px; border:1px dashed var(--border); background:none; color:var(--text-muted); cursor:pointer; font-size:10px; }
-  .slot-max-btn:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
-  .slot-restore-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; }
-  .slot-restore-btn:hover { border-color:var(--arcane-bright); color:var(--arcane-bright); }
-  .sorcery-panel { background:var(--bg-card); border:1px solid var(--arcane-bright); border-radius:6px; padding:14px 16px; margin-bottom:16px; }
-  .sorcery-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--arcane-bright); margin-bottom:10px; }
-  .sorcery-pips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
-  .sorcery-pip { width:22px; height:22px; border-radius:50%; border:1px solid var(--arcane-bright); cursor:pointer; transition:all 0.15s; }
-  .sorcery-pip.available { background:var(--arcane); box-shadow:0 0 6px rgba(155,89,182,0.6); }
-  .sorcery-pip.spent { background:var(--bg-void); opacity:0.3; }
-  .resource-list { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
-  .resource-item { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 12px; position:relative; }
-  .resource-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .resource-name-label { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; }
-  .resource-del { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; opacity:0.6; padding:0 4px; }
-  .resource-del:hover { color:var(--crimson-bright); opacity:1; }
-  .resource-pips { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
-  .resource-pip { width:20px; height:20px; border-radius:4px; border:1px solid; cursor:pointer; transition:all 0.15s; }
-  .resource-restore-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; display:block; }
-  .tpl-search-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-  .tpl-search-input { flex:1; min-width:160px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'Roboto',sans-serif; font-size:14px; outline:none; }
-  .tpl-search-input:focus { border-color:var(--gold-dim); }
-  .tpl-filter-select { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-secondary); padding:8px 8px; font-family:'Roboto Condensed',sans-serif; font-size:11px; outline:none; }
-  .tpl-list { max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
-  .tpl-list::-webkit-scrollbar { width:4px; }
-  .tpl-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
-  .tpl-item { background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:10px 12px; cursor:pointer; display:flex; align-items:flex-start; gap:10px; }
-  .tpl-item:hover { border-color:var(--gold-dim); background:var(--bg-panel); }
-  .tpl-item-orb { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Roboto Condensed',sans-serif; font-size:11px; flex-shrink:0; border:1px solid; }
-  .tpl-item-body { flex:1; min-width:0; }
-  .tpl-item-name { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-primary); }
-  .tpl-item-meta { font-size:12px; color:var(--text-muted); margin-top:2px; }
-  .tpl-item-desc { font-size:12px; color:var(--text-secondary); margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .tpl-count { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); margin-bottom:8px; }
-  .ws-filters { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
-  .ws-filter-btn { padding:3px 10px; border-radius:12px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10px; cursor:pointer; }
-  .ws-filter-btn.active { border-color:#52b788; color:#52b788; background:rgba(82,183,136,0.1); }
-  .ws-card { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 12px; cursor:pointer; transition:all 0.15s; }
-  .ws-card:hover { border-color:#52b78860; }
-  .ws-card.expanded { border-color:#52b788; }
-  .ws-card-header { display:flex; align-items:center; gap:8px; }
-  .ws-cr-badge { width:32px; height:32px; border-radius:50%; background:rgba(82,183,136,0.15); border:1px solid #52b78880; display:flex; align-items:center; justify-content:center; font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#52b788; flex-shrink:0; }
-  .ws-card-name { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-primary); flex:1; }
-  .ws-card-meta { font-size:11px; color:var(--text-muted); }
-  .ws-tags { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
-  .ws-tag { padding:2px 7px; border-radius:10px; font-size:10px; background:var(--bg-hover); border:1px solid var(--border-bright); color:var(--text-secondary); }
-  .ws-stats-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin:10px 0 6px; }
-  .ws-stat { background:var(--bg-void); border:1px solid var(--border); border-radius:4px; text-align:center; padding:4px 2px; }
-  .ws-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; }
-  .ws-stat-val { font-size:14px; font-weight:bold; color:var(--text-primary); }
-  .ws-stat-mod { font-size:10px; color:var(--text-muted); }
-  .ws-abilities { font-size:12px; color:var(--text-secondary); margin-bottom:6px; line-height:1.6; }
-  .ws-actions { display:flex; flex-direction:column; gap:4px; }
-  .ws-action { background:var(--bg-void); border-radius:3px; padding:5px 8px; font-size:12px; color:var(--text-secondary); }
-  .ws-action-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-primary); margin-bottom:2px; }
-
-  .notes-area { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:14px; font-family:'Roboto',sans-serif; font-size:15px; color:var(--text-secondary); line-height:1.7; min-height:120px; white-space:pre-wrap; }
-  .inv-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
-  .inv-tag { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.06em; padding:2px 7px; border-radius:10px; border:1px solid var(--border-bright); color:var(--text-secondary); background:var(--bg-hover); text-transform:uppercase; cursor:default; }
-  .inv-tag.active { border-color:var(--gold); color:var(--gold); background:var(--gold-dim)20; }
-  .tag-filter-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  .tag-filter-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.06em; padding:4px 10px; border-radius:12px; border:1px solid var(--border-bright); color:var(--text-secondary); background:var(--bg-hover); cursor:pointer; text-transform:uppercase; transition:all 0.15s; }
-  .tag-filter-btn:hover { border-color:var(--gold-dim); color:var(--text-secondary); }
-  .tag-filter-btn.active { border-color:var(--gold); color:var(--gold); background:var(--gold-dim)25; }
-  .tag-input-wrap { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:6px; background:var(--bg-void); border:1px solid var(--border); border-radius:4px; min-height:38px; cursor:text; }
-  /* war background:var(--gold-dim)30 — kein gueltiger Farbwert, der Chip
-     blieb dadurch ungefuellt. */
-  .tag-chip { display:flex; align-items:center; gap:3px; font-family:'Roboto Condensed',sans-serif; font-size:10px; padding:2px 8px 2px 10px; border-radius:10px; background:rgba(122,96,48,0.28); border:1px solid var(--gold-dim); color:var(--gold); }
-  .tag-chip-del { cursor:pointer; font-size:12px; line-height:1; color:var(--text-muted); margin-left:2px; background:none; border:none; padding:0; }
-  .tag-chip-del:hover { color:var(--crimson-bright); }
-  .tag-text-input { background:none; border:none; outline:none; color:var(--text-primary); font-family:'Roboto',sans-serif; font-size:13px; min-width:80px; flex:1; padding:2px 4px; }
-  .note-card { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:border-color 0.2s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-  @media (hover:hover) { .note-card:hover { border-color:var(--border-bright); } }
-  .note-card-header { display:flex; align-items:center; gap:8px; }
-  .note-card-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; }
-  .note-card-preview { font-size:12px; color:var(--text-muted); margin-top:4px; font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
-  .note-card-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.25s ease; overflow:hidden; }
-  .note-card-body.open { grid-template-rows:1fr; }
-  .note-card-body > div { min-height:0; }
-  .note-del { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; padding:2px 6px; opacity:0.5; }
-  .note-del:hover { color:var(--crimson-bright); opacity:1; }
-
-  .currency-row { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:20px; }
-  .currency-box { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 8px; text-align:center; }
-  .currency-box:hover { border-color:var(--border-bright); }
-  .currency-icon { font-size:20px; line-height:1; margin-bottom:4px; }
-  .currency-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:6px; }
-  .currency-input { width:100%; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); font-family:'Roboto Condensed',sans-serif; font-size:16px; text-align:center; padding:4px 2px; outline:none; }
-  .currency-input:focus { border-color:var(--gold-dim); }
-  .inv-mobile-meta { display:none; }
-  .inv-table { width:100%; border-collapse:collapse; }
-  .inv-table th { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
-  .inv-table th.right { text-align:right; }
-  .inv-table td { padding:9px 10px; border-bottom:1px solid var(--border); font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); vertical-align:middle; }
-  .inv-table tr:hover td { background:var(--bg-hover); }
-  .inv-item-name { color:var(--text-primary); font-size:15px; }
-  .inv-item-qty { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--gold); text-align:right; }
-  .inv-item-weight { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-muted); text-align:right; }
-  .inv-item-delete { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; opacity:0; padding:2px 4px; }
-  .inv-table tr:hover .inv-item-delete { opacity:1; }
-  .inv-item-delete:hover { color:var(--crimson-bright); }
-  .inv-rarity { padding:1px 7px; border-radius:2px; font-family:'Roboto Condensed',sans-serif; font-size:10px; border:1px solid; display:inline-block; }
-  /* Inventory card grid - same layout as spell cards */
-  .inv-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:start; }
-  .inv-card { border-radius:6px; cursor:pointer; overflow:hidden; border:2px solid; background:var(--bg-panel); display:flex; flex-direction:column; box-shadow:0 3px 10px rgba(0,0,0,0.5); transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; }
-  @media (hover:hover) { .inv-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.6); } }
-  .inv-card-header { display:flex; flex-direction:column; align-items:center; padding:12px 8px 10px; text-align:center; position:relative; }
-  .inv-card-icon { font-size:28px; line-height:1; margin-bottom:6px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
-  /* Pergament statt Weiß: reines Weiß auf fast schwarzem Grund überstrahlt
-     im abgedunkelten Raum (Halation) und bricht aus der warmen Palette aus. */
-  .inv-card-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; font-weight:700; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.06em; line-height:1.3; }
-  .inv-card-rarity-label { font-family:'Roboto',sans-serif; font-size:10px; color:var(--parchment-dim); margin-top:2px; font-style:italic; }
-  .inv-card-footer { display:flex; align-items:center; justify-content:space-between; padding:3px 7px; border-top:1px solid rgba(232,213,163,0.12); background:rgba(0,0,0,0.25); }
-  .inv-card-meta { font-family:'Roboto Condensed',sans-serif; font-size:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; }
-  .inv-card-body-wrap { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.35s ease; overflow:hidden; }
-  .inv-card-body-wrap > div { min-height:0; }
-  .inv-card.expanded .inv-card-body-wrap { grid-template-rows:1fr; }
-  .inv-card-actions { display:flex; gap:2px; }
-
-  /* ── Rich Text Editor ───────────────────────────────────────── */
-  .rte-wrap { border:1px solid var(--border); border-radius:4px; overflow:hidden; background:var(--bg-card); }
-  .rte-toolbar { display:flex; gap:2px; padding:4px 6px; background:var(--bg-void); border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
-  .rte-btn { background:none; border:1px solid transparent; border-radius:3px; color:var(--text-muted); cursor:pointer; font-size:12px; padding:2px 6px; line-height:1.4; font-family:inherit; transition:all 0.1s; }
-  .rte-btn:hover { background:var(--bg-hover); border-color:var(--border); color:var(--text-primary); }
-  .rte-btn.active { background:var(--bg-panel); border-color:var(--gold-dim); color:var(--gold); }
-  .rte-btn-bold { font-weight:700; }
-  .rte-btn-italic { font-style:italic; }
-  .rte-btn-underline { text-decoration:underline; }
-  /* Hoehe setzt RichEditor inline aus rows; hier nur das Scrollverhalten,
-     damit langer Text im Feld bleibt statt den Dialog zu strecken. */
-  .rte-content { padding:8px 10px; outline:none; overflow-y:auto; box-sizing:border-box; font-family:'Roboto',sans-serif; font-size:14px; color:var(--text-secondary); line-height:1.6; }
-  .rte-content::-webkit-scrollbar { width:4px; }
-  .rte-content::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
-  .rte-content:empty::before { content:attr(data-placeholder); color:var(--text-muted); pointer-events:none; font-style:italic; }
-  .rte-content ul { margin:4px 0 4px 16px; padding:0; }
-  .rte-content ol { margin:4px 0 4px 16px; padding:0; }
-  .rte-content li { margin:2px 0; }
-  .rte-content b, .rte-content strong { color:var(--text-primary); }
-  /* Emoji picker */
-  .rte-emoji-wrap { position:relative; display:inline-block; }
-  .rte-emoji-grid { position:absolute; top:100%; left:0; background:var(--bg-panel); border:1px solid var(--border-bright); border-radius:6px; padding:6px; z-index:200; display:grid; grid-template-columns:repeat(8,28px); gap:2px; box-shadow:0 8px 24px rgba(0,0,0,0.6); max-height:180px; overflow-y:auto; }
-  .rte-emoji-item { font-size:18px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; border-radius:4px; border:none; background:none; }
-  .rte-emoji-item:hover { background:var(--bg-hover); }
-  /* Icon picker */
-  .icon-picker-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(40px,1fr)); gap:4px; max-height:300px; overflow-y:auto; overflow-x:hidden; padding:4px; }
-  .icon-picker-btn { font-size:22px; padding:6px; border-radius:6px; border:2px solid transparent; background:var(--bg-card); cursor:pointer; text-align:center; transition:all 0.1s; line-height:1; }
-  .icon-picker-btn:hover { background:var(--bg-hover); border-color:var(--gold-dim); transform:scale(1.15); }
-  .icon-picker-btn.selected { border-color:var(--gold); background:var(--bg-panel); }
-
-  .sync-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .sync-dot.ok   { background:#52b788; box-shadow:0 0 4px #52b78880; }
-  .sync-dot.busy { background:var(--gold); box-shadow:0 0 4px var(--gold-dim); animation:pulse 1s infinite; }
-  .sync-dot.err  { background:var(--crimson-bright); }
-  .sync-dot.idle { background:var(--border-bright); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  /* Fußbereich der Seitenleiste: Primäraktion, Werkzeuge, Sync — drei
-     Ebenen mit abgestuftem Gewicht statt einem Stapel gleicher Knöpfe. */
-  .sidebar-footer { padding:8px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px; }
-  .sidebar-footer .btn-new { margin:0; }
-  .sidebar-tools { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .btn-tool { padding:9px 4px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.02em; cursor:pointer; text-align:center; white-space:nowrap; }
-  .btn-tool:hover { border-color:var(--border-bright); color:var(--text-primary); background:var(--bg-hover); }
-  .sync-line { display:flex; align-items:center; gap:6px; padding:4px 2px 0; font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
-  .sync-line-code { color:var(--gold); }
-  .sync-line-msg { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sync-line-ver { margin-left:auto; font-size:9px; opacity:0.6; flex-shrink:0; }
-  .sync-actions { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:6px; }
-  .btn-sync { padding:7px 3px; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.02em; text-transform:uppercase; cursor:pointer; text-align:center; white-space:nowrap; }
-  .btn-sync:hover { border-color:var(--border-bright); color:var(--text-primary); }
-  .btn-sync.dm { border-color:#c060a0; color:#c060a0; }
-  .btn-sync.dm.active { background:rgba(192,96,160,0.1); }
-  .btn-save { padding:8px 20px; background:linear-gradient(135deg,#7a5c10,var(--gold-dim)); border:1px solid var(--gold-dim); border-radius:3px; color:var(--gold-bright); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; }
-  .btn-save:hover { background:linear-gradient(135deg,var(--gold-dim),#a07820); }
-  .btn-cancel { padding:8px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; }
-  .btn-cancel:hover { border-color:var(--border-bright); color:var(--text-primary); }
-  .btn-add { padding:8px 16px; border:1px dashed var(--border); border-radius:4px; background:none; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:11px; cursor:pointer; letter-spacing:0.08em; text-transform:uppercase; width:100%; margin-top:8px; }
-  .btn-add:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
-
-  .form-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; backdrop-filter:blur(4px); }
-  .confirm-box { background:var(--bg-deep); border:1px solid var(--border-bright); border-radius:8px; padding:28px 28px 20px; max-width:380px; width:100%; text-align:center; box-shadow:0 16px 48px rgba(0,0,0,0.7); }
-  .confirm-icon { font-size:32px; margin-bottom:12px; }
-  .confirm-msg { font-family:'Roboto',sans-serif; font-size:16px; color:var(--text-primary); line-height:1.5; margin-bottom:24px; }
-  .confirm-actions { display:flex; gap:10px; justify-content:center; }
-  .confirm-ok { padding:9px 28px; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; border-radius:4px; color:var(--parchment); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; letter-spacing:0.08em; }
-  .confirm-ok:hover { background:linear-gradient(135deg,#a02020,#8b1010); }
-  .confirm-cancel { padding:9px 20px; background:none; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; letter-spacing:0.08em; }
-  .confirm-cancel:hover { border-color:var(--border-bright); color:var(--text-secondary); }
-  .form-modal { background:var(--bg-deep); border:1px solid var(--border-bright); border-radius:8px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto; padding:24px; }
-  .form-modal::-webkit-scrollbar { width:4px; }
-  .form-modal::-webkit-scrollbar-thumb { background:var(--border-bright); }
-  .form-title { font-family:'Roboto Condensed',sans-serif; font-size:18px; color:var(--gold); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border); }
-  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
-  .form-full { grid-column:1/-1; }
-  .form-group { display:flex; flex-direction:column; gap:4px; }
-  .form-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px; }
-  .form-input, .form-select, .form-textarea { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'Roboto',sans-serif; font-size:14px; outline:none; width:100%; box-sizing:border-box; }
-  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color:var(--gold-dim); }
-  .form-select option { background:var(--bg-deep); }
-  .form-textarea { resize:vertical; min-height:80px; }
-  .form-stats { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:12px 0; }
-  .form-stat-group { display:flex; flex-direction:column; gap:4px; align-items:center; }
-  .form-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; color:var(--text-muted); text-transform:uppercase; }
-  .form-stat-input { width:100%; text-align:center; }
-  .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
-
-  .mobile-topbar { display:none; }
-  .mobile-list-screen { display:none; }
-  .mobile-bottom-nav { display:block; position:fixed; bottom:0; left:260px; right:0; background:var(--bg-deep); border-top:1px solid var(--border-bright); padding:6px 8px; z-index:20; transition:left 0.25s ease; }
-  .mobile-bottom-nav-inner-wrap { max-width:960px; margin:0 auto; display:flex; justify-content:space-around; }
-  .mobile-nav-btn { display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 16px; border-radius:8px; background:none; border:none; cursor:pointer; min-width:70px; transition:background 0.15s; }
-  .mobile-nav-btn:hover { background:var(--bg-hover); }
-  .mobile-nav-btn.active { background:var(--bg-panel); }
-  .mobile-nav-icon { font-size:20px; line-height:1; }
-  .mobile-nav-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); }
-  .mobile-nav-btn.active .mobile-nav-label { color:var(--gold); }
-  .mobile-nav-btn.active .mobile-nav-icon { filter:drop-shadow(0 0 4px var(--gold-dim)); }
-  .mobile-fab { display:none; }
-
-  @media (max-width:1024px) {
-    .app { flex-direction:column; height:100svh; }
-    .sidebar { display:none; }
-    .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-height:0; }
-    .mobile-topbar { display:flex; align-items:center; gap:10px; flex-shrink:0; padding:10px 14px; background:var(--bg-deep); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
-    .mobile-back { background:none; border:1px solid var(--border); border-radius:4px; color:var(--gold-dim); padding:6px 10px; font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; white-space:nowrap; }
-    .mobile-topbar-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .mobile-topbar-actions { display:flex; gap:6px; }
-    .mobile-list-screen { display:flex; flex-direction:column; flex:1; overflow-y:auto; background:var(--bg-deep); padding-bottom:80px; }
-    .mobile-bottom-nav { padding:4px 4px; left:0; }
-    .mobile-bottom-nav-inner { max-width:none; }
-    .mobile-nav-btn { padding:4px 8px; min-width:40px; }
-    /* Sieben Eintraege fuellen 375px fast vollstaendig aus; bei abweichenden
-       Schriftmetriken darf die Leiste seitlich scrollen statt umzubrechen. */
-    .mobile-bottom-nav-inner-wrap { overflow-x:auto; scrollbar-width:none; }
-    .mobile-bottom-nav-inner-wrap::-webkit-scrollbar { display:none; }
-    .mobile-nav-label { white-space:nowrap; }
-
-    .mobile-fab { display:flex; position:fixed; bottom:76px; right:16px; width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; color:var(--parchment); font-size:24px; align-items:center; justify-content:center; cursor:pointer; z-index:21; box-shadow:0 4px 16px rgba(139,26,26,0.5); }
-    .desktop-sheet { display:none; }
-    .mobile-sheet { display:block; flex:1; overflow-y:auto; overflow-x:hidden; padding-bottom:80px; }
-    .sheet { padding:14px 12px; }
-    .sheet-header { flex-direction:column; gap:8px; }
-    .sheet-header-right { display:none !important; }
-    .char-name { font-size:20px; }
-    .tabs { display:none; }
-    .stats-grid { grid-template-columns:repeat(3,1fr); }
-    .stat-value { font-size:22px; }
-    .sticky-header { margin:-8px -12px 0; padding:8px 12px 0; margin-bottom:8px; }
-    .combat-row { flex-wrap:nowrap; overflow-x:auto; gap:6px; scrollbar-width:none; -ms-overflow-style:none; }
-    .combat-row::-webkit-scrollbar { display:none; }
-    .combat-box { flex:1; min-width:52px; padding:5px 6px; }
-    .combat-label { display:none; }
-    .combat-label-short { display:block; font-size:8px; }
-    .combat-value { font-size:15px; margin-top:2px; }
-    .skills-layout { grid-template-columns:1fr; }
-    .spell-actions { opacity:1; }
-    .slots-grid { grid-template-columns:repeat(2,1fr); }
-    .spells-list { grid-template-columns:1fr; }
-    .features-grid { grid-template-columns:1fr; }
-    .profs-grid { grid-template-columns:1fr; }
-    .inv-grid { grid-template-columns:repeat(3,1fr); }
-    .weapon-grid { grid-template-columns:repeat(2,1fr); }
-    .icon-picker-grid { grid-template-columns:repeat(7,1fr); }
-    .slot-pip { width:22px; height:22px; }
-    .currency-row { grid-template-columns:repeat(3,1fr); }
-    .inv-item-delete { opacity:1; }
-    .inv-col-rarity { display:none; }
-    .inv-col-weight { display:none; }
-    .inv-mobile-meta { display:flex; gap:8px; align-items:center; margin-top:3px; flex-wrap:wrap; }
-    .form-overlay { padding:0; align-items:flex-end; }
-    .form-modal { border-radius:12px 12px 0 0; max-height:92svh; padding:20px 16px 24px; border-bottom:none; }
-    .form-grid { grid-template-columns:1fr; }
-    .form-full { grid-column:1; }
-    .form-stats { grid-template-columns:repeat(3,1fr); }
-  }
-  @media (min-width:1025px) {
-    .desktop-sheet { display:block; }
-    .mobile-sheet { display:none; }
-  }
-
-  /* ── Tablet (641–1024px): Touch-Bogen, aber mehrspaltig ────────── */
-  @media (min-width:641px) and (max-width:1024px) {
-    .sheet { padding:20px 24px; max-width:920px; margin:0 auto; }
-    .mobile-sheet .sheet { padding:20px 24px; }
-    .sticky-header { margin:-8px -24px 0; padding:8px 24px 0; }
-    .stats-grid { grid-template-columns:repeat(6,1fr); }
-    .skills-layout { grid-template-columns:1fr 1fr; }
-    .spells-list { grid-template-columns:1fr 1fr; }
-    .features-grid { grid-template-columns:1fr 1fr; }
-    .profs-grid { grid-template-columns:1fr 1fr; }
-    .inv-grid { grid-template-columns:repeat(4,1fr); }
-    .weapon-grid { grid-template-columns:repeat(3,1fr); }
-    .slots-grid { grid-template-columns:repeat(3,1fr); }
-    .currency-row { grid-template-columns:repeat(5,1fr); }
-    .form-grid { grid-template-columns:1fr 1fr; }
-    .form-full { grid-column:1 / -1; }
-    .form-overlay { padding:24px; align-items:center; }
-    .form-modal { border-radius:10px; max-height:88svh; border-bottom:1px solid var(--border); }
-    .combat-row { flex-wrap:wrap; overflow-x:visible; }
-    .combat-box { min-width:110px; }
-    .combat-label { display:block; }
-    .combat-label-short { display:none; }
-    .inv-col-rarity { display:table-cell; }
-    .inv-col-weight { display:table-cell; }
-    .inv-mobile-meta { display:none; }
-    .char-name { font-size:24px; }
-    .mobile-fab { bottom:88px; right:24px; }
-  }
-
-  /* ── Touch-Geräte: Aktionen ohne Hover erreichbar ──────────────── */
-  @media (hover:none) {
-    .spell-actions,
-    .feature-actions,
-    .inv-item-delete { opacity:1; }
-    .feature-actions { background:rgba(0,0,0,0.65); }
-  }
-
-  /* ── Touch-Geräte: Tippziele fingertauglich ────────────────────────
-     Dicht stehende Punkte brauchen echte Größe plus Abstand; eine nur
-     vergrößerte Trefferfläche würde die Nachbarn überlappen.        */
-  @media (hover:none), (pointer:coarse) {
-    /* Mittelweg zwischen der ursprünglichen (9px) und der auf Touch-Ziele
-       vergrößerten Fassung (22px). Da hier nichts mehr angetippt wird,
-       zählt nur noch Lesbarkeit, nicht die Trefferfläche. */
-    .res-mini-bar { gap:9px; min-height:32px; padding:5px 0 7px; }
-    .res-mini-group { gap:5px; padding:3px 7px; }
-    .res-mini-slot-group { gap:5px; padding:3px 4px; }
-    .res-mini-pip { width:15px; height:15px; }
-    .res-mini-sep { margin:0 3px; }
-
-    .skill-row { padding:10px 12px; gap:10px; }
-    .skill-prof-btn { width:28px; height:28px; font-size:12px; }
-    .skill-prof-btn.expertise { width:34px; font-size:10px; }
-
-    .save-box { padding:12px 12px; min-height:48px; }
-    .save-pip { width:18px; height:18px; }
-
-    .slot-pip { width:30px; height:30px; }
-    .slot-max-btn { width:30px; height:30px; font-size:14px; }
-
-    .btn-icon { min-width:44px; min-height:44px; padding:10px 14px; }
-    .chip-remove { min-width:40px; min-height:40px; padding:8px; }
-    .panel-edit-btn { min-height:40px; }
-    .joat-toggle { min-height:40px; padding:8px 14px; }
-    .btn-tool { min-height:44px; font-size:12px; }
-    .btn-sync { min-height:44px; font-size:11px; }
-    .mobile-back { min-height:44px; padding:10px 14px; }
-    .mobile-nav-btn { min-height:48px; }
-    .btn-sm-del, .btn-sm-add { min-height:40px; }
-
-    .spell-actions button,
-    .feature-actions button { min-width:40px; min-height:40px; }
-    .weapon-equip-btn { width:40px; height:40px; font-size:17px; }
-    /* Der Effekt-Editor drueckt seine Felder sonst unter die Tippgroesse. */
-    .fx-row .form-select, .fx-row .form-input { min-height:44px; font-size:14px; }
-    .fx-row .fx-del { height:44px; }
-    .inv-item-delete { min-width:44px; min-height:44px; font-size:16px; }
-
-    /* 16px verhindert das automatische Hineinzoomen von iOS Safari
-       beim Fokussieren eines Eingabefelds. */
-    .form-input, input, select, textarea { font-size:16px; min-height:44px; }
-    textarea { min-height:96px; }
-  }
-
-  /* ── Touch-Geräte: Lesbarkeit und Luft ─────────────────────────────
-     Nichts unter 11px. Gleichmäßig winzige Typografie lässt eine Seite
-     überladen wirken, auch wenn der Inhalt es nicht ist.            */
-  @media (hover:none), (pointer:coarse) {
-    .combat-label-short,
-    .inv-card-meta,
-    .weapon-card-stat-label,
-    .weapon-card-meta,
-    .res-mini-slot-grade,
-    .spell-card-school-footer,
-    .spell-card-stat-label,
-    .combat-label,
-    .currency-label,
-    .form-stat-label,
-    .inv-tag,
-    .res-mini-label,
-    .stat-label,
-    .ws-stat-label { font-size:11px; }
-
-    .btn-sm-add,
-    .feature-source,
-    .form-label,
-    .inv-card-rarity-label,
-    .inv-rarity,
-    .mobile-nav-label,
-    .prop-tag,
-    .resource-restore-btn,
-    .save-label,
-    .sidebar-subtitle,
-    .skill-attr-badge,
-    .slot-restore-btn,
-    .slot-row-label,
-    .spell-card-school-label,
-    .spell-delete,
-    .sync-box-title,
-    .sync-change-btn,
-    .tag-chip,
-    .tag-filter-btn,
-    .ws-cr-badge,
-    .ws-filter-btn,
-    .ws-stat-mod,
-    .ws-tag { font-size:12px; }
-
-    .section-title { font-size:12px; margin-bottom:14px; letter-spacing:0.16em; }
-    .stats-section { margin-bottom:32px; }
-    .skill-name { font-size:15px; }
-    .skill-value { font-size:15px; min-width:34px; }
-    .save-value { font-size:15px; }
-  }
-`;
-
-const CC = {
-  Barbar:       {bg:"#4a1010",border:"#8b2020",text:"#e87070"},
-  Barde:        {bg:"#1a3a4a",border:"#2080a0",text:"#70c0e8"},
-  Kleriker:     {bg:"#4a3a10",border:"#b8860b",text:"#e8c96a"},
-  Druide:       {bg:"#1a3a20",border:"#2d6a4f",text:"#52b788"},
-  Kämpfer:      {bg:"#2a2a2a",border:"#606060",text:"#c0c0c0"},
-  Mönch:        {bg:"#3a1a10",border:"#8b4020",text:"#e8a070"},
-  Paladin:      {bg:"#3a2a10",border:"#b8920b",text:"#e8d070"},
-  Waldläufer:   {bg:"#1a2a10",border:"#4a7a30",text:"#88c060"},
-  Schurke:      {bg:"#1a1a2a",border:"#404080",text:"#8080c0"},
-  Zauberer:     {bg:"#2a1a3a",border:"#6a3fa0",text:"#b080e0"},
-  Hexenmeister: {bg:"#3a1030",border:"#902060",text:"#d060a0"},
-  Magier:       {bg:"#1a1a3a",border:"#2040a0",text:"#6080d0"},
-};
-const SC = {
-  Beschwörung:  {bg:"#1a2a3a",border:"#2060a0",text:"#60a0e0"},
-  Verwandlung:  {bg:"#1a3a20",border:"#205a30",text:"#52b788"},
-  Illusion:     {bg:"#2a1a3a",border:"#6040a0",text:"#a080d0"},
-  Hervorrufung: {bg:"#3a1a10",border:"#c04020",text:"#e87050"},
-  Nekromantie:  {bg:"#1a1a1a",border:"#505050",text:"#909090"},
-  Bann:   {bg:"#3a3010",border:"#a08020",text:"#d0c060"},
-  Erkenntnis:  {bg:"#1a3a3a",border:"#208080",text:"#60c0c0"},
-  Verzauberung: {bg:"#3a1030",border:"#902060",text:"#d060a0"},
-};
-const RARITIES = [
-  {key:"gewöhnlich",  label:"Gewöhnlich",  color:"#a0a0a0"},
-  {key:"ungewöhnlich",label:"Ungewöhnlich",color:"#52b788"},
-  {key:"selten",      label:"Selten",      color:"#4a9edd"},
-  {key:"sehrSelten",  label:"Sehr Selten", color:"#9b59b6"},
-  {key:"legendär",    label:"Legendär",    color:"#e8a030"},
-  {key:"artefakt",    label:"Artefakt",    color:"#c0392b"},
-];
-const AC = {str:"#c06060",dex:"#60a060",con:"#c09040",int:"#6080c0",wis:"#80c0a0",cha:"#c080b0"};
-const AL = {str:"STR",dex:"GES",con:"KON",int:"INT",wis:"WEI",cha:"CHA"};
-const AF = {str:"Stärke",dex:"Geschicklichkeit",int:"Intelligenz",wis:"Weisheit",cha:"Charisma"};
-const SKILLS = [
-  {key:"athletik",      label:"Athletik",              attr:"str"},
-  {key:"akrobatik",     label:"Akrobatik",              attr:"dex"},
-  {key:"fingerfert",    label:"Fingerfertigkeit",       attr:"dex"},
-  {key:"heimlichkeit",  label:"Heimlichkeit",           attr:"dex"},
-  {key:"arkaneKunde",   label:"Arkane Kunde",           attr:"int"},
-  {key:"geschichte",    label:"Geschichte",             attr:"int"},
-  {key:"nachforschung", label:"Nachforschungen",        attr:"int"},
-  {key:"natur",         label:"Naturkunde",             attr:"int"},
-  {key:"religion",      label:"Religion",               attr:"int"},
-  {key:"medizin",       label:"Heilkunde",              attr:"wis"},
-  {key:"tierfuehrung",  label:"Mit Tieren umgehen",     attr:"wis"},
-  {key:"einblick",      label:"Motiv erkennen",         attr:"wis"},
-  {key:"ueberleben",    label:"Überlebenskunst",        attr:"wis"},
-  {key:"aufmerksamkeit",label:"Wahrnehmung",            attr:"wis"},
-  {key:"auftreten",     label:"Auftreten",              attr:"cha"},
-  {key:"einschuechtern",label:"Einschüchtern",          attr:"cha"},
-  {key:"taueschen",     label:"Täuschen",               attr:"cha"},
-  {key:"ueberreden",    label:"Überzeugen",             attr:"cha"},
-];
-// ── Effekte von Waffen, Rüstung und Gegenständen ────────────────────
-// Ein Effekt veraendert einen Wert des Helden, solange sein Traeger aktiv
-// ist (Waffe/Ruestung angelegt, Gegenstand eingeschaltet).
-//   mode 'bonus' addiert und stapelt mit anderen Boni.
-//   mode 'set'   setzt einen festen Wert. Treffen mehrere Setzungen auf
-//                denselben Wert, gewinnt die hoechste; Boni kommen danach
-//                obendrauf. Das haelt das Ergebnis unabhaengig davon, in
-//                welcher Reihenfolge Gegenstaende eingetragen wurden.
-const EFFECT_GROUPS = [
-  {group:"Attribute", items:[
-    {key:"str", label:"Stärke"},        {key:"dex", label:"Geschicklichkeit"},
-    {key:"con", label:"Konstitution"},  {key:"int", label:"Intelligenz"},
-    {key:"wis", label:"Weisheit"},      {key:"cha", label:"Charisma"},
-  ]},
-  {group:"Kampf", items:[
-    {key:"ac",        label:"Rüstungsklasse"},   {key:"maxHp",   label:"Max. Trefferpunkte"},
-    {key:"speed",     label:"Bewegung (m)"},     {key:"initiative", label:"Initiative"},
-    {key:"profBonus", label:"Übungsbonus"},
-    {key:"attack",    label:"Angriffswürfe"},    {key:"damage",  label:"Schaden"},
-  ]},
-  {group:"Zauber", items:[
-    {key:"spellDc",     label:"Zauber-SG"},
-    {key:"spellAttack", label:"Zauber-Angriffsbonus"},
-  ]},
-  {group:"Rettungswürfe", items:[
-    {key:"saveAll", label:"Alle Rettungswürfe"},
-    ...["str","dex","con","int","wis","cha"].map(a=>({key:"save_"+a, label:"RW "+AL[a]})),
-  ]},
-  {group:"Fertigkeiten", items:[
-    {key:"skillAll", label:"Alle Fertigkeiten"},
-    ...SKILLS.map(s=>({key:"skill_"+s.key, label:s.label})),
-  ]},
-];
-const EFFECT_LABELS = {};
-EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{EFFECT_LABELS[i.key]=i.label;}));
-const newEffect = () => ({id:Date.now().toString()+Math.random().toString(36).slice(2,6), target:"str", mode:"bonus", value:1});
-
-// Sammelt alle Effekte, die gerade wirken, samt Herkunft fuer die Anzeige.
-const collectEffects = (c) => {
-  if (!c) return [];
-  const out = [];
-  const add = (source, icon, list) => (list||[]).forEach(e => {
-    if (e && e.target && EFFECT_LABELS[e.target]) out.push({...e, source, icon});
-  });
-  (c.weapons   ||[]).forEach(w => { if (w.equipped)      add(w.name||"Waffe",       "⚔", w.effects); });
-  (c.equipment ||[]).forEach(q => { if (q.equipped)      add(q.name||"Ausrüstung",  "🛡", q.effects); });
-  (c.inventory ||[]).forEach(i => { if (i.effectsActive) add(i.name||"Gegenstand",  "🎒", i.effects); });
-  return out;
-};
-// Wendet alle Effekte eines Ziels auf einen Ausgangswert an.
-const applyEffect = (effs, target, base) => {
-  let fixed = null, bonus = 0;
-  for (const e of effs) {
-    if (e.target !== target) continue;
-    const v = +e.value || 0;
-    if (e.mode === "set") fixed = fixed === null ? v : Math.max(fixed, v);
-    else bonus += v;
-  }
-  return (fixed === null ? base : fixed) + bonus;
-};
-const effectsFor = (effs, target) => effs.filter(e => e.target === target);
-const effectText = e => (e.mode === "set" ? "= " : ((+e.value||0) >= 0 ? "+" : "")) + (+e.value || 0);
-
-const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachengeborener","Gnom","Halbelf","Anderes"];
-const CLASSES = Object.keys(CC);
-const SCHOOLS = Object.keys(SC);
-const SPELL_ATTR = {Barde:"cha",Kleriker:"wis",Druide:"wis",Paladin:"cha",Waldläufer:"wis",Zauberer:"int",Hexenmeister:"cha",Magier:"int",Schurke:"int"};
-const WPROPS  = ["Finesse","Leicht","Schwer","Reichweite","Wurfwaffe","Zweihändig","Vielseitig","Ladezeit","Munition","Spezial"];
-const DTYPES  = ["Hieb","Stich","Wucht","Feuer","Kälte","Schockgriff","Säure","Gift","Nekrotisch","Gleißend","Psychisch","Energie"];
-// Nur als Flaechentoenung im Kopfbalken der Waffen-Detailansicht verwendet —
-// nie als alleiniger Traeger einer Information, die Schadensart steht daneben.
-const DTYPE_COLORS = {Hieb:"#a07050",Stich:"#b08060",Wucht:"#c09070",Feuer:"#e07030","Kälte":"#70b8d8",Schockgriff:"#c0d850","Säure":"#90c040",Gift:"#80b030",Nekrotisch:"#9060c0","Gleißend":"#f0e060",Psychisch:"#c070d0",Energie:"#80a0f0"};
-
-// Bilder werden vor dem Speichern verkleinert. PNG und WebP koennen
-// transparent sein — dort muss PNG erhalten bleiben, sonst fuellt JPEG die
-// freien Flaechen schwarz. Fotos ohne Alphakanal gehen als JPEG, das ist
-// deutlich kleiner. Ergebnis ist eine data-URL.
-const compressImage = (file, maxPx, cb) => {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      const longest = Math.max(img.width, img.height) || 1;
-      const scale = longest > maxPx ? maxPx / longest : 1;
-      const c = document.createElement('canvas');
-      c.width  = Math.max(1, Math.round(img.width  * scale));
-      c.height = Math.max(1, Math.round(img.height * scale));
-      const ctx = c.getContext('2d');
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      let hasAlpha = false;
-      try {
-        const d = ctx.getImageData(0, 0, c.width, c.height).data;
-        for (let i = 3; i < d.length; i += 4) { if (d[i] < 250) { hasAlpha = true; break; } }
-      } catch (e) {
-        hasAlpha = /png|webp|gif/i.test(file.type || '');
-      }
-      cb(hasAlpha ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85));
-    };
-    img.onerror = () => cb(null);
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-};
-const COINS   = [
-  {key:"pp",label:"Platin",  color:"#c0c0d0"},
-  {key:"gp",label:"Gold",    color:"#e8c96a"},
-  {key:"ep",label:"Elektrum",color:"#88c0b0"},
-  {key:"sp",label:"Silber",  color:"#c0c0c0"},
-  {key:"cp",label:"Kupfer",  color:"#c8844a"},
-];
-
-const mod  = v => Math.floor((v-10)/2);
-const fmod = v => { const m=mod(v); return (m>=0?"+":"")+m; };
-// Formatiert einen bereits fertigen Modifikator (nicht den Attributswert).
-const fnum = n => (n>=0?"+":"")+n;
-
-const newChar   = () => ({
-  id:Date.now().toString(), name:"", race:"Mensch", charClass:"Kämpfer", level:1,
-  multiclasses:[],
-  hp:10, maxHp:10, tempHp:0, ac:10, speed:30, initiative:0, profBonus:2,
-  str:10, dex:10, con:10, int:10, wis:10, cha:10,
-  background:"", notes:"", notesList:[], features:[], weapons:[], spells:[], skillProfs:[], expertiseProfs:[], jackOfAllTrades:false, languages:[], toolProfs:[], weaponProfs:[],
-  savingThrowProfs:[],
-  sorceryPoints:{max:0, used:0},
-  resources:[],
-  wsFavorites:[],
-  inventory:[], currency:{pp:0,gp:0,ep:0,sp:0,cp:0}, equipment:[], acBonuses:[],
-  spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
-});
-const newWeapon = () => ({id:Date.now().toString(),name:"",attrKey:"str",proficient:true,range:"1,5m",attackBonus:0,damage:"1W6",damageType:"Hieb",description:"",properties:[],equipped:false,imageData:"",effects:[]});
-const WATTRS = [{key:"str",label:"Stä"},{key:"dex",label:"Ges"},{key:"fin",label:"Fin"},{key:"int",label:"Int"},{key:"wis",label:"Wei"},{key:"cha",label:"Cha"}];
-const newSpell  = () => ({id:Date.now().toString(),name:"",level:1,school:"Hervorrufung",castingTime:"1 Aktion",range:"9 m",duration:"Sofort",components:"V, S",description:"",prepared:true});
-const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false});
-
-// Lightweight fuzzy search: returns score > 0 if all query chars appear in order in str
-const fuzzyMatch = (str, query) => {
-  if (!query) return 1;
-  str = str.toLowerCase(); query = query.toLowerCase();
-  let si = 0, qi = 0, score = 0, consecutive = 0;
-  while (si < str.length && qi < query.length) {
-    if (str[si] === query[qi]) {
-      consecutive++;
-      score += consecutive * 2 + (si === qi ? 1 : 0);
-      qi++;
-    } else { consecutive = 0; }
-    si++;
-  }
-  return qi === query.length ? score : 0;
-};
-const fuzzyFilter = (items, query, getStr) => {
-  if (!query) return items;
-  return items
-    .map(item => ({ item, score: Math.max(...[].concat(getStr(item)).map(s => fuzzyMatch(s, query))) }))
-    .filter(x => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map(x => x.item);
-};
-
-// ── Rich Text Editor (defined outside App to prevent remount on re-render) ────
-// ── Rich Text Editor component ───────────────────────────────────
-const EMOJI_LIST = [
-  '😀','😂','😅','😊','🙂','😎','🤔','😮','😱','😭','😡','🥳',
-  '👍','👎','✅','❌','⚠️','💡','🔥','⭐','💎','🪙','🗡','🛡',
-  '🐲','🦄','💀','👁','🧙','⚔','🏹','🔮','📜','📖','🎲','🎯',
-  '🌟','✨','💥','❄','🌊','🔥','⚡','🌪','☀','🌙','🌈','🍀',
-  '❤','🧡','💛','💚','💙','💜','🖤','🤍','❤‍🔥','💔','💘','💝',
-  '→','←','↑','↓','►','◄','•','◆','✦','✧','⚜','🔰',
-];
 
 const RichEditor = ({ value, onChange, placeholder, rows }) => {
   const ref = React.useRef(null);
@@ -1176,8 +246,6 @@ const EffectEditor = ({ effects, onChange, hint }) => {
 };
 
 // ── LogTab component ─────────────────────────────────────────────
-const LOG_TABS = ['charakter','zauber','inventar','waffen','attribute','rüst','notizen'];
-const LOG_TAB_ICONS = {'charakter':'👤','zauber':'✨','inventar':'🎒','waffen':'⚔','attribute':'📊','rüst':'🛡','notizen':'📜'};
 
 const LogTab = ({charId, isDmMode}) => {
   const [entries, setEntries] = React.useState([]);
@@ -1191,7 +259,7 @@ const LogTab = ({charId, isDmMode}) => {
   React.useEffect(() => {
     if (!charId) return;
     setLoading(true);
-    const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+    const {url, code, pass} = serverCreds();
     if (!url||!code||!pass) { setLoading(false); return; }
     apiLoadLogs(url, code, pass, charId, {limit:100,offset:0,search:'',tabFilter:[]})
       .then(d => { setEntries(d.logs||[]); setLoading(false); })
@@ -1433,9 +501,7 @@ function App() {
   useEffect(() => {
     const tick = async () => {
       if (!pendingRef.current) return;
-      const url  = localStorage.getItem('sv_url')  || '';
-      const code = localStorage.getItem('sv_code') || '';
-      const pass = localStorage.getItem('sv_pass') || '';
+      const {url, code, pass} = serverCreds();
       if (!url || !code || !pass) return;
 
       // Snapshot and optimistically reset
@@ -1476,9 +542,7 @@ function App() {
   // tplData only loaded when template picker opens (openTpl)
 
   useEffect(() => {
-    const url  = localStorage.getItem('sv_url')  || '';
-    const code = localStorage.getItem('sv_code') || '';
-    const pass = localStorage.getItem('sv_pass') || '';
+    const {url, code, pass} = serverCreds();
     setSvUrl(url); setSvCode(code); setSvPass(pass);
     if (url && code && pass) {
       // Load localStorage immediately for instant display while server loads
@@ -1507,9 +571,7 @@ function App() {
   const saveLibrary = (lib) => {
     setUserLibrary(lib);
     safeSetItem('hb_library', JSON.stringify(lib));
-    const url  = localStorage.getItem('sv_url')  || '';
-    const code = localStorage.getItem('sv_code') || '';
-    const pass = localStorage.getItem('sv_pass') || '';
+    const {url, code, pass} = serverCreds();
     if (!url || !code || !pass) return;
     apiSaveLibrary(url, code, pass, lib).catch(() => {});
   };
@@ -1571,7 +633,7 @@ function App() {
       return {...prev, [type]: entries};
     };
 
-    const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+    const {url, code, pass} = serverCreds();
     if (isDmMode) {
       setDmLibrary(prev => {
         const lib = updater(prev);
@@ -1591,7 +653,7 @@ function App() {
 
   const deleteDbEntry = (type, name) => {
     appConfirm('"'+name+'" aus der Bibliothek löschen?', () => {
-      const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+      const {url, code, pass} = serverCreds();
       if (isDmMode) {
         setDmLibrary(prev => {
           const lib = {...prev, [type]: (prev[type]||[]).filter(e=>e.name!==name)};
@@ -1629,7 +691,7 @@ function App() {
     if (!dmLoginInput.trim()) { setDmLoginErr('Bitte DM-Passwort eingeben.'); return; }
     setDmLoginErr('');
     try {
-      const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+      const {url, code, pass} = serverCreds();
       const data = await apiDmLoad(url, code, pass, dmLoginInput.trim());
       setDmLibrary(data.dm_library || {});
       setDmPass(dmLoginInput.trim());
@@ -1649,7 +711,7 @@ function App() {
 
   const saveDmLibrary = (lib) => {
     setDmLibrary(lib);
-    const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+    const {url, code, pass} = serverCreds();
     if (!url || !code || !pass || !dmPassRef.current) return;
     apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).catch(()=>{});
   };
@@ -1698,11 +760,17 @@ function App() {
     setSyncStatus('busy'); setSyncMsg('Speichert...');
   };
 
+  // Aendert den ausgewaehlten Helden. fn bekommt ihn und liefert die Felder,
+  // die sich aendern sollen. Ersetzt 35 gleichlautende Aufrufe, in denen
+  // charsRef und selRef jedes Mal von Hand ausgeschrieben waren — und damit
+  // 35 Gelegenheiten, versehentlich den veralteten Zustand statt der Referenz
+  // zu lesen. Genau daran hing der Datenverlust-Fehler.
+  const patchCurrent = fn => save(charsRef.current.map(c =>
+    c.id === selRef.current ? {...c, ...fn(c)} : c));
+
   // Logging helper — fire-and-forget, never blocks UI
   const addLog = (charId, charName, tab, action, details) => {
-    const url  = localStorage.getItem('sv_url')  || '';
-    const code = localStorage.getItem('sv_code') || '';
-    const pass = localStorage.getItem('sv_pass') || '';
+    const {url, code, pass} = serverCreds();
     if (!url || !code || !pass) return;
     const entry = { char_id: charId, char_name: charName, tab, action, details };
     apiSaveLog(url, code, pass, entry).catch(()=>{});
@@ -1769,6 +837,21 @@ function App() {
   // deshalb auf den fertigen Modifikator, nicht auf den Wert.
   const initTotal = cur ? fx('initiative', mod(cur.initiative || effCur.dex)) : 0;
 
+  // Trefferbonus und Schaden einer Waffe. Stand wortgleich zweimal im Code —
+  // einmal fuer die Waffenkarte, einmal fuer die Detailansicht; eine Regel
+  // haette man dort kuenftig zweimal aendern muessen. "fin" waehlt das
+  // guenstigere der beiden Attribute (Finesse).
+  const weaponStats = (w) => {
+    const aKey = w.attrKey === "fin"
+      ? (mod(effCur.str) >= mod(effCur.dex) ? "str" : "dex")
+      : (w.attrKey || "str");
+    const attrMod  = mod(effCur[aKey] || 10);
+    const bonus    = fx('attack', (w.proficient ? effCur.profBonus : 0) + attrMod + (w.attackBonus||0));
+    const dmgBonus = fx('damage', attrMod + (w.attackBonus||0));
+    const dmgStr   = w.damage + (dmgBonus!==0 ? (dmgBonus>0 ? " + "+dmgBonus : " - "+Math.abs(dmgBonus)) : "");
+    return { aKey, attrMod, bonus, dmgBonus, dmgStr };
+  };
+
   // Dieselbe Auswahl wie die Liste "Aktiv" in der Seitenleiste, damit der
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
   const switchList = chars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
@@ -1819,16 +902,16 @@ function App() {
     if (!wf.name.trim()) return;
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     if (wfEditId) {
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,weapons:c.weapons.map(w=>w.id===wfEditId?{...wf,id:wfEditId}:w)}:c));
+      patchCurrent(c=>({weapons:c.weapons.map(w=>w.id===wfEditId?{...wf,id:wfEditId}:w)}));
       addLog(selRef.current, cur2?.name, 'waffen', `Waffe bearbeitet: ${wf.name}`, {schaden:wf.damage});
     } else {
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,weapons:[...c.weapons,{...wf,id:Date.now().toString()}]}:c));
+      patchCurrent(c=>({weapons:[...c.weapons,{...wf,id:Date.now().toString()}]}));
       addLog(selRef.current, cur2?.name, 'waffen', `Waffe hinzugefügt: ${wf.name}`, {schaden:wf.damage});
     }
     setWf(newWeapon()); setWfEditId(null); setShowWF(false);
   };
-  const delWeapon = id => appConfirm("Waffe wirklich löschen?", () => save(charsRef.current.map(c=>c.id===selRef.current?{...c,weapons:c.weapons.filter(w=>w.id!==id)}:c)));
-  const toggleEquipped = id => save(charsRef.current.map(c=>c.id===selRef.current?{...c,weapons:c.weapons.map(w=>w.id===id?{...w,equipped:!w.equipped}:w)}:c));
+  const delWeapon = id => appConfirm("Waffe wirklich löschen?", () => patchCurrent(c=>({weapons:c.weapons.filter(w=>w.id!==id)})));
+  const toggleEquipped = id => patchCurrent(c=>({weapons:c.weapons.map(w=>w.id===id?{...w,equipped:!w.equipped}:w)}));
   const addSpell = () => {
     if (!sf.name.trim()) return;
     const curSel = selRef.current;
@@ -1846,10 +929,10 @@ function App() {
   const delSpell = id => appConfirm("Zauber wirklich löschen?", () => {
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     const spell = cur2?.spells?.find(s=>s.id===id);
-    save(charsRef.current.map(c=>c.id===selRef.current?{...c,spells:c.spells.filter(s=>s.id!==id)}:c));
+    patchCurrent(c=>({spells:c.spells.filter(s=>s.id!==id)}));
     if (spell) addLog(selRef.current, cur2?.name, 'zauber', `Zauber gelöscht: ${spell.name}`, {grad:spell.level});
   });
-  const toggleSpellPrepared = id => save(charsRef.current.map(c=>c.id===selRef.current?{...c,spells:c.spells.map(s=>s.id===id?{...s,prepared:s.prepared===false?true:false}:s)}:c));
+  const toggleSpellPrepared = id => patchCurrent(c=>({spells:c.spells.map(s=>s.id===id?{...s,prepared:s.prepared===false?true:false}:s)}));
   const saveFeature = () => {
     if (!ff.name.trim()) return;
     const features = cur.features || [];
@@ -1860,32 +943,30 @@ function App() {
       updated = [...features, {...ff, id:Date.now().toString()}];
     }
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
-    save(charsRef.current.map(c=>c.id===selRef.current?{...c,features:updated}:c));
+    patchCurrent(c=>({features:updated}));
     addLog(selRef.current, cur2?.name, 'attribute', ffEditId?`Merkmal bearbeitet: ${ff.name}`:`Merkmal hinzugefügt: ${ff.name}`, {quelle:ff.source||undefined});
     setFf({name:'',source:'',description:''}); setFfEditId(null); setShowFF(false);
   };
-  const delFeature = id => appConfirm("Merkmal wirklich löschen?", () => save(charsRef.current.map(c=>c.id===selRef.current?{...c,features:(c.features||[]).filter(f=>f.id!==id)}:c)));
+  const delFeature = id => appConfirm("Merkmal wirklich löschen?", () => patchCurrent(c=>({features:(c.features||[]).filter(f=>f.id!==id)})));
   const addItem = () => {
     if (!itf.name.trim()) return;
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     if (itfEditId) {
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,inventory:(c.inventory||[]).map(i=>i.id===itfEditId?{...itf,id:itfEditId}:i)}:c));
+      patchCurrent(c=>({inventory:(c.inventory||[]).map(i=>i.id===itfEditId?{...itf,id:itfEditId}:i)}));
       addLog(selRef.current, cur2?.name, 'inventar', `Gegenstand bearbeitet: ${itf.name}`, {seltenheit:itf.rarity,menge:itf.qty});
     } else {
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,inventory:[...(c.inventory||[]),{...itf,id:Date.now().toString()}]}:c));
+      patchCurrent(c=>({inventory:[...(c.inventory||[]),{...itf,id:Date.now().toString()}]}));
       addLog(selRef.current, cur2?.name, 'inventar', `Gegenstand hinzugefügt: ${itf.name}`, {seltenheit:itf.rarity,menge:itf.qty});
     }
     setItf(newItem()); setItfEditId(null); setShowIF(false);
   };
   // Einzelne Felder eines Gegenstands aendern, ohne den Bearbeiten-Dialog —
   // gebraucht fuer den Effekt-Schalter in der Detailansicht.
-  const updItem = (id, patch) => save(charsRef.current.map(c=>c.id===selRef.current
-    ? {...c, inventory:(c.inventory||[]).map(i=>i.id===id?{...i,...patch}:i)}
-    : c));
+  const updItem = (id, patch) => patchCurrent(c=>({inventory:(c.inventory||[]).map(i=>i.id===id?{...i,...patch}:i)}));
   const delItem = id => appConfirm("Gegenstand wirklich löschen?", () => {
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     const item = (cur2?.inventory||[]).find(i=>i.id===id);
-    save(charsRef.current.map(c=>c.id===selRef.current?{...c,inventory:(c.inventory||[]).filter(i=>i.id!==id)}:c));
+    patchCurrent(c=>({inventory:(c.inventory||[]).filter(i=>i.id!==id)}));
     if (item) addLog(selRef.current, cur2?.name, 'inventar', `Gegenstand gelöscht: ${item.name}`, {seltenheit:item.rarity});
   });
   const doTransfer = (targetId, ids) => {
@@ -1933,16 +1014,16 @@ function App() {
     } else {
       updated = [...notesList,{...entry,id:Date.now().toString()}];
     }
-    save(charsRef.current.map(c=>c.id===selRef.current?{...c,notesList:updated,notes:''}:c));
+    patchCurrent(c=>({notesList:updated,notes:''}));
     setNf({title:'',content:'',tags:[]}); setNfEditId(null); setShowNF(false);
   };
   const delNote = id => {
     appConfirm("Notiz wirklich löschen?", () => {
       const updated = notesList.filter(n=>n.id!==id);
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,notesList:updated,notes:''}:c));
+      patchCurrent(c=>({notesList:updated,notes:''}));
     });
   };
-  const updCurrency = (k,v) => save(charsRef.current.map(c=>c.id===selRef.current?{...c,currency:{...(c.currency||{}), [k]:Math.max(0,+v||0)}}:c));
+  const updCurrency = (k,v) => patchCurrent(c=>({currency:{...(c.currency||{}), [k]:Math.max(0,+v||0)}}));
   const toggleSkill = key => {
     const profs = cur.skillProfs||[];
     const exp   = cur.expertiseProfs||[];
@@ -1950,27 +1031,27 @@ function App() {
     const isE   = exp.includes(key);
     // Cycle: none → prof → expertise → none
     if (!isP && !isE) {
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,skillProfs:[...profs,key]}:c));
+      patchCurrent(c=>({skillProfs:[...profs,key]}));
     } else if (isP && !isE) {
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,expertiseProfs:[...exp,key]}:c));
+      patchCurrent(c=>({expertiseProfs:[...exp,key]}));
     } else {
-      save(charsRef.current.map(c=>c.id===selRef.current?{...c,skillProfs:profs.filter(x=>x!==key),expertiseProfs:exp.filter(x=>x!==key)}:c));
+      patchCurrent(c=>({skillProfs:profs.filter(x=>x!==key),expertiseProfs:exp.filter(x=>x!==key)}));
     }
   };
-  const toggleJoAT = () => save(charsRef.current.map(c=>c.id===selRef.current?{...c,jackOfAllTrades:!c.jackOfAllTrades}:c));
+  const toggleJoAT = () => patchCurrent(c=>({jackOfAllTrades:!c.jackOfAllTrades}));
   const toggleSave = attr => {
     const p = cur.savingThrowProfs||[];
-    save(charsRef.current.map(c=>c.id===selRef.current?{...c,savingThrowProfs:p.includes(attr)?p.filter(x=>x!==attr):[...p,attr]}:c));
+    patchCurrent(c=>({savingThrowProfs:p.includes(attr)?p.filter(x=>x!==attr):[...p,attr]}));
   };
 
   const slots    = cur && cur.spellSlots || {1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}};
-  const updSlots = s => save(charsRef.current.map(c=>c.id===selRef.current?{...c,spellSlots:s}:c));
+  const updSlots = s => patchCurrent(c=>({spellSlots:s}));
   const togSlot  = (l,i) => { const s=slots[l]; const avail=s.max-s.used; updSlots({...slots,[l]:{...s,used:i<avail?s.max-i:s.max-(i+1)}}); };
   const chgMax   = (l,d) => { const s=slots[l]; const m=Math.max(0,Math.min(9,s.max+d)); updSlots({...slots,[l]:{max:m,used:Math.min(s.used,m)}}); };
   const resetAll = () => { const r={}; for(let i=1;i<=9;i++) r[i]={...slots[i],used:0}; updSlots(r); };
 
   const sp = cur && cur.sorceryPoints || {max:0, used:0};
-  const updSP = s => save(charsRef.current.map(c=>c.id===selRef.current?{...c,sorceryPoints:s}:c));
+  const updSP = s => patchCurrent(c=>({sorceryPoints:s}));
   const togSP = i => { const avail=sp.max-sp.used; updSP({...sp, used: i < avail ? sp.max-i : sp.max-(i+1) }); };
   const spChgMax = d => { const m=Math.max(0,Math.min(20,sp.max+d)); updSP({max:m,used:Math.min(sp.used,m)}); };
 
@@ -1981,15 +1062,15 @@ function App() {
   const clearLocal= (key)            => setLocalInputs(prev => { const n={...prev}; delete n[key]; return n; });
 
   const resources = cur && cur.resources || [];
-  const updResources = r => save(charsRef.current.map(c=>c.id===selRef.current?{...c,resources:r}:c));
-  const patchChar = patch => save(charsRef.current.map(c=>c.id===selRef.current?{...c,...patch}:c));
+  const updResources = r => patchCurrent(c=>({resources:r}));
+  const patchChar = patch => patchCurrent(c=>({...patch}));
   const addResource = () => updResources([...resources,{id:Date.now().toString(),name:"Neue Ressource",max:3,used:0,color:"#c9a84c",restType:"lang"}]);
   const equipment  = cur && cur.equipment  || [];
-  const updEquipment = eq => save(charsRef.current.map(c=>c.id===selRef.current?{...c,equipment:eq}:c));
+  const updEquipment = eq => patchCurrent(c=>({equipment:eq}));
   const toggleEquipmentItem = id => updEquipment(equipment.map(e=>e.id===id?{...e,equipped:!e.equipped}:e));
   const delEquipmentItem = id => appConfirm("Ausrüstung wirklich löschen?", ()=>updEquipment(equipment.filter(e=>e.id!==id)));
   const acBonuses = cur && cur.acBonuses || [];
-  const updAcBonuses = b => save(charsRef.current.map(c=>c.id===selRef.current?{...c,acBonuses:b}:c));
+  const updAcBonuses = b => patchCurrent(c=>({acBonuses:b}));
   const addAcBonus = () => updAcBonuses([...acBonuses,{id:Date.now().toString(),name:'Neuer Bonus',bonus:1,active:true}]);
   const delAcBonus = id => appConfirm('RK-Bonus wirklich löschen?', ()=>updAcBonuses(acBonuses.filter(b=>b.id!==id)));
   const updAcBonus = (id,patch) => updAcBonuses(acBonuses.map(b=>b.id===id?{...b,...patch}:b));
@@ -2026,15 +1107,15 @@ function App() {
     const languages  = cur && cur.languages  || [];
   const toolProfs  = cur && cur.toolProfs  || [];
   const weaponProfs = cur && cur.weaponProfs || [];
-  const addLanguage  = (val) => { if(!val.trim()) return; save(charsRef.current.map(c=>c.id===selRef.current?{...c,languages:[...(c.languages||[]),val.trim()]}:c)); };
-  const delLanguage  = (i)   => save(charsRef.current.map(c=>c.id===selRef.current?{...c,languages:(c.languages||[]).filter((_,j)=>j!==i)}:c));
-  const addToolProf  = (val) => { if(!val.trim()) return; save(charsRef.current.map(c=>c.id===selRef.current?{...c,toolProfs:[...(c.toolProfs||[]),val.trim()]}:c)); };
-  const delToolProf  = (i)   => save(charsRef.current.map(c=>c.id===selRef.current?{...c,toolProfs:(c.toolProfs||[]).filter((_,j)=>j!==i)}:c));
-  const addWeaponProf = (val) => { if(!val.trim()) return; save(charsRef.current.map(c=>c.id===selRef.current?{...c,weaponProfs:[...(c.weaponProfs||[]),val.trim()]}:c)); };
-  const delWeaponProf = (i)   => save(charsRef.current.map(c=>c.id===selRef.current?{...c,weaponProfs:(c.weaponProfs||[]).filter((_,j)=>j!==i)}:c));
+  const addLanguage  = (val) => { if(!val.trim()) return; patchCurrent(c=>({languages:[...(c.languages||[]),val.trim()]})); };
+  const delLanguage  = (i)   => patchCurrent(c=>({languages:(c.languages||[]).filter((_,j)=>j!==i)}));
+  const addToolProf  = (val) => { if(!val.trim()) return; patchCurrent(c=>({toolProfs:[...(c.toolProfs||[]),val.trim()]})); };
+  const delToolProf  = (i)   => patchCurrent(c=>({toolProfs:(c.toolProfs||[]).filter((_,j)=>j!==i)}));
+  const addWeaponProf = (val) => { if(!val.trim()) return; patchCurrent(c=>({weaponProfs:[...(c.weaponProfs||[]),val.trim()]})); };
+  const delWeaponProf = (i)   => patchCurrent(c=>({weaponProfs:(c.weaponProfs||[]).filter((_,j)=>j!==i)}));
   const armorProfs  = cur && cur.armorProfs  || [];
-  const addArmorProf  = (val) => { if(!val.trim()) return; save(charsRef.current.map(c=>c.id===selRef.current?{...c,armorProfs:[...(c.armorProfs||[]),val.trim()]}:c)); };
-  const delArmorProf  = (i)   => save(charsRef.current.map(c=>c.id===selRef.current?{...c,armorProfs:(c.armorProfs||[]).filter((_,j)=>j!==i)}:c));
+  const addArmorProf  = (val) => { if(!val.trim()) return; patchCurrent(c=>({armorProfs:[...(c.armorProfs||[]),val.trim()]})); };
+  const delArmorProf  = (i)   => patchCurrent(c=>({armorProfs:(c.armorProfs||[]).filter((_,j)=>j!==i)}));
   const delResource = id => appConfirm("Ressource wirklich löschen?", () => updResources(resources.filter(r=>r.id!==id)));
   const updResource = (id,patch) => updResources(resources.map(r=>r.id===id?{...r,...patch}:r));
   const togResourcePip = (id,i) => {
@@ -2065,7 +1146,7 @@ function App() {
   };
   const goChar = id => { selectChar(id); setTab("stats"); setMv("sheet"); setTransferMode(false); setTransferSel(new Set()); };
   const archiveChar   = () => {
-    save(charsRef.current.map(c=>c.id===selRef.current?{...c,archived:true}:c));
+    patchCurrent(c=>({archived:true}));
     selectChar(null); setMv("list");
   };
   const unarchiveChar = id => save(charsRef.current.map(c=>c.id===id?{...c,archived:false}:c));
@@ -2074,7 +1155,7 @@ function App() {
   const AdventureLog = ({onClose, isDmMode}) => {
     const fmt = ts => new Date(ts.replace(' ','T')+'Z').toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const tabColor = t => ({'zauber':'#c060a0','inventar':'#e0a030','waffen':'#c84040','charakter':'var(--gold)'}[t]||'var(--border-bright)');
-    const TAB_ICONS2 = {'charakter':'👤','zauber':'✨','inventar':'🎒','waffen':'⚔','attribute':'📊','rüst':'🛡','notizen':'📜'};
+    const TAB_ICONS2 = LOG_TAB_ICONS;   // wortgleiche Kopie, jetzt nur noch ein Ort
     const TABS2 = ['charakter','zauber','inventar','waffen','attribute','rüst','notizen'];
     const dmCharIds = new Set(JSON.parse(localStorage.getItem('dnd_chars')||'[]').filter(c=>c.dmOnly===true).map(c=>c.id));
 
@@ -2091,7 +1172,7 @@ function App() {
     const alSearchRef  = useRef('');
 
     const fetchPage = (offset, search, tabs, reset) => {
-      const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+      const {url, code, pass} = serverCreds();
       if (!url||!code||!pass) return;
       setAlLoading(true);
       apiLoadLogs(url,code,pass,null,{limit:50,offset,search,tabFilter:tabs})
@@ -2999,11 +2080,7 @@ function App() {
                       return (a.name||"").localeCompare(b.name||"","de");
                     })
                     .map(w => {
-                      const aKey = w.attrKey==="fin" ? (mod(effCur.str)>=mod(effCur.dex)?"str":"dex") : (w.attrKey||"str");
-                      const attrMod = mod(effCur[aKey] || 10);
-                      const bonus = fx('attack', (w.proficient ? effCur.profBonus : 0) + attrMod + (w.attackBonus||0));
-                      const dmgBonus = fx('damage', attrMod + (w.attackBonus||0));
-                      const dmgStr = w.damage + (dmgBonus!==0 ? (dmgBonus>0?" + "+dmgBonus:" - "+Math.abs(dmgBonus)) : "");
+                      const { bonus, dmgStr } = weaponStats(w);
                       const isEquipped = !!w.equipped;
                       const meta = [w.range||null, w.damageType||null].filter(Boolean).join(" · ");
                       return (
@@ -3268,8 +2345,6 @@ function App() {
                         const spellClasses = s.classes||[];
                         const spellDmgTags = s.damageTags||[];
                         const levelLabel = s.level===0 ? 'Zaubertrick' : `${s.level}. Grad · ${s.school}`;
-                        const CC_COLORS = {'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};
-                        const DMG_COLORS = {Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrotisch:'#9060c0',Gleißend:'#f0e060',Psychisch:'#c070d0',Energie:'#80a0f0',Schall:'#c0a0e0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'};
                         return (
                           <div key={s.id} className={"spell-card"+(exSpell===s.id?" expanded":"")}
                             style={{borderColor: sc.border, borderWidth:2}}
@@ -3691,7 +2766,6 @@ function App() {
 
   return (
     <>
-      <style>{styles}</style>
       <div className={"app"+(sidebarCollapsed?" sb-collapsed":"")}>
 
         {/* Sidebar toggle — outside sidebar so it stays visible when collapsed */}
@@ -3730,7 +2804,7 @@ function App() {
               <button className="btn-tool" onClick={()=>{
                 setAdventSearch(''); setAdventTabFilter([]);
                 setShowAdventLog(true);
-                const url=localStorage.getItem('sv_url')||'',code=localStorage.getItem('sv_code')||'',pass=localStorage.getItem('sv_pass')||'';
+                const {url, code, pass} = serverCreds();
                 if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
             </div>
@@ -4594,11 +3668,7 @@ function App() {
       {weaponViewer && cur && (() => {
         const w = (cur.weapons||[]).find(x=>x.id===weaponViewer);
         if (!w) return null;
-        const aKey = w.attrKey==="fin" ? (mod(effCur.str)>=mod(effCur.dex)?"str":"dex") : (w.attrKey||"str");
-        const attrMod = mod(effCur[aKey] || 10);
-        const bonus = fx('attack', (w.proficient ? effCur.profBonus : 0) + attrMod + (w.attackBonus||0));
-        const dmgBonus = fx('damage', attrMod + (w.attackBonus||0));
-        const dmgStr = w.damage + (dmgBonus!==0 ? (dmgBonus>0?" + "+dmgBonus:" - "+Math.abs(dmgBonus)) : "");
+        const { bonus, dmgStr } = weaponStats(w);
         const attrLabel = (WATTRS.find(a=>a.key===(w.attrKey||"str")) || WATTRS[0]).label;
         const dc = DTYPE_COLORS[w.damageType] || "#a07050";
         const stats = [

@@ -16,12 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Die Dateiliste ist bewusst ausgeschrieben statt "alles kopieren":
+      # so landen PATCHNOTES.md, .git und .github nie im Webroot.
       - name: Prepare deploy files
         run: |
-          mkdir deploy
-          cp .htaccess api.php apple-touch-icon.png data.json favicon.png index.html slots.html deploy/
+          mkdir -p deploy/js
+          cp .htaccess api.php apple-touch-icon.png data.json favicon.png index.html slots.html styles.css deploy/
+          cp js/data.js js/util.js deploy/js/
           echo "Zu übertragen:"
-          ls -l deploy/
+          find deploy -type f | sort
 
       - name: Install lftp
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
@@ -40,15 +43,26 @@ jobs:
             bye
           EOF
 
-      - name: Verify deployed file
+      # Seit die Oberfläche auf styles.css und js/*.js verteilt ist, genügt es
+      # nicht mehr, nur index.html zu prüfen: bliebe eine der anderen Dateien
+      # zurück, wäre die App kaputt und der Lauf trotzdem grün.
+      - name: Verify deployed files
         run: |
-          echo "Prüfe, ob die ausgelieferte index.html der eben gebauten entspricht:"
-          LOCAL=$(sha256sum deploy/index.html | cut -d' ' -f1)
-          REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/index.html?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
-          echo "lokal:  $LOCAL"
-          echo "server: $REMOTE"
-          if [ "$LOCAL" != "$REMOTE" ]; then
-            echo "::error::Die ausgelieferte Datei stimmt nicht mit der hochgeladenen überein."
+          FAIL=0
+          for f in index.html styles.css js/data.js js/util.js; do
+            LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
+            REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
+            if [ "$LOCAL" = "$REMOTE" ]; then
+              echo "OK      $f  ($LOCAL)"
+            else
+              echo "ABWEICH $f"
+              echo "  lokal:  $LOCAL"
+              echo "  server: $REMOTE"
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" != "0" ]; then
+            echo "::error::Mindestens eine ausgelieferte Datei stimmt nicht mit der hochgeladenen überein."
             exit 1
           fi
-          echo "Übereinstimmung bestätigt."
+          echo "Alle vier Dateien stimmen überein."

@@ -1,0 +1,134 @@
+// Heldenbuch — Nachschlagetabellen des Regelwerks.
+// Reine Daten ohne Logik: Klassen, Zauberschulen, Fertigkeiten, Seltenheiten,
+// Waffeneigenschaften, Schadensarten und die Ziele des Effektsystems.
+// Wird vor js/util.js und vor dem Anwendungscode geladen.
+
+const CC = {
+  Barbar:       {bg:"#4a1010",border:"#8b2020",text:"#e87070"},
+  Barde:        {bg:"#1a3a4a",border:"#2080a0",text:"#70c0e8"},
+  Kleriker:     {bg:"#4a3a10",border:"#b8860b",text:"#e8c96a"},
+  Druide:       {bg:"#1a3a20",border:"#2d6a4f",text:"#52b788"},
+  Kämpfer:      {bg:"#2a2a2a",border:"#606060",text:"#c0c0c0"},
+  Mönch:        {bg:"#3a1a10",border:"#8b4020",text:"#e8a070"},
+  Paladin:      {bg:"#3a2a10",border:"#b8920b",text:"#e8d070"},
+  Waldläufer:   {bg:"#1a2a10",border:"#4a7a30",text:"#88c060"},
+  Schurke:      {bg:"#1a1a2a",border:"#404080",text:"#8080c0"},
+  Zauberer:     {bg:"#2a1a3a",border:"#6a3fa0",text:"#b080e0"},
+  Hexenmeister: {bg:"#3a1030",border:"#902060",text:"#d060a0"},
+  Magier:       {bg:"#1a1a3a",border:"#2040a0",text:"#6080d0"},
+};
+const SC = {
+  Beschwörung:  {bg:"#1a2a3a",border:"#2060a0",text:"#60a0e0"},
+  Verwandlung:  {bg:"#1a3a20",border:"#205a30",text:"#52b788"},
+  Illusion:     {bg:"#2a1a3a",border:"#6040a0",text:"#a080d0"},
+  Hervorrufung: {bg:"#3a1a10",border:"#c04020",text:"#e87050"},
+  Nekromantie:  {bg:"#1a1a1a",border:"#505050",text:"#909090"},
+  Bann:   {bg:"#3a3010",border:"#a08020",text:"#d0c060"},
+  Erkenntnis:  {bg:"#1a3a3a",border:"#208080",text:"#60c0c0"},
+  Verzauberung: {bg:"#3a1030",border:"#902060",text:"#d060a0"},
+};
+const RARITIES = [
+  {key:"gewöhnlich",  label:"Gewöhnlich",  color:"#a0a0a0"},
+  {key:"ungewöhnlich",label:"Ungewöhnlich",color:"#52b788"},
+  {key:"selten",      label:"Selten",      color:"#4a9edd"},
+  {key:"sehrSelten",  label:"Sehr Selten", color:"#9b59b6"},
+  {key:"legendär",    label:"Legendär",    color:"#e8a030"},
+  {key:"artefakt",    label:"Artefakt",    color:"#c0392b"},
+];
+const AC = {str:"#c06060",dex:"#60a060",con:"#c09040",int:"#6080c0",wis:"#80c0a0",cha:"#c080b0"};
+const AL = {str:"STR",dex:"GES",con:"KON",int:"INT",wis:"WEI",cha:"CHA"};
+const AF = {str:"Stärke",dex:"Geschicklichkeit",int:"Intelligenz",wis:"Weisheit",cha:"Charisma"};
+const SKILLS = [
+  {key:"athletik",      label:"Athletik",              attr:"str"},
+  {key:"akrobatik",     label:"Akrobatik",              attr:"dex"},
+  {key:"fingerfert",    label:"Fingerfertigkeit",       attr:"dex"},
+  {key:"heimlichkeit",  label:"Heimlichkeit",           attr:"dex"},
+  {key:"arkaneKunde",   label:"Arkane Kunde",           attr:"int"},
+  {key:"geschichte",    label:"Geschichte",             attr:"int"},
+  {key:"nachforschung", label:"Nachforschungen",        attr:"int"},
+  {key:"natur",         label:"Naturkunde",             attr:"int"},
+  {key:"religion",      label:"Religion",               attr:"int"},
+  {key:"medizin",       label:"Heilkunde",              attr:"wis"},
+  {key:"tierfuehrung",  label:"Mit Tieren umgehen",     attr:"wis"},
+  {key:"einblick",      label:"Motiv erkennen",         attr:"wis"},
+  {key:"ueberleben",    label:"Überlebenskunst",        attr:"wis"},
+  {key:"aufmerksamkeit",label:"Wahrnehmung",            attr:"wis"},
+  {key:"auftreten",     label:"Auftreten",              attr:"cha"},
+  {key:"einschuechtern",label:"Einschüchtern",          attr:"cha"},
+  {key:"taueschen",     label:"Täuschen",               attr:"cha"},
+  {key:"ueberreden",    label:"Überzeugen",             attr:"cha"},
+];
+// ── Effekte von Waffen, Rüstung und Gegenständen ────────────────────
+// Ein Effekt veraendert einen Wert des Helden, solange sein Traeger aktiv
+// ist (Waffe/Ruestung angelegt, Gegenstand eingeschaltet).
+//   mode 'bonus' addiert und stapelt mit anderen Boni.
+//   mode 'set'   setzt einen festen Wert. Treffen mehrere Setzungen auf
+//                denselben Wert, gewinnt die hoechste; Boni kommen danach
+//                obendrauf. Das haelt das Ergebnis unabhaengig davon, in
+//                welcher Reihenfolge Gegenstaende eingetragen wurden.
+const EFFECT_GROUPS = [
+  {group:"Attribute", items:[
+    {key:"str", label:"Stärke"},        {key:"dex", label:"Geschicklichkeit"},
+    {key:"con", label:"Konstitution"},  {key:"int", label:"Intelligenz"},
+    {key:"wis", label:"Weisheit"},      {key:"cha", label:"Charisma"},
+  ]},
+  {group:"Kampf", items:[
+    {key:"ac",        label:"Rüstungsklasse"},   {key:"maxHp",   label:"Max. Trefferpunkte"},
+    {key:"speed",     label:"Bewegung (m)"},     {key:"initiative", label:"Initiative"},
+    {key:"profBonus", label:"Übungsbonus"},
+    {key:"attack",    label:"Angriffswürfe"},    {key:"damage",  label:"Schaden"},
+  ]},
+  {group:"Zauber", items:[
+    {key:"spellDc",     label:"Zauber-SG"},
+    {key:"spellAttack", label:"Zauber-Angriffsbonus"},
+  ]},
+  {group:"Rettungswürfe", items:[
+    {key:"saveAll", label:"Alle Rettungswürfe"},
+    ...["str","dex","con","int","wis","cha"].map(a=>({key:"save_"+a, label:"RW "+AL[a]})),
+  ]},
+  {group:"Fertigkeiten", items:[
+    {key:"skillAll", label:"Alle Fertigkeiten"},
+    ...SKILLS.map(s=>({key:"skill_"+s.key, label:s.label})),
+  ]},
+];
+const EFFECT_LABELS = {};
+EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{EFFECT_LABELS[i.key]=i.label;}));
+
+const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachengeborener","Gnom","Halbelf","Anderes"];
+const CLASSES = Object.keys(CC);
+const SCHOOLS = Object.keys(SC);
+const SPELL_ATTR = {Barde:"cha",Kleriker:"wis",Druide:"wis",Paladin:"cha",Waldläufer:"wis",Zauberer:"int",Hexenmeister:"cha",Magier:"int",Schurke:"int"};
+const WPROPS  = ["Finesse","Leicht","Schwer","Reichweite","Wurfwaffe","Zweihändig","Vielseitig","Ladezeit","Munition","Spezial"];
+const DTYPES  = ["Hieb","Stich","Wucht","Feuer","Kälte","Schockgriff","Säure","Gift","Nekrotisch","Gleißend","Psychisch","Energie"];
+// Nur als Flaechentoenung im Kopfbalken der Waffen-Detailansicht verwendet —
+// nie als alleiniger Traeger einer Information, die Schadensart steht daneben.
+const DTYPE_COLORS = {Hieb:"#a07050",Stich:"#b08060",Wucht:"#c09070",Feuer:"#e07030","Kälte":"#70b8d8",Schockgriff:"#c0d850","Säure":"#90c040",Gift:"#80b030",Nekrotisch:"#9060c0","Gleißend":"#f0e060",Psychisch:"#c070d0",Energie:"#80a0f0"};
+const COINS   = [
+  {key:"pp",label:"Platin",  color:"#c0c0d0"},
+  {key:"gp",label:"Gold",    color:"#e8c96a"},
+  {key:"ep",label:"Elektrum",color:"#88c0b0"},
+  {key:"sp",label:"Silber",  color:"#c0c0c0"},
+  {key:"cp",label:"Kupfer",  color:"#c8844a"},
+];
+const WATTRS = [{key:"str",label:"Stä"},{key:"dex",label:"Ges"},{key:"fin",label:"Fin"},{key:"int",label:"Int"},{key:"wis",label:"Wei"},{key:"cha",label:"Cha"}];
+
+// Auswahl fuer den Emoji-Knopf im Rich-Text-Editor.
+const EMOJI_LIST = [
+  '😀','😂','😅','😊','🙂','😎','🤔','😮','😱','😭','😡','🥳',
+  '👍','👎','✅','❌','⚠️','💡','🔥','⭐','💎','🪙','🗡','🛡',
+  '🐲','🦄','💀','👁','🧙','⚔','🏹','🔮','📜','📖','🎲','🎯',
+  '🌟','✨','💥','❄','🌊','🔥','⚡','🌪','☀','🌙','🌈','🍀',
+  '❤','🧡','💛','💚','💙','💜','🖤','🤍','❤‍🔥','💔','💘','💝',
+  '→','←','↑','↓','►','◄','•','◆','✦','✧','⚜','🔰',
+];
+
+// Klassenfarben fuer die Marken auf den Zauberkarten. Lagen bis Stufe 1 im
+// Rendercode der Karte und wurden bei jedem Zauber neu angelegt.
+const CC_COLORS = {'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};
+// Schadensfarben der Zaubermarken. Deckt mehr Arten ab als DTYPE_COLORS,
+// das nur die Waffenschadensarten kennt.
+const DMG_COLORS = {Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrotisch:'#9060c0',Gleißend:'#f0e060',Psychisch:'#c070d0',Energie:'#80a0f0',Schall:'#c0a0e0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'};
+
+// Reiter des Abenteuerlogs.
+const LOG_TABS = ['charakter','zauber','inventar','waffen','attribute','rüst','notizen'];
+const LOG_TAB_ICONS = {'charakter':'👤','zauber':'✨','inventar':'🎒','waffen':'⚔','attribute':'📊','rüst':'🛡','notizen':'📜'};
