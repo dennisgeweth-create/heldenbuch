@@ -288,6 +288,40 @@ const styles = `
   .weapon-card-stat-label { font-family:'Roboto Condensed',sans-serif; font-size:8px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--parchment-dim); }
   .weapon-card-stat-value { font-family:'Roboto Condensed',sans-serif; font-size:14px; line-height:1.25; color:#f2f4f6; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
   .weapon-card-stat-value.atk { color:var(--gold-bright); }
+  /* ── Effekte ──────────────────────────────────────────────────────
+     Editor im Bearbeiten-Dialog, Chips in der Anzeige. */
+  .fx-editor { display:flex; flex-direction:column; gap:6px; }
+  .fx-empty { font-size:11px; color:var(--text-muted); font-style:italic; line-height:1.5; }
+  .fx-row { display:grid; grid-template-columns:1fr 116px 66px 30px; gap:5px; align-items:center; }
+  .fx-row .form-select, .fx-row .form-input { padding:6px 7px; font-size:12px; min-height:0; }
+  .fx-value { text-align:center; }
+  .fx-del { background:none; border:1px solid var(--border); border-radius:3px; color:var(--text-muted); cursor:pointer; font-size:11px; height:30px; }
+  .fx-del:hover { color:var(--crimson-bright); border-color:var(--crimson); }
+  .fx-add { margin-top:2px; }
+  .fx-preview { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .fx-chip { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.04em; padding:2px 8px; border-radius:10px; background:rgba(106,63,160,0.30); border:1px solid var(--arcane-bright); color:#d5b6ee; white-space:nowrap; }
+  /* Werte, die gerade von einem Gegenstand veraendert werden. */
+  .fx-touched { color:var(--arcane-bright) !important; }
+  .fx-mark { font-size:9px; color:var(--arcane-bright); vertical-align:super; margin-left:1px; }
+  .fx-panel { background:var(--bg-card); border:1px solid var(--arcane); border-radius:6px; padding:12px 14px; margin-bottom:16px; }
+  .fx-panel-title { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--arcane-bright); margin-bottom:8px; }
+  .fx-src { display:flex; align-items:baseline; gap:8px; padding:4px 0; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .fx-src:first-of-type { border-top:none; }
+  .fx-src-name { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); min-width:120px; }
+  /* Handy: das Ziel bekommt eine eigene Zeile, darunter Modus/Wert/Löschen. */
+  @media (max-width:640px) {
+    .fx-row { grid-template-columns:1fr 74px 44px; grid-template-areas:"t t t" "m v d"; }
+    .fx-row .fx-target { grid-area:t; }
+    .fx-row .fx-mode { grid-area:m; }
+    .fx-row .fx-value { grid-area:v; }
+    .fx-row .fx-del { grid-area:d; }
+  }
+  /* Auf Tablets bleibt die einzeilige Aufteilung, braucht aber mehr Breite,
+     weil die Schrift dort auf Tippgroesse waechst. Die Handy-Regel oben darf
+     das nicht abbekommen, deshalb die Untergrenze. */
+  @media (hover:none) and (min-width:641px), (pointer:coarse) and (min-width:641px) {
+    .fx-row { grid-template-columns:1fr 138px 78px 44px; }
+  }
   /* Trennt zwei Bereiche innerhalb eines Tabs deutlicher als blosser Abstand. */
   .section-divider { height:1px; background:linear-gradient(90deg, transparent 0%, var(--border-bright) 50%, transparent 100%); margin:24px 0 18px; }
   .prop-tag { padding:2px 8px; border-radius:2px; font-family:'Roboto Condensed',sans-serif; font-size:10px; background:var(--bg-hover); border:1px solid var(--border-bright); color:var(--text-secondary); }
@@ -716,6 +750,9 @@ const styles = `
     .spell-actions button,
     .feature-actions button { min-width:40px; min-height:40px; }
     .weapon-equip-btn { width:40px; height:40px; font-size:17px; }
+    /* Der Effekt-Editor drueckt seine Felder sonst unter die Tippgroesse. */
+    .fx-row .form-select, .fx-row .form-input { min-height:44px; font-size:14px; }
+    .fx-row .fx-del { height:44px; }
     .inv-item-delete { min-width:44px; min-height:44px; font-size:16px; }
 
     /* 16px verhindert das automatische Hineinzoomen von iOS Safari
@@ -830,6 +867,69 @@ const SKILLS = [
   {key:"taueschen",     label:"Täuschen",               attr:"cha"},
   {key:"ueberreden",    label:"Überzeugen",             attr:"cha"},
 ];
+// ── Effekte von Waffen, Rüstung und Gegenständen ────────────────────
+// Ein Effekt veraendert einen Wert des Helden, solange sein Traeger aktiv
+// ist (Waffe/Ruestung angelegt, Gegenstand eingeschaltet).
+//   mode 'bonus' addiert und stapelt mit anderen Boni.
+//   mode 'set'   setzt einen festen Wert. Treffen mehrere Setzungen auf
+//                denselben Wert, gewinnt die hoechste; Boni kommen danach
+//                obendrauf. Das haelt das Ergebnis unabhaengig davon, in
+//                welcher Reihenfolge Gegenstaende eingetragen wurden.
+const EFFECT_GROUPS = [
+  {group:"Attribute", items:[
+    {key:"str", label:"Stärke"},        {key:"dex", label:"Geschicklichkeit"},
+    {key:"con", label:"Konstitution"},  {key:"int", label:"Intelligenz"},
+    {key:"wis", label:"Weisheit"},      {key:"cha", label:"Charisma"},
+  ]},
+  {group:"Kampf", items:[
+    {key:"ac",        label:"Rüstungsklasse"},   {key:"maxHp",   label:"Max. Trefferpunkte"},
+    {key:"speed",     label:"Bewegung (m)"},     {key:"initiative", label:"Initiative"},
+    {key:"profBonus", label:"Übungsbonus"},
+    {key:"attack",    label:"Angriffswürfe"},    {key:"damage",  label:"Schaden"},
+  ]},
+  {group:"Zauber", items:[
+    {key:"spellDc",     label:"Zauber-SG"},
+    {key:"spellAttack", label:"Zauber-Angriffsbonus"},
+  ]},
+  {group:"Rettungswürfe", items:[
+    {key:"saveAll", label:"Alle Rettungswürfe"},
+    ...["str","dex","con","int","wis","cha"].map(a=>({key:"save_"+a, label:"RW "+AL[a]})),
+  ]},
+  {group:"Fertigkeiten", items:[
+    {key:"skillAll", label:"Alle Fertigkeiten"},
+    ...SKILLS.map(s=>({key:"skill_"+s.key, label:s.label})),
+  ]},
+];
+const EFFECT_LABELS = {};
+EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{EFFECT_LABELS[i.key]=i.label;}));
+const newEffect = () => ({id:Date.now().toString()+Math.random().toString(36).slice(2,6), target:"str", mode:"bonus", value:1});
+
+// Sammelt alle Effekte, die gerade wirken, samt Herkunft fuer die Anzeige.
+const collectEffects = (c) => {
+  if (!c) return [];
+  const out = [];
+  const add = (source, icon, list) => (list||[]).forEach(e => {
+    if (e && e.target && EFFECT_LABELS[e.target]) out.push({...e, source, icon});
+  });
+  (c.weapons   ||[]).forEach(w => { if (w.equipped)      add(w.name||"Waffe",       "⚔", w.effects); });
+  (c.equipment ||[]).forEach(q => { if (q.equipped)      add(q.name||"Ausrüstung",  "🛡", q.effects); });
+  (c.inventory ||[]).forEach(i => { if (i.effectsActive) add(i.name||"Gegenstand",  "🎒", i.effects); });
+  return out;
+};
+// Wendet alle Effekte eines Ziels auf einen Ausgangswert an.
+const applyEffect = (effs, target, base) => {
+  let fixed = null, bonus = 0;
+  for (const e of effs) {
+    if (e.target !== target) continue;
+    const v = +e.value || 0;
+    if (e.mode === "set") fixed = fixed === null ? v : Math.max(fixed, v);
+    else bonus += v;
+  }
+  return (fixed === null ? base : fixed) + bonus;
+};
+const effectsFor = (effs, target) => effs.filter(e => e.target === target);
+const effectText = e => (e.mode === "set" ? "= " : ((+e.value||0) >= 0 ? "+" : "")) + (+e.value || 0);
+
 const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachengeborener","Gnom","Halbelf","Anderes"];
 const CLASSES = Object.keys(CC);
 const SCHOOLS = Object.keys(SC);
@@ -880,6 +980,8 @@ const COINS   = [
 
 const mod  = v => Math.floor((v-10)/2);
 const fmod = v => { const m=mod(v); return (m>=0?"+":"")+m; };
+// Formatiert einen bereits fertigen Modifikator (nicht den Attributswert).
+const fnum = n => (n>=0?"+":"")+n;
 
 const newChar   = () => ({
   id:Date.now().toString(), name:"", race:"Mensch", charClass:"Kämpfer", level:1,
@@ -894,10 +996,10 @@ const newChar   = () => ({
   inventory:[], currency:{pp:0,gp:0,ep:0,sp:0,cp:0}, equipment:[], acBonuses:[],
   spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
 });
-const newWeapon = () => ({id:Date.now().toString(),name:"",attrKey:"str",proficient:true,range:"1,5m",attackBonus:0,damage:"1W6",damageType:"Hieb",description:"",properties:[],equipped:false,imageData:""});
+const newWeapon = () => ({id:Date.now().toString(),name:"",attrKey:"str",proficient:true,range:"1,5m",attackBonus:0,damage:"1W6",damageType:"Hieb",description:"",properties:[],equipped:false,imageData:"",effects:[]});
 const WATTRS = [{key:"str",label:"Stä"},{key:"dex",label:"Ges"},{key:"fin",label:"Fin"},{key:"int",label:"Int"},{key:"wis",label:"Wei"},{key:"cha",label:"Cha"}];
 const newSpell  = () => ({id:Date.now().toString(),name:"",level:1,school:"Hervorrufung",castingTime:"1 Aktion",range:"9 m",duration:"Sofort",components:"V, S",description:"",prepared:true});
-const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:""});
+const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false});
 
 // Lightweight fuzzy search: returns score > 0 if all query chars appear in order in str
 const fuzzyMatch = (str, query) => {
@@ -1022,6 +1124,53 @@ const RichEditor = ({ value, onChange, placeholder, rows }) => {
         onInput={()=>onChange(ref.current?.innerHTML||'')}
         onBlur={()=>{setShowEmoji(false);onChange(ref.current?.innerHTML||'');}}
       />
+    </div>
+  );
+};
+
+// ── Effekt-Editor ────────────────────────────────────────────────
+// Eine Zeile je Effekt: Was wird veraendert, wie, und um wie viel.
+// Bewusst ohne Zwischenzustand — jede Aenderung geht direkt an onChange,
+// damit der Effekt nicht beim Speichern verlorengehen kann.
+const EffectEditor = ({ effects, onChange, hint }) => {
+  const list = effects || [];
+  const set = (id, patch) => onChange(list.map(e => e.id===id ? {...e, ...patch} : e));
+  return (
+    <div className="fx-editor">
+      {list.length === 0 && (
+        <div className="fx-empty">Keine Effekte. {hint || 'Damit kann dieser Gegenstand Werte des Helden verändern.'}</div>
+      )}
+      {list.map(e => (
+        <div className="fx-row" key={e.id}>
+          <select className="form-select fx-target" value={e.target}
+            onChange={ev=>set(e.id,{target:ev.target.value})}>
+            {EFFECT_GROUPS.map(g => (
+              <optgroup key={g.group} label={g.group}>
+                {g.items.map(i => <option key={i.key} value={i.key}>{i.label}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <select className="form-select fx-mode" value={e.mode||'bonus'}
+            onChange={ev=>set(e.id,{mode:ev.target.value})}>
+            <option value="bonus">Bonus (+/−)</option>
+            <option value="set">Fester Wert</option>
+          </select>
+          <input className="form-input fx-value" type="number" value={e.value}
+            onChange={ev=>set(e.id,{value:ev.target.value===''?0:+ev.target.value})} />
+          <button type="button" className="fx-del" title="Effekt entfernen"
+            onClick={()=>onChange(list.filter(x=>x.id!==e.id))}>✕</button>
+        </div>
+      ))}
+      <button type="button" className="btn-add fx-add" onClick={()=>onChange([...list, newEffect()])}>
+        + Effekt hinzufügen
+      </button>
+      {list.length > 0 && (
+        <div className="fx-preview">
+          {list.map(e => (
+            <span className="fx-chip" key={e.id}>{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -1593,6 +1742,33 @@ function App() {
   const cur = chars.find(c=>c.id===sel);
   const cc  = CC[cur && cur.charClass] || CC["Kämpfer"];
 
+  // ── Effekte angelegter Gegenstaende ──────────────────────────────
+  // itemFx sind die gerade wirkenden Effekte, effCur ist der Held mit
+  // bereits verrechneten Grundwerten. Alles, was angezeigt oder
+  // weitergerechnet wird, liest ab hier effCur; Eingabefelder bleiben
+  // bei cur, sonst wuerde man den veraenderten statt den eigenen Wert
+  // bearbeiten.
+  const itemFx = collectEffects(cur);
+  const fxOn   = t => itemFx.some(e => e.target === t);
+  const fx     = (t, base) => applyEffect(itemFx, t, base);
+  const fxTitle = (t) => {
+    const rel = effectsFor(itemFx, t);
+    if (!rel.length) return undefined;
+    return rel.map(e => `${e.source}: ${EFFECT_LABELS[e.target]} ${effectText(e)}`).join('\n');
+  };
+  const effCur = cur ? {
+    ...cur,
+    str: fx('str', cur.str), dex: fx('dex', cur.dex), con: fx('con', cur.con),
+    int: fx('int', cur.int), wis: fx('wis', cur.wis), cha: fx('cha', cur.cha),
+    maxHp:     fx('maxHp',     cur.maxHp),
+    speed:     fx('speed',     cur.speed),
+    profBonus: fx('profBonus', cur.profBonus),
+  } : null;
+  // Initiative wird im Bogen als Attributswert gefuehrt und erst bei der
+  // Anzeige in einen Modifikator umgerechnet — ein Initiative-Effekt wirkt
+  // deshalb auf den fertigen Modifikator, nicht auf den Wert.
+  const initTotal = cur ? fx('initiative', mod(cur.initiative || effCur.dex)) : 0;
+
   // Dieselbe Auswahl wie die Liste "Aktiv" in der Seitenleiste, damit der
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
   const switchList = chars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
@@ -1701,6 +1877,11 @@ function App() {
     }
     setItf(newItem()); setItfEditId(null); setShowIF(false);
   };
+  // Einzelne Felder eines Gegenstands aendern, ohne den Bearbeiten-Dialog —
+  // gebraucht fuer den Effekt-Schalter in der Detailansicht.
+  const updItem = (id, patch) => save(charsRef.current.map(c=>c.id===selRef.current
+    ? {...c, inventory:(c.inventory||[]).map(i=>i.id===id?{...i,...patch}:i)}
+    : c));
   const delItem = id => appConfirm("Gegenstand wirklich löschen?", () => {
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     const item = (cur2?.inventory||[]).find(i=>i.id===id);
@@ -1812,21 +1993,25 @@ function App() {
   const addAcBonus = () => updAcBonuses([...acBonuses,{id:Date.now().toString(),name:'Neuer Bonus',bonus:1,active:true}]);
   const delAcBonus = id => appConfirm('RK-Bonus wirklich löschen?', ()=>updAcBonuses(acBonuses.filter(b=>b.id!==id)));
   const updAcBonus = (id,patch) => updAcBonuses(acBonuses.map(b=>b.id===id?{...b,...patch}:b));
-  const newEquipItem = () => ({id:Date.now().toString(),name:"",type:"light",baseAC:11,acBonus:0,equipped:false,notes:""});
+  const newEquipItem = () => ({id:Date.now().toString(),name:"",type:"light",baseAC:11,acBonus:0,equipped:false,notes:"",effects:[]});
 
   // Compute AC from equipped armor
-  const equippedArmors  = equipment.filter(e=>e.equipped && e.type!=="shield");
+  // "Sonstiges" ist als "Kein RK-Einfluss" ausgewiesen und traegt nur ueber
+  // acBonus bei — es darf deshalb nicht als Grundruestung zaehlen, sonst
+  // ersetzt ein Umhang mit Basis 0 die 10 der unbewaffneten RK.
+  const equippedArmors  = equipment.filter(e=>e.equipped && e.type!=="shield" && e.type!=="other");
   const equippedShields = equipment.filter(e=>e.equipped && e.type==="shield");
   const computedAC = (() => {
     if (!cur) return null;
-    const dex = mod(cur.dex);
+    const dex = mod(effCur.dex);
     const activeAbBonuses = (cur.acBonuses||[]).filter(b=>b.active).reduce((s,b)=>s+(+b.bonus||0), 0);
     const itemBonuses = equipment.filter(e=>e.equipped && (e.acBonus||0)!==0).reduce((s,e)=>s+(+e.acBonus||0), 0);
     if (equippedArmors.length === 0) {
-      // No armor: only show computed if there are bonuses or shields
+      // Ohne Rüstung nur rechnen, wenn ueberhaupt etwas beitraegt — ein
+      // RK-Effekt zaehlt dabei mit.
       const shBonus = equippedShields.reduce((s,sh)=>s+(sh.baseAC||2), 0);
-      if (shBonus===0 && activeAbBonuses===0 && itemBonuses===0) return null;
-      return 10 + dex + shBonus + activeAbBonuses + itemBonuses;
+      if (shBonus===0 && activeAbBonuses===0 && itemBonuses===0 && !fxOn('ac')) return null;
+      return fx('ac', 10 + dex + shBonus + activeAbBonuses + itemBonuses);
     }
     const a = equippedArmors[0];
     let ac = a.type==="heavy" ? a.baseAC
@@ -1834,7 +2019,7 @@ function App() {
            : a.baseAC + dex; // light or other
     ac += equippedShields.reduce((s,sh)=>s+(sh.baseAC||2), 0);
     ac += activeAbBonuses + itemBonuses;
-    return ac;
+    return fx('ac', ac);
   })();
   const displayAC = computedAC !== null ? computedAC : (cur ? cur.ac : 10);
 
@@ -2229,8 +2414,8 @@ function App() {
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid #4a90d9",borderRadius:3,color:"#7ab8f5",fontSize:13,textAlign:"center"}}/>
                 </div>
               ) : (
-                <span style={{color:"var(--crimson-bright)"}}>
-                  {cur.hp} / {cur.maxHp}
+                <span style={{color:"var(--crimson-bright)"}} title={fxTitle('maxHp')}>
+                  {cur.hp} / <span className={fxOn('maxHp')?"fx-touched":undefined}>{effCur.maxHp}{fxOn('maxHp')&&<span className="fx-mark">✦</span>}</span>
                   {(cur.tempHp||0) > 0 && <span style={{color:"#7ab8f5",marginLeft:6}}>(+{cur.tempHp} temp)</span>}
                 </span>
               )}
@@ -2238,10 +2423,10 @@ function App() {
           </div>
           <div className="hp-bar-track">
             <div style={{display:"flex",height:"100%",width:"100%"}}>
-              <div className="hp-bar-fill" style={{width:Math.max(0,Math.min(100,(cur.hp/(cur.maxHp||1))*100))+"%",flexShrink:0}} />
+              <div className="hp-bar-fill" style={{width:Math.max(0,Math.min(100,(cur.hp/(effCur.maxHp||1))*100))+"%",flexShrink:0}} />
               {(cur.tempHp||0) > 0 && (
                 <div style={{
-                  width:Math.max(0,Math.min(25,(cur.tempHp/(cur.maxHp||1))*100))+"%",
+                  width:Math.max(0,Math.min(25,(cur.tempHp/(effCur.maxHp||1))*100))+"%",
                   background:"linear-gradient(90deg,rgba(74,144,217,0.7),rgba(122,184,245,0.9))",
                   flexShrink:0,borderRadius:"0 2px 2px 0",marginLeft:1
                 }}/>
@@ -2272,13 +2457,13 @@ function App() {
               <div className="combat-box" key="ini">
                 <div className="combat-label">⚡ Initiative</div>
                 <div className="combat-label-short">⚡ Init.</div>
-                <div className="combat-value" style={{fontSize:14,color:"var(--text-muted)"}}>{fmod(cur.initiative||cur.dex)}</div>
+                <div className="combat-value" style={{fontSize:14,color:"var(--text-muted)"}}>{fnum(initTotal)}</div>
                 <div style={{fontSize:9,color:"var(--text-muted)",marginTop:2,fontStyle:"italic"}}>= DEX-Mod</div>
               </div>,
               (() => {
                 const spAttr = SPELL_ATTR[cur.charClass];
                 if (!spAttr) return null;
-                const sg = 8 + cur.profBonus + mod(cur[spAttr]);
+                const sg = fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr]));
                 return (
                   <div className="combat-box" key="spsg">
                     <div className="combat-label">✨ Zauber-SG</div>
@@ -2292,16 +2477,26 @@ function App() {
           ) : (
             (() => {
               const spAttr = SPELL_ATTR[cur.charClass];
-              const spSG = spAttr ? 8 + cur.profBonus + mod(cur[spAttr]) : null;
-              const boxes = [{l:"Rüstungsklasse",s:computedAC!==null?"🛡 RK*":"🛡 RK",v:displayAC,i:"🛡"},{l:"Initiative",s:"⚡ Init.",v:fmod(cur.initiative||cur.dex),i:"⚡"},{l:"Bewegung",s:"👟 Bew.",v:cur.speed+"m",i:"👟"},{l:"Übungsbonus",s:"📖 ÜB",v:"+"+cur.profBonus,i:"📖"}];
-              if (spSG !== null) boxes.push({l:"Zauber-SG",s:"✨ SG",v:spSG,i:"✨"});
-              return boxes.map(s => (
-                <div className="combat-box" key={s.l}>
-                  <div className="combat-label">{s.i} {s.l}</div>
-                  <div className="combat-label-short">{s.s}</div>
-                  <div className="combat-value">{s.v}</div>
-                </div>
-              ));
+              const spSG = spAttr ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr])) : null;
+              // t: betroffenes Effektziel — faerbt den Wert und erklaert ihn
+              // im Tooltip, damit man eine veraenderte Zahl zuordnen kann.
+              const boxes = [
+                {l:"Rüstungsklasse",s:computedAC!==null?"🛡 RK*":"🛡 RK",v:displayAC,i:"🛡",t:'ac'},
+                {l:"Initiative",s:"⚡ Init.",v:fnum(initTotal),i:"⚡",t:'initiative'},
+                {l:"Bewegung",s:"👟 Bew.",v:effCur.speed+"m",i:"👟",t:'speed'},
+                {l:"Übungsbonus",s:"📖 ÜB",v:"+"+effCur.profBonus,i:"📖",t:'profBonus'},
+              ];
+              if (spSG !== null) boxes.push({l:"Zauber-SG",s:"✨ SG",v:spSG,i:"✨",t:'spellDc'});
+              return boxes.map(s => {
+                const touched = fxOn(s.t) || (s.t==='initiative' && fxOn('dex')) || (s.t==='ac' && fxOn('dex'));
+                return (
+                  <div className="combat-box" key={s.l} title={fxTitle(s.t)}>
+                    <div className="combat-label">{s.i} {s.l}</div>
+                    <div className="combat-label-short">{s.s}</div>
+                    <div className={"combat-value"+(touched?" fx-touched":"")}>{s.v}{fxOn(s.t)&&<span className="fx-mark">✦</span>}</div>
+                  </div>
+                );
+              });
             })()
           )}
         </div>
@@ -2365,20 +2560,53 @@ function App() {
 
         {tab==="stats" && (
           <>
+            {/* Überblick: was gerade an den Werten dreht und woher es kommt.
+                Steht bewusst hier, weil direkt darunter die betroffenen
+                Zahlen mit ✦ markiert sind. */}
+            {itemFx.length > 0 && (() => {
+              const bySource = [];
+              itemFx.forEach(e => {
+                let g = bySource.find(x=>x.source===e.source && x.icon===e.icon);
+                if (!g) { g = {source:e.source, icon:e.icon, list:[]}; bySource.push(g); }
+                g.list.push(e);
+              });
+              return (
+                <div className="fx-panel">
+                  <div className="fx-panel-title">✦ Aktive Effekte</div>
+                  {bySource.map((g,i) => (
+                    <div className="fx-src" key={i}>
+                      <div className="fx-src-name">{g.icon} {g.source}</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        {g.list.map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',marginTop:8,lineHeight:1.5}}>
+                    Betroffene Werte sind mit ✦ markiert. Zum Abschalten die Waffe ablegen,
+                    die Rüstung ausziehen oder den Gegenstand im Inventar ausschalten.
+                  </div>
+                </div>
+              );
+            })()}
             <div className="stats-section">
               <div className="section-title">🎯 Grundattribute</div>
               <div className="stats-grid">
                 {[["str","Stärke"],["dex","Geschick"],["con","Konstitution"],["int","Intelligenz"],["wis","Weisheit"],["cha","Charisma"]].map(([k,l]) => (
-                  <div className="stat-box" key={k}>
+                  <div className="stat-box" key={k} title={fxTitle(k)}>
                     <div className="stat-label">{l}</div>
                     {statsEdit ? (
+                      /* Im Bearbeiten-Modus der eigene Wert, nicht der von
+                         Gegenstaenden veraenderte. */
                       <input type="number" min={1} max={30} value={cur[k]}
                         onChange={e=>patchChar({[k]:Math.max(1,Math.min(30,Number(e.target.value)))})}
                         style={{width:52,padding:"4px 2px",background:"var(--bg-void)",border:"1px solid var(--gold)",borderRadius:3,color:"var(--gold)",fontSize:22,textAlign:"center",display:"block",margin:"4px auto",fontFamily:"'Roboto Condensed',sans-serif"}}/>
                     ) : (
-                      <div className="stat-value">{cur[k]}</div>
+                      <div className={"stat-value"+(fxOn(k)?" fx-touched":"")}>{effCur[k]}{fxOn(k)&&<span className="fx-mark">✦</span>}</div>
                     )}
-                    <div className="stat-mod">{fmod(cur[k])}</div>
+                    <div className={"stat-mod"+(fxOn(k)?" fx-touched":"")}>{fmod(effCur[k])}</div>
+                    {fxOn(k) && !statsEdit && cur[k]!==effCur[k] && (
+                      <div style={{fontSize:9,color:"var(--text-muted)",marginTop:1,fontStyle:"italic"}}>eigen {cur[k]}</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2389,12 +2617,15 @@ function App() {
               <div className="saves-grid">
                 {[["str","STR"],["dex","GES"],["con","KON"],["int","INT"],["wis","WEI"],["cha","CHA"]].map(([attr,label])=>{
                   const isP = (cur.savingThrowProfs||[]).includes(attr);
-                  const val = mod(cur[attr]) + (isP?cur.profBonus:0);
+                  const base = mod(effCur[attr]) + (isP?effCur.profBonus:0);
+                  const val = fx('save_'+attr, fx('saveAll', base));
+                  const touched = fxOn('save_'+attr)||fxOn('saveAll')||fxOn(attr)||fxOn('profBonus');
+                  const tip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('saveAll'),fxTitle('save_'+attr)].filter(Boolean).join('\n');
                   return (
-                    <div key={attr} className={"save-box"+(isP?" prof":"")} onClick={()=>toggleSave(attr)}>
+                    <div key={attr} className={"save-box"+(isP?" prof":"")} onClick={()=>toggleSave(attr)} title={tip||undefined}>
                       <div className="save-pip"/>
                       <div className="save-label">{label}</div>
-                      <div className="save-value" style={{color:isP?"var(--gold)":"var(--text-muted)"}}>{(val>=0?"+":"")+val}</div>
+                      <div className={"save-value"+(touched?" fx-touched":"")} style={{color:isP?"var(--gold)":"var(--text-muted)"}}>{fnum(val)}</div>
                     </div>
                   );
                 })}
@@ -2422,18 +2653,20 @@ function App() {
                     <div className="skill-group-header">
                       <div className="skill-attr-badge" style={{color:AC[attr],borderColor:AC[attr]+"60"}}>{AL[attr]}</div>
                       <div className="skill-attr-name">{AF[attr]}</div>
-                      <div className="skill-attr-mod" style={{color:AC[attr]}}>{fmod(cur[attr])}</div>
+                      <div className={"skill-attr-mod"+(fxOn(attr)?" fx-touched":"")} style={{color:AC[attr]}} title={fxTitle(attr)}>{fmod(effCur[attr])}</div>
                     </div>
                     {SKILLS.filter(s=>s.attr===attr).map(sk => {
                       const isP = (cur.skillProfs||[]).includes(sk.key);
                       const isE = (cur.expertiseProfs||[]).includes(sk.key);
                       const joat = cur.jackOfAllTrades && !isP && !isE;
-                      const bonus = isE ? cur.profBonus*2 : isP ? cur.profBonus : joat ? Math.floor(cur.profBonus/2) : 0;
-                      const tot   = mod(cur[attr]) + bonus;
+                      const bonus = isE ? effCur.profBonus*2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus/2) : 0;
+                      const tot   = fx('skill_'+sk.key, fx('skillAll', mod(effCur[attr]) + bonus));
+                      const skTouched = fxOn('skill_'+sk.key)||fxOn('skillAll')||fxOn(attr)||fxOn('profBonus');
+                      const skTip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('skillAll'),fxTitle('skill_'+sk.key)].filter(Boolean).join('\n');
                       const pip   = isE ? "⬤⬤" : isP ? "⬤" : joat ? "◑" : "○";
                       const col   = isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--border-bright)";
                       return (
-                        <div className="skill-row" key={sk.key}>
+                        <div className="skill-row" key={sk.key} title={skTip||undefined}>
                           <button
                             className={"skill-prof-btn"+(isE?" expertise":"")}
                             onClick={()=>toggleSkill(sk.key)}
@@ -2445,8 +2678,8 @@ function App() {
                             title={isE?"Expertise (Klick: entfernen)":isP?"Übung (Klick: Expertise)":"Kein Bonus (Klick: Übung hinzufügen)"}
                           >{pip}</button>
                           <div className="skill-name">{sk.label}</div>
-                          <div className="skill-value" style={{color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"}}>
-                            {(tot>=0?"+":"")+tot}
+                          <div className={"skill-value"+(skTouched?" fx-touched":"")} style={{color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"}}>
+                            {fnum(tot)}
                             {isE && <span style={{fontSize:9,opacity:0.6,marginLeft:2}}>EX</span>}
                             {joat && <span style={{fontSize:9,opacity:0.6,marginLeft:2}}>JoAT</span>}
                           </div>
@@ -2472,7 +2705,7 @@ function App() {
           ];
           const openEqForm = (item) => {
             if (item) { setEqForm({...item}); setEqEditId(item.id); }
-            else { setEqForm({name:'',type:'light',baseAC:11,equipped:false,notes:''}); setEqEditId(null); }
+            else { setEqForm({name:'',type:'light',baseAC:11,acBonus:0,equipped:false,notes:'',effects:[]}); setEqEditId(null); }
             setShowEF(true);
           };
           const saveEqForm = () => {
@@ -2501,7 +2734,7 @@ function App() {
                 {computedAC!==null ? (
                   <div style={{fontSize:12,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",lineHeight:1.7}}>
                     {(() => {
-                      const dex = mod(cur.dex);
+                      const dex = mod(effCur.dex);
                       const parts = [];
 
                       // Base armor
@@ -2510,7 +2743,6 @@ function App() {
                         if (a.type==='heavy')  parts.push(a.name+': '+a.baseAC);
                         if (a.type==='medium') parts.push(a.name+': '+a.baseAC+' + GES '+Math.min(2,dex));
                         if (a.type==='light')  parts.push(a.name+': '+a.baseAC+' + GES '+dex);
-                        if (a.type==='other')  parts.push(a.name+': '+a.baseAC);
                         if ((a.acBonus||0)!==0) parts.push('Magisch: +'+(a.acBonus));
                       } else {
                         parts.push('Unbewaffnet: 10 + GES '+dex);
@@ -2531,6 +2763,11 @@ function App() {
                         parts.push(b.name+': '+(b.bonus>=0?'+':'')+b.bonus);
                       });
 
+                      // Effekte angelegter Gegenstaende auf die RK
+                      effectsFor(itemFx,'ac').forEach(e=>{
+                        parts.push(e.source+': '+(e.mode==='set'?'RK = '+(+e.value||0):fnum(+e.value||0)));
+                      });
+
                       return (
                         <div>
                           {parts.map((p,i) => (
@@ -2546,7 +2783,7 @@ function App() {
                     })()}
                   </div>
                 ) : (
-                  <div style={{fontSize:12,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Rüstung angelegt — Basis 10 + GES-Mod ({fmod(cur.dex)})</div>
+                  <div style={{fontSize:12,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Rüstung angelegt — Basis 10 + GES-Mod ({fmod(effCur.dex)})</div>
                 )}
                 {warnMultiArmor && <div style={{fontSize:11,color:'var(--crimson-bright)',fontFamily:"'Roboto Condensed',sans-serif"}}>⚠️ Mehrere Rüstungen angelegt!</div>}
               </div>
@@ -2762,10 +2999,10 @@ function App() {
                       return (a.name||"").localeCompare(b.name||"","de");
                     })
                     .map(w => {
-                      const aKey = w.attrKey==="fin" ? (mod(cur.str)>=mod(cur.dex)?"str":"dex") : (w.attrKey||"str");
-                      const attrMod = mod(cur[aKey] || 10);
-                      const bonus = (w.proficient ? cur.profBonus : 0) + attrMod + (w.attackBonus||0);
-                      const dmgBonus = attrMod + (w.attackBonus||0);
+                      const aKey = w.attrKey==="fin" ? (mod(effCur.str)>=mod(effCur.dex)?"str":"dex") : (w.attrKey||"str");
+                      const attrMod = mod(effCur[aKey] || 10);
+                      const bonus = fx('attack', (w.proficient ? effCur.profBonus : 0) + attrMod + (w.attackBonus||0));
+                      const dmgBonus = fx('damage', attrMod + (w.attackBonus||0));
                       const dmgStr = w.damage + (dmgBonus!==0 ? (dmgBonus>0?" + "+dmgBonus:" - "+Math.abs(dmgBonus)) : "");
                       const isEquipped = !!w.equipped;
                       const meta = [w.range||null, w.damageType||null].filter(Boolean).join(" · ");
@@ -3756,6 +3993,11 @@ function App() {
                 </div>
                 <div style={{fontSize:10,color:'var(--text-muted)',marginTop:5,fontStyle:'italic'}}>Füllt die Karte im Format 5:7 aus, hochkant wird also am wenigsten beschnitten. Transparente PNGs bleiben transparent.</div>
               </div>
+              <div className="form-group form-full">
+                <div className="form-label">✦ Effekte</div>
+                <EffectEditor effects={wf.effects} onChange={v=>setWf({...wf,effects:v})}
+                  hint="Wirken, solange die Waffe angelegt ist." />
+              </div>
             </div>
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowWF(false);setWfEditId(null);}}>Abbrechen</button>
@@ -4098,6 +4340,19 @@ function App() {
                   </label>
                 </div>
               </div>
+              <div className="form-group form-full">
+                <div className="form-label">✦ Effekte</div>
+                <EffectEditor effects={itf.effects} onChange={v=>setItf({...itf,effects:v})}
+                  hint="Wirken, solange der Gegenstand eingeschaltet ist." />
+                {(itf.effects||[]).length>0 && (
+                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginTop:8}}>
+                    <input type="checkbox" checked={!!itf.effectsActive}
+                      onChange={e=>setItf({...itf,effectsActive:e.target.checked})}
+                      style={{width:16,height:16,cursor:'pointer',accentColor:'var(--arcane-bright)'}} />
+                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>Effekte wirken gerade (getragen / eingeschaltet)</span>
+                  </label>
+                )}
+              </div>
             </div>
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowIF(false);setItfEditId(null);}}>Abbrechen</button>
@@ -4300,7 +4555,25 @@ function App() {
                       {(item.tags||[]).map(t=><span key={t} className="inv-tag">{t}</span>)}
                     </div>
                   )}
-                  {!item.description && !item.source && (item.tags||[]).length===0 && (
+                  {(item.effects||[]).length>0 && (
+                    <div style={{marginTop:10}}>
+                      <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--arcane-bright)',marginBottom:5}}>✦ Effekte</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4,opacity:item.effectsActive?1:0.5,marginBottom:7}}>
+                        {(item.effects||[]).map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                      </div>
+                      {/* Ein- und ausschalten ohne Umweg über den Bearbeiten-Dialog:
+                          ein Amulett legt man im Spiel oft ab und wieder an. */}
+                      <button className="btn-icon" style={{fontSize:11,padding:'5px 10px'}}
+                        onClick={()=>{
+                          const next = !item.effectsActive;
+                          updItem(item.id,{effectsActive:next});
+                          setItemViewer({...item, effectsActive:next});
+                        }}>
+                        {item.effectsActive ? '✦ Wirkt — ausschalten' : '◇ Ruht — einschalten'}
+                      </button>
+                    </div>
+                  )}
+                  {!item.description && !item.source && (item.tags||[]).length===0 && (item.effects||[]).length===0 && (
                     <div style={{fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine weiteren Infos.</div>
                   )}
                 </div>
@@ -4321,10 +4594,10 @@ function App() {
       {weaponViewer && cur && (() => {
         const w = (cur.weapons||[]).find(x=>x.id===weaponViewer);
         if (!w) return null;
-        const aKey = w.attrKey==="fin" ? (mod(cur.str)>=mod(cur.dex)?"str":"dex") : (w.attrKey||"str");
-        const attrMod = mod(cur[aKey] || 10);
-        const bonus = (w.proficient ? cur.profBonus : 0) + attrMod + (w.attackBonus||0);
-        const dmgBonus = attrMod + (w.attackBonus||0);
+        const aKey = w.attrKey==="fin" ? (mod(effCur.str)>=mod(effCur.dex)?"str":"dex") : (w.attrKey||"str");
+        const attrMod = mod(effCur[aKey] || 10);
+        const bonus = fx('attack', (w.proficient ? effCur.profBonus : 0) + attrMod + (w.attackBonus||0));
+        const dmgBonus = fx('damage', attrMod + (w.attackBonus||0));
         const dmgStr = w.damage + (dmgBonus!==0 ? (dmgBonus>0?" + "+dmgBonus:" - "+Math.abs(dmgBonus)) : "");
         const attrLabel = (WATTRS.find(a=>a.key===(w.attrKey||"str")) || WATTRS[0]).label;
         const dc = DTYPE_COLORS[w.damageType] || "#a07050";
@@ -4369,6 +4642,16 @@ function App() {
                     ))}
                   </div>
                 </div>
+                {(w.effects||[]).length>0 && (
+                  <div style={{marginTop:14}}>
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--arcane-bright)',marginBottom:5}}>
+                      ✦ Effekte {w.equipped ? '· wirken' : '· ruhen (nicht angelegt)'}
+                    </div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4,opacity:w.equipped?1:0.5}}>
+                      {(w.effects||[]).map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                    </div>
+                  </div>
+                )}
                 {(w.properties||[]).length>0 && (
                   <div style={{marginTop:14}}>
                     <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--text-muted)',marginBottom:5}}>Eigenschaften</div>
@@ -4987,6 +5270,11 @@ function App() {
               <div className="form-group form-full">
                 <div className="form-label">Notizen</div>
                 <input className="form-input" value={eqForm.notes||''} onChange={e=>setEqForm({...eqForm,notes:e.target.value})} placeholder="z.B. Umhang des Schutzes, Schild der Ablenkung" />
+              </div>
+              <div className="form-group form-full">
+                <div className="form-label">✦ Effekte</div>
+                <EffectEditor effects={eqForm.effects} onChange={v=>setEqForm({...eqForm,effects:v})}
+                  hint="Wirken, solange das Stück angelegt ist." />
               </div>
               <div className="form-group form-full" style={{display:'flex',alignItems:'center',gap:10}}>
                 <input type="checkbox" id="eq-equipped" checked={!!eqForm.equipped} onChange={e=>setEqForm({...eqForm,equipped:e.target.checked})} style={{width:16,height:16,cursor:'pointer',accentColor:'var(--gold)'}} />
