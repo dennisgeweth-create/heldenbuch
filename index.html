@@ -580,6 +580,11 @@ const styles = `
     .mobile-bottom-nav { padding:4px 4px; left:0; }
     .mobile-bottom-nav-inner { max-width:none; }
     .mobile-nav-btn { padding:4px 8px; min-width:40px; }
+    /* Sieben Eintraege fuellen 375px fast vollstaendig aus; bei abweichenden
+       Schriftmetriken darf die Leiste seitlich scrollen statt umzubrechen. */
+    .mobile-bottom-nav-inner-wrap { overflow-x:auto; scrollbar-width:none; }
+    .mobile-bottom-nav-inner-wrap::-webkit-scrollbar { display:none; }
+    .mobile-nav-label { white-space:nowrap; }
 
     .mobile-fab { display:flex; position:fixed; bottom:76px; right:16px; width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,var(--crimson),#6b1010); border:1px solid #a02020; color:var(--parchment); font-size:24px; align-items:center; justify-content:center; cursor:pointer; z-index:21; box-shadow:0 4px 16px rgba(139,26,26,0.5); }
     .desktop-sheet { display:none; }
@@ -2296,7 +2301,7 @@ function App() {
 
         </div>
         <div className="tabs">
-          {[["stats","🎯 Attribute"],["ausruestung","🛡️ Ausrüstung"],["waffen","⚔️ Waffen"],["zauber","✨ Zauber"],["inventar","🎒 Inventar"],["notizen","📜 Notizen"],["log","📋 Log"]].map(([k,l]) => (
+          {[["stats","🎯 Attribute"],["aktionen","⚔️ Aktionen"],["zauber","✨ Zauber"],["merkmale","⭐ Merkmale"],["inventar","🎒 Inventar"],["notizen","📜 Notizen"],["log","📋 Log"]].map(([k,l]) => (
             <div key={k} className={"tab"+(tab===k?" active":"")} onClick={()=>{setTab(k);if(k!=="inventar"){setTransferMode(false);setTransferSel(new Set());}}}>{l}</div>
           ))}
         </div>
@@ -2396,43 +2401,11 @@ function App() {
               </div>
             </div>
 
-            {/* Sprachen, Werkzeuge, Waffen & Rüstungen */}
-            <div className="profs-grid">
-              {[
-                {title:'🗣 Sprachen', items:languages, add:addLanguage, del:delLanguage, placeholder:'z.B. Gemeinsprache, Elfisch'},
-                {title:'🔧 Werkzeugsfähigkeiten', items:toolProfs, add:addToolProf, del:delToolProf, placeholder:'z.B. Diebeswerkzeug'},
-                {title:'⚔️ Waffenfähigkeiten', items:weaponProfs, add:addWeaponProf, del:delWeaponProf, placeholder:'z.B. Einfache Waffen, Kriegswaffen'},
-                {title:'🛡️ Rüstungsfertigkeiten', items:armorProfs, add:addArmorProf, del:delArmorProf, placeholder:'z.B. Leichte Rüstung, Schilde'}
-              ].map(({title,items,add,del,placeholder}) => (
-                <div key={title} className="stats-section" style={{marginBottom:0}}>
-                  <div className="section-title">{title}</div>
-                  <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:6,overflow:'hidden'}}>
-                    {items.length===0 && <div style={{padding:'8px 12px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Einträge.</div>}
-                    {items.map((item,i) => (
-                      <div key={i} style={{display:'flex',alignItems:'center',padding:'6px 10px',borderBottom:'1px solid var(--border)',gap:8}}>
-                        <div style={{flex:1,fontFamily:"'Roboto',sans-serif",fontSize:14,color:'var(--text-secondary)'}}>{item}</div>
-                        <button className="chip-remove" onClick={()=>del(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13,lineHeight:1}}>✕</button>
-                      </div>
-                    ))}
-                    <div style={{display:'flex',gap:6,padding:'6px 10px'}}>
-                      <input
-                        className="form-input"
-                        style={{flex:1,padding:'4px 8px',fontSize:13,background:'transparent',border:'none',borderBottom:'1px solid var(--border)',borderRadius:0,color:'var(--text-primary)'}}
-                        placeholder={placeholder}
-                        onKeyDown={e=>{if(e.key==='Enter'){add(e.target.value);e.target.value='';}}}
-                        onBlur={e=>{if(e.target.value.trim()){add(e.target.value);e.target.value='';}}}
-                      />
-                      <span style={{fontSize:11,color:'var(--text-muted)',alignSelf:'center',whiteSpace:'nowrap'}}>↵ Enter</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           
           </>
         )}
 
-        {tab==="ausruestung" && (() => {
+        {tab==="inventar" && (() => {
           const ARMOR_TYPES = [
             {key:'light',  label:'Leichte Rüstung', hint:'Basis + GES-Mod'},
             {key:'medium', label:'Mittlere Rüstung', hint:'Basis + GES-Mod (max. +2)'},
@@ -2634,7 +2607,7 @@ function App() {
           );
         })()}
 
-        {tab==="waffen" && (
+        {tab==="aktionen" && (
           <>
             <div className="section-title" style={{marginBottom:12}}>&#128481; Ausgerüstete Waffen</div>
             {cur.weapons.length===0
@@ -2707,71 +2680,10 @@ function App() {
           </>
         )}
 
-        {tab==="zauber" && (
+        {/* Aktionen: Waffen (oben) plus die Ressourcen, die vorher im
+            Zauber-Tab lagen und dort fuer Nicht-Zauberer schwer zu finden waren. */}
+        {tab==="aktionen" && (
           <>
-            <div className="slots-panel">
-              <div className="slots-panel-header">
-                <div className="slots-title">◈ Zauberplätze</div>
-                <button className={"panel-edit-btn"+(slotsEdit?" active":"")} onClick={()=>setSlotsEdit(!slotsEdit)}>{slotsEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
-              </div>
-              {[1,2,3,4,5,6,7,8,9].every(l=>!slots[l] || slots[l].max===0) && (
-                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",marginBottom:8}}>Noch keine Slots.{!slotsEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
-              )}
-              <div className="slots-grid">
-                {[1,2,3,4,5,6,7,8,9].map(l => {
-                  const s = slots[l]||{max:0,used:0};
-                  if (!slotsEdit && s.max === 0) return null;
-                  return (
-                    <div className="slot-row" key={l}>
-                      <div className="slot-row-label">Grad {l}</div>
-                      <div className="slot-pips">
-                        {Array.from({length:s.max}).map((_,i) => (
-                          <div key={i} className={"slot-pip "+(i<(s.max-s.used)?"available":"used")} onClick={()=>togSlot(l,i)} />
-                        ))}
-                        {slotsEdit && <button className="slot-max-btn" onClick={()=>chgMax(l,1)}>+</button>}
-                        {slotsEdit && s.max>0 && <button className="slot-max-btn" onClick={()=>chgMax(l,-1)}>−</button>}
-                        {!slotsEdit && s.max===0 && <span style={{color:"var(--text-muted)",fontSize:11}}>—</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {[1,2,3,4,5,6,7,8,9].some(l=>slots[l] && slots[l].max>0) && (
-                <button className="slot-restore-btn" onClick={resetAll}>↺ Alle Slots wiederherstellen (lange Rast)</button>
-              )}
-            </div>
-
-            {/* Zaubereipunkte */}
-            {(() => {
-              const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses||[]).some(m=>m.charClass==="Zauberer");
-              if (!isZauberer) return null;
-              return sp.max > 0 ? (
-                <div className="sorcery-panel">
-                  <div className="slots-panel-header" style={{marginBottom:8}}>
-                    <div className="sorcery-title" style={{margin:0}}>✦ Zaubereipunkte</div>
-                    <button className={"panel-edit-btn"+(spEdit?" active":"")} onClick={()=>setSpEdit(!spEdit)} style={{borderColor:"var(--arcane-bright)",color:spEdit?"var(--arcane-bright)":"var(--text-muted)",opacity: spEdit?1:0.6}}>{spEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
-                  </div>
-                  <div className="sorcery-pips">
-                    {Array.from({length:sp.max}).map((_,i) => {
-                      const avail = sp.max - sp.used;
-                      return <div key={i} className={"sorcery-pip "+(i<avail?"available":"spent")} onClick={()=>togSP(i)} title={i<avail?"Punkt ausgeben":"Punkt zurück"}/>;
-                    })}
-                    {spEdit && <button className="slot-max-btn" onClick={()=>spChgMax(1)} title="Max erhöhen">+</button>}
-                    {spEdit && sp.max>0 && <button className="slot-max-btn" onClick={()=>spChgMax(-1)} title="Max verringern">−</button>}
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:18,color:"var(--arcane-bright)"}}>
-                      {sp.max-sp.used} <span style={{fontSize:11,color:"var(--text-muted)"}}>/ {sp.max}</span>
-                    </div>
-                    {sp.used>0 && <button className="slot-restore-btn" style={{borderColor:"var(--arcane-bright)",color:"var(--arcane-bright)"}} onClick={()=>updSP({...sp,used:0})}>↺ Wiederherstellen (Lange Rast)</button>}
-                  </div>
-                </div>
-              ) : (
-                <button className="btn-add" style={{marginBottom:16}} onClick={()=>updSP({max:cur.level,used:0})}>✦ Zaubereipunkte aktivieren</button>
-              );
-            })()}
-
-            {/* Ressourcen-Tracker */}
             <div className="slots-panel" style={{marginBottom:16}}>
               <div className="slots-panel-header">
                 <div className="slots-title">◇ Ressourcen &amp; Sonderpunkte</div>
@@ -2852,6 +2764,141 @@ function App() {
               </div>
               {resEdit && <button className="btn-add" onClick={addResource}>+ Ressource hinzufügen</button>}
             </div>
+          </>
+        )}
+
+        {/* Merkmale: Klassenfaehigkeiten (vorher im Zauber-Tab) und die
+            Fertigkeitsnachweise (vorher im Attribute-Tab). */}
+        {tab==="merkmale" && (
+          <>
+            <div style={{marginTop:24}}>
+              <div className="section-title" style={{marginBottom:12}}>⭐ Klassenfähigkeiten &amp; Merkmale</div>
+              {(cur.features||[]).length === 0
+                ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:13,marginBottom:12}}>Keine Fähigkeiten eingetragen.</div>
+                : <div className="features-grid">{[...(cur.features||[])].sort((a,b)=>(a.source||'').localeCompare(b.source||'','de')||a.name.localeCompare(b.name,'de')).map(feat => (
+                    <div key={feat.id} className={"feature-card"+(exFeature===feat.id?" expanded":"")}
+                      onClick={()=>setExFeature(exFeature===feat.id?null:feat.id)}>
+                      <div className="feature-card-banner">
+                        <div className="feature-card-orb">⭐</div>
+                        <div className="feature-card-name">{feat.name}</div>
+                        <div className="feature-actions" onClick={e=>e.stopPropagation()}>
+                          <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setFf({name:feat.name,source:feat.source||'',description:feat.description||''});setFfEditId(feat.id);setShowFF(true);}}>✎</button>
+                          <button className="spell-delete" onClick={e=>{e.stopPropagation();delFeature(feat.id);}}>✕</button>
+                        </div>
+                      </div>
+                      <div className="feature-card-body">
+                        {feat.source && <div className="feature-source">{feat.source}</div>}
+                      </div>
+                      {feat.description && (
+                        <div className="feature-card-desc-wrap">
+                          <div><div className="feature-card-desc">{feat.description}</div></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}</div>
+              }
+              <button className="btn-add" onClick={()=>{setFf({name:'',source:'',description:''});setFfEditId(null);setShowFF(true);}}>+ Fähigkeit hinzufügen</button>
+            </div>
+            {/* Sprachen, Werkzeuge, Waffen & Rüstungen */}
+            <div className="profs-grid">
+              {[
+                {title:'🗣 Sprachen', items:languages, add:addLanguage, del:delLanguage, placeholder:'z.B. Gemeinsprache, Elfisch'},
+                {title:'🔧 Werkzeugsfähigkeiten', items:toolProfs, add:addToolProf, del:delToolProf, placeholder:'z.B. Diebeswerkzeug'},
+                {title:'⚔️ Waffenfähigkeiten', items:weaponProfs, add:addWeaponProf, del:delWeaponProf, placeholder:'z.B. Einfache Waffen, Kriegswaffen'},
+                {title:'🛡️ Rüstungsfertigkeiten', items:armorProfs, add:addArmorProf, del:delArmorProf, placeholder:'z.B. Leichte Rüstung, Schilde'}
+              ].map(({title,items,add,del,placeholder}) => (
+                <div key={title} className="stats-section" style={{marginBottom:0}}>
+                  <div className="section-title">{title}</div>
+                  <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:6,overflow:'hidden'}}>
+                    {items.length===0 && <div style={{padding:'8px 12px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Einträge.</div>}
+                    {items.map((item,i) => (
+                      <div key={i} style={{display:'flex',alignItems:'center',padding:'6px 10px',borderBottom:'1px solid var(--border)',gap:8}}>
+                        <div style={{flex:1,fontFamily:"'Roboto',sans-serif",fontSize:14,color:'var(--text-secondary)'}}>{item}</div>
+                        <button className="chip-remove" onClick={()=>del(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13,lineHeight:1}}>✕</button>
+                      </div>
+                    ))}
+                    <div style={{display:'flex',gap:6,padding:'6px 10px'}}>
+                      <input
+                        className="form-input"
+                        style={{flex:1,padding:'4px 8px',fontSize:13,background:'transparent',border:'none',borderBottom:'1px solid var(--border)',borderRadius:0,color:'var(--text-primary)'}}
+                        placeholder={placeholder}
+                        onKeyDown={e=>{if(e.key==='Enter'){add(e.target.value);e.target.value='';}}}
+                        onBlur={e=>{if(e.target.value.trim()){add(e.target.value);e.target.value='';}}}
+                      />
+                      <span style={{fontSize:11,color:'var(--text-muted)',alignSelf:'center',whiteSpace:'nowrap'}}>↵ Enter</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab==="zauber" && (
+          <>
+            <div className="slots-panel">
+              <div className="slots-panel-header">
+                <div className="slots-title">◈ Zauberplätze</div>
+                <button className={"panel-edit-btn"+(slotsEdit?" active":"")} onClick={()=>setSlotsEdit(!slotsEdit)}>{slotsEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+              </div>
+              {[1,2,3,4,5,6,7,8,9].every(l=>!slots[l] || slots[l].max===0) && (
+                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",marginBottom:8}}>Noch keine Slots.{!slotsEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
+              )}
+              <div className="slots-grid">
+                {[1,2,3,4,5,6,7,8,9].map(l => {
+                  const s = slots[l]||{max:0,used:0};
+                  if (!slotsEdit && s.max === 0) return null;
+                  return (
+                    <div className="slot-row" key={l}>
+                      <div className="slot-row-label">Grad {l}</div>
+                      <div className="slot-pips">
+                        {Array.from({length:s.max}).map((_,i) => (
+                          <div key={i} className={"slot-pip "+(i<(s.max-s.used)?"available":"used")} onClick={()=>togSlot(l,i)} />
+                        ))}
+                        {slotsEdit && <button className="slot-max-btn" onClick={()=>chgMax(l,1)}>+</button>}
+                        {slotsEdit && s.max>0 && <button className="slot-max-btn" onClick={()=>chgMax(l,-1)}>−</button>}
+                        {!slotsEdit && s.max===0 && <span style={{color:"var(--text-muted)",fontSize:11}}>—</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {[1,2,3,4,5,6,7,8,9].some(l=>slots[l] && slots[l].max>0) && (
+                <button className="slot-restore-btn" onClick={resetAll}>↺ Alle Slots wiederherstellen (lange Rast)</button>
+              )}
+            </div>
+
+            {/* Zaubereipunkte */}
+            {(() => {
+              const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses||[]).some(m=>m.charClass==="Zauberer");
+              if (!isZauberer) return null;
+              return sp.max > 0 ? (
+                <div className="sorcery-panel">
+                  <div className="slots-panel-header" style={{marginBottom:8}}>
+                    <div className="sorcery-title" style={{margin:0}}>✦ Zaubereipunkte</div>
+                    <button className={"panel-edit-btn"+(spEdit?" active":"")} onClick={()=>setSpEdit(!spEdit)} style={{borderColor:"var(--arcane-bright)",color:spEdit?"var(--arcane-bright)":"var(--text-muted)",opacity: spEdit?1:0.6}}>{spEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+                  </div>
+                  <div className="sorcery-pips">
+                    {Array.from({length:sp.max}).map((_,i) => {
+                      const avail = sp.max - sp.used;
+                      return <div key={i} className={"sorcery-pip "+(i<avail?"available":"spent")} onClick={()=>togSP(i)} title={i<avail?"Punkt ausgeben":"Punkt zurück"}/>;
+                    })}
+                    {spEdit && <button className="slot-max-btn" onClick={()=>spChgMax(1)} title="Max erhöhen">+</button>}
+                    {spEdit && sp.max>0 && <button className="slot-max-btn" onClick={()=>spChgMax(-1)} title="Max verringern">−</button>}
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:18,color:"var(--arcane-bright)"}}>
+                      {sp.max-sp.used} <span style={{fontSize:11,color:"var(--text-muted)"}}>/ {sp.max}</span>
+                    </div>
+                    {sp.used>0 && <button className="slot-restore-btn" style={{borderColor:"var(--arcane-bright)",color:"var(--arcane-bright)"}} onClick={()=>updSP({...sp,used:0})}>↺ Wiederherstellen (Lange Rast)</button>}
+                  </div>
+                </div>
+              ) : (
+                <button className="btn-add" style={{marginBottom:16}} onClick={()=>updSP({max:cur.level,used:0})}>✦ Zaubereipunkte aktivieren</button>
+              );
+            })()}
+
+            {/* Ressourcen-Tracker */}
 
 
             <div className="section-title" style={{marginBottom:8}}>✨ Bekannte Zauber</div>
@@ -3105,34 +3152,6 @@ function App() {
               </>
             )}
 
-            <div style={{marginTop:24}}>
-              <div className="section-title" style={{marginBottom:12}}>⭐ Klassenfähigkeiten &amp; Merkmale</div>
-              {(cur.features||[]).length === 0
-                ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:13,marginBottom:12}}>Keine Fähigkeiten eingetragen.</div>
-                : <div className="features-grid">{[...(cur.features||[])].sort((a,b)=>(a.source||'').localeCompare(b.source||'','de')||a.name.localeCompare(b.name,'de')).map(feat => (
-                    <div key={feat.id} className={"feature-card"+(exFeature===feat.id?" expanded":"")}
-                      onClick={()=>setExFeature(exFeature===feat.id?null:feat.id)}>
-                      <div className="feature-card-banner">
-                        <div className="feature-card-orb">⭐</div>
-                        <div className="feature-card-name">{feat.name}</div>
-                        <div className="feature-actions" onClick={e=>e.stopPropagation()}>
-                          <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setFf({name:feat.name,source:feat.source||'',description:feat.description||''});setFfEditId(feat.id);setShowFF(true);}}>✎</button>
-                          <button className="spell-delete" onClick={e=>{e.stopPropagation();delFeature(feat.id);}}>✕</button>
-                        </div>
-                      </div>
-                      <div className="feature-card-body">
-                        {feat.source && <div className="feature-source">{feat.source}</div>}
-                      </div>
-                      {feat.description && (
-                        <div className="feature-card-desc-wrap">
-                          <div><div className="feature-card-desc">{feat.description}</div></div>
-                        </div>
-                      )}
-                    </div>
-                  ))}</div>
-              }
-              <button className="btn-add" onClick={()=>{setFf({name:'',source:'',description:''});setFfEditId(null);setShowFF(true);}}>+ Fähigkeit hinzufügen</button>
-            </div>
           </>
         )}
 
@@ -3535,7 +3554,7 @@ function App() {
                 <span className="mobile-nav-label">Helden</span>
               </button>
             ) : (
-              [["stats","🎯","Attribute"],["ausruestung","🛡️","Rüst."],["waffen","⚔️","Waffen"],["zauber","✨","Zauber"],["inventar","🎒","Inventar"],["notizen","📜","Notizen"],["log","📋","Log"]].map(([k,ic,lb]) => (
+              [["stats","🎯","Attribute"],["aktionen","⚔️","Aktionen"],["zauber","✨","Zauber"],["merkmale","⭐","Merkmale"],["inventar","🎒","Inventar"],["notizen","📜","Notizen"],["log","📋","Log"]].map(([k,ic,lb]) => (
                 <button key={k} className={"mobile-nav-btn"+(tab===k?" active":"")} onClick={()=>{setTab(k);if(k!=="inventar"){setTransferMode(false);setTransferSel(new Set());}}}>
                   <span className="mobile-nav-icon">{ic}</span>
                   <span className="mobile-nav-label">{lb}</span>
