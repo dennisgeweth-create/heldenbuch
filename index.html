@@ -12,11 +12,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=dev" />
   <!-- Regeldaten und reine Hilfsfunktionen liegen ausgelagert; beide sind
-       klassische Skripte ohne JSX und muessen vor dem Anwendungscode laufen. -->
-  <script src="js/data.js"></script>
-  <script src="js/util.js"></script>
+       klassische Skripte ohne JSX und muessen vor dem Anwendungscode laufen.
+       Das ?v=dev ersetzt der Deploy durch den Commit-Kurzhash: sonst kann ein
+       neues index.html auf eine zwischengespeicherte alte styles.css treffen. -->
+  <script src="js/data.js?v=dev"></script>
+  <script src="js/util.js?v=dev"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
@@ -1063,6 +1065,26 @@ function App() {
 
   const resources = cur && cur.resources || [];
   const updResources = r => patchCurrent(c=>({resources:r}));
+
+  // ── Inspiration ──────────────────────────────────────────────────
+  // Anders als die frei angelegten Ressourcen hat sie jeder Held, deshalb
+  // steht sie fest im Bogen. Aeltere Charaktere haben die Felder noch nicht,
+  // daher die Ersatzwerte. Sie wird beim Rasten ausdruecklich nicht
+  // zurueckgesetzt — sie bleibt, bis man sie einsetzt.
+  const inspMax = Math.max(1, Math.min(10, +(cur && cur.inspirationMax) || 1));
+  const insp    = Math.max(0, Math.min(inspMax, +(cur && cur.inspiration) || 0));
+  const setInsp = (n) => {
+    const v = Math.max(0, Math.min(inspMax, n));
+    if (v === insp) return;
+    patchCurrent(() => ({inspiration: v}));
+    addLog(selRef.current, cur && cur.name, 'charakter',
+      v > insp ? 'Inspiration erhalten' : 'Inspiration eingesetzt',
+      {stand: v + '/' + inspMax});
+  };
+  const setInspMax = (n) => {
+    const m = Math.max(1, Math.min(10, n));
+    patchCurrent(c => ({inspirationMax: m, inspiration: Math.min(+c.inspiration || 0, m)}));
+  };
   const patchChar = patch => patchCurrent(c=>({...patch}));
   const addResource = () => updResources([...resources,{id:Date.now().toString(),name:"Neue Ressource",max:3,used:0,color:"#c9a84c",restType:"lang"}]);
   const equipment  = cur && cur.equipment  || [];
@@ -1586,10 +1608,21 @@ function App() {
         {(() => {
           const activeSlots = [1,2,3,4,5,6,7,8,9].filter(l=>slots[l]&&slots[l].max>0);
           const isZauberer = cur.charClass==="Zauberer"||(cur.multiclasses||[]).some(m=>m.charClass==="Zauberer");
-          const hasContent = activeSlots.length>0||(isZauberer&&sp.max>0)||resources.length>0;
+          // Inspiration erscheint hier nur, wenn man welche hat — als
+          // Erinnerung genau dann, wenn sie zaehlt. Bei 0 waere es Ballast.
+          const hasContent = activeSlots.length>0||(isZauberer&&sp.max>0)||resources.length>0||insp>0;
           if(!hasContent) return null;
           return (
             <div className="res-mini-bar">
+              {insp>0 && (
+                <div className="res-mini-group" title={"Inspiration: "+insp+"/"+inspMax}>
+                  <span className="res-mini-label" style={{color:"var(--inspiration)"}}>INSP</span>
+                  {Array.from({length:inspMax}).map((_,i)=>(
+                    <span key={i} className={"res-mini-pip"+(i<insp?" on":"")}
+                      style={i<insp?{background:"var(--inspiration)",borderColor:"var(--inspiration)"}:{borderColor:"var(--inspiration)"}} />
+                  ))}
+                </div>
+              )}
               {activeSlots.length>0 && (
                 <div className="res-mini-group">
                   <span className="res-mini-label">ZPL</span>
@@ -1992,8 +2025,46 @@ function App() {
                 <div className="slots-title">◇ Ressourcen &amp; Sonderpunkte</div>
                 <button className={"panel-edit-btn"+(resEdit?" active":"")} onClick={()=>setResEdit(!resEdit)}>{resEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
               </div>
+              {/* Inspiration steht fest an erster Stelle: sie ist Teil der
+                  Grundregeln und nicht wie die uebrigen Eintraege frei
+                  angelegt — deshalb ohne Namensfeld und ohne Löschen. */}
+              <div className="resource-item insp-item">
+                <div className="resource-header">
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:"var(--inspiration)",flex:1}}>
+                    ✦ Inspiration
+                  </div>
+                  <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>
+                    Vorteil auf einen Wurf
+                  </div>
+                </div>
+                <div className="resource-pips">
+                  {Array.from({length:inspMax}).map((_,i) => (
+                    <div key={i}
+                      className="resource-pip"
+                      title={i<insp ? "Inspiration einsetzen" : "Inspiration erhalten"}
+                      style={{
+                        backgroundColor: i<insp ? "var(--inspiration)" : "var(--bg-void)",
+                        borderColor: "var(--inspiration)",
+                        opacity: i<insp ? 1 : 0.25,
+                        boxShadow: i<insp ? "0 0 6px rgba(232,184,75,0.45)" : "none",
+                      }}
+                      onClick={()=>setInsp(i<insp ? i : i+1)}
+                    />
+                  ))}
+                  {resEdit && inspMax<10 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax+1)}>+</button>}
+                  {resEdit && inspMax>1 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax-1)}>−</button>}
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:"var(--inspiration)",marginLeft:4}}>
+                    {insp}<span style={{fontSize:10,color:"var(--text-muted)"}}>/{inspMax}</span>
+                  </span>
+                </div>
+                {insp===0 && (
+                  <div style={{fontSize:11,color:"var(--text-muted)",fontStyle:"italic",marginTop:4}}>
+                    Punkt antippen, wenn die Spielleitung dir Inspiration gibt.
+                  </div>
+                )}
+              </div>
               {resources.length === 0 && (
-                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",marginBottom:8}}>Noch keine Ressourcen.{!resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
+                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",margin:"10px 0 8px"}}>Sonst noch keine Ressourcen.{!resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
               )}
               <div className="resource-list">
                 {resources.map(res => (

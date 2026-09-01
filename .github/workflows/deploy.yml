@@ -23,6 +23,13 @@ jobs:
           mkdir -p deploy/js
           cp .htaccess api.php apple-touch-icon.png data.json favicon.png index.html slots.html styles.css deploy/
           cp js/data.js js/util.js deploy/js/
+          # Cache-Sperre loesen: styles.css und js/*.js liegen seit der
+          # Aufteilung in eigenen Dateien und wuerden sonst aus dem Cache
+          # kommen, waehrend index.html schon neu ist. Der Commit-Hash macht
+          # jede Auslieferung zu einer neuen URL.
+          sed -i "s/?v=dev/?v=${GITHUB_SHA:0:8}/g" deploy/index.html
+          echo "Asset-Version: ${GITHUB_SHA:0:8}"
+          grep -o 'href="styles.css?[^"]*"' deploy/index.html
           echo "Zu übertragen:"
           find deploy -type f | sort
 

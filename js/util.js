@@ -71,6 +71,9 @@ const newChar   = () => ({
   id:Date.now().toString(), name:"", race:"Mensch", charClass:"Kämpfer", level:1,
   multiclasses:[],
   hp:10, maxHp:10, tempHp:0, ac:10, speed:30, initiative:0, profBonus:2,
+  // Regelkonform hat man Inspiration oder nicht; wer am Tisch mehrere
+  // zulaesst, erhoeht das Maximum im Bogen.
+  inspiration:0, inspirationMax:1,
   str:10, dex:10, con:10, int:10, wis:10, cha:10,
   background:"", notes:"", notesList:[], features:[], weapons:[], spells:[], skillProfs:[], expertiseProfs:[], jackOfAllTrades:false, languages:[], toolProfs:[], weaponProfs:[],
   savingThrowProfs:[],

@@ -20,6 +20,9 @@
     --parchment: #e4e6e8; --parchment-dim: #b8bdc2;
     --text-primary: #e4e6e8; --text-secondary: #b8bdc2; --text-muted: #8b9198;
     --arcane: #6a3fa0; --arcane-bright: #9b59b6;
+    /* Inspiration: warmes Bernstein, bewusst neben dem roten Akzent stehend,
+       damit der Punkt in der Leiste sofort auffaellt. 9,3:1 auf --bg-card. */
+    --inspiration: #e8b84b; --inspiration-dim: #6b5320;
   }
   body { font-family:'Roboto',sans-serif; background:var(--bg-void); color:var(--text-primary); min-height:100vh; }
 
@@ -322,6 +325,10 @@
   .resource-del:hover { color:var(--crimson-bright); opacity:1; }
   .resource-pips { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
   .resource-pip { width:20px; height:20px; border-radius:4px; border:1px solid; cursor:pointer; transition:all 0.15s; }
+  /* Inspiration steht als einzige fest im Bogen — die uebrigen Ressourcen
+     legt man selbst an. Der Bernsteinstreifen macht den Unterschied
+     sichtbar, ohne einen zweiten Kasten aufzumachen. */
+  .insp-item { border-left:3px solid var(--inspiration-dim); margin-bottom:8px; }
   .resource-restore-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; display:block; }
   .tpl-search-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .tpl-search-input { flex:1; min-width:160px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'Roboto',sans-serif; font-size:14px; outline:none; }
@@ -612,6 +619,10 @@
 
     .slot-pip { width:30px; height:30px; }
     .slot-max-btn { width:30px; height:30px; font-size:14px; }
+    /* Die Ressourcen-Punkte hatten als einzige Tippziele nie eine
+       Touch-Groesse — mit 20px trifft man sie am Tisch schlecht. */
+    .resource-pip { width:34px; height:34px; border-radius:6px; }
+    .resource-pips { gap:8px; }
 
     .btn-icon { min-width:44px; min-height:44px; padding:10px 14px; }
     .chip-remove { min-width:40px; min-height:40px; padding:8px; }
