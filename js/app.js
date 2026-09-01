@@ -1,13 +1,16 @@
-// ACHTUNG: erzeugt von build.js aus js/app.jsx — Aenderungen hier gehen
+// ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 3-sheet.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
-// Heldenbuch — Anwendungscode (JSX).
-// Quelldatei. Beim Deploy uebersetzt build.js sie nach js/app.js; die
-// ausgelieferte Seite laedt nur das Ergebnis und braucht kein Babel mehr.
-// Lokal: node build.js
+// ==== js/src/0-basis.jsx ====
+// Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
 //
-// Voraussetzungen aus dem <head>: React, ReactDOM, js/data.js, js/util.js
-// und der API-Client aus dem einfachen <script>-Block in index.html.
+// build.js setzt js/src/*.jsx in Dateinamen-Reihenfolge zu einem Skript
+// zusammen; alle Dateien teilen sich deshalb einen Geltungsbereich. Was hier
+// steht, gilt überall.
+//
+// Vorausgesetzt aus dem <head> von index.html: React, ReactDOM, js/data.js,
+// js/util.js und der API-Client aus dem einfachen <script>-Block.
 
 const {
   useState,
@@ -16,6 +19,11 @@ const {
 } = React;
 const apiLoad = apiLoadChars;
 const apiSave = apiSaveChars;
+
+// ==== js/src/1-editors.jsx ====
+// Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
+// Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
+
 const RichEditor = ({
   value,
   onChange,
@@ -233,6 +241,9 @@ const EffectEditor = ({
 
 // ── LogTab component ─────────────────────────────────────────────
 
+// ==== js/src/2-logtab.jsx ====
+// Heldenbuch — Abenteuerlog eines einzelnen Helden (Reiter "Log").
+
 const LogTab = ({
   charId,
   isDmMode
@@ -416,6 +427,9 @@ const LogTab = ({
     }
   }, fmt(e.created_at))))));
 };
+
+// ==== js/src/3-sheet.jsx ====
+// Heldenbuch — der Charakterbogen mit seinen sieben Reitern.
 
 // ── Charakterbogen ───────────────────────────────────────────────
 // Sheet war bis Stufe 3 innerhalb von App definiert und wurde damit bei
@@ -3671,6 +3685,11 @@ const Sheet = () => {
     isDmMode: isDmMode
   }));
 };
+
+// ==== js/src/4-app.jsx ====
+// Heldenbuch — Wurzelkomponente: Zustand, Server-Sync, Seitenleiste,
+// Dialoge. Haelt alles, was der Bogen ueber SheetCtx bekommt.
+
 function App() {
   const [chars, setChars] = useState([]);
   const [sel, setSel] = useState(null);

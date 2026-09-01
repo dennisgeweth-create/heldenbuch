@@ -18,14 +18,14 @@ jobs:
 
       # js/app.js wird mitcommittet, damit die Seite auch lokal ohne Bauschritt
       # laeuft und der Prueflauf weiter eine Datei aus dem Repo vergleicht.
-      # Hier wird deshalb nur kontrolliert, dass sie zum aktuellen js/app.jsx
-      # passt — wer die Quelle aendert und das Bauen vergisst, bekommt einen
-      # roten Lauf statt einer stillen alten Fassung auf dem Server.
+      # Hier wird deshalb nur kontrolliert, dass sie zu js/src/*.jsx passt —
+      # wer die Quelle aendert und das Bauen vergisst, bekommt einen roten
+      # Lauf statt einer stillen alten Fassung auf dem Server.
       - name: Check built app.js is current
         run: node build.js --check
 
       # Die Dateiliste ist bewusst ausgeschrieben statt "alles kopieren":
-      # so landen PATCHNOTES.md, .git, .github, js/app.jsx und vendor/babel
+      # so landen PATCHNOTES.md, .git, .github, js/src/ und vendor/babel
       # nie im Webroot.
       - name: Prepare deploy files
         run: |

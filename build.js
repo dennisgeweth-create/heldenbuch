@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * Uebersetzt js/app.jsx nach js/app.js.
+ * Setzt die Quelldateien aus js/src/ zusammen und uebersetzt sie nach
+ * js/app.js.
+ *
+ * Zusammensetzen statt Importieren: die Dateien teilen sich einen
+ * Geltungsbereich, genau wie frueher im einen grossen Script-Block. Damit
+ * brauchte die Aufteilung keine einzige Zeile Anwendungscode zu aendern —
+ * und es braucht keinen Bundler.
  *
  * Nutzt bewusst das bereits vorhandene vendor/babel.min.js statt eines
  * npm-Pakets: kein package.json, kein node_modules, kein Installationsschritt
  * — weder hier noch in der GitHub-Action. Node allein genuegt.
- *
- * Nach dem Bau wird babel im Browser nicht mehr gebraucht; die ausgelieferte
- * Seite laedt nur React, ReactDOM und das Ergebnis.
  *
  *     node build.js            baut einmal
  *     node build.js --check    prueft nur, ob js/app.js aktuell ist (Exit 1 wenn nicht)
@@ -17,9 +20,15 @@ const path = require('path');
 const vm = require('vm');
 
 const wurzel = __dirname;
-const quelle = path.join(wurzel, 'js', 'app.jsx');
+const quellordner = path.join(wurzel, 'js', 'src');
 const ziel = path.join(wurzel, 'js', 'app.js');
 const babelDatei = path.join(wurzel, 'vendor', 'babel.min.js');
+
+// Die Reihenfolge ergibt sich aus dem Dateinamen (1-, 2-, …) und zaehlt:
+// Sheet muss vor App stehen, beide nach den Bausteinen.
+function quelldateien() {
+  return fs.readdirSync(quellordner).filter((n) => n.endsWith('.jsx')).sort();
+}
 
 function ladeBabel() {
   const sandbox = { window: {}, self: {}, navigator: { userAgent: 'node' }, console };
@@ -34,16 +43,23 @@ function ladeBabel() {
 }
 
 function uebersetze() {
-  const jsx = fs.readFileSync(quelle, 'utf8');
+  const dateien = quelldateien();
+  if (!dateien.length) throw new Error('Keine .jsx-Dateien in ' + quellordner);
+  // Trennzeile je Datei, damit im Ergebnis erkennbar bleibt, woher ein
+  // Abschnitt stammt.
+  const jsx = dateien
+    .map((n) => '\n// ==== js/src/' + n + ' ====\n' + fs.readFileSync(path.join(quellordner, n), 'utf8'))
+    .join('\n');
   const { code } = ladeBabel().transform(jsx, {
     presets: [['react', { runtime: 'classic' }]],
     filename: 'app.jsx',
     compact: false,
-sourceMaps: false,
+    sourceMaps: false,
   });
   const kopf =
-    '// ACHTUNG: erzeugt von build.js aus js/app.jsx — Aenderungen hier gehen\n' +
-    '// beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.\n';
+    '// ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen\n' +
+    '// beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.\n' +
+    '// Zusammengesetzt aus: ' + dateien.join(', ') + '\n';
   return kopf + code + '\n';
 }
 
@@ -56,15 +72,16 @@ if (process.argv.includes('--check')) {
   const lf = (s) => s.replace(/\r\n/g, '\n');
   const alt = fs.existsSync(ziel) ? fs.readFileSync(ziel, 'utf8') : '';
   if (lf(alt) !== lf(neu)) {
-    console.error('js/app.js ist nicht auf dem Stand von js/app.jsx. `node build.js` ausfuehren.');
+    console.error('js/app.js ist nicht auf dem Stand von js/src/. `node build.js` ausfuehren.');
     process.exit(1);
   }
   console.log('js/app.js ist aktuell.');
 } else {
   fs.writeFileSync(ziel, neu);
   const kb = (n) => Math.round(n / 1024) + ' KB';
-  console.log(
-    'js/app.jsx ' + kb(fs.statSync(quelle).size) +
-    '  ->  js/app.js ' + kb(fs.statSync(ziel).size)
-  );
+  quelldateien().forEach((n) => {
+    console.log('  ' + n.padEnd(20) + kb(fs.statSync(path.join(quellordner, n)).size));
+  });
+  console.log('  ' + '-'.repeat(30));
+  console.log('  ' + 'js/app.js'.padEnd(20) + kb(fs.statSync(ziel).size));
 }

@@ -8,22 +8,31 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | Datei | Rolle |
 |---|---|
 | `index.html` | Gerüst, Kopfdaten, API-Client, Ladebild |
-| `js/app.jsx` | **Anwendungscode — hier wird bearbeitet** |
-| `js/app.js` | daraus erzeugt, wird ausgeliefert. Nicht von Hand ändern. |
+| `js/src/*.jsx` | **Anwendungscode — hier wird bearbeitet** |
+| ↳ `0-basis.jsx` | Hooks und Kürzel, gilt für alle folgenden Dateien |
+| ↳ `1-editors.jsx` | Rich-Text- und Effekt-Editor |
+| ↳ `2-logtab.jsx` | Abenteuerlog eines Helden |
+| ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
+| ↳ `4-app.jsx` | Zustand, Server-Sync, Seitenleiste, Dialoge |
+| `js/app.js` | daraus zusammengesetzt und übersetzt. Nicht von Hand ändern. |
 | `js/data.js` | Regeltabellen (Klassen, Zauberschulen, Fertigkeiten, Effektziele) |
 | `js/util.js` | reine Hilfsfunktionen ohne React |
 | `styles.css` | gesamte Oberfläche |
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
 | `api.php` | Server-Sync, braucht `config.php` (nicht im Repo) |
 
-## Nach jeder Änderung an `js/app.jsx`
+## Nach jeder Änderung in `js/src/`
 
 ```bash
 node build.js
 ```
 
 Sonst schlägt der Deploy fehl — die Action prüft mit `node build.js --check`,
-ob `js/app.js` zur Quelle passt.
+ob `js/app.js` zu den Quellen passt.
+
+Die Dateien werden in Namensreihenfolge (`0-`, `1-`, …) aneinandergehängt und
+teilen sich einen Geltungsbereich — es gibt keine Imports. Reihenfolge zählt:
+`Sheet` muss vor `App` stehen.
 
 ## Lokal ansehen
 

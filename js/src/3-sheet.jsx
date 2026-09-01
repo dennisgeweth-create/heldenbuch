@@ -1,0 +1,1494 @@
+// Heldenbuch — der Charakterbogen mit seinen sieben Reitern.
+
+// ── Charakterbogen ───────────────────────────────────────────────
+// Sheet war bis Stufe 3 innerhalb von App definiert und wurde damit bei
+// jedem Rendern als neue Komponente erzeugt: React warf den kompletten
+// Teilbaum weg und baute ihn neu auf. Eigener Zustand ueberlebte darin
+// keinen Tastendruck — der Grund, warum jeder Schalter seinen Zustand in
+// App ablegen musste. Als eigenstaendige Komponente entfaellt das.
+//
+// Die Werte aus App kommen ueber einen Kontext statt als Prop-Liste; die
+// Entnahme hier und das Objekt in App entstehen aus derselben Liste und
+// koennen deshalb nicht auseinanderlaufen.
+const SheetCtx = React.createContext(null);
+
+const Sheet = () => {
+  const {
+    acBonuses, addAcBonus, addArmorProf, addLanguage, addLog, addResource,
+    addToolProf, addWeaponProf, appAlert, appConfirm, archiveChar,
+    armorProfs, cc, charMenuOpen, chars, chgMax, collapsedLevels,
+    computedAC, cur, delAcBonus, delArmorProf, delEquipmentItem,
+    delFeature, delItem, delLanguage, delNote, delResource, delSpell,
+    delToolProf, delWeaponProf, deleteChar, displayAC, effCur, eqEditId,
+    eqForm, equipment, equippedArmors, equippedShields, exFeature, exItem,
+    exNote, exSpell, fx, fxOn, fxTitle, initTotal, insp, inspMax,
+    invRarity, invTagFilter, isDmMode, itemFx, noteTagFilter, notesList,
+    openEdit, openNew, openTpl, openUnprepared, patchChar, resEdit,
+    resetAll, resources, save, sel, selectChar, setCharMenuOpen,
+    setCoinDelta, setCoinPopover, setCollapsedLevels, setEqEditId,
+    setEqForm, setExFeature, setExNote, setExSpell, setFf, setFfEditId,
+    setImgViewer, setInsp, setInspMax, setInvRarity, setInvTagFilter,
+    setItemViewer, setItf, setItfEditId, setNf, setNfEditId,
+    setNoteTagFilter, setOpenUnprepared, setResEdit, setSf, setSfEditId,
+    setShowEF, setShowFF, setShowIF, setShowNF, setShowSF,
+    setShowTransfer, setShowWF, setSlotsEdit, setSpEdit,
+    setSpellTagFilter, setStatsEdit, setTab, setTransferMode,
+    setTransferSel, setWeaponViewer, setWf, setWfEditId, setWsExpand,
+    slots, slotsEdit, sp, spChgMax, spEdit, spellTagFilter, statsEdit,
+    stepChar, switchList, tab, togResourcePip, togSP, togSlot,
+    toggleEquipmentItem, toggleEquipped, toggleJoAT, toggleSave,
+    toggleSkill, toggleSpellPrepared, toggleWsFav, toolProfs, tplData,
+    transferMode, transferSel, unarchiveChar, updAcBonus, updEquipment,
+    updResource, updSP, weaponProfs, weaponStats, wsExpand,
+    languages
+  } = React.useContext(SheetCtx);
+
+    if (!cur) return (
+      <div className="empty-state">
+        <div className="empty-rune">⚔</div>
+        <div className="empty-title">Kein Held ausgewählt</div>
+        <div className="empty-sub">Wähle einen Helden aus der Liste<br/>oder erstelle einen neuen</div>
+        <button className="btn-save" onClick={openNew} style={{marginTop:8}}>✦ Jetzt erstellen</button>
+      </div>
+    );
+
+    const sbl = {};
+    (cur.spells||[]).forEach(s => { if(!sbl[s.level]) sbl[s.level]=[]; sbl[s.level].push(s); });
+    Object.keys(sbl).forEach(l => sbl[l].sort((a,b)=>a.name.localeCompare(b.name,'de')));
+    const sls = Object.keys(sbl).map(Number).sort((a,b)=>a-b);
+    const inv = cur.inventory || [];
+    const currency = cur.currency || {pp:0,gp:0,ep:0,sp:0,cp:0};
+    const totalGp = (currency.pp*10)+(currency.gp)+(currency.ep*0.5)+(currency.sp*0.1)+(currency.cp*0.01);
+    const totalWeight = inv.reduce((s,i)=>s+(parseFloat(i.weight)||0)*i.qty, 0);
+
+    return (
+      <div className="sheet">
+        <div className="sheet-header">
+          <div style={{minWidth:0,flex:1}}>
+            {switchList.length < 2 ? (
+              <div className="char-name">{cur.name}</div>
+            ) : (
+              <div className={"char-switch"+(charMenuOpen?" open":"")}>
+                <button className="char-step" title="Vorheriger Held" onClick={()=>stepChar(-1)}>◀</button>
+                <button className="char-name-btn" title="Held wählen" onClick={()=>setCharMenuOpen(o=>!o)}>
+                  <div className="char-name">{cur.name}</div>
+                  <span className="char-name-caret">▾</span>
+                </button>
+                <button className="char-step" title="Nächster Held" onClick={()=>stepChar(1)}>▶</button>
+                {charMenuOpen && (
+                  <>
+                    <div style={{position:'fixed',inset:0,zIndex:29}} onClick={()=>setCharMenuOpen(false)} />
+                    <div className="char-switch-menu">
+                      {switchList.map(c=>{
+                        const ccc = CC[c.charClass]||CC["Kämpfer"];
+                        return (
+                          <button key={c.id} className={"char-switch-item"+(c.id===sel?" current":"")}
+                            onClick={()=>{ selectChar(c.id); setCharMenuOpen(false); }}>
+                            <span className="char-switch-item-dot" style={{background:ccc.bg,borderColor:ccc.border}} />
+                            <span className="char-switch-item-name">{c.name}</span>
+                            <span className="char-switch-item-sub">Lv {(c.level||1)+(c.multiclasses||[]).reduce((s,m)=>s+(m.level||0),0)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            <div className="char-meta">
+              {cur.race}
+              {" · Stufe "}{(cur.level||1) + (cur.multiclasses||[]).reduce((s,m)=>s+(m.level||0),0)}
+              {cur.background?" · "+cur.background:""}
+            </div>
+          </div>
+          <div className="sheet-header-right" style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0}}>
+            <div className="class-badges">
+              <div className="class-badge" style={{backgroundColor:cc.bg,borderColor:cc.border,color:cc.text}}>
+                {cur.charClass} {cur.level}
+              </div>
+              {(cur.multiclasses||[]).map((mc,i)=>{
+                const mcc = CC[mc.charClass]||CC["Kämpfer"];
+                return <div key={i} className="class-badge" style={{backgroundColor:mcc.bg,borderColor:mcc.border,color:mcc.text}}>{mc.charClass} {mc.level}</div>;
+              })}
+            </div>
+            <div className="header-actions">
+              <button title="Bearbeiten"
+                onClick={openEdit}
+                style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
+                  color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.55,transition:"opacity 0.15s,border-color 0.15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border-bright)";}}
+                onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.borderColor="transparent";}}>
+                ✎
+              </button>
+              {cur.archived ? (
+                <button title="Reaktivieren"
+                  onClick={()=>unarchiveChar(cur.id)}
+                  style={{padding:"4px 10px",background:"none",border:"1px solid var(--gold-dim)",borderRadius:3,
+                    color:"var(--gold-dim)",fontSize:12,fontFamily:"'Roboto Condensed',sans-serif",cursor:"pointer",opacity:0.8,letterSpacing:"0.05em"}}
+                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";}}
+                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.8";}}>
+                  ↩ aktiv
+                </button>
+              ) : (
+                <button title="Archivieren"
+                  onClick={()=>appConfirm("Charakter \""+cur.name+"\" archivieren?", archiveChar, "Archivieren")}
+                  style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
+                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border)"}}
+                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.borderColor="transparent"}}>
+                  📦
+                </button>
+              )}
+              <button title="Löschen"
+                onClick={deleteChar}
+                style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
+                  color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s,color 0.15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.color="var(--crimson-bright)";e.currentTarget.style.borderColor="var(--crimson)";}}
+                onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.color="var(--text-muted)";e.currentTarget.style.borderColor="transparent";}}>
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── HP-Block ── */}
+        <div className="hp-bar-container">
+          <div className="hp-bar-label">
+            <span>❤ Trefferpunkte</span>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              {statsEdit ? (
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Akt.</label>
+                  <input type="number" value={cur.hp} onChange={e=>patchChar({hp:Number(e.target.value)})}
+                    style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid var(--crimson-bright)",borderRadius:3,color:"var(--crimson-bright)",fontSize:13,textAlign:"center"}}/>
+                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Max</label>
+                  <input type="number" value={cur.maxHp} onChange={e=>patchChar({maxHp:Number(e.target.value)})}
+                    style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:3,color:"var(--parchment)",fontSize:13,textAlign:"center"}}/>
+                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Temp</label>
+                  <input type="number" value={cur.tempHp||0} onChange={e=>patchChar({tempHp:Number(e.target.value)})}
+                    style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid #4a90d9",borderRadius:3,color:"#7ab8f5",fontSize:13,textAlign:"center"}}/>
+                </div>
+              ) : (
+                <span style={{color:"var(--crimson-bright)"}} title={fxTitle('maxHp')}>
+                  {cur.hp} / <span className={fxOn('maxHp')?"fx-touched":undefined}>{effCur.maxHp}{fxOn('maxHp')&&<span className="fx-mark">✦</span>}</span>
+                  {(cur.tempHp||0) > 0 && <span style={{color:"#7ab8f5",marginLeft:6}}>(+{cur.tempHp} temp)</span>}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="hp-bar-track">
+            <div style={{display:"flex",height:"100%",width:"100%"}}>
+              <div className="hp-bar-fill" style={{width:Math.max(0,Math.min(100,(cur.hp/(effCur.maxHp||1))*100))+"%",flexShrink:0}} />
+              {(cur.tempHp||0) > 0 && (
+                <div style={{
+                  width:Math.max(0,Math.min(25,(cur.tempHp/(effCur.maxHp||1))*100))+"%",
+                  background:"linear-gradient(90deg,rgba(74,144,217,0.7),rgba(122,184,245,0.9))",
+                  flexShrink:0,borderRadius:"0 2px 2px 0",marginLeft:1
+                }}/>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Sticky header: Kampfwerte + Ressourcen ── */}
+        <div className="sticky-header">
+        {/* ── Kampfwerte + Edit-Toggle ── */}
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+          <button className={"panel-edit-btn"+(statsEdit?" active":"")} onClick={()=>setStatsEdit(!statsEdit)}>
+            {statsEdit ? "✓ Fertig" : "✏️ Bearbeiten"}
+          </button>
+        </div>
+
+        <div className="combat-row">
+          {statsEdit ? (
+            (computedAC!==null?[{k:"speed",l:"Bewegung (m)",s:"👟 Bew.",i:"👟"},{k:"profBonus",l:"Übungsbonus",s:"📖 ÜB",i:"📖"}]:[{k:"ac",l:"Rüstungsklasse",s:"🛡 RK",i:"🛡"},{k:"speed",l:"Bewegung (m)",s:"👟 Bew.",i:"👟"},{k:"profBonus",l:"Übungsbonus",s:"📖 ÜB",i:"📖"}]).map(s => (
+              <div className="combat-box" key={s.k}>
+                <div className="combat-label">{s.i} {s.l}</div>
+                <div className="combat-label-short">{s.s}</div>
+                <input type="number" value={cur[s.k]} onChange={e=>patchChar({[s.k]:Number(e.target.value)})}
+                  style={{width:56,padding:"3px 4px",background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:3,color:"var(--gold)",fontSize:18,textAlign:"center",display:"block",margin:"4px auto 0",fontFamily:"'Roboto Condensed',sans-serif"}}/>
+              </div>
+            )).concat([
+              <div className="combat-box" key="ini">
+                <div className="combat-label">⚡ Initiative</div>
+                <div className="combat-label-short">⚡ Init.</div>
+                <div className="combat-value" style={{fontSize:14,color:"var(--text-muted)"}}>{fnum(initTotal)}</div>
+                <div style={{fontSize:9,color:"var(--text-muted)",marginTop:2,fontStyle:"italic"}}>= DEX-Mod</div>
+              </div>,
+              (() => {
+                const spAttr = SPELL_ATTR[cur.charClass];
+                if (!spAttr) return null;
+                const sg = fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr]));
+                return (
+                  <div className="combat-box" key="spsg">
+                    <div className="combat-label">✨ Zauber-SG</div>
+                    <div className="combat-label-short">✨ SG</div>
+                    <div className="combat-value" style={{fontSize:14,color:"var(--text-muted)"}}>{sg}</div>
+                    <div style={{fontSize:9,color:"var(--text-muted)",marginTop:2,fontStyle:"italic"}}>= {AL[spAttr]}-Mod</div>
+                  </div>
+                );
+              })()
+            ])
+          ) : (
+            (() => {
+              const spAttr = SPELL_ATTR[cur.charClass];
+              const spSG = spAttr ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr])) : null;
+              // t: betroffenes Effektziel — faerbt den Wert und erklaert ihn
+              // im Tooltip, damit man eine veraenderte Zahl zuordnen kann.
+              const boxes = [
+                {l:"Rüstungsklasse",s:computedAC!==null?"🛡 RK*":"🛡 RK",v:displayAC,i:"🛡",t:'ac'},
+                {l:"Initiative",s:"⚡ Init.",v:fnum(initTotal),i:"⚡",t:'initiative'},
+                {l:"Bewegung",s:"👟 Bew.",v:effCur.speed+"m",i:"👟",t:'speed'},
+                {l:"Übungsbonus",s:"📖 ÜB",v:"+"+effCur.profBonus,i:"📖",t:'profBonus'},
+              ];
+              if (spSG !== null) boxes.push({l:"Zauber-SG",s:"✨ SG",v:spSG,i:"✨",t:'spellDc'});
+              return boxes.map(s => {
+                const touched = fxOn(s.t) || (s.t==='initiative' && fxOn('dex')) || (s.t==='ac' && fxOn('dex'));
+                return (
+                  <div className="combat-box" key={s.l} title={fxTitle(s.t)}>
+                    <div className="combat-label">{s.i} {s.l}</div>
+                    <div className="combat-label-short">{s.s}</div>
+                    <div className={"combat-value"+(touched?" fx-touched":"")}>{s.v}{fxOn(s.t)&&<span className="fx-mark">✦</span>}</div>
+                  </div>
+                );
+              });
+            })()
+          )}
+        </div>
+
+        {/* Resource mini-bar */}
+        {(() => {
+          const activeSlots = [1,2,3,4,5,6,7,8,9].filter(l=>slots[l]&&slots[l].max>0);
+          const isZauberer = cur.charClass==="Zauberer"||(cur.multiclasses||[]).some(m=>m.charClass==="Zauberer");
+          // Inspiration erscheint hier nur, wenn man welche hat — als
+          // Erinnerung genau dann, wenn sie zaehlt. Bei 0 waere es Ballast.
+          const hasContent = activeSlots.length>0||(isZauberer&&sp.max>0)||resources.length>0||insp>0;
+          if(!hasContent) return null;
+          return (
+            <div className="res-mini-bar">
+              {insp>0 && (
+                <div className="res-mini-group" title={"Inspiration: "+insp+"/"+inspMax}>
+                  <span className="res-mini-label" style={{color:"var(--inspiration)"}}>INSP</span>
+                  {Array.from({length:inspMax}).map((_,i)=>(
+                    <span key={i} className={"res-mini-pip"+(i<insp?" on":"")}
+                      style={i<insp?{background:"var(--inspiration)",borderColor:"var(--inspiration)"}:{borderColor:"var(--inspiration)"}} />
+                  ))}
+                </div>
+              )}
+              {activeSlots.length>0 && (
+                <div className="res-mini-group">
+                  <span className="res-mini-label">ZPL</span>
+                  {activeSlots.map(l=>{
+                    const s=slots[l]; const avail=s.max-s.used;
+                    return (
+                      <span key={l} className="res-mini-slot-group" title={"Grad "+l+": "+avail+"/"+s.max}>
+                        <span className="res-mini-slot-grade">{l}</span>
+                        {Array.from({length:s.max}).map((_,i)=>(
+                          <span key={i} className={"res-mini-pip"+(i<avail?" on":"")} />
+                        ))}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              {isZauberer&&sp.max>0&&(
+                <div className="res-mini-group" title={"Zaubereipunkte: "+(sp.max-sp.used)+"/"+sp.max}>
+                  <span className="res-mini-label" style={{color:"var(--arcane-bright)"}}>ZPU</span>
+                  {Array.from({length:sp.max}).map((_,i)=>{
+                    const avail=sp.max-sp.used;
+                    return <span key={i} className={"res-mini-pip"+(i<avail?" on":"")} style={i<avail?{background:"var(--arcane-bright)",borderColor:"var(--arcane-bright)"}:{borderColor:"var(--arcane-bright)"}} />;
+                  })}
+                </div>
+              )}
+              {resources.map((res,ri)=>{
+                const avail=res.max-res.used;
+                return (
+                  <React.Fragment key={res.id}>
+                    <div className="res-mini-group" title={res.name+": "+avail+"/"+res.max}>
+                      <span className="res-mini-label" style={{color:res.color||"var(--gold)"}}>{res.abbr||res.name}</span>
+                      {Array.from({length:res.max}).map((_,i)=>(
+                        <span key={i} className={"res-mini-pip"+(i<avail?" on":"")} style={i<avail?{background:res.color||"var(--gold-dim)",borderColor:res.color||"var(--gold)"}:{borderColor:res.color||"var(--gold)"}} />
+                      ))}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        </div>
+        <div className="tabs">
+          {[["stats","🎯 Attribute"],["aktionen","⚔️ Aktionen"],["zauber","✨ Zauber"],["merkmale","⭐ Merkmale"],["inventar","🎒 Inventar"],["notizen","📜 Notizen"],["log","📋 Log"]].map(([k,l]) => (
+            <div key={k} className={"tab"+(tab===k?" active":"")} aria-current={tab===k?"page":undefined}
+              {...clickable(()=>{setTab(k);if(k!=="inventar"){setTransferMode(false);setTransferSel(new Set());}}, l)}>{l}</div>
+          ))}
+        </div>
+
+        {tab==="stats" && (
+          <>
+            {/* Überblick: was gerade an den Werten dreht und woher es kommt.
+                Steht bewusst hier, weil direkt darunter die betroffenen
+                Zahlen mit ✦ markiert sind. */}
+            {itemFx.length > 0 && (() => {
+              const bySource = [];
+              itemFx.forEach(e => {
+                let g = bySource.find(x=>x.source===e.source && x.icon===e.icon);
+                if (!g) { g = {source:e.source, icon:e.icon, list:[]}; bySource.push(g); }
+                g.list.push(e);
+              });
+              return (
+                <div className="fx-panel">
+                  <div className="fx-panel-title">✦ Aktive Effekte</div>
+                  {bySource.map((g,i) => (
+                    <div className="fx-src" key={i}>
+                      <div className="fx-src-name">{g.icon} {g.source}</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        {g.list.map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',marginTop:8,lineHeight:1.5}}>
+                    Betroffene Werte sind mit ✦ markiert. Zum Abschalten die Waffe ablegen,
+                    die Rüstung ausziehen oder den Gegenstand im Inventar ausschalten.
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="stats-section">
+              <div className="section-title">🎯 Grundattribute</div>
+              <div className="stats-grid">
+                {[["str","Stärke"],["dex","Geschick"],["con","Konstitution"],["int","Intelligenz"],["wis","Weisheit"],["cha","Charisma"]].map(([k,l]) => (
+                  <div className="stat-box" key={k} title={fxTitle(k)}>
+                    <div className="stat-label">{l}</div>
+                    {statsEdit ? (
+                      /* Im Bearbeiten-Modus der eigene Wert, nicht der von
+                         Gegenstaenden veraenderte. */
+                      <input type="number" min={1} max={30} value={cur[k]}
+                        onChange={e=>patchChar({[k]:Math.max(1,Math.min(30,Number(e.target.value)))})}
+                        style={{width:52,padding:"4px 2px",background:"var(--bg-void)",border:"1px solid var(--gold)",borderRadius:3,color:"var(--gold)",fontSize:22,textAlign:"center",display:"block",margin:"4px auto",fontFamily:"'Roboto Condensed',sans-serif"}}/>
+                    ) : (
+                      <div className={"stat-value"+(fxOn(k)?" fx-touched":"")}>{effCur[k]}{fxOn(k)&&<span className="fx-mark">✦</span>}</div>
+                    )}
+                    <div className={"stat-mod"+(fxOn(k)?" fx-touched":"")}>{fmod(effCur[k])}</div>
+                    {fxOn(k) && !statsEdit && cur[k]!==effCur[k] && (
+                      <div style={{fontSize:9,color:"var(--text-muted)",marginTop:1,fontStyle:"italic"}}>eigen {cur[k]}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="stats-section">
+              <div className="section-title">🎲 Rettungswürfe</div>
+              <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10,fontStyle:"italic"}}>Klick zum Aktivieren der Übung</div>
+              <div className="saves-grid">
+                {[["str","STR"],["dex","GES"],["con","KON"],["int","INT"],["wis","WEI"],["cha","CHA"]].map(([attr,label])=>{
+                  const isP = (cur.savingThrowProfs||[]).includes(attr);
+                  const base = mod(effCur[attr]) + (isP?effCur.profBonus:0);
+                  const val = fx('save_'+attr, fx('saveAll', base));
+                  const touched = fxOn('save_'+attr)||fxOn('saveAll')||fxOn(attr)||fxOn('profBonus');
+                  const tip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('saveAll'),fxTitle('save_'+attr)].filter(Boolean).join('\n');
+                  return (
+                    <div key={attr} className={"save-box"+(isP?" prof":"")} title={tip||undefined}
+                      {...clickable(()=>toggleSave(attr), "Rettungswurf "+label+(isP?" — Übung aktiv":""))}>
+                      <div className="save-pip"/>
+                      <div className="save-label">{label}</div>
+                      <div className={"save-value"+(touched?" fx-touched":"")} style={{color:isP?"var(--gold)":"var(--text-muted)"}}>{fnum(val)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="stats-section">
+              <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:10,flexWrap:"wrap"}}>
+                <div style={{fontSize:11,color:"var(--text-muted)",fontStyle:"italic"}}>⬤ = Übung · ⬤⬤ = Expertise · Klick zum Wechseln</div>
+                <button
+                  className="joat-toggle"
+                  onClick={toggleJoAT}
+                  style={{
+                    borderRadius:3,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,
+                    letterSpacing:"0.08em",textTransform:"uppercase",
+                    background: cur.jackOfAllTrades ? "var(--gold-dim)" : "var(--bg-card)",
+                    border: `1px solid ${cur.jackOfAllTrades ? "var(--gold)" : "var(--border)"}`,
+                    color: cur.jackOfAllTrades ? "var(--gold-bright)" : "var(--text-muted)",
+                  }}>
+                  {cur.jackOfAllTrades ? "✦ Allrounder aktiv" : "◇ Allrounder"}
+                </button>
+              </div>
+              <div className="skills-layout">
+                {["str","dex","int","wis","cha"].map(attr => (
+                  <div className="skill-group" key={attr}>
+                    <div className="skill-group-header">
+                      <div className="skill-attr-badge" style={{color:AC[attr],borderColor:AC[attr]+"60"}}>{AL[attr]}</div>
+                      <div className="skill-attr-name">{AF[attr]}</div>
+                      <div className={"skill-attr-mod"+(fxOn(attr)?" fx-touched":"")} style={{color:AC[attr]}} title={fxTitle(attr)}>{fmod(effCur[attr])}</div>
+                    </div>
+                    {SKILLS.filter(s=>s.attr===attr).map(sk => {
+                      const isP = (cur.skillProfs||[]).includes(sk.key);
+                      const isE = (cur.expertiseProfs||[]).includes(sk.key);
+                      const joat = cur.jackOfAllTrades && !isP && !isE;
+                      const bonus = isE ? effCur.profBonus*2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus/2) : 0;
+                      const tot   = fx('skill_'+sk.key, fx('skillAll', mod(effCur[attr]) + bonus));
+                      const skTouched = fxOn('skill_'+sk.key)||fxOn('skillAll')||fxOn(attr)||fxOn('profBonus');
+                      const skTip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('skillAll'),fxTitle('skill_'+sk.key)].filter(Boolean).join('\n');
+                      const pip   = isE ? "⬤⬤" : isP ? "⬤" : joat ? "◑" : "○";
+                      const col   = isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--border-bright)";
+                      return (
+                        <div className="skill-row" key={sk.key} title={skTip||undefined}>
+                          <button
+                            className={"skill-prof-btn"+(isE?" expertise":"")}
+                            onClick={()=>toggleSkill(sk.key)}
+                            style={{
+                              background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
+                              borderColor: col,
+                              color: col,
+                            }}
+                            title={isE?"Expertise (Klick: entfernen)":isP?"Übung (Klick: Expertise)":"Kein Bonus (Klick: Übung hinzufügen)"}
+                          >{pip}</button>
+                          <div className="skill-name">{sk.label}</div>
+                          <div className={"skill-value"+(skTouched?" fx-touched":"")} style={{color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"}}>
+                            {fnum(tot)}
+                            {isE && <span style={{fontSize:9,opacity:0.6,marginLeft:2}}>EX</span>}
+                            {joat && <span style={{fontSize:9,opacity:0.6,marginLeft:2}}>JoAT</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+        
+          </>
+        )}
+
+        {tab==="inventar" && (() => {
+          const ARMOR_TYPES = [
+            {key:'light',  label:'Leichte Rüstung', hint:'Basis + GES-Mod'},
+            {key:'medium', label:'Mittlere Rüstung', hint:'Basis + GES-Mod (max. +2)'},
+            {key:'heavy',  label:'Schwere Rüstung',  hint:'Basis (kein GES)'},
+            {key:'shield', label:'Schild',            hint:'+Bonus zur RK'},
+            {key:'other',  label:'Sonstiges',         hint:'Kein RK-Einfluss'},
+          ];
+          const openEqForm = (item) => {
+            if (item) { setEqForm({...item}); setEqEditId(item.id); }
+            else { setEqForm({name:'',type:'light',baseAC:11,acBonus:0,equipped:false,notes:'',effects:[]}); setEqEditId(null); }
+            setShowEF(true);
+          };
+          const saveEqForm = () => {
+            if (!eqForm.name.trim()) { appAlert('Name darf nicht leer sein.'); return; }
+            const entry = {...eqForm, id: eqEditId || Date.now().toString()};
+            if (eqEditId) {
+              updEquipment(equipment.map(e=>e.id===eqEditId?entry:e));
+            } else {
+              // Only one armor at a time should be equipped — but allow multiple, user decides
+              updEquipment([...equipment, entry]);
+            }
+            setShowEF(false); setEqEditId(null);
+          };
+          const warnMultiArmor = equippedArmors.length > 1;
+
+          return (
+            <>
+              <div className="section-title" style={{marginBottom:8}}>🛡 Ausrüstung & Rüstung</div>
+
+              {/* AC summary box */}
+              <div style={{background:'var(--bg-card)',border:'1px solid '+(computedAC!==null?'var(--gold-dim)':'var(--border)'),borderRadius:6,padding:'10px 14px',marginBottom:16,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)',letterSpacing:'0.1em',textTransform:'uppercase'}}>🛡 Rüstungsklasse</span>
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:26,color: computedAC!==null?'var(--gold)':'var(--text-muted)'}}>{displayAC}</span>
+                </div>
+                {computedAC!==null ? (
+                  <div style={{fontSize:12,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",lineHeight:1.7}}>
+                    {(() => {
+                      const dex = mod(effCur.dex);
+                      const parts = [];
+
+                      // Base armor
+                      if (equippedArmors.length > 0) {
+                        const a = equippedArmors[0];
+                        if (a.type==='heavy')  parts.push(a.name+': '+a.baseAC);
+                        if (a.type==='medium') parts.push(a.name+': '+a.baseAC+' + GES '+Math.min(2,dex));
+                        if (a.type==='light')  parts.push(a.name+': '+a.baseAC+' + GES '+dex);
+                        if ((a.acBonus||0)!==0) parts.push('Magisch: +'+(a.acBonus));
+                      } else {
+                        parts.push('Unbewaffnet: 10 + GES '+dex);
+                      }
+
+                      // Shields
+                      equippedShields.forEach(sh => {
+                        parts.push(sh.name+': +'+(sh.baseAC||2)+(sh.acBonus?' +'+(sh.acBonus):''));
+                      });
+
+                      // Item bonuses (other equipped items with acBonus)
+                      equipment.filter(e=>e.equipped && e.type==='other' && (e.acBonus||0)!==0).forEach(e=>{
+                        parts.push(e.name+': +'+(e.acBonus));
+                      });
+
+                      // Talent/ability bonuses
+                      acBonuses.filter(b=>b.active && (b.bonus||0)!==0).forEach(b=>{
+                        parts.push(b.name+': '+(b.bonus>=0?'+':'')+b.bonus);
+                      });
+
+                      // Effekte angelegter Gegenstaende auf die RK
+                      effectsFor(itemFx,'ac').forEach(e=>{
+                        parts.push(e.source+': '+(e.mode==='set'?'RK = '+(+e.value||0):fnum(+e.value||0)));
+                      });
+
+                      return (
+                        <div>
+                          {parts.map((p,i) => (
+                            <div key={i} style={{color: i===0?'var(--text-secondary)':'var(--text-muted)'}}>
+                              {i===0 ? '' : '+ '}{p}
+                            </div>
+                          ))}
+                          <div style={{borderTop:'1px solid var(--border)',marginTop:4,paddingTop:4,color:'var(--gold)'}}>
+                            = {displayAC} RK
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div style={{fontSize:12,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Rüstung angelegt — Basis 10 + GES-Mod ({fmod(effCur.dex)})</div>
+                )}
+                {warnMultiArmor && <div style={{fontSize:11,color:'var(--crimson-bright)',fontFamily:"'Roboto Condensed',sans-serif"}}>⚠️ Mehrere Rüstungen angelegt!</div>}
+              </div>
+
+              {/* Equipment list */}
+              {equipment.length===0
+                ? <div style={{color:'var(--text-muted)',fontStyle:'italic',fontSize:14,marginBottom:12}}>Noch keine Ausrüstung eingetragen.</div>
+                : equipment.map(item => {
+                    const typeLabel = ARMOR_TYPES.find(t=>t.key===item.type)||ARMOR_TYPES[0];
+                    const isArmor = item.type!=='shield' && item.type!=='other';
+                    const isShield = item.type==='shield';
+                    return (
+                      <div key={item.id} style={{
+                        background:'var(--bg-card)',
+                        border:'1px solid '+(item.equipped?'var(--gold-dim)':'var(--border)'),
+                        borderRadius:6,padding:'10px 14px',marginBottom:8,
+                        display:'flex',alignItems:'center',gap:10,
+                        boxShadow: item.equipped?'inset 0 0 0 1px rgba(201,168,76,0.15)':''
+                      }}>
+                        {/* Equip toggle */}
+                        <button
+                          onClick={()=>toggleEquipmentItem(item.id)}
+                          title={item.equipped?'Ablegen':'Anlegen'}
+                          style={{
+                            width:36,height:36,borderRadius:4,flexShrink:0,cursor:'pointer',fontSize:18,
+                            background: item.equipped?'var(--gold-dim)20':'var(--bg-panel)',
+                            border:'1px solid '+(item.equipped?'var(--gold)':'var(--border)'),
+                            color: item.equipped?'var(--gold)':'var(--text-muted)',
+                            display:'flex',alignItems:'center',justifyContent:'center'
+                          }}>
+                          {item.equipped ? '🛡' : '○'}
+                        </button>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:item.equipped?'var(--gold)':'var(--text-primary)'}}>
+                            {item.name}
+                            {item.equipped && <span style={{marginLeft:8,fontSize:9,letterSpacing:'0.1em',color:'var(--gold-dim)'}}>ANGELEGT</span>}
+                          </div>
+                          <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+                            {typeLabel.label}
+                            {item.type!=='other' && <span style={{marginLeft:6}}>· {isShield?'+'+(item.baseAC||2)+' RK':'Basis RK '+item.baseAC}</span>}
+                          </div>
+                          {item.notes && <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',marginTop:2}}>{item.notes}</div>}
+                        </div>
+                        <button onClick={()=>openEqForm(item)} style={{background:'none',border:'1px solid var(--border)',borderRadius:3,color:'var(--text-muted)',cursor:'pointer',padding:'4px 8px',fontSize:11}}>✎</button>
+                        <button onClick={()=>delEquipmentItem(item.id)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',padding:'4px 6px',fontSize:14}}>✕</button>
+                      </div>
+                    );
+                  })
+              }
+              <button className="btn-add" style={{marginTop:4,width:'100%'}} onClick={()=>openEqForm(null)}>+ Ausrüstung hinzufügen</button>
+
+              {/* Common armor templates */}
+              <div style={{marginTop:16}}>
+                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Vorlagen</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {[
+                    {name:'Lederrüstung',type:'light',baseAC:11},{name:'Verstärkte Lederrüstung',type:'light',baseAC:12},{name:'Lederlamellenrüstung',type:'light',baseAC:13},
+                    {name:'Schuppenpanzer',type:'medium',baseAC:13},{name:'Kettenhemd',type:'medium',baseAC:13},{name:'Brustpanzer',type:'medium',baseAC:14},
+                    {name:'Schienenpanzer',type:'medium',baseAC:15},{name:'Halbplatte',type:'medium',baseAC:15},
+                    {name:'Ringpanzerhemd',type:'heavy',baseAC:14},{name:'Kettenpanzer',type:'heavy',baseAC:16},{name:'Bänderpanzer',type:'heavy',baseAC:17},{name:'Plattenpanzer',type:'heavy',baseAC:18},
+                    {name:'Schild',type:'shield',baseAC:2},
+                  ].map(tpl=>(
+                    <button key={tpl.name}
+                      onClick={()=>{setEqForm({...tpl,id:Date.now().toString(),equipped:false,notes:''});setEqEditId(null);setShowEF(true);}}
+                      style={{padding:'3px 10px',borderRadius:12,border:'1px solid var(--border)',background:'var(--bg-card)',color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em'}}>
+                      {tpl.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* RK-Boni durch Talente/Fähigkeiten */}
+              <div style={{marginTop:20}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                  <div className="section-title" style={{marginBottom:0}}>✦ RK-Boni durch Talente & Fähigkeiten</div>
+                </div>
+                {acBonuses.length===0
+                  ? <div style={{color:'var(--text-muted)',fontStyle:'italic',fontSize:13,marginBottom:8}}>Kein Bonus eingetragen (z.B. Defensiver Kampfstil, Natürliche Rüstung, Ring des Schutzes).</div>
+                  : acBonuses.map(b=>(
+                    <div key={b.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--bg-card)',border:'1px solid '+(b.active?'var(--gold-dim)':'var(--border)'),borderRadius:5,padding:'7px 10px',marginBottom:6}}>
+                      <button onClick={()=>updAcBonus(b.id,{active:!b.active})}
+                        style={{width:28,height:28,borderRadius:4,flexShrink:0,cursor:'pointer',
+                          background:b.active?'var(--gold-dim)20':'var(--bg-panel)',
+                          border:'1px solid '+(b.active?'var(--gold)':'var(--border)'),
+                          color:b.active?'var(--gold)':'var(--text-muted)',fontSize:13,
+                          display:'flex',alignItems:'center',justifyContent:'center'}}
+                        title={b.active?'Deaktivieren':'Aktivieren'}>
+                        {b.active?'✦':'◇'}
+                      </button>
+                      <input
+                        style={{flex:1,background:'transparent',border:'none',borderBottom:'1px solid var(--border)',outline:'none',fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-primary)',padding:'2px 4px'}}
+                        defaultValue={b.name}
+                        onBlur={e=>updAcBonus(b.id,{name:e.target.value})}
+                        key={'bn_'+b.id}
+                      />
+                      <input type="number" min={-5} max={20}
+                        style={{width:52,background:'transparent',border:'1px solid var(--border)',borderRadius:3,outline:'none',fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:b.active?'var(--gold)':'var(--text-muted)',padding:'2px 6px',textAlign:'center'}}
+                        defaultValue={b.bonus}
+                        onBlur={e=>updAcBonus(b.id,{bonus:+e.target.value})}
+                        key={'bv_'+b.id}
+                      />
+                      <span style={{fontSize:11,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",minWidth:20}}>RK</span>
+                      <button onClick={()=>delAcBonus(b.id)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',padding:'2px 4px',fontSize:13}}>✕</button>
+                    </div>
+                  ))
+                }
+                <button className="btn-add" style={{marginTop:4}} onClick={addAcBonus}>+ RK-Bonus hinzufügen</button>
+                {acBonuses.filter(b=>b.active).length>0 && (
+                  <div style={{marginTop:8,fontSize:12,color:'var(--text-muted)',fontStyle:'italic'}}>
+                    Aktive Boni: {acBonuses.filter(b=>b.active).map(b=>(b.bonus>=0?'+':'')+b.bonus+' ('+b.name+')').join(', ')}
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Aktionen: oben Ressourcen & Sonderpunkte (im Kampf haeufiger
+            angefasst als eine Waffe nachgeschlagen wird), darunter durch eine
+            Trennlinie abgesetzt die Waffen als Karten. */}
+        {tab==="aktionen" && (
+          <>
+            <div className="slots-panel" style={{marginBottom:0}}>
+              <div className="slots-panel-header">
+                <div className="slots-title">◇ Ressourcen &amp; Sonderpunkte</div>
+                <button className={"panel-edit-btn"+(resEdit?" active":"")} onClick={()=>setResEdit(!resEdit)}>{resEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+              </div>
+              {/* Inspiration steht fest an erster Stelle: sie ist Teil der
+                  Grundregeln und nicht wie die uebrigen Eintraege frei
+                  angelegt — deshalb ohne Namensfeld und ohne Löschen. */}
+              <div className="resource-item insp-item">
+                <div className="resource-header">
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:"var(--inspiration)",flex:1}}>
+                    ✦ Inspiration
+                  </div>
+                  <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>
+                    Vorteil auf einen Wurf
+                  </div>
+                </div>
+                <div className="resource-pips">
+                  {Array.from({length:inspMax}).map((_,i) => (
+                    <div key={i}
+                      className="resource-pip"
+                      title={i<insp ? "Inspiration einsetzen" : "Inspiration erhalten"}
+                      style={{
+                        backgroundColor: i<insp ? "var(--inspiration)" : "var(--bg-void)",
+                        borderColor: "var(--inspiration)",
+                        opacity: i<insp ? 1 : 0.25,
+                        boxShadow: i<insp ? "0 0 6px rgba(232,184,75,0.45)" : "none",
+                      }}
+                      {...clickable(()=>setInsp(i<insp ? i : i+1),
+                        "Inspiration " + (i+1) + " von " + inspMax + (i<insp ? " — einsetzen" : " — erhalten"))}
+                    />
+                  ))}
+                  {resEdit && inspMax<10 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax+1)}>+</button>}
+                  {resEdit && inspMax>1 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax-1)}>−</button>}
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:"var(--inspiration)",marginLeft:4}}>
+                    {insp}<span style={{fontSize:10,color:"var(--text-muted)"}}>/{inspMax}</span>
+                  </span>
+                </div>
+                {insp===0 && (
+                  <div style={{fontSize:11,color:"var(--text-muted)",fontStyle:"italic",marginTop:4}}>
+                    Punkt antippen, wenn die Spielleitung dir Inspiration gibt.
+                  </div>
+                )}
+              </div>
+              {resources.length === 0 && (
+                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",margin:"10px 0 8px"}}>Sonst noch keine Ressourcen.{!resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
+              )}
+              <div className="resource-list">
+                {resources.map(res => (
+                  <div className="resource-item" key={res.id}>
+                    {resEdit ? (
+                      <div className="resource-header">
+                        <input
+                          className="form-input"
+                          style={{padding:"3px 6px",fontSize:13,fontFamily:"'Roboto Condensed',sans-serif",flex:1,background:"transparent",border:"none",borderBottom:"1px solid var(--border)",borderRadius:0,color:"var(--text-primary)"}}
+                          key={`res_name_${res.id}_${res.name}`}
+                          defaultValue={res.name}
+                          onBlur={e=>updResource(res.id,{name:e.target.value})}
+                        />
+                        <input
+                          className="form-input"
+                          style={{padding:"3px 6px",fontSize:11,fontFamily:"'Roboto Condensed',sans-serif",width:52,background:"transparent",border:"none",borderBottom:"1px solid var(--border)",borderRadius:0,color:"var(--text-muted)"}}
+                          key={`res_abbr_${res.id}_${res.abbr}`}
+                          defaultValue={res.abbr||""}
+                          placeholder="Kürzel"
+                          onBlur={e=>updResource(res.id,{abbr:e.target.value})}
+                          title="Abkürzung für die Ressourcen-Leiste"
+                        />
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <input type="color"
+                            defaultValue={res.color||"#c9a84c"}
+                            onBlur={e=>updResource(res.id,{color:e.target.value})}
+                            onChange={e=>e.target.parentElement.querySelector('.color-preview')&&(e.target.parentElement.querySelector('.color-preview').style.background=e.target.value)}
+                            style={{width:22,height:22,padding:0,border:"none",borderRadius:3,cursor:"pointer",background:"none"}} title="Farbe wählen"/>
+                          <select className="form-select" style={{padding:"2px 4px",fontSize:11,width:"auto"}}
+                            value={res.restType||"lang"} onChange={e=>updResource(res.id,{restType:e.target.value})}>
+                            <option value="lang">Lange Rast</option>
+                            <option value="kurz">Kurze Rast</option>
+                            <option value="tag">Täglich</option>
+                          </select>
+                          <button className="resource-del" onClick={()=>delResource(res.id)}>✕</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="resource-header">
+                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:res.color||"#c9a84c",flex:1}}>{res.name||"Ressource"}</div>
+                        <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>{res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</div>
+                      </div>
+                    )}
+                    <div className="resource-pips">
+                      {Array.from({length:res.max}).map((_,i) => {
+                        const avail = res.max - res.used;
+                        return (
+                          <div key={i}
+                            className="resource-pip"
+                            style={{
+                              backgroundColor: i<avail ? (res.color||"#c9a84c") : "var(--bg-void)",
+                              borderColor: res.color||"#c9a84c",
+                              opacity: i<avail ? 1 : 0.25,
+                              boxShadow: i<avail ? `0 0 5px ${res.color||"#c9a84c"}60` : "none",
+                            }}
+                            {...clickable(()=>togResourcePip(res.id,i),
+                              (res.name||"Ressource") + " " + (i+1) + " von " + res.max)}
+                          />
+                        );
+                      })}
+                      {resEdit && <button className="slot-max-btn" onClick={()=>updResource(res.id,{max:Math.min(30,res.max+1)})}>+</button>}
+                      {resEdit && res.max>0 && <button className="slot-max-btn" onClick={()=>updResource(res.id,{max:Math.max(0,res.max-1),used:Math.min(res.used,res.max-1)})}>−</button>}
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:res.color||"#c9a84c",marginLeft:4}}>
+                        {res.max-res.used}<span style={{fontSize:10,color:"var(--text-muted)"}}>/{res.max}</span>
+                      </span>
+                    </div>
+                    {res.used>0 && (
+                      <button className="resource-restore-btn" onClick={()=>updResource(res.id,{used:0})}>↺ {res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {resEdit && <button className="btn-add" onClick={addResource}>+ Ressource hinzufügen</button>}
+            </div>
+
+            <div className="section-divider" />
+
+            <div className="section-title" style={{marginBottom:12}}>&#128481; Waffen</div>
+            {cur.weapons.length===0
+              ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Keine Waffen angelegt. Klicke unten um eine hinzuzufügen.</div>
+              : <div className="weapon-grid">
+                  {[...cur.weapons]
+                    .sort((a,b)=>{
+                      if(!!a.equipped !== !!b.equipped) return a.equipped?-1:1;
+                      return (a.name||"").localeCompare(b.name||"","de");
+                    })
+                    .map(w => {
+                      const { bonus, dmgStr } = weaponStats(w);
+                      const isEquipped = !!w.equipped;
+                      const meta = [w.range||null, w.damageType||null].filter(Boolean).join(" · ");
+                      return (
+                        <div key={w.id} className={"weapon-card"+(isEquipped?" equipped":"")}
+                          {...clickable(()=>setWeaponViewer(w.id), (w.name||"Waffe")+" — Details")}>
+                          <div className="weapon-card-img">
+                            {w.imageData
+                              ? <img src={w.imageData} alt={w.name||"Waffe"} />
+                              : <div className="weapon-card-glyph">⚔</div>}
+                            <button className="weapon-equip-btn"
+                              title={isEquipped?"Ablegen":"Anlegen"}
+                              onClick={e=>{e.stopPropagation();toggleEquipped(w.id);}}>⚔</button>
+                          </div>
+                          <div className="weapon-card-info">
+                            <div className="weapon-card-name">{w.name||"—"}</div>
+                            {meta && <div className="weapon-card-meta">{meta}</div>}
+                            <div className="weapon-card-stats">
+                              <div className="weapon-card-stat">
+                                <div className="weapon-card-stat-label">Angriff</div>
+                                <div className="weapon-card-stat-value atk">{bonus>=0?"+"+bonus:bonus}</div>
+                              </div>
+                              <div className="weapon-card-stat">
+                                <div className="weapon-card-stat-label">Schaden</div>
+                                <div className="weapon-card-stat-value">{dmgStr}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+            }
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button className="btn-add" style={{flex:1}} onClick={()=>{setWf(newWeapon());setWfEditId(null);setShowWF(true);}}>+ Waffe hinzufügen</button>
+              <button className="btn-add" style={{flex:1,borderColor:"var(--gold)",color:"var(--gold)"}} onClick={()=>openTpl('weapon')}>&#128214; Von Vorlage (SRD)</button>
+            </div>
+          </>
+        )}
+
+        {/* Merkmale: Klassenfaehigkeiten (vorher im Zauber-Tab) und die
+            Fertigkeitsnachweise (vorher im Attribute-Tab). */}
+        {tab==="merkmale" && (
+          <>
+            <div style={{marginTop:24}}>
+              <div className="section-title" style={{marginBottom:12}}>⭐ Klassenfähigkeiten &amp; Merkmale</div>
+              {(cur.features||[]).length === 0
+                ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:13,marginBottom:12}}>Keine Fähigkeiten eingetragen.</div>
+                : <div className="features-grid">{[...(cur.features||[])].sort((a,b)=>(a.source||'').localeCompare(b.source||'','de')||a.name.localeCompare(b.name,'de')).map(feat => (
+                    <div key={feat.id} className={"feature-card"+(exFeature===feat.id?" expanded":"")} aria-expanded={exFeature===feat.id}
+                      {...clickable(()=>setExFeature(exFeature===feat.id?null:feat.id), feat.name)}>
+                      <div className="feature-card-banner">
+                        <div className="feature-card-orb">⭐</div>
+                        <div className="feature-card-name">{feat.name}</div>
+                        <div className="feature-actions" onClick={e=>e.stopPropagation()}>
+                          <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setFf({name:feat.name,source:feat.source||'',description:feat.description||''});setFfEditId(feat.id);setShowFF(true);}}>✎</button>
+                          <button className="spell-delete" onClick={e=>{e.stopPropagation();delFeature(feat.id);}}>✕</button>
+                        </div>
+                      </div>
+                      <div className="feature-card-body">
+                        {feat.source && <div className="feature-source">{feat.source}</div>}
+                      </div>
+                      {feat.description && (
+                        <div className="feature-card-desc-wrap">
+                          <div><div className="feature-card-desc">{feat.description}</div></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}</div>
+              }
+              <button className="btn-add" onClick={()=>{setFf({name:'',source:'',description:''});setFfEditId(null);setShowFF(true);}}>+ Fähigkeit hinzufügen</button>
+            </div>
+            {/* Sprachen, Werkzeuge, Waffen & Rüstungen */}
+            <div className="profs-grid">
+              {[
+                {title:'🗣 Sprachen', items:languages, add:addLanguage, del:delLanguage, placeholder:'z.B. Gemeinsprache, Elfisch'},
+                {title:'🔧 Werkzeugsfähigkeiten', items:toolProfs, add:addToolProf, del:delToolProf, placeholder:'z.B. Diebeswerkzeug'},
+                {title:'⚔️ Waffenfähigkeiten', items:weaponProfs, add:addWeaponProf, del:delWeaponProf, placeholder:'z.B. Einfache Waffen, Kriegswaffen'},
+                {title:'🛡️ Rüstungsfertigkeiten', items:armorProfs, add:addArmorProf, del:delArmorProf, placeholder:'z.B. Leichte Rüstung, Schilde'}
+              ].map(({title,items,add,del,placeholder}) => (
+                <div key={title} className="stats-section" style={{marginBottom:0}}>
+                  <div className="section-title">{title}</div>
+                  <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:6,overflow:'hidden'}}>
+                    {items.length===0 && <div style={{padding:'8px 12px',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine Einträge.</div>}
+                    {items.map((item,i) => (
+                      <div key={i} style={{display:'flex',alignItems:'center',padding:'6px 10px',borderBottom:'1px solid var(--border)',gap:8}}>
+                        <div style={{flex:1,fontFamily:"'Roboto',sans-serif",fontSize:14,color:'var(--text-secondary)'}}>{item}</div>
+                        <button className="chip-remove" onClick={()=>del(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13,lineHeight:1}}>✕</button>
+                      </div>
+                    ))}
+                    <div style={{display:'flex',gap:6,padding:'6px 10px'}}>
+                      <input
+                        className="form-input"
+                        style={{flex:1,padding:'4px 8px',fontSize:13,background:'transparent',border:'none',borderBottom:'1px solid var(--border)',borderRadius:0,color:'var(--text-primary)'}}
+                        placeholder={placeholder}
+                        onKeyDown={e=>{if(e.key==='Enter'){add(e.target.value);e.target.value='';}}}
+                        onBlur={e=>{if(e.target.value.trim()){add(e.target.value);e.target.value='';}}}
+                      />
+                      <span style={{fontSize:11,color:'var(--text-muted)',alignSelf:'center',whiteSpace:'nowrap'}}>↵ Enter</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab==="zauber" && (
+          <>
+            <div className="slots-panel">
+              <div className="slots-panel-header">
+                <div className="slots-title">◈ Zauberplätze</div>
+                <button className={"panel-edit-btn"+(slotsEdit?" active":"")} onClick={()=>setSlotsEdit(!slotsEdit)}>{slotsEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+              </div>
+              {[1,2,3,4,5,6,7,8,9].every(l=>!slots[l] || slots[l].max===0) && (
+                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",marginBottom:8}}>Noch keine Slots.{!slotsEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
+              )}
+              <div className="slots-grid">
+                {[1,2,3,4,5,6,7,8,9].map(l => {
+                  const s = slots[l]||{max:0,used:0};
+                  if (!slotsEdit && s.max === 0) return null;
+                  return (
+                    <div className="slot-row" key={l}>
+                      <div className="slot-row-label">Grad {l}</div>
+                      <div className="slot-pips">
+                        {Array.from({length:s.max}).map((_,i) => (
+                          <div key={i} className={"slot-pip "+(i<(s.max-s.used)?"available":"used")} onClick={()=>togSlot(l,i)} />
+                        ))}
+                        {slotsEdit && <button className="slot-max-btn" onClick={()=>chgMax(l,1)}>+</button>}
+                        {slotsEdit && s.max>0 && <button className="slot-max-btn" onClick={()=>chgMax(l,-1)}>−</button>}
+                        {!slotsEdit && s.max===0 && <span style={{color:"var(--text-muted)",fontSize:11}}>—</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {[1,2,3,4,5,6,7,8,9].some(l=>slots[l] && slots[l].max>0) && (
+                <button className="slot-restore-btn" onClick={resetAll}>↺ Alle Slots wiederherstellen (lange Rast)</button>
+              )}
+            </div>
+
+            {/* Zaubereipunkte */}
+            {(() => {
+              const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses||[]).some(m=>m.charClass==="Zauberer");
+              if (!isZauberer) return null;
+              return sp.max > 0 ? (
+                <div className="sorcery-panel">
+                  <div className="slots-panel-header" style={{marginBottom:8}}>
+                    <div className="sorcery-title" style={{margin:0}}>✦ Zaubereipunkte</div>
+                    <button className={"panel-edit-btn"+(spEdit?" active":"")} onClick={()=>setSpEdit(!spEdit)} style={{borderColor:"var(--arcane-bright)",color:spEdit?"var(--arcane-bright)":"var(--text-muted)",opacity: spEdit?1:0.6}}>{spEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+                  </div>
+                  <div className="sorcery-pips">
+                    {Array.from({length:sp.max}).map((_,i) => {
+                      const avail = sp.max - sp.used;
+                      return <div key={i} className={"sorcery-pip "+(i<avail?"available":"spent")} onClick={()=>togSP(i)} title={i<avail?"Punkt ausgeben":"Punkt zurück"}/>;
+                    })}
+                    {spEdit && <button className="slot-max-btn" onClick={()=>spChgMax(1)} title="Max erhöhen">+</button>}
+                    {spEdit && sp.max>0 && <button className="slot-max-btn" onClick={()=>spChgMax(-1)} title="Max verringern">−</button>}
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:18,color:"var(--arcane-bright)"}}>
+                      {sp.max-sp.used} <span style={{fontSize:11,color:"var(--text-muted)"}}>/ {sp.max}</span>
+                    </div>
+                    {sp.used>0 && <button className="slot-restore-btn" style={{borderColor:"var(--arcane-bright)",color:"var(--arcane-bright)"}} onClick={()=>updSP({...sp,used:0})}>↺ Wiederherstellen (Lange Rast)</button>}
+                  </div>
+                </div>
+              ) : (
+                <button className="btn-add" style={{marginBottom:16}} onClick={()=>updSP({max:cur.level,used:0})}>✦ Zaubereipunkte aktivieren</button>
+              );
+            })()}
+
+            {/* Ressourcen-Tracker */}
+
+
+            <div className="section-title" style={{marginBottom:8}}>✨ Bekannte Zauber</div>
+            {(() => {
+              // Build all class/dmg tags from current spells using tplData lookup
+              const allSpellClasses = [...new Set(cur.spells.flatMap(s => s.classes||[]))].sort();
+              const allSpellDmg = [...new Set(cur.spells.flatMap(s => s.damageTags||[]))].sort();
+              const hasFilters = allSpellClasses.length>0 || allSpellDmg.length>0;
+              const filterActive = spellTagFilter.classes.length>0 || spellTagFilter.dmg.length>0;
+              return hasFilters && (
+                <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12,alignItems:'center'}}>
+                  {allSpellClasses.map(c=>{const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=spellTagFilter.classes.includes(c);
+                    return <button key={c} onClick={()=>setSpellTagFilter(f=>({...f,classes:on?f.classes.filter(x=>x!==c):[...f.classes,c]}))}
+                      style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em',
+                        border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>
+                      {c}
+                    </button>;
+                  })}
+                  {allSpellDmg.map(d=>{
+                    const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'}[d]||'#a0a0a0';
+                    const on = spellTagFilter.dmg.includes(d);
+                    return (
+                      <button key={d} onClick={()=>setSpellTagFilter(f=>({...f,dmg:f.dmg.includes(d)?f.dmg.filter(x=>x!==d):[...f.dmg,d]}))}
+                        style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em',
+                          border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>
+                        ⚔️ {d}
+                      </button>
+                    );
+                  })}
+                  {filterActive && <button onClick={()=>setSpellTagFilter({classes:[],dmg:[]})} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11,fontFamily:"'Roboto Condensed',sans-serif",padding:'2px 6px'}}>✕ zurücksetzen</button>}
+                </div>
+              );
+            })()}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+              <button className="btn-add" style={{flex:1}} onClick={()=>{setSf({...newSpell(),level:0});setSfEditId(null);setShowSF(true);}}>+ Zaubertrick</button>
+              <button className="btn-add" style={{flex:1}} onClick={()=>{setSf(newSpell());setSfEditId(null);setShowSF(true);}}>+ Zauber (Grad 1–9)</button>
+              <button className="btn-add" style={{flex:1,borderColor:"var(--arcane-bright)",color:"var(--arcane-bright)"}} onClick={()=>openTpl('spell')}>📖 Von Vorlage (SRD)</button>
+            </div>
+            {cur.spells.length===0
+              ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Noch keine Zauber eingetragen.</div>
+              : [0,...sls.filter(l=>l!==0)].filter(l=>sbl[l]).map(l => {
+                  const isCollapsed = collapsedLevels.has(l);
+                  const toggleLevel = () => setCollapsedLevels(prev => {
+                    const next = new Set(prev);
+                    if (next.has(l)) next.delete(l); else next.add(l);
+                    return next;
+                  });
+                  return (
+                  <div className="spell-level-group" key={l}>
+                    <div className="spell-level-header" style={{cursor:"pointer"}} aria-expanded={!isCollapsed}
+                      {...clickable(toggleLevel, (l===0?"Zaubertricks":"Grad "+l)+" auf- oder zuklappen")}>
+                      <div className="spell-level-title">{l===0?"✦ Zaubertricks":"Grad "+l}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+                        {l>0 && slots[l] && slots[l].max>0 && (
+                          <div style={{display:"flex",alignItems:"center",gap:3}}>
+                            {Array.from({length:slots[l].max}).map((_,i) => {
+                              const avail = slots[l].max - slots[l].used;
+                              return <div key={i} onClick={e=>{e.stopPropagation();togSlot(l,i);}} style={{
+                                width:14, height:14, borderRadius:"50%",
+                                background: i<avail ? "var(--gold-dim)" : "transparent",
+                                border: "1px solid " + (i<avail ? "var(--gold)" : "var(--border-bright)"),
+                                cursor:"pointer", flexShrink:0,
+                                boxShadow: i<avail ? "0 0 4px rgba(201,168,76,0.4)" : "none",
+                                transition:"all 0.15s"
+                              }} title={i<avail ? "Slot verfügbar" : "Slot verbraucht"} />;
+                            })}
+                            <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:"var(--gold)",marginLeft:2,opacity:0.85}}>
+                              {slots[l].max-slots[l].used}/{slots[l].max}
+                            </span>
+                          </div>
+                        )}
+                        <div className="spell-level-count">{(() => {
+                          const prep = sbl[l].filter(s=>s.prepared!==false).length;
+                          const unprep = sbl[l].filter(s=>s.prepared===false).length;
+                          if (unprep===0) return sbl[l].length+" Zauber";
+                          return prep+" ✓"+(unprep?" · "+unprep+" ○":"");
+                        })()}</div>
+                        <div style={{fontSize:10,color:"var(--text-muted)",marginLeft:4,transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}>▾</div>
+                      </div>
+                    </div>
+                    {!isCollapsed && (() => {
+                      const tagFilterFn = s => {
+                        if (spellTagFilter.classes.length===0 && spellTagFilter.dmg.length===0) return true;
+                        const classOk = spellTagFilter.classes.length===0 || spellTagFilter.classes.some(c=>(s.classes||[]).includes(c));
+                        const dmgOk = spellTagFilter.dmg.length===0 || spellTagFilter.dmg.some(d=>(s.damageTags||[]).includes(d));
+                        return classOk && dmgOk;
+                      };
+                      const preparedSpells = sbl[l].filter(s => s.prepared!==false && tagFilterFn(s));
+                      const unpreparedSpells = sbl[l].filter(s => s.prepared===false && tagFilterFn(s));
+                      const renderSpell = s => {
+                        const sc = SC[s.school]||SC["Hervorrufung"];
+                        const spellClasses = s.classes||[];
+                        const spellDmgTags = s.damageTags||[];
+                        const levelLabel = s.level===0 ? 'Zaubertrick' : `${s.level}. Grad · ${s.school}`;
+                        return (
+                          <div key={s.id} className={"spell-card"+(exSpell===s.id?" expanded":"")}
+                            style={{borderColor: sc.border, borderWidth:2}} aria-expanded={exSpell===s.id}
+                            {...clickable(()=>setExSpell(exSpell===s.id?null:s.id), s.name)}>
+                            {/* Header: colored band with name */}
+                            <div className="spell-card-header" style={{background:`linear-gradient(180deg, ${sc.border} 0%, ${sc.bg} 100%)`}}>
+                              <div className="spell-card-name">{s.name}</div>
+                              <div className="spell-card-school-label">{levelLabel}</div>
+                            </div>
+                            {/* Stats: 2×2 grid */}
+                            <div className="spell-card-stats-grid">
+                              <div className="spell-card-stat-cell">
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Wirkzeit</div>
+                                <div className="spell-card-stat-value">{s.castingTime||'—'}</div>
+                              </div>
+                              <div className="spell-card-stat-cell">
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Reichweite</div>
+                                <div className="spell-card-stat-value">{s.range||'—'}</div>
+                              </div>
+                              <div className="spell-card-stat-cell">
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Komponenten</div>
+                                <div className="spell-card-stat-value">{s.components||'—'}</div>
+                              </div>
+                              <div className="spell-card-stat-cell">
+                                <div className="spell-card-stat-label" style={{color:sc.text}}>Dauer</div>
+                                <div className="spell-card-stat-value">{s.duration||'—'}</div>
+                              </div>
+                            </div>
+                            {/* Expandable description */}
+                            <div className="spell-card-desc-wrap">
+                              <div><div className="spell-card-desc" dangerouslySetInnerHTML={{__html:sanitizeHtml(s.description)}} /></div>
+                            </div>
+                            {/* Tags row */}
+                            {(spellClasses.length>0||spellDmgTags.length>0) && (
+                              <div className="spell-card-tags">
+                                {/* Getoent statt gefuellt: die Karte ist jetzt dunkel,
+                                    dort traegt die Farbe selbst als Schrift. */}
+                                {spellClasses.map(c=>{const col=CC_COLORS[c]||'#c9a84c';
+                                  return <span key={c} style={{padding:'1px 6px',borderRadius:8,fontFamily:"'Roboto Condensed',sans-serif",fontSize:8,letterSpacing:'0.05em',background:col+'22',border:'1px solid '+col+'80',color:col}}>{c}</span>;
+                                })}
+                                {spellDmgTags.map(d=>{const col=DMG_COLORS[d]||'#a0a0a0';
+                                  return <span key={d} style={{padding:'1px 6px',borderRadius:8,fontFamily:"'Roboto Condensed',sans-serif",fontSize:8,letterSpacing:'0.05em',background:col+'22',border:'1px solid '+col+'80',color:col}}>⚔ {d}</span>;
+                                })}
+                              </div>
+                            )}
+                            {/* Footer: school + actions */}
+                            <div className="spell-card-footer" style={{background:`${sc.bg}cc`}}>
+                              <div className="spell-card-school-footer" style={{color:sc.text}}>{s.school}</div>
+                              <div className="spell-actions" onClick={e=>e.stopPropagation()} style={{alignItems:'center',gap:4}}>
+                                <button title={s.prepared===false?"Vorbereiten":"Nicht vorbereitet markieren"}
+                                  onClick={e=>{e.stopPropagation();toggleSpellPrepared(s.id);}}
+                                  style={{background:'none',border:'none',cursor:'pointer',padding:'1px 3px',lineHeight:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                  <span style={{display:'inline-block',width:10,height:10,borderRadius:'50%',
+                                    background:s.prepared===false?'#e0c040':'#3aaa5c',
+                                    boxShadow:s.prepared===false?'0 0 4px #e0c040aa':'0 0 6px #3aaa5caa',
+                                    transition:'all 0.2s'}} />
+                                </button>
+                                <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setSf({...s});setSfEditId(s.id);setShowSF(true);}}                                  style={{background:'rgba(0,0,0,0.12)',border:'none',color:'rgba(0,0,0,0.5)',cursor:'pointer',fontSize:10,padding:'2px 5px',borderRadius:3}}>✎</button>
+                                <button className="spell-delete" onClick={e=>{e.stopPropagation();delSpell(s.id);}}>✕</button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      };
+                      return (
+                        <>
+                          <div className="spells-list">{preparedSpells.map(renderSpell)}</div>
+                          {unpreparedSpells.length>0 && (
+                            <div style={{marginTop:8}}>
+                              <div
+                                onClick={()=>setOpenUnprepared(prev=>{const s=new Set(prev);s.has(l)?s.delete(l):s.add(l);return s;})}
+                                style={{cursor:'pointer',fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:'var(--text-muted)',letterSpacing:'0.1em',
+                                  textTransform:'uppercase',display:'flex',alignItems:'center',gap:6,padding:'4px 0',
+                                  borderTop:'1px solid var(--border)',userSelect:'none'}}>
+                                <span style={{fontSize:9,transition:'transform 0.2s',transform:openUnprepared.has(l)?'rotate(90deg)':'rotate(0deg)'}}>▶</span>
+                                {unpreparedSpells.length} nicht vorbereitet
+                              </div>
+                              {openUnprepared.has(l) && (
+                                <div className="spells-list" style={{marginTop:8,opacity:0.6}}>
+                                  {unpreparedSpells.map(renderSpell)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                );
+              })
+            }
+
+            {(cur.charClass==="Druide" || (cur.multiclasses||[]).some(m=>m.charClass==="Druide")) && (
+              <>
+                <button className="btn-add" style={{marginTop:8,borderColor:"#52b788",color:"#52b788",width:"100%"}} onClick={()=>openTpl('wildshape')}>🐺 Tierverwandlungs-Bestiar</button>
+                {(cur.wsFavorites||[]).length > 0 && tplData && tplData.wildshapes && (() => {
+                  const statMod = v => { const m=Math.floor((v-10)/2); return (m>=0?'+':'')+m; };
+                  const favAnimals = tplData.wildshapes.filter(w => (cur.wsFavorites||[]).includes(w.name));
+                  return (
+                    <div style={{marginTop:16}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,paddingBottom:6,borderBottom:"1px solid var(--border)"}}>
+                        <div className="section-title" style={{margin:0}}>⭐ Tierverwandlung – Favoriten</div>
+                        <div style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{favAnimals.length} Tiere</div>
+                      </div>
+                      <div className="spells-list">
+                        {favAnimals.map((w,i) => {
+                          const isExp = wsExpand === ("fav_"+w.name);
+                          return (
+                            <div key={i} className={"spell-card"+(isExp?" expanded":"")}
+                              style={{borderColor:"#52b78880"}}
+                              onClick={()=>setWsExpand(isExp?null:("fav_"+w.name))}>
+                              <div className="spell-card-banner" style={{background:"linear-gradient(135deg,#1a3d2b 0%,#2a5c3f80 100%)"}}>
+                                <div className="spell-card-orb" style={{background:"#52b78840",borderColor:"#52b78880",color:"#52b788",fontSize:10}}>CR{w.cr}</div>
+                                <div className="spell-card-school-label" style={{flex:1}}>{w.name}</div>
+                                <div className="spell-actions" onClick={e=>e.stopPropagation()}>
+                                  <button className="spell-edit-btn" style={{color:"#f0c040"}} title="Aus Favoriten entfernen"
+                                    onClick={e=>{e.stopPropagation();toggleWsFav(w.name);}}>★</button>
+                                </div>
+                              </div>
+                              <div className="spell-card-body">
+                                <div className="spell-card-name" style={{fontSize:10,color:"#52b788",opacity:0.85}}>{w.size} · {w.type}</div>
+                                <div className="spell-card-stats">
+                                  <div className="spell-card-stat"><strong>RK</strong>{w.ac}</div>
+                                  <div className="spell-card-stat"><strong>TP</strong>{w.hp}</div>
+                                  <div className="spell-card-stat"><strong>Bew.</strong>{w.speed}</div>
+                                </div>
+                                <div className="spell-card-stats" style={{marginTop:4}}>
+                                  {[['STR',w.str],['GES',w.dex],['KON',w.con],['INT',w.int],['WEI',w.wis],['CHA',w.cha]].map(([l,v])=>(
+                                    <div key={l} className="spell-card-stat"><strong>{l}</strong>{v} ({statMod(v)})</div>
+                                  ))}
+                                </div>
+                              </div>
+                              {isExp && (
+                                <div className="spell-card-desc-wrap">
+                                  <div className="spell-card-desc">
+                                    {w.senses && <div style={{marginBottom:4}}>👁 <strong>Sinne:</strong> {w.senses}</div>}
+                                    {w.skills && <div style={{marginBottom:4}}>🎯 <strong>Fertigk.:</strong> {w.skills}</div>}
+                                    {(w.tags||[]).length>0 && <div style={{marginBottom:6}}>{w.tags.map(t=><span className="ws-tag" key={t} style={{marginRight:4,marginBottom:2,display:"inline-block"}}>{t}</span>)}</div>}
+                                    {w.abilities && w.abilities.map((a,ai)=><div key={ai} style={{marginBottom:3}}>• {a}</div>)}
+                                    {w.actions && w.actions.map((a,ai)=>(
+                                      <div key={ai} style={{marginTop:4,borderTop:"1px solid #52b78830",paddingTop:4}}>
+                                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"#52b788",marginBottom:2}}>⚔ {a.name}</div>
+                                        <div style={{fontSize:12}}>{a.desc}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+
+          </>
+        )}
+
+        {tab==="inventar" && (
+          <>
+            <div className="section-title" style={{marginBottom:12}}>💰 Währung</div>
+            <div className="currency-row">
+              {COINS.map(c => {
+                const val = currency[c.key]||0;
+                return (
+                  <div className="currency-box" key={c.key}
+                    style={{borderColor:c.color+'40', cursor:'pointer', userSelect:'none'}}
+                    onClick={e=>{
+                      setCoinDelta('');
+                      setCoinPopover({key:c.key, label:c.label, color:c.color, val});
+                    }}>
+                    <div className="currency-icon" style={{color:c.color}}>🪙</div>
+                    <div className="currency-label" style={{color:c.color}}>{c.label}</div>
+                    <div className="currency-input" style={{color:c.color,borderColor:c.color+'40',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontFamily:"'Roboto Condensed',sans-serif",fontSize:16,minHeight:32}}>
+                      {val}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:"var(--text-muted)",textAlign:"right",marginBottom:20}}>
+              Gesamtwert: <span style={{color:"var(--gold)"}}>{totalGp.toFixed(2)} GM</span>
+            </div>
+
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+              <div className="section-title" style={{marginBottom:0,flex:1}}>🎒 Gegenstände</div>
+              {!transferMode ? (
+                <>
+                  <button className="btn-icon" style={{padding:"4px 10px",fontSize:11,borderColor:"var(--border-bright)",color:"var(--text-secondary)"}}
+                    onClick={()=>{setItf(newItem());setItfEditId(null);setShowIF(true);}}>+ Hinzufügen</button>
+                  {inv.length > 0 && chars.filter(c=>c.id!==sel && !c.archived && (!c.dmOnly || isDmMode)).length > 0 && (
+                    <button className="btn-icon" style={{padding:"4px 10px",fontSize:11,borderColor:"#7ab8f5",color:"#7ab8f5"}}
+                      onClick={()=>{setTransferMode(true);setTransferSel(new Set());}}>➤ Übergeben</button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button className="btn-icon" style={{padding:"4px 10px",fontSize:11}}
+                    onClick={()=>{setTransferMode(false);setTransferSel(new Set());}}>✕ Abbrechen</button>
+                  <button className="btn-icon"
+                    style={{padding:"4px 10px",fontSize:11,borderColor:transferSel.size>0?"#7ab8f5":"var(--border)",color:transferSel.size>0?"#7ab8f5":"var(--text-muted)",opacity:transferSel.size>0?1:0.5}}
+                    onClick={()=>{ if(transferSel.size>0) setShowTransfer(true); }}
+                    disabled={transferSel.size===0}>
+                    ➤ {transferSel.size>0 ? `${transferSel.size} übergeben` : "Auswahl..."}
+                  </button>
+                </>
+              )}
+            </div>
+            {inv.length > 0 && (() => {
+              const allTags = [...new Set(inv.flatMap(i=>i.tags||[]))].sort((a,b)=>a.localeCompare(b,"de"));
+              return (
+                <div style={{marginBottom:12}}>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:allTags.length>0?8:0}}>
+                    <select className="tpl-filter-select" value={invRarity}
+                      onChange={e=>setInvRarity(e.target.value)} style={{padding:"6px 8px"}}>
+                      <option value="all">Alle Seltenheiten</option>
+                      {RARITIES.map(r=><option key={r.key} value={r.key}>{r.label}</option>)}
+                    </select>
+                    {invTagFilter.length>0 && <button className="tag-filter-btn" onClick={()=>setInvTagFilter([])} style={{borderColor:"var(--crimson)",color:"var(--crimson)"}}>✕ Filter leeren</button>}
+                  </div>
+                  {allTags.length>0 && (
+                    <div className="tag-filter-bar">
+                      {allTags.map(tag=><button key={tag} className={"tag-filter-btn"+(invTagFilter.includes(tag)?" active":"")} onClick={()=>setInvTagFilter(invTagFilter.includes(tag)?invTagFilter.filter(t=>t!==tag):[...invTagFilter,tag])}>{tag}</button>)}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {(() => {
+              const rarityOrder = {artefakt:0,legendär:1,sehrSelten:2,selten:3,ungewöhnlich:4,gewöhnlich:5};
+              const filtered = inv.filter(item => {
+                const matchRarity = invRarity==='all' || item.rarity===invRarity;
+                const matchTags = invTagFilter.length===0 || invTagFilter.every(t=>(item.tags||[]).includes(t));
+                return matchRarity && matchTags;
+              }).sort((a,b) => {
+                const rd = ((rarityOrder[a.rarity] !== undefined ? rarityOrder[a.rarity] : 5)) - ((rarityOrder[b.rarity] !== undefined ? rarityOrder[b.rarity] : 5));
+                return rd !== 0 ? rd : a.name.localeCompare(b.name, 'de');
+              });
+              if (inv.length===0) return <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Keine Gegenstände im Inventar.</div>;
+              if (filtered.length===0) return <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Keine Gegenstände gefunden.</div>;
+              return (
+                <div>
+                  {transferMode && (
+                    <div style={{marginBottom:8,display:'flex',alignItems:'center',gap:8}}>
+                      <input type="checkbox"
+                        checked={filtered.length>0 && filtered.every(i=>transferSel.has(i.id))}
+                        onChange={e=>{ if(e.target.checked) setTransferSel(new Set(filtered.map(i=>i.id))); else setTransferSel(new Set()); }}
+                        style={{cursor:'pointer',accentColor:'var(--gold)'}}/>
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)'}}>Alle auswählen</span>
+                    </div>
+                  )}
+                  <div>
+                    {transferMode && (
+                      <div style={{marginBottom:8,display:'flex',alignItems:'center',gap:8}}>
+                        <input type="checkbox"
+                          checked={filtered.length>0 && filtered.every(i=>transferSel.has(i.id))}
+                          onChange={e=>{ if(e.target.checked) setTransferSel(new Set(filtered.map(i=>i.id))); else setTransferSel(new Set()); }}
+                          style={{cursor:'pointer',accentColor:'var(--gold)'}}/>
+                        <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)'}}>Alle auswählen</span>
+                      </div>
+                    )}
+                    <div className="inv-grid">
+                      {filtered.map(item => {
+                        const r = RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
+                        const checked = transferSel.has(item.id);
+                        const icon = item.icon || '🎒';
+                        const isExp = exItem === item.id;
+                        return (
+                          <div key={item.id} className={"inv-card"+(isExp?" expanded":"")}
+                            style={{borderColor:r.color, outline:transferMode&&checked?`2px solid ${r.color}`:'none', outlineOffset:2}}
+                            aria-pressed={transferMode?checked:undefined}
+                            {...clickable(transferMode
+                              ? ()=>{ const s=new Set(transferSel); checked?s.delete(item.id):s.add(item.id); setTransferSel(s); }
+                              : ()=>setItemViewer(item), item.name)}>
+                            {/* Header: always visible, qty badge top-left */}
+                            {/* Getöntes statt vollflächig farbiges Band: die volle Seltenheitsfarbe
+                                war im abgedunkelten Raum die hellste Fläche der App und liess
+                                fuer den Namen keinen lesbaren Kontrast zu. Die Farbe traegt
+                                weiterhin der 2px-Rahmen der Karte. */}
+                            <div className="inv-card-header" style={{background:`linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`, borderBottom:`1px solid ${r.color}55`, position:'relative'}}>
+                              <div style={{position:'absolute',top:5,left:6,background:'var(--bg-void)',color:'var(--parchment)',
+                                border:`1px solid ${r.color}77`,
+                                fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,fontWeight:700,lineHeight:1,
+                                padding:'2px 5px',borderRadius:8,minWidth:16,textAlign:'center',
+                                display:item.qty>1?'block':'none'}}>
+                                {item.qty}
+                              </div>
+                              <div className="inv-card-icon">{icon}</div>
+                              <div className="inv-card-name">{item.name}</div>
+                            </div>
+                            {/* Expandable body */}
+                            <div className="inv-card-body-wrap">
+                              <div>
+                                <div style={{padding:'7px 9px',background:'var(--bg-card)'}}>
+                                  {/* Image — clickable, full width */}
+                                  {item.imageData && (
+                                    <img src={item.imageData} alt={item.name}
+                                      style={{width:'100%',borderRadius:4,marginBottom:6,cursor:'zoom-in',display:'block',objectFit:'contain',maxHeight:180}}
+                                      onClick={e=>{e.stopPropagation();setImgViewer({name:item.name,imageData:item.imageData});}} />
+                                  )}
+                                  {item.description && <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--text-secondary)',lineHeight:1.45,marginBottom:4}} dangerouslySetInnerHTML={{__html:sanitizeHtml(item.description)}} />}
+                                  {item.source && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>📦 {item.source}</div>}
+                                  {(item.tags||[]).length>0 && (
+                                    <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:4}}>
+                                      {(item.tags||[]).map(t=><span key={t} className={"inv-tag"+(invTagFilter.includes(t)?" active":"")}
+                                        onClick={e=>{e.stopPropagation();if(!transferMode)setInvTagFilter(invTagFilter.includes(t)?invTagFilter.filter(x=>x!==t):[...invTagFilter,t]);}}>{t}</span>)}
+                                    </div>
+                                  )}
+                                  {item.weight && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase'}}>{item.weight} kg</div>}
+                                </div>
+                                <div className="inv-card-footer">
+                                  {transferMode
+                                    ? <input type="checkbox" checked={checked}
+                                        onChange={e=>{const s=new Set(transferSel);e.target.checked?s.add(item.id):s.delete(item.id);setTransferSel(s);}}
+                                        style={{cursor:'pointer',accentColor:'var(--gold)',width:14,height:14}} onClick={e=>e.stopPropagation()}/>
+                                    : <div className="inv-card-actions" onClick={e=>e.stopPropagation()} style={{width:'100%',justifyContent:'flex-end'}}>
+                                        <button onClick={e=>{e.stopPropagation();setItf({...item});setItfEditId(item.id);setShowIF(true);}}
+                                          style={{background:'rgba(232,213,163,0.10)',border:'none',color:'var(--text-secondary)',cursor:'pointer',fontSize:10,padding:'3px 8px',borderRadius:3}}>✎</button>
+                                        <button onClick={e=>{e.stopPropagation();delItem(item.id);}}
+                                          style={{background:'rgba(232,213,163,0.10)',border:'none',color:'#d98a8a',cursor:'pointer',fontSize:10,padding:'3px 8px',borderRadius:3}}>✕</button>
+                                      </div>
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{marginTop:10,display:'flex',gap:12,flexWrap:'wrap'}}>
+                    {totalWeight>0 && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>Gesamtgewicht: <span style={{color:"var(--text-secondary)"}}>{totalWeight.toFixed(2)} kg</span></div>}
+                    {(invRarity!=='all'||invTagFilter.length>0) && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>{filtered.length} von {inv.length} Gegenständen</div>}
+                  </div>
+                </div>
+              );
+            })()}
+          </>
+        )}
+
+        {tab==="notizen" && (
+          <>
+            <div className="section-title" style={{marginBottom:12}}>📜 Notizen</div>
+            {(() => {
+              const allNoteTags = [...new Set(notesList.flatMap(n=>n.tags||[]))].sort();
+              const filtered = (noteTagFilter.length===0 ? notesList : notesList.filter(n=>(n.tags||[]).some(t=>noteTagFilter.includes(t))))
+                .slice().sort((a,b)=>(a.title||'').localeCompare(b.title||'','de'));
+              return (
+                <>
+                  {allNoteTags.length>0 && (
+                    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12,alignItems:'center'}}>
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.1em',textTransform:'uppercase'}}>Filter:</span>
+                      {allNoteTags.map(t=>(
+                        <button key={t} className={"tag-filter-btn"+(noteTagFilter.includes(t)?' active':'')}
+                          onClick={()=>setNoteTagFilter(noteTagFilter.includes(t)?noteTagFilter.filter(x=>x!==t):[...noteTagFilter,t])}>
+                          {t}
+                        </button>
+                      ))}
+                      {noteTagFilter.length>0 && <button onClick={()=>setNoteTagFilter([])} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:11,fontFamily:"'Roboto Condensed',sans-serif",padding:'2px 6px'}}>✕ zurücksetzen</button>}
+                    </div>
+                  )}
+                  {filtered.length===0
+                    ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>{notesList.length===0?'Noch keine Notizen vorhanden.':'Keine Notizen für diesen Filter.'}</div>
+                    : filtered.map(note => {
+                        const isEx = exNote === note.id;
+                        return (
+                          <div className="note-card" key={note.id}
+                            onClick={()=>setExNote(isEx ? null : note.id)}
+                            style={{borderColor: isEx ? 'var(--gold-dim)' : ''}}>
+                            <div className="note-card-header">
+                              <div className="note-card-title">📄 {note.title}</div>
+                              <button className="btn-icon" style={{padding:"3px 8px",fontSize:11}}
+                                onClick={e=>{e.stopPropagation();setNf({title:note.title,content:note.content,tags:note.tags||[]});setNfEditId(note.id);setShowNF(true);}}>
+                                ✏️ Bearbeiten
+                              </button>
+                              <button className="note-del" onClick={e=>{e.stopPropagation();delNote(note.id);}}>✕</button>
+                            </div>
+                            {(note.tags||[]).length>0 && (
+                              <div className="inv-tags" style={{marginTop:4}}>
+                                {(note.tags).map(t=>(
+                                  <span key={t} className={"inv-tag"+(noteTagFilter.includes(t)?' active':'')}
+                                    onClick={e=>{e.stopPropagation();setNoteTagFilter(noteTagFilter.includes(t)?noteTagFilter.filter(x=>x!==t):[...noteTagFilter,t]);}}>
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {note.content && (
+                              <div className={"note-card-body"+(isEx?" open":"")}>
+                                <div>
+                                  {!isEx
+                                    ? <div className="note-card-preview">{note.content.length>120?note.content.slice(0,120)+'…':note.content}</div>
+                                    : <div style={{marginTop:8,fontFamily:"'Roboto',sans-serif",fontSize:15,color:"var(--text-secondary)",lineHeight:1.7,whiteSpace:"pre-wrap",paddingBottom:4}}>{note.content}</div>
+                                  }
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                  }
+                </>
+              );
+            })()}
+            <button className="btn-add" onClick={()=>{setNf({title:'',content:'',tags:[]});setNfEditId(null);setShowNF(true);}}>+ Neue Notiz</button>
+          </>
+        )}
+
+        {tab==="log" && (
+          <LogTab charId={sel} charName={cur?.name} addLog={addLog} isDmMode={isDmMode} />
+        )}
+      </div>
+    );
+};
