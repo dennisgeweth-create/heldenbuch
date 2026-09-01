@@ -1702,7 +1702,8 @@ function App() {
         </div>
         <div className="tabs">
           {[["stats","🎯 Attribute"],["aktionen","⚔️ Aktionen"],["zauber","✨ Zauber"],["merkmale","⭐ Merkmale"],["inventar","🎒 Inventar"],["notizen","📜 Notizen"],["log","📋 Log"]].map(([k,l]) => (
-            <div key={k} className={"tab"+(tab===k?" active":"")} onClick={()=>{setTab(k);if(k!=="inventar"){setTransferMode(false);setTransferSel(new Set());}}}>{l}</div>
+            <div key={k} className={"tab"+(tab===k?" active":"")} aria-current={tab===k?"page":undefined}
+              {...clickable(()=>{setTab(k);if(k!=="inventar"){setTransferMode(false);setTransferSel(new Set());}}, l)}>{l}</div>
           ))}
         </div>
 
@@ -1770,7 +1771,8 @@ function App() {
                   const touched = fxOn('save_'+attr)||fxOn('saveAll')||fxOn(attr)||fxOn('profBonus');
                   const tip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('saveAll'),fxTitle('save_'+attr)].filter(Boolean).join('\n');
                   return (
-                    <div key={attr} className={"save-box"+(isP?" prof":"")} onClick={()=>toggleSave(attr)} title={tip||undefined}>
+                    <div key={attr} className={"save-box"+(isP?" prof":"")} title={tip||undefined}
+                      {...clickable(()=>toggleSave(attr), "Rettungswurf "+label+(isP?" — Übung aktiv":""))}>
                       <div className="save-pip"/>
                       <div className="save-label">{label}</div>
                       <div className={"save-value"+(touched?" fx-touched":"")} style={{color:isP?"var(--gold)":"var(--text-muted)"}}>{fnum(val)}</div>
@@ -2082,7 +2084,8 @@ function App() {
                         opacity: i<insp ? 1 : 0.25,
                         boxShadow: i<insp ? "0 0 6px rgba(232,184,75,0.45)" : "none",
                       }}
-                      onClick={()=>setInsp(i<insp ? i : i+1)}
+                      {...clickable(()=>setInsp(i<insp ? i : i+1),
+                        "Inspiration " + (i+1) + " von " + inspMax + (i<insp ? " — einsetzen" : " — erhalten"))}
                     />
                   ))}
                   {resEdit && inspMax<10 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax+1)}>+</button>}
@@ -2154,7 +2157,8 @@ function App() {
                               opacity: i<avail ? 1 : 0.25,
                               boxShadow: i<avail ? `0 0 5px ${res.color||"#c9a84c"}60` : "none",
                             }}
-                            onClick={()=>togResourcePip(res.id,i)}
+                            {...clickable(()=>togResourcePip(res.id,i),
+                              (res.name||"Ressource") + " " + (i+1) + " von " + res.max)}
                           />
                         );
                       })}
@@ -2190,7 +2194,7 @@ function App() {
                       const meta = [w.range||null, w.damageType||null].filter(Boolean).join(" · ");
                       return (
                         <div key={w.id} className={"weapon-card"+(isEquipped?" equipped":"")}
-                          onClick={()=>setWeaponViewer(w.id)}>
+                          {...clickable(()=>setWeaponViewer(w.id), (w.name||"Waffe")+" — Details")}>
                           <div className="weapon-card-img">
                             {w.imageData
                               ? <img src={w.imageData} alt={w.name||"Waffe"} />
@@ -2234,8 +2238,8 @@ function App() {
               {(cur.features||[]).length === 0
                 ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:13,marginBottom:12}}>Keine Fähigkeiten eingetragen.</div>
                 : <div className="features-grid">{[...(cur.features||[])].sort((a,b)=>(a.source||'').localeCompare(b.source||'','de')||a.name.localeCompare(b.name,'de')).map(feat => (
-                    <div key={feat.id} className={"feature-card"+(exFeature===feat.id?" expanded":"")}
-                      onClick={()=>setExFeature(exFeature===feat.id?null:feat.id)}>
+                    <div key={feat.id} className={"feature-card"+(exFeature===feat.id?" expanded":"")} aria-expanded={exFeature===feat.id}
+                      {...clickable(()=>setExFeature(exFeature===feat.id?null:feat.id), feat.name)}>
                       <div className="feature-card-banner">
                         <div className="feature-card-orb">⭐</div>
                         <div className="feature-card-name">{feat.name}</div>
@@ -2406,7 +2410,8 @@ function App() {
                   });
                   return (
                   <div className="spell-level-group" key={l}>
-                    <div className="spell-level-header" style={{cursor:"pointer"}} onClick={toggleLevel}>
+                    <div className="spell-level-header" style={{cursor:"pointer"}} aria-expanded={!isCollapsed}
+                      {...clickable(toggleLevel, (l===0?"Zaubertricks":"Grad "+l)+" auf- oder zuklappen")}>
                       <div className="spell-level-title">{l===0?"✦ Zaubertricks":"Grad "+l}</div>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
                         {l>0 && slots[l] && slots[l].max>0 && (
@@ -2452,8 +2457,8 @@ function App() {
                         const levelLabel = s.level===0 ? 'Zaubertrick' : `${s.level}. Grad · ${s.school}`;
                         return (
                           <div key={s.id} className={"spell-card"+(exSpell===s.id?" expanded":"")}
-                            style={{borderColor: sc.border, borderWidth:2}}
-                            onClick={()=>setExSpell(exSpell===s.id?null:s.id)}>
+                            style={{borderColor: sc.border, borderWidth:2}} aria-expanded={exSpell===s.id}
+                            {...clickable(()=>setExSpell(exSpell===s.id?null:s.id), s.name)}>
                             {/* Header: colored band with name */}
                             <div className="spell-card-header" style={{background:`linear-gradient(180deg, ${sc.border} 0%, ${sc.bg} 100%)`}}>
                               <div className="spell-card-name">{s.name}</div>
@@ -2725,9 +2730,10 @@ function App() {
                         return (
                           <div key={item.id} className={"inv-card"+(isExp?" expanded":"")}
                             style={{borderColor:r.color, outline:transferMode&&checked?`2px solid ${r.color}`:'none', outlineOffset:2}}
-                            onClick={transferMode
+                            aria-pressed={transferMode?checked:undefined}
+                            {...clickable(transferMode
                               ? ()=>{ const s=new Set(transferSel); checked?s.delete(item.id):s.add(item.id); setTransferSel(s); }
-                              : ()=>setItemViewer(item)}>
+                              : ()=>setItemViewer(item), item.name)}>
                             {/* Header: always visible, qty badge top-left */}
                             {/* Getöntes statt vollflächig farbiges Band: die volle Seltenheitsfarbe
                                 war im abgedunkelten Raum die hellste Fläche der App und liess

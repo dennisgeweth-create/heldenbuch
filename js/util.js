@@ -147,3 +147,22 @@ const sanitizeHtml = (html) => {
   clean(root);
   return root.innerHTML;
 };
+
+// ── Anklickbare Nicht-Buttons bedienbar machen ───────────────────
+// Reiter, Karten und Punkte sind <div> mit onClick: per Maus bedienbar, per
+// Tastatur unerreichbar, und Screenreader kuendigen sie nicht als Schaltflaeche
+// an. Echte <button> waeren sauberer, wuerden hier aber das Layout umwerfen —
+// deshalb Rolle, Fokus und Enter/Leertaste nachruesten.
+// Verwendung:  <div className="tab" {...clickable(() => setTab(k), 'Attribute')}>
+const clickable = (onClick, label) => ({
+  role: 'button',
+  tabIndex: 0,
+  'aria-label': label,
+  onClick,
+  onKeyDown: e => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      onClick(e);
+    }
+  },
+});
