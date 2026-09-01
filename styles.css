@@ -156,6 +156,19 @@
   .block-head .joat-toggle { margin-left:auto; }
   .block-hint { font-size:10px; color:var(--text-muted); font-style:italic; margin-top:8px; }
 
+  /* Werkzeuge ueber der mitscrollenden Leiste. */
+  .sticky-tools { display:flex; justify-content:flex-end; gap:6px; margin-bottom:6px; }
+
+  /* Auswahl der Leisten-Werte. */
+  .leiste-wahl { display:flex; flex-direction:column; gap:2px; max-height:52vh; overflow-y:auto; }
+  .leiste-wahl-zeile { display:flex; align-items:center; gap:10px; padding:7px 9px; border-radius:4px; cursor:pointer; border:1px solid transparent; }
+  .leiste-wahl-zeile:hover { background:var(--bg-hover); }
+  .leiste-wahl-zeile.an { background:var(--bg-panel); border-color:var(--gold-dim); }
+  .leiste-wahl-zeile input { width:16px; height:16px; accent-color:var(--gold); cursor:pointer; flex-shrink:0; }
+  .leiste-wahl-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-secondary); flex:1; }
+  .leiste-wahl-zeile.an .leiste-wahl-name { color:var(--text-primary); }
+  .leiste-wahl-wert { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--gold); white-space:nowrap; }
+
   /* Attributskasten: der Modifikator ist wie im Bogen die grosse Zahl, der
      Attributswert steht klein darunter. Vorher war es umgekehrt — im Spiel
      braucht man aber fast immer den Modifikator. */

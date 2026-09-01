@@ -587,6 +587,10 @@ const Sheet = () => {
     wsExpand,
     languages
   } = React.useContext(SheetCtx);
+
+  // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
+  // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
+  const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
   if (!cur) return /*#__PURE__*/React.createElement("div", {
     className: "empty-state"
   }, /*#__PURE__*/React.createElement("div", {
@@ -619,6 +623,111 @@ const Sheet = () => {
   };
   const totalGp = currency.pp * 10 + currency.gp + currency.ep * 0.5 + currency.sp * 0.1 + currency.cp * 0.01;
   const totalWeight = inv.reduce((s, i) => s + (parseFloat(i.weight) || 0) * i.qty, 0);
+
+  // ── Werte fuer die mitscrollende Leiste ──────────────────────────
+  // Der Katalog fuehrt alles, was dort stehen kann; gezeigt wird, was der
+  // Held ausgewaehlt hat. feld: bei Werten, die im Bearbeiten-Modus direkt
+  // eingegeben werden. t: betroffenes Effektziel, faerbt den Wert und
+  // erklaert ihn im Tooltip.
+  const spAttrL = SPELL_ATTR[cur.charClass];
+  const spSGL = spAttrL ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttrL])) : null;
+  const spAtkL = spAttrL ? fx('spellAttack', effCur.profBonus + mod(effCur[spAttrL])) : null;
+  const wahrSkill = SKILLS.find(x => x.key === 'aufmerksamkeit');
+  const passivWert = (() => {
+    if (!wahrSkill) return null;
+    const isP = (cur.skillProfs || []).includes(wahrSkill.key);
+    const isE = (cur.expertiseProfs || []).includes(wahrSkill.key);
+    const joat = cur.jackOfAllTrades && !isP && !isE;
+    const b = isE ? effCur.profBonus * 2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus / 2) : 0;
+    return 10 + fx('skill_' + wahrSkill.key, fx('skillAll', mod(effCur[wahrSkill.attr]) + b));
+  })();
+  const ATTR_NAMEN = {
+    str: "Stärke",
+    dex: "Geschick",
+    con: "Konstitution",
+    int: "Intelligenz",
+    wis: "Weisheit",
+    cha: "Charisma"
+  };
+  const stickyKatalog = [{
+    k: 'ac',
+    l: "Rüstungsklasse",
+    s: computedAC !== null ? "🛡 RK*" : "🛡 RK",
+    i: "🛡",
+    t: 'ac',
+    v: displayAC,
+    feld: computedAC === null ? 'ac' : null
+  }, {
+    k: 'initiative',
+    l: "Initiative",
+    s: "⚡ Init.",
+    i: "⚡",
+    t: 'initiative',
+    v: fnum(initTotal)
+  }, {
+    k: 'speed',
+    l: "Bewegung",
+    s: "👟 Bew.",
+    i: "👟",
+    t: 'speed',
+    v: effCur.speed + "m",
+    feld: 'speed'
+  }, {
+    k: 'profBonus',
+    l: "Übungsbonus",
+    s: "📖 ÜB",
+    i: "📖",
+    t: 'profBonus',
+    v: "+" + effCur.profBonus,
+    feld: 'profBonus'
+  }, {
+    k: 'hp',
+    l: "Trefferpunkte",
+    s: "❤ TP",
+    i: "❤",
+    t: 'maxHp',
+    v: cur.hp + " / " + effCur.maxHp
+  }, ...(passivWert !== null ? [{
+    k: 'passive',
+    l: "Passive Wahrnehmung",
+    s: "👁 Pass.",
+    i: "👁",
+    t: 'skill_aufmerksamkeit',
+    v: passivWert
+  }] : []), ...(spSGL !== null ? [{
+    k: 'spellDc',
+    l: "Zauber-SG",
+    s: "✨ SG",
+    i: "✨",
+    t: 'spellDc',
+    v: spSGL
+  }, {
+    k: 'spellAttack',
+    l: "Zauberangriff",
+    s: "✨ ZA",
+    i: "✨",
+    t: 'spellAttack',
+    v: fnum(spAtkL)
+  }] : []), ...["str", "dex", "con", "int", "wis", "cha"].map(a => ({
+    k: 'attr_' + a,
+    l: ATTR_NAMEN[a],
+    s: AL[a],
+    i: "",
+    t: a,
+    v: fmod(effCur[a])
+  }))];
+  // Ohne eigene Auswahl die bisherigen fuenf Werte.
+  const STICKY_STANDARD = ['ac', 'initiative', 'speed', 'profBonus', 'spellDc'];
+  const stickyWahl = Array.isArray(cur.stickyFields) ? cur.stickyFields : STICKY_STANDARD;
+  const stickyGewaehlt = stickyKatalog.filter(b => stickyWahl.includes(b.k));
+  const stickyUmschalten = k => {
+    const drin = stickyWahl.includes(k);
+    // Mindestens ein Wert bleibt stehen, sonst waere die Leiste leer.
+    if (drin && stickyWahl.length <= 1) return;
+    patchChar({
+      stickyFields: drin ? stickyWahl.filter(x => x !== k) : [...stickyWahl, k]
+    });
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "sheet"
   }, /*#__PURE__*/React.createElement("div", {
@@ -920,53 +1029,33 @@ const Sheet = () => {
   })))), /*#__PURE__*/React.createElement("div", {
     className: "sticky-header"
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "flex-end",
-      marginBottom: 6
-    }
+    className: "sticky-tools"
   }, /*#__PURE__*/React.createElement("button", {
+    className: "panel-edit-btn",
+    title: "Werte in der Leiste ausw\xE4hlen",
+    onClick: () => setLeisteWahlOffen(true)
+  }, "\u2699 Leiste"), /*#__PURE__*/React.createElement("button", {
     className: "panel-edit-btn" + (statsEdit ? " active" : ""),
     onClick: () => setStatsEdit(!statsEdit)
   }, statsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
     className: "combat-row"
-  }, statsEdit ? (computedAC !== null ? [{
-    k: "speed",
-    l: "Bewegung (m)",
-    s: "👟 Bew.",
-    i: "👟"
-  }, {
-    k: "profBonus",
-    l: "Übungsbonus",
-    s: "📖 ÜB",
-    i: "📖"
-  }] : [{
-    k: "ac",
-    l: "Rüstungsklasse",
-    s: "🛡 RK",
-    i: "🛡"
-  }, {
-    k: "speed",
-    l: "Bewegung (m)",
-    s: "👟 Bew.",
-    i: "👟"
-  }, {
-    k: "profBonus",
-    l: "Übungsbonus",
-    s: "📖 ÜB",
-    i: "📖"
-  }]).map(s => /*#__PURE__*/React.createElement("div", {
+  }, statsEdit ? (
+  /* Im Bearbeiten-Modus bekommen die gewaehlten Werte ein
+     Eingabefeld, sofern sie eines haben — abgeleitete Werte wie
+     Initiative oder Zauber-SG bleiben Anzeige. */
+  stickyGewaehlt.map(b => /*#__PURE__*/React.createElement("div", {
     className: "combat-box",
-    key: s.k
+    key: b.k
   }, /*#__PURE__*/React.createElement("div", {
     className: "combat-label"
-  }, s.i, " ", s.l), /*#__PURE__*/React.createElement("div", {
+  }, b.i, " ", b.l), /*#__PURE__*/React.createElement("div", {
     className: "combat-label-short"
-  }, s.s), /*#__PURE__*/React.createElement("input", {
+  }, b.s), b.feld ? /*#__PURE__*/React.createElement("input", {
     type: "number",
-    value: cur[s.k],
+    value: cur[b.feld],
+    "aria-label": b.l,
     onChange: e => patchChar({
-      [s.k]: Number(e.target.value)
+      [b.feld]: Number(e.target.value)
     }),
     style: {
       width: 56,
@@ -981,105 +1070,28 @@ const Sheet = () => {
       margin: "4px auto 0",
       fontFamily: "'Roboto Condensed',sans-serif"
     }
-  }))).concat([/*#__PURE__*/React.createElement("div", {
-    className: "combat-box",
-    key: "ini"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "combat-label"
-  }, "\u26A1 Initiative"), /*#__PURE__*/React.createElement("div", {
-    className: "combat-label-short"
-  }, "\u26A1 Init."), /*#__PURE__*/React.createElement("div", {
+  }) : /*#__PURE__*/React.createElement("div", {
     className: "combat-value",
     style: {
       fontSize: 14,
       color: "var(--text-muted)"
     }
-  }, fnum(initTotal)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 9,
-      color: "var(--text-muted)",
-      marginTop: 2,
-      fontStyle: "italic"
-    }
-  }, "= DEX-Mod")), (() => {
-    const spAttr = SPELL_ATTR[cur.charClass];
-    if (!spAttr) return null;
-    const sg = fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr]));
+  }, b.v)))) : stickyGewaehlt.map(b => {
+    const touched = fxOn(b.t) || b.t === 'initiative' && fxOn('dex') || b.t === 'ac' && fxOn('dex');
     return /*#__PURE__*/React.createElement("div", {
       className: "combat-box",
-      key: "spsg"
+      key: b.k,
+      title: fxTitle(b.t)
     }, /*#__PURE__*/React.createElement("div", {
       className: "combat-label"
-    }, "\u2728 Zauber-SG"), /*#__PURE__*/React.createElement("div", {
+    }, b.i, " ", b.l), /*#__PURE__*/React.createElement("div", {
       className: "combat-label-short"
-    }, "\u2728 SG"), /*#__PURE__*/React.createElement("div", {
-      className: "combat-value",
-      style: {
-        fontSize: 14,
-        color: "var(--text-muted)"
-      }
-    }, sg), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 9,
-        color: "var(--text-muted)",
-        marginTop: 2,
-        fontStyle: "italic"
-      }
-    }, "= ", AL[spAttr], "-Mod"));
-  })()]) : (() => {
-    const spAttr = SPELL_ATTR[cur.charClass];
-    const spSG = spAttr ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr])) : null;
-    // t: betroffenes Effektziel — faerbt den Wert und erklaert ihn
-    // im Tooltip, damit man eine veraenderte Zahl zuordnen kann.
-    const boxes = [{
-      l: "Rüstungsklasse",
-      s: computedAC !== null ? "🛡 RK*" : "🛡 RK",
-      v: displayAC,
-      i: "🛡",
-      t: 'ac'
-    }, {
-      l: "Initiative",
-      s: "⚡ Init.",
-      v: fnum(initTotal),
-      i: "⚡",
-      t: 'initiative'
-    }, {
-      l: "Bewegung",
-      s: "👟 Bew.",
-      v: effCur.speed + "m",
-      i: "👟",
-      t: 'speed'
-    }, {
-      l: "Übungsbonus",
-      s: "📖 ÜB",
-      v: "+" + effCur.profBonus,
-      i: "📖",
-      t: 'profBonus'
-    }];
-    if (spSG !== null) boxes.push({
-      l: "Zauber-SG",
-      s: "✨ SG",
-      v: spSG,
-      i: "✨",
-      t: 'spellDc'
-    });
-    return boxes.map(s => {
-      const touched = fxOn(s.t) || s.t === 'initiative' && fxOn('dex') || s.t === 'ac' && fxOn('dex');
-      return /*#__PURE__*/React.createElement("div", {
-        className: "combat-box",
-        key: s.l,
-        title: fxTitle(s.t)
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "combat-label"
-      }, s.i, " ", s.l), /*#__PURE__*/React.createElement("div", {
-        className: "combat-label-short"
-      }, s.s), /*#__PURE__*/React.createElement("div", {
-        className: "combat-value" + (touched ? " fx-touched" : "")
-      }, s.v, fxOn(s.t) && /*#__PURE__*/React.createElement("span", {
-        className: "fx-mark"
-      }, "\u2726")));
-    });
-  })()), (() => {
+    }, b.s), /*#__PURE__*/React.createElement("div", {
+      className: "combat-value" + (touched ? " fx-touched" : "")
+    }, b.v, fxOn(b.t) && /*#__PURE__*/React.createElement("span", {
+      className: "fx-mark"
+    }, "\u2726")));
+  })), (() => {
     const activeSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(l => slots[l] && slots[l].max > 0);
     const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses || []).some(m => m.charClass === "Zauberer");
     // Inspiration erscheint hier nur, wenn man welche hat — als
@@ -3626,7 +3638,54 @@ const Sheet = () => {
       setNfEditId(null);
       setShowNF(true);
     }
-  }, "+ Neue Notiz")), tab === "log" && /*#__PURE__*/React.createElement(LogTab, {
+  }, "+ Neue Notiz")), leisteWahlOffen && /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: () => setLeisteWahlOffen(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 460
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\u2699 Werte in der Leiste"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "var(--text-muted)",
+      marginBottom: 14,
+      lineHeight: 1.5
+    }
+  }, "Was hier ausgew\xE4hlt ist, steht oben in der mitscrollenden Leiste. Die Auswahl geh\xF6rt zum Helden \u2014 jeder in der Gruppe hat seine eigene."), /*#__PURE__*/React.createElement("div", {
+    className: "leiste-wahl"
+  }, stickyKatalog.map(b => {
+    const an = stickyWahl.includes(b.k);
+    const letzter = an && stickyWahl.length <= 1;
+    return /*#__PURE__*/React.createElement("label", {
+      key: b.k,
+      className: "leiste-wahl-zeile" + (an ? " an" : ""),
+      title: letzter ? "Mindestens ein Wert muss bleiben" : undefined
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: an,
+      disabled: letzter,
+      onChange: () => stickyUmschalten(b.k)
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "leiste-wahl-name"
+    }, b.i, " ", b.l), /*#__PURE__*/React.createElement("span", {
+      className: "leiste-wahl-wert"
+    }, b.v));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => patchChar({
+      stickyFields: STICKY_STANDARD
+    })
+  }, "Zur\xFCcksetzen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: () => setLeisteWahlOffen(false)
+  }, "Fertig")))), tab === "log" && /*#__PURE__*/React.createElement(LogTab, {
     charId: sel,
     charName: cur?.name,
     addLog: addLog,
