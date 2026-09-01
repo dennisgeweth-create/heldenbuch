@@ -110,3 +110,40 @@ const fuzzyFilter = (items, query, getStr) => {
     .sort((a, b) => b.score - a.score)
     .map(x => x.item);
 };
+
+// ── HTML aus Beschreibungen entschaerfen ─────────────────────────
+// Beschreibungen liegen in der gemeinsamen Gruppendatenbank: was eine Person
+// eintraegt, setzt der Browser der anderen ein. Der Rich-Text-Editor braucht
+// echtes HTML, Escapen scheidet also aus — stattdessen eine Positivliste.
+// Erlaubte Formatierungen bleiben, alles andere verliert sein Tag und behaelt
+// nur seinen Text; ausfuehrbare oder einbettende Elemente fliegen ganz raus.
+// Angewendet wird beim Anzeigen, nicht beim Speichern: so sind auch
+// Eintraege abgedeckt, die schon in der Datenbank stehen.
+const HTML_KEEP = new Set(['B','STRONG','I','EM','U','S','STRIKE','UL','OL','LI','BR','P','DIV','SPAN']);
+const HTML_DROP = new Set(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','LINK','META','FORM','INPUT','BUTTON','SVG','MATH']);
+const sanitizeHtml = (html) => {
+  if (!html) return '';
+  let root;
+  try {
+    root = new DOMParser().parseFromString('<div id="r">' + html + '</div>', 'text/html').getElementById('r');
+  } catch (e) {
+    return String(html).replace(/</g, '&lt;');   // im Zweifel als Text zeigen
+  }
+  if (!root) return '';
+  const clean = (node) => {
+    Array.prototype.slice.call(node.childNodes).forEach(child => {
+      if (child.nodeType === 3) return;                        // Text bleibt
+      if (child.nodeType !== 1) { child.remove(); return; }    // Kommentare raus
+      // tagName kommt bei HTML gross, bei Fremdinhalt (SVG, MathML) in
+      // Originalschreibung — ohne Normalisierung greift die Sperrliste
+      // dort nicht und der Text eines <script> im <svg> bliebe stehen.
+      const tag = String(child.tagName || '').toUpperCase();
+      if (HTML_DROP.has(tag)) { child.remove(); return; }
+      clean(child);                                            // erst innen aufraeumen
+      if (!HTML_KEEP.has(tag)) { child.replaceWith.apply(child, child.childNodes); return; }
+      Array.prototype.slice.call(child.attributes).forEach(a => child.removeAttribute(a.name));
+    });
+  };
+  clean(root);
+  return root.innerHTML;
+};

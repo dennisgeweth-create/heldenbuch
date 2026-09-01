@@ -2450,7 +2450,7 @@ function App() {
                             </div>
                             {/* Expandable description */}
                             <div className="spell-card-desc-wrap">
-                              <div><div className="spell-card-desc" dangerouslySetInnerHTML={{__html:s.description||""}} /></div>
+                              <div><div className="spell-card-desc" dangerouslySetInnerHTML={{__html:sanitizeHtml(s.description)}} /></div>
                             </div>
                             {/* Tags row */}
                             {(spellClasses.length>0||spellDmgTags.length>0) && (
@@ -2724,7 +2724,7 @@ function App() {
                                       style={{width:'100%',borderRadius:4,marginBottom:6,cursor:'zoom-in',display:'block',objectFit:'contain',maxHeight:180}}
                                       onClick={e=>{e.stopPropagation();setImgViewer({name:item.name,imageData:item.imageData});}} />
                                   )}
-                                  {item.description && <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--text-secondary)',lineHeight:1.45,marginBottom:4}} dangerouslySetInnerHTML={{__html:item.description}} />}
+                                  {item.description && <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--text-secondary)',lineHeight:1.45,marginBottom:4}} dangerouslySetInnerHTML={{__html:sanitizeHtml(item.description)}} />}
                                   {item.source && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>📦 {item.source}</div>}
                                   {(item.tags||[]).length>0 && (
                                     <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:4}}>
@@ -3694,7 +3694,7 @@ function App() {
                 <div style={{flex:1,minWidth:0}}>
                   {item.description && (
                     <div style={{fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,marginBottom:8}}
-                      dangerouslySetInnerHTML={{__html:item.description}} />
+                      dangerouslySetInnerHTML={{__html:sanitizeHtml(item.description)}} />
                   )}
                   {item.source && (
                     <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>📦 {item.source}</div>
@@ -3807,7 +3807,7 @@ function App() {
                 )}
                 {w.description && w.description.trim() && (
                   <div style={{marginTop:14,fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}
-                    dangerouslySetInnerHTML={{__html:w.description}} />
+                    dangerouslySetInnerHTML={{__html:sanitizeHtml(w.description)}} />
                 )}
               </div>
               {/* Fuß */}
