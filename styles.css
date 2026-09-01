@@ -770,10 +770,18 @@
   .gear-ac-l { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); }
   .gear-ac-v { font-family:'Roboto Condensed',sans-serif; font-size:24px; line-height:1; color:var(--gold); font-variant-numeric:tabular-nums; }
 
-  /* stretch statt start: die Mitte nimmt die Hoehe der Platzspalten an,
-     damit das Bild weder unten heraushaengt noch Luft laesst. */
-  .gear-doll { display:grid; grid-template-columns:1fr minmax(150px,1.15fr) 1fr; gap:8px; align-items:stretch; }
+  /* Das Bild gibt die Hoehe vor, nicht die Plaetze: es behaelt immer das
+     Kartenverhaeltnis 5:7, damit ein Portraet erkennbar bleibt. Die
+     Platzspalten dehnen sich auf diese Hoehe und teilen sie unter ihren
+     sechs Kacheln auf. */
+  /* Die Mitte bekommt eine feste Obergrenze statt eines Anteils: als
+     Anteil waere die Karte auf einem breiten Schirm 440px breit und
+     ueber 600px hoch — die Plaetze daneben wuerden dann auf 98px
+     auseinandergezogen und die Puppe passte nicht mehr ins Bild. */
+  .gear-doll { display:grid; grid-template-columns:1fr minmax(150px,255px) 1fr; gap:8px; align-items:stretch; }
   .gear-col { display:flex; flex-direction:column; gap:6px; }
+  .gear-col .gear-slot { flex:1 1 0; min-height:44px; }
+  .gear-col .gear-slot-btn { height:100%; }
   .gear-hands { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:6px; }
 
   .gear-slot { position:relative; display:flex; }
@@ -817,8 +825,10 @@
      die Infobox sitzt unten im Fluss. Ohne Bild fuellt die Aufforderung
      genau den Raum darueber — absolut zentriert laege sie hinter der
      Infobox. */
+  /* align-self:start, damit das Verhaeltnis gilt und nicht vom stretch
+     der Zeile ueberschrieben wird. */
   .gear-mid { position:relative; overflow:hidden; border:1px solid var(--border); border-radius:6px;
-    min-height:230px; display:flex; flex-direction:column;
+    aspect-ratio:5/7; align-self:start; display:flex; flex-direction:column;
     background:radial-gradient(circle at 50% 35%, var(--bg-hover) 0%, var(--bg-void) 100%); }
   .gear-mid-bild { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in; }
   .gear-mid-leer { position:relative; z-index:1; flex:1; min-height:0; display:flex; flex-direction:column;
