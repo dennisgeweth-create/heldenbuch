@@ -20,9 +20,10 @@ jobs:
       # so landen PATCHNOTES.md, .git und .github nie im Webroot.
       - name: Prepare deploy files
         run: |
-          mkdir -p deploy/js
+          mkdir -p deploy/js deploy/vendor
           cp .htaccess api.php apple-touch-icon.png data.json favicon.png index.html slots.html styles.css deploy/
           cp js/data.js js/util.js deploy/js/
+          cp vendor/*.js deploy/vendor/
           # Cache-Sperre loesen: styles.css und js/*.js liegen seit der
           # Aufteilung in eigenen Dateien und wuerden sonst aus dem Cache
           # kommen, waehrend index.html schon neu ist. Der Commit-Hash macht
@@ -50,13 +51,14 @@ jobs:
             bye
           EOF
 
-      # Seit die Oberfläche auf styles.css und js/*.js verteilt ist, genügt es
-      # nicht mehr, nur index.html zu prüfen: bliebe eine der anderen Dateien
-      # zurück, wäre die App kaputt und der Lauf trotzdem grün.
+      # Seit die Oberfläche auf mehrere Dateien verteilt ist, genügt es nicht
+      # mehr, nur index.html zu prüfen: bliebe eine der anderen zurück, wäre
+      # die App kaputt und der Lauf trotzdem grün.
       - name: Verify deployed files
         run: |
           FAIL=0
-          for f in index.html styles.css js/data.js js/util.js; do
+          FILES="index.html styles.css js/data.js js/util.js vendor/react.production.min.js vendor/react-dom.production.min.js vendor/babel.min.js"
+          for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
             if [ "$LOCAL" = "$REMOTE" ]; then
@@ -72,4 +74,4 @@ jobs:
             echo "::error::Mindestens eine ausgelieferte Datei stimmt nicht mit der hochgeladenen überein."
             exit 1
           fi
-          echo "Alle vier Dateien stimmen überein."
+          echo "Alle geprüften Dateien stimmen überein."

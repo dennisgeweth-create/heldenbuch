@@ -19,9 +19,13 @@
        neues index.html auf eine zwischengespeicherte alte styles.css treffen. -->
   <script src="js/data.js?v=dev"></script>
   <script src="js/util.js?v=dev"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
+  <!-- React und Babel liegen mit im Webspace statt beim CDN. Am Spieltisch
+       zaehlt, dass die Seite auch dann laedt, wenn das Netz im Keller schwach
+       oder cdnjs gestoert ist — vorher zeigte die App in dem Fall nichts.
+       Babel faellt weg, sobald das JSX beim Deploy uebersetzt wird. -->
+  <script src="vendor/react.production.min.js?v=dev"></script>
+  <script src="vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="vendor/babel.min.js?v=dev"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0f1011; font-family: 'Roboto', sans-serif; }
