@@ -3975,7 +3975,13 @@ function App() {
       tags: [],
       source: '',
       icon: '🎒',
-      imageData: ''
+      imageData: '',
+      gearKind: '',
+      armorType: '',
+      baseAC: 0,
+      acBonus: 0,
+      effects: [],
+      setName: ''
     };
     if (type === 'weapon') return {
       name: '',
@@ -6961,7 +6967,8 @@ function App() {
         onClick: () => setItf({
           ...newItem(),
           ...item,
-          id: Date.now().toString()
+          id: Date.now().toString(),
+          libRef: item.name
         }),
         title: item.description || item.source || '',
         style: {
@@ -7244,6 +7251,24 @@ function App() {
       acBonus: +e.target.value
     })
   })), itf.gearKind && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Geh\xF6rt zu einem Set (optional)"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    list: "hb-set-namen-inv",
+    value: itf.setName || '',
+    onChange: e => setItf({
+      ...itf,
+      setName: e.target.value
+    }),
+    placeholder: "z.B. Hain des Ersten Lichts"
+  }), /*#__PURE__*/React.createElement("datalist", {
+    id: "hb-set-namen-inv"
+  }, [...new Set([...(userLibrary.item || []).map(e => e.setName), ...(isDmMode ? dmLibrary.item || [] : []).map(e => e.setName), ...(cur && cur.inventory || []).map(i => i.setName)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map(n => /*#__PURE__*/React.createElement("option", {
+    key: n,
+    value: n
+  })))), itf.gearKind && /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -7941,48 +7966,81 @@ function App() {
     }, (item.tags || []).map(t => /*#__PURE__*/React.createElement("span", {
       key: t,
       className: "inv-tag"
-    }, t))), (item.effects || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 10
-      }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, t))), (item.gearKind || item.setName) && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        fontWeight: 700,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color: 'var(--arcane-bright)',
-        marginBottom: 5
-      }
-    }, "\u2726 Effekte"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 4,
-        opacity: item.effectsActive ? 1 : 0.5,
-        marginBottom: 7
-      }
-    }, (item.effects || []).map(e => /*#__PURE__*/React.createElement("span", {
-      key: e.id,
-      className: "fx-chip"
-    }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))), /*#__PURE__*/React.createElement("button", {
-      className: "btn-icon",
-      style: {
         fontSize: 11,
-        padding: '5px 10px'
-      },
-      onClick: () => {
-        const next = !item.effectsActive;
-        updItem(item.id, {
-          effectsActive: next
-        });
-        setItemViewer({
-          ...item,
-          effectsActive: next
-        });
+        color: 'var(--text-muted)',
+        marginBottom: 6,
+        lineHeight: 1.6
       }
-    }, item.effectsActive ? '✦ Wirkt — ausschalten' : '◇ Ruht — einschalten')), !item.description && !item.source && (item.tags || []).length === 0 && (item.effects || []).length === 0 && /*#__PURE__*/React.createElement("div", {
+    }, item.gearKind && /*#__PURE__*/React.createElement("div", null, "\uD83D\uDEE1 Platz: ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-secondary)'
+      }
+    }, (GEAR_KINDS.find(g => g.key === item.gearKind) || {}).label), item.armorType === 'shield' && ' · +' + (+item.baseAC || 2) + ' RK', item.armorType && item.armorType !== 'shield' && ' · Basis ' + (+item.baseAC || 0), (+item.acBonus || 0) !== 0 && ' · ' + (+item.acBonus >= 0 ? '+' : '') + +item.acBonus + ' RK magisch'), item.setName && /*#__PURE__*/React.createElement("div", null, "\u2726 Set: ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-secondary)'
+      }
+    }, item.setName))), (item.effects || []).length > 0 && (() => {
+      // Ein Stueck in einem Platz wirkt, ohne dass jemand es
+      // zusaetzlich einschalten muesste — sonst stuende hier
+      // "Ruht" an einer angelegten Ruestung.
+      const imPlatz = gearWornList.some(x => x.k === 'i' && x.obj.id === item.id);
+      const wirkt = imPlatz || !!item.effectsActive;
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginTop: 10
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: 'var(--arcane-bright)',
+          marginBottom: 5
+        }
+      }, "\u2726 Effekte"), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 4,
+          opacity: wirkt ? 1 : 0.5,
+          marginBottom: 7
+        }
+      }, (item.effects || []).map(e => /*#__PURE__*/React.createElement("span", {
+        key: e.id,
+        className: "fx-chip"
+      }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))), imPlatz ? /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 11,
+          color: 'var(--gold)'
+        }
+      }, "\u2726 Wirkt, weil angelegt") :
+      /*#__PURE__*/
+      /* Ein- und ausschalten ohne Umweg über den Bearbeiten-Dialog:
+         ein Amulett legt man im Spiel oft ab und wieder an. */
+      React.createElement("button", {
+        className: "btn-icon",
+        style: {
+          fontSize: 11,
+          padding: '5px 10px'
+        },
+        onClick: () => {
+          const next = !item.effectsActive;
+          updItem(item.id, {
+            effectsActive: next
+          });
+          setItemViewer({
+            ...item,
+            effectsActive: next
+          });
+        }
+      }, item.effectsActive ? '✦ Wirkt — ausschalten' : '◇ Ruht — einschalten'));
+    })(), !item.description && !item.source && (item.tags || []).length === 0 && (item.effects || []).length === 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Roboto',sans-serif",
         fontSize: 13,
@@ -9244,6 +9302,103 @@ function App() {
         source: e.target.value
       })),
       placeholder: "z.B. H\xE4ndler, Quest-Belohnung..."
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Ausr\xFCstungsplatz"), /*#__PURE__*/React.createElement("select", {
+      className: "form-input",
+      value: dbForm.gearKind || '',
+      onChange: e => {
+        const k = e.target.value;
+        const art = k === 'ruestung' ? dbForm.armorType && dbForm.armorType !== 'shield' ? dbForm.armorType : 'light' : k === 'schild' ? 'shield' : '';
+        const basis = (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0;
+        setDbForm(f => ({
+          ...f,
+          gearKind: k,
+          armorType: art,
+          baseAC: art ? +f.baseAC || basis : 0
+        }));
+      }
+    }, GEAR_KINDS.map(g => /*#__PURE__*/React.createElement("option", {
+      key: g.key,
+      value: g.key
+    }, g.label)))), dbForm.gearKind === 'ruestung' && /*#__PURE__*/React.createElement("div", {
+      className: "form-group"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "R\xFCstungsart"), /*#__PURE__*/React.createElement("select", {
+      className: "form-input",
+      value: dbForm.armorType || 'light',
+      onChange: e => {
+        const art = e.target.value;
+        setDbForm(f => ({
+          ...f,
+          armorType: art,
+          baseAC: (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0
+        }));
+      }
+    }, ARMOR_KINDS.filter(a => a.key && a.key !== 'shield').map(a => /*#__PURE__*/React.createElement("option", {
+      key: a.key,
+      value: a.key
+    }, a.label)))), (dbForm.gearKind === 'ruestung' || dbForm.gearKind === 'schild') && /*#__PURE__*/React.createElement("div", {
+      className: "form-group"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, dbForm.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      type: "number",
+      min: 0,
+      max: 25,
+      value: dbForm.baseAC || 0,
+      onChange: e => setDbForm(f => ({
+        ...f,
+        baseAC: +e.target.value
+      }))
+    })), dbForm.gearKind && /*#__PURE__*/React.createElement("div", {
+      className: "form-group"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Magischer RK-Bonus"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      type: "number",
+      min: -5,
+      max: 10,
+      value: dbForm.acBonus || 0,
+      onChange: e => setDbForm(f => ({
+        ...f,
+        acBonus: +e.target.value
+      })),
+      placeholder: "z.B. +1"
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Geh\xF6rt zu einem Set (optional)"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      list: "hb-set-namen",
+      value: dbForm.setName || '',
+      onChange: e => setDbForm(f => ({
+        ...f,
+        setName: e.target.value
+      })),
+      placeholder: "z.B. Hain des Ersten Lichts"
+    }), /*#__PURE__*/React.createElement("datalist", {
+      id: "hb-set-namen"
+    }, [...new Set((activeLib.item || []).map(e => e.setName).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map(n => /*#__PURE__*/React.createElement("option", {
+      key: n,
+      value: n
+    })))), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "\u2726 Effekte"), /*#__PURE__*/React.createElement(EffectEditor, {
+      effects: dbForm.effects || [],
+      onChange: v => setDbForm(f => ({
+        ...f,
+        effects: v
+      })),
+      hint: "Wirken, solange das St\xFCck getragen wird."
     }))), /*#__PURE__*/React.createElement("div", {
       className: "form-actions",
       style: {
@@ -9516,7 +9671,7 @@ function App() {
             color: 'var(--text-muted)',
             marginTop: 2
           }
-        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}`)), /*#__PURE__*/React.createElement("button", {
+        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}${e.gearKind ? ' · ' + ((GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label || '') : ''}`)), /*#__PURE__*/React.createElement("button", {
           onClick: ev => {
             ev.stopPropagation();
             openDbForm(dbTab, e);
@@ -9603,7 +9758,17 @@ function App() {
         }, (e.tags || []).map(t => /*#__PURE__*/React.createElement("span", {
           key: t,
           className: "inv-tag"
-        }, t))), e.source && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Erhalten durch:"), " ", e.source), e.description && /*#__PURE__*/React.createElement("div", {
+        }, t))), e.setName && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Set:"), " ", e.setName), e.gearKind && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Platz:"), " ", (GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label, e.armorType === 'shield' && ' · +' + (+e.baseAC || 2) + ' RK', e.armorType && e.armorType !== 'shield' && ' · ' + ((ARMOR_KINDS.find(a => a.key === e.armorType) || {}).label || '') + ', Basis ' + (+e.baseAC || 0), (+e.acBonus || 0) !== 0 && ' · ' + (+e.acBonus >= 0 ? '+' : '') + +e.acBonus + ' RK magisch'), (e.effects || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+          style: {
+            marginTop: 4,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 4
+          }
+        }, (e.effects || []).map((fxE, fi) => /*#__PURE__*/React.createElement("span", {
+          key: fi,
+          className: "fx-chip"
+        }, EFFECT_LABELS[fxE.target] || fxE.target, " ", effectText(fxE)))), e.source && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Erhalten durch:"), " ", e.source), e.description && /*#__PURE__*/React.createElement("div", {
           style: {
             marginTop: 4
           }

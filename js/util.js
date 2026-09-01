@@ -228,6 +228,7 @@ const itemSearchScore = (item, query, rarityLabel) => {
   }
   const felder = [
     [(item.tags || []).join(' '), 350],
+    [item.setName || '', 340],
     [item.source || '', 300],
     [rarityLabel || item.rarity || '', 250],
     [(item.effects || []).map(e => (EFFECT_LABELS[e.target] || e.target || '') + ' ' + effectText(e)).join(' '), 220],

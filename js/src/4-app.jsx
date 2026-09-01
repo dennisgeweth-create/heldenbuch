@@ -309,7 +309,8 @@ function App() {
 
   const newDbEntry = type => {
     if (type==='spell')  return {name:'',level:1,school:'Hervorrufung',castingTime:'1 Aktion',range:'9 m',duration:'Sofort',components:'V, S',description:'',classes:[],damageTags:[]};
-    if (type==='item')   return {name:'',qty:1,weight:'',rarity:'gewöhnlich',description:'',tags:[],source:'',icon:'🎒',imageData:''};
+    if (type==='item')   return {name:'',qty:1,weight:'',rarity:'gewöhnlich',description:'',tags:[],source:'',icon:'🎒',imageData:'',
+                                 gearKind:'',armorType:'',baseAC:0,acBonus:0,effects:[],setName:''};
     if (type==='weapon') return {name:'',damage:'1W6',damageType:'Hieb',range:'1,5 m',description:'',properties:[]};
     return {name:'',cr:'1/4',size:'Mittel',type:'Tier',ac:10,hp:10,speed:'9 m',str:10,dex:10,con:10,int:3,wis:12,cha:6,senses:'',skills:'',tagsStr:'',abilitiesStr:'',actions:[{name:'',desc:''}]};
   };
@@ -1721,13 +1722,19 @@ function App() {
                       if(wrap)[...wrap.children].forEach(c=>{c.style.display=c.dataset.name.includes(q)?'':'none';});
                     }}
                   />
+                  {/* Kopie statt Verweis: der uebernommene Gegenstand bleibt
+                      eigenstaendig, auch wenn ihn jemand im Spiel veraendert.
+                      libRef haelt fest, woraus er entstanden ist — damit
+                      bleibt spaeter ein "aus der Datenbank auffrischen"
+                      moeglich, ohne dass die Datenbank heute schon stabile
+                      Kennungen braeuchte. */}
                   <div className="db-item-list" style={{display:'flex',flexWrap:'wrap',gap:5,maxHeight:110,overflowY:'auto'}}>
                     {activeItems.map((item,i)=>{
                       const r=RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
                       const isDmItem = isDmMode && (dmLibrary.item||[]).some(d=>d.name===item.name);
                       return (
                         <button key={i} data-name={(item.name||'').toLowerCase()}
-                          onClick={()=>setItf({...newItem(),...item,id:Date.now().toString()})}
+                          onClick={()=>setItf({...newItem(),...item,id:Date.now().toString(),libRef:item.name})}
                           title={item.description||item.source||''}
                           style={{padding:'3px 10px',borderRadius:12,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:'pointer',
                             border:'1px solid '+(isDmItem?'#c060a060':r.color+'60'),
@@ -1854,6 +1861,21 @@ function App() {
                   <div className="form-label">Magischer RK-Bonus</div>
                   <input className="form-input" type="number" min="-5" max="10" value={itf.acBonus||0}
                     placeholder="z.B. +1" onChange={e=>setItf({...itf,acBonus:+e.target.value})} />
+                </div>
+              )}
+              {itf.gearKind && (
+                <div className="form-group form-full">
+                  <div className="form-label">Gehört zu einem Set (optional)</div>
+                  <input className="form-input" list="hb-set-namen-inv" value={itf.setName||''}
+                    onChange={e=>setItf({...itf,setName:e.target.value})}
+                    placeholder="z.B. Hain des Ersten Lichts" />
+                  <datalist id="hb-set-namen-inv">
+                    {[...new Set([
+                      ...((userLibrary.item||[]).map(e=>e.setName)),
+                      ...((isDmMode ? (dmLibrary.item||[]) : []).map(e=>e.setName)),
+                      ...((cur && cur.inventory || []).map(i=>i.setName)),
+                    ].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de')).map(n=><option key={n} value={n}/>)}
+                  </datalist>
                 </div>
               )}
               {itf.gearKind && (
@@ -2143,24 +2165,45 @@ function App() {
                       {(item.tags||[]).map(t=><span key={t} className="inv-tag">{t}</span>)}
                     </div>
                   )}
-                  {(item.effects||[]).length>0 && (
-                    <div style={{marginTop:10}}>
-                      <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--arcane-bright)',marginBottom:5}}>✦ Effekte</div>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:4,opacity:item.effectsActive?1:0.5,marginBottom:7}}>
-                        {(item.effects||[]).map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
-                      </div>
-                      {/* Ein- und ausschalten ohne Umweg über den Bearbeiten-Dialog:
-                          ein Amulett legt man im Spiel oft ab und wieder an. */}
-                      <button className="btn-icon" style={{fontSize:11,padding:'5px 10px'}}
-                        onClick={()=>{
-                          const next = !item.effectsActive;
-                          updItem(item.id,{effectsActive:next});
-                          setItemViewer({...item, effectsActive:next});
-                        }}>
-                        {item.effectsActive ? '✦ Wirkt — ausschalten' : '◇ Ruht — einschalten'}
-                      </button>
+                  {(item.gearKind || item.setName) && (
+                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)',marginBottom:6,lineHeight:1.6}}>
+                      {item.gearKind && <div>🛡 Platz: <span style={{color:'var(--text-secondary)'}}>{(GEAR_KINDS.find(g=>g.key===item.gearKind)||{}).label}</span>
+                        {item.armorType==='shield' && ' · +'+(+item.baseAC||2)+' RK'}
+                        {item.armorType && item.armorType!=='shield' && ' · Basis '+(+item.baseAC||0)}
+                        {(+item.acBonus||0)!==0 && ' · '+((+item.acBonus)>=0?'+':'')+(+item.acBonus)+' RK magisch'}
+                      </div>}
+                      {item.setName && <div>✦ Set: <span style={{color:'var(--text-secondary)'}}>{item.setName}</span></div>}
                     </div>
                   )}
+                  {(item.effects||[]).length>0 && (() => {
+                    // Ein Stueck in einem Platz wirkt, ohne dass jemand es
+                    // zusaetzlich einschalten muesste — sonst stuende hier
+                    // "Ruht" an einer angelegten Ruestung.
+                    const imPlatz = gearWornList.some(x => x.k==='i' && x.obj.id===item.id);
+                    const wirkt = imPlatz || !!item.effectsActive;
+                    return (
+                      <div style={{marginTop:10}}>
+                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--arcane-bright)',marginBottom:5}}>✦ Effekte</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:4,opacity:wirkt?1:0.5,marginBottom:7}}>
+                          {(item.effects||[]).map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                        </div>
+                        {imPlatz ? (
+                          <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--gold)'}}>✦ Wirkt, weil angelegt</div>
+                        ) : (
+                          /* Ein- und ausschalten ohne Umweg über den Bearbeiten-Dialog:
+                             ein Amulett legt man im Spiel oft ab und wieder an. */
+                          <button className="btn-icon" style={{fontSize:11,padding:'5px 10px'}}
+                            onClick={()=>{
+                              const next = !item.effectsActive;
+                              updItem(item.id,{effectsActive:next});
+                              setItemViewer({...item, effectsActive:next});
+                            }}>
+                            {item.effectsActive ? '✦ Wirkt — ausschalten' : '◇ Ruht — einschalten'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {!item.description && !item.source && (item.tags||[]).length===0 && (item.effects||[]).length===0 && (
                     <div style={{fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>Keine weiteren Infos.</div>
                   )}
@@ -2572,6 +2615,66 @@ function App() {
                       </div>
                       <div className="form-group form-full"><label className="form-label">Beschreibung</label><textarea className="form-input" rows={3} style={{resize:'vertical'}} value={dbForm.description||''} onChange={e=>setDbForm(f=>({...f,description:e.target.value}))}/></div>
                       <div className="form-group form-full"><label className="form-label">Erhalten durch (optional)</label><input className="form-input" value={dbForm.source||''} onChange={e=>setDbForm(f=>({...f,source:e.target.value}))} placeholder="z.B. Händler, Quest-Belohnung..."/></div>
+
+                      {/* Ab hier das, was den Eintrag zu Ausruestung macht:
+                          Platz, Werte und Effekte. Wer den Gegenstand spaeter
+                          in sein Inventar uebernimmt, bekommt eine Kopie mit
+                          allem davon. */}
+                      <div className="form-group">
+                        <label className="form-label">Ausrüstungsplatz</label>
+                        <select className="form-input" value={dbForm.gearKind||''} onChange={e=>{
+                          const k = e.target.value;
+                          const art = k==='ruestung' ? (dbForm.armorType && dbForm.armorType!=='shield' ? dbForm.armorType : 'light')
+                                    : k==='schild'   ? 'shield' : '';
+                          const basis = (ARMOR_KINDS.find(a=>a.key===art)||{}).basis || 0;
+                          setDbForm(f=>({...f, gearKind:k, armorType:art, baseAC: art ? (+f.baseAC || basis) : 0}));
+                        }}>
+                          {GEAR_KINDS.map(g=><option key={g.key} value={g.key}>{g.label}</option>)}
+                        </select>
+                      </div>
+                      {dbForm.gearKind==='ruestung' && (
+                        <div className="form-group">
+                          <label className="form-label">Rüstungsart</label>
+                          <select className="form-input" value={dbForm.armorType||'light'} onChange={e=>{
+                            const art=e.target.value;
+                            setDbForm(f=>({...f, armorType:art, baseAC:(ARMOR_KINDS.find(a=>a.key===art)||{}).basis||0}));
+                          }}>
+                            {ARMOR_KINDS.filter(a=>a.key&&a.key!=='shield').map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      {(dbForm.gearKind==='ruestung'||dbForm.gearKind==='schild') && (
+                        <div className="form-group">
+                          <label className="form-label">{dbForm.gearKind==='schild'?'Bonus zur RK':'Basis-RK'}</label>
+                          <input className="form-input" type="number" min={0} max={25} value={dbForm.baseAC||0}
+                            onChange={e=>setDbForm(f=>({...f,baseAC:+e.target.value}))}/>
+                        </div>
+                      )}
+                      {dbForm.gearKind && (
+                        <div className="form-group">
+                          <label className="form-label">Magischer RK-Bonus</label>
+                          <input className="form-input" type="number" min={-5} max={10} value={dbForm.acBonus||0}
+                            onChange={e=>setDbForm(f=>({...f,acBonus:+e.target.value}))} placeholder="z.B. +1"/>
+                        </div>
+                      )}
+                      {/* Set-Zugehoerigkeit: hier steht nur, wozu das Stueck
+                          gehoert. Was ein Set ab wie vielen Teilen gibt, wird
+                          im Set-Register hinterlegt. */}
+                      <div className="form-group form-full">
+                        <label className="form-label">Gehört zu einem Set (optional)</label>
+                        <input className="form-input" list="hb-set-namen" value={dbForm.setName||''}
+                          onChange={e=>setDbForm(f=>({...f,setName:e.target.value}))}
+                          placeholder="z.B. Hain des Ersten Lichts"/>
+                        <datalist id="hb-set-namen">
+                          {[...new Set((activeLib.item||[]).map(e=>e.setName).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'))
+                            .map(n=><option key={n} value={n}/>)}
+                        </datalist>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">✦ Effekte</label>
+                        <EffectEditor effects={dbForm.effects||[]} onChange={v=>setDbForm(f=>({...f,effects:v}))}
+                          hint="Wirken, solange das Stück getragen wird." />
+                      </div>
                     </div>
                   )}
 
@@ -2715,7 +2818,7 @@ function App() {
                                           {dbTab==='spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`}
                                           {dbTab==='weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties||[]).join(', ')||'—'}`}
                                           {dbTab==='wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`}
-                                          {dbTab==='item' && `${(RARITIES.find(r=>r.key===e.rarity)||RARITIES[0]).label}${e.weight?' · '+e.weight+' kg':''}`}
+                                          {dbTab==='item' && `${(RARITIES.find(r=>r.key===e.rarity)||RARITIES[0]).label}${e.weight?' · '+e.weight+' kg':''}${e.gearKind?' · '+((GEAR_KINDS.find(g=>g.key===e.gearKind)||{}).label||''):''}`}
                                         </div>
                                       </div>
                                       <button onClick={ev=>{ev.stopPropagation();openDbForm(dbTab,e);}} style={{background:'none',border:'1px solid var(--border)',borderRadius:3,color:'var(--text-muted)',cursor:'pointer',padding:'4px 9px',fontSize:11}}>✎</button>
@@ -2744,6 +2847,19 @@ function App() {
                                             )}
                                             <div style={{flex:1}}>
                                               {(e.tags||[]).length>0 && <div style={{marginBottom:4}}>{(e.tags||[]).map(t=><span key={t} className="inv-tag">{t}</span>)}</div>}
+                                              {e.setName && <div><strong>Set:</strong> {e.setName}</div>}
+                                              {e.gearKind && (
+                                                <div><strong>Platz:</strong> {(GEAR_KINDS.find(g=>g.key===e.gearKind)||{}).label}
+                                                  {e.armorType==='shield' && ' · +'+(+e.baseAC||2)+' RK'}
+                                                  {e.armorType && e.armorType!=='shield' && ' · '+((ARMOR_KINDS.find(a=>a.key===e.armorType)||{}).label||'')+', Basis '+(+e.baseAC||0)}
+                                                  {(+e.acBonus||0)!==0 && ' · '+((+e.acBonus)>=0?'+':'')+(+e.acBonus)+' RK magisch'}
+                                                </div>
+                                              )}
+                                              {(e.effects||[]).length>0 && (
+                                                <div style={{marginTop:4,display:'flex',flexWrap:'wrap',gap:4}}>
+                                                  {(e.effects||[]).map((fxE,fi)=><span key={fi} className="fx-chip">{EFFECT_LABELS[fxE.target]||fxE.target} {effectText(fxE)}</span>)}
+                                                </div>
+                                              )}
                                               {e.source && <div><strong>Erhalten durch:</strong> {e.source}</div>}
                                               {e.description && <div style={{marginTop:4}}>{e.description}</div>}
                                             </div>
