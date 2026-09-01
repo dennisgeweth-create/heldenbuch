@@ -355,78 +355,115 @@ const Sheet = () => {
                 </div>
               );
             })()}
+            {/* Aufbau wie im gedruckten Bogen: links die Attribute
+                untereinander mit den Rettungswuerfen daneben, rechts die
+                Fertigkeiten in einer alphabetischen Liste. Auf schmalen
+                Schirmen stapelt sich beides. */}
             <div className="stats-section">
-              <div className="section-title">🎯 Grundattribute</div>
-              <div className="stats-grid">
-                {[["str","Stärke"],["dex","Geschick"],["con","Konstitution"],["int","Intelligenz"],["wis","Weisheit"],["cha","Charisma"]].map(([k,l]) => (
-                  <div className="stat-box" key={k} title={fxTitle(k)}>
-                    <div className="stat-label">{l}</div>
-                    {statsEdit ? (
-                      /* Im Bearbeiten-Modus der eigene Wert, nicht der von
-                         Gegenstaenden veraenderte. */
-                      <input type="number" min={1} max={30} value={cur[k]}
-                        onChange={e=>patchChar({[k]:Math.max(1,Math.min(30,Number(e.target.value)))})}
-                        style={{width:52,padding:"4px 2px",background:"var(--bg-void)",border:"1px solid var(--gold)",borderRadius:3,color:"var(--gold)",fontSize:22,textAlign:"center",display:"block",margin:"4px auto",fontFamily:"'Roboto Condensed',sans-serif"}}/>
-                    ) : (
-                      <div className={"stat-value"+(fxOn(k)?" fx-touched":"")}>{effCur[k]}{fxOn(k)&&<span className="fx-mark">✦</span>}</div>
-                    )}
-                    <div className={"stat-mod"+(fxOn(k)?" fx-touched":"")}>{fmod(effCur[k])}</div>
-                    {fxOn(k) && !statsEdit && cur[k]!==effCur[k] && (
-                      <div style={{fontSize:9,color:"var(--text-muted)",marginTop:1,fontStyle:"italic"}}>eigen {cur[k]}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="stats-section">
-              <div className="section-title">🎲 Rettungswürfe</div>
-              <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10,fontStyle:"italic"}}>Klick zum Aktivieren der Übung</div>
-              <div className="saves-grid">
-                {[["str","STR"],["dex","GES"],["con","KON"],["int","INT"],["wis","WEI"],["cha","CHA"]].map(([attr,label])=>{
-                  const isP = (cur.savingThrowProfs||[]).includes(attr);
-                  const base = mod(effCur[attr]) + (isP?effCur.profBonus:0);
-                  const val = fx('save_'+attr, fx('saveAll', base));
-                  const touched = fxOn('save_'+attr)||fxOn('saveAll')||fxOn(attr)||fxOn('profBonus');
-                  const tip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('saveAll'),fxTitle('save_'+attr)].filter(Boolean).join('\n');
-                  return (
-                    <div key={attr} className={"save-box"+(isP?" prof":"")} title={tip||undefined}
-                      {...clickable(()=>toggleSave(attr), "Rettungswurf "+label+(isP?" — Übung aktiv":""))}>
-                      <div className="save-pip"/>
-                      <div className="save-label">{label}</div>
-                      <div className={"save-value"+(touched?" fx-touched":"")} style={{color:isP?"var(--gold)":"var(--text-muted)"}}>{fnum(val)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="stats-section">
-              <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:10,flexWrap:"wrap"}}>
-                <div style={{fontSize:11,color:"var(--text-muted)",fontStyle:"italic"}}>⬤ = Übung · ⬤⬤ = Expertise · Klick zum Wechseln</div>
-                <button
-                  className="joat-toggle"
-                  onClick={toggleJoAT}
-                  style={{
-                    borderRadius:3,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,
-                    letterSpacing:"0.08em",textTransform:"uppercase",
-                    background: cur.jackOfAllTrades ? "var(--gold-dim)" : "var(--bg-card)",
-                    border: `1px solid ${cur.jackOfAllTrades ? "var(--gold)" : "var(--border)"}`,
-                    color: cur.jackOfAllTrades ? "var(--gold-bright)" : "var(--text-muted)",
-                  }}>
-                  {cur.jackOfAllTrades ? "✦ Allrounder aktiv" : "◇ Allrounder"}
+              <div className="section-head">
+                <div className="section-title">🎯 Attribute &amp; Fertigkeiten</div>
+                <button className={"panel-edit-btn"+(statsEdit?" active":"")}
+                  onClick={()=>setStatsEdit(!statsEdit)}>
+                  {statsEdit ? "✓ Fertig" : "✏️ Bearbeiten"}
                 </button>
               </div>
-              <div className="skills-layout">
-                {["str","dex","int","wis","cha"].map(attr => (
-                  <div className="skill-group" key={attr}>
-                    <div className="skill-group-header">
-                      <div className="skill-attr-badge" style={{color:AC[attr],borderColor:AC[attr]+"60"}}>{AL[attr]}</div>
-                      <div className="skill-attr-name">{AF[attr]}</div>
-                      <div className={"skill-attr-mod"+(fxOn(attr)?" fx-touched":"")} style={{color:AC[attr]}} title={fxTitle(attr)}>{fmod(effCur[attr])}</div>
+
+              <div className="sheet-columns">
+                {/* ── Linke Spalte: Attribute, Rettungswuerfe, Passive ── */}
+                <div className="sheet-col-left">
+                  <div className="attr-column">
+                    {[["str","Stärke"],["dex","Geschicklichkeit"],["con","Konstitution"],
+                      ["int","Intelligenz"],["wis","Weisheit"],["cha","Charisma"]].map(([k,l]) => (
+                      <div className="attr-box" key={k} title={fxTitle(k)}>
+                        <div className="attr-label">{l}</div>
+                        {/* Wie im Bogen: der Modifikator ist die grosse Zahl,
+                            der Attributswert steht klein darunter. */}
+                        <div className={"attr-mod"+(fxOn(k)?" fx-touched":"")}>{fmod(effCur[k])}</div>
+                        {statsEdit ? (
+                          /* Bearbeitet wird der eigene Wert, nicht der von
+                             Gegenstaenden veraenderte. */
+                          <input className="attr-input" type="number" min={1} max={30} value={cur[k]}
+                            aria-label={l}
+                            onChange={e=>patchChar({[k]:Math.max(1,Math.min(30,Number(e.target.value)))})} />
+                        ) : (
+                          <div className={"attr-score"+(fxOn(k)?" fx-touched":"")}>
+                            {effCur[k]}{fxOn(k) && <span className="fx-mark">✦</span>}
+                          </div>
+                        )}
+                        {fxOn(k) && !statsEdit && cur[k]!==effCur[k] && (
+                          <div className="attr-own">eigen {cur[k]}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="save-block">
+                    <div className="block-title">🎲 Rettungswürfe</div>
+                    <div className="saves-grid">
+                      {[["str","STR"],["dex","GES"],["con","KON"],["int","INT"],["wis","WEI"],["cha","CHA"]].map(([attr,label])=>{
+                        const isP = (cur.savingThrowProfs||[]).includes(attr);
+                        const base = mod(effCur[attr]) + (isP?effCur.profBonus:0);
+                        const val = fx('save_'+attr, fx('saveAll', base));
+                        const touched = fxOn('save_'+attr)||fxOn('saveAll')||fxOn(attr)||fxOn('profBonus');
+                        const tip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('saveAll'),fxTitle('save_'+attr)].filter(Boolean).join('\n');
+                        return (
+                          <div key={attr} className={"save-box"+(isP?" prof":"")} title={tip||undefined}
+                            {...clickable(()=>toggleSave(attr), "Rettungswurf "+label+(isP?" — Übung aktiv":""))}>
+                            <div className="save-pip"/>
+                            <div className="save-label">{label}</div>
+                            <div className={"save-value"+(touched?" fx-touched":"")} style={{color:isP?"var(--gold)":"var(--text-muted)"}}>{fnum(val)}</div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    {SKILLS.filter(s=>s.attr===attr).map(sk => {
-                      const isP = (cur.skillProfs||[]).includes(sk.key);
-                      const isE = (cur.expertiseProfs||[]).includes(sk.key);
-                      const joat = cur.jackOfAllTrades && !isP && !isE;
+                    <div className="block-hint">Klick schaltet die Übung um</div>
+                  </div>
+
+                  {/* Steht im Bogen unter den Fertigkeiten und fehlte hier
+                      bisher ganz. 10 plus der Wahrnehmungswert. */}
+                  {(() => {
+                    const sk = SKILLS.find(x=>x.key==='aufmerksamkeit');
+                    if (!sk) return null;
+                    const isP = (cur.skillProfs||[]).includes(sk.key);
+                    const isE = (cur.expertiseProfs||[]).includes(sk.key);
+                    const joat = cur.jackOfAllTrades && !isP && !isE;
+                    const bonus = isE ? effCur.profBonus*2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus/2) : 0;
+                    const tot = fx('skill_'+sk.key, fx('skillAll', mod(effCur[sk.attr]) + bonus));
+                    return (
+                      <div className="passive-box" title="Passive Wahrnehmung — 10 + Wahrnehmung">
+                        <div className="passive-label">Passive Wahrnehmung</div>
+                        <div className="passive-value">{10 + tot}</div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* ── Rechte Spalte: Fertigkeiten alphabetisch ── */}
+                <div className="sheet-col-right">
+                  <div className="skill-block">
+                    <div className="block-head">
+                      <div className="block-title">✦ Fertigkeiten</div>
+                      <button
+                        className="joat-toggle"
+                        onClick={toggleJoAT}
+                        style={{
+                          borderRadius:3,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,
+                          letterSpacing:"0.08em",textTransform:"uppercase",
+                          background: cur.jackOfAllTrades ? "var(--gold-dim)" : "var(--bg-card)",
+                          border: `1px solid ${cur.jackOfAllTrades ? "var(--gold)" : "var(--border)"}`,
+                          color: cur.jackOfAllTrades ? "var(--gold-bright)" : "var(--text-muted)",
+                        }}>
+                        {cur.jackOfAllTrades ? "✦ Allrounder aktiv" : "◇ Allrounder"}
+                      </button>
+                    </div>
+                    {/* Alphabetisch in einer Liste wie im Bogen, statt nach
+                        Attribut gruppiert. Das Attribut steht als Kuerzel in
+                        der Zeile. */}
+                    {[...SKILLS].sort((a,b)=>a.label.localeCompare(b.label,'de')).map(sk => {
+                      const attr  = sk.attr;
+                      const isP   = (cur.skillProfs||[]).includes(sk.key);
+                      const isE   = (cur.expertiseProfs||[]).includes(sk.key);
+                      const joat  = cur.jackOfAllTrades && !isP && !isE;
                       const bonus = isE ? effCur.profBonus*2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus/2) : 0;
                       const tot   = fx('skill_'+sk.key, fx('skillAll', mod(effCur[attr]) + bonus));
                       const skTouched = fxOn('skill_'+sk.key)||fxOn('skillAll')||fxOn(attr)||fxOn('profBonus');
@@ -438,28 +475,25 @@ const Sheet = () => {
                           <button
                             className={"skill-prof-btn"+(isE?" expertise":"")}
                             onClick={()=>toggleSkill(sk.key)}
-                            style={{
-                              background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
-                              borderColor: col,
-                              color: col,
-                            }}
+                            style={{ background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
+                                     borderColor: col, color: col }}
                             title={isE?"Expertise (Klick: entfernen)":isP?"Übung (Klick: Expertise)":"Kein Bonus (Klick: Übung hinzufügen)"}
                           >{pip}</button>
                           <div className="skill-name">{sk.label}</div>
+                          <div className="skill-attr-tag" style={{color:AC[attr],borderColor:AC[attr]+"55"}}>{AL[attr]}</div>
                           <div className={"skill-value"+(skTouched?" fx-touched":"")} style={{color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"}}>
                             {fnum(tot)}
-                            {isE && <span style={{fontSize:9,opacity:0.6,marginLeft:2}}>EX</span>}
-                            {joat && <span style={{fontSize:9,opacity:0.6,marginLeft:2}}>JoAT</span>}
+                            {isE && <span className="skill-flag">EX</span>}
+                            {joat && <span className="skill-flag">JoAT</span>}
                           </div>
                         </div>
                       );
                     })}
+                    <div className="block-hint">⬤ Übung · ⬤⬤ Expertise · Klick zum Wechseln</div>
                   </div>
-                ))}
+                </div>
               </div>
             </div>
-
-        
           </>
         )}
 
