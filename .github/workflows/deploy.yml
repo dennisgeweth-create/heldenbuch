@@ -16,15 +16,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # js/app.js wird mitcommittet, damit die Seite auch lokal ohne Bauschritt
+      # laeuft und der Prueflauf weiter eine Datei aus dem Repo vergleicht.
+      # Hier wird deshalb nur kontrolliert, dass sie zum aktuellen js/app.jsx
+      # passt — wer die Quelle aendert und das Bauen vergisst, bekommt einen
+      # roten Lauf statt einer stillen alten Fassung auf dem Server.
+      - name: Check built app.js is current
+        run: node build.js --check
+
       # Die Dateiliste ist bewusst ausgeschrieben statt "alles kopieren":
-      # so landen PATCHNOTES.md, .git und .github nie im Webroot.
+      # so landen PATCHNOTES.md, .git, .github, js/app.jsx und vendor/babel
+      # nie im Webroot.
       - name: Prepare deploy files
         run: |
           mkdir -p deploy/js deploy/vendor
           cp .htaccess api.php apple-touch-icon.png favicon.png index.html styles.css deploy/
           cp data-spells.json data-weapons.json data-wildshapes.json deploy/
-          cp js/data.js js/util.js deploy/js/
-          cp vendor/*.js deploy/vendor/
+          cp js/data.js js/util.js js/app.js deploy/js/
+          # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
+          # build.js gebraucht, nicht mehr im Browser.
+          cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
           # Cache-Sperre loesen: styles.css und js/*.js liegen seit der
           # Aufteilung in eigenen Dateien und wuerden sonst aus dem Cache
           # kommen, waehrend index.html schon neu ist. Der Commit-Hash macht
@@ -58,7 +69,7 @@ jobs:
       - name: Verify deployed files
         run: |
           FAIL=0
-          FILES="index.html styles.css js/data.js js/util.js data-spells.json data-weapons.json data-wildshapes.json vendor/react.production.min.js vendor/react-dom.production.min.js vendor/babel.min.js"
+          FILES="index.html styles.css js/data.js js/util.js js/app.js data-spells.json data-weapons.json data-wildshapes.json vendor/react.production.min.js vendor/react-dom.production.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
