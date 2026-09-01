@@ -1902,23 +1902,15 @@ const Sheet = () => {
     className: "panel-edit-btn" + (resEdit ? " active" : ""),
     onClick: () => setResEdit(!resEdit)
   }, resEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
+    className: "resource-list" + (resEdit ? " bearbeiten" : "")
+  }, /*#__PURE__*/React.createElement("div", {
     className: "resource-item insp-item"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "resource-header"
-  }, /*#__PURE__*/React.createElement("div", {
+    className: "resource-name",
     style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 13,
-      color: "var(--inspiration)",
-      flex: 1
+      color: "var(--inspiration)"
     }
   }, "\u2726 Inspiration"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "var(--text-muted)",
-      fontFamily: "'Roboto Condensed',sans-serif"
-    }
-  }, "Vorteil auf einen Wurf")), /*#__PURE__*/React.createElement("div", {
     className: "resource-pips"
   }, Array.from({
     length: inspMax
@@ -1939,34 +1931,15 @@ const Sheet = () => {
     className: "slot-max-btn",
     onClick: () => setInspMax(inspMax - 1)
   }, "\u2212"), /*#__PURE__*/React.createElement("span", {
+    className: "resource-count",
     style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 14,
-      color: "var(--inspiration)",
-      marginLeft: 4
+      color: "var(--inspiration)"
     }
-  }, insp, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      color: "var(--text-muted)"
-    }
-  }, "/", inspMax))), insp === 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "var(--text-muted)",
-      fontStyle: "italic",
-      marginTop: 4
-    }
-  }, "Punkt antippen, wenn die Spielleitung dir Inspiration gibt.")), resources.length === 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: "var(--text-muted)",
-      fontSize: 13,
-      fontStyle: "italic",
-      margin: "10px 0 8px"
-    }
-  }, "Sonst noch keine Ressourcen.", !resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), /*#__PURE__*/React.createElement("div", {
-    className: "resource-list"
-  }, resources.map(res => /*#__PURE__*/React.createElement("div", {
+  }, insp, /*#__PURE__*/React.createElement("small", null, "/", inspMax))), /*#__PURE__*/React.createElement("div", {
+    className: "resource-foot"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "resource-rest"
+  }, "Vorteil auf einen Wurf"))), resources.map(res => /*#__PURE__*/React.createElement("div", {
     className: "resource-item",
     key: res.id
   }, resEdit ? /*#__PURE__*/React.createElement("div", {
@@ -2052,22 +2025,16 @@ const Sheet = () => {
   }, "T\xE4glich")), /*#__PURE__*/React.createElement("button", {
     className: "resource-del",
     onClick: () => delResource(res.id)
-  }, "\u2715"))) : /*#__PURE__*/React.createElement("div", {
-    className: "resource-header"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, "\u2715"))) :
+  /*#__PURE__*/
+  /* Die Rastart steht in der Fusszeile, damit der Name die
+     ganze Kachelbreite hat. */
+  React.createElement("div", {
+    className: "resource-name",
     style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 13,
-      color: res.color || "#c9a84c",
-      flex: 1
+      color: res.color || "#c9a84c"
     }
   }, res.name || "Ressource"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "var(--text-muted)",
-      fontFamily: "'Roboto Condensed',sans-serif"
-    }
-  }, res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast")), /*#__PURE__*/React.createElement("div", {
     className: "resource-pips"
   }, Array.from({
     length: res.max
@@ -2095,23 +2062,28 @@ const Sheet = () => {
       used: Math.min(res.used, res.max - 1)
     })
   }, "\u2212"), /*#__PURE__*/React.createElement("span", {
+    className: "resource-count",
     style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 14,
-      color: res.color || "#c9a84c",
-      marginLeft: 4
+      color: res.color || "#c9a84c"
     }
-  }, res.max - res.used, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      color: "var(--text-muted)"
-    }
-  }, "/", res.max))), res.used > 0 && /*#__PURE__*/React.createElement("button", {
+  }, res.max - res.used, /*#__PURE__*/React.createElement("small", null, "/", res.max))), /*#__PURE__*/React.createElement("div", {
+    className: "resource-foot"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "resource-rest"
+  }, res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast"), res.used > 0 && /*#__PURE__*/React.createElement("button", {
     className: "resource-restore-btn",
+    title: "Zurücksetzen (" + (res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast") + ")",
     onClick: () => updResource(res.id, {
       used: 0
     })
-  }, "\u21BA ", res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast")))), resEdit && /*#__PURE__*/React.createElement("button", {
+  }, "\u21BA"))))), resources.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "var(--text-muted)",
+      fontSize: 13,
+      fontStyle: "italic",
+      margin: "10px 0 4px"
+    }
+  }, "Sonst noch keine Ressourcen.", !resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), resEdit && /*#__PURE__*/React.createElement("button", {
     className: "btn-add",
     onClick: addResource
   }, "+ Ressource hinzuf\xFCgen")), /*#__PURE__*/React.createElement("div", {

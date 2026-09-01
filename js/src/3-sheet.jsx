@@ -679,49 +679,42 @@ const Sheet = () => {
                 <div className="slots-title">◇ Ressourcen &amp; Sonderpunkte</div>
                 <button className={"panel-edit-btn"+(resEdit?" active":"")} onClick={()=>setResEdit(!resEdit)}>{resEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
               </div>
-              {/* Inspiration steht fest an erster Stelle: sie ist Teil der
-                  Grundregeln und nicht wie die uebrigen Eintraege frei
-                  angelegt — deshalb ohne Namensfeld und ohne Löschen. */}
-              <div className="resource-item insp-item">
-                <div className="resource-header">
-                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:"var(--inspiration)",flex:1}}>
-                    ✦ Inspiration
+              {/* Alle Eintraege als Kacheln in einem Raster. Vorher war jeder
+                  eine Zeile ueber die volle Breite — bei sechs Eintraegen
+                  586px hoch, obwohl links nur ein Name und ein paar Punkte
+                  standen. Im Bearbeiten-Modus bleibt es einspaltig, dort
+                  brauchen die Eingabefelder die Breite. */}
+              <div className={"resource-list"+(resEdit?" bearbeiten":"")}>
+                {/* Inspiration steht fest an erster Stelle: sie ist Teil der
+                    Grundregeln und nicht wie die uebrigen Eintraege frei
+                    angelegt — deshalb ohne Namensfeld und ohne Löschen. */}
+                <div className="resource-item insp-item">
+                  <div className="resource-name" style={{color:"var(--inspiration)"}}>✦ Inspiration</div>
+                  <div className="resource-pips">
+                    {Array.from({length:inspMax}).map((_,i) => (
+                      <div key={i}
+                        className="resource-pip"
+                        title={i<insp ? "Inspiration einsetzen" : "Inspiration erhalten"}
+                        style={{
+                          backgroundColor: i<insp ? "var(--inspiration)" : "var(--bg-void)",
+                          borderColor: "var(--inspiration)",
+                          opacity: i<insp ? 1 : 0.25,
+                          boxShadow: i<insp ? "0 0 6px rgba(232,184,75,0.45)" : "none",
+                        }}
+                        {...clickable(()=>setInsp(i<insp ? i : i+1),
+                          "Inspiration " + (i+1) + " von " + inspMax + (i<insp ? " — einsetzen" : " — erhalten"))}
+                      />
+                    ))}
+                    {resEdit && inspMax<10 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax+1)}>+</button>}
+                    {resEdit && inspMax>1 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax-1)}>−</button>}
+                    <span className="resource-count" style={{color:"var(--inspiration)"}}>
+                      {insp}<small>/{inspMax}</small>
+                    </span>
                   </div>
-                  <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>
-                    Vorteil auf einen Wurf
+                  <div className="resource-foot">
+                    <span className="resource-rest">Vorteil auf einen Wurf</span>
                   </div>
                 </div>
-                <div className="resource-pips">
-                  {Array.from({length:inspMax}).map((_,i) => (
-                    <div key={i}
-                      className="resource-pip"
-                      title={i<insp ? "Inspiration einsetzen" : "Inspiration erhalten"}
-                      style={{
-                        backgroundColor: i<insp ? "var(--inspiration)" : "var(--bg-void)",
-                        borderColor: "var(--inspiration)",
-                        opacity: i<insp ? 1 : 0.25,
-                        boxShadow: i<insp ? "0 0 6px rgba(232,184,75,0.45)" : "none",
-                      }}
-                      {...clickable(()=>setInsp(i<insp ? i : i+1),
-                        "Inspiration " + (i+1) + " von " + inspMax + (i<insp ? " — einsetzen" : " — erhalten"))}
-                    />
-                  ))}
-                  {resEdit && inspMax<10 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax+1)}>+</button>}
-                  {resEdit && inspMax>1 && <button className="slot-max-btn" onClick={()=>setInspMax(inspMax-1)}>−</button>}
-                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:"var(--inspiration)",marginLeft:4}}>
-                    {insp}<span style={{fontSize:10,color:"var(--text-muted)"}}>/{inspMax}</span>
-                  </span>
-                </div>
-                {insp===0 && (
-                  <div style={{fontSize:11,color:"var(--text-muted)",fontStyle:"italic",marginTop:4}}>
-                    Punkt antippen, wenn die Spielleitung dir Inspiration gibt.
-                  </div>
-                )}
-              </div>
-              {resources.length === 0 && (
-                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",margin:"10px 0 8px"}}>Sonst noch keine Ressourcen.{!resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
-              )}
-              <div className="resource-list">
                 {resources.map(res => (
                   <div className="resource-item" key={res.id}>
                     {resEdit ? (
@@ -758,10 +751,9 @@ const Sheet = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="resource-header">
-                        <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,color:res.color||"#c9a84c",flex:1}}>{res.name||"Ressource"}</div>
-                        <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>{res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</div>
-                      </div>
+                      /* Die Rastart steht in der Fusszeile, damit der Name die
+                         ganze Kachelbreite hat. */
+                      <div className="resource-name" style={{color:res.color||"#c9a84c"}}>{res.name||"Ressource"}</div>
                     )}
                     <div className="resource-pips">
                       {Array.from({length:res.max}).map((_,i) => {
@@ -782,16 +774,27 @@ const Sheet = () => {
                       })}
                       {resEdit && <button className="slot-max-btn" onClick={()=>updResource(res.id,{max:Math.min(30,res.max+1)})}>+</button>}
                       {resEdit && res.max>0 && <button className="slot-max-btn" onClick={()=>updResource(res.id,{max:Math.max(0,res.max-1),used:Math.min(res.used,res.max-1)})}>−</button>}
-                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:res.color||"#c9a84c",marginLeft:4}}>
-                        {res.max-res.used}<span style={{fontSize:10,color:"var(--text-muted)"}}>/{res.max}</span>
+                      <span className="resource-count" style={{color:res.color||"#c9a84c"}}>
+                        {res.max-res.used}<small>/{res.max}</small>
                       </span>
                     </div>
-                    {res.used>0 && (
-                      <button className="resource-restore-btn" onClick={()=>updResource(res.id,{used:0})}>↺ {res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</button>
-                    )}
+                    {/* Rastart und Zuruecksetzen teilen sich eine Zeile: der
+                        fruehere Knopf mit ausgeschriebener Rastart kostete in
+                        der Kachel eine eigene Zeile. */}
+                    <div className="resource-foot">
+                      <span className="resource-rest">{res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</span>
+                      {res.used>0 && (
+                        <button className="resource-restore-btn"
+                          title={"Zurücksetzen ("+(res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast")+")"}
+                          onClick={()=>updResource(res.id,{used:0})}>↺</button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
+              {resources.length === 0 && (
+                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",margin:"10px 0 4px"}}>Sonst noch keine Ressourcen.{!resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
+              )}
               {resEdit && <button className="btn-add" onClick={addResource}>+ Ressource hinzufügen</button>}
             </div>
 

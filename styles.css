@@ -318,9 +318,25 @@
   .sorcery-pip { width:22px; height:22px; border-radius:50%; border:1px solid var(--arcane-bright); cursor:pointer; transition:all 0.15s; }
   .sorcery-pip.available { background:var(--arcane); box-shadow:0 0 6px rgba(155,89,182,0.6); }
   .sorcery-pip.spent { background:var(--bg-void); opacity:0.3; }
-  .resource-list { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
-  .resource-item { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 12px; position:relative; }
-  .resource-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  /* Ressourcen als Kacheln. Vorher war jeder Eintrag eine Zeile ueber die
+     volle Breite: bei sechs Eintraegen 586px hoch, obwohl links nur ein Name
+     und ein paar Punkte standen. auto-fill statt fester Spaltenzahl, damit
+     sich das Raster ohne eigene Umbruchpunkte an jede Breite anpasst.
+     148px ist so gewaehlt, dass auch ein Handy mit 375px noch zwei Spalten
+     bekommt — bei 158px kippte es knapp auf eine. */
+  .resource-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(148px, 1fr)); gap:8px; margin-bottom:8px; align-items:start; }
+  /* Im Bearbeiten-Modus einspaltig: dort stehen Name, Kuerzel, Farbe und
+     Rastart nebeneinander und brauchen die ganze Breite. */
+  .resource-list.bearbeiten { grid-template-columns:1fr; }
+  /* Im Bearbeiten-Modus steht die Rastart schon als Auswahlfeld im Kopf. */
+  .resource-list.bearbeiten .resource-rest { display:none; }
+  .resource-item { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:9px 11px; position:relative; display:flex; flex-direction:column; gap:7px; }
+  .resource-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; line-height:1.25; overflow-wrap:anywhere; }
+  .resource-count { font-family:'Roboto Condensed',sans-serif; font-size:14px; margin-left:2px; white-space:nowrap; }
+  .resource-count small { font-size:10px; color:var(--text-muted); }
+  .resource-foot { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:auto; }
+  .resource-rest { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); }
+  .resource-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
   .resource-del { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; opacity:0.6; padding:0 4px; }
   .resource-del:hover { color:var(--crimson-bright); opacity:1; }
   .resource-pips { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
@@ -329,7 +345,9 @@
      legt man selbst an. Der Bernsteinstreifen macht den Unterschied
      sichtbar, ohne einen zweiten Kasten aufzumachen. */
   .insp-item { border-left:3px solid var(--inspiration-dim); margin-bottom:8px; }
-  .resource-restore-btn { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 8px; cursor:pointer; margin-top:6px; display:block; }
+  /* Nur noch das Symbol — die Rastart steht daneben in der Fusszeile. */
+  .resource-restore-btn { font-size:12px; line-height:1; color:var(--text-muted); background:none; border:1px solid var(--border); border-radius:3px; padding:3px 7px; cursor:pointer; flex-shrink:0; }
+  .resource-restore-btn:hover { color:var(--gold); border-color:var(--gold-dim); }
   .tpl-search-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .tpl-search-input { flex:1; min-width:160px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'Roboto',sans-serif; font-size:14px; outline:none; }
   .tpl-search-input:focus { border-color:var(--gold-dim); }
