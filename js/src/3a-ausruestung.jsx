@@ -42,9 +42,11 @@ const AusruestungsPuppe = () => {
     return t ? t.slot : null;
   };
 
+  // Die beiden Ansichten nehmen Unterschiedliches entgegen: der
+  // Waffenbetrachter eine Kennung, der Gegenstandsbetrachter das Objekt.
   const oeffneAnsicht = (eintrag) => {
     if (!eintrag) return;
-    if (eintrag.k === 'w') setWeaponViewer(eintrag.obj);
+    if (eintrag.k === 'w') setWeaponViewer(eintrag.obj.id);
     else setItemViewer(eintrag.obj);
   };
 
@@ -56,11 +58,14 @@ const AusruestungsPuppe = () => {
       + (gesperrt ? ' gesperrt' : o ? ' belegt' : ' leer')
       + (s.rk && o ? ' rk' : '');
     const beschriftung = gesperrt ? 'durch Zweihänder belegt' : o ? o.name : 'leer';
+    // Der Platz selbst zeigt, was darin steckt; gewechselt wird ueber den
+    // kleinen Knopf daneben. Ein leerer Platz hat nichts zu zeigen und
+    // oeffnet deshalb gleich die Auswahl.
     return (
       <div key={s.key} className={klassen}>
         <button className="gear-slot-btn" disabled={gesperrt}
-          onClick={()=>{ if(!gesperrt) setGearPick(s.key); }}
-          title={gesperrt ? 'Die Haupthand führt einen Zweihänder' : (o ? o.name+' — tippen zum Wechseln' : s.label+' belegen')}
+          onClick={()=>{ if (gesperrt) return; if (o) oeffneAnsicht(eintrag); else setGearPick(s.key); }}
+          title={gesperrt ? 'Die Haupthand führt einen Zweihänder' : (o ? o.name+' — tippen für Einzelheiten' : s.label+' belegen')}
           aria-label={s.label+': '+beschriftung}>
           <span className="gear-slot-ic">
             {o && o.imageData
@@ -72,9 +77,9 @@ const AusruestungsPuppe = () => {
             <i>{beschriftung}</i>
           </span>
         </button>
-        {o && (
-          <button className="gear-slot-info" title={'Einzelheiten zu '+o.name}
-            onClick={()=>oeffneAnsicht(eintrag)} aria-label={'Einzelheiten zu '+o.name}>i</button>
+        {o && !gesperrt && (
+          <button className="gear-slot-info" title={s.label+' wechseln oder ablegen'}
+            onClick={()=>setGearPick(s.key)} aria-label={s.label+' wechseln oder ablegen'}>⇄</button>
         )}
       </div>
     );
@@ -106,6 +111,7 @@ const AusruestungsPuppe = () => {
 
   return (
     <>
+      <div className="gear-block">
       <div className="gear-head">
         <div className="section-title" style={{marginBottom:0}}>🛡 Ausrüstung</div>
         <div className="gear-ac" title={fxTitle('ac')}>
@@ -168,6 +174,7 @@ const AusruestungsPuppe = () => {
       {/* Die Boni aus Talenten stehen jetzt bei den Merkmalen — ein
           Kampfstil ist ein Merkmal, kein Ausruestungsstueck, und kann dort
           mehr als nur die Ruestungsklasse anheben. */}
+      </div>
 
       {/* Auswahl fuer einen Platz */}
       {s && (

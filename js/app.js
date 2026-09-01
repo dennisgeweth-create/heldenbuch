@@ -3305,9 +3305,12 @@ const AusruestungsPuppe = () => {
     const t = gearWornList.find(x => x.k === k && x.obj.id === id);
     return t ? t.slot : null;
   };
+
+  // Die beiden Ansichten nehmen Unterschiedliches entgegen: der
+  // Waffenbetrachter eine Kennung, der Gegenstandsbetrachter das Objekt.
   const oeffneAnsicht = eintrag => {
     if (!eintrag) return;
-    if (eintrag.k === 'w') setWeaponViewer(eintrag.obj);else setItemViewer(eintrag.obj);
+    if (eintrag.k === 'w') setWeaponViewer(eintrag.obj.id);else setItemViewer(eintrag.obj);
   };
   const platzKachel = s => {
     const eintrag = belegt[s.key];
@@ -3315,6 +3318,9 @@ const AusruestungsPuppe = () => {
     const o = eintrag ? eintrag.obj : null;
     const klassen = 'gear-slot' + (gesperrt ? ' gesperrt' : o ? ' belegt' : ' leer') + (s.rk && o ? ' rk' : '');
     const beschriftung = gesperrt ? 'durch Zweihänder belegt' : o ? o.name : 'leer';
+    // Der Platz selbst zeigt, was darin steckt; gewechselt wird ueber den
+    // kleinen Knopf daneben. Ein leerer Platz hat nichts zu zeigen und
+    // oeffnet deshalb gleich die Auswahl.
     return /*#__PURE__*/React.createElement("div", {
       key: s.key,
       className: klassen
@@ -3322,9 +3328,10 @@ const AusruestungsPuppe = () => {
       className: "gear-slot-btn",
       disabled: gesperrt,
       onClick: () => {
-        if (!gesperrt) setGearPick(s.key);
+        if (gesperrt) return;
+        if (o) oeffneAnsicht(eintrag);else setGearPick(s.key);
       },
-      title: gesperrt ? 'Die Haupthand führt einen Zweihänder' : o ? o.name + ' — tippen zum Wechseln' : s.label + ' belegen',
+      title: gesperrt ? 'Die Haupthand führt einen Zweihänder' : o ? o.name + ' — tippen für Einzelheiten' : s.label + ' belegen',
       "aria-label": s.label + ': ' + beschriftung
     }, /*#__PURE__*/React.createElement("span", {
       className: "gear-slot-ic"
@@ -3335,12 +3342,12 @@ const AusruestungsPuppe = () => {
       className: "gear-slot-emoji"
     }, o && o.icon || s.icon)), /*#__PURE__*/React.createElement("span", {
       className: "gear-slot-txt"
-    }, /*#__PURE__*/React.createElement("b", null, s.label), /*#__PURE__*/React.createElement("i", null, beschriftung))), o && /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("b", null, s.label), /*#__PURE__*/React.createElement("i", null, beschriftung))), o && !gesperrt && /*#__PURE__*/React.createElement("button", {
       className: "gear-slot-info",
-      title: 'Einzelheiten zu ' + o.name,
-      onClick: () => oeffneAnsicht(eintrag),
-      "aria-label": 'Einzelheiten zu ' + o.name
-    }, "i"));
+      title: s.label + ' wechseln oder ablegen',
+      onClick: () => setGearPick(s.key),
+      "aria-label": s.label + ' wechseln oder ablegen'
+    }, "\u21C4"));
   };
 
   // ── Herleitung der Ruestungsklasse ──
@@ -3369,6 +3376,8 @@ const AusruestungsPuppe = () => {
   };
   const s = gearPick ? GEAR_SLOTS.find(x => x.key === gearPick) : null;
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "gear-block"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "gear-head"
   }, /*#__PURE__*/React.createElement("div", {
     className: "section-title",
@@ -3432,7 +3441,7 @@ const AusruestungsPuppe = () => {
       key: j,
       className: "fx-chip"
     }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))))));
-  })), s && /*#__PURE__*/React.createElement("div", {
+  }))), s && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay",
     onClick: () => setGearPick(null)
   }, /*#__PURE__*/React.createElement("div", {
