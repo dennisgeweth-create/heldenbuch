@@ -761,6 +761,104 @@
     .save-value { font-size:15px; }
   }
 
+  /* ── Ausruestungspuppe ─────────────────────────────────────────
+     Zwei Spalten Plaetze um eine Mitte, darunter die Haende. Auf schmalen
+     Schirmen faellt sie auf zwei Spalten zusammen, die Mitte wandert nach
+     oben — dieselbe Reihenfolge, nur gestapelt. */
+  .gear-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .gear-ac { margin-left:auto; display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:5px 12px; }
+  .gear-ac-l { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); }
+  .gear-ac-v { font-family:'Roboto Condensed',sans-serif; font-size:24px; line-height:1; color:var(--gold); font-variant-numeric:tabular-nums; }
+
+  .gear-doll { display:grid; grid-template-columns:1fr minmax(150px,1.15fr) 1fr; gap:8px; align-items:start; }
+  .gear-col { display:flex; flex-direction:column; gap:6px; }
+  .gear-hands { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:6px; }
+
+  .gear-slot { position:relative; display:flex; }
+  .gear-slot-btn {
+    flex:1; min-width:0; display:flex; align-items:center; gap:8px; text-align:left;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:5px;
+    padding:6px 8px; min-height:48px; cursor:pointer; color:inherit; font:inherit;
+  }
+  .gear-slot.belegt .gear-slot-btn { border-color:var(--gold-dim); background:linear-gradient(180deg, rgba(224,90,90,0.09), rgba(224,90,90,0.03)), var(--bg-card); }
+  .gear-slot.rk .gear-slot-btn { box-shadow:inset 2px 0 0 var(--gold-dim); }
+  .gear-slot.gesperrt .gear-slot-btn { cursor:not-allowed; opacity:0.55; }
+  .gear-slot-ic { width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--bg-void); border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+  .gear-slot-ic img { width:100%; height:100%; object-fit:cover; }
+  .gear-slot-emoji { font-size:15px; line-height:1; }
+  .gear-slot-txt { display:flex; flex-direction:column; min-width:0; }
+  .gear-slot-txt b { font-family:'Roboto Condensed',sans-serif; font-size:9px; font-weight:700; letter-spacing:0.11em; text-transform:uppercase; color:var(--text-muted); }
+  .gear-slot-txt i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gear-slot.belegt .gear-slot-txt i { color:var(--gold); }
+  .gear-slot.leer .gear-slot-txt i, .gear-slot.gesperrt .gear-slot-txt i { color:var(--text-muted); font-style:italic; }
+  .gear-slot-info {
+    position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%;
+    background:var(--bg-void); border:1px solid var(--border-bright); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; line-height:1; cursor:pointer;
+  }
+  .gear-slot-info:hover { color:var(--gold); border-color:var(--gold-dim); }
+
+  .gear-mid { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:12px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .gear-figur { font-size:34px; line-height:1; opacity:0.8; }
+  .gear-mid-name { font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); text-align:center; }
+  .gear-herleitung { width:100%; border-top:1px solid var(--border); padding-top:8px; font-family:'Roboto Condensed',sans-serif; font-size:11.5px; color:var(--text-muted); line-height:1.65; }
+  .gear-herleitung .stark { color:var(--text-secondary); }
+  .gear-summe { border-top:1px solid var(--border); margin-top:5px; padding-top:5px; color:var(--gold); }
+  .gear-hint { color:var(--text-muted); font-style:italic; font-size:12.5px; }
+
+  .gear-boni { margin-top:18px; }
+  .gear-boni-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .gear-boni-head .btn-add { margin-left:auto; width:auto; flex:0 0 auto; padding:5px 14px; }
+  .gear-bonus { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:6px 9px; margin-bottom:5px; }
+  .gear-bonus.aktiv { border-color:var(--gold-dim); }
+  .gear-bonus-tog { width:28px; height:28px; flex-shrink:0; border-radius:4px; cursor:pointer; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-muted); font-size:13px; }
+  .gear-bonus.aktiv .gear-bonus-tog { border-color:var(--gold); color:var(--gold); }
+  .gear-bonus-name { flex:1; min-width:0; background:transparent; border:none; border-bottom:1px solid var(--border); outline:none; font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-primary); padding:2px 4px; }
+  .gear-bonus-val { width:52px; background:transparent; border:1px solid var(--border); border-radius:3px; outline:none; font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-muted); padding:2px 6px; text-align:center; }
+  .gear-bonus.aktiv .gear-bonus-val { color:var(--gold); }
+  .gear-bonus-rk { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
+  .gear-bonus-del { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px; font-size:13px; }
+
+  /* Auswahl fuer einen Platz */
+  .gear-pick-leeren { width:100%; margin-bottom:10px; min-height:42px; border-radius:4px; cursor:pointer;
+    background:var(--bg-hover); border:1px solid #d98a8a; color:#d98a8a;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.06em; }
+  .gear-pick-list { display:flex; flex-direction:column; gap:5px; max-height:46vh; overflow-y:auto; }
+  .gear-pick-item { display:flex; align-items:center; gap:9px; text-align:left; width:100%;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:8px 10px;
+    min-height:48px; cursor:pointer; color:inherit; font:inherit; }
+  .gear-pick-item:hover { border-color:var(--gold-dim); }
+  .gear-pick-item.hier { border-color:var(--gold); }
+  .gear-pick-ic { width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:var(--bg-void); border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+  .gear-pick-ic img { width:100%; height:100%; object-fit:cover; }
+  .gear-pick-txt { display:flex; flex-direction:column; min-width:0; flex:1; }
+  .gear-pick-txt b { font-family:'Roboto Condensed',sans-serif; font-size:13px; font-weight:400; color:var(--text-primary); }
+  .gear-pick-txt i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted); }
+  .gear-pick-wo { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold-dim); flex-shrink:0; }
+  .gear-pick-item.hier .gear-pick-wo { color:var(--gold); }
+  .gear-pick-neu { width:100%; margin-top:10px; min-height:42px; border-radius:4px; cursor:pointer;
+    background:var(--bg-card); border:1px dashed var(--border-bright); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; }
+  .gear-pick-neu:hover { border-color:var(--gold-dim); color:var(--gold); }
+  .gear-pick-leer { color:var(--text-muted); font-style:italic; font-size:13px; line-height:1.55; padding:6px 0 2px; }
+  .gear-vorlagen { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+  .gear-vorlagen-titel { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); margin-bottom:7px; }
+  .gear-vorlagen-chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .gear-vorlage { padding:6px 11px; min-height:32px; border-radius:14px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10.5px; letter-spacing:0.05em; cursor:pointer; }
+  .gear-vorlage:hover { border-color:var(--gold-dim); color:var(--gold); }
+
+  @media (max-width:720px) {
+    .gear-doll { grid-template-columns:1fr 1fr; }
+    /* Die Mitte mit RK und Herleitung zuerst — beim Stapeln ist sie das,
+       was man zuerst sehen will. */
+    .gear-mid { grid-column:1 / -1; order:-1; }
+    .gear-slot-btn { min-height:52px; }
+    .gear-slot-txt i { font-size:13px; }
+  }
+  @media (max-width:420px) {
+    .gear-hands { grid-template-columns:1fr; }
+  }
+
 /* Sichtbarer Tastaturfokus. Vorher gab es keinen: wer ohne Maus arbeitet,
    sah nicht, wo er gerade steht. :focus-visible zeigt ihn nur bei
    Tastaturbedienung, Mausklicks bleiben unveraendert. */

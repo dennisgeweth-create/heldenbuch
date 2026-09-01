@@ -165,6 +165,8 @@ function App() {
   const [setupForm,  setSetupForm]  = useState({url:'',code:'',pass:''});
   const [setupErr,   setSetupErr]   = useState('');
   const [setupBusy,  setSetupBusy]  = useState(false);
+  const [gearReady,  setGearReady]  = useState(false);   // Serverstand da, Umstellung darf laufen
+  const [gearPick,   setGearPick]   = useState(null);    // offener Platz im Auswahldialog
   const saveTimer = useRef(null);
   const autoSyncTimer = useRef(null);
   const charsRef = useRef([]);
@@ -257,14 +259,32 @@ function App() {
         }
         // If pendingRef=true: local has newer unsaved data — keep it, interval will push to server
         setSyncStatus('ok'); setSyncMsg('Verbunden ✓');
+        setGearReady(true);
       }).catch(() => {
         setSyncStatus('ok'); setSyncMsg('Lokal ✓');
+        setGearReady(true);
       });
     } else {
       try { const v=localStorage.getItem('dnd_chars'); if(v) applyChars(JSON.parse(v)); } catch {}
       setShowSetup(true);
+      setGearReady(true);
     }
   }, []);
+
+  // Umstellung auf Ausruestungsplaetze, einmal je Held.
+  //
+  // Sie wartet den Serverstand ab: jedes Speichern setzt pendingRef, und der
+  // Ladevorgang oben uebernimmt die Serverdaten nur, solange pendingRef falsch
+  // ist. Liefe die Umstellung vorher, wuerde sie den lokalen Stand fest-
+  // schreiben und den vom Server verwerfen — auf einem Geraet, das laenger
+  // nicht offen war, waere das echter Datenverlust.
+  useEffect(() => {
+    if (!gearReady) return;
+    const liste = charsRef.current;
+    if (!liste.length) return;
+    if (!liste.some(c => (c.gearMigrated||0) < GEAR_MIGRATION)) return;
+    save(liste.map(c => { const p = migrateGear(c); return p ? {...c, ...p} : c; }));
+  }, [gearReady, chars]);
 
   const saveLibrary = (lib) => {
     setUserLibrary(lib);
@@ -794,16 +814,76 @@ function App() {
   const updAcBonus = (id,patch) => updAcBonuses(acBonuses.map(b=>b.id===id?{...b,...patch}:b));
   const newEquipItem = () => ({id:Date.now().toString(),name:"",type:"light",baseAC:11,acBonus:0,equipped:false,notes:"",effects:[]});
 
+  // ── Ausruestungsplaetze ─────────────────────────────────────────
+  const gearWornList = gearWorn(cur);
+  const nhGesperrt   = nebenhandGesperrt(cur);
+  // Legt einen Gegenstand oder eine Waffe in einen Platz — oder raeumt ihn
+  // mit obj=null. Alles in einem Zug, damit die Regeln nicht in einem
+  // Zwischenzustand verletzt sind: dasselbe Stueck liegt nie in zwei
+  // Plaetzen, und ein Zweihaender raeumt die Nebenhand.
+  const setGearSlot = (slotKey, k, id) => patchCurrent(c => {
+    const gear = {...(c.gear||{})};
+    if (!id) delete gear[slotKey];
+    else {
+      Object.keys(gear).forEach(s => { const g=gear[s]; if (g && g.k===k && g.id===id) delete gear[s]; });
+      gear[slotKey] = {k, id};
+    }
+    if (slotKey === 'haupthand') {
+      const w = id && k==='w' ? (c.weapons||[]).find(x=>x.id===id) : null;
+      if (isZweihand(w)) delete gear.nebenhand;
+    }
+    // equipped der Waffen aus den Haenden ableiten: die Waffenkarten im
+    // Aktionen-Reiter lesen dieses Kennzeichen und sollen dasselbe sagen.
+    const inHand = new Set(Object.values(gear).filter(g=>g.k==='w').map(g=>g.id));
+    const weapons = (c.weapons||[]).map(w => !!w.equipped === inHand.has(w.id) ? w : {...w, equipped: inHand.has(w.id)});
+    return {gear, weapons};
+  });
+
+  // Legt ein Stueck aus einer Vorlage an und steckt es sofort in seinen
+  // Platz. Ohne das waeren es fuer ein Kettenhemd sechs Schritte: Gegenstand
+  // anlegen, benennen, Platz waehlen, Art waehlen, speichern, anlegen.
+  const gearAusVorlage = (slotKey, tpl) => patchCurrent(c => {
+    const id = 'tpl_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+    const item = {...newItem(), id, name: tpl.name, gearKind: tpl.art,
+      armorType: tpl.armorType, baseAC: tpl.baseAC, icon: tpl.icon || '🛡️'};
+    return {inventory: [...(c.inventory||[]), item], gear: {...(c.gear||{}), [slotKey]: {k:'i', id}}};
+  });
+
   // Compute AC from equipped armor
   // "Sonstiges" ist als "Kein RK-Einfluss" ausgewiesen und traegt nur ueber
   // acBonus bei — es darf deshalb nicht als Grundruestung zaehlen, sonst
   // ersetzt ein Umhang mit Basis 0 die 10 der unbewaffneten RK.
   const equippedArmors  = equipment.filter(e=>e.equipped && e.type!=="shield" && e.type!=="other");
   const equippedShields = equipment.filter(e=>e.equipped && e.type==="shield");
+  // Nur echte Ruestung zaehlt als Grundwert: ein Stueck ohne Ruestungsart
+  // oder ohne Basiswert im Ruestungsplatz wuerde sonst die 10 der
+  // unbewaffneten RK durch 0 ersetzen.
+  const gearArmor = (() => {
+    const r = cur && cur.gearMigrated ? gearAt(cur,'ruestung') : null;
+    return (r && r.armorType && r.armorType!=='shield' && +r.baseAC > 0) ? r : null;
+  })();
+  const gearShield = (() => {
+    if (!cur || !cur.gearMigrated || nhGesperrt) return null;
+    const nh = gearAt(cur,'nebenhand');
+    return (nh && nh.armorType === 'shield') ? nh : null;
+  })();
   const computedAC = (() => {
     if (!cur) return null;
     const dex = mod(effCur.dex);
     const activeAbBonuses = (cur.acBonuses||[]).filter(b=>b.active).reduce((s,b)=>s+(+b.bonus||0), 0);
+    if (cur.gearMigrated) {
+      const itemBonuses = gearWornList.reduce((s,{obj})=>s+(+obj.acBonus||0), 0);
+      const shBonus = gearShield ? (+gearShield.baseAC || 2) : 0;
+      if (!gearArmor) {
+        if (shBonus===0 && activeAbBonuses===0 && itemBonuses===0 && !fxOn('ac')) return null;
+        return fx('ac', 10 + dex + shBonus + activeAbBonuses + itemBonuses);
+      }
+      const t = gearArmor.armorType;
+      const basis = +gearArmor.baseAC || 0;
+      const ac = t==='heavy' ? basis : t==='medium' ? basis + Math.min(2, dex) : basis + dex;
+      return fx('ac', ac + shBonus + activeAbBonuses + itemBonuses);
+    }
+    // Vor der Umstellung unveraendert aus der alten Ausruestungsliste.
     const itemBonuses = equipment.filter(e=>e.equipped && (e.acBonus||0)!==0).reduce((s,e)=>s+(+e.acBonus||0), 0);
     if (equippedArmors.length === 0) {
       // Ohne Rüstung nur rechnen, wenn ueberhaupt etwas beitraegt — ein
@@ -1125,12 +1205,14 @@ function App() {
     delResource, delSpell, delToolProf, delWeaponProf, deleteChar,
     displayAC, effCur, eqEditId, eqForm, equipment, equippedArmors,
     equippedShields, exFeature, exItem, exNote, exSpell, fx, fxOn,
-    fxTitle, initTotal, insp, inspMax, invRarity, invTagFilter,
-    isDmMode, itemFx, noteTagFilter, notesList, openEdit, openNew,
-    openTpl, openUnprepared, patchChar, resEdit, resetAll, resources,
-    save, sel, selectChar, setCharMenuOpen, setCoinDelta,
+    fxTitle, gearArmor, gearAusVorlage, gearPick, gearShield, gearWornList,
+    initTotal, insp, inspMax, invRarity, invTagFilter,
+    isDmMode, itemFx, nhGesperrt, noteTagFilter, notesList, openEdit,
+    openNew, openTpl, openUnprepared, patchChar, resEdit, resetAll,
+    resources, save, sel, selectChar, setCharMenuOpen, setCoinDelta,
     setCoinPopover, setCollapsedLevels, setEqEditId, setEqForm,
     setExFeature, setExNote, setExSpell, setFf, setFfEditId,
+    setGearPick, setGearSlot,
     setImgViewer, setInsp, setInspMax, setInvRarity, setInvTagFilter,
     setItemViewer, setItf, setItfEditId, setNf, setNfEditId,
     setNoteTagFilter, setOpenUnprepared, setResEdit, setSf, setSfEditId,
@@ -1734,6 +1816,55 @@ function App() {
                 <div className="form-label">Gewicht (kg, optional)</div>
                 <input className="form-input" type="number" min="0" step="0.1" placeholder="z.B. 1.5" value={itf.weight} onChange={e=>setItf({...itf,weight:e.target.value})} />
               </div>
+              {/* Ausruestungsplatz: erst damit taucht das Stueck in der
+                  Auswahl eines Platzes auf. Ohne Angabe bleibt es ein reiner
+                  Inventargegenstand, so wie bisher. */}
+              <div className="form-group">
+                <div className="form-label">Ausrüstungsplatz</div>
+                <select className="form-select" value={itf.gearKind||''} onChange={e=>{
+                  const k = e.target.value;
+                  const art = k==='ruestung' ? (itf.armorType && itf.armorType!=='shield' ? itf.armorType : 'light')
+                            : k==='schild'   ? 'shield' : '';
+                  const basis = (ARMOR_KINDS.find(a=>a.key===art)||{}).basis || 0;
+                  setItf({...itf, gearKind:k, armorType:art, baseAC: art ? (+itf.baseAC || basis) : 0});
+                }}>
+                  {GEAR_KINDS.map(g=><option key={g.key} value={g.key}>{g.label}</option>)}
+                </select>
+              </div>
+              {itf.gearKind==='ruestung' && (
+                <div className="form-group">
+                  <div className="form-label">Rüstungsart</div>
+                  <select className="form-select" value={itf.armorType||'light'} onChange={e=>{
+                    const art = e.target.value;
+                    setItf({...itf, armorType:art, baseAC:(ARMOR_KINDS.find(a=>a.key===art)||{}).basis||0});
+                  }}>
+                    {ARMOR_KINDS.filter(a=>a.key&&a.key!=='shield').map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
+                  </select>
+                </div>
+              )}
+              {(itf.gearKind==='ruestung'||itf.gearKind==='schild') && (
+                <div className="form-group">
+                  <div className="form-label">{itf.gearKind==='schild'?'Bonus zur RK':'Basis-RK'}</div>
+                  <input className="form-input" type="number" min="0" max="25" value={itf.baseAC||0}
+                    onChange={e=>setItf({...itf,baseAC:+e.target.value})} />
+                </div>
+              )}
+              {itf.gearKind && (
+                <div className="form-group">
+                  <div className="form-label">Magischer RK-Bonus</div>
+                  <input className="form-input" type="number" min="-5" max="10" value={itf.acBonus||0}
+                    placeholder="z.B. +1" onChange={e=>setItf({...itf,acBonus:+e.target.value})} />
+                </div>
+              )}
+              {itf.gearKind && (
+                <div className="form-group form-full">
+                  <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',fontFamily:"'Roboto Condensed',sans-serif"}}>
+                    {itf.gearKind==='ruestung' && ((ARMOR_KINDS.find(a=>a.key===itf.armorType)||{}).hinweis||'')+' — RK '+(itf.baseAC||0)+(itf.acBonus?' + '+itf.acBonus+' (magisch)':'')}
+                    {itf.gearKind==='schild'   && 'Gibt +'+((+itf.baseAC||0)+(+itf.acBonus||0))+' auf die RK, wenn es in der Nebenhand steckt'}
+                    {itf.gearKind!=='ruestung' && itf.gearKind!=='schild' && (itf.acBonus?'+'+itf.acBonus+' zur RK, solange getragen':'Wirkt über seine Effekte, solange getragen')}
+                  </div>
+                </div>
+              )}
               <div className="form-group form-full">
                 <div className="form-label">Beschreibung (optional)</div>
                 <RichEditor value={itf.description} onChange={v=>setItf({...itf,description:v})} placeholder="Wirkung, Eigenschaften..." rows={3} />

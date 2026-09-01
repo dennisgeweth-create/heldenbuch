@@ -5,17 +5,93 @@
 
 const newEffect = () => ({id:Date.now().toString()+Math.random().toString(36).slice(2,6), target:"str", mode:"bonus", value:1});
 
+// ── Getragene Ausruestung ────────────────────────────────────────
+// c.gear ordnet jedem Platz hoechstens einen Traeger zu:
+//   {ruestung:{k:'i',id:'…'}, haupthand:{k:'w',id:'…'}}
+// k unterscheidet Inventargegenstand ('i') von Waffe ('w'). Der Platz ist
+// die einzige Wahrheit darueber, was getragen wird; die Puppe schreibt bei
+// Waffen zusaetzlich equipped mit, damit die Waffenkarten im Aktionen-Reiter
+// dieselbe Aussage treffen.
+const gearRef = (c, slotKey) => ((c && c.gear) || {})[slotKey] || null;
+const gearAt  = (c, slotKey) => {
+  const g = gearRef(c, slotKey);
+  if (!g) return null;
+  const liste = g.k === 'w' ? (c.weapons || []) : (c.inventory || []);
+  // Faellt still weg, wenn der Gegenstand geloescht oder weitergegeben wurde.
+  return liste.find(x => x.id === g.id) || null;
+};
+const isZweihand = (w) => !!w && (w.properties || []).some(p => /zweih/i.test(p));
+// Ein Zweihaender in der Haupthand belegt beide Haende.
+const nebenhandGesperrt = (c) => isZweihand(gearAt(c, 'haupthand'));
+// Alles, was gerade getragen wird — in der Reihenfolge der Plaetze.
+const gearWorn = (c) => {
+  if (!c) return [];
+  const gesperrt = nebenhandGesperrt(c);
+  return GEAR_SLOTS.map(s => {
+    if (s.key === 'nebenhand' && gesperrt) return null;
+    const o = gearAt(c, s.key);
+    return o ? {slot: s, obj: o, k: gearRef(c, s.key).k} : null;
+  }).filter(Boolean);
+};
+
 // Sammelt alle Effekte, die gerade wirken, samt Herkunft fuer die Anzeige.
+// Jede Quelle zaehlt hoechstens einmal: eine Waffe in der Haupthand traegt
+// ihre Effekte ueber den Platz bei und darf nicht zusaetzlich ueber ihr
+// equipped-Kennzeichen noch einmal gezaehlt werden.
 const collectEffects = (c) => {
   if (!c) return [];
-  const out = [];
-  const add = (source, icon, list) => (list||[]).forEach(e => {
-    if (e && e.target && EFFECT_LABELS[e.target]) out.push({...e, source, icon});
-  });
-  (c.weapons   ||[]).forEach(w => { if (w.equipped)      add(w.name||"Waffe",       "⚔", w.effects); });
-  (c.equipment ||[]).forEach(q => { if (q.equipped)      add(q.name||"Ausrüstung",  "🛡", q.effects); });
-  (c.inventory ||[]).forEach(i => { if (i.effectsActive) add(i.name||"Gegenstand",  "🎒", i.effects); });
+  const out = [], gesehen = new Set();
+  const add = (schluessel, source, icon, list) => {
+    if (gesehen.has(schluessel)) return;
+    gesehen.add(schluessel);
+    (list||[]).forEach(e => {
+      if (e && e.target && EFFECT_LABELS[e.target]) out.push({...e, source, icon});
+    });
+  };
+  gearWorn(c).forEach(({slot, obj, k}) => add(k+':'+obj.id, obj.name||slot.label, slot.icon, obj.effects));
+  (c.weapons ||[]).forEach(w => { if (w.equipped) add('w:'+w.id, w.name||"Waffe", "⚔", w.effects); });
+  // Die alte Ausruestungsliste zaehlt nur, solange der Held nicht umgestellt
+  // ist — danach steckt dasselbe Stueck als Inventargegenstand in einem Platz
+  // und wuerde sonst doppelt wirken.
+  if (!c.gearMigrated) (c.equipment||[]).forEach(q => { if (q.equipped) add('e:'+q.id, q.name||"Ausrüstung", "🛡", q.effects); });
+  (c.inventory||[]).forEach(i => { if (i.effectsActive) add('i:'+i.id, i.name||"Gegenstand", "🎒", i.effects); });
   return out;
+};
+
+// Einmalige Umstellung auf Ausruestungsplaetze. Legt die Stuecke aus
+// c.equipment als Inventargegenstaende an und setzt die angelegten in ihren
+// Platz. c.equipment und c.acBonuses bleiben dabei unberuehrt liegen — der
+// Rueckweg bleibt offen, aufgeraeumt wird erst, wenn sich die Umstellung
+// bewaehrt hat. Mehrfach ausfuehrbar: bereits uebernommene Stuecke erkennt
+// sie an der Kennung wieder.
+const GEAR_MIGRATION = 2;
+const migrateGear = (c) => {
+  if (!c || (c.gearMigrated || 0) >= GEAR_MIGRATION) return null;
+  const inv  = [...(c.inventory || [])];
+  const gear = {...(c.gear || {})};
+  const platzFuer = {light:'ruestung', medium:'ruestung', heavy:'ruestung', shield:'nebenhand', other:'sonstiges'};
+  const artFuer   = {light:'ruestung', medium:'ruestung', heavy:'ruestung', shield:'schild',    other:'sonstiges'};
+  (c.equipment || []).forEach(e => {
+    const id = 'eq_' + e.id;
+    if (inv.some(i => i.id === id)) return;
+    inv.push({
+      id, name: e.name || 'Ausrüstung', qty: 1, weight: '', rarity: 'gewöhnlich',
+      description: e.notes || '', tags: [], source: 'Ausrüstung',
+      effects: e.effects || [], effectsActive: false,
+      gearKind: artFuer[e.type] || 'sonstiges',
+      armorType: e.type === 'other' ? '' : (e.type || ''),
+      baseAC: +e.baseAC || 0, acBonus: +e.acBonus || 0,
+      icon: e.type === 'shield' ? '🛡' : e.type === 'other' ? '🎭' : '🛡️',
+    });
+    // Mehrere angelegte Ruestungen gab es bisher als Warnung — den Platz
+    // bekommt die erste, der Rest liegt danach im Inventar.
+    const platz = platzFuer[e.type] || 'sonstiges';
+    if (e.equipped && !gear[platz]) gear[platz] = {k:'i', id};
+  });
+  const angelegt = (c.weapons || []).filter(w => w.equipped);
+  if (angelegt.length > 0 && !gear.haupthand) gear.haupthand = {k:'w', id: angelegt[0].id};
+  if (angelegt.length > 1 && !gear.nebenhand && !isZweihand(angelegt[0])) gear.nebenhand = {k:'w', id: angelegt[1].id};
+  return {inventory: inv, gear, gearMigrated: GEAR_MIGRATION};
 };
 // Wendet alle Effekte eines Ziels auf einen Ausgangswert an.
 const applyEffect = (effs, target, base) => {
@@ -80,12 +156,17 @@ const newChar   = () => ({
   sorceryPoints:{max:0, used:0},
   resources:[],
   wsFavorites:[],
+  // Neue Helden starten bereits auf Ausruestungsplaetzen — fuer sie gibt es
+  // nichts umzustellen.
   inventory:[], currency:{pp:0,gp:0,ep:0,sp:0,cp:0}, equipment:[], acBonuses:[],
+  gear:{}, gearMigrated:GEAR_MIGRATION,
   spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
 });
 const newWeapon = () => ({id:Date.now().toString(),name:"",attrKey:"str",proficient:true,range:"1,5m",attackBonus:0,damage:"1W6",damageType:"Hieb",description:"",properties:[],equipped:false,imageData:"",effects:[]});
 const newSpell  = () => ({id:Date.now().toString(),name:"",level:1,school:"Hervorrufung",castingTime:"1 Aktion",range:"9 m",duration:"Sofort",components:"V, S",description:"",prepared:true});
-const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false});
+// gearKind: in welchen Ausruestungsplatz das Stueck passt (leer = keiner).
+// armorType/baseAC/acBonus nur bei Ruestungen und Schilden gefuellt.
+const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false,gearKind:"",armorType:"",baseAC:0,acBonus:0});
 
 // Lightweight fuzzy search: returns score > 0 if all query chars appear in order in str
 const fuzzyMatch = (str, query) => {

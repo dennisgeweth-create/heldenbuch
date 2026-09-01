@@ -129,6 +129,73 @@ const CC_COLORS = {'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0',
 // das nur die Waffenschadensarten kennt.
 const DMG_COLORS = {Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrotisch:'#9060c0',Gleißend:'#f0e060',Psychisch:'#c070d0',Energie:'#80a0f0',Schall:'#c0a0e0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'};
 
+// ── Ausruestungsplaetze ─────────────────────────────────────────
+// spalte: wo der Platz in der Puppe steht. nimmt: welche Traegerart ein
+// Gegenstand angeben muss, um hier hineinzupassen ('waffe' meint einen
+// Eintrag aus cur.weapons). rk: rechnet unmittelbar an der Ruestungsklasse
+// mit — alle uebrigen Plaetze wirken ueber das Effektsystem.
+const GEAR_SLOTS = [
+  {key:'kopf',       label:'Kopf',        kurz:'Kopf',   icon:'🪖', spalte:'links',  nimmt:['kopf']},
+  {key:'hals',       label:'Hals',        kurz:'Hals',   icon:'📿', spalte:'links',  nimmt:['hals']},
+  {key:'umhang',     label:'Umhang',      kurz:'Umhang', icon:'🧥', spalte:'links',  nimmt:['umhang']},
+  {key:'ruestung',   label:'Rüstung',     kurz:'Rüst.',  icon:'🛡️', spalte:'links',  nimmt:['ruestung'], rk:true},
+  {key:'arme',       label:'Armschienen', kurz:'Arme',   icon:'💪', spalte:'links',  nimmt:['arme']},
+  {key:'haende',     label:'Handschuhe',  kurz:'Hände',  icon:'🧤', spalte:'links',  nimmt:['haende']},
+  {key:'guertel',    label:'Gürtel',      kurz:'Gürtel', icon:'🎗️', spalte:'rechts', nimmt:['guertel']},
+  {key:'stiefel',    label:'Stiefel',     kurz:'Füße',   icon:'🥾', spalte:'rechts', nimmt:['stiefel']},
+  {key:'ring1',      label:'Ring I',      kurz:'Ring I', icon:'💍', spalte:'rechts', nimmt:['ring']},
+  {key:'ring2',      label:'Ring II',     kurz:'Ring II',icon:'💍', spalte:'rechts', nimmt:['ring']},
+  {key:'wunderding', label:'Wunderding',  kurz:'Wunder', icon:'🔮', spalte:'rechts', nimmt:['wunderding']},
+  {key:'sonstiges',  label:'Sonstiges',   kurz:'Sonst.', icon:'🎭', spalte:'rechts', nimmt:['sonstiges']},
+  {key:'haupthand',  label:'Haupthand',   kurz:'Haupt',  icon:'⚔️', spalte:'hand',   nimmt:['waffe']},
+  {key:'nebenhand',  label:'Nebenhand',   kurz:'Neben',  icon:'🛡️', spalte:'hand',   nimmt:['waffe','schild'], rk:true},
+  {key:'fernkampf',  label:'Fernkampf',   kurz:'Fern',   icon:'🏹', spalte:'hand',   nimmt:['waffe']},
+];
+// Traegerart, die ein Gegenstand angeben kann. 'ring' passt in beide
+// Ringplaetze, 'schild' nur in die Nebenhand.
+const GEAR_KINDS = [
+  {key:'',           label:'— kein Platz —'},
+  {key:'kopf',       label:'Kopf'},
+  {key:'hals',       label:'Hals / Amulett'},
+  {key:'umhang',     label:'Umhang'},
+  {key:'ruestung',   label:'Rüstung'},
+  {key:'schild',     label:'Schild'},
+  {key:'arme',       label:'Armschienen'},
+  {key:'haende',     label:'Handschuhe'},
+  {key:'guertel',    label:'Gürtel'},
+  {key:'stiefel',    label:'Stiefel'},
+  {key:'ring',       label:'Ring'},
+  {key:'wunderding', label:'Wunderding'},
+  {key:'sonstiges',  label:'Sonstiges'},
+];
+// Ruestungsarten und wie die Geschicklichkeit einfliesst.
+const ARMOR_KINDS = [
+  {key:'',       label:'Keine Rüstung', basis:0},
+  {key:'light',  label:'Leichte Rüstung', basis:11, hinweis:'Basis + GES-Mod'},
+  {key:'medium', label:'Mittlere Rüstung', basis:13, hinweis:'Basis + GES-Mod (max. +2)'},
+  {key:'heavy',  label:'Schwere Rüstung',  basis:16, hinweis:'Basis (kein GES)'},
+  {key:'shield', label:'Schild',           basis:2,  hinweis:'Bonus zur RK'},
+];
+
+// Gaengige Ruestungen als Vorlage. Standen bis zur Umstellung als Chips
+// unter der Ausruestungsliste; in der Puppe legen sie das Stueck an und
+// stecken es gleich in seinen Platz.
+const ARMOR_TEMPLATES = [
+  {name:'Lederrüstung',          art:'ruestung', armorType:'light',  baseAC:11},
+  {name:'Verstärkte Lederrüstung',art:'ruestung', armorType:'light',  baseAC:12},
+  {name:'Lederlamellenrüstung',  art:'ruestung', armorType:'light',  baseAC:13},
+  {name:'Schuppenpanzer',        art:'ruestung', armorType:'medium', baseAC:13},
+  {name:'Kettenhemd',            art:'ruestung', armorType:'medium', baseAC:13},
+  {name:'Brustpanzer',           art:'ruestung', armorType:'medium', baseAC:14},
+  {name:'Schienenpanzer',        art:'ruestung', armorType:'medium', baseAC:15},
+  {name:'Halbplatte',            art:'ruestung', armorType:'medium', baseAC:15},
+  {name:'Ringpanzerhemd',        art:'ruestung', armorType:'heavy',  baseAC:14},
+  {name:'Kettenpanzer',          art:'ruestung', armorType:'heavy',  baseAC:16},
+  {name:'Bänderpanzer',          art:'ruestung', armorType:'heavy',  baseAC:17},
+  {name:'Plattenpanzer',         art:'ruestung', armorType:'heavy',  baseAC:18},
+  {name:'Schild',                art:'schild',   armorType:'shield', baseAC:2, icon:'🛡'},
+];
+
 // Reiter des Abenteuerlogs.
 const LOG_TABS = ['charakter','zauber','inventar','waffen','attribute','rüst','notizen'];
 const LOG_TAB_ICONS = {'charakter':'👤','zauber':'✨','inventar':'🎒','waffen':'⚔','attribute':'📊','rüst':'🛡','notizen':'📜'};

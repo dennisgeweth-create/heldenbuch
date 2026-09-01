@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 3-sheet.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -1401,493 +1401,7 @@ const Sheet = () => {
     }, "JoAT")));
   }), /*#__PURE__*/React.createElement("div", {
     className: "block-hint"
-  }, "\u2B24 \xDCbung \xB7 \u2B24\u2B24 Expertise \xB7 Klick zum Wechseln")))))), tab === "inventar" && (() => {
-    const ARMOR_TYPES = [{
-      key: 'light',
-      label: 'Leichte Rüstung',
-      hint: 'Basis + GES-Mod'
-    }, {
-      key: 'medium',
-      label: 'Mittlere Rüstung',
-      hint: 'Basis + GES-Mod (max. +2)'
-    }, {
-      key: 'heavy',
-      label: 'Schwere Rüstung',
-      hint: 'Basis (kein GES)'
-    }, {
-      key: 'shield',
-      label: 'Schild',
-      hint: '+Bonus zur RK'
-    }, {
-      key: 'other',
-      label: 'Sonstiges',
-      hint: 'Kein RK-Einfluss'
-    }];
-    const openEqForm = item => {
-      if (item) {
-        setEqForm({
-          ...item
-        });
-        setEqEditId(item.id);
-      } else {
-        setEqForm({
-          name: '',
-          type: 'light',
-          baseAC: 11,
-          acBonus: 0,
-          equipped: false,
-          notes: '',
-          effects: []
-        });
-        setEqEditId(null);
-      }
-      setShowEF(true);
-    };
-    const saveEqForm = () => {
-      if (!eqForm.name.trim()) {
-        appAlert('Name darf nicht leer sein.');
-        return;
-      }
-      const entry = {
-        ...eqForm,
-        id: eqEditId || Date.now().toString()
-      };
-      if (eqEditId) {
-        updEquipment(equipment.map(e => e.id === eqEditId ? entry : e));
-      } else {
-        // Only one armor at a time should be equipped — but allow multiple, user decides
-        updEquipment([...equipment, entry]);
-      }
-      setShowEF(false);
-      setEqEditId(null);
-    };
-    const warnMultiArmor = equippedArmors.length > 1;
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 8
-      }
-    }, "\uD83D\uDEE1 Ausr\xFCstung & R\xFCstung"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: 'var(--bg-card)',
-        border: '1px solid ' + (computedAC !== null ? 'var(--gold-dim)' : 'var(--border)'),
-        borderRadius: 6,
-        padding: '10px 14px',
-        marginBottom: 16,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        flexWrap: 'wrap'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 11,
-        color: 'var(--text-muted)',
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase'
-      }
-    }, "\uD83D\uDEE1 R\xFCstungsklasse"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 26,
-        color: computedAC !== null ? 'var(--gold)' : 'var(--text-muted)'
-      }
-    }, displayAC)), computedAC !== null ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        color: 'var(--text-muted)',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        lineHeight: 1.7
-      }
-    }, (() => {
-      const dex = mod(effCur.dex);
-      const parts = [];
-
-      // Base armor
-      if (equippedArmors.length > 0) {
-        const a = equippedArmors[0];
-        if (a.type === 'heavy') parts.push(a.name + ': ' + a.baseAC);
-        if (a.type === 'medium') parts.push(a.name + ': ' + a.baseAC + ' + GES ' + Math.min(2, dex));
-        if (a.type === 'light') parts.push(a.name + ': ' + a.baseAC + ' + GES ' + dex);
-        if ((a.acBonus || 0) !== 0) parts.push('Magisch: +' + a.acBonus);
-      } else {
-        parts.push('Unbewaffnet: 10 + GES ' + dex);
-      }
-
-      // Shields
-      equippedShields.forEach(sh => {
-        parts.push(sh.name + ': +' + (sh.baseAC || 2) + (sh.acBonus ? ' +' + sh.acBonus : ''));
-      });
-
-      // Item bonuses (other equipped items with acBonus)
-      equipment.filter(e => e.equipped && e.type === 'other' && (e.acBonus || 0) !== 0).forEach(e => {
-        parts.push(e.name + ': +' + e.acBonus);
-      });
-
-      // Talent/ability bonuses
-      acBonuses.filter(b => b.active && (b.bonus || 0) !== 0).forEach(b => {
-        parts.push(b.name + ': ' + (b.bonus >= 0 ? '+' : '') + b.bonus);
-      });
-
-      // Effekte angelegter Gegenstaende auf die RK
-      effectsFor(itemFx, 'ac').forEach(e => {
-        parts.push(e.source + ': ' + (e.mode === 'set' ? 'RK = ' + (+e.value || 0) : fnum(+e.value || 0)));
-      });
-      return /*#__PURE__*/React.createElement("div", null, parts.map((p, i) => /*#__PURE__*/React.createElement("div", {
-        key: i,
-        style: {
-          color: i === 0 ? 'var(--text-secondary)' : 'var(--text-muted)'
-        }
-      }, i === 0 ? '' : '+ ', p)), /*#__PURE__*/React.createElement("div", {
-        style: {
-          borderTop: '1px solid var(--border)',
-          marginTop: 4,
-          paddingTop: 4,
-          color: 'var(--gold)'
-        }
-      }, "= ", displayAC, " RK"));
-    })()) : /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        color: 'var(--text-muted)',
-        fontStyle: 'italic'
-      }
-    }, "Keine R\xFCstung angelegt \u2014 Basis 10 + GES-Mod (", fmod(effCur.dex), ")"), warnMultiArmor && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: 'var(--crimson-bright)',
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }, "\u26A0\uFE0F Mehrere R\xFCstungen angelegt!")), equipment.length === 0 ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: 'var(--text-muted)',
-        fontStyle: 'italic',
-        fontSize: 14,
-        marginBottom: 12
-      }
-    }, "Noch keine Ausr\xFCstung eingetragen.") : equipment.map(item => {
-      const typeLabel = ARMOR_TYPES.find(t => t.key === item.type) || ARMOR_TYPES[0];
-      const isArmor = item.type !== 'shield' && item.type !== 'other';
-      const isShield = item.type === 'shield';
-      return /*#__PURE__*/React.createElement("div", {
-        key: item.id,
-        style: {
-          background: 'var(--bg-card)',
-          border: '1px solid ' + (item.equipped ? 'var(--gold-dim)' : 'var(--border)'),
-          borderRadius: 6,
-          padding: '10px 14px',
-          marginBottom: 8,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          boxShadow: item.equipped ? 'inset 0 0 0 1px rgba(201,168,76,0.15)' : ''
-        }
-      }, /*#__PURE__*/React.createElement("button", {
-        onClick: () => toggleEquipmentItem(item.id),
-        title: item.equipped ? 'Ablegen' : 'Anlegen',
-        style: {
-          width: 36,
-          height: 36,
-          borderRadius: 4,
-          flexShrink: 0,
-          cursor: 'pointer',
-          fontSize: 18,
-          background: item.equipped ? 'var(--gold-dim)20' : 'var(--bg-panel)',
-          border: '1px solid ' + (item.equipped ? 'var(--gold)' : 'var(--border)'),
-          color: item.equipped ? 'var(--gold)' : 'var(--text-muted)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }
-      }, item.equipped ? '🛡' : '○'), /*#__PURE__*/React.createElement("div", {
-        style: {
-          flex: 1,
-          minWidth: 0
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 13,
-          color: item.equipped ? 'var(--gold)' : 'var(--text-primary)'
-        }
-      }, item.name, item.equipped && /*#__PURE__*/React.createElement("span", {
-        style: {
-          marginLeft: 8,
-          fontSize: 9,
-          letterSpacing: '0.1em',
-          color: 'var(--gold-dim)'
-        }
-      }, "ANGELEGT")), /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          marginTop: 2
-        }
-      }, typeLabel.label, item.type !== 'other' && /*#__PURE__*/React.createElement("span", {
-        style: {
-          marginLeft: 6
-        }
-      }, "\xB7 ", isShield ? '+' + (item.baseAC || 2) + ' RK' : 'Basis RK ' + item.baseAC)), item.notes && /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          fontStyle: 'italic',
-          marginTop: 2
-        }
-      }, item.notes)), /*#__PURE__*/React.createElement("button", {
-        onClick: () => openEqForm(item),
-        style: {
-          background: 'none',
-          border: '1px solid var(--border)',
-          borderRadius: 3,
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          padding: '4px 8px',
-          fontSize: 11
-        }
-      }, "\u270E"), /*#__PURE__*/React.createElement("button", {
-        onClick: () => delEquipmentItem(item.id),
-        style: {
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          padding: '4px 6px',
-          fontSize: 14
-        }
-      }, "\u2715"));
-    }), /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        marginTop: 4,
-        width: '100%'
-      },
-      onClick: () => openEqForm(null)
-    }, "+ Ausr\xFCstung hinzuf\xFCgen"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 16
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        color: 'var(--text-muted)',
-        letterSpacing: '0.15em',
-        textTransform: 'uppercase',
-        marginBottom: 8
-      }
-    }, "Vorlagen"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 6
-      }
-    }, [{
-      name: 'Lederrüstung',
-      type: 'light',
-      baseAC: 11
-    }, {
-      name: 'Verstärkte Lederrüstung',
-      type: 'light',
-      baseAC: 12
-    }, {
-      name: 'Lederlamellenrüstung',
-      type: 'light',
-      baseAC: 13
-    }, {
-      name: 'Schuppenpanzer',
-      type: 'medium',
-      baseAC: 13
-    }, {
-      name: 'Kettenhemd',
-      type: 'medium',
-      baseAC: 13
-    }, {
-      name: 'Brustpanzer',
-      type: 'medium',
-      baseAC: 14
-    }, {
-      name: 'Schienenpanzer',
-      type: 'medium',
-      baseAC: 15
-    }, {
-      name: 'Halbplatte',
-      type: 'medium',
-      baseAC: 15
-    }, {
-      name: 'Ringpanzerhemd',
-      type: 'heavy',
-      baseAC: 14
-    }, {
-      name: 'Kettenpanzer',
-      type: 'heavy',
-      baseAC: 16
-    }, {
-      name: 'Bänderpanzer',
-      type: 'heavy',
-      baseAC: 17
-    }, {
-      name: 'Plattenpanzer',
-      type: 'heavy',
-      baseAC: 18
-    }, {
-      name: 'Schild',
-      type: 'shield',
-      baseAC: 2
-    }].map(tpl => /*#__PURE__*/React.createElement("button", {
-      key: tpl.name,
-      onClick: () => {
-        setEqForm({
-          ...tpl,
-          id: Date.now().toString(),
-          equipped: false,
-          notes: ''
-        });
-        setEqEditId(null);
-        setShowEF(true);
-      },
-      style: {
-        padding: '3px 10px',
-        borderRadius: 12,
-        border: '1px solid var(--border)',
-        background: 'var(--bg-card)',
-        color: 'var(--text-muted)',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        cursor: 'pointer',
-        letterSpacing: '0.06em'
-      }
-    }, tpl.name)))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 20
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 10
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 0
-      }
-    }, "\u2726 RK-Boni durch Talente & F\xE4higkeiten")), acBonuses.length === 0 ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: 'var(--text-muted)',
-        fontStyle: 'italic',
-        fontSize: 13,
-        marginBottom: 8
-      }
-    }, "Kein Bonus eingetragen (z.B. Defensiver Kampfstil, Nat\xFCrliche R\xFCstung, Ring des Schutzes).") : acBonuses.map(b => /*#__PURE__*/React.createElement("div", {
-      key: b.id,
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        background: 'var(--bg-card)',
-        border: '1px solid ' + (b.active ? 'var(--gold-dim)' : 'var(--border)'),
-        borderRadius: 5,
-        padding: '7px 10px',
-        marginBottom: 6
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => updAcBonus(b.id, {
-        active: !b.active
-      }),
-      style: {
-        width: 28,
-        height: 28,
-        borderRadius: 4,
-        flexShrink: 0,
-        cursor: 'pointer',
-        background: b.active ? 'var(--gold-dim)20' : 'var(--bg-panel)',
-        border: '1px solid ' + (b.active ? 'var(--gold)' : 'var(--border)'),
-        color: b.active ? 'var(--gold)' : 'var(--text-muted)',
-        fontSize: 13,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      },
-      title: b.active ? 'Deaktivieren' : 'Aktivieren'
-    }, b.active ? '✦' : '◇'), /*#__PURE__*/React.createElement("input", {
-      style: {
-        flex: 1,
-        background: 'transparent',
-        border: 'none',
-        borderBottom: '1px solid var(--border)',
-        outline: 'none',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 12,
-        color: 'var(--text-primary)',
-        padding: '2px 4px'
-      },
-      defaultValue: b.name,
-      onBlur: e => updAcBonus(b.id, {
-        name: e.target.value
-      }),
-      key: 'bn_' + b.id
-    }), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      min: -5,
-      max: 20,
-      style: {
-        width: 52,
-        background: 'transparent',
-        border: '1px solid var(--border)',
-        borderRadius: 3,
-        outline: 'none',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 14,
-        color: b.active ? 'var(--gold)' : 'var(--text-muted)',
-        padding: '2px 6px',
-        textAlign: 'center'
-      },
-      defaultValue: b.bonus,
-      onBlur: e => updAcBonus(b.id, {
-        bonus: +e.target.value
-      }),
-      key: 'bv_' + b.id
-    }), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        color: 'var(--text-muted)',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        minWidth: 20
-      }
-    }, "RK"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => delAcBonus(b.id),
-      style: {
-        background: 'none',
-        border: 'none',
-        color: 'var(--text-muted)',
-        cursor: 'pointer',
-        padding: '2px 4px',
-        fontSize: 13
-      }
-    }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        marginTop: 4
-      },
-      onClick: addAcBonus
-    }, "+ RK-Bonus hinzuf\xFCgen"), acBonuses.filter(b => b.active).length > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 8,
-        fontSize: 12,
-        color: 'var(--text-muted)',
-        fontStyle: 'italic'
-      }
-    }, "Aktive Boni: ", acBonuses.filter(b => b.active).map(b => (b.bonus >= 0 ? '+' : '') + b.bonus + ' (' + b.name + ')').join(', '))));
-  })(), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\u2B24 \xDCbung \xB7 \u2B24\u2B24 Expertise \xB7 Klick zum Wechseln")))))), tab === "inventar" && /*#__PURE__*/React.createElement(AusruestungsPuppe, null), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "slots-panel",
     style: {
       marginBottom: 0
@@ -3722,6 +3236,313 @@ const Sheet = () => {
   }));
 };
 
+// ==== js/src/3a-ausruestung.jsx ====
+// Heldenbuch — die Ausruestungspuppe.
+//
+// Eigene Datei, weil 3-sheet.jsx sonst weiter waechst; sie liest denselben
+// Kontext wie Sheet und steht deshalb hinter ihm, wo SheetCtx schon
+// angelegt ist.
+//
+// Antippen statt Ziehen: ein Tipp auf einen Platz oeffnet die Auswahl, ein
+// zweiter legt an. Auf dem Tablet ist das zuverlaessiger als Ziehen und
+// braucht keine Sonderbehandlung fuer Beruehrung.
+
+const AusruestungsPuppe = () => {
+  const {
+    cur,
+    effCur,
+    computedAC,
+    displayAC,
+    itemFx,
+    gearWornList,
+    nhGesperrt,
+    setGearSlot,
+    gearArmor,
+    gearShield,
+    gearAusVorlage,
+    gearPick,
+    setGearPick,
+    fxOn,
+    fxTitle,
+    acBonuses,
+    addAcBonus,
+    delAcBonus,
+    updAcBonus,
+    setItemViewer,
+    setWeaponViewer,
+    setItf,
+    setItfEditId,
+    setShowIF
+  } = React.useContext(SheetCtx);
+  if (!cur) return null;
+  const belegt = {};
+  gearWornList.forEach(x => {
+    belegt[x.slot.key] = x;
+  });
+  const spalte = name => GEAR_SLOTS.filter(s => s.spalte === name);
+
+  // Was in einen Platz passt: Waffen aus cur.weapons, Gegenstaende ueber
+  // ihren eingetragenen Ausruestungsplatz.
+  const kandidaten = s => {
+    const out = [];
+    if (s.nimmt.includes('waffe')) {
+      (cur.weapons || []).forEach(w => out.push({
+        k: 'w',
+        obj: w,
+        art: 'Waffe'
+      }));
+    }
+    (cur.inventory || []).forEach(i => {
+      if (i.gearKind && s.nimmt.includes(i.gearKind)) out.push({
+        k: 'i',
+        obj: i,
+        art: (GEAR_KINDS.find(g => g.key === i.gearKind) || {}).label || ''
+      });
+    });
+    return out;
+  };
+
+  // In welchem Platz steckt etwas gerade? Fuer den Hinweis in der Auswahl.
+  const platzVon = (k, id) => {
+    const t = gearWornList.find(x => x.k === k && x.obj.id === id);
+    return t ? t.slot : null;
+  };
+  const oeffneAnsicht = eintrag => {
+    if (!eintrag) return;
+    if (eintrag.k === 'w') setWeaponViewer(eintrag.obj);else setItemViewer(eintrag.obj);
+  };
+  const platzKachel = s => {
+    const eintrag = belegt[s.key];
+    const gesperrt = s.key === 'nebenhand' && nhGesperrt;
+    const o = eintrag ? eintrag.obj : null;
+    const klassen = 'gear-slot' + (gesperrt ? ' gesperrt' : o ? ' belegt' : ' leer') + (s.rk && o ? ' rk' : '');
+    const beschriftung = gesperrt ? 'durch Zweihänder belegt' : o ? o.name : 'leer';
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.key,
+      className: klassen
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "gear-slot-btn",
+      disabled: gesperrt,
+      onClick: () => {
+        if (!gesperrt) setGearPick(s.key);
+      },
+      title: gesperrt ? 'Die Haupthand führt einen Zweihänder' : o ? o.name + ' — tippen zum Wechseln' : s.label + ' belegen',
+      "aria-label": s.label + ': ' + beschriftung
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "gear-slot-ic"
+    }, o && o.imageData ? /*#__PURE__*/React.createElement("img", {
+      src: o.imageData,
+      alt: ""
+    }) : /*#__PURE__*/React.createElement("span", {
+      className: "gear-slot-emoji"
+    }, o && o.icon || s.icon)), /*#__PURE__*/React.createElement("span", {
+      className: "gear-slot-txt"
+    }, /*#__PURE__*/React.createElement("b", null, s.label), /*#__PURE__*/React.createElement("i", null, beschriftung))), o && /*#__PURE__*/React.createElement("button", {
+      className: "gear-slot-info",
+      title: 'Einzelheiten zu ' + o.name,
+      onClick: () => oeffneAnsicht(eintrag),
+      "aria-label": 'Einzelheiten zu ' + o.name
+    }, "i"));
+  };
+
+  // ── Herleitung der Ruestungsklasse ──
+  const herleitung = () => {
+    const dex = mod(effCur.dex);
+    const teile = [];
+    if (gearArmor) {
+      const t = gearArmor.armorType,
+        b = +gearArmor.baseAC || 0;
+      if (t === 'heavy') teile.push(gearArmor.name + ': ' + b);
+      if (t === 'medium') teile.push(gearArmor.name + ': ' + b + ' + GES ' + Math.min(2, dex));
+      if (t === 'light') teile.push(gearArmor.name + ': ' + b + ' + GES ' + dex);
+    } else {
+      teile.push('Unbewaffnet: 10 + GES ' + dex);
+    }
+    if (gearShield) teile.push(gearShield.name + ': +' + (+gearShield.baseAC || 2));
+    gearWornList.forEach(({
+      obj
+    }) => {
+      if ((+obj.acBonus || 0) !== 0) teile.push(obj.name + ': ' + (+obj.acBonus >= 0 ? '+' : '') + +obj.acBonus);
+    });
+    (acBonuses || []).filter(b => b.active && (b.bonus || 0) !== 0).forEach(b => {
+      teile.push(b.name + ': ' + (b.bonus >= 0 ? '+' : '') + b.bonus);
+    });
+    effectsFor(itemFx, 'ac').forEach(e => {
+      teile.push(e.source + ': ' + (e.mode === 'set' ? 'RK = ' + (+e.value || 0) : fnum(+e.value || 0)));
+    });
+    return teile;
+  };
+  const s = gearPick ? GEAR_SLOTS.find(x => x.key === gearPick) : null;
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "gear-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-title",
+    style: {
+      marginBottom: 0
+    }
+  }, "\uD83D\uDEE1 Ausr\xFCstung"), /*#__PURE__*/React.createElement("div", {
+    className: "gear-ac",
+    title: fxTitle('ac')
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "gear-ac-l"
+  }, "R\xFCstungsklasse"), /*#__PURE__*/React.createElement("span", {
+    className: "gear-ac-v" + (fxOn('ac') ? " fx-touched" : "")
+  }, displayAC))), /*#__PURE__*/React.createElement("div", {
+    className: "gear-doll"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gear-col"
+  }, spalte('links').map(platzKachel)), /*#__PURE__*/React.createElement("div", {
+    className: "gear-mid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gear-figur",
+    "aria-hidden": "true"
+  }, "\u2694"), /*#__PURE__*/React.createElement("div", {
+    className: "gear-mid-name"
+  }, cur.name), /*#__PURE__*/React.createElement("div", {
+    className: "gear-herleitung"
+  }, computedAC === null ? /*#__PURE__*/React.createElement("div", {
+    className: "gear-hint"
+  }, "RK von Hand eingetragen \u2014 lege eine R\xFCstung an, damit sie gerechnet wird.") : herleitung().map((t, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: i === 0 ? 'stark' : ''
+  }, i === 0 ? '' : '+ ', t)), computedAC !== null && /*#__PURE__*/React.createElement("div", {
+    className: "gear-summe"
+  }, "= ", displayAC, " RK"))), /*#__PURE__*/React.createElement("div", {
+    className: "gear-col"
+  }, spalte('rechts').map(platzKachel))), /*#__PURE__*/React.createElement("div", {
+    className: "gear-hands"
+  }, spalte('hand').map(platzKachel)), /*#__PURE__*/React.createElement("div", {
+    className: "gear-boni"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gear-boni-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "block-title"
+  }, "\u2726 RK-Boni durch Talente & F\xE4higkeiten"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    onClick: addAcBonus
+  }, "+ Bonus")), (acBonuses || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "gear-hint"
+  }, "Kein Bonus eingetragen (z.B. Defensiver Kampfstil, Nat\xFCrliche R\xFCstung).") : (acBonuses || []).map(b => /*#__PURE__*/React.createElement("div", {
+    key: b.id,
+    className: "gear-bonus" + (b.active ? " aktiv" : "")
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "gear-bonus-tog",
+    onClick: () => updAcBonus(b.id, {
+      active: !b.active
+    }),
+    title: b.active ? 'Deaktivieren' : 'Aktivieren',
+    "aria-pressed": !!b.active
+  }, b.active ? '✦' : '◇'), /*#__PURE__*/React.createElement("input", {
+    className: "gear-bonus-name",
+    defaultValue: b.name,
+    key: 'bn_' + b.id,
+    "aria-label": "Name des Bonus",
+    onBlur: e => updAcBonus(b.id, {
+      name: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "gear-bonus-val",
+    type: "number",
+    min: -5,
+    max: 20,
+    defaultValue: b.bonus,
+    key: 'bv_' + b.id,
+    "aria-label": "H\xF6he des Bonus",
+    onBlur: e => updAcBonus(b.id, {
+      bonus: +e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "gear-bonus-rk"
+  }, "RK"), /*#__PURE__*/React.createElement("button", {
+    className: "gear-bonus-del",
+    onClick: () => delAcBonus(b.id),
+    "aria-label": 'Bonus ' + b.name + ' löschen'
+  }, "\u2715")))), s && /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: () => setGearPick(null)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal gear-pick",
+    style: {
+      maxWidth: 460
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, s.icon, " ", s.label), (() => {
+    const liste = kandidaten(s);
+    const drin = belegt[s.key];
+    return /*#__PURE__*/React.createElement(React.Fragment, null, drin && /*#__PURE__*/React.createElement("button", {
+      className: "gear-pick-leeren",
+      onClick: () => {
+        setGearSlot(s.key, null, null);
+        setGearPick(null);
+      }
+    }, "\u2715 ", drin.obj.name, " ablegen"), liste.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "gear-pick-leer"
+    }, "Nichts passendes dabei.", s.nimmt.includes('waffe') ? ' Waffen legst du im Aktionen-Reiter an.' : ' Trage bei einem Gegenstand im Inventar den Ausrüstungsplatz „' + ((GEAR_KINDS.find(g => g.key === s.nimmt[0]) || {}).label || s.label) + '“ ein, dann steht er hier zur Wahl.') : /*#__PURE__*/React.createElement("div", {
+      className: "gear-pick-list"
+    }, liste.map(({
+      k,
+      obj,
+      art
+    }) => {
+      const jetzt = platzVon(k, obj.id);
+      const hier = jetzt && jetzt.key === s.key;
+      return /*#__PURE__*/React.createElement("button", {
+        key: k + obj.id,
+        className: "gear-pick-item" + (hier ? " hier" : ""),
+        onClick: () => {
+          setGearSlot(s.key, k, obj.id);
+          setGearPick(null);
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "gear-pick-ic"
+      }, obj.imageData ? /*#__PURE__*/React.createElement("img", {
+        src: obj.imageData,
+        alt: ""
+      }) : obj.icon || (k === 'w' ? '⚔' : '🎒')), /*#__PURE__*/React.createElement("span", {
+        className: "gear-pick-txt"
+      }, /*#__PURE__*/React.createElement("b", null, obj.name || '(ohne Namen)'), /*#__PURE__*/React.createElement("i", null, art, k === 'w' && isZweihand(obj) && ' · Zweihänder', k === 'i' && obj.armorType === 'shield' && ' · +' + (+obj.baseAC || 2) + ' RK', k === 'i' && obj.armorType && obj.armorType !== 'shield' && ' · Basis ' + (+obj.baseAC || 0), (+obj.acBonus || 0) !== 0 && ' · ' + (+obj.acBonus >= 0 ? '+' : '') + +obj.acBonus + ' RK', (obj.effects || []).length > 0 && ' · ' + (obj.effects || []).length + ' Effekt' + ((obj.effects || []).length > 1 ? 'e' : ''))), jetzt && /*#__PURE__*/React.createElement("span", {
+        className: "gear-pick-wo"
+      }, hier ? 'hier' : jetzt.kurz));
+    })), (() => {
+      const vorlagen = ARMOR_TEMPLATES.filter(t => s.nimmt.includes(t.art));
+      if (!vorlagen.length) return null;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "gear-vorlagen"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "gear-vorlagen-titel"
+      }, "Vorlagen"), /*#__PURE__*/React.createElement("div", {
+        className: "gear-vorlagen-chips"
+      }, vorlagen.map(t => /*#__PURE__*/React.createElement("button", {
+        key: t.name,
+        className: "gear-vorlage",
+        title: t.name + ' anlegen und anziehen',
+        onClick: () => {
+          gearAusVorlage(s.key, t);
+          setGearPick(null);
+        }
+      }, t.name))));
+    })(), !s.nimmt.includes('waffe') && /*#__PURE__*/React.createElement("button", {
+      className: "gear-pick-neu",
+      onClick: () => {
+        setItf({
+          ...newItem(),
+          gearKind: s.nimmt[0] === 'schild' ? 'schild' : s.nimmt[0]
+        });
+        setItfEditId(null);
+        setShowIF(true);
+        setGearPick(null);
+      }
+    }, "+ Neuen Gegenstand f\xFCr diesen Platz anlegen"));
+  })(), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setGearPick(null)
+  }, "Schlie\xDFen")))));
+};
+
 // ==== js/src/4-app.jsx ====
 // Heldenbuch — Wurzelkomponente: Zustand, Server-Sync, Seitenleiste,
 // Dialoge. Haelt alles, was der Bogen ueber SheetCtx bekommt.
@@ -3933,6 +3754,8 @@ function App() {
   });
   const [setupErr, setSetupErr] = useState('');
   const [setupBusy, setSetupBusy] = useState(false);
+  const [gearReady, setGearReady] = useState(false); // Serverstand da, Umstellung darf laufen
+  const [gearPick, setGearPick] = useState(null); // offener Platz im Auswahldialog
   const saveTimer = useRef(null);
   const autoSyncTimer = useRef(null);
   const charsRef = useRef([]);
@@ -4064,9 +3887,11 @@ function App() {
         // If pendingRef=true: local has newer unsaved data — keep it, interval will push to server
         setSyncStatus('ok');
         setSyncMsg('Verbunden ✓');
+        setGearReady(true);
       }).catch(() => {
         setSyncStatus('ok');
         setSyncMsg('Lokal ✓');
+        setGearReady(true);
       });
     } else {
       try {
@@ -4074,8 +3899,30 @@ function App() {
         if (v) applyChars(JSON.parse(v));
       } catch {}
       setShowSetup(true);
+      setGearReady(true);
     }
   }, []);
+
+  // Umstellung auf Ausruestungsplaetze, einmal je Held.
+  //
+  // Sie wartet den Serverstand ab: jedes Speichern setzt pendingRef, und der
+  // Ladevorgang oben uebernimmt die Serverdaten nur, solange pendingRef falsch
+  // ist. Liefe die Umstellung vorher, wuerde sie den lokalen Stand fest-
+  // schreiben und den vom Server verwerfen — auf einem Geraet, das laenger
+  // nicht offen war, waere das echter Datenverlust.
+  useEffect(() => {
+    if (!gearReady) return;
+    const liste = charsRef.current;
+    if (!liste.length) return;
+    if (!liste.some(c => (c.gearMigrated || 0) < GEAR_MIGRATION)) return;
+    save(liste.map(c => {
+      const p = migrateGear(c);
+      return p ? {
+        ...c,
+        ...p
+      } : c;
+    }));
+  }, [gearReady, chars]);
   const saveLibrary = lib => {
     setUserLibrary(lib);
     safeSetItem('hb_library', JSON.stringify(lib));
@@ -5042,16 +4889,107 @@ function App() {
     effects: []
   });
 
+  // ── Ausruestungsplaetze ─────────────────────────────────────────
+  const gearWornList = gearWorn(cur);
+  const nhGesperrt = nebenhandGesperrt(cur);
+  // Legt einen Gegenstand oder eine Waffe in einen Platz — oder raeumt ihn
+  // mit obj=null. Alles in einem Zug, damit die Regeln nicht in einem
+  // Zwischenzustand verletzt sind: dasselbe Stueck liegt nie in zwei
+  // Plaetzen, und ein Zweihaender raeumt die Nebenhand.
+  const setGearSlot = (slotKey, k, id) => patchCurrent(c => {
+    const gear = {
+      ...(c.gear || {})
+    };
+    if (!id) delete gear[slotKey];else {
+      Object.keys(gear).forEach(s => {
+        const g = gear[s];
+        if (g && g.k === k && g.id === id) delete gear[s];
+      });
+      gear[slotKey] = {
+        k,
+        id
+      };
+    }
+    if (slotKey === 'haupthand') {
+      const w = id && k === 'w' ? (c.weapons || []).find(x => x.id === id) : null;
+      if (isZweihand(w)) delete gear.nebenhand;
+    }
+    // equipped der Waffen aus den Haenden ableiten: die Waffenkarten im
+    // Aktionen-Reiter lesen dieses Kennzeichen und sollen dasselbe sagen.
+    const inHand = new Set(Object.values(gear).filter(g => g.k === 'w').map(g => g.id));
+    const weapons = (c.weapons || []).map(w => !!w.equipped === inHand.has(w.id) ? w : {
+      ...w,
+      equipped: inHand.has(w.id)
+    });
+    return {
+      gear,
+      weapons
+    };
+  });
+
+  // Legt ein Stueck aus einer Vorlage an und steckt es sofort in seinen
+  // Platz. Ohne das waeren es fuer ein Kettenhemd sechs Schritte: Gegenstand
+  // anlegen, benennen, Platz waehlen, Art waehlen, speichern, anlegen.
+  const gearAusVorlage = (slotKey, tpl) => patchCurrent(c => {
+    const id = 'tpl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const item = {
+      ...newItem(),
+      id,
+      name: tpl.name,
+      gearKind: tpl.art,
+      armorType: tpl.armorType,
+      baseAC: tpl.baseAC,
+      icon: tpl.icon || '🛡️'
+    };
+    return {
+      inventory: [...(c.inventory || []), item],
+      gear: {
+        ...(c.gear || {}),
+        [slotKey]: {
+          k: 'i',
+          id
+        }
+      }
+    };
+  });
+
   // Compute AC from equipped armor
   // "Sonstiges" ist als "Kein RK-Einfluss" ausgewiesen und traegt nur ueber
   // acBonus bei — es darf deshalb nicht als Grundruestung zaehlen, sonst
   // ersetzt ein Umhang mit Basis 0 die 10 der unbewaffneten RK.
   const equippedArmors = equipment.filter(e => e.equipped && e.type !== "shield" && e.type !== "other");
   const equippedShields = equipment.filter(e => e.equipped && e.type === "shield");
+  // Nur echte Ruestung zaehlt als Grundwert: ein Stueck ohne Ruestungsart
+  // oder ohne Basiswert im Ruestungsplatz wuerde sonst die 10 der
+  // unbewaffneten RK durch 0 ersetzen.
+  const gearArmor = (() => {
+    const r = cur && cur.gearMigrated ? gearAt(cur, 'ruestung') : null;
+    return r && r.armorType && r.armorType !== 'shield' && +r.baseAC > 0 ? r : null;
+  })();
+  const gearShield = (() => {
+    if (!cur || !cur.gearMigrated || nhGesperrt) return null;
+    const nh = gearAt(cur, 'nebenhand');
+    return nh && nh.armorType === 'shield' ? nh : null;
+  })();
   const computedAC = (() => {
     if (!cur) return null;
     const dex = mod(effCur.dex);
     const activeAbBonuses = (cur.acBonuses || []).filter(b => b.active).reduce((s, b) => s + (+b.bonus || 0), 0);
+    if (cur.gearMigrated) {
+      const itemBonuses = gearWornList.reduce((s, {
+        obj
+      }) => s + (+obj.acBonus || 0), 0);
+      const shBonus = gearShield ? +gearShield.baseAC || 2 : 0;
+      if (!gearArmor) {
+        if (shBonus === 0 && activeAbBonuses === 0 && itemBonuses === 0 && !fxOn('ac')) return null;
+        return fx('ac', 10 + dex + shBonus + activeAbBonuses + itemBonuses);
+      }
+      const t = gearArmor.armorType;
+      const basis = +gearArmor.baseAC || 0;
+      const ac = t === 'heavy' ? basis : t === 'medium' ? basis + Math.min(2, dex) : basis + dex;
+      return fx('ac', ac + shBonus + activeAbBonuses + itemBonuses);
+    }
+    // Vor der Umstellung unveraendert aus der alten Ausruestungsliste.
     const itemBonuses = equipment.filter(e => e.equipped && (e.acBonus || 0) !== 0).reduce((s, e) => s + (+e.acBonus || 0), 0);
     if (equippedArmors.length === 0) {
       // Ohne Rüstung nur rechnen, wenn ueberhaupt etwas beitraegt — ein
@@ -5696,6 +5634,11 @@ function App() {
     fx,
     fxOn,
     fxTitle,
+    gearArmor,
+    gearAusVorlage,
+    gearPick,
+    gearShield,
+    gearWornList,
     initTotal,
     insp,
     inspMax,
@@ -5703,6 +5646,7 @@ function App() {
     invTagFilter,
     isDmMode,
     itemFx,
+    nhGesperrt,
     noteTagFilter,
     notesList,
     openEdit,
@@ -5727,6 +5671,8 @@ function App() {
     setExSpell,
     setFf,
     setFfEditId,
+    setGearPick,
+    setGearSlot,
     setImgViewer,
     setInsp,
     setInspMax,
@@ -7230,6 +7176,83 @@ function App() {
       weight: e.target.value
     })
   })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Ausr\xFCstungsplatz"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: itf.gearKind || '',
+    onChange: e => {
+      const k = e.target.value;
+      const art = k === 'ruestung' ? itf.armorType && itf.armorType !== 'shield' ? itf.armorType : 'light' : k === 'schild' ? 'shield' : '';
+      const basis = (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0;
+      setItf({
+        ...itf,
+        gearKind: k,
+        armorType: art,
+        baseAC: art ? +itf.baseAC || basis : 0
+      });
+    }
+  }, GEAR_KINDS.map(g => /*#__PURE__*/React.createElement("option", {
+    key: g.key,
+    value: g.key
+  }, g.label)))), itf.gearKind === 'ruestung' && /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "R\xFCstungsart"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: itf.armorType || 'light',
+    onChange: e => {
+      const art = e.target.value;
+      setItf({
+        ...itf,
+        armorType: art,
+        baseAC: (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0
+      });
+    }
+  }, ARMOR_KINDS.filter(a => a.key && a.key !== 'shield').map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.key,
+    value: a.key
+  }, a.label)))), (itf.gearKind === 'ruestung' || itf.gearKind === 'schild') && /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, itf.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: "0",
+    max: "25",
+    value: itf.baseAC || 0,
+    onChange: e => setItf({
+      ...itf,
+      baseAC: +e.target.value
+    })
+  })), itf.gearKind && /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Magischer RK-Bonus"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: "-5",
+    max: "10",
+    value: itf.acBonus || 0,
+    placeholder: "z.B. +1",
+    onChange: e => setItf({
+      ...itf,
+      acBonus: +e.target.value
+    })
+  })), itf.gearKind && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic',
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, itf.gearKind === 'ruestung' && ((ARMOR_KINDS.find(a => a.key === itf.armorType) || {}).hinweis || '') + ' — RK ' + (itf.baseAC || 0) + (itf.acBonus ? ' + ' + itf.acBonus + ' (magisch)' : ''), itf.gearKind === 'schild' && 'Gibt +' + ((+itf.baseAC || 0) + (+itf.acBonus || 0)) + ' auf die RK, wenn es in der Nebenhand steckt', itf.gearKind !== 'ruestung' && itf.gearKind !== 'schild' && (itf.acBonus ? '+' + itf.acBonus + ' zur RK, solange getragen' : 'Wirkt über seine Effekte, solange getragen'))), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
