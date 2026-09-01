@@ -444,8 +444,6 @@ const LogTab = ({
 const SheetCtx = React.createContext(null);
 const Sheet = () => {
   const {
-    acBonuses,
-    addAcBonus,
     addArmorProf,
     addLanguage,
     addLog,
@@ -463,9 +461,8 @@ const Sheet = () => {
     collapsedLevels,
     computedAC,
     cur,
-    delAcBonus,
     delArmorProf,
-    delEquipmentItem,
+    deleteChar,
     delFeature,
     delItem,
     delLanguage,
@@ -474,14 +471,8 @@ const Sheet = () => {
     delSpell,
     delToolProf,
     delWeaponProf,
-    deleteChar,
     displayAC,
     effCur,
-    eqEditId,
-    eqForm,
-    equipment,
-    equippedArmors,
-    equippedShields,
     exFeature,
     exItem,
     exNote,
@@ -496,8 +487,9 @@ const Sheet = () => {
     invTagFilter,
     isDmMode,
     itemFx,
-    noteTagFilter,
+    languages,
     notesList,
+    noteTagFilter,
     openEdit,
     openNew,
     openTpl,
@@ -513,8 +505,6 @@ const Sheet = () => {
     setCoinDelta,
     setCoinPopover,
     setCollapsedLevels,
-    setEqEditId,
-    setEqForm,
     setExFeature,
     setExNote,
     setExSpell,
@@ -535,7 +525,6 @@ const Sheet = () => {
     setResEdit,
     setSf,
     setSfEditId,
-    setShowEF,
     setShowFF,
     setShowIF,
     setShowNF,
@@ -563,29 +552,26 @@ const Sheet = () => {
     stepChar,
     switchList,
     tab,
-    togResourcePip,
-    togSP,
-    togSlot,
-    toggleEquipmentItem,
     toggleEquipped,
+    toggleFeatureFx,
     toggleJoAT,
     toggleSave,
     toggleSkill,
     toggleSpellPrepared,
     toggleWsFav,
+    togResourcePip,
+    togSlot,
+    togSP,
     toolProfs,
     tplData,
     transferMode,
     transferSel,
     unarchiveChar,
-    updAcBonus,
-    updEquipment,
     updResource,
     updSP,
     weaponProfs,
     weaponStats,
-    wsExpand,
-    languages
+    wsExpand
   } = React.useContext(SheetCtx);
 
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
@@ -1722,9 +1708,9 @@ const Sheet = () => {
     onClick: e => {
       e.stopPropagation();
       setFf({
-        name: feat.name,
-        source: feat.source || '',
-        description: feat.description || ''
+        effects: [],
+        effectsActive: true,
+        ...feat
       });
       setFfEditId(feat.id);
       setShowFF(true);
@@ -1739,7 +1725,20 @@ const Sheet = () => {
     className: "feature-card-body"
   }, feat.source && /*#__PURE__*/React.createElement("div", {
     className: "feature-source"
-  }, feat.source)), feat.description && /*#__PURE__*/React.createElement("div", {
+  }, feat.source), (feat.effects || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "feature-fx",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "feature-fx-chips" + (feat.effectsActive === false ? " ruht" : "")
+  }, (feat.effects || []).map(e => /*#__PURE__*/React.createElement("span", {
+    key: e.id,
+    className: "fx-chip"
+  }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))), /*#__PURE__*/React.createElement("button", {
+    className: "feature-fx-tog",
+    onClick: () => toggleFeatureFx(feat.id),
+    "aria-pressed": feat.effectsActive !== false,
+    title: feat.effectsActive === false ? 'Einschalten' : 'Ausschalten'
+  }, feat.effectsActive === false ? '◇ Ruht' : '✦ Wirkt'))), feat.description && /*#__PURE__*/React.createElement("div", {
     className: "feature-card-desc-wrap"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "feature-card-desc"
@@ -1749,7 +1748,9 @@ const Sheet = () => {
       setFf({
         name: '',
         source: '',
-        description: ''
+        description: '',
+        effects: [],
+        effectsActive: true
       });
       setFfEditId(null);
       setShowFF(true);
@@ -3265,10 +3266,6 @@ const AusruestungsPuppe = () => {
     setGearPick,
     fxOn,
     fxTitle,
-    acBonuses,
-    addAcBonus,
-    delAcBonus,
-    updAcBonus,
     setItemViewer,
     setWeaponViewer,
     setItf,
@@ -3365,9 +3362,6 @@ const AusruestungsPuppe = () => {
     }) => {
       if ((+obj.acBonus || 0) !== 0) teile.push(obj.name + ': ' + (+obj.acBonus >= 0 ? '+' : '') + +obj.acBonus);
     });
-    (acBonuses || []).filter(b => b.active && (b.bonus || 0) !== 0).forEach(b => {
-      teile.push(b.name + ': ' + (b.bonus >= 0 ? '+' : '') + b.bonus);
-    });
     effectsFor(itemFx, 'ac').forEach(e => {
       teile.push(e.source + ': ' + (e.mode === 'set' ? 'RK = ' + (+e.value || 0) : fnum(+e.value || 0)));
     });
@@ -3438,53 +3432,7 @@ const AusruestungsPuppe = () => {
       key: j,
       className: "fx-chip"
     }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))))));
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "gear-boni"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "gear-boni-head"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "block-title"
-  }, "\u2726 RK-Boni durch Talente & F\xE4higkeiten"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-add",
-    onClick: addAcBonus
-  }, "+ Bonus")), (acBonuses || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "gear-hint"
-  }, "Kein Bonus eingetragen (z.B. Defensiver Kampfstil, Nat\xFCrliche R\xFCstung).") : (acBonuses || []).map(b => /*#__PURE__*/React.createElement("div", {
-    key: b.id,
-    className: "gear-bonus" + (b.active ? " aktiv" : "")
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "gear-bonus-tog",
-    onClick: () => updAcBonus(b.id, {
-      active: !b.active
-    }),
-    title: b.active ? 'Deaktivieren' : 'Aktivieren',
-    "aria-pressed": !!b.active
-  }, b.active ? '✦' : '◇'), /*#__PURE__*/React.createElement("input", {
-    className: "gear-bonus-name",
-    defaultValue: b.name,
-    key: 'bn_' + b.id,
-    "aria-label": "Name des Bonus",
-    onBlur: e => updAcBonus(b.id, {
-      name: e.target.value
-    })
-  }), /*#__PURE__*/React.createElement("input", {
-    className: "gear-bonus-val",
-    type: "number",
-    min: -5,
-    max: 20,
-    defaultValue: b.bonus,
-    key: 'bv_' + b.id,
-    "aria-label": "H\xF6he des Bonus",
-    onBlur: e => updAcBonus(b.id, {
-      bonus: +e.target.value
-    })
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "gear-bonus-rk"
-  }, "RK"), /*#__PURE__*/React.createElement("button", {
-    className: "gear-bonus-del",
-    onClick: () => delAcBonus(b.id),
-    "aria-label": 'Bonus ' + b.name + ' löschen'
-  }, "\u2715")))), s && /*#__PURE__*/React.createElement("div", {
+  })), s && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay",
     onClick: () => setGearPick(null)
   }, /*#__PURE__*/React.createElement("div", {
@@ -3586,7 +3534,9 @@ function App() {
   const [ff, setFf] = useState({
     name: '',
     source: '',
-    description: ''
+    description: '',
+    effects: [],
+    effectsActive: true
   });
   const [exFeature, setExFeature] = useState(null);
   const [slotsEdit, setSlotsEdit] = useState(false);
@@ -3613,16 +3563,6 @@ function App() {
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [invTagFilter, setInvTagFilter] = useState([]);
   const [showNF, setShowNF] = useState(false);
-  const [showEF, setShowEF] = useState(false);
-  const [eqEditId, setEqEditId] = useState(null);
-  const [eqForm, setEqForm] = useState({
-    name: '',
-    type: 'light',
-    baseAC: 11,
-    acBonus: 0,
-    equipped: false,
-    notes: ''
-  });
   const [nfEditId, setNfEditId] = useState(null);
   const [nf, setNf] = useState({
     title: '',
@@ -4590,7 +4530,9 @@ function App() {
     setFf({
       name: '',
       source: '',
-      description: ''
+      description: '',
+      effects: [],
+      effectsActive: true
     });
     setFfEditId(null);
     setShowFF(false);
@@ -4598,6 +4540,14 @@ function App() {
   const delFeature = id => appConfirm("Merkmal wirklich löschen?", () => patchCurrent(c => ({
     features: (c.features || []).filter(f => f.id !== id)
   })));
+  // Ein Kampfstil wirkt nicht immer — ohne Rüstung greift der defensive
+  // nicht. Umschalten ohne Umweg über den Bearbeiten-Dialog.
+  const toggleFeatureFx = id => patchCurrent(c => ({
+    features: (c.features || []).map(f => f.id === id ? {
+      ...f,
+      effectsActive: f.effectsActive === false
+    } : f)
+  }));
   const addItem = () => {
     if (!itf.name.trim()) return;
     const cur2 = charsRef.current.find(c => c.id === selRef.current);
@@ -4911,40 +4861,6 @@ function App() {
     color: "#c9a84c",
     restType: "lang"
   }]);
-  const equipment = cur && cur.equipment || [];
-  const updEquipment = eq => patchCurrent(c => ({
-    equipment: eq
-  }));
-  const toggleEquipmentItem = id => updEquipment(equipment.map(e => e.id === id ? {
-    ...e,
-    equipped: !e.equipped
-  } : e));
-  const delEquipmentItem = id => appConfirm("Ausrüstung wirklich löschen?", () => updEquipment(equipment.filter(e => e.id !== id)));
-  const acBonuses = cur && cur.acBonuses || [];
-  const updAcBonuses = b => patchCurrent(c => ({
-    acBonuses: b
-  }));
-  const addAcBonus = () => updAcBonuses([...acBonuses, {
-    id: Date.now().toString(),
-    name: 'Neuer Bonus',
-    bonus: 1,
-    active: true
-  }]);
-  const delAcBonus = id => appConfirm('RK-Bonus wirklich löschen?', () => updAcBonuses(acBonuses.filter(b => b.id !== id)));
-  const updAcBonus = (id, patch) => updAcBonuses(acBonuses.map(b => b.id === id ? {
-    ...b,
-    ...patch
-  } : b));
-  const newEquipItem = () => ({
-    id: Date.now().toString(),
-    name: "",
-    type: "light",
-    baseAC: 11,
-    acBonus: 0,
-    equipped: false,
-    notes: "",
-    effects: []
-  });
 
   // ── Ausruestungsplaetze ─────────────────────────────────────────
   const gearWornList = gearWorn(cur);
@@ -5010,12 +4926,6 @@ function App() {
     };
   });
 
-  // Compute AC from equipped armor
-  // "Sonstiges" ist als "Kein RK-Einfluss" ausgewiesen und traegt nur ueber
-  // acBonus bei — es darf deshalb nicht als Grundruestung zaehlen, sonst
-  // ersetzt ein Umhang mit Basis 0 die 10 der unbewaffneten RK.
-  const equippedArmors = equipment.filter(e => e.equipped && e.type !== "shield" && e.type !== "other");
-  const equippedShields = equipment.filter(e => e.equipped && e.type === "shield");
   // Nur echte Ruestung zaehlt als Grundwert: ein Stueck ohne Ruestungsart
   // oder ohne Basiswert im Ruestungsplatz wuerde sonst die 10 der
   // unbewaffneten RK durch 0 ersetzen.
@@ -5031,7 +4941,9 @@ function App() {
   const computedAC = (() => {
     if (!cur) return null;
     const dex = mod(effCur.dex);
-    const activeAbBonuses = (cur.acBonuses || []).filter(b => b.active).reduce((s, b) => s + (+b.bonus || 0), 0);
+    // Seit die Talent-Boni Merkmale sind, kommen sie ueber fx('ac') herein.
+    // Bis ein Held dort angekommen ist, zaehlt weiter die alte Liste.
+    const activeAbBonuses = (cur.gearMigrated || 0) >= 3 ? 0 : (cur.acBonuses || []).filter(b => b.active).reduce((s, b) => s + (+b.bonus || 0), 0);
     if (cur.gearMigrated) {
       const itemBonuses = gearWornList.reduce((s, {
         obj
@@ -5046,7 +4958,12 @@ function App() {
       const ac = t === 'heavy' ? basis : t === 'medium' ? basis + Math.min(2, dex) : basis + dex;
       return fx('ac', ac + shBonus + activeAbBonuses + itemBonuses);
     }
-    // Vor der Umstellung unveraendert aus der alten Ausruestungsliste.
+    // Vor der Umstellung unveraendert aus der alten Ausruestungsliste. Der
+    // Zweig lebt nur noch fuer die Augenblicke zwischen Laden und
+    // Umstellung — die Oberflaeche dazu ist weg, die Daten sind es nicht.
+    const equipment = cur.equipment || [];
+    const equippedArmors = equipment.filter(e => e.equipped && e.type !== "shield" && e.type !== "other");
+    const equippedShields = equipment.filter(e => e.equipped && e.type === "shield");
     const itemBonuses = equipment.filter(e => e.equipped && (e.acBonus || 0) !== 0).reduce((s, e) => s + (+e.acBonus || 0), 0);
     if (equippedArmors.length === 0) {
       // Ohne Rüstung nur rechnen, wenn ueberhaupt etwas beitraegt — ein
@@ -5646,8 +5563,6 @@ function App() {
   // Wird bei jedem Rendern neu gebaut — genau wie zuvor die
   // Closure-Variablen von Sheet.
   const sheetCtx = {
-    acBonuses,
-    addAcBonus,
     addArmorProf,
     addLanguage,
     addLog,
@@ -5665,9 +5580,8 @@ function App() {
     collapsedLevels,
     computedAC,
     cur,
-    delAcBonus,
     delArmorProf,
-    delEquipmentItem,
+    deleteChar,
     delFeature,
     delItem,
     delLanguage,
@@ -5676,14 +5590,8 @@ function App() {
     delSpell,
     delToolProf,
     delWeaponProf,
-    deleteChar,
     displayAC,
     effCur,
-    eqEditId,
-    eqForm,
-    equipment,
-    equippedArmors,
-    equippedShields,
     exFeature,
     exItem,
     exNote,
@@ -5704,9 +5612,10 @@ function App() {
     invTagFilter,
     isDmMode,
     itemFx,
+    languages,
     nhGesperrt,
-    noteTagFilter,
     notesList,
+    noteTagFilter,
     openEdit,
     openNew,
     openTpl,
@@ -5722,8 +5631,6 @@ function App() {
     setCoinDelta,
     setCoinPopover,
     setCollapsedLevels,
-    setEqEditId,
-    setEqForm,
     setExFeature,
     setExNote,
     setExSpell,
@@ -5746,7 +5653,6 @@ function App() {
     setResEdit,
     setSf,
     setSfEditId,
-    setShowEF,
     setShowFF,
     setShowIF,
     setShowNF,
@@ -5774,29 +5680,26 @@ function App() {
     stepChar,
     switchList,
     tab,
-    togResourcePip,
-    togSP,
-    togSlot,
-    toggleEquipmentItem,
     toggleEquipped,
+    toggleFeatureFx,
     toggleJoAT,
     toggleSave,
     toggleSkill,
     toggleSpellPrepared,
     toggleWsFav,
+    togResourcePip,
+    togSlot,
+    togSP,
     toolProfs,
     tplData,
     transferMode,
     transferSel,
     unarchiveChar,
-    updAcBonus,
-    updEquipment,
     updResource,
     updSP,
     weaponProfs,
     weaponStats,
-    wsExpand,
-    languages
+    wsExpand
   };
   return /*#__PURE__*/React.createElement(SheetCtx.Provider, {
     value: sheetCtx
@@ -6587,7 +6490,45 @@ function App() {
     }),
     placeholder: "Beschreibung der F\xE4higkeit, Nutzungsbedingungen...",
     rows: 6
-  }))), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "\u2726 Effekte"), /*#__PURE__*/React.createElement(EffectEditor, {
+    effects: ff.effects || [],
+    onChange: v => setFf({
+      ...ff,
+      effects: v
+    }),
+    hint: "Wirken, solange das Merkmal eingeschaltet ist \u2014 z.B. Defensiver Kampfstil +1 RK."
+  }), (ff.effects || []).length > 0 && /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      cursor: 'pointer',
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: ff.effectsActive !== false,
+    onChange: e => setFf({
+      ...ff,
+      effectsActive: e.target.checked
+    }),
+    style: {
+      width: 16,
+      height: 16,
+      cursor: 'pointer',
+      accentColor: 'var(--arcane-bright)'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 12,
+      color: 'var(--text-secondary)'
+    }
+  }, "Wirkt gerade")))), /*#__PURE__*/React.createElement("div", {
     className: "form-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
@@ -10028,171 +9969,7 @@ function App() {
       if (confirmDlg.onOk) confirmDlg.onOk();
       setConfirmDlg(null);
     }
-  }, confirmDlg.okLabel || 'Bestätigen')))), showEF && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-modal",
-    style: {
-      maxWidth: 480
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-title"
-  }, eqEditId ? '✎ Ausrüstung bearbeiten' : '+ Ausrüstung hinzufügen'), /*#__PURE__*/React.createElement("div", {
-    className: "form-grid"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Name"), /*#__PURE__*/React.createElement("input", {
-    className: "form-input",
-    value: eqForm.name,
-    onChange: e => setEqForm({
-      ...eqForm,
-      name: e.target.value
-    }),
-    placeholder: "z.B. Plattenpanzer",
-    autoFocus: true
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Typ"), /*#__PURE__*/React.createElement("select", {
-    className: "form-input",
-    value: eqForm.type,
-    onChange: e => {
-      const t = e.target.value;
-      const base = t === 'shield' ? 2 : t === 'light' ? 11 : t === 'medium' ? 13 : t === 'heavy' ? 16 : 0;
-      setEqForm({
-        ...eqForm,
-        type: t,
-        baseAC: base
-      });
-    }
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "light"
-  }, "Leichte R\xFCstung"), /*#__PURE__*/React.createElement("option", {
-    value: "medium"
-  }, "Mittlere R\xFCstung"), /*#__PURE__*/React.createElement("option", {
-    value: "heavy"
-  }, "Schwere R\xFCstung"), /*#__PURE__*/React.createElement("option", {
-    value: "shield"
-  }, "Schild"), /*#__PURE__*/React.createElement("option", {
-    value: "other"
-  }, "Sonstiges"))), eqForm.type !== 'other' && /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, eqForm.type === 'shield' ? 'Bonus zur RK' : 'Basis-RK'), /*#__PURE__*/React.createElement("input", {
-    className: "form-input",
-    type: "number",
-    min: 2,
-    max: 20,
-    value: eqForm.baseAC,
-    onChange: e => setEqForm({
-      ...eqForm,
-      baseAC: +e.target.value
-    })
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Magischer RK-Bonus"), /*#__PURE__*/React.createElement("input", {
-    className: "form-input",
-    type: "number",
-    min: -5,
-    max: 10,
-    value: eqForm.acBonus || 0,
-    onChange: e => setEqForm({
-      ...eqForm,
-      acBonus: +e.target.value
-    }),
-    placeholder: "z.B. +1 f\xFCr magische R\xFCstung"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label",
-    style: {
-      fontSize: 11,
-      color: 'var(--text-muted)',
-      marginBottom: 4,
-      fontStyle: 'italic'
-    }
-  }, eqForm.type === 'light' && 'RK = ' + eqForm.baseAC + ' + GES-Mod' + (eqForm.acBonus ? ' + ' + eqForm.acBonus + ' (magisch)' : ''), eqForm.type === 'medium' && 'RK = ' + eqForm.baseAC + ' + GES-Mod (max. +2)' + (eqForm.acBonus ? ' + ' + eqForm.acBonus + ' (magisch)' : ''), eqForm.type === 'heavy' && 'RK = ' + eqForm.baseAC + ' (GES wird ignoriert)' + (eqForm.acBonus ? ' + ' + eqForm.acBonus + ' (magisch)' : ''), eqForm.type === 'shield' && 'Gibt +' + (+eqForm.baseAC + (+eqForm.acBonus || 0)) + ' auf die RK', eqForm.type === 'other' && (eqForm.acBonus ? '+' + eqForm.acBonus + ' zur RK' : 'Kein Einfluss auf die RK'))), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Notizen"), /*#__PURE__*/React.createElement("input", {
-    className: "form-input",
-    value: eqForm.notes || '',
-    onChange: e => setEqForm({
-      ...eqForm,
-      notes: e.target.value
-    }),
-    placeholder: "z.B. Umhang des Schutzes, Schild der Ablenkung"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "\u2726 Effekte"), /*#__PURE__*/React.createElement(EffectEditor, {
-    effects: eqForm.effects,
-    onChange: v => setEqForm({
-      ...eqForm,
-      effects: v
-    }),
-    hint: "Wirken, solange das St\xFCck angelegt ist."
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full",
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    id: "eq-equipped",
-    checked: !!eqForm.equipped,
-    onChange: e => setEqForm({
-      ...eqForm,
-      equipped: e.target.checked
-    }),
-    style: {
-      width: 16,
-      height: 16,
-      cursor: 'pointer',
-      accentColor: 'var(--gold)'
-    }
-  }), /*#__PURE__*/React.createElement("label", {
-    htmlFor: "eq-equipped",
-    style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 12,
-      color: 'var(--text-muted)',
-      cursor: 'pointer'
-    }
-  }, "Jetzt anlegen"))), /*#__PURE__*/React.createElement("div", {
-    className: "form-actions"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn-cancel",
-    onClick: () => {
-      setShowEF(false);
-      setEqEditId(null);
-    }
-  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-save",
-    onClick: () => {
-      if (!eqForm.name.trim()) {
-        appAlert('Name darf nicht leer sein.');
-        return;
-      }
-      const entry = {
-        ...eqForm,
-        id: eqEditId || Date.now().toString()
-      };
-      if (eqEditId) updEquipment(equipment.map(e => e.id === eqEditId ? entry : e));else updEquipment([...equipment, entry]);
-      setShowEF(false);
-      setEqEditId(null);
-    }
-  }, "\uD83D\uDCBE Speichern")))), showDmLogin && /*#__PURE__*/React.createElement("div", {
+  }, confirmDlg.okLabel || 'Bestätigen')))), showDmLogin && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",

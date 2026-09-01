@@ -821,18 +821,14 @@
   .gear-set-stufe.aktiv .gear-set-teile { color:var(--gold); }
   .gear-set-fx { display:flex; flex-wrap:wrap; gap:4px; font-size:11px; color:var(--text-muted); }
 
-  .gear-boni { margin-top:18px; }
-  .gear-boni-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
-  .gear-boni-head .btn-add { margin-left:auto; width:auto; flex:0 0 auto; padding:5px 14px; }
-  .gear-bonus { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:6px 9px; margin-bottom:5px; }
-  .gear-bonus.aktiv { border-color:var(--gold-dim); }
-  .gear-bonus-tog { width:28px; height:28px; flex-shrink:0; border-radius:4px; cursor:pointer; background:var(--bg-panel); border:1px solid var(--border); color:var(--text-muted); font-size:13px; }
-  .gear-bonus.aktiv .gear-bonus-tog { border-color:var(--gold); color:var(--gold); }
-  .gear-bonus-name { flex:1; min-width:0; background:transparent; border:none; border-bottom:1px solid var(--border); outline:none; font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-primary); padding:2px 4px; }
-  .gear-bonus-val { width:52px; background:transparent; border:1px solid var(--border); border-radius:3px; outline:none; font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-muted); padding:2px 6px; text-align:center; }
-  .gear-bonus.aktiv .gear-bonus-val { color:var(--gold); }
-  .gear-bonus-rk { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
-  .gear-bonus-del { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px; font-size:13px; }
+  /* Effekte an Merkmalen. Hier sind die RK-Boni aus Talenten gelandet. */
+  .feature-fx { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .feature-fx-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .feature-fx-chips.ruht { opacity:0.45; }
+  .feature-fx-tog { margin-left:auto; min-height:28px; padding:3px 10px; border-radius:12px; cursor:pointer;
+    background:var(--bg-void); border:1px solid var(--border); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.08em; white-space:nowrap; }
+  .feature-fx-tog[aria-pressed="true"] { border-color:var(--gold-dim); color:var(--gold); }
 
   /* Auswahl fuer einen Platz */
   .gear-pick-leeren { width:100%; margin-bottom:10px; min-height:42px; border-radius:4px; cursor:pointer;

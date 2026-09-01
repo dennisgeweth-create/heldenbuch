@@ -80,6 +80,9 @@ const collectEffects = (c, setDefs) => {
     if (st.aktiv) add('set:'+s.name+':'+i, s.name+' ('+(+st.teile||0)+' Teile)', '✦', st.effects);
   }));
   (c.weapons ||[]).forEach(w => { if (w.equipped) add('w:'+w.id, w.name||"Waffe", "⚔", w.effects); });
+  // Merkmale und Talente. Sie sind keine Gegenstaende und haben keinen
+  // Platz — ein Kampfstil wirkt, solange er nicht ausgeschaltet ist.
+  (c.features||[]).forEach(f => { if (f.effectsActive !== false) add('f:'+f.id, f.name||"Merkmal", "⭐", f.effects); });
   // Die alte Ausruestungsliste zaehlt nur, solange der Held nicht umgestellt
   // ist — danach steckt dasselbe Stueck als Inventargegenstand in einem Platz
   // und wuerde sonst doppelt wirken.
@@ -94,7 +97,9 @@ const collectEffects = (c, setDefs) => {
 // Rueckweg bleibt offen, aufgeraeumt wird erst, wenn sich die Umstellung
 // bewaehrt hat. Mehrfach ausfuehrbar: bereits uebernommene Stuecke erkennt
 // sie an der Kennung wieder.
-const GEAR_MIGRATION = 2;
+// 2: Ausruestung wurde zu Inventargegenstaenden in Plaetzen.
+// 3: RK-Boni aus Talenten wurden zu Merkmalen mit Effekt.
+const GEAR_MIGRATION = 3;
 const migrateGear = (c) => {
   if (!c || (c.gearMigrated || 0) >= GEAR_MIGRATION) return null;
   const inv  = [...(c.inventory || [])];
@@ -121,7 +126,22 @@ const migrateGear = (c) => {
   const angelegt = (c.weapons || []).filter(w => w.equipped);
   if (angelegt.length > 0 && !gear.haupthand) gear.haupthand = {k:'w', id: angelegt[0].id};
   if (angelegt.length > 1 && !gear.nebenhand && !isZweihand(angelegt[0])) gear.nebenhand = {k:'w', id: angelegt[1].id};
-  return {inventory: inv, gear, gearMigrated: GEAR_MIGRATION};
+
+  // Schritt 3: RK-Boni aus Talenten werden zu Merkmalen mit Effekt. Sie
+  // waren nie Gegenstaende und haben keinen Platz; als Merkmal stehen sie
+  // dort, wo der Kampfstil ohnehin steht — und koennen dann mehr als nur
+  // die Ruestungsklasse. c.acBonuses bleibt daneben liegen.
+  const features = [...(c.features || [])];
+  (c.acBonuses || []).forEach(b => {
+    const id = 'acb_' + b.id;
+    if (features.some(f => f.id === id)) return;
+    features.push({
+      id, name: b.name || 'RK-Bonus', source: 'Talent', description: '',
+      effectsActive: b.active !== false,
+      effects: [{id: id+'_fx', target:'ac', mode:'bonus', value: +b.bonus || 0}],
+    });
+  });
+  return {inventory: inv, gear, features, gearMigrated: GEAR_MIGRATION};
 };
 // Wendet alle Effekte eines Ziels auf einen Ausgangswert an.
 const applyEffect = (effs, target, base) => {

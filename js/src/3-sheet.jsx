@@ -14,33 +14,30 @@ const SheetCtx = React.createContext(null);
 
 const Sheet = () => {
   const {
-    acBonuses, addAcBonus, addArmorProf, addLanguage, addLog, addResource,
-    addToolProf, addWeaponProf, appAlert, appConfirm, archiveChar,
-    armorProfs, cc, charMenuOpen, chars, chgMax, collapsedLevels,
-    computedAC, cur, delAcBonus, delArmorProf, delEquipmentItem,
-    delFeature, delItem, delLanguage, delNote, delResource, delSpell,
-    delToolProf, delWeaponProf, deleteChar, displayAC, effCur, eqEditId,
-    eqForm, equipment, equippedArmors, equippedShields, exFeature, exItem,
-    exNote, exSpell, fx, fxOn, fxTitle, initTotal, insp, inspMax,
-    invRarity, invTagFilter, isDmMode, itemFx, noteTagFilter, notesList,
-    openEdit, openNew, openTpl, openUnprepared, patchChar, resEdit,
-    resetAll, resources, save, sel, selectChar, setCharMenuOpen,
-    setCoinDelta, setCoinPopover, setCollapsedLevels, setEqEditId,
-    setEqForm, setExFeature, setExNote, setExSpell, setFf, setFfEditId,
-    setImgViewer, setInsp, setInspMax, setInvRarity, setInvTagFilter,
-    setItemViewer, setItf, setItfEditId, setNf, setNfEditId,
-    setNoteTagFilter, setOpenUnprepared, setResEdit, setSf, setSfEditId,
-    setShowEF, setShowFF, setShowIF, setShowNF, setShowSF,
+    addArmorProf, addLanguage, addLog, addResource, addToolProf,
+    addWeaponProf, appAlert, appConfirm, archiveChar, armorProfs, cc,
+    charMenuOpen, chars, chgMax, collapsedLevels, computedAC, cur,
+    delArmorProf, deleteChar, delFeature, delItem, delLanguage, delNote,
+    delResource, delSpell, delToolProf, delWeaponProf, displayAC,
+    effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
+    initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
+    languages, notesList, noteTagFilter, openEdit, openNew, openTpl,
+    openUnprepared, patchChar, resEdit, resetAll, resources, save, sel,
+    selectChar, setCharMenuOpen, setCoinDelta, setCoinPopover,
+    setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
+    setFfEditId, setImgViewer, setInsp, setInspMax, setInvRarity,
+    setInvTagFilter, setItemViewer, setItf, setItfEditId, setNf,
+    setNfEditId, setNoteTagFilter, setOpenUnprepared, setResEdit, setSf,
+    setSfEditId, setShowFF, setShowIF, setShowNF, setShowSF,
     setShowTransfer, setShowWF, setSlotsEdit, setSpEdit,
     setSpellTagFilter, setStatsEdit, setTab, setTransferMode,
     setTransferSel, setWeaponViewer, setWf, setWfEditId, setWsExpand,
     slots, slotsEdit, sp, spChgMax, spEdit, spellTagFilter, statsEdit,
-    stepChar, switchList, tab, togResourcePip, togSP, togSlot,
-    toggleEquipmentItem, toggleEquipped, toggleJoAT, toggleSave,
-    toggleSkill, toggleSpellPrepared, toggleWsFav, toolProfs, tplData,
-    transferMode, transferSel, unarchiveChar, updAcBonus, updEquipment,
-    updResource, updSP, weaponProfs, weaponStats, wsExpand,
-    languages
+    stepChar, switchList, tab, toggleEquipped, toggleFeatureFx,
+    toggleJoAT, toggleSave, toggleSkill, toggleSpellPrepared,
+    toggleWsFav, togResourcePip, togSlot, togSP, toolProfs, tplData,
+    transferMode, transferSel, unarchiveChar, updResource, updSP,
+    weaponProfs, weaponStats, wsExpand
   } = React.useContext(SheetCtx);
 
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
@@ -739,12 +736,27 @@ const Sheet = () => {
                         <div className="feature-card-orb">⭐</div>
                         <div className="feature-card-name">{feat.name}</div>
                         <div className="feature-actions" onClick={e=>e.stopPropagation()}>
-                          <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setFf({name:feat.name,source:feat.source||'',description:feat.description||''});setFfEditId(feat.id);setShowFF(true);}}>✎</button>
+                          {/* Das ganze Merkmal uebernehmen, nicht nur die drei
+                              Textfelder — sonst faellt beim Bearbeiten weg,
+                              was an Effekten daranhaengt. */}
+                          <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setFf({effects:[],effectsActive:true,...feat});setFfEditId(feat.id);setShowFF(true);}}>✎</button>
                           <button className="spell-delete" onClick={e=>{e.stopPropagation();delFeature(feat.id);}}>✕</button>
                         </div>
                       </div>
                       <div className="feature-card-body">
                         {feat.source && <div className="feature-source">{feat.source}</div>}
+                        {(feat.effects||[]).length>0 && (
+                          <div className="feature-fx" onClick={e=>e.stopPropagation()}>
+                            <div className={"feature-fx-chips"+(feat.effectsActive===false?" ruht":"")}>
+                              {(feat.effects||[]).map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                            </div>
+                            <button className="feature-fx-tog" onClick={()=>toggleFeatureFx(feat.id)}
+                              aria-pressed={feat.effectsActive!==false}
+                              title={feat.effectsActive===false?'Einschalten':'Ausschalten'}>
+                              {feat.effectsActive===false ? '◇ Ruht' : '✦ Wirkt'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {feat.description && (
                         <div className="feature-card-desc-wrap">
@@ -754,7 +766,7 @@ const Sheet = () => {
                     </div>
                   ))}</div>
               }
-              <button className="btn-add" onClick={()=>{setFf({name:'',source:'',description:''});setFfEditId(null);setShowFF(true);}}>+ Fähigkeit hinzufügen</button>
+              <button className="btn-add" onClick={()=>{setFf({name:'',source:'',description:'',effects:[],effectsActive:true});setFfEditId(null);setShowFF(true);}}>+ Fähigkeit hinzufügen</button>
             </div>
             {/* Sprachen, Werkzeuge, Waffen & Rüstungen */}
             <div className="profs-grid">

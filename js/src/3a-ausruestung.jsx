@@ -13,7 +13,6 @@ const AusruestungsPuppe = () => {
     cur, effCur, computedAC, displayAC, itemFx,
     gearWornList, nhGesperrt, setGearSlot, gearArmor, gearShield, gearAusVorlage, gearSetList,
     gearPick, setGearPick, fxOn, fxTitle,
-    acBonuses, addAcBonus, delAcBonus, updAcBonus,
     setItemViewer, setWeaponViewer, setItf, setItfEditId, setShowIF,
   } = React.useContext(SheetCtx);
 
@@ -97,9 +96,6 @@ const AusruestungsPuppe = () => {
     gearWornList.forEach(({obj}) => {
       if ((+obj.acBonus||0) !== 0) teile.push(obj.name+': '+((+obj.acBonus)>=0?'+':'')+(+obj.acBonus));
     });
-    (acBonuses||[]).filter(b=>b.active && (b.bonus||0)!==0).forEach(b => {
-      teile.push(b.name+': '+(b.bonus>=0?'+':'')+b.bonus);
-    });
     effectsFor(itemFx,'ac').forEach(e => {
       teile.push(e.source+': '+(e.mode==='set' ? 'RK = '+(+e.value||0) : fnum(+e.value||0)));
     });
@@ -169,29 +165,9 @@ const AusruestungsPuppe = () => {
         </div>
       )}
 
-      {/* Boni aus Talenten sind keine Gegenstaende und haben keinen Platz.
-          Sie bleiben vorerst als eigene Liste stehen und ziehen erst um,
-          wenn Merkmale eigene Effekte bekommen. */}
-      <div className="gear-boni">
-        <div className="gear-boni-head">
-          <div className="block-title">✦ RK-Boni durch Talente &amp; Fähigkeiten</div>
-          <button className="btn-add" onClick={addAcBonus}>+ Bonus</button>
-        </div>
-        {(acBonuses||[]).length === 0
-          ? <div className="gear-hint">Kein Bonus eingetragen (z.B. Defensiver Kampfstil, Natürliche Rüstung).</div>
-          : (acBonuses||[]).map(b => (
-            <div key={b.id} className={"gear-bonus"+(b.active?" aktiv":"")}>
-              <button className="gear-bonus-tog" onClick={()=>updAcBonus(b.id,{active:!b.active})}
-                title={b.active?'Deaktivieren':'Aktivieren'} aria-pressed={!!b.active}>{b.active?'✦':'◇'}</button>
-              <input className="gear-bonus-name" defaultValue={b.name} key={'bn_'+b.id}
-                aria-label="Name des Bonus" onBlur={e=>updAcBonus(b.id,{name:e.target.value})} />
-              <input className="gear-bonus-val" type="number" min={-5} max={20} defaultValue={b.bonus} key={'bv_'+b.id}
-                aria-label="Höhe des Bonus" onBlur={e=>updAcBonus(b.id,{bonus:+e.target.value})} />
-              <span className="gear-bonus-rk">RK</span>
-              <button className="gear-bonus-del" onClick={()=>delAcBonus(b.id)} aria-label={'Bonus '+b.name+' löschen'}>✕</button>
-            </div>
-          ))}
-      </div>
+      {/* Die Boni aus Talenten stehen jetzt bei den Merkmalen — ein
+          Kampfstil ist ein Merkmal, kein Ausruestungsstueck, und kann dort
+          mehr als nur die Ruestungsklasse anheben. */}
 
       {/* Auswahl fuer einen Platz */}
       {s && (

@@ -10,7 +10,7 @@ function App() {
   const [showWF, setShowWF]  = useState(false);
   const [showFF,     setShowFF]     = useState(false);
   const [ffEditId,   setFfEditId]   = useState(null);
-  const [ff,         setFf]         = useState({name:'',source:'',description:''});
+  const [ff,         setFf]         = useState({name:'',source:'',description:'',effects:[],effectsActive:true});
   const [exFeature,  setExFeature]  = useState(null);
   const [slotsEdit,  setSlotsEdit]  = useState(false);
   const [spEdit,     setSpEdit]     = useState(false);
@@ -36,9 +36,6 @@ function App() {
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [invTagFilter, setInvTagFilter] = useState([]);
   const [showNF,     setShowNF]     = useState(false);
-  const [showEF,     setShowEF]     = useState(false);
-  const [eqEditId,   setEqEditId]   = useState(null);
-  const [eqForm,     setEqForm]     = useState({name:'',type:'light',baseAC:11,acBonus:0,equipped:false,notes:''});
   const [nfEditId,   setNfEditId]   = useState(null);
   const [nf,         setNf]         = useState({title:'',content:''});
   const [noteTagFilter, setNoteTagFilter] = useState([]);
@@ -677,9 +674,13 @@ function App() {
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     patchCurrent(c=>({features:updated}));
     addLog(selRef.current, cur2?.name, 'attribute', ffEditId?`Merkmal bearbeitet: ${ff.name}`:`Merkmal hinzugefügt: ${ff.name}`, {quelle:ff.source||undefined});
-    setFf({name:'',source:'',description:''}); setFfEditId(null); setShowFF(false);
+    setFf({name:'',source:'',description:'',effects:[],effectsActive:true}); setFfEditId(null); setShowFF(false);
   };
   const delFeature = id => appConfirm("Merkmal wirklich löschen?", () => patchCurrent(c=>({features:(c.features||[]).filter(f=>f.id!==id)})));
+  // Ein Kampfstil wirkt nicht immer — ohne Rüstung greift der defensive
+  // nicht. Umschalten ohne Umweg über den Bearbeiten-Dialog.
+  const toggleFeatureFx = id => patchCurrent(c=>({features:(c.features||[]).map(f=>
+    f.id===id ? {...f, effectsActive: f.effectsActive===false} : f)}));
   const addItem = () => {
     if (!itf.name.trim()) return;
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
@@ -817,16 +818,6 @@ function App() {
   };
   const patchChar = patch => patchCurrent(c=>({...patch}));
   const addResource = () => updResources([...resources,{id:Date.now().toString(),name:"Neue Ressource",max:3,used:0,color:"#c9a84c",restType:"lang"}]);
-  const equipment  = cur && cur.equipment  || [];
-  const updEquipment = eq => patchCurrent(c=>({equipment:eq}));
-  const toggleEquipmentItem = id => updEquipment(equipment.map(e=>e.id===id?{...e,equipped:!e.equipped}:e));
-  const delEquipmentItem = id => appConfirm("Ausrüstung wirklich löschen?", ()=>updEquipment(equipment.filter(e=>e.id!==id)));
-  const acBonuses = cur && cur.acBonuses || [];
-  const updAcBonuses = b => patchCurrent(c=>({acBonuses:b}));
-  const addAcBonus = () => updAcBonuses([...acBonuses,{id:Date.now().toString(),name:'Neuer Bonus',bonus:1,active:true}]);
-  const delAcBonus = id => appConfirm('RK-Bonus wirklich löschen?', ()=>updAcBonuses(acBonuses.filter(b=>b.id!==id)));
-  const updAcBonus = (id,patch) => updAcBonuses(acBonuses.map(b=>b.id===id?{...b,...patch}:b));
-  const newEquipItem = () => ({id:Date.now().toString(),name:"",type:"light",baseAC:11,acBonus:0,equipped:false,notes:"",effects:[]});
 
   // ── Ausruestungsplaetze ─────────────────────────────────────────
   const gearWornList = gearWorn(cur);
@@ -863,12 +854,6 @@ function App() {
     return {inventory: [...(c.inventory||[]), item], gear: {...(c.gear||{}), [slotKey]: {k:'i', id}}};
   });
 
-  // Compute AC from equipped armor
-  // "Sonstiges" ist als "Kein RK-Einfluss" ausgewiesen und traegt nur ueber
-  // acBonus bei — es darf deshalb nicht als Grundruestung zaehlen, sonst
-  // ersetzt ein Umhang mit Basis 0 die 10 der unbewaffneten RK.
-  const equippedArmors  = equipment.filter(e=>e.equipped && e.type!=="shield" && e.type!=="other");
-  const equippedShields = equipment.filter(e=>e.equipped && e.type==="shield");
   // Nur echte Ruestung zaehlt als Grundwert: ein Stueck ohne Ruestungsart
   // oder ohne Basiswert im Ruestungsplatz wuerde sonst die 10 der
   // unbewaffneten RK durch 0 ersetzen.
@@ -884,7 +869,10 @@ function App() {
   const computedAC = (() => {
     if (!cur) return null;
     const dex = mod(effCur.dex);
-    const activeAbBonuses = (cur.acBonuses||[]).filter(b=>b.active).reduce((s,b)=>s+(+b.bonus||0), 0);
+    // Seit die Talent-Boni Merkmale sind, kommen sie ueber fx('ac') herein.
+    // Bis ein Held dort angekommen ist, zaehlt weiter die alte Liste.
+    const activeAbBonuses = (cur.gearMigrated||0) >= 3 ? 0
+      : (cur.acBonuses||[]).filter(b=>b.active).reduce((s,b)=>s+(+b.bonus||0), 0);
     if (cur.gearMigrated) {
       const itemBonuses = gearWornList.reduce((s,{obj})=>s+(+obj.acBonus||0), 0);
       const shBonus = gearShield ? (+gearShield.baseAC || 2) : 0;
@@ -897,7 +885,12 @@ function App() {
       const ac = t==='heavy' ? basis : t==='medium' ? basis + Math.min(2, dex) : basis + dex;
       return fx('ac', ac + shBonus + activeAbBonuses + itemBonuses);
     }
-    // Vor der Umstellung unveraendert aus der alten Ausruestungsliste.
+    // Vor der Umstellung unveraendert aus der alten Ausruestungsliste. Der
+    // Zweig lebt nur noch fuer die Augenblicke zwischen Laden und
+    // Umstellung — die Oberflaeche dazu ist weg, die Daten sind es nicht.
+    const equipment = cur.equipment || [];
+    const equippedArmors  = equipment.filter(e=>e.equipped && e.type!=="shield" && e.type!=="other");
+    const equippedShields = equipment.filter(e=>e.equipped && e.type==="shield");
     const itemBonuses = equipment.filter(e=>e.equipped && (e.acBonus||0)!==0).reduce((s,e)=>s+(+e.acBonus||0), 0);
     if (equippedArmors.length === 0) {
       // Ohne Rüstung nur rechnen, wenn ueberhaupt etwas beitraegt — ein
@@ -1211,36 +1204,32 @@ function App() {
   // Wird bei jedem Rendern neu gebaut — genau wie zuvor die
   // Closure-Variablen von Sheet.
   const sheetCtx = {
-    acBonuses, addAcBonus, addArmorProf, addLanguage, addLog,
-    addResource, addToolProf, addWeaponProf, appAlert, appConfirm,
-    archiveChar, armorProfs, cc, charMenuOpen, chars, chgMax,
-    collapsedLevels, computedAC, cur, delAcBonus, delArmorProf,
-    delEquipmentItem, delFeature, delItem, delLanguage, delNote,
-    delResource, delSpell, delToolProf, delWeaponProf, deleteChar,
-    displayAC, effCur, eqEditId, eqForm, equipment, equippedArmors,
-    equippedShields, exFeature, exItem, exNote, exSpell, fx, fxOn,
-    fxTitle, gearArmor, gearAusVorlage, gearPick, gearSetList, gearShield, gearWornList,
-    initTotal, insp, inspMax, invRarity, invTagFilter,
-    isDmMode, itemFx, nhGesperrt, noteTagFilter, notesList, openEdit,
-    openNew, openTpl, openUnprepared, patchChar, resEdit, resetAll,
-    resources, save, sel, selectChar, setCharMenuOpen, setCoinDelta,
-    setCoinPopover, setCollapsedLevels, setEqEditId, setEqForm,
-    setExFeature, setExNote, setExSpell, setFf, setFfEditId,
-    setGearPick, setGearSlot,
+    addArmorProf, addLanguage, addLog, addResource, addToolProf,
+    addWeaponProf, appAlert, appConfirm, archiveChar, armorProfs, cc,
+    charMenuOpen, chars, chgMax, collapsedLevels, computedAC, cur,
+    delArmorProf, deleteChar, delFeature, delItem, delLanguage, delNote,
+    delResource, delSpell, delToolProf, delWeaponProf, displayAC,
+    effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
+    gearArmor, gearAusVorlage, gearPick, gearSetList, gearShield,
+    gearWornList, initTotal, insp, inspMax, invRarity, invTagFilter,
+    isDmMode, itemFx, languages, nhGesperrt, notesList, noteTagFilter,
+    openEdit, openNew, openTpl, openUnprepared, patchChar, resEdit,
+    resetAll, resources, save, sel, selectChar, setCharMenuOpen,
+    setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
+    setExNote, setExSpell, setFf, setFfEditId, setGearPick, setGearSlot,
     setImgViewer, setInsp, setInspMax, setInvRarity, setInvTagFilter,
     setItemViewer, setItf, setItfEditId, setNf, setNfEditId,
     setNoteTagFilter, setOpenUnprepared, setResEdit, setSf, setSfEditId,
-    setShowEF, setShowFF, setShowIF, setShowNF, setShowSF,
-    setShowTransfer, setShowWF, setSlotsEdit, setSpEdit,
-    setSpellTagFilter, setStatsEdit, setTab, setTransferMode,
-    setTransferSel, setWeaponViewer, setWf, setWfEditId, setWsExpand,
-    slots, slotsEdit, sp, spChgMax, spEdit, spellTagFilter, statsEdit,
-    stepChar, switchList, tab, togResourcePip, togSP, togSlot,
-    toggleEquipmentItem, toggleEquipped, toggleJoAT, toggleSave,
-    toggleSkill, toggleSpellPrepared, toggleWsFav, toolProfs, tplData,
-    transferMode, transferSel, unarchiveChar, updAcBonus, updEquipment,
-    updResource, updSP, weaponProfs, weaponStats, wsExpand,
-    languages
+    setShowFF, setShowIF, setShowNF, setShowSF, setShowTransfer,
+    setShowWF, setSlotsEdit, setSpEdit, setSpellTagFilter, setStatsEdit,
+    setTab, setTransferMode, setTransferSel, setWeaponViewer, setWf,
+    setWfEditId, setWsExpand, slots, slotsEdit, sp, spChgMax, spEdit,
+    spellTagFilter, statsEdit, stepChar, switchList, tab,
+    toggleEquipped, toggleFeatureFx, toggleJoAT, toggleSave,
+    toggleSkill, toggleSpellPrepared, toggleWsFav, togResourcePip,
+    togSlot, togSP, toolProfs, tplData, transferMode, transferSel,
+    unarchiveChar, updResource, updSP, weaponProfs, weaponStats,
+    wsExpand
   };
 
   return (
@@ -1578,6 +1567,22 @@ function App() {
                 <div className="form-label">Beschreibung</div>
                 <RichEditor value={ff.description} onChange={v=>setFf({...ff,description:v})}
                   placeholder="Beschreibung der Fähigkeit, Nutzungsbedingungen..." rows={6} />
+              </div>
+              {/* Hier sind die RK-Boni aus Talenten gelandet. Ein Kampfstil
+                  gehoert zu den Merkmalen und kann jetzt mehr als nur die
+                  Ruestungsklasse anheben. */}
+              <div className="form-group form-full">
+                <div className="form-label">✦ Effekte</div>
+                <EffectEditor effects={ff.effects||[]} onChange={v=>setFf({...ff,effects:v})}
+                  hint="Wirken, solange das Merkmal eingeschaltet ist — z.B. Defensiver Kampfstil +1 RK." />
+                {(ff.effects||[]).length>0 && (
+                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginTop:8}}>
+                    <input type="checkbox" checked={ff.effectsActive!==false}
+                      onChange={e=>setFf({...ff,effectsActive:e.target.checked})}
+                      style={{width:16,height:16,cursor:'pointer',accentColor:'var(--arcane-bright)'}} />
+                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>Wirkt gerade</span>
+                  </label>
+                )}
               </div>
             </div>
             <div className="form-actions">
@@ -2986,75 +2991,6 @@ function App() {
         </div>
       )}
 
-      {showEF && (
-        <div className="form-overlay">
-          <div className="form-modal" style={{maxWidth:480}}>
-            <div className="form-title">{eqEditId?'✎ Ausrüstung bearbeiten':'+ Ausrüstung hinzufügen'}</div>
-            <div className="form-grid">
-              <div className="form-group form-full">
-                <div className="form-label">Name</div>
-                <input className="form-input" value={eqForm.name} onChange={e=>setEqForm({...eqForm,name:e.target.value})} placeholder="z.B. Plattenpanzer" autoFocus />
-              </div>
-              <div className="form-group">
-                <div className="form-label">Typ</div>
-                <select className="form-input" value={eqForm.type} onChange={e=>{
-                  const t=e.target.value;
-                  const base = t==='shield'?2:t==='light'?11:t==='medium'?13:t==='heavy'?16:0;
-                  setEqForm({...eqForm,type:t,baseAC:base});
-                }}>
-                  <option value="light">Leichte Rüstung</option>
-                  <option value="medium">Mittlere Rüstung</option>
-                  <option value="heavy">Schwere Rüstung</option>
-                  <option value="shield">Schild</option>
-                  <option value="other">Sonstiges</option>
-                </select>
-              </div>
-              {eqForm.type!=='other' && (
-                <div className="form-group">
-                  <div className="form-label">{eqForm.type==='shield'?'Bonus zur RK':'Basis-RK'}</div>
-                  <input className="form-input" type="number" min={2} max={20} value={eqForm.baseAC} onChange={e=>setEqForm({...eqForm,baseAC:+e.target.value})} />
-                </div>
-              )}
-              <div className="form-group">
-                <div className="form-label">Magischer RK-Bonus</div>
-                <input className="form-input" type="number" min={-5} max={10} value={eqForm.acBonus||0} onChange={e=>setEqForm({...eqForm,acBonus:+e.target.value})} placeholder="z.B. +1 für magische Rüstung" />
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label" style={{fontSize:11,color:'var(--text-muted)',marginBottom:4,fontStyle:'italic'}}>
-                  {eqForm.type==='light'&&'RK = '+eqForm.baseAC+' + GES-Mod'+(eqForm.acBonus?' + '+eqForm.acBonus+' (magisch)':'')}
-                  {eqForm.type==='medium'&&'RK = '+eqForm.baseAC+' + GES-Mod (max. +2)'+(eqForm.acBonus?' + '+eqForm.acBonus+' (magisch)':'')}
-                  {eqForm.type==='heavy'&&'RK = '+eqForm.baseAC+' (GES wird ignoriert)'+(eqForm.acBonus?' + '+eqForm.acBonus+' (magisch)':'')}
-                  {eqForm.type==='shield'&&'Gibt +'+(+eqForm.baseAC+(+eqForm.acBonus||0))+' auf die RK'}
-                  {eqForm.type==='other'&&(eqForm.acBonus?'+'+eqForm.acBonus+' zur RK':'Kein Einfluss auf die RK')}
-                </div>
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">Notizen</div>
-                <input className="form-input" value={eqForm.notes||''} onChange={e=>setEqForm({...eqForm,notes:e.target.value})} placeholder="z.B. Umhang des Schutzes, Schild der Ablenkung" />
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">✦ Effekte</div>
-                <EffectEditor effects={eqForm.effects} onChange={v=>setEqForm({...eqForm,effects:v})}
-                  hint="Wirken, solange das Stück angelegt ist." />
-              </div>
-              <div className="form-group form-full" style={{display:'flex',alignItems:'center',gap:10}}>
-                <input type="checkbox" id="eq-equipped" checked={!!eqForm.equipped} onChange={e=>setEqForm({...eqForm,equipped:e.target.checked})} style={{width:16,height:16,cursor:'pointer',accentColor:'var(--gold)'}} />
-                <label htmlFor="eq-equipped" style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-muted)',cursor:'pointer'}}>Jetzt anlegen</label>
-              </div>
-            </div>
-            <div className="form-actions">
-              <button className="btn-cancel" onClick={()=>{setShowEF(false);setEqEditId(null);}}>Abbrechen</button>
-              <button className="btn-save" onClick={()=>{
-                if (!eqForm.name.trim()) { appAlert('Name darf nicht leer sein.'); return; }
-                const entry = {...eqForm, id: eqEditId||Date.now().toString()};
-                if (eqEditId) updEquipment(equipment.map(e=>e.id===eqEditId?entry:e));
-                else updEquipment([...equipment,entry]);
-                setShowEF(false); setEqEditId(null);
-              }}>💾 Speichern</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showDmLogin && (
         <div className="form-overlay">
