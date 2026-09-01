@@ -21,7 +21,8 @@ jobs:
       - name: Prepare deploy files
         run: |
           mkdir -p deploy/js deploy/vendor
-          cp .htaccess api.php apple-touch-icon.png data.json favicon.png index.html slots.html styles.css deploy/
+          cp .htaccess api.php apple-touch-icon.png favicon.png index.html slots.html styles.css deploy/
+          cp data-spells.json data-weapons.json data-wildshapes.json deploy/
           cp js/data.js js/util.js deploy/js/
           cp vendor/*.js deploy/vendor/
           # Cache-Sperre loesen: styles.css und js/*.js liegen seit der
@@ -57,7 +58,7 @@ jobs:
       - name: Verify deployed files
         run: |
           FAIL=0
-          FILES="index.html styles.css js/data.js js/util.js vendor/react.production.min.js vendor/react-dom.production.min.js vendor/babel.min.js"
+          FILES="index.html styles.css js/data.js js/util.js data-spells.json data-weapons.json data-wildshapes.json vendor/react.production.min.js vendor/react-dom.production.min.js vendor/babel.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

@@ -463,6 +463,9 @@ function App() {
   const [showDB,     setShowDB]     = useState(false);
   const [confirmDlg, setConfirmDlg] = useState(null); // {msg, onOk}
   const appConfirm = (msg, onOk, okLabel) => setConfirmDlg({msg, onOk, okLabel});
+  // Hinweis ohne Rueckfrage — nutzt denselben Dialog, damit Meldungen im
+  // Bogen bleiben statt als Systemfenster des Browsers aufzupoppen.
+  const appAlert = (msg) => setConfirmDlg({msg, onOk: null, okLabel: 'Verstanden'});
   const [dbTab,      setDbTab]      = useState('spell');
   const [dbForm,     setDbForm]     = useState(null);
   const [dbFormId,   setDbFormId]   = useState(null);
@@ -615,7 +618,7 @@ function App() {
   };
 
   const saveDbEntry = () => {
-    if (!dbForm || !dbForm.name.trim()) { alert('Name darf nicht leer sein.'); return; }
+    if (!dbForm || !dbForm.name.trim()) { appAlert('Name darf nicht leer sein.'); return; }
     let entry = {...dbForm, _custom:true};
     if (dbTab==='wildshape') {
       entry.tags = (dbForm.tagsStr||'').split(',').map(t=>t.trim()).filter(Boolean);
@@ -633,7 +636,7 @@ function App() {
         const idx = entries.findIndex(e=>e.name===editId);
         if (idx>=0) entries[idx]=finalEntry; else entries.push(finalEntry);
       } else {
-        if (entries.some(e=>e.name===finalEntry.name)) { alert('Ein Eintrag mit diesem Namen existiert bereits.'); return prev; }
+        if (entries.some(e=>e.name===finalEntry.name)) { appAlert('Ein Eintrag mit diesem Namen existiert bereits.'); return prev; }
         entries.push(finalEntry);
       }
       return {...prev, [type]: entries};
@@ -1150,17 +1153,44 @@ function App() {
     updResource(id, {used: i < avail ? r.max-i : r.max-(i+1) });
   };
 
+  // Die Vorlagen lagen bis hierher in einer data.json von 448 KB, die beim
+  // Oeffnen jeder Vorlagenauswahl komplett geladen wurde — wer eine Waffe
+  // suchte (3 KB), holte sich alle 484 Zauber (409 KB) mit. Jetzt liegt jede
+  // Art in einer eigenen Datei und wird einzeln und nur einmal geladen.
+  const TPL_QUELLEN = {
+    spell:     ['spells',     'data-spells.json'],
+    weapon:    ['weapons',    'data-weapons.json'],
+    wildshape: ['wildshapes', 'data-wildshapes.json'],
+  };
+  const ladeVorlagen = async (type) => {
+    const eintrag = TPL_QUELLEN[type];
+    if (!eintrag) return true;
+    const [key, datei] = eintrag;
+    if (tplData && tplData[key]) return true;      // schon geladen
+    try {
+      const r = await fetch(datei);
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      setTplData(prev => ({...(prev || {}), [key]: d[key] || []}));
+      return true;
+    } catch (e) {
+      appAlert(datei + ' konnte nicht geladen werden. Liegt die Datei im selben Ordner wie index.html?');
+      return false;
+    }
+  };
   const openTpl = async (type) => {
     setTplSearch(''); setTplFilter('all'); setWsFilter({cr:'all',tag:'all'}); setWsExpand(null); setTplClassFilter([]); setTplDmgFilter([]);
-    if (!tplData) {
-      try {
-        const r = await fetch('data.json');
-        const d = await r.json();
-        setTplData(d);
-      } catch { alert('data.json nicht gefunden. Liegt sie im selben Ordner wie index.html?'); return; }
-    }
+    if (!(await ladeVorlagen(type))) return;
     setShowTpl(type);
   };
+  // Lieblingstiere brauchen die Tierdaten auch dann, wenn die Vorlagenauswahl
+  // nie geoeffnet wurde. Vorher kamen sie mit der gemeinsamen data.json
+  // zufaellig mit — jetzt werden sie gezielt nachgeladen.
+  useEffect(() => {
+    if (!cur || !(cur.wsFavorites || []).length) return;
+    if (tplData && tplData.wildshapes) return;
+    ladeVorlagen('wildshape');
+  }, [sel, (cur && (cur.wsFavorites || []).length) || 0, !!(tplData && tplData.wildshapes)]);
   const pickSpell = s => {
     setSf({...newSpell(), name:s.name, level:s.level, school:s.school, castingTime:s.castingTime, range:s.range, duration:s.duration, components:s.components||'V, S', description:s.description, classes:s.classes||[], damageTags:s.damageTags||[]});
     setShowTpl(null); setShowSF(true);
@@ -1827,7 +1857,7 @@ function App() {
             setShowEF(true);
           };
           const saveEqForm = () => {
-            if (!eqForm.name.trim()) { alert('Name darf nicht leer sein.'); return; }
+            if (!eqForm.name.trim()) { appAlert('Name darf nicht leer sein.'); return; }
             const entry = {...eqForm, id: eqEditId || Date.now().toString()};
             if (eqEditId) {
               updEquipment(equipment.map(e=>e.id===eqEditId?entry:e));
@@ -4363,8 +4393,8 @@ function App() {
             <div className="confirm-icon">⚠️</div>
             <div className="confirm-msg">{confirmDlg.msg}</div>
             <div className="confirm-actions">
-              <button className="confirm-cancel" onClick={()=>setConfirmDlg(null)}>Abbrechen</button>
-              <button className="confirm-ok" onClick={()=>{confirmDlg.onOk();setConfirmDlg(null);}}>{confirmDlg.okLabel||'Bestätigen'}</button>
+              {confirmDlg.onOk && <button className="confirm-cancel" onClick={()=>setConfirmDlg(null)}>Abbrechen</button>}
+              <button className="confirm-ok" onClick={()=>{if(confirmDlg.onOk)confirmDlg.onOk();setConfirmDlg(null);}}>{confirmDlg.okLabel||'Bestätigen'}</button>
             </div>
           </div>
         </div>
@@ -4429,7 +4459,7 @@ function App() {
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowEF(false);setEqEditId(null);}}>Abbrechen</button>
               <button className="btn-save" onClick={()=>{
-                if (!eqForm.name.trim()) { alert('Name darf nicht leer sein.'); return; }
+                if (!eqForm.name.trim()) { appAlert('Name darf nicht leer sein.'); return; }
                 const entry = {...eqForm, id: eqEditId||Date.now().toString()};
                 if (eqEditId) updEquipment(equipment.map(e=>e.id===eqEditId?entry:e));
                 else updEquipment([...equipment,entry]);
