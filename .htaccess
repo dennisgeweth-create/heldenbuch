@@ -7,6 +7,25 @@ Options -Indexes
   Header set Expires 0
 </FilesMatch>
 
+# Komprimierung. js/app.js ist unkomprimiert rund 345 KB und ging bisher
+# ungepackt über die Leitung; Text komprimiert sich um etwa 80 %.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain
+  AddOutputFilterByType DEFLATE application/javascript text/javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# Die versionierten Dateien (?v=<commit>) dürfen lange im Cache bleiben: eine
+# neue Auslieferung bekommt eine neue URL. HTML bleibt davon ausgenommen,
+# siehe oben — sonst käme ein alter Verweis auf eine neue Datei.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+</IfModule>
+
 # PHP-Dateien schützen (außer api.php)
 <FilesMatch "^(?!api\.php$).*\.php$">
   Order Deny,Allow
