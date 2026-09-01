@@ -11,7 +11,7 @@
 const AusruestungsPuppe = () => {
   const {
     cur, effCur, computedAC, displayAC, itemFx,
-    gearWornList, nhGesperrt, setGearSlot, gearArmor, gearShield, gearAusVorlage,
+    gearWornList, nhGesperrt, setGearSlot, gearArmor, gearShield, gearAusVorlage, gearSetList,
     gearPick, setGearPick, fxOn, fxTitle,
     acBonuses, addAcBonus, delAcBonus, updAcBonus,
     setItemViewer, setWeaponViewer, setItf, setItfEditId, setShowIF,
@@ -134,6 +134,40 @@ const AusruestungsPuppe = () => {
       </div>
 
       <div className="gear-hands">{spalte('hand').map(platzKachel)}</div>
+
+      {/* Sets: erreichte Stufen hell, noch nicht erreichte gedaempft — man
+          soll auf einen Blick sehen, wie weit es noch ist. */}
+      {gearSetList.length > 0 && (
+        <div className="gear-sets">
+          {gearSetList.map(s => {
+            const ziel = s.stufen.length ? Math.max(...s.stufen.map(st=>+st.teile||0)) : s.teile;
+            return (
+              <div className="gear-set" key={s.name}>
+                <div className="gear-set-kopf">
+                  <span className="gear-set-name">✦ {s.name}</span>
+                  <span className="gear-set-zahl">{s.teile}{ziel>s.teile || s.stufen.length ? ' / '+ziel : ''} Teile</span>
+                </div>
+                {s.stufen.length === 0 ? (
+                  <div className="gear-set-stufe offen">
+                    {s.def
+                      ? 'Für dieses Set sind noch keine Stufen hinterlegt.'
+                      : 'Kein Eintrag in der Datenbank — lege unter 📚 Datenbank › Sets einen mit genau diesem Namen an.'}
+                  </div>
+                ) : s.stufen.map((st, i) => (
+                  <div className={"gear-set-stufe"+(st.aktiv?" aktiv":"")} key={i}>
+                    <span className="gear-set-teile">{st.teile} Teile</span>
+                    <span className="gear-set-fx">
+                      {(st.effects||[]).length === 0
+                        ? <i>nichts hinterlegt</i>
+                        : (st.effects||[]).map((e,j)=><span key={j} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Boni aus Talenten sind keine Gegenstaende und haben keinen Platz.
           Sie bleiben vorerst als eigene Liste stehen und ziehen erst um,

@@ -312,6 +312,8 @@ function App() {
     if (type==='item')   return {name:'',qty:1,weight:'',rarity:'gewöhnlich',description:'',tags:[],source:'',icon:'🎒',imageData:'',
                                  gearKind:'',armorType:'',baseAC:0,acBonus:0,effects:[],setName:''};
     if (type==='weapon') return {name:'',damage:'1W6',damageType:'Hieb',range:'1,5 m',description:'',properties:[]};
+    // stufen: ab wie vielen getragenen Teilen welche Effekte dazukommen.
+    if (type==='set')    return {name:'',description:'',stufen:[{teile:2,effects:[]}]};
     return {name:'',cr:'1/4',size:'Mittel',type:'Tier',ac:10,hp:10,speed:'9 m',str:10,dex:10,con:10,int:3,wis:12,cha:6,senses:'',skills:'',tagsStr:'',abilitiesStr:'',actions:[{name:'',desc:''}]};
   };
 
@@ -535,7 +537,18 @@ function App() {
   // weitergerechnet wird, liest ab hier effCur; Eingabefelder bleiben
   // bei cur, sonst wuerde man den veraenderten statt den eigenen Wert
   // bearbeiten.
-  const itemFx = collectEffects(cur);
+  // Setbeschreibungen kommen aus der geteilten Datenbank. Gleiche Namen
+  // gewinnt der Eintrag der Gruppe — der DM ergaenzt, ueberschreibt aber
+  // nicht still, was alle sehen.
+  const setDefs = (() => {
+    const aus = [], gesehen = new Set();
+    [...(userLibrary.set||[]), ...(isDmMode ? (dmLibrary.set||[]) : [])].forEach(s => {
+      if (s && s.name && !gesehen.has(s.name)) { gesehen.add(s.name); aus.push(s); }
+    });
+    return aus;
+  })();
+  const itemFx = collectEffects(cur, setDefs);
+  const gearSetList = gearSets(cur, setDefs);
   const fxOn   = t => itemFx.some(e => e.target === t);
   const fx     = (t, base) => applyEffect(itemFx, t, base);
   const fxTitle = (t) => {
@@ -1206,7 +1219,7 @@ function App() {
     delResource, delSpell, delToolProf, delWeaponProf, deleteChar,
     displayAC, effCur, eqEditId, eqForm, equipment, equippedArmors,
     equippedShields, exFeature, exItem, exNote, exSpell, fx, fxOn,
-    fxTitle, gearArmor, gearAusVorlage, gearPick, gearShield, gearWornList,
+    fxTitle, gearArmor, gearAusVorlage, gearPick, gearSetList, gearShield, gearWornList,
     initTotal, insp, inspMax, invRarity, invTagFilter,
     isDmMode, itemFx, nhGesperrt, noteTagFilter, notesList, openEdit,
     openNew, openTpl, openUnprepared, patchChar, resEdit, resetAll,
@@ -2326,7 +2339,7 @@ function App() {
 
       {/* Server Setup Modal */}
       {showDB && (() => {
-        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'}];
+        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'}];
         // Reset search when tab changes
         const wkCurrent = '_dbSearch_'+dbTab;
         const wktCurrent = '_dbTagFilter_'+dbTab;
@@ -2458,6 +2471,55 @@ function App() {
                       <div className="form-group form-full">
                         <div className="form-label">Beschreibung (optional)</div>
                         <textarea className="form-textarea" rows={3} style={{resize:'vertical'}} value={dbForm.description||''} onChange={e=>setDbForm(f=>({...f,description:e.target.value}))}/>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SET FORM */}
+                  {dbTab==='set' && (
+                    <div className="form-grid">
+                      <div className="form-group form-full">
+                        <label className="form-label">Name des Sets</label>
+                        <input className="form-input" value={dbForm.name} onChange={e=>setDbForm(f=>({...f,name:e.target.value}))}
+                          placeholder="z.B. Hain des Ersten Lichts" autoFocus/>
+                        <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',marginTop:5}}>
+                          Genau so muss der Name bei den Gegenständen eingetragen sein, die dazugehören.
+                        </div>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Beschreibung (optional)</label>
+                        <textarea className="form-input" rows={2} style={{resize:'vertical'}} value={dbForm.description||''}
+                          onChange={e=>setDbForm(f=>({...f,description:e.target.value}))}/>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Stufen</label>
+                        <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',marginBottom:8}}>
+                          Ab wie vielen getragenen Teilen welche Effekte dazukommen. Erreichte Stufen wirken alle
+                          zugleich — wer bei 2 und 4 Teilen etwas hinterlegt, bekommt mit 4 Teilen beides.
+                        </div>
+                        {(dbForm.stufen||[]).map((st, i) => (
+                          <div key={i} style={{border:'1px solid var(--border)',borderRadius:6,padding:'10px 12px',marginBottom:8,background:'var(--bg-card)'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                              <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)',letterSpacing:'0.08em',textTransform:'uppercase'}}>Ab</span>
+                              <input className="form-input" type="number" min={1} max={15} style={{width:64,padding:'5px 8px',textAlign:'center'}}
+                                value={st.teile} aria-label="Anzahl Teile"
+                                onChange={e=>setDbForm(f=>({...f,stufen:(f.stufen||[]).map((x,j)=>j===i?{...x,teile:Math.max(1,+e.target.value)}:x)}))}/>
+                              <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)'}}>Teilen</span>
+                              <button style={{marginLeft:'auto',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:14,padding:'2px 6px'}}
+                                title="Stufe entfernen" aria-label={'Stufe ab '+st.teile+' Teilen entfernen'}
+                                onClick={()=>setDbForm(f=>({...f,stufen:(f.stufen||[]).filter((_,j)=>j!==i)}))}>✕</button>
+                            </div>
+                            <EffectEditor effects={st.effects||[]}
+                              onChange={v=>setDbForm(f=>({...f,stufen:(f.stufen||[]).map((x,j)=>j===i?{...x,effects:v}:x)}))}
+                              hint={'Wirken ab '+st.teile+' getragenen Teilen.'} />
+                          </div>
+                        ))}
+                        <button className="btn-add" style={{width:'100%'}}
+                          onClick={()=>setDbForm(f=>{
+                            const vorhanden=(f.stufen||[]).map(s=>+s.teile||0);
+                            const naechste=Math.min(15,(vorhanden.length?Math.max(...vorhanden):0)+2);
+                            return {...f, stufen:[...(f.stufen||[]), {teile:naechste, effects:[]}]};
+                          })}>+ Stufe hinzufügen</button>
                       </div>
                     </div>
                   )}
@@ -2819,6 +2881,12 @@ function App() {
                                           {dbTab==='weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties||[]).join(', ')||'—'}`}
                                           {dbTab==='wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`}
                                           {dbTab==='item' && `${(RARITIES.find(r=>r.key===e.rarity)||RARITIES[0]).label}${e.weight?' · '+e.weight+' kg':''}${e.gearKind?' · '+((GEAR_KINDS.find(g=>g.key===e.gearKind)||{}).label||''):''}`}
+                                          {dbTab==='set' && (() => {
+                                            const st = (e.stufen||[]).map(s=>+s.teile||0).sort((a,b)=>a-b);
+                                            const teile = (activeLib.item||[]).filter(i=>i.setName===e.name).length;
+                                            return (st.length ? 'Stufen bei '+st.join(', ')+' Teilen' : 'Noch keine Stufen')
+                                                 + ' · ' + teile + ' Gegenstand' + (teile===1?'':'e') + ' in der Datenbank';
+                                          })()}
                                         </div>
                                       </div>
                                       <button onClick={ev=>{ev.stopPropagation();openDbForm(dbTab,e);}} style={{background:'none',border:'1px solid var(--border)',borderRadius:3,color:'var(--text-muted)',cursor:'pointer',padding:'4px 9px',fontSize:11}}>✎</button>
@@ -2838,6 +2906,25 @@ function App() {
                                         {dbTab==='wildshape' && (<>
                                           <div><strong>Bewegung:</strong> {e.speed||'—'} · <strong>Sinne:</strong> {e.senses||'—'}</div>
                                           {e.skills && <div><strong>Fertigk.:</strong> {e.skills}</div>}
+                                        </>)}
+                                        {dbTab==='set' && (<>
+                                          {e.description && <div style={{marginBottom:6}}>{e.description}</div>}
+                                          {(e.stufen||[]).slice().sort((a,b)=>(+a.teile||0)-(+b.teile||0)).map((st,si)=>(
+                                            <div key={si} style={{marginBottom:5}}>
+                                              <strong>{st.teile} Teile:</strong>{' '}
+                                              {(st.effects||[]).length===0
+                                                ? <span style={{fontStyle:'italic'}}>noch nichts hinterlegt</span>
+                                                : (st.effects||[]).map((fxE,fi)=><span key={fi} className="fx-chip">{EFFECT_LABELS[fxE.target]||fxE.target} {effectText(fxE)}</span>)}
+                                            </div>
+                                          ))}
+                                          {(() => {
+                                            const teile = (activeLib.item||[]).filter(i=>i.setName===e.name);
+                                            return teile.length>0 && (
+                                              <div style={{marginTop:6}}>
+                                                <strong>Teile:</strong> {teile.map(i=>i.name).join(', ')}
+                                              </div>
+                                            );
+                                          })()}
                                         </>)}
                                         {dbTab==='item' && (<>
                                           <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>

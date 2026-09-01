@@ -3260,6 +3260,7 @@ const AusruestungsPuppe = () => {
     gearArmor,
     gearShield,
     gearAusVorlage,
+    gearSetList,
     gearPick,
     setGearPick,
     fxOn,
@@ -3411,7 +3412,33 @@ const AusruestungsPuppe = () => {
     className: "gear-col"
   }, spalte('rechts').map(platzKachel))), /*#__PURE__*/React.createElement("div", {
     className: "gear-hands"
-  }, spalte('hand').map(platzKachel)), /*#__PURE__*/React.createElement("div", {
+  }, spalte('hand').map(platzKachel)), gearSetList.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "gear-sets"
+  }, gearSetList.map(s => {
+    const ziel = s.stufen.length ? Math.max(...s.stufen.map(st => +st.teile || 0)) : s.teile;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "gear-set",
+      key: s.name
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "gear-set-kopf"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "gear-set-name"
+    }, "\u2726 ", s.name), /*#__PURE__*/React.createElement("span", {
+      className: "gear-set-zahl"
+    }, s.teile, ziel > s.teile || s.stufen.length ? ' / ' + ziel : '', " Teile")), s.stufen.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "gear-set-stufe offen"
+    }, s.def ? 'Für dieses Set sind noch keine Stufen hinterlegt.' : 'Kein Eintrag in der Datenbank — lege unter 📚 Datenbank › Sets einen mit genau diesem Namen an.') : s.stufen.map((st, i) => /*#__PURE__*/React.createElement("div", {
+      className: "gear-set-stufe" + (st.aktiv ? " aktiv" : ""),
+      key: i
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "gear-set-teile"
+    }, st.teile, " Teile"), /*#__PURE__*/React.createElement("span", {
+      className: "gear-set-fx"
+    }, (st.effects || []).length === 0 ? /*#__PURE__*/React.createElement("i", null, "nichts hinterlegt") : (st.effects || []).map((e, j) => /*#__PURE__*/React.createElement("span", {
+      key: j,
+      className: "fx-chip"
+    }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))))));
+  })), /*#__PURE__*/React.createElement("div", {
     className: "gear-boni"
   }, /*#__PURE__*/React.createElement("div", {
     className: "gear-boni-head"
@@ -3991,6 +4018,15 @@ function App() {
       description: '',
       properties: []
     };
+    // stufen: ab wie vielen getragenen Teilen welche Effekte dazukommen.
+    if (type === 'set') return {
+      name: '',
+      description: '',
+      stufen: [{
+        teile: 2,
+        effects: []
+      }]
+    };
     return {
       name: '',
       cr: '1/4',
@@ -4326,7 +4362,22 @@ function App() {
   // weitergerechnet wird, liest ab hier effCur; Eingabefelder bleiben
   // bei cur, sonst wuerde man den veraenderten statt den eigenen Wert
   // bearbeiten.
-  const itemFx = collectEffects(cur);
+  // Setbeschreibungen kommen aus der geteilten Datenbank. Gleiche Namen
+  // gewinnt der Eintrag der Gruppe — der DM ergaenzt, ueberschreibt aber
+  // nicht still, was alle sehen.
+  const setDefs = (() => {
+    const aus = [],
+      gesehen = new Set();
+    [...(userLibrary.set || []), ...(isDmMode ? dmLibrary.set || [] : [])].forEach(s => {
+      if (s && s.name && !gesehen.has(s.name)) {
+        gesehen.add(s.name);
+        aus.push(s);
+      }
+    });
+    return aus;
+  })();
+  const itemFx = collectEffects(cur, setDefs);
+  const gearSetList = gearSets(cur, setDefs);
   const fxOn = t => itemFx.some(e => e.target === t);
   const fx = (t, base) => applyEffect(itemFx, t, base);
   const fxTitle = t => {
@@ -5643,6 +5694,7 @@ function App() {
     gearArmor,
     gearAusVorlage,
     gearPick,
+    gearSetList,
     gearShield,
     gearWornList,
     initTotal,
@@ -8418,6 +8470,10 @@ function App() {
       k: 'item',
       label: 'Gegenstände',
       icon: '🎒'
+    }, {
+      k: 'set',
+      label: 'Sets',
+      icon: '✦'
     }];
     // Reset search when tab changes
     const wkCurrent = '_dbSearch_' + dbTab;
@@ -8784,7 +8840,146 @@ function App() {
         ...f,
         description: e.target.value
       }))
-    }))), dbTab === 'wildshape' && /*#__PURE__*/React.createElement("div", {
+    }))), dbTab === 'set' && /*#__PURE__*/React.createElement("div", {
+      className: "form-grid"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Name des Sets"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      value: dbForm.name,
+      onChange: e => setDbForm(f => ({
+        ...f,
+        name: e.target.value
+      })),
+      placeholder: "z.B. Hain des Ersten Lichts",
+      autoFocus: true
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        marginTop: 5
+      }
+    }, "Genau so muss der Name bei den Gegenst\xE4nden eingetragen sein, die dazugeh\xF6ren.")), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Beschreibung (optional)"), /*#__PURE__*/React.createElement("textarea", {
+      className: "form-input",
+      rows: 2,
+      style: {
+        resize: 'vertical'
+      },
+      value: dbForm.description || '',
+      onChange: e => setDbForm(f => ({
+        ...f,
+        description: e.target.value
+      }))
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Stufen"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        marginBottom: 8
+      }
+    }, "Ab wie vielen getragenen Teilen welche Effekte dazukommen. Erreichte Stufen wirken alle zugleich \u2014 wer bei 2 und 4 Teilen etwas hinterlegt, bekommt mit 4 Teilen beides."), (dbForm.stufen || []).map((st, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        padding: '10px 12px',
+        marginBottom: 8,
+        background: 'var(--bg-card)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase'
+      }
+    }, "Ab"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      type: "number",
+      min: 1,
+      max: 15,
+      style: {
+        width: 64,
+        padding: '5px 8px',
+        textAlign: 'center'
+      },
+      value: st.teile,
+      "aria-label": "Anzahl Teile",
+      onChange: e => setDbForm(f => ({
+        ...f,
+        stufen: (f.stufen || []).map((x, j) => j === i ? {
+          ...x,
+          teile: Math.max(1, +e.target.value)
+        } : x)
+      }))
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 11,
+        color: 'var(--text-muted)'
+      }
+    }, "Teilen"), /*#__PURE__*/React.createElement("button", {
+      style: {
+        marginLeft: 'auto',
+        background: 'none',
+        border: 'none',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        fontSize: 14,
+        padding: '2px 6px'
+      },
+      title: "Stufe entfernen",
+      "aria-label": 'Stufe ab ' + st.teile + ' Teilen entfernen',
+      onClick: () => setDbForm(f => ({
+        ...f,
+        stufen: (f.stufen || []).filter((_, j) => j !== i)
+      }))
+    }, "\u2715")), /*#__PURE__*/React.createElement(EffectEditor, {
+      effects: st.effects || [],
+      onChange: v => setDbForm(f => ({
+        ...f,
+        stufen: (f.stufen || []).map((x, j) => j === i ? {
+          ...x,
+          effects: v
+        } : x)
+      })),
+      hint: 'Wirken ab ' + st.teile + ' getragenen Teilen.'
+    }))), /*#__PURE__*/React.createElement("button", {
+      className: "btn-add",
+      style: {
+        width: '100%'
+      },
+      onClick: () => setDbForm(f => {
+        const vorhanden = (f.stufen || []).map(s => +s.teile || 0);
+        const naechste = Math.min(15, (vorhanden.length ? Math.max(...vorhanden) : 0) + 2);
+        return {
+          ...f,
+          stufen: [...(f.stufen || []), {
+            teile: naechste,
+            effects: []
+          }]
+        };
+      })
+    }, "+ Stufe hinzuf\xFCgen"))), dbTab === 'wildshape' && /*#__PURE__*/React.createElement("div", {
       className: "form-grid"
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-group form-full"
@@ -9671,7 +9866,11 @@ function App() {
             color: 'var(--text-muted)',
             marginTop: 2
           }
-        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}${e.gearKind ? ' · ' + ((GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label || '') : ''}`)), /*#__PURE__*/React.createElement("button", {
+        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}${e.gearKind ? ' · ' + ((GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label || '') : ''}`, dbTab === 'set' && (() => {
+          const st = (e.stufen || []).map(s => +s.teile || 0).sort((a, b) => a - b);
+          const teile = (activeLib.item || []).filter(i => i.setName === e.name).length;
+          return (st.length ? 'Stufen bei ' + st.join(', ') + ' Teilen' : 'Noch keine Stufen') + ' · ' + teile + ' Gegenstand' + (teile === 1 ? '' : 'e') + ' in der Datenbank';
+        })())), /*#__PURE__*/React.createElement("button", {
           onClick: ev => {
             ev.stopPropagation();
             openDbForm(dbTab, e);
@@ -9723,7 +9922,30 @@ function App() {
             marginTop: 6,
             whiteSpace: 'pre-wrap'
           }
-        }, e.description)), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'item' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+        }, e.description)), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'set' && /*#__PURE__*/React.createElement(React.Fragment, null, e.description && /*#__PURE__*/React.createElement("div", {
+          style: {
+            marginBottom: 6
+          }
+        }, e.description), (e.stufen || []).slice().sort((a, b) => (+a.teile || 0) - (+b.teile || 0)).map((st, si) => /*#__PURE__*/React.createElement("div", {
+          key: si,
+          style: {
+            marginBottom: 5
+          }
+        }, /*#__PURE__*/React.createElement("strong", null, st.teile, " Teile:"), ' ', (st.effects || []).length === 0 ? /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontStyle: 'italic'
+          }
+        }, "noch nichts hinterlegt") : (st.effects || []).map((fxE, fi) => /*#__PURE__*/React.createElement("span", {
+          key: fi,
+          className: "fx-chip"
+        }, EFFECT_LABELS[fxE.target] || fxE.target, " ", effectText(fxE))))), (() => {
+          const teile = (activeLib.item || []).filter(i => i.setName === e.name);
+          return teile.length > 0 && /*#__PURE__*/React.createElement("div", {
+            style: {
+              marginTop: 6
+            }
+          }, /*#__PURE__*/React.createElement("strong", null, "Teile:"), " ", teile.map(i => i.name).join(', '));
+        })()), dbTab === 'item' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
           style: {
             display: 'flex',
             gap: 10,

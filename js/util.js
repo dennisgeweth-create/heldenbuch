@@ -34,11 +34,35 @@ const gearWorn = (c) => {
   }).filter(Boolean);
 };
 
+// ── Sets ─────────────────────────────────────────────────────────
+// Ein Gegenstand traegt nur den Setnamen; was ein Set ab wie vielen Teilen
+// gibt, steht im Set-Register der geteilten Datenbank. Gezaehlt werden
+// getragene Stuecke: zwei Ringe desselben Sets in beiden Ringplaetzen sind
+// zwei Teile. Ein Stueck kann nicht doppelt zaehlen, weil derselbe
+// Gegenstand nie in zwei Plaetzen liegt.
+const gearSets = (c, setDefs) => {
+  if (!c) return [];
+  const zaehler = {};
+  gearWorn(c).forEach(({obj}) => {
+    const n = (obj.setName || '').trim();
+    if (n) zaehler[n] = (zaehler[n] || 0) + 1;
+  });
+  return Object.keys(zaehler).map(name => {
+    const def = (setDefs || []).find(s => s.name === name) || null;
+    const teile = zaehler[name];
+    const stufen = (((def && def.stufen) || [])
+      .slice()
+      .sort((a,b) => (+a.teile||0) - (+b.teile||0))
+      .map(st => ({...st, aktiv: teile >= (+st.teile || 0)})));
+    return {name, teile, def, stufen, hoechste: stufen.reduce((m,st)=>st.aktiv?Math.max(m,+st.teile||0):m, 0)};
+  }).sort((a,b) => a.name.localeCompare(b.name, 'de'));
+};
+
 // Sammelt alle Effekte, die gerade wirken, samt Herkunft fuer die Anzeige.
 // Jede Quelle zaehlt hoechstens einmal: eine Waffe in der Haupthand traegt
 // ihre Effekte ueber den Platz bei und darf nicht zusaetzlich ueber ihr
 // equipped-Kennzeichen noch einmal gezaehlt werden.
-const collectEffects = (c) => {
+const collectEffects = (c, setDefs) => {
   if (!c) return [];
   const out = [], gesehen = new Set();
   const add = (schluessel, source, icon, list) => {
@@ -49,6 +73,12 @@ const collectEffects = (c) => {
     });
   };
   gearWorn(c).forEach(({slot, obj, k}) => add(k+':'+obj.id, obj.name||slot.label, slot.icon, obj.effects));
+  // Setboni: jede erreichte Stufe steuert ihre Effekte bei. Sie stehen
+  // gleichberechtigt neben denen der Stuecke — bei "setzt fest" gewinnt
+  // weiterhin der hoechste Wert.
+  gearSets(c, setDefs).forEach(s => s.stufen.forEach((st, i) => {
+    if (st.aktiv) add('set:'+s.name+':'+i, s.name+' ('+(+st.teile||0)+' Teile)', '✦', st.effects);
+  }));
   (c.weapons ||[]).forEach(w => { if (w.equipped) add('w:'+w.id, w.name||"Waffe", "⚔", w.effects); });
   // Die alte Ausruestungsliste zaehlt nur, solange der Held nicht umgestellt
   // ist — danach steckt dasselbe Stueck als Inventargegenstand in einem Platz
