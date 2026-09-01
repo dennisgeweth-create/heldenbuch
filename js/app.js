@@ -3420,16 +3420,27 @@ const AusruestungsPuppe = () => {
     className: "gear-col"
   }, spalte('links').map(platzKachel)), /*#__PURE__*/React.createElement("div", {
     className: "gear-mid"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "gear-portrait"
-  }, cur.portrait ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
+  }, cur.portrait ? /*#__PURE__*/React.createElement("img", {
+    className: "gear-mid-bild",
     src: cur.portrait,
     alt: cur.name,
     onClick: () => setImgViewer({
       name: cur.name,
       imageData: cur.portrait
     })
-  }), /*#__PURE__*/React.createElement("div", {
+  }) : /*#__PURE__*/React.createElement("label", {
+    className: "gear-mid-leer",
+    title: "Bild des Helden hochladen"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "gear-figur",
+    "aria-hidden": "true"
+  }, "\u2694"), /*#__PURE__*/React.createElement("span", {
+    className: "gear-portrait-hinweis"
+  }, "\uD83D\uDCF7 Bild w\xE4hlen"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    onChange: bildWaehlen
+  })), cur.portrait && /*#__PURE__*/React.createElement("div", {
     className: "gear-portrait-tools"
   }, /*#__PURE__*/React.createElement("label", {
     className: "gear-portrait-btn",
@@ -3443,19 +3454,9 @@ const AusruestungsPuppe = () => {
     onClick: bildEntfernen,
     title: "Bild entfernen",
     "aria-label": "Bild entfernen"
-  }, "\u2715"))) : /*#__PURE__*/React.createElement("label", {
-    className: "gear-portrait-leer",
-    title: "Bild des Helden hochladen"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "gear-figur",
-    "aria-hidden": "true"
-  }, "\u2694"), /*#__PURE__*/React.createElement("span", {
-    className: "gear-portrait-hinweis"
-  }, "\uD83D\uDCF7 Bild w\xE4hlen"), /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/*",
-    onChange: bildWaehlen
-  }))), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "gear-mid-info"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "gear-mid-name"
   }, cur.name), /*#__PURE__*/React.createElement("div", {
     className: "gear-herleitung"
@@ -3466,7 +3467,7 @@ const AusruestungsPuppe = () => {
     className: i === 0 ? 'stark' : ''
   }, i === 0 ? '' : '+ ', t)), computedAC !== null && /*#__PURE__*/React.createElement("div", {
     className: "gear-summe"
-  }, "= ", displayAC, " RK"))), /*#__PURE__*/React.createElement("div", {
+  }, "= ", displayAC, " RK")))), /*#__PURE__*/React.createElement("div", {
     className: "gear-col"
   }, spalte('rechts').map(platzKachel))), /*#__PURE__*/React.createElement("div", {
     className: "gear-hands"

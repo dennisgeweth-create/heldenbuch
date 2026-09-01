@@ -770,7 +770,9 @@
   .gear-ac-l { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); }
   .gear-ac-v { font-family:'Roboto Condensed',sans-serif; font-size:24px; line-height:1; color:var(--gold); font-variant-numeric:tabular-nums; }
 
-  .gear-doll { display:grid; grid-template-columns:1fr minmax(150px,1.15fr) 1fr; gap:8px; align-items:start; }
+  /* stretch statt start: die Mitte nimmt die Hoehe der Platzspalten an,
+     damit das Bild weder unten heraushaengt noch Luft laesst. */
+  .gear-doll { display:grid; grid-template-columns:1fr minmax(150px,1.15fr) 1fr; gap:8px; align-items:stretch; }
   .gear-col { display:flex; flex-direction:column; gap:6px; }
   .gear-hands { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:6px; }
 
@@ -807,21 +809,37 @@
     .gear-slot-btn { padding-right:36px; }
   }
 
-  .gear-mid { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:12px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; }
-  /* Bild des Helden. Gleiches Verhaeltnis wie die Waffenkarten (5:7), nur
-     schmaler — es teilt sich die Mittelspalte mit der RK-Herleitung. */
-  .gear-portrait { position:relative; width:100%; max-width:170px; aspect-ratio:5/7;
-    border-radius:8px; overflow:hidden; border:2px solid var(--border);
-    background:radial-gradient(circle at 50% 40%, var(--bg-hover) 0%, var(--bg-void) 100%); }
-  .gear-portrait img { width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in; }
-  .gear-portrait-leer { width:100%; height:100%; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:8px; cursor:pointer; }
-  .gear-portrait-leer:hover { border-color:var(--gold-dim); }
-  .gear-portrait input[type=file] { display:none; }
+  /* Das Bild fuellt die Mitte; Name und Herleitung liegen als eigene
+     Flaeche darueber. Der Grund dieser Flaeche ist fast deckend, damit
+     der Text auch auf einem hellen Foto lesbar bleibt — eine nur leicht
+     getoente Schicht reicht dafuer nicht. */
+  /* Spalte statt absoluter Anordnung: das Bild liegt als Flaeche darunter,
+     die Infobox sitzt unten im Fluss. Ohne Bild fuellt die Aufforderung
+     genau den Raum darueber — absolut zentriert laege sie hinter der
+     Infobox. */
+  .gear-mid { position:relative; overflow:hidden; border:1px solid var(--border); border-radius:6px;
+    min-height:230px; display:flex; flex-direction:column;
+    background:radial-gradient(circle at 50% 35%, var(--bg-hover) 0%, var(--bg-void) 100%); }
+  .gear-mid-bild { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in; }
+  .gear-mid-leer { position:relative; z-index:1; flex:1; min-height:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:8px; cursor:pointer; padding:10px; }
+  .gear-mid-leer:hover .gear-figur { opacity:1; }
+  .gear-mid input[type=file] { display:none; }
+  .gear-mid-info { position:relative; z-index:1; margin-top:auto;
+    background:rgba(15,16,17,0.92); border-top:1px solid rgba(255,255,255,0.08);
+    padding:8px 10px 9px; max-height:78%; overflow-y:auto; }
+  /* 0,88 statt weniger: darunter faellt die RK-Summe auf einem hellen
+     Foto unter 4,5:1. Gemessen gegen ein rein weisses Bild als
+     schlimmsten Fall — Summe 5,0:1, Herleitung 7,3:1, Name 9,9:1. */
+  @supports (backdrop-filter: blur(4px)) {
+    .gear-mid-info { background:rgba(15,16,17,0.88); backdrop-filter:blur(4px); }
+  }
+  .gear-mid-info::-webkit-scrollbar { width:4px; }
+  .gear-mid-info::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
   .gear-portrait-hinweis { font-family:'Roboto Condensed',sans-serif; font-size:10px;
     letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); text-align:center; padding:0 6px; }
-  .gear-portrait-leer:hover .gear-portrait-hinweis { color:var(--gold); }
-  .gear-portrait-tools { position:absolute; bottom:5px; right:5px; display:flex; gap:5px; }
+  .gear-mid-leer:hover .gear-portrait-hinweis { color:var(--gold); }
+  .gear-portrait-tools { position:absolute; top:5px; right:5px; z-index:2; display:flex; gap:5px; }
   .gear-portrait-btn { width:26px; height:26px; border-radius:4px; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
     background:rgba(15,16,17,0.82); border:1px solid var(--border-bright); color:var(--text-secondary);
@@ -830,11 +848,11 @@
   @media (hover:none), (pointer:coarse) {
     .gear-portrait-btn { width:34px; height:34px; font-size:14px; }
   }
-  .gear-figur { font-size:34px; line-height:1; opacity:0.8; }
-  .gear-mid-name { font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); text-align:center; }
-  .gear-herleitung { width:100%; border-top:1px solid var(--border); padding-top:8px; font-family:'Roboto Condensed',sans-serif; font-size:11.5px; color:var(--text-muted); line-height:1.65; }
-  .gear-herleitung .stark { color:var(--text-secondary); }
-  .gear-summe { border-top:1px solid var(--border); margin-top:5px; padding-top:5px; color:var(--gold); }
+  .gear-figur { font-size:34px; line-height:1; opacity:0.7; transition:opacity 0.15s; }
+  .gear-mid-name { font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--parchment); text-align:center; margin-bottom:6px; }
+  .gear-herleitung { width:100%; border-top:1px solid rgba(255,255,255,0.10); padding-top:7px; font-family:'Roboto Condensed',sans-serif; font-size:11.5px; color:var(--parchment-dim); line-height:1.6; }
+  .gear-herleitung .stark { color:var(--parchment); }
+  .gear-summe { border-top:1px solid rgba(255,255,255,0.10); margin-top:5px; padding-top:5px; color:var(--gold-bright); }
   .gear-hint { color:var(--text-muted); font-style:italic; font-size:12.5px; }
 
   /* Sets. Erreichte Stufen tragen Farbe, offene bleiben gedaempft —
@@ -896,7 +914,11 @@
     .gear-doll { grid-template-columns:1fr 1fr; }
     /* Die Mitte mit RK und Herleitung zuerst — beim Stapeln ist sie das,
        was man zuerst sehen will. */
-    .gear-mid { grid-column:1 / -1; order:-1; }
+    /* Gestapelt gibt es keine Spalte, an der sich die Hoehe ausrichten
+       koennte — hier bekommt die Mitte das Kartenverhaeltnis der Waffen
+       und eine Breite, die nicht die halbe Seite einnimmt. */
+    .gear-mid { grid-column:1 / -1; order:-1; width:100%; max-width:230px;
+      margin:0 auto 4px; aspect-ratio:5/7; min-height:0; }
     .gear-slot-btn { min-height:52px; }
     .gear-slot-txt i { font-size:13px; }
   }

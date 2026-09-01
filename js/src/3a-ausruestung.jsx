@@ -138,34 +138,38 @@ const AusruestungsPuppe = () => {
 
       <div className="gear-doll">
         <div className="gear-col">{spalte('links').map(platzKachel)}</div>
+        {/* Die Mitte ist so hoch wie die Platzspalten daneben. Das Bild
+            fuellt sie ganz aus, die Herleitung liegt als eigene Flaeche
+            darueber — sie hat einen eigenen Grund, damit der Text auch auf
+            einem hellen Foto lesbar bleibt. */}
         <div className="gear-mid">
-          <div className="gear-portrait">
-            {cur.portrait ? (
-              <>
-                <img src={cur.portrait} alt={cur.name}
-                  onClick={()=>setImgViewer({name:cur.name, imageData:cur.portrait})} />
-                <div className="gear-portrait-tools">
-                  <label className="gear-portrait-btn" title="Anderes Bild wählen">
-                    ✎<input type="file" accept="image/*" onChange={bildWaehlen} />
-                  </label>
-                  <button className="gear-portrait-btn" onClick={bildEntfernen}
-                    title="Bild entfernen" aria-label="Bild entfernen">✕</button>
-                </div>
-              </>
-            ) : (
-              <label className="gear-portrait-leer" title="Bild des Helden hochladen">
-                <span className="gear-figur" aria-hidden="true">⚔</span>
-                <span className="gear-portrait-hinweis">📷 Bild wählen</span>
-                <input type="file" accept="image/*" onChange={bildWaehlen} />
+          {cur.portrait ? (
+            <img className="gear-mid-bild" src={cur.portrait} alt={cur.name}
+              onClick={()=>setImgViewer({name:cur.name, imageData:cur.portrait})} />
+          ) : (
+            <label className="gear-mid-leer" title="Bild des Helden hochladen">
+              <span className="gear-figur" aria-hidden="true">⚔</span>
+              <span className="gear-portrait-hinweis">📷 Bild wählen</span>
+              <input type="file" accept="image/*" onChange={bildWaehlen} />
+            </label>
+          )}
+          {cur.portrait && (
+            <div className="gear-portrait-tools">
+              <label className="gear-portrait-btn" title="Anderes Bild wählen">
+                ✎<input type="file" accept="image/*" onChange={bildWaehlen} />
               </label>
-            )}
-          </div>
-          <div className="gear-mid-name">{cur.name}</div>
-          <div className="gear-herleitung">
-            {computedAC === null
-              ? <div className="gear-hint">RK von Hand eingetragen — lege eine Rüstung an, damit sie gerechnet wird.</div>
-              : herleitung().map((t,i) => <div key={i} className={i===0?'stark':''}>{i===0?'':'+ '}{t}</div>)}
-            {computedAC !== null && <div className="gear-summe">= {displayAC} RK</div>}
+              <button className="gear-portrait-btn" onClick={bildEntfernen}
+                title="Bild entfernen" aria-label="Bild entfernen">✕</button>
+            </div>
+          )}
+          <div className="gear-mid-info">
+            <div className="gear-mid-name">{cur.name}</div>
+            <div className="gear-herleitung">
+              {computedAC === null
+                ? <div className="gear-hint">RK von Hand eingetragen — lege eine Rüstung an, damit sie gerechnet wird.</div>
+                : herleitung().map((t,i) => <div key={i} className={i===0?'stark':''}>{i===0?'':'+ '}{t}</div>)}
+              {computedAC !== null && <div className="gear-summe">= {displayAC} RK</div>}
+            </div>
           </div>
         </div>
         <div className="gear-col">{spalte('rechts').map(platzKachel)}</div>
