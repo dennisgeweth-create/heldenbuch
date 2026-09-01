@@ -3266,11 +3266,15 @@ const AusruestungsPuppe = () => {
     setGearPick,
     fxOn,
     fxTitle,
+    patchChar,
+    appAlert,
+    appConfirm,
     setItemViewer,
     setWeaponViewer,
     setItf,
     setItfEditId,
-    setShowIF
+    setShowIF,
+    setImgViewer
   } = React.useContext(SheetCtx);
   if (!cur) return null;
   const belegt = {};
@@ -3374,6 +3378,25 @@ const AusruestungsPuppe = () => {
     });
     return teile;
   };
+
+  // ── Bild des Helden ──
+  // Es liegt im Charakter-Datensatz, und der geht bei jeder Aenderung am
+  // Helden vollstaendig zum Server — anders als Inventargegenstaende, die
+  // einzeln gespeichert werden. Deshalb 480px lange Kante: angezeigt wird
+  // es ohnehin nur handtellergross.
+  const bildWaehlen = ev => {
+    const datei = ev.target.files && ev.target.files[0];
+    ev.target.value = ''; // damit dieselbe Datei erneut gewaehlt werden kann
+    if (!datei) return;
+    compressImage(datei, 480, daten => {
+      if (daten) patchChar({
+        portrait: daten
+      });else appAlert('Das Bild liess sich nicht lesen.');
+    });
+  };
+  const bildEntfernen = () => appConfirm('Bild wirklich entfernen?', () => patchChar({
+    portrait: ''
+  }));
   const s = gearPick ? GEAR_SLOTS.find(x => x.key === gearPick) : null;
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "gear-block"
@@ -3398,9 +3421,41 @@ const AusruestungsPuppe = () => {
   }, spalte('links').map(platzKachel)), /*#__PURE__*/React.createElement("div", {
     className: "gear-mid"
   }, /*#__PURE__*/React.createElement("div", {
+    className: "gear-portrait"
+  }, cur.portrait ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
+    src: cur.portrait,
+    alt: cur.name,
+    onClick: () => setImgViewer({
+      name: cur.name,
+      imageData: cur.portrait
+    })
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "gear-portrait-tools"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "gear-portrait-btn",
+    title: "Anderes Bild w\xE4hlen"
+  }, "\u270E", /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    onChange: bildWaehlen
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "gear-portrait-btn",
+    onClick: bildEntfernen,
+    title: "Bild entfernen",
+    "aria-label": "Bild entfernen"
+  }, "\u2715"))) : /*#__PURE__*/React.createElement("label", {
+    className: "gear-portrait-leer",
+    title: "Bild des Helden hochladen"
+  }, /*#__PURE__*/React.createElement("span", {
     className: "gear-figur",
     "aria-hidden": "true"
-  }, "\u2694"), /*#__PURE__*/React.createElement("div", {
+  }, "\u2694"), /*#__PURE__*/React.createElement("span", {
+    className: "gear-portrait-hinweis"
+  }, "\uD83D\uDCF7 Bild w\xE4hlen"), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    onChange: bildWaehlen
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "gear-mid-name"
   }, cur.name), /*#__PURE__*/React.createElement("div", {
     className: "gear-herleitung"

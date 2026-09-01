@@ -201,6 +201,9 @@ const newChar   = () => ({
   // zulaesst, erhoeht das Maximum im Bogen.
   inspiration:0, inspirationMax:1,
   str:10, dex:10, con:10, int:10, wis:10, cha:10,
+  // Bild des Helden, als data-URL. Liegt im Charakter-Datensatz und wird
+  // deshalb vor dem Speichern verkleinert.
+  portrait:"",
   background:"", notes:"", notesList:[], features:[], weapons:[], spells:[], skillProfs:[], expertiseProfs:[], jackOfAllTrades:false, languages:[], toolProfs:[], weaponProfs:[],
   savingThrowProfs:[],
   sorceryPoints:{max:0, used:0},

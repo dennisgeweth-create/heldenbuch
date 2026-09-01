@@ -12,8 +12,8 @@ const AusruestungsPuppe = () => {
   const {
     cur, effCur, computedAC, displayAC, itemFx,
     gearWornList, nhGesperrt, setGearSlot, gearArmor, gearShield, gearAusVorlage, gearSetList,
-    gearPick, setGearPick, fxOn, fxTitle,
-    setItemViewer, setWeaponViewer, setItf, setItfEditId, setShowIF,
+    gearPick, setGearPick, fxOn, fxTitle, patchChar, appAlert, appConfirm,
+    setItemViewer, setWeaponViewer, setItf, setItfEditId, setShowIF, setImgViewer,
   } = React.useContext(SheetCtx);
 
   if (!cur) return null;
@@ -107,6 +107,22 @@ const AusruestungsPuppe = () => {
     return teile;
   };
 
+  // ── Bild des Helden ──
+  // Es liegt im Charakter-Datensatz, und der geht bei jeder Aenderung am
+  // Helden vollstaendig zum Server — anders als Inventargegenstaende, die
+  // einzeln gespeichert werden. Deshalb 480px lange Kante: angezeigt wird
+  // es ohnehin nur handtellergross.
+  const bildWaehlen = (ev) => {
+    const datei = ev.target.files && ev.target.files[0];
+    ev.target.value = '';   // damit dieselbe Datei erneut gewaehlt werden kann
+    if (!datei) return;
+    compressImage(datei, 480, (daten) => {
+      if (daten) patchChar({portrait: daten});
+      else appAlert('Das Bild liess sich nicht lesen.');
+    });
+  };
+  const bildEntfernen = () => appConfirm('Bild wirklich entfernen?', () => patchChar({portrait: ''}));
+
   const s = gearPick ? GEAR_SLOTS.find(x => x.key === gearPick) : null;
 
   return (
@@ -123,7 +139,27 @@ const AusruestungsPuppe = () => {
       <div className="gear-doll">
         <div className="gear-col">{spalte('links').map(platzKachel)}</div>
         <div className="gear-mid">
-          <div className="gear-figur" aria-hidden="true">⚔</div>
+          <div className="gear-portrait">
+            {cur.portrait ? (
+              <>
+                <img src={cur.portrait} alt={cur.name}
+                  onClick={()=>setImgViewer({name:cur.name, imageData:cur.portrait})} />
+                <div className="gear-portrait-tools">
+                  <label className="gear-portrait-btn" title="Anderes Bild wählen">
+                    ✎<input type="file" accept="image/*" onChange={bildWaehlen} />
+                  </label>
+                  <button className="gear-portrait-btn" onClick={bildEntfernen}
+                    title="Bild entfernen" aria-label="Bild entfernen">✕</button>
+                </div>
+              </>
+            ) : (
+              <label className="gear-portrait-leer" title="Bild des Helden hochladen">
+                <span className="gear-figur" aria-hidden="true">⚔</span>
+                <span className="gear-portrait-hinweis">📷 Bild wählen</span>
+                <input type="file" accept="image/*" onChange={bildWaehlen} />
+              </label>
+            )}
+          </div>
           <div className="gear-mid-name">{cur.name}</div>
           <div className="gear-herleitung">
             {computedAC === null
