@@ -111,6 +111,51 @@ const fuzzyFilter = (items, query, getStr) => {
     .map(x => x.item);
 };
 
+// ── Suche ueber alle Angaben eines Gegenstands ───────────────────
+// Text aus einer Beschreibung ziehen, ohne die Auszeichnung mitzusuchen —
+// sonst faende "div" jeden formatierten Eintrag.
+const htmlText = (html) => {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(String(html), 'text/html');
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+};
+// Umlaute fallen weg ("Übermantel" → "ubermantel"), damit die Suche auch
+// ohne Umlauttaste trifft. Die zweite Fassung schreibt sie aus, sodass
+// ebenso "uebermantel" gefunden wird.
+const normSearch = (s) => String(s == null ? '' : s).toLowerCase()
+  .replace(/ß/g, 'ss').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const expandUmlauts = (s) => String(s == null ? '' : s).toLowerCase()
+  .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+const containsFold = (hay, q) =>
+  normSearch(hay).includes(normSearch(q)) || expandUmlauts(hay).includes(expandUmlauts(q));
+
+// Rangfolge der Treffer; 0 heisst "passt nicht".
+// Unscharf gesucht wird nur im Namen. Eine Teilfolgensuche ueber eine lange
+// Beschreibung traefe fast jede Eingabe — die Buchstaben von "der" stehen in
+// dieser Reihenfolge in nahezu jedem deutschen Satz. Die uebrigen Felder
+// werden deshalb als zusammenhaengende Zeichenkette geprueft.
+const itemSearchScore = (item, query, rarityLabel) => {
+  const q = String(query == null ? '' : query).trim();
+  if (!q) return 1;
+  const name = item.name || '';
+  let score = 0;
+  if (normSearch(name).startsWith(normSearch(q)) || expandUmlauts(name).startsWith(expandUmlauts(q))) score = 1000;
+  else if (containsFold(name, q)) score = 800;
+  else {
+    const f = fuzzyMatch(normSearch(name), normSearch(q));
+    if (f > 0) score = 400 + Math.min(f, 200);
+  }
+  const felder = [
+    [(item.tags || []).join(' '), 350],
+    [item.source || '', 300],
+    [rarityLabel || item.rarity || '', 250],
+    [(item.effects || []).map(e => (EFFECT_LABELS[e.target] || e.target || '') + ' ' + effectText(e)).join(' '), 220],
+    [htmlText(item.description), 200],
+  ];
+  felder.forEach(([text, wert]) => { if (text && containsFold(text, q)) score = Math.max(score, wert); });
+  return score;
+};
+
 // ── HTML aus Beschreibungen entschaerfen ─────────────────────────
 // Beschreibungen liegen in der gemeinsamen Gruppendatenbank: was eine Person
 // eintraegt, setzt der Browser der anderen ein. Der Rich-Text-Editor braucht

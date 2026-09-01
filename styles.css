@@ -391,6 +391,24 @@
   .tpl-search-input { flex:1; min-width:160px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:8px 10px; font-family:'Roboto',sans-serif; font-size:14px; outline:none; }
   .tpl-search-input:focus { border-color:var(--gold-dim); }
   .tpl-filter-select { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-secondary); padding:8px 8px; font-family:'Roboto Condensed',sans-serif; font-size:11px; outline:none; }
+  /* Suchleiste im Inventar. 16px Schriftgroesse im Feld, weil iOS bei
+     kleinerer Schrift beim Antippen in das Feld hineinzoomt. */
+  .inv-search-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:stretch; margin-bottom:8px; }
+  .inv-search-field { position:relative; flex:1 1 200px; min-width:0; display:flex; }
+  .inv-search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:13px; opacity:0.55; pointer-events:none; }
+  .inv-search-input { flex:1; min-width:0; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); padding:9px 10px 9px 32px; font-family:'Roboto',sans-serif; font-size:16px; min-height:42px; outline:none; }
+  .inv-search-input::placeholder { color:var(--text-muted); }
+  .inv-search-input:focus { border-color:var(--gold-dim); }
+  /* Gross genug fuer den Daumen: 44px sind die uebliche Untergrenze fuer
+     Beruehrungsziele, das Feld daneben ist ebenso hoch. */
+  /* Nicht --crimson als Schriftfarbe: auf dem dunklen Grund kommt das
+     Rot nur auf 2,5:1 und ist im abgedunkelten Raum kaum zu lesen. Der
+     hellere Ton der Loeschen-Knoepfe erreicht 5,2:1. */
+  .inv-search-reset { min-height:42px; min-width:44px; padding:0 16px; border-radius:3px; cursor:pointer;
+    background:var(--bg-hover); border:1px solid #d98a8a; color:#d98a8a;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.06em; text-transform:uppercase; white-space:nowrap; }
+  .inv-search-reset:hover { background:var(--crimson); color:#fff; border-color:var(--crimson); }
+  .inv-leer { display:flex; flex-wrap:wrap; align-items:center; gap:12px; color:var(--text-muted); font-style:italic; font-size:14px; margin-bottom:12px; }
   .tpl-list { max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
   .tpl-list::-webkit-scrollbar { width:4px; }
   .tpl-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }

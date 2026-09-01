@@ -591,6 +591,16 @@ const Sheet = () => {
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
   // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
+  const [invSuche, setInvSuche] = useState("");
+  const invSucheRef = useRef(null);
+  // Nach dem Zuruecksetzen steht der Zeiger wieder im Feld: der haeufigste
+  // naechste Schritt ist eine neue Suche, nicht das Blaettern.
+  const invFilterLeeren = () => {
+    setInvSuche("");
+    setInvRarity('all');
+    setInvTagFilter([]);
+    if (invSucheRef.current) invSucheRef.current.focus();
+  };
   if (!cur) return /*#__PURE__*/React.createElement("div", {
     className: "empty-state"
   }, /*#__PURE__*/React.createElement("div", {
@@ -3210,13 +3220,28 @@ const Sheet = () => {
         marginBottom: 12
       }
     }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap",
-        marginBottom: allTags.length > 0 ? 8 : 0
+      className: "inv-search-bar"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "inv-search-field"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "inv-search-icon",
+      "aria-hidden": "true"
+    }, "\uD83D\uDD0D"), /*#__PURE__*/React.createElement("input", {
+      ref: invSucheRef,
+      className: "inv-search-input",
+      type: "search",
+      placeholder: "Gegenst\xE4nde durchsuchen\u2026",
+      value: invSuche,
+      "aria-label": "Gegenst\xE4nde durchsuchen",
+      autoComplete: "off",
+      onChange: e => setInvSuche(e.target.value),
+      onKeyDown: e => {
+        if (e.key === 'Escape' && invSuche) {
+          e.stopPropagation();
+          setInvSuche("");
+        }
       }
-    }, /*#__PURE__*/React.createElement("select", {
+    })), /*#__PURE__*/React.createElement("select", {
       className: "tpl-filter-select",
       value: invRarity,
       onChange: e => setInvRarity(e.target.value),
@@ -3228,14 +3253,10 @@ const Sheet = () => {
     }, "Alle Seltenheiten"), RARITIES.map(r => /*#__PURE__*/React.createElement("option", {
       key: r.key,
       value: r.key
-    }, r.label))), invTagFilter.length > 0 && /*#__PURE__*/React.createElement("button", {
-      className: "tag-filter-btn",
-      onClick: () => setInvTagFilter([]),
-      style: {
-        borderColor: "var(--crimson)",
-        color: "var(--crimson)"
-      }
-    }, "\u2715 Filter leeren")), allTags.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, r.label))), (invSuche.trim() !== "" || invRarity !== 'all' || invTagFilter.length > 0) && /*#__PURE__*/React.createElement("button", {
+      className: "inv-search-reset",
+      onClick: invFilterLeeren
+    }, "\u2715 Zur\xFCcksetzen")), allTags.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "tag-filter-bar"
     }, allTags.map(tag => /*#__PURE__*/React.createElement("button", {
       key: tag,
@@ -3251,14 +3272,24 @@ const Sheet = () => {
       ungewöhnlich: 4,
       gewöhnlich: 5
     };
-    const filtered = inv.filter(item => {
+    const such = invSuche.trim();
+    const filtered = inv.map(item => {
       const matchRarity = invRarity === 'all' || item.rarity === invRarity;
       const matchTags = invTagFilter.length === 0 || invTagFilter.every(t => (item.tags || []).includes(t));
-      return matchRarity && matchTags;
-    }).sort((a, b) => {
-      const rd = (rarityOrder[a.rarity] !== undefined ? rarityOrder[a.rarity] : 5) - (rarityOrder[b.rarity] !== undefined ? rarityOrder[b.rarity] : 5);
-      return rd !== 0 ? rd : a.name.localeCompare(b.name, 'de');
-    });
+      if (!matchRarity || !matchTags) return null;
+      const rl = (RARITIES.find(x => x.key === item.rarity) || {}).label;
+      const score = itemSearchScore(item, such, rl);
+      return score > 0 ? {
+        item,
+        score
+      } : null;
+    }).filter(Boolean).sort((a, b) => {
+      // Bei einer Suche zaehlt die Trefferguete, sonst bleibt es bei
+      // der gewohnten Ordnung nach Seltenheit.
+      if (such) return b.score - a.score || a.item.name.localeCompare(b.item.name, 'de');
+      const rd = (rarityOrder[a.item.rarity] !== undefined ? rarityOrder[a.item.rarity] : 5) - (rarityOrder[b.item.rarity] !== undefined ? rarityOrder[b.item.rarity] : 5);
+      return rd !== 0 ? rd : a.item.name.localeCompare(b.item.name, 'de');
+    }).map(x => x.item);
     if (inv.length === 0) return /*#__PURE__*/React.createElement("div", {
       style: {
         color: "var(--text-muted)",
@@ -3268,13 +3299,11 @@ const Sheet = () => {
       }
     }, "Keine Gegenst\xE4nde im Inventar.");
     if (filtered.length === 0) return /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: "var(--text-muted)",
-        fontStyle: "italic",
-        fontSize: 14,
-        marginBottom: 12
-      }
-    }, "Keine Gegenst\xE4nde gefunden.");
+      className: "inv-leer"
+    }, /*#__PURE__*/React.createElement("div", null, "Keine Gegenst\xE4nde gefunden", such ? /*#__PURE__*/React.createElement(React.Fragment, null, " f\xFCr \u201E", such, "\u201C") : null, "."), /*#__PURE__*/React.createElement("button", {
+      className: "inv-search-reset",
+      onClick: invFilterLeeren
+    }, "\u2715 Zur\xFCcksetzen"));
     return /*#__PURE__*/React.createElement("div", null, transferMode && /*#__PURE__*/React.createElement("div", {
       style: {
         marginBottom: 8,
@@ -3511,7 +3540,7 @@ const Sheet = () => {
       style: {
         color: "var(--text-secondary)"
       }
-    }, totalWeight.toFixed(2), " kg")), (invRarity !== 'all' || invTagFilter.length > 0) && /*#__PURE__*/React.createElement("div", {
+    }, totalWeight.toFixed(2), " kg")), (such || invRarity !== 'all' || invTagFilter.length > 0) && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 11,

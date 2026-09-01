@@ -46,6 +46,14 @@ const Sheet = () => {
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
   // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
+  const [invSuche, setInvSuche] = useState("");
+  const invSucheRef = useRef(null);
+  // Nach dem Zuruecksetzen steht der Zeiger wieder im Feld: der haeufigste
+  // naechste Schritt ist eine neue Suche, nicht das Blaettern.
+  const invFilterLeeren = () => {
+    setInvSuche(""); setInvRarity('all'); setInvTagFilter([]);
+    if (invSucheRef.current) invSucheRef.current.focus();
+  };
 
     if (!cur) return (
       <div className="empty-state">
@@ -1358,13 +1366,30 @@ const Sheet = () => {
               const allTags = [...new Set(inv.flatMap(i=>i.tags||[]))].sort((a,b)=>a.localeCompare(b,"de"));
               return (
                 <div style={{marginBottom:12}}>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:allTags.length>0?8:0}}>
+                  {/* Die Suche laeuft ueber alle Angaben eines Gegenstands:
+                      Name, Schlagworte, Herkunft, Seltenheit, Effekte und
+                      Beschreibung. Zuruecksetzen raeumt Suche, Seltenheit und
+                      Schlagworte in einem Griff weg — am Tablet waere das
+                      sonst ein Weg ueber drei Bedienelemente. */}
+                  <div className="inv-search-bar">
+                    <div className="inv-search-field">
+                      <span className="inv-search-icon" aria-hidden="true">🔍</span>
+                      <input ref={invSucheRef} className="inv-search-input" type="search"
+                        placeholder="Gegenstände durchsuchen…" value={invSuche}
+                        aria-label="Gegenstände durchsuchen" autoComplete="off"
+                        onChange={e=>setInvSuche(e.target.value)}
+                        onKeyDown={e=>{ if(e.key==='Escape' && invSuche){ e.stopPropagation(); setInvSuche(""); } }} />
+                    </div>
                     <select className="tpl-filter-select" value={invRarity}
                       onChange={e=>setInvRarity(e.target.value)} style={{padding:"6px 8px"}}>
                       <option value="all">Alle Seltenheiten</option>
                       {RARITIES.map(r=><option key={r.key} value={r.key}>{r.label}</option>)}
                     </select>
-                    {invTagFilter.length>0 && <button className="tag-filter-btn" onClick={()=>setInvTagFilter([])} style={{borderColor:"var(--crimson)",color:"var(--crimson)"}}>✕ Filter leeren</button>}
+                    {(invSuche.trim()!=="" || invRarity!=='all' || invTagFilter.length>0) && (
+                      <button className="inv-search-reset" onClick={invFilterLeeren}>
+                        ✕ Zurücksetzen
+                      </button>
+                    )}
                   </div>
                   {allTags.length>0 && (
                     <div className="tag-filter-bar">
@@ -1376,16 +1401,28 @@ const Sheet = () => {
             })()}
             {(() => {
               const rarityOrder = {artefakt:0,legendär:1,sehrSelten:2,selten:3,ungewöhnlich:4,gewöhnlich:5};
-              const filtered = inv.filter(item => {
+              const such = invSuche.trim();
+              const filtered = inv.map(item => {
                 const matchRarity = invRarity==='all' || item.rarity===invRarity;
                 const matchTags = invTagFilter.length===0 || invTagFilter.every(t=>(item.tags||[]).includes(t));
-                return matchRarity && matchTags;
-              }).sort((a,b) => {
-                const rd = ((rarityOrder[a.rarity] !== undefined ? rarityOrder[a.rarity] : 5)) - ((rarityOrder[b.rarity] !== undefined ? rarityOrder[b.rarity] : 5));
-                return rd !== 0 ? rd : a.name.localeCompare(b.name, 'de');
-              });
+                if (!matchRarity || !matchTags) return null;
+                const rl = (RARITIES.find(x=>x.key===item.rarity)||{}).label;
+                const score = itemSearchScore(item, such, rl);
+                return score > 0 ? {item, score} : null;
+              }).filter(Boolean).sort((a,b) => {
+                // Bei einer Suche zaehlt die Trefferguete, sonst bleibt es bei
+                // der gewohnten Ordnung nach Seltenheit.
+                if (such) return b.score - a.score || a.item.name.localeCompare(b.item.name, 'de');
+                const rd = ((rarityOrder[a.item.rarity] !== undefined ? rarityOrder[a.item.rarity] : 5)) - ((rarityOrder[b.item.rarity] !== undefined ? rarityOrder[b.item.rarity] : 5));
+                return rd !== 0 ? rd : a.item.name.localeCompare(b.item.name, 'de');
+              }).map(x => x.item);
               if (inv.length===0) return <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Keine Gegenstände im Inventar.</div>;
-              if (filtered.length===0) return <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Keine Gegenstände gefunden.</div>;
+              if (filtered.length===0) return (
+                <div className="inv-leer">
+                  <div>Keine Gegenstände gefunden{such ? <> für „{such}“</> : null}.</div>
+                  <button className="inv-search-reset" onClick={invFilterLeeren}>✕ Zurücksetzen</button>
+                </div>
+              );
               return (
                 <div>
                   {transferMode && (
@@ -1478,7 +1515,7 @@ const Sheet = () => {
                   </div>
                   <div style={{marginTop:10,display:'flex',gap:12,flexWrap:'wrap'}}>
                     {totalWeight>0 && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>Gesamtgewicht: <span style={{color:"var(--text-secondary)"}}>{totalWeight.toFixed(2)} kg</span></div>}
-                    {(invRarity!=='all'||invTagFilter.length>0) && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>{filtered.length} von {inv.length} Gegenständen</div>}
+                    {(such||invRarity!=='all'||invTagFilter.length>0) && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>{filtered.length} von {inv.length} Gegenständen</div>}
                   </div>
                 </div>
               );
