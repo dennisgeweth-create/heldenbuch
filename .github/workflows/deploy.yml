@@ -21,7 +21,7 @@ jobs:
       - name: Prepare deploy files
         run: |
           mkdir -p deploy/js deploy/vendor
-          cp .htaccess api.php apple-touch-icon.png favicon.png index.html slots.html styles.css deploy/
+          cp .htaccess api.php apple-touch-icon.png favicon.png index.html styles.css deploy/
           cp data-spells.json data-weapons.json data-wildshapes.json deploy/
           cp js/data.js js/util.js deploy/js/
           cp vendor/*.js deploy/vendor/

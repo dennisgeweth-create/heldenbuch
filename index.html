@@ -382,9 +382,6 @@ function App() {
   const [logEntries,   setLogEntries]   = useState([]);
   const [logLoading,   setLogLoading]   = useState(false);
   const [showAdventLog,setShowAdventLog]= useState(false);
-  // Die Taverne (slots.html) ist aktuell aus dem Menü genommen; Modal und
-  // Zustand bleiben, damit ein Eintrag sie wieder erreichbar macht.
-  const [showSlots, setShowSlots] = useState(false);
   const [adventEntries,setAdventEntries]= useState([]);
   const [adventSearch, setAdventSearch] = useState('');
   const [adventTabFilter,setAdventTabFilter] = useState([]);
@@ -3877,32 +3874,6 @@ function App() {
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
 
 
-
-      {/* Slots Modal — rendered via portal to body to avoid fixed/transform issues */}
-      {showSlots && ReactDOM.createPortal(
-        <div onClick={()=>setShowSlots(false)} style={{
-          position:'fixed',top:0,left:0,width:'100%',height:'100%',
-          background:'rgba(0,0,0,0.88)',zIndex:9999,
-          display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div onClick={e=>e.stopPropagation()} style={{
-            background:'#15100a',border:'1px solid #4a3520',borderRadius:10,
-            overflow:'hidden',boxShadow:'0 0 60px rgba(201,168,76,0.25)',
-            width:'min(500px,96vw)',maxHeight:'92vh',
-            display:'flex',flexDirection:'column'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-              padding:'10px 14px',background:'#0d0905',borderBottom:'1px solid #2a1e10',flexShrink:0}}>
-              <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'#c9a84c',
-                textTransform:'uppercase',letterSpacing:'0.12em'}}>🎰 Taverne des Glücks</span>
-              <button onClick={()=>setShowSlots(false)} style={{
-                background:'none',border:'1px solid #2a1e10',color:'#7a6040',
-                borderRadius:4,cursor:'pointer',padding:'3px 8px',fontSize:12}}>✕ Schließen</button>
-            </div>
-            <iframe src={`slots.html?v=${Date.now()}`} title="Taverne des Glücks"
-              style={{width:'100%',flex:1,border:'none',minHeight:540,background:'#0a0806'}} />
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* Server Setup Modal */}
       {showDB && (() => {
