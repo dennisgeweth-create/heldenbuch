@@ -13,6 +13,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `1-editors.jsx` | Rich-Text- und Effekt-Editor |
 | ↳ `2-logtab.jsx` | Abenteuerlog eines Helden |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
+| ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `4-app.jsx` | Zustand, Server-Sync, Seitenleiste, Dialoge |
 | `js/app.js` | daraus zusammengesetzt und übersetzt. Nicht von Hand ändern. |
 | `js/data.js` | Regeltabellen (Klassen, Zauberschulen, Fertigkeiten, Effektziele) |
