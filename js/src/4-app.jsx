@@ -52,6 +52,51 @@ function App() {
   const [charSearch,   setCharSearch]   = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   useEffect(() => { if (sel) setSidebarCollapsed(true); else setSidebarCollapsed(false); }, [sel]);
+
+  // ── Dialoge: Escape und Tastaturfokus ────────────────────────────
+  // Beides fehlte in allen 20 Dialogen. Statt jeden einzeln umzubauen, hier
+  // einmal generisch: gesucht wird der zuletzt geoeffnete .form-overlay.
+  //
+  // Escape drueckt den Abbrechen- bzw. Schliessen-Knopf des Dialogs — also
+  // genau das, was der Knopf ohnehin tut, samt Aufraeumen der Bearbeiten-Id.
+  //
+  // Bewusst NICHT vereinheitlicht: dass manche Dialoge per Klick auf den
+  // Hintergrund schliessen und andere nicht. Ansichten tun es, Formulare
+  // nicht — sonst kostet ein Fehlklick die Eingaben. Das ist Absicht.
+  useEffect(() => {
+    const fokussierbar = (wurzel) => [...wurzel.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]), [contenteditable]'
+    )].filter(el => !el.disabled && el.offsetParent !== null);
+
+    const aufTaste = (e) => {
+      const overlays = document.querySelectorAll('.form-overlay');
+      if (!overlays.length) return;
+      const oben = overlays[overlays.length - 1];
+
+      if (e.key === 'Escape') {
+        const knopf = [...oben.querySelectorAll('button')].find(b =>
+          /abbrechen|schlie(ss|ß)en|verstanden|^✕$/i.test(b.textContent.trim()));
+        if (knopf) { e.preventDefault(); knopf.click(); }
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const ziele = fokussierbar(oben);
+        if (!ziele.length) return;
+        // Steht der Fokus noch ausserhalb, zuerst hineinholen.
+        if (!oben.contains(document.activeElement)) {
+          e.preventDefault();
+          ziele[0].focus();
+          return;
+        }
+        const erster = ziele[0], letzter = ziele[ziele.length - 1];
+        if (e.shiftKey && document.activeElement === erster) { e.preventDefault(); letzter.focus(); }
+        else if (!e.shiftKey && document.activeElement === letzter) { e.preventDefault(); erster.focus(); }
+      }
+    };
+    document.addEventListener('keydown', aufTaste);
+    return () => document.removeEventListener('keydown', aufTaste);
+  }, []);
   // Muss mit dem CSS-Breakpoint (max-width:1024px) übereinstimmen: nur der
   // aktive Bogen wird gerendert, statt beide zu bauen und einen zu verstecken.
   const TOUCH_MQ = '(max-width:1024px)';
