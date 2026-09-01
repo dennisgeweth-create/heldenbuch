@@ -416,6 +416,3261 @@ const LogTab = ({
     }
   }, fmt(e.created_at))))));
 };
+
+// ── Charakterbogen ───────────────────────────────────────────────
+// Sheet war bis Stufe 3 innerhalb von App definiert und wurde damit bei
+// jedem Rendern als neue Komponente erzeugt: React warf den kompletten
+// Teilbaum weg und baute ihn neu auf. Eigener Zustand ueberlebte darin
+// keinen Tastendruck — der Grund, warum jeder Schalter seinen Zustand in
+// App ablegen musste. Als eigenstaendige Komponente entfaellt das.
+//
+// Die Werte aus App kommen ueber einen Kontext statt als Prop-Liste; die
+// Entnahme hier und das Objekt in App entstehen aus derselben Liste und
+// koennen deshalb nicht auseinanderlaufen.
+const SheetCtx = React.createContext(null);
+const Sheet = () => {
+  const {
+    acBonuses,
+    addAcBonus,
+    addArmorProf,
+    addLanguage,
+    addLog,
+    addResource,
+    addToolProf,
+    addWeaponProf,
+    appAlert,
+    appConfirm,
+    archiveChar,
+    armorProfs,
+    cc,
+    charMenuOpen,
+    chars,
+    chgMax,
+    collapsedLevels,
+    computedAC,
+    cur,
+    delAcBonus,
+    delArmorProf,
+    delEquipmentItem,
+    delFeature,
+    delItem,
+    delLanguage,
+    delNote,
+    delResource,
+    delSpell,
+    delToolProf,
+    delWeaponProf,
+    deleteChar,
+    displayAC,
+    effCur,
+    eqEditId,
+    eqForm,
+    equipment,
+    equippedArmors,
+    equippedShields,
+    exFeature,
+    exItem,
+    exNote,
+    exSpell,
+    fx,
+    fxOn,
+    fxTitle,
+    initTotal,
+    insp,
+    inspMax,
+    invRarity,
+    invTagFilter,
+    isDmMode,
+    itemFx,
+    noteTagFilter,
+    notesList,
+    openEdit,
+    openNew,
+    openTpl,
+    openUnprepared,
+    patchChar,
+    resEdit,
+    resetAll,
+    resources,
+    save,
+    sel,
+    selectChar,
+    setCharMenuOpen,
+    setCoinDelta,
+    setCoinPopover,
+    setCollapsedLevels,
+    setEqEditId,
+    setEqForm,
+    setExFeature,
+    setExNote,
+    setExSpell,
+    setFf,
+    setFfEditId,
+    setImgViewer,
+    setInsp,
+    setInspMax,
+    setInvRarity,
+    setInvTagFilter,
+    setItemViewer,
+    setItf,
+    setItfEditId,
+    setNf,
+    setNfEditId,
+    setNoteTagFilter,
+    setOpenUnprepared,
+    setResEdit,
+    setSf,
+    setSfEditId,
+    setShowEF,
+    setShowFF,
+    setShowIF,
+    setShowNF,
+    setShowSF,
+    setShowTransfer,
+    setShowWF,
+    setSlotsEdit,
+    setSpEdit,
+    setSpellTagFilter,
+    setStatsEdit,
+    setTab,
+    setTransferMode,
+    setTransferSel,
+    setWeaponViewer,
+    setWf,
+    setWfEditId,
+    setWsExpand,
+    slots,
+    slotsEdit,
+    sp,
+    spChgMax,
+    spEdit,
+    spellTagFilter,
+    statsEdit,
+    stepChar,
+    switchList,
+    tab,
+    togResourcePip,
+    togSP,
+    togSlot,
+    toggleEquipmentItem,
+    toggleEquipped,
+    toggleJoAT,
+    toggleSave,
+    toggleSkill,
+    toggleSpellPrepared,
+    toggleWsFav,
+    toolProfs,
+    tplData,
+    transferMode,
+    transferSel,
+    unarchiveChar,
+    updAcBonus,
+    updEquipment,
+    updResource,
+    updSP,
+    weaponProfs,
+    weaponStats,
+    wsExpand,
+    languages
+  } = React.useContext(SheetCtx);
+  if (!cur) return /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-rune"
+  }, "\u2694"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-title"
+  }, "Kein Held ausgew\xE4hlt"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-sub"
+  }, "W\xE4hle einen Helden aus der Liste", /*#__PURE__*/React.createElement("br", null), "oder erstelle einen neuen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: openNew,
+    style: {
+      marginTop: 8
+    }
+  }, "\u2726 Jetzt erstellen"));
+  const sbl = {};
+  (cur.spells || []).forEach(s => {
+    if (!sbl[s.level]) sbl[s.level] = [];
+    sbl[s.level].push(s);
+  });
+  Object.keys(sbl).forEach(l => sbl[l].sort((a, b) => a.name.localeCompare(b.name, 'de')));
+  const sls = Object.keys(sbl).map(Number).sort((a, b) => a - b);
+  const inv = cur.inventory || [];
+  const currency = cur.currency || {
+    pp: 0,
+    gp: 0,
+    ep: 0,
+    sp: 0,
+    cp: 0
+  };
+  const totalGp = currency.pp * 10 + currency.gp + currency.ep * 0.5 + currency.sp * 0.1 + currency.cp * 0.01;
+  const totalWeight = inv.reduce((s, i) => s + (parseFloat(i.weight) || 0) * i.qty, 0);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "sheet"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sheet-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0,
+      flex: 1
+    }
+  }, switchList.length < 2 ? /*#__PURE__*/React.createElement("div", {
+    className: "char-name"
+  }, cur.name) : /*#__PURE__*/React.createElement("div", {
+    className: "char-switch" + (charMenuOpen ? " open" : "")
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "char-step",
+    title: "Vorheriger Held",
+    onClick: () => stepChar(-1)
+  }, "\u25C0"), /*#__PURE__*/React.createElement("button", {
+    className: "char-name-btn",
+    title: "Held w\xE4hlen",
+    onClick: () => setCharMenuOpen(o => !o)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "char-name"
+  }, cur.name), /*#__PURE__*/React.createElement("span", {
+    className: "char-name-caret"
+  }, "\u25BE")), /*#__PURE__*/React.createElement("button", {
+    className: "char-step",
+    title: "N\xE4chster Held",
+    onClick: () => stepChar(1)
+  }, "\u25B6"), charMenuOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 29
+    },
+    onClick: () => setCharMenuOpen(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "char-switch-menu"
+  }, switchList.map(c => {
+    const ccc = CC[c.charClass] || CC["Kämpfer"];
+    return /*#__PURE__*/React.createElement("button", {
+      key: c.id,
+      className: "char-switch-item" + (c.id === sel ? " current" : ""),
+      onClick: () => {
+        selectChar(c.id);
+        setCharMenuOpen(false);
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "char-switch-item-dot",
+      style: {
+        background: ccc.bg,
+        borderColor: ccc.border
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "char-switch-item-name"
+    }, c.name), /*#__PURE__*/React.createElement("span", {
+      className: "char-switch-item-sub"
+    }, "Lv ", (c.level || 1) + (c.multiclasses || []).reduce((s, m) => s + (m.level || 0), 0)));
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "char-meta"
+  }, cur.race, " · Stufe ", (cur.level || 1) + (cur.multiclasses || []).reduce((s, m) => s + (m.level || 0), 0), cur.background ? " · " + cur.background : "")), /*#__PURE__*/React.createElement("div", {
+    className: "sheet-header-right",
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+      alignItems: "flex-end",
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "class-badges"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "class-badge",
+    style: {
+      backgroundColor: cc.bg,
+      borderColor: cc.border,
+      color: cc.text
+    }
+  }, cur.charClass, " ", cur.level), (cur.multiclasses || []).map((mc, i) => {
+    const mcc = CC[mc.charClass] || CC["Kämpfer"];
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "class-badge",
+      style: {
+        backgroundColor: mcc.bg,
+        borderColor: mcc.border,
+        color: mcc.text
+      }
+    }, mc.charClass, " ", mc.level);
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "header-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    title: "Bearbeiten",
+    onClick: openEdit,
+    style: {
+      padding: "4px 8px",
+      background: "none",
+      border: "1px solid transparent",
+      borderRadius: 3,
+      color: "var(--text-muted)",
+      fontSize: 14,
+      cursor: "pointer",
+      opacity: 0.55,
+      transition: "opacity 0.15s,border-color 0.15s"
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.opacity = "1";
+      e.currentTarget.style.borderColor = "var(--border-bright)";
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.opacity = "0.55";
+      e.currentTarget.style.borderColor = "transparent";
+    }
+  }, "\u270E"), cur.archived ? /*#__PURE__*/React.createElement("button", {
+    title: "Reaktivieren",
+    onClick: () => unarchiveChar(cur.id),
+    style: {
+      padding: "4px 10px",
+      background: "none",
+      border: "1px solid var(--gold-dim)",
+      borderRadius: 3,
+      color: "var(--gold-dim)",
+      fontSize: 12,
+      fontFamily: "'Roboto Condensed',sans-serif",
+      cursor: "pointer",
+      opacity: 0.8,
+      letterSpacing: "0.05em"
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.opacity = "1";
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.opacity = "0.8";
+    }
+  }, "\u21A9 aktiv") : /*#__PURE__*/React.createElement("button", {
+    title: "Archivieren",
+    onClick: () => appConfirm("Charakter \"" + cur.name + "\" archivieren?", archiveChar, "Archivieren"),
+    style: {
+      padding: "4px 8px",
+      background: "none",
+      border: "1px solid transparent",
+      borderRadius: 3,
+      color: "var(--text-muted)",
+      fontSize: 14,
+      cursor: "pointer",
+      opacity: 0.45,
+      transition: "opacity 0.15s,border-color 0.15s"
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.opacity = "1";
+      e.currentTarget.style.borderColor = "var(--border)";
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.opacity = "0.45";
+      e.currentTarget.style.borderColor = "transparent";
+    }
+  }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("button", {
+    title: "L\xF6schen",
+    onClick: deleteChar,
+    style: {
+      padding: "4px 8px",
+      background: "none",
+      border: "1px solid transparent",
+      borderRadius: 3,
+      color: "var(--text-muted)",
+      fontSize: 14,
+      cursor: "pointer",
+      opacity: 0.45,
+      transition: "opacity 0.15s,border-color 0.15s,color 0.15s"
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.opacity = "1";
+      e.currentTarget.style.color = "var(--crimson-bright)";
+      e.currentTarget.style.borderColor = "var(--crimson)";
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.opacity = "0.45";
+      e.currentTarget.style.color = "var(--text-muted)";
+      e.currentTarget.style.borderColor = "transparent";
+    }
+  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
+    className: "hp-bar-container"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hp-bar-label"
+  }, /*#__PURE__*/React.createElement("span", null, "\u2764 Trefferpunkte"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, statsEdit ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 10,
+      color: "var(--text-muted)",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, "Akt."), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: cur.hp,
+    onChange: e => patchChar({
+      hp: Number(e.target.value)
+    }),
+    style: {
+      width: 52,
+      padding: "2px 4px",
+      background: "var(--bg-card)",
+      border: "1px solid var(--crimson-bright)",
+      borderRadius: 3,
+      color: "var(--crimson-bright)",
+      fontSize: 13,
+      textAlign: "center"
+    }
+  }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 10,
+      color: "var(--text-muted)",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, "Max"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: cur.maxHp,
+    onChange: e => patchChar({
+      maxHp: Number(e.target.value)
+    }),
+    style: {
+      width: 52,
+      padding: "2px 4px",
+      background: "var(--bg-card)",
+      border: "1px solid var(--border-bright)",
+      borderRadius: 3,
+      color: "var(--parchment)",
+      fontSize: 13,
+      textAlign: "center"
+    }
+  }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 10,
+      color: "var(--text-muted)",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, "Temp"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: cur.tempHp || 0,
+    onChange: e => patchChar({
+      tempHp: Number(e.target.value)
+    }),
+    style: {
+      width: 52,
+      padding: "2px 4px",
+      background: "var(--bg-card)",
+      border: "1px solid #4a90d9",
+      borderRadius: 3,
+      color: "#7ab8f5",
+      fontSize: 13,
+      textAlign: "center"
+    }
+  })) : /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "var(--crimson-bright)"
+    },
+    title: fxTitle('maxHp')
+  }, cur.hp, " / ", /*#__PURE__*/React.createElement("span", {
+    className: fxOn('maxHp') ? "fx-touched" : undefined
+  }, effCur.maxHp, fxOn('maxHp') && /*#__PURE__*/React.createElement("span", {
+    className: "fx-mark"
+  }, "\u2726")), (cur.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#7ab8f5",
+      marginLeft: 6
+    }
+  }, "(+", cur.tempHp, " temp)")))), /*#__PURE__*/React.createElement("div", {
+    className: "hp-bar-track"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      height: "100%",
+      width: "100%"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hp-bar-fill",
+    style: {
+      width: Math.max(0, Math.min(100, cur.hp / (effCur.maxHp || 1) * 100)) + "%",
+      flexShrink: 0
+    }
+  }), (cur.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: Math.max(0, Math.min(25, cur.tempHp / (effCur.maxHp || 1) * 100)) + "%",
+      background: "linear-gradient(90deg,rgba(74,144,217,0.7),rgba(122,184,245,0.9))",
+      flexShrink: 0,
+      borderRadius: "0 2px 2px 0",
+      marginLeft: 1
+    }
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "sticky-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "flex-end",
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "panel-edit-btn" + (statsEdit ? " active" : ""),
+    onClick: () => setStatsEdit(!statsEdit)
+  }, statsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
+    className: "combat-row"
+  }, statsEdit ? (computedAC !== null ? [{
+    k: "speed",
+    l: "Bewegung (m)",
+    s: "👟 Bew.",
+    i: "👟"
+  }, {
+    k: "profBonus",
+    l: "Übungsbonus",
+    s: "📖 ÜB",
+    i: "📖"
+  }] : [{
+    k: "ac",
+    l: "Rüstungsklasse",
+    s: "🛡 RK",
+    i: "🛡"
+  }, {
+    k: "speed",
+    l: "Bewegung (m)",
+    s: "👟 Bew.",
+    i: "👟"
+  }, {
+    k: "profBonus",
+    l: "Übungsbonus",
+    s: "📖 ÜB",
+    i: "📖"
+  }]).map(s => /*#__PURE__*/React.createElement("div", {
+    className: "combat-box",
+    key: s.k
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "combat-label"
+  }, s.i, " ", s.l), /*#__PURE__*/React.createElement("div", {
+    className: "combat-label-short"
+  }, s.s), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: cur[s.k],
+    onChange: e => patchChar({
+      [s.k]: Number(e.target.value)
+    }),
+    style: {
+      width: 56,
+      padding: "3px 4px",
+      background: "var(--bg-card)",
+      border: "1px solid var(--border-bright)",
+      borderRadius: 3,
+      color: "var(--gold)",
+      fontSize: 18,
+      textAlign: "center",
+      display: "block",
+      margin: "4px auto 0",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }))).concat([/*#__PURE__*/React.createElement("div", {
+    className: "combat-box",
+    key: "ini"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "combat-label"
+  }, "\u26A1 Initiative"), /*#__PURE__*/React.createElement("div", {
+    className: "combat-label-short"
+  }, "\u26A1 Init."), /*#__PURE__*/React.createElement("div", {
+    className: "combat-value",
+    style: {
+      fontSize: 14,
+      color: "var(--text-muted)"
+    }
+  }, fnum(initTotal)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "var(--text-muted)",
+      marginTop: 2,
+      fontStyle: "italic"
+    }
+  }, "= DEX-Mod")), (() => {
+    const spAttr = SPELL_ATTR[cur.charClass];
+    if (!spAttr) return null;
+    const sg = fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr]));
+    return /*#__PURE__*/React.createElement("div", {
+      className: "combat-box",
+      key: "spsg"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "combat-label"
+    }, "\u2728 Zauber-SG"), /*#__PURE__*/React.createElement("div", {
+      className: "combat-label-short"
+    }, "\u2728 SG"), /*#__PURE__*/React.createElement("div", {
+      className: "combat-value",
+      style: {
+        fontSize: 14,
+        color: "var(--text-muted)"
+      }
+    }, sg), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: "var(--text-muted)",
+        marginTop: 2,
+        fontStyle: "italic"
+      }
+    }, "= ", AL[spAttr], "-Mod"));
+  })()]) : (() => {
+    const spAttr = SPELL_ATTR[cur.charClass];
+    const spSG = spAttr ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr])) : null;
+    // t: betroffenes Effektziel — faerbt den Wert und erklaert ihn
+    // im Tooltip, damit man eine veraenderte Zahl zuordnen kann.
+    const boxes = [{
+      l: "Rüstungsklasse",
+      s: computedAC !== null ? "🛡 RK*" : "🛡 RK",
+      v: displayAC,
+      i: "🛡",
+      t: 'ac'
+    }, {
+      l: "Initiative",
+      s: "⚡ Init.",
+      v: fnum(initTotal),
+      i: "⚡",
+      t: 'initiative'
+    }, {
+      l: "Bewegung",
+      s: "👟 Bew.",
+      v: effCur.speed + "m",
+      i: "👟",
+      t: 'speed'
+    }, {
+      l: "Übungsbonus",
+      s: "📖 ÜB",
+      v: "+" + effCur.profBonus,
+      i: "📖",
+      t: 'profBonus'
+    }];
+    if (spSG !== null) boxes.push({
+      l: "Zauber-SG",
+      s: "✨ SG",
+      v: spSG,
+      i: "✨",
+      t: 'spellDc'
+    });
+    return boxes.map(s => {
+      const touched = fxOn(s.t) || s.t === 'initiative' && fxOn('dex') || s.t === 'ac' && fxOn('dex');
+      return /*#__PURE__*/React.createElement("div", {
+        className: "combat-box",
+        key: s.l,
+        title: fxTitle(s.t)
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "combat-label"
+      }, s.i, " ", s.l), /*#__PURE__*/React.createElement("div", {
+        className: "combat-label-short"
+      }, s.s), /*#__PURE__*/React.createElement("div", {
+        className: "combat-value" + (touched ? " fx-touched" : "")
+      }, s.v, fxOn(s.t) && /*#__PURE__*/React.createElement("span", {
+        className: "fx-mark"
+      }, "\u2726")));
+    });
+  })()), (() => {
+    const activeSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(l => slots[l] && slots[l].max > 0);
+    const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses || []).some(m => m.charClass === "Zauberer");
+    // Inspiration erscheint hier nur, wenn man welche hat — als
+    // Erinnerung genau dann, wenn sie zaehlt. Bei 0 waere es Ballast.
+    const hasContent = activeSlots.length > 0 || isZauberer && sp.max > 0 || resources.length > 0 || insp > 0;
+    if (!hasContent) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "res-mini-bar"
+    }, insp > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "res-mini-group",
+      title: "Inspiration: " + insp + "/" + inspMax
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "res-mini-label",
+      style: {
+        color: "var(--inspiration)"
+      }
+    }, "INSP"), Array.from({
+      length: inspMax
+    }).map((_, i) => /*#__PURE__*/React.createElement("span", {
+      key: i,
+      className: "res-mini-pip" + (i < insp ? " on" : ""),
+      style: i < insp ? {
+        background: "var(--inspiration)",
+        borderColor: "var(--inspiration)"
+      } : {
+        borderColor: "var(--inspiration)"
+      }
+    }))), activeSlots.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "res-mini-group"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "res-mini-label"
+    }, "ZPL"), activeSlots.map(l => {
+      const s = slots[l];
+      const avail = s.max - s.used;
+      return /*#__PURE__*/React.createElement("span", {
+        key: l,
+        className: "res-mini-slot-group",
+        title: "Grad " + l + ": " + avail + "/" + s.max
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "res-mini-slot-grade"
+      }, l), Array.from({
+        length: s.max
+      }).map((_, i) => /*#__PURE__*/React.createElement("span", {
+        key: i,
+        className: "res-mini-pip" + (i < avail ? " on" : "")
+      })));
+    })), isZauberer && sp.max > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "res-mini-group",
+      title: "Zaubereipunkte: " + (sp.max - sp.used) + "/" + sp.max
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "res-mini-label",
+      style: {
+        color: "var(--arcane-bright)"
+      }
+    }, "ZPU"), Array.from({
+      length: sp.max
+    }).map((_, i) => {
+      const avail = sp.max - sp.used;
+      return /*#__PURE__*/React.createElement("span", {
+        key: i,
+        className: "res-mini-pip" + (i < avail ? " on" : ""),
+        style: i < avail ? {
+          background: "var(--arcane-bright)",
+          borderColor: "var(--arcane-bright)"
+        } : {
+          borderColor: "var(--arcane-bright)"
+        }
+      });
+    })), resources.map((res, ri) => {
+      const avail = res.max - res.used;
+      return /*#__PURE__*/React.createElement(React.Fragment, {
+        key: res.id
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "res-mini-group",
+        title: res.name + ": " + avail + "/" + res.max
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "res-mini-label",
+        style: {
+          color: res.color || "var(--gold)"
+        }
+      }, res.abbr || res.name), Array.from({
+        length: res.max
+      }).map((_, i) => /*#__PURE__*/React.createElement("span", {
+        key: i,
+        className: "res-mini-pip" + (i < avail ? " on" : ""),
+        style: i < avail ? {
+          background: res.color || "var(--gold-dim)",
+          borderColor: res.color || "var(--gold)"
+        } : {
+          borderColor: res.color || "var(--gold)"
+        }
+      }))));
+    }));
+  })()), /*#__PURE__*/React.createElement("div", {
+    className: "tabs"
+  }, [["stats", "🎯 Attribute"], ["aktionen", "⚔️ Aktionen"], ["zauber", "✨ Zauber"], ["merkmale", "⭐ Merkmale"], ["inventar", "🎒 Inventar"], ["notizen", "📜 Notizen"], ["log", "📋 Log"]].map(([k, l]) => /*#__PURE__*/React.createElement("div", _extends({
+    key: k,
+    className: "tab" + (tab === k ? " active" : ""),
+    "aria-current": tab === k ? "page" : undefined
+  }, clickable(() => {
+    setTab(k);
+    if (k !== "inventar") {
+      setTransferMode(false);
+      setTransferSel(new Set());
+    }
+  }, l)), l))), tab === "stats" && /*#__PURE__*/React.createElement(React.Fragment, null, itemFx.length > 0 && (() => {
+    const bySource = [];
+    itemFx.forEach(e => {
+      let g = bySource.find(x => x.source === e.source && x.icon === e.icon);
+      if (!g) {
+        g = {
+          source: e.source,
+          icon: e.icon,
+          list: []
+        };
+        bySource.push(g);
+      }
+      g.list.push(e);
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fx-panel"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "fx-panel-title"
+    }, "\u2726 Aktive Effekte"), bySource.map((g, i) => /*#__PURE__*/React.createElement("div", {
+      className: "fx-src",
+      key: i
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "fx-src-name"
+    }, g.icon, " ", g.source), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 4
+      }
+    }, g.list.map(e => /*#__PURE__*/React.createElement("span", {
+      key: e.id,
+      className: "fx-chip"
+    }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        marginTop: 8,
+        lineHeight: 1.5
+      }
+    }, "Betroffene Werte sind mit \u2726 markiert. Zum Abschalten die Waffe ablegen, die R\xFCstung ausziehen oder den Gegenstand im Inventar ausschalten."));
+  })(), /*#__PURE__*/React.createElement("div", {
+    className: "stats-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-title"
+  }, "\uD83C\uDFAF Grundattribute"), /*#__PURE__*/React.createElement("div", {
+    className: "stats-grid"
+  }, [["str", "Stärke"], ["dex", "Geschick"], ["con", "Konstitution"], ["int", "Intelligenz"], ["wis", "Weisheit"], ["cha", "Charisma"]].map(([k, l]) => /*#__PURE__*/React.createElement("div", {
+    className: "stat-box",
+    key: k,
+    title: fxTitle(k)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stat-label"
+  }, l), statsEdit ?
+  /*#__PURE__*/
+  /* Im Bearbeiten-Modus der eigene Wert, nicht der von
+     Gegenstaenden veraenderte. */
+  React.createElement("input", {
+    type: "number",
+    min: 1,
+    max: 30,
+    value: cur[k],
+    onChange: e => patchChar({
+      [k]: Math.max(1, Math.min(30, Number(e.target.value)))
+    }),
+    style: {
+      width: 52,
+      padding: "4px 2px",
+      background: "var(--bg-void)",
+      border: "1px solid var(--gold)",
+      borderRadius: 3,
+      color: "var(--gold)",
+      fontSize: 22,
+      textAlign: "center",
+      display: "block",
+      margin: "4px auto",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "stat-value" + (fxOn(k) ? " fx-touched" : "")
+  }, effCur[k], fxOn(k) && /*#__PURE__*/React.createElement("span", {
+    className: "fx-mark"
+  }, "\u2726")), /*#__PURE__*/React.createElement("div", {
+    className: "stat-mod" + (fxOn(k) ? " fx-touched" : "")
+  }, fmod(effCur[k])), fxOn(k) && !statsEdit && cur[k] !== effCur[k] && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "var(--text-muted)",
+      marginTop: 1,
+      fontStyle: "italic"
+    }
+  }, "eigen ", cur[k]))))), /*#__PURE__*/React.createElement("div", {
+    className: "stats-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-title"
+  }, "\uD83C\uDFB2 Rettungsw\xFCrfe"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--text-muted)",
+      marginBottom: 10,
+      fontStyle: "italic"
+    }
+  }, "Klick zum Aktivieren der \xDCbung"), /*#__PURE__*/React.createElement("div", {
+    className: "saves-grid"
+  }, [["str", "STR"], ["dex", "GES"], ["con", "KON"], ["int", "INT"], ["wis", "WEI"], ["cha", "CHA"]].map(([attr, label]) => {
+    const isP = (cur.savingThrowProfs || []).includes(attr);
+    const base = mod(effCur[attr]) + (isP ? effCur.profBonus : 0);
+    const val = fx('save_' + attr, fx('saveAll', base));
+    const touched = fxOn('save_' + attr) || fxOn('saveAll') || fxOn(attr) || fxOn('profBonus');
+    const tip = [fxTitle(attr), fxTitle('profBonus'), fxTitle('saveAll'), fxTitle('save_' + attr)].filter(Boolean).join('\n');
+    return /*#__PURE__*/React.createElement("div", _extends({
+      key: attr,
+      className: "save-box" + (isP ? " prof" : ""),
+      title: tip || undefined
+    }, clickable(() => toggleSave(attr), "Rettungswurf " + label + (isP ? " — Übung aktiv" : ""))), /*#__PURE__*/React.createElement("div", {
+      className: "save-pip"
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "save-label"
+    }, label), /*#__PURE__*/React.createElement("div", {
+      className: "save-value" + (touched ? " fx-touched" : ""),
+      style: {
+        color: isP ? "var(--gold)" : "var(--text-muted)"
+      }
+    }, fnum(val)));
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "stats-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      marginBottom: 10,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--text-muted)",
+      fontStyle: "italic"
+    }
+  }, "\u2B24 = \xDCbung \xB7 \u2B24\u2B24 = Expertise \xB7 Klick zum Wechseln"), /*#__PURE__*/React.createElement("button", {
+    className: "joat-toggle",
+    onClick: toggleJoAT,
+    style: {
+      borderRadius: 3,
+      cursor: "pointer",
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 10,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      background: cur.jackOfAllTrades ? "var(--gold-dim)" : "var(--bg-card)",
+      border: `1px solid ${cur.jackOfAllTrades ? "var(--gold)" : "var(--border)"}`,
+      color: cur.jackOfAllTrades ? "var(--gold-bright)" : "var(--text-muted)"
+    }
+  }, cur.jackOfAllTrades ? "✦ Allrounder aktiv" : "◇ Allrounder")), /*#__PURE__*/React.createElement("div", {
+    className: "skills-layout"
+  }, ["str", "dex", "int", "wis", "cha"].map(attr => /*#__PURE__*/React.createElement("div", {
+    className: "skill-group",
+    key: attr
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "skill-group-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "skill-attr-badge",
+    style: {
+      color: AC[attr],
+      borderColor: AC[attr] + "60"
+    }
+  }, AL[attr]), /*#__PURE__*/React.createElement("div", {
+    className: "skill-attr-name"
+  }, AF[attr]), /*#__PURE__*/React.createElement("div", {
+    className: "skill-attr-mod" + (fxOn(attr) ? " fx-touched" : ""),
+    style: {
+      color: AC[attr]
+    },
+    title: fxTitle(attr)
+  }, fmod(effCur[attr]))), SKILLS.filter(s => s.attr === attr).map(sk => {
+    const isP = (cur.skillProfs || []).includes(sk.key);
+    const isE = (cur.expertiseProfs || []).includes(sk.key);
+    const joat = cur.jackOfAllTrades && !isP && !isE;
+    const bonus = isE ? effCur.profBonus * 2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus / 2) : 0;
+    const tot = fx('skill_' + sk.key, fx('skillAll', mod(effCur[attr]) + bonus));
+    const skTouched = fxOn('skill_' + sk.key) || fxOn('skillAll') || fxOn(attr) || fxOn('profBonus');
+    const skTip = [fxTitle(attr), fxTitle('profBonus'), fxTitle('skillAll'), fxTitle('skill_' + sk.key)].filter(Boolean).join('\n');
+    const pip = isE ? "⬤⬤" : isP ? "⬤" : joat ? "◑" : "○";
+    const col = isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--border-bright)";
+    return /*#__PURE__*/React.createElement("div", {
+      className: "skill-row",
+      key: sk.key,
+      title: skTip || undefined
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "skill-prof-btn" + (isE ? " expertise" : ""),
+      onClick: () => toggleSkill(sk.key),
+      style: {
+        background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
+        borderColor: col,
+        color: col
+      },
+      title: isE ? "Expertise (Klick: entfernen)" : isP ? "Übung (Klick: Expertise)" : "Kein Bonus (Klick: Übung hinzufügen)"
+    }, pip), /*#__PURE__*/React.createElement("div", {
+      className: "skill-name"
+    }, sk.label), /*#__PURE__*/React.createElement("div", {
+      className: "skill-value" + (skTouched ? " fx-touched" : ""),
+      style: {
+        color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"
+      }
+    }, fnum(tot), isE && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        opacity: 0.6,
+        marginLeft: 2
+      }
+    }, "EX"), joat && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        opacity: 0.6,
+        marginLeft: 2
+      }
+    }, "JoAT")));
+  })))))), tab === "inventar" && (() => {
+    const ARMOR_TYPES = [{
+      key: 'light',
+      label: 'Leichte Rüstung',
+      hint: 'Basis + GES-Mod'
+    }, {
+      key: 'medium',
+      label: 'Mittlere Rüstung',
+      hint: 'Basis + GES-Mod (max. +2)'
+    }, {
+      key: 'heavy',
+      label: 'Schwere Rüstung',
+      hint: 'Basis (kein GES)'
+    }, {
+      key: 'shield',
+      label: 'Schild',
+      hint: '+Bonus zur RK'
+    }, {
+      key: 'other',
+      label: 'Sonstiges',
+      hint: 'Kein RK-Einfluss'
+    }];
+    const openEqForm = item => {
+      if (item) {
+        setEqForm({
+          ...item
+        });
+        setEqEditId(item.id);
+      } else {
+        setEqForm({
+          name: '',
+          type: 'light',
+          baseAC: 11,
+          acBonus: 0,
+          equipped: false,
+          notes: '',
+          effects: []
+        });
+        setEqEditId(null);
+      }
+      setShowEF(true);
+    };
+    const saveEqForm = () => {
+      if (!eqForm.name.trim()) {
+        appAlert('Name darf nicht leer sein.');
+        return;
+      }
+      const entry = {
+        ...eqForm,
+        id: eqEditId || Date.now().toString()
+      };
+      if (eqEditId) {
+        updEquipment(equipment.map(e => e.id === eqEditId ? entry : e));
+      } else {
+        // Only one armor at a time should be equipped — but allow multiple, user decides
+        updEquipment([...equipment, entry]);
+      }
+      setShowEF(false);
+      setEqEditId(null);
+    };
+    const warnMultiArmor = equippedArmors.length > 1;
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "section-title",
+      style: {
+        marginBottom: 8
+      }
+    }, "\uD83D\uDEE1 Ausr\xFCstung & R\xFCstung"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'var(--bg-card)',
+        border: '1px solid ' + (computedAC !== null ? 'var(--gold-dim)' : 'var(--border)'),
+        borderRadius: 6,
+        padding: '10px 14px',
+        marginBottom: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase'
+      }
+    }, "\uD83D\uDEE1 R\xFCstungsklasse"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 26,
+        color: computedAC !== null ? 'var(--gold)' : 'var(--text-muted)'
+      }
+    }, displayAC)), computedAC !== null ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--text-muted)',
+        fontFamily: "'Roboto Condensed',sans-serif",
+        lineHeight: 1.7
+      }
+    }, (() => {
+      const dex = mod(effCur.dex);
+      const parts = [];
+
+      // Base armor
+      if (equippedArmors.length > 0) {
+        const a = equippedArmors[0];
+        if (a.type === 'heavy') parts.push(a.name + ': ' + a.baseAC);
+        if (a.type === 'medium') parts.push(a.name + ': ' + a.baseAC + ' + GES ' + Math.min(2, dex));
+        if (a.type === 'light') parts.push(a.name + ': ' + a.baseAC + ' + GES ' + dex);
+        if ((a.acBonus || 0) !== 0) parts.push('Magisch: +' + a.acBonus);
+      } else {
+        parts.push('Unbewaffnet: 10 + GES ' + dex);
+      }
+
+      // Shields
+      equippedShields.forEach(sh => {
+        parts.push(sh.name + ': +' + (sh.baseAC || 2) + (sh.acBonus ? ' +' + sh.acBonus : ''));
+      });
+
+      // Item bonuses (other equipped items with acBonus)
+      equipment.filter(e => e.equipped && e.type === 'other' && (e.acBonus || 0) !== 0).forEach(e => {
+        parts.push(e.name + ': +' + e.acBonus);
+      });
+
+      // Talent/ability bonuses
+      acBonuses.filter(b => b.active && (b.bonus || 0) !== 0).forEach(b => {
+        parts.push(b.name + ': ' + (b.bonus >= 0 ? '+' : '') + b.bonus);
+      });
+
+      // Effekte angelegter Gegenstaende auf die RK
+      effectsFor(itemFx, 'ac').forEach(e => {
+        parts.push(e.source + ': ' + (e.mode === 'set' ? 'RK = ' + (+e.value || 0) : fnum(+e.value || 0)));
+      });
+      return /*#__PURE__*/React.createElement("div", null, parts.map((p, i) => /*#__PURE__*/React.createElement("div", {
+        key: i,
+        style: {
+          color: i === 0 ? 'var(--text-secondary)' : 'var(--text-muted)'
+        }
+      }, i === 0 ? '' : '+ ', p)), /*#__PURE__*/React.createElement("div", {
+        style: {
+          borderTop: '1px solid var(--border)',
+          marginTop: 4,
+          paddingTop: 4,
+          color: 'var(--gold)'
+        }
+      }, "= ", displayAC, " RK"));
+    })()) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic'
+      }
+    }, "Keine R\xFCstung angelegt \u2014 Basis 10 + GES-Mod (", fmod(effCur.dex), ")"), warnMultiArmor && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--crimson-bright)',
+        fontFamily: "'Roboto Condensed',sans-serif"
+      }
+    }, "\u26A0\uFE0F Mehrere R\xFCstungen angelegt!")), equipment.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        fontSize: 14,
+        marginBottom: 12
+      }
+    }, "Noch keine Ausr\xFCstung eingetragen.") : equipment.map(item => {
+      const typeLabel = ARMOR_TYPES.find(t => t.key === item.type) || ARMOR_TYPES[0];
+      const isArmor = item.type !== 'shield' && item.type !== 'other';
+      const isShield = item.type === 'shield';
+      return /*#__PURE__*/React.createElement("div", {
+        key: item.id,
+        style: {
+          background: 'var(--bg-card)',
+          border: '1px solid ' + (item.equipped ? 'var(--gold-dim)' : 'var(--border)'),
+          borderRadius: 6,
+          padding: '10px 14px',
+          marginBottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          boxShadow: item.equipped ? 'inset 0 0 0 1px rgba(201,168,76,0.15)' : ''
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: () => toggleEquipmentItem(item.id),
+        title: item.equipped ? 'Ablegen' : 'Anlegen',
+        style: {
+          width: 36,
+          height: 36,
+          borderRadius: 4,
+          flexShrink: 0,
+          cursor: 'pointer',
+          fontSize: 18,
+          background: item.equipped ? 'var(--gold-dim)20' : 'var(--bg-panel)',
+          border: '1px solid ' + (item.equipped ? 'var(--gold)' : 'var(--border)'),
+          color: item.equipped ? 'var(--gold)' : 'var(--text-muted)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }
+      }, item.equipped ? '🛡' : '○'), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 13,
+          color: item.equipped ? 'var(--gold)' : 'var(--text-primary)'
+        }
+      }, item.name, item.equipped && /*#__PURE__*/React.createElement("span", {
+        style: {
+          marginLeft: 8,
+          fontSize: 9,
+          letterSpacing: '0.1em',
+          color: 'var(--gold-dim)'
+        }
+      }, "ANGELEGT")), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 11,
+          color: 'var(--text-muted)',
+          marginTop: 2
+        }
+      }, typeLabel.label, item.type !== 'other' && /*#__PURE__*/React.createElement("span", {
+        style: {
+          marginLeft: 6
+        }
+      }, "\xB7 ", isShield ? '+' + (item.baseAC || 2) + ' RK' : 'Basis RK ' + item.baseAC)), item.notes && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 11,
+          color: 'var(--text-muted)',
+          fontStyle: 'italic',
+          marginTop: 2
+        }
+      }, item.notes)), /*#__PURE__*/React.createElement("button", {
+        onClick: () => openEqForm(item),
+        style: {
+          background: 'none',
+          border: '1px solid var(--border)',
+          borderRadius: 3,
+          color: 'var(--text-muted)',
+          cursor: 'pointer',
+          padding: '4px 8px',
+          fontSize: 11
+        }
+      }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => delEquipmentItem(item.id),
+        style: {
+          background: 'none',
+          border: 'none',
+          color: 'var(--text-muted)',
+          cursor: 'pointer',
+          padding: '4px 6px',
+          fontSize: 14
+        }
+      }, "\u2715"));
+    }), /*#__PURE__*/React.createElement("button", {
+      className: "btn-add",
+      style: {
+        marginTop: 4,
+        width: '100%'
+      },
+      onClick: () => openEqForm(null)
+    }, "+ Ausr\xFCstung hinzuf\xFCgen"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 16
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 9,
+        color: 'var(--text-muted)',
+        letterSpacing: '0.15em',
+        textTransform: 'uppercase',
+        marginBottom: 8
+      }
+    }, "Vorlagen"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 6
+      }
+    }, [{
+      name: 'Lederrüstung',
+      type: 'light',
+      baseAC: 11
+    }, {
+      name: 'Verstärkte Lederrüstung',
+      type: 'light',
+      baseAC: 12
+    }, {
+      name: 'Lederlamellenrüstung',
+      type: 'light',
+      baseAC: 13
+    }, {
+      name: 'Schuppenpanzer',
+      type: 'medium',
+      baseAC: 13
+    }, {
+      name: 'Kettenhemd',
+      type: 'medium',
+      baseAC: 13
+    }, {
+      name: 'Brustpanzer',
+      type: 'medium',
+      baseAC: 14
+    }, {
+      name: 'Schienenpanzer',
+      type: 'medium',
+      baseAC: 15
+    }, {
+      name: 'Halbplatte',
+      type: 'medium',
+      baseAC: 15
+    }, {
+      name: 'Ringpanzerhemd',
+      type: 'heavy',
+      baseAC: 14
+    }, {
+      name: 'Kettenpanzer',
+      type: 'heavy',
+      baseAC: 16
+    }, {
+      name: 'Bänderpanzer',
+      type: 'heavy',
+      baseAC: 17
+    }, {
+      name: 'Plattenpanzer',
+      type: 'heavy',
+      baseAC: 18
+    }, {
+      name: 'Schild',
+      type: 'shield',
+      baseAC: 2
+    }].map(tpl => /*#__PURE__*/React.createElement("button", {
+      key: tpl.name,
+      onClick: () => {
+        setEqForm({
+          ...tpl,
+          id: Date.now().toString(),
+          equipped: false,
+          notes: ''
+        });
+        setEqEditId(null);
+        setShowEF(true);
+      },
+      style: {
+        padding: '3px 10px',
+        borderRadius: 12,
+        border: '1px solid var(--border)',
+        background: 'var(--bg-card)',
+        color: 'var(--text-muted)',
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 9,
+        cursor: 'pointer',
+        letterSpacing: '0.06em'
+      }
+    }, tpl.name)))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 20
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "section-title",
+      style: {
+        marginBottom: 0
+      }
+    }, "\u2726 RK-Boni durch Talente & F\xE4higkeiten")), acBonuses.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        fontSize: 13,
+        marginBottom: 8
+      }
+    }, "Kein Bonus eingetragen (z.B. Defensiver Kampfstil, Nat\xFCrliche R\xFCstung, Ring des Schutzes).") : acBonuses.map(b => /*#__PURE__*/React.createElement("div", {
+      key: b.id,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        background: 'var(--bg-card)',
+        border: '1px solid ' + (b.active ? 'var(--gold-dim)' : 'var(--border)'),
+        borderRadius: 5,
+        padding: '7px 10px',
+        marginBottom: 6
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => updAcBonus(b.id, {
+        active: !b.active
+      }),
+      style: {
+        width: 28,
+        height: 28,
+        borderRadius: 4,
+        flexShrink: 0,
+        cursor: 'pointer',
+        background: b.active ? 'var(--gold-dim)20' : 'var(--bg-panel)',
+        border: '1px solid ' + (b.active ? 'var(--gold)' : 'var(--border)'),
+        color: b.active ? 'var(--gold)' : 'var(--text-muted)',
+        fontSize: 13,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      },
+      title: b.active ? 'Deaktivieren' : 'Aktivieren'
+    }, b.active ? '✦' : '◇'), /*#__PURE__*/React.createElement("input", {
+      style: {
+        flex: 1,
+        background: 'transparent',
+        border: 'none',
+        borderBottom: '1px solid var(--border)',
+        outline: 'none',
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 12,
+        color: 'var(--text-primary)',
+        padding: '2px 4px'
+      },
+      defaultValue: b.name,
+      onBlur: e => updAcBonus(b.id, {
+        name: e.target.value
+      }),
+      key: 'bn_' + b.id
+    }), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: -5,
+      max: 20,
+      style: {
+        width: 52,
+        background: 'transparent',
+        border: '1px solid var(--border)',
+        borderRadius: 3,
+        outline: 'none',
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 14,
+        color: b.active ? 'var(--gold)' : 'var(--text-muted)',
+        padding: '2px 6px',
+        textAlign: 'center'
+      },
+      defaultValue: b.bonus,
+      onBlur: e => updAcBonus(b.id, {
+        bonus: +e.target.value
+      }),
+      key: 'bv_' + b.id
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        fontFamily: "'Roboto Condensed',sans-serif",
+        minWidth: 20
+      }
+    }, "RK"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => delAcBonus(b.id),
+      style: {
+        background: 'none',
+        border: 'none',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        padding: '2px 4px',
+        fontSize: 13
+      }
+    }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
+      className: "btn-add",
+      style: {
+        marginTop: 4
+      },
+      onClick: addAcBonus
+    }, "+ RK-Bonus hinzuf\xFCgen"), acBonuses.filter(b => b.active).length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 8,
+        fontSize: 12,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic'
+      }
+    }, "Aktive Boni: ", acBonuses.filter(b => b.active).map(b => (b.bonus >= 0 ? '+' : '') + b.bonus + ' (' + b.name + ')').join(', '))));
+  })(), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "slots-panel",
+    style: {
+      marginBottom: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "slots-panel-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "slots-title"
+  }, "\u25C7 Ressourcen & Sonderpunkte"), /*#__PURE__*/React.createElement("button", {
+    className: "panel-edit-btn" + (resEdit ? " active" : ""),
+    onClick: () => setResEdit(!resEdit)
+  }, resEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
+    className: "resource-item insp-item"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "resource-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 13,
+      color: "var(--inspiration)",
+      flex: 1
+    }
+  }, "\u2726 Inspiration"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--text-muted)",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, "Vorteil auf einen Wurf")), /*#__PURE__*/React.createElement("div", {
+    className: "resource-pips"
+  }, Array.from({
+    length: inspMax
+  }).map((_, i) => /*#__PURE__*/React.createElement("div", _extends({
+    key: i,
+    className: "resource-pip",
+    title: i < insp ? "Inspiration einsetzen" : "Inspiration erhalten",
+    style: {
+      backgroundColor: i < insp ? "var(--inspiration)" : "var(--bg-void)",
+      borderColor: "var(--inspiration)",
+      opacity: i < insp ? 1 : 0.25,
+      boxShadow: i < insp ? "0 0 6px rgba(232,184,75,0.45)" : "none"
+    }
+  }, clickable(() => setInsp(i < insp ? i : i + 1), "Inspiration " + (i + 1) + " von " + inspMax + (i < insp ? " — einsetzen" : " — erhalten"))))), resEdit && inspMax < 10 && /*#__PURE__*/React.createElement("button", {
+    className: "slot-max-btn",
+    onClick: () => setInspMax(inspMax + 1)
+  }, "+"), resEdit && inspMax > 1 && /*#__PURE__*/React.createElement("button", {
+    className: "slot-max-btn",
+    onClick: () => setInspMax(inspMax - 1)
+  }, "\u2212"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 14,
+      color: "var(--inspiration)",
+      marginLeft: 4
+    }
+  }, insp, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: "var(--text-muted)"
+    }
+  }, "/", inspMax))), insp === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--text-muted)",
+      fontStyle: "italic",
+      marginTop: 4
+    }
+  }, "Punkt antippen, wenn die Spielleitung dir Inspiration gibt.")), resources.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "var(--text-muted)",
+      fontSize: 13,
+      fontStyle: "italic",
+      margin: "10px 0 8px"
+    }
+  }, "Sonst noch keine Ressourcen.", !resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), /*#__PURE__*/React.createElement("div", {
+    className: "resource-list"
+  }, resources.map(res => /*#__PURE__*/React.createElement("div", {
+    className: "resource-item",
+    key: res.id
+  }, resEdit ? /*#__PURE__*/React.createElement("div", {
+    className: "resource-header"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    style: {
+      padding: "3px 6px",
+      fontSize: 13,
+      fontFamily: "'Roboto Condensed',sans-serif",
+      flex: 1,
+      background: "transparent",
+      border: "none",
+      borderBottom: "1px solid var(--border)",
+      borderRadius: 0,
+      color: "var(--text-primary)"
+    },
+    key: `res_name_${res.id}_${res.name}`,
+    defaultValue: res.name,
+    onBlur: e => updResource(res.id, {
+      name: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    style: {
+      padding: "3px 6px",
+      fontSize: 11,
+      fontFamily: "'Roboto Condensed',sans-serif",
+      width: 52,
+      background: "transparent",
+      border: "none",
+      borderBottom: "1px solid var(--border)",
+      borderRadius: 0,
+      color: "var(--text-muted)"
+    },
+    key: `res_abbr_${res.id}_${res.abbr}`,
+    defaultValue: res.abbr || "",
+    placeholder: "K\xFCrzel",
+    onBlur: e => updResource(res.id, {
+      abbr: e.target.value
+    }),
+    title: "Abk\xFCrzung f\xFCr die Ressourcen-Leiste"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "color",
+    defaultValue: res.color || "#c9a84c",
+    onBlur: e => updResource(res.id, {
+      color: e.target.value
+    }),
+    onChange: e => e.target.parentElement.querySelector('.color-preview') && (e.target.parentElement.querySelector('.color-preview').style.background = e.target.value),
+    style: {
+      width: 22,
+      height: 22,
+      padding: 0,
+      border: "none",
+      borderRadius: 3,
+      cursor: "pointer",
+      background: "none"
+    },
+    title: "Farbe w\xE4hlen"
+  }), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    style: {
+      padding: "2px 4px",
+      fontSize: 11,
+      width: "auto"
+    },
+    value: res.restType || "lang",
+    onChange: e => updResource(res.id, {
+      restType: e.target.value
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "lang"
+  }, "Lange Rast"), /*#__PURE__*/React.createElement("option", {
+    value: "kurz"
+  }, "Kurze Rast"), /*#__PURE__*/React.createElement("option", {
+    value: "tag"
+  }, "T\xE4glich")), /*#__PURE__*/React.createElement("button", {
+    className: "resource-del",
+    onClick: () => delResource(res.id)
+  }, "\u2715"))) : /*#__PURE__*/React.createElement("div", {
+    className: "resource-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 13,
+      color: res.color || "#c9a84c",
+      flex: 1
+    }
+  }, res.name || "Ressource"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--text-muted)",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast")), /*#__PURE__*/React.createElement("div", {
+    className: "resource-pips"
+  }, Array.from({
+    length: res.max
+  }).map((_, i) => {
+    const avail = res.max - res.used;
+    return /*#__PURE__*/React.createElement("div", _extends({
+      key: i,
+      className: "resource-pip",
+      style: {
+        backgroundColor: i < avail ? res.color || "#c9a84c" : "var(--bg-void)",
+        borderColor: res.color || "#c9a84c",
+        opacity: i < avail ? 1 : 0.25,
+        boxShadow: i < avail ? `0 0 5px ${res.color || "#c9a84c"}60` : "none"
+      }
+    }, clickable(() => togResourcePip(res.id, i), (res.name || "Ressource") + " " + (i + 1) + " von " + res.max)));
+  }), resEdit && /*#__PURE__*/React.createElement("button", {
+    className: "slot-max-btn",
+    onClick: () => updResource(res.id, {
+      max: Math.min(30, res.max + 1)
+    })
+  }, "+"), resEdit && res.max > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "slot-max-btn",
+    onClick: () => updResource(res.id, {
+      max: Math.max(0, res.max - 1),
+      used: Math.min(res.used, res.max - 1)
+    })
+  }, "\u2212"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 14,
+      color: res.color || "#c9a84c",
+      marginLeft: 4
+    }
+  }, res.max - res.used, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: "var(--text-muted)"
+    }
+  }, "/", res.max))), res.used > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "resource-restore-btn",
+    onClick: () => updResource(res.id, {
+      used: 0
+    })
+  }, "\u21BA ", res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast")))), resEdit && /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    onClick: addResource
+  }, "+ Ressource hinzuf\xFCgen")), /*#__PURE__*/React.createElement("div", {
+    className: "section-divider"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "section-title",
+    style: {
+      marginBottom: 12
+    }
+  }, "\uD83D\uDDE1 Waffen"), cur.weapons.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "var(--text-muted)",
+      fontStyle: "italic",
+      fontSize: 14,
+      marginBottom: 12
+    }
+  }, "Keine Waffen angelegt. Klicke unten um eine hinzuzuf\xFCgen.") : /*#__PURE__*/React.createElement("div", {
+    className: "weapon-grid"
+  }, [...cur.weapons].sort((a, b) => {
+    if (!!a.equipped !== !!b.equipped) return a.equipped ? -1 : 1;
+    return (a.name || "").localeCompare(b.name || "", "de");
+  }).map(w => {
+    const {
+      bonus,
+      dmgStr
+    } = weaponStats(w);
+    const isEquipped = !!w.equipped;
+    const meta = [w.range || null, w.damageType || null].filter(Boolean).join(" · ");
+    return /*#__PURE__*/React.createElement("div", _extends({
+      key: w.id,
+      className: "weapon-card" + (isEquipped ? " equipped" : "")
+    }, clickable(() => setWeaponViewer(w.id), (w.name || "Waffe") + " — Details")), /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-img"
+    }, w.imageData ? /*#__PURE__*/React.createElement("img", {
+      src: w.imageData,
+      alt: w.name || "Waffe"
+    }) : /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-glyph"
+    }, "\u2694"), /*#__PURE__*/React.createElement("button", {
+      className: "weapon-equip-btn",
+      title: isEquipped ? "Ablegen" : "Anlegen",
+      onClick: e => {
+        e.stopPropagation();
+        toggleEquipped(w.id);
+      }
+    }, "\u2694")), /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-info"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-name"
+    }, w.name || "—"), meta && /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-meta"
+    }, meta), /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-stats"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-stat"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-stat-label"
+    }, "Angriff"), /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-stat-value atk"
+    }, bonus >= 0 ? "+" + bonus : bonus)), /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-stat"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-stat-label"
+    }, "Schaden"), /*#__PURE__*/React.createElement("div", {
+      className: "weapon-card-stat-value"
+    }, dmgStr)))));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      flex: 1
+    },
+    onClick: () => {
+      setWf(newWeapon());
+      setWfEditId(null);
+      setShowWF(true);
+    }
+  }, "+ Waffe hinzuf\xFCgen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      flex: 1,
+      borderColor: "var(--gold)",
+      color: "var(--gold)"
+    },
+    onClick: () => openTpl('weapon')
+  }, "\uD83D\uDCD6 Von Vorlage (SRD)"))), tab === "merkmale" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-title",
+    style: {
+      marginBottom: 12
+    }
+  }, "\u2B50 Klassenf\xE4higkeiten & Merkmale"), (cur.features || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "var(--text-muted)",
+      fontStyle: "italic",
+      fontSize: 13,
+      marginBottom: 12
+    }
+  }, "Keine F\xE4higkeiten eingetragen.") : /*#__PURE__*/React.createElement("div", {
+    className: "features-grid"
+  }, [...(cur.features || [])].sort((a, b) => (a.source || '').localeCompare(b.source || '', 'de') || a.name.localeCompare(b.name, 'de')).map(feat => /*#__PURE__*/React.createElement("div", _extends({
+    key: feat.id,
+    className: "feature-card" + (exFeature === feat.id ? " expanded" : ""),
+    "aria-expanded": exFeature === feat.id
+  }, clickable(() => setExFeature(exFeature === feat.id ? null : feat.id), feat.name)), /*#__PURE__*/React.createElement("div", {
+    className: "feature-card-banner"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "feature-card-orb"
+  }, "\u2B50"), /*#__PURE__*/React.createElement("div", {
+    className: "feature-card-name"
+  }, feat.name), /*#__PURE__*/React.createElement("div", {
+    className: "feature-actions",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "spell-edit-btn",
+    onClick: e => {
+      e.stopPropagation();
+      setFf({
+        name: feat.name,
+        source: feat.source || '',
+        description: feat.description || ''
+      });
+      setFfEditId(feat.id);
+      setShowFF(true);
+    }
+  }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+    className: "spell-delete",
+    onClick: e => {
+      e.stopPropagation();
+      delFeature(feat.id);
+    }
+  }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+    className: "feature-card-body"
+  }, feat.source && /*#__PURE__*/React.createElement("div", {
+    className: "feature-source"
+  }, feat.source)), feat.description && /*#__PURE__*/React.createElement("div", {
+    className: "feature-card-desc-wrap"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "feature-card-desc"
+  }, feat.description)))))), /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    onClick: () => {
+      setFf({
+        name: '',
+        source: '',
+        description: ''
+      });
+      setFfEditId(null);
+      setShowFF(true);
+    }
+  }, "+ F\xE4higkeit hinzuf\xFCgen")), /*#__PURE__*/React.createElement("div", {
+    className: "profs-grid"
+  }, [{
+    title: '🗣 Sprachen',
+    items: languages,
+    add: addLanguage,
+    del: delLanguage,
+    placeholder: 'z.B. Gemeinsprache, Elfisch'
+  }, {
+    title: '🔧 Werkzeugsfähigkeiten',
+    items: toolProfs,
+    add: addToolProf,
+    del: delToolProf,
+    placeholder: 'z.B. Diebeswerkzeug'
+  }, {
+    title: '⚔️ Waffenfähigkeiten',
+    items: weaponProfs,
+    add: addWeaponProf,
+    del: delWeaponProf,
+    placeholder: 'z.B. Einfache Waffen, Kriegswaffen'
+  }, {
+    title: '🛡️ Rüstungsfertigkeiten',
+    items: armorProfs,
+    add: addArmorProf,
+    del: delArmorProf,
+    placeholder: 'z.B. Leichte Rüstung, Schilde'
+  }].map(({
+    title,
+    items,
+    add,
+    del,
+    placeholder
+  }) => /*#__PURE__*/React.createElement("div", {
+    key: title,
+    className: "stats-section",
+    style: {
+      marginBottom: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-title"
+  }, title), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      borderRadius: 6,
+      overflow: 'hidden'
+    }
+  }, items.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '8px 12px',
+      fontSize: 13,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic'
+    }
+  }, "Keine Eintr\xE4ge."), items.map((item, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      padding: '6px 10px',
+      borderBottom: '1px solid var(--border)',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      fontFamily: "'Roboto',sans-serif",
+      fontSize: 14,
+      color: 'var(--text-secondary)'
+    }
+  }, item), /*#__PURE__*/React.createElement("button", {
+    className: "chip-remove",
+    onClick: () => del(i),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: 'var(--text-muted)',
+      cursor: 'pointer',
+      fontSize: 13,
+      lineHeight: 1
+    }
+  }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      padding: '6px 10px'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    style: {
+      flex: 1,
+      padding: '4px 8px',
+      fontSize: 13,
+      background: 'transparent',
+      border: 'none',
+      borderBottom: '1px solid var(--border)',
+      borderRadius: 0,
+      color: 'var(--text-primary)'
+    },
+    placeholder: placeholder,
+    onKeyDown: e => {
+      if (e.key === 'Enter') {
+        add(e.target.value);
+        e.target.value = '';
+      }
+    },
+    onBlur: e => {
+      if (e.target.value.trim()) {
+        add(e.target.value);
+        e.target.value = '';
+      }
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'var(--text-muted)',
+      alignSelf: 'center',
+      whiteSpace: 'nowrap'
+    }
+  }, "\u21B5 Enter"))))))), tab === "zauber" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "slots-panel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "slots-panel-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "slots-title"
+  }, "\u25C8 Zauberpl\xE4tze"), /*#__PURE__*/React.createElement("button", {
+    className: "panel-edit-btn" + (slotsEdit ? " active" : ""),
+    onClick: () => setSlotsEdit(!slotsEdit)
+  }, slotsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), [1, 2, 3, 4, 5, 6, 7, 8, 9].every(l => !slots[l] || slots[l].max === 0) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "var(--text-muted)",
+      fontSize: 13,
+      fontStyle: "italic",
+      marginBottom: 8
+    }
+  }, "Noch keine Slots.", !slotsEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), /*#__PURE__*/React.createElement("div", {
+    className: "slots-grid"
+  }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => {
+    const s = slots[l] || {
+      max: 0,
+      used: 0
+    };
+    if (!slotsEdit && s.max === 0) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "slot-row",
+      key: l
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "slot-row-label"
+    }, "Grad ", l), /*#__PURE__*/React.createElement("div", {
+      className: "slot-pips"
+    }, Array.from({
+      length: s.max
+    }).map((_, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "slot-pip " + (i < s.max - s.used ? "available" : "used"),
+      onClick: () => togSlot(l, i)
+    })), slotsEdit && /*#__PURE__*/React.createElement("button", {
+      className: "slot-max-btn",
+      onClick: () => chgMax(l, 1)
+    }, "+"), slotsEdit && s.max > 0 && /*#__PURE__*/React.createElement("button", {
+      className: "slot-max-btn",
+      onClick: () => chgMax(l, -1)
+    }, "\u2212"), !slotsEdit && s.max === 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "var(--text-muted)",
+        fontSize: 11
+      }
+    }, "\u2014")));
+  })), [1, 2, 3, 4, 5, 6, 7, 8, 9].some(l => slots[l] && slots[l].max > 0) && /*#__PURE__*/React.createElement("button", {
+    className: "slot-restore-btn",
+    onClick: resetAll
+  }, "\u21BA Alle Slots wiederherstellen (lange Rast)")), (() => {
+    const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses || []).some(m => m.charClass === "Zauberer");
+    if (!isZauberer) return null;
+    return sp.max > 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "sorcery-panel"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "slots-panel-header",
+      style: {
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "sorcery-title",
+      style: {
+        margin: 0
+      }
+    }, "\u2726 Zaubereipunkte"), /*#__PURE__*/React.createElement("button", {
+      className: "panel-edit-btn" + (spEdit ? " active" : ""),
+      onClick: () => setSpEdit(!spEdit),
+      style: {
+        borderColor: "var(--arcane-bright)",
+        color: spEdit ? "var(--arcane-bright)" : "var(--text-muted)",
+        opacity: spEdit ? 1 : 0.6
+      }
+    }, spEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
+      className: "sorcery-pips"
+    }, Array.from({
+      length: sp.max
+    }).map((_, i) => {
+      const avail = sp.max - sp.used;
+      return /*#__PURE__*/React.createElement("div", {
+        key: i,
+        className: "sorcery-pip " + (i < avail ? "available" : "spent"),
+        onClick: () => togSP(i),
+        title: i < avail ? "Punkt ausgeben" : "Punkt zurück"
+      });
+    }), spEdit && /*#__PURE__*/React.createElement("button", {
+      className: "slot-max-btn",
+      onClick: () => spChgMax(1),
+      title: "Max erh\xF6hen"
+    }, "+"), spEdit && sp.max > 0 && /*#__PURE__*/React.createElement("button", {
+      className: "slot-max-btn",
+      onClick: () => spChgMax(-1),
+      title: "Max verringern"
+    }, "\u2212")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        flexWrap: "wrap"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 18,
+        color: "var(--arcane-bright)"
+      }
+    }, sp.max - sp.used, " ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: "var(--text-muted)"
+      }
+    }, "/ ", sp.max)), sp.used > 0 && /*#__PURE__*/React.createElement("button", {
+      className: "slot-restore-btn",
+      style: {
+        borderColor: "var(--arcane-bright)",
+        color: "var(--arcane-bright)"
+      },
+      onClick: () => updSP({
+        ...sp,
+        used: 0
+      })
+    }, "\u21BA Wiederherstellen (Lange Rast)"))) : /*#__PURE__*/React.createElement("button", {
+      className: "btn-add",
+      style: {
+        marginBottom: 16
+      },
+      onClick: () => updSP({
+        max: cur.level,
+        used: 0
+      })
+    }, "\u2726 Zaubereipunkte aktivieren");
+  })(), /*#__PURE__*/React.createElement("div", {
+    className: "section-title",
+    style: {
+      marginBottom: 8
+    }
+  }, "\u2728 Bekannte Zauber"), (() => {
+    // Build all class/dmg tags from current spells using tplData lookup
+    const allSpellClasses = [...new Set(cur.spells.flatMap(s => s.classes || []))].sort();
+    const allSpellDmg = [...new Set(cur.spells.flatMap(s => s.damageTags || []))].sort();
+    const hasFilters = allSpellClasses.length > 0 || allSpellDmg.length > 0;
+    const filterActive = spellTagFilter.classes.length > 0 || spellTagFilter.dmg.length > 0;
+    return hasFilters && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginBottom: 12,
+        alignItems: 'center'
+      }
+    }, allSpellClasses.map(c => {
+      const cc = {
+        'Artifizient': '#70b8c8',
+        'Barbar': '#c84040',
+        'Barde': '#4090c0',
+        'Druide': '#52b788',
+        'Hexenmeister': '#9060c0',
+        'Kämpfer': '#c08040',
+        'Kleriker': '#e0c040',
+        'Magier': '#6080d0',
+        'Mönch': '#d09040',
+        'Paladin': '#e0a030',
+        'Schurke': '#808080',
+        'Waldläufer': '#70a050',
+        'Zauberer': '#c060a0'
+      };
+      const col = cc[c] || '#c9a84c';
+      const on = spellTagFilter.classes.includes(c);
+      return /*#__PURE__*/React.createElement("button", {
+        key: c,
+        onClick: () => setSpellTagFilter(f => ({
+          ...f,
+          classes: on ? f.classes.filter(x => x !== c) : [...f.classes, c]
+        })),
+        style: {
+          padding: '2px 8px',
+          borderRadius: 10,
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 9,
+          cursor: 'pointer',
+          letterSpacing: '0.06em',
+          border: '1px solid ' + (on ? col : col + '40'),
+          background: on ? col + '22' : 'var(--bg-card)',
+          color: on ? col : 'var(--text-muted)'
+        }
+      }, c);
+    }), allSpellDmg.map(d => {
+      const dc = {
+        Feuer: '#e07030',
+        Kälte: '#70b8d8',
+        Blitz: '#c0d850',
+        Säure: '#90c040',
+        Gift: '#80b030',
+        Nekrose: '#9060c0',
+        Strahlend: '#f0e060',
+        Psychisch: '#c070d0',
+        Kraft: '#80a0f0',
+        Hieb: '#a07050',
+        Stich: '#b08060',
+        Wucht: '#c09070'
+      }[d] || '#a0a0a0';
+      const on = spellTagFilter.dmg.includes(d);
+      return /*#__PURE__*/React.createElement("button", {
+        key: d,
+        onClick: () => setSpellTagFilter(f => ({
+          ...f,
+          dmg: f.dmg.includes(d) ? f.dmg.filter(x => x !== d) : [...f.dmg, d]
+        })),
+        style: {
+          padding: '2px 8px',
+          borderRadius: 10,
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 9,
+          cursor: 'pointer',
+          letterSpacing: '0.06em',
+          border: `1px solid ${on ? dc : dc + '40'}`,
+          background: on ? dc + '22' : 'var(--bg-card)',
+          color: on ? dc : 'var(--text-muted)'
+        }
+      }, "\u2694\uFE0F ", d);
+    }), filterActive && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSpellTagFilter({
+        classes: [],
+        dmg: []
+      }),
+      style: {
+        background: 'none',
+        border: 'none',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        fontSize: 11,
+        fontFamily: "'Roboto Condensed',sans-serif",
+        padding: '2px 6px'
+      }
+    }, "\u2715 zur\xFCcksetzen"));
+  })(), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      flex: 1
+    },
+    onClick: () => {
+      setSf({
+        ...newSpell(),
+        level: 0
+      });
+      setSfEditId(null);
+      setShowSF(true);
+    }
+  }, "+ Zaubertrick"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      flex: 1
+    },
+    onClick: () => {
+      setSf(newSpell());
+      setSfEditId(null);
+      setShowSF(true);
+    }
+  }, "+ Zauber (Grad 1\u20139)"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      flex: 1,
+      borderColor: "var(--arcane-bright)",
+      color: "var(--arcane-bright)"
+    },
+    onClick: () => openTpl('spell')
+  }, "\uD83D\uDCD6 Von Vorlage (SRD)")), cur.spells.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "var(--text-muted)",
+      fontStyle: "italic",
+      fontSize: 14,
+      marginBottom: 12
+    }
+  }, "Noch keine Zauber eingetragen.") : [0, ...sls.filter(l => l !== 0)].filter(l => sbl[l]).map(l => {
+    const isCollapsed = collapsedLevels.has(l);
+    const toggleLevel = () => setCollapsedLevels(prev => {
+      const next = new Set(prev);
+      if (next.has(l)) next.delete(l);else next.add(l);
+      return next;
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      className: "spell-level-group",
+      key: l
+    }, /*#__PURE__*/React.createElement("div", _extends({
+      className: "spell-level-header",
+      style: {
+        cursor: "pointer"
+      },
+      "aria-expanded": !isCollapsed
+    }, clickable(toggleLevel, (l === 0 ? "Zaubertricks" : "Grad " + l) + " auf- oder zuklappen")), /*#__PURE__*/React.createElement("div", {
+      className: "spell-level-title"
+    }, l === 0 ? "✦ Zaubertricks" : "Grad " + l), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginLeft: "auto"
+      }
+    }, l > 0 && slots[l] && slots[l].max > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 3
+      }
+    }, Array.from({
+      length: slots[l].max
+    }).map((_, i) => {
+      const avail = slots[l].max - slots[l].used;
+      return /*#__PURE__*/React.createElement("div", {
+        key: i,
+        onClick: e => {
+          e.stopPropagation();
+          togSlot(l, i);
+        },
+        style: {
+          width: 14,
+          height: 14,
+          borderRadius: "50%",
+          background: i < avail ? "var(--gold-dim)" : "transparent",
+          border: "1px solid " + (i < avail ? "var(--gold)" : "var(--border-bright)"),
+          cursor: "pointer",
+          flexShrink: 0,
+          boxShadow: i < avail ? "0 0 4px rgba(201,168,76,0.4)" : "none",
+          transition: "all 0.15s"
+        },
+        title: i < avail ? "Slot verfügbar" : "Slot verbraucht"
+      });
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 10,
+        color: "var(--gold)",
+        marginLeft: 2,
+        opacity: 0.85
+      }
+    }, slots[l].max - slots[l].used, "/", slots[l].max)), /*#__PURE__*/React.createElement("div", {
+      className: "spell-level-count"
+    }, (() => {
+      const prep = sbl[l].filter(s => s.prepared !== false).length;
+      const unprep = sbl[l].filter(s => s.prepared === false).length;
+      if (unprep === 0) return sbl[l].length + " Zauber";
+      return prep + " ✓" + (unprep ? " · " + unprep + " ○" : "");
+    })()), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "var(--text-muted)",
+        marginLeft: 4,
+        transition: "transform 0.2s",
+        transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)"
+      }
+    }, "\u25BE"))), !isCollapsed && (() => {
+      const tagFilterFn = s => {
+        if (spellTagFilter.classes.length === 0 && spellTagFilter.dmg.length === 0) return true;
+        const classOk = spellTagFilter.classes.length === 0 || spellTagFilter.classes.some(c => (s.classes || []).includes(c));
+        const dmgOk = spellTagFilter.dmg.length === 0 || spellTagFilter.dmg.some(d => (s.damageTags || []).includes(d));
+        return classOk && dmgOk;
+      };
+      const preparedSpells = sbl[l].filter(s => s.prepared !== false && tagFilterFn(s));
+      const unpreparedSpells = sbl[l].filter(s => s.prepared === false && tagFilterFn(s));
+      const renderSpell = s => {
+        const sc = SC[s.school] || SC["Hervorrufung"];
+        const spellClasses = s.classes || [];
+        const spellDmgTags = s.damageTags || [];
+        const levelLabel = s.level === 0 ? 'Zaubertrick' : `${s.level}. Grad · ${s.school}`;
+        return /*#__PURE__*/React.createElement("div", _extends({
+          key: s.id,
+          className: "spell-card" + (exSpell === s.id ? " expanded" : ""),
+          style: {
+            borderColor: sc.border,
+            borderWidth: 2
+          },
+          "aria-expanded": exSpell === s.id
+        }, clickable(() => setExSpell(exSpell === s.id ? null : s.id), s.name)), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-header",
+          style: {
+            background: `linear-gradient(180deg, ${sc.border} 0%, ${sc.bg} 100%)`
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-name"
+        }, s.name), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-school-label"
+        }, levelLabel)), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stats-grid"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-cell"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-label",
+          style: {
+            color: sc.text
+          }
+        }, "Wirkzeit"), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-value"
+        }, s.castingTime || '—')), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-cell"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-label",
+          style: {
+            color: sc.text
+          }
+        }, "Reichweite"), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-value"
+        }, s.range || '—')), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-cell"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-label",
+          style: {
+            color: sc.text
+          }
+        }, "Komponenten"), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-value"
+        }, s.components || '—')), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-cell"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-label",
+          style: {
+            color: sc.text
+          }
+        }, "Dauer"), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-stat-value"
+        }, s.duration || '—'))), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-desc-wrap"
+        }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-desc",
+          dangerouslySetInnerHTML: {
+            __html: sanitizeHtml(s.description)
+          }
+        }))), (spellClasses.length > 0 || spellDmgTags.length > 0) && /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-tags"
+        }, spellClasses.map(c => {
+          const col = CC_COLORS[c] || '#c9a84c';
+          return /*#__PURE__*/React.createElement("span", {
+            key: c,
+            style: {
+              padding: '1px 6px',
+              borderRadius: 8,
+              fontFamily: "'Roboto Condensed',sans-serif",
+              fontSize: 8,
+              letterSpacing: '0.05em',
+              background: col + '22',
+              border: '1px solid ' + col + '80',
+              color: col
+            }
+          }, c);
+        }), spellDmgTags.map(d => {
+          const col = DMG_COLORS[d] || '#a0a0a0';
+          return /*#__PURE__*/React.createElement("span", {
+            key: d,
+            style: {
+              padding: '1px 6px',
+              borderRadius: 8,
+              fontFamily: "'Roboto Condensed',sans-serif",
+              fontSize: 8,
+              letterSpacing: '0.05em',
+              background: col + '22',
+              border: '1px solid ' + col + '80',
+              color: col
+            }
+          }, "\u2694 ", d);
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-footer",
+          style: {
+            background: `${sc.bg}cc`
+          }
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "spell-card-school-footer",
+          style: {
+            color: sc.text
+          }
+        }, s.school), /*#__PURE__*/React.createElement("div", {
+          className: "spell-actions",
+          onClick: e => e.stopPropagation(),
+          style: {
+            alignItems: 'center',
+            gap: 4
+          }
+        }, /*#__PURE__*/React.createElement("button", {
+          title: s.prepared === false ? "Vorbereiten" : "Nicht vorbereitet markieren",
+          onClick: e => {
+            e.stopPropagation();
+            toggleSpellPrepared(s.id);
+          },
+          style: {
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '1px 3px',
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }
+        }, /*#__PURE__*/React.createElement("span", {
+          style: {
+            display: 'inline-block',
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: s.prepared === false ? '#e0c040' : '#3aaa5c',
+            boxShadow: s.prepared === false ? '0 0 4px #e0c040aa' : '0 0 6px #3aaa5caa',
+            transition: 'all 0.2s'
+          }
+        })), /*#__PURE__*/React.createElement("button", {
+          className: "spell-edit-btn",
+          onClick: e => {
+            e.stopPropagation();
+            setSf({
+              ...s
+            });
+            setSfEditId(s.id);
+            setShowSF(true);
+          },
+          style: {
+            background: 'rgba(0,0,0,0.12)',
+            border: 'none',
+            color: 'rgba(0,0,0,0.5)',
+            cursor: 'pointer',
+            fontSize: 10,
+            padding: '2px 5px',
+            borderRadius: 3
+          }
+        }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+          className: "spell-delete",
+          onClick: e => {
+            e.stopPropagation();
+            delSpell(s.id);
+          }
+        }, "\u2715"))));
+      };
+      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+        className: "spells-list"
+      }, preparedSpells.map(renderSpell)), unpreparedSpells.length > 0 && /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginTop: 8
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        onClick: () => setOpenUnprepared(prev => {
+          const s = new Set(prev);
+          s.has(l) ? s.delete(l) : s.add(l);
+          return s;
+        }),
+        style: {
+          cursor: 'pointer',
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 10,
+          color: 'var(--text-muted)',
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 0',
+          borderTop: '1px solid var(--border)',
+          userSelect: 'none'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          transition: 'transform 0.2s',
+          transform: openUnprepared.has(l) ? 'rotate(90deg)' : 'rotate(0deg)'
+        }
+      }, "\u25B6"), unpreparedSpells.length, " nicht vorbereitet"), openUnprepared.has(l) && /*#__PURE__*/React.createElement("div", {
+        className: "spells-list",
+        style: {
+          marginTop: 8,
+          opacity: 0.6
+        }
+      }, unpreparedSpells.map(renderSpell))));
+    })());
+  }), (cur.charClass === "Druide" || (cur.multiclasses || []).some(m => m.charClass === "Druide")) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      marginTop: 8,
+      borderColor: "#52b788",
+      color: "#52b788",
+      width: "100%"
+    },
+    onClick: () => openTpl('wildshape')
+  }, "\uD83D\uDC3A Tierverwandlungs-Bestiar"), (cur.wsFavorites || []).length > 0 && tplData && tplData.wildshapes && (() => {
+    const statMod = v => {
+      const m = Math.floor((v - 10) / 2);
+      return (m >= 0 ? '+' : '') + m;
+    };
+    const favAnimals = tplData.wildshapes.filter(w => (cur.wsFavorites || []).includes(w.name));
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 16
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 10,
+        paddingBottom: 6,
+        borderBottom: "1px solid var(--border)"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "section-title",
+      style: {
+        margin: 0
+      }
+    }, "\u2B50 Tierverwandlung \u2013 Favoriten"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: "var(--text-muted)",
+        marginLeft: "auto"
+      }
+    }, favAnimals.length, " Tiere")), /*#__PURE__*/React.createElement("div", {
+      className: "spells-list"
+    }, favAnimals.map((w, i) => {
+      const isExp = wsExpand === "fav_" + w.name;
+      return /*#__PURE__*/React.createElement("div", {
+        key: i,
+        className: "spell-card" + (isExp ? " expanded" : ""),
+        style: {
+          borderColor: "#52b78880"
+        },
+        onClick: () => setWsExpand(isExp ? null : "fav_" + w.name)
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-banner",
+        style: {
+          background: "linear-gradient(135deg,#1a3d2b 0%,#2a5c3f80 100%)"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-orb",
+        style: {
+          background: "#52b78840",
+          borderColor: "#52b78880",
+          color: "#52b788",
+          fontSize: 10
+        }
+      }, "CR", w.cr), /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-school-label",
+        style: {
+          flex: 1
+        }
+      }, w.name), /*#__PURE__*/React.createElement("div", {
+        className: "spell-actions",
+        onClick: e => e.stopPropagation()
+      }, /*#__PURE__*/React.createElement("button", {
+        className: "spell-edit-btn",
+        style: {
+          color: "#f0c040"
+        },
+        title: "Aus Favoriten entfernen",
+        onClick: e => {
+          e.stopPropagation();
+          toggleWsFav(w.name);
+        }
+      }, "\u2605"))), /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-body"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-name",
+        style: {
+          fontSize: 10,
+          color: "#52b788",
+          opacity: 0.85
+        }
+      }, w.size, " \xB7 ", w.type), /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-stats"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-stat"
+      }, /*#__PURE__*/React.createElement("strong", null, "RK"), w.ac), /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-stat"
+      }, /*#__PURE__*/React.createElement("strong", null, "TP"), w.hp), /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-stat"
+      }, /*#__PURE__*/React.createElement("strong", null, "Bew."), w.speed)), /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-stats",
+        style: {
+          marginTop: 4
+        }
+      }, [['STR', w.str], ['GES', w.dex], ['KON', w.con], ['INT', w.int], ['WEI', w.wis], ['CHA', w.cha]].map(([l, v]) => /*#__PURE__*/React.createElement("div", {
+        key: l,
+        className: "spell-card-stat"
+      }, /*#__PURE__*/React.createElement("strong", null, l), v, " (", statMod(v), ")")))), isExp && /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-desc-wrap"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "spell-card-desc"
+      }, w.senses && /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginBottom: 4
+        }
+      }, "\uD83D\uDC41 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", w.senses), w.skills && /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginBottom: 4
+        }
+      }, "\uD83C\uDFAF ", /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", w.skills), (w.tags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginBottom: 6
+        }
+      }, w.tags.map(t => /*#__PURE__*/React.createElement("span", {
+        className: "ws-tag",
+        key: t,
+        style: {
+          marginRight: 4,
+          marginBottom: 2,
+          display: "inline-block"
+        }
+      }, t))), w.abilities && w.abilities.map((a, ai) => /*#__PURE__*/React.createElement("div", {
+        key: ai,
+        style: {
+          marginBottom: 3
+        }
+      }, "\u2022 ", a)), w.actions && w.actions.map((a, ai) => /*#__PURE__*/React.createElement("div", {
+        key: ai,
+        style: {
+          marginTop: 4,
+          borderTop: "1px solid #52b78830",
+          paddingTop: 4
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 11,
+          color: "#52b788",
+          marginBottom: 2
+        }
+      }, "\u2694 ", a.name), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 12
+        }
+      }, a.desc))))));
+    })));
+  })())), tab === "inventar" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "section-title",
+    style: {
+      marginBottom: 12
+    }
+  }, "\uD83D\uDCB0 W\xE4hrung"), /*#__PURE__*/React.createElement("div", {
+    className: "currency-row"
+  }, COINS.map(c => {
+    const val = currency[c.key] || 0;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "currency-box",
+      key: c.key,
+      style: {
+        borderColor: c.color + '40',
+        cursor: 'pointer',
+        userSelect: 'none'
+      },
+      onClick: e => {
+        setCoinDelta('');
+        setCoinPopover({
+          key: c.key,
+          label: c.label,
+          color: c.color,
+          val
+        });
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "currency-icon",
+      style: {
+        color: c.color
+      }
+    }, "\uD83E\uDE99"), /*#__PURE__*/React.createElement("div", {
+      className: "currency-label",
+      style: {
+        color: c.color
+      }
+    }, c.label), /*#__PURE__*/React.createElement("div", {
+      className: "currency-input",
+      style: {
+        color: c.color,
+        borderColor: c.color + '40',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 16,
+        minHeight: 32
+      }
+    }, val));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 10,
+      color: "var(--text-muted)",
+      textAlign: "right",
+      marginBottom: 20
+    }
+  }, "Gesamtwert: ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "var(--gold)"
+    }
+  }, totalGp.toFixed(2), " GM")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-title",
+    style: {
+      marginBottom: 0,
+      flex: 1
+    }
+  }, "\uD83C\uDF92 Gegenst\xE4nde"), !transferMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    style: {
+      padding: "4px 10px",
+      fontSize: 11,
+      borderColor: "var(--border-bright)",
+      color: "var(--text-secondary)"
+    },
+    onClick: () => {
+      setItf(newItem());
+      setItfEditId(null);
+      setShowIF(true);
+    }
+  }, "+ Hinzuf\xFCgen"), inv.length > 0 && chars.filter(c => c.id !== sel && !c.archived && (!c.dmOnly || isDmMode)).length > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    style: {
+      padding: "4px 10px",
+      fontSize: 11,
+      borderColor: "#7ab8f5",
+      color: "#7ab8f5"
+    },
+    onClick: () => {
+      setTransferMode(true);
+      setTransferSel(new Set());
+    }
+  }, "\u27A4 \xDCbergeben")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    style: {
+      padding: "4px 10px",
+      fontSize: 11
+    },
+    onClick: () => {
+      setTransferMode(false);
+      setTransferSel(new Set());
+    }
+  }, "\u2715 Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    style: {
+      padding: "4px 10px",
+      fontSize: 11,
+      borderColor: transferSel.size > 0 ? "#7ab8f5" : "var(--border)",
+      color: transferSel.size > 0 ? "#7ab8f5" : "var(--text-muted)",
+      opacity: transferSel.size > 0 ? 1 : 0.5
+    },
+    onClick: () => {
+      if (transferSel.size > 0) setShowTransfer(true);
+    },
+    disabled: transferSel.size === 0
+  }, "\u27A4 ", transferSel.size > 0 ? `${transferSel.size} übergeben` : "Auswahl..."))), inv.length > 0 && (() => {
+    const allTags = [...new Set(inv.flatMap(i => i.tags || []))].sort((a, b) => a.localeCompare(b, "de"));
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        marginBottom: allTags.length > 0 ? 8 : 0
+      }
+    }, /*#__PURE__*/React.createElement("select", {
+      className: "tpl-filter-select",
+      value: invRarity,
+      onChange: e => setInvRarity(e.target.value),
+      style: {
+        padding: "6px 8px"
+      }
+    }, /*#__PURE__*/React.createElement("option", {
+      value: "all"
+    }, "Alle Seltenheiten"), RARITIES.map(r => /*#__PURE__*/React.createElement("option", {
+      key: r.key,
+      value: r.key
+    }, r.label))), invTagFilter.length > 0 && /*#__PURE__*/React.createElement("button", {
+      className: "tag-filter-btn",
+      onClick: () => setInvTagFilter([]),
+      style: {
+        borderColor: "var(--crimson)",
+        color: "var(--crimson)"
+      }
+    }, "\u2715 Filter leeren")), allTags.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "tag-filter-bar"
+    }, allTags.map(tag => /*#__PURE__*/React.createElement("button", {
+      key: tag,
+      className: "tag-filter-btn" + (invTagFilter.includes(tag) ? " active" : ""),
+      onClick: () => setInvTagFilter(invTagFilter.includes(tag) ? invTagFilter.filter(t => t !== tag) : [...invTagFilter, tag])
+    }, tag))));
+  })(), (() => {
+    const rarityOrder = {
+      artefakt: 0,
+      legendär: 1,
+      sehrSelten: 2,
+      selten: 3,
+      ungewöhnlich: 4,
+      gewöhnlich: 5
+    };
+    const filtered = inv.filter(item => {
+      const matchRarity = invRarity === 'all' || item.rarity === invRarity;
+      const matchTags = invTagFilter.length === 0 || invTagFilter.every(t => (item.tags || []).includes(t));
+      return matchRarity && matchTags;
+    }).sort((a, b) => {
+      const rd = (rarityOrder[a.rarity] !== undefined ? rarityOrder[a.rarity] : 5) - (rarityOrder[b.rarity] !== undefined ? rarityOrder[b.rarity] : 5);
+      return rd !== 0 ? rd : a.name.localeCompare(b.name, 'de');
+    });
+    if (inv.length === 0) return /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: "var(--text-muted)",
+        fontStyle: "italic",
+        fontSize: 14,
+        marginBottom: 12
+      }
+    }, "Keine Gegenst\xE4nde im Inventar.");
+    if (filtered.length === 0) return /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: "var(--text-muted)",
+        fontStyle: "italic",
+        fontSize: 14,
+        marginBottom: 12
+      }
+    }, "Keine Gegenst\xE4nde gefunden.");
+    return /*#__PURE__*/React.createElement("div", null, transferMode && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: filtered.length > 0 && filtered.every(i => transferSel.has(i.id)),
+      onChange: e => {
+        if (e.target.checked) setTransferSel(new Set(filtered.map(i => i.id)));else setTransferSel(new Set());
+      },
+      style: {
+        cursor: 'pointer',
+        accentColor: 'var(--gold)'
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 11,
+        color: 'var(--text-muted)'
+      }
+    }, "Alle ausw\xE4hlen")), /*#__PURE__*/React.createElement("div", null, transferMode && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: filtered.length > 0 && filtered.every(i => transferSel.has(i.id)),
+      onChange: e => {
+        if (e.target.checked) setTransferSel(new Set(filtered.map(i => i.id)));else setTransferSel(new Set());
+      },
+      style: {
+        cursor: 'pointer',
+        accentColor: 'var(--gold)'
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 11,
+        color: 'var(--text-muted)'
+      }
+    }, "Alle ausw\xE4hlen")), /*#__PURE__*/React.createElement("div", {
+      className: "inv-grid"
+    }, filtered.map(item => {
+      const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
+      const checked = transferSel.has(item.id);
+      const icon = item.icon || '🎒';
+      const isExp = exItem === item.id;
+      return /*#__PURE__*/React.createElement("div", _extends({
+        key: item.id,
+        className: "inv-card" + (isExp ? " expanded" : ""),
+        style: {
+          borderColor: r.color,
+          outline: transferMode && checked ? `2px solid ${r.color}` : 'none',
+          outlineOffset: 2
+        },
+        "aria-pressed": transferMode ? checked : undefined
+      }, clickable(transferMode ? () => {
+        const s = new Set(transferSel);
+        checked ? s.delete(item.id) : s.add(item.id);
+        setTransferSel(s);
+      } : () => setItemViewer(item), item.name)), /*#__PURE__*/React.createElement("div", {
+        className: "inv-card-header",
+        style: {
+          background: `linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`,
+          borderBottom: `1px solid ${r.color}55`,
+          position: 'relative'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          position: 'absolute',
+          top: 5,
+          left: 6,
+          background: 'var(--bg-void)',
+          color: 'var(--parchment)',
+          border: `1px solid ${r.color}77`,
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 9,
+          fontWeight: 700,
+          lineHeight: 1,
+          padding: '2px 5px',
+          borderRadius: 8,
+          minWidth: 16,
+          textAlign: 'center',
+          display: item.qty > 1 ? 'block' : 'none'
+        }
+      }, item.qty), /*#__PURE__*/React.createElement("div", {
+        className: "inv-card-icon"
+      }, icon), /*#__PURE__*/React.createElement("div", {
+        className: "inv-card-name"
+      }, item.name)), /*#__PURE__*/React.createElement("div", {
+        className: "inv-card-body-wrap"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        style: {
+          padding: '7px 9px',
+          background: 'var(--bg-card)'
+        }
+      }, item.imageData && /*#__PURE__*/React.createElement("img", {
+        src: item.imageData,
+        alt: item.name,
+        style: {
+          width: '100%',
+          borderRadius: 4,
+          marginBottom: 6,
+          cursor: 'zoom-in',
+          display: 'block',
+          objectFit: 'contain',
+          maxHeight: 180
+        },
+        onClick: e => {
+          e.stopPropagation();
+          setImgViewer({
+            name: item.name,
+            imageData: item.imageData
+          });
+        }
+      }), item.description && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "'Roboto',sans-serif",
+          fontSize: 12,
+          color: 'var(--text-secondary)',
+          lineHeight: 1.45,
+          marginBottom: 4
+        },
+        dangerouslySetInnerHTML: {
+          __html: sanitizeHtml(item.description)
+        }
+      }), item.source && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 9,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          marginBottom: 4
+        }
+      }, "\uD83D\uDCE6 ", item.source), (item.tags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 3,
+          marginBottom: 4
+        }
+      }, (item.tags || []).map(t => /*#__PURE__*/React.createElement("span", {
+        key: t,
+        className: "inv-tag" + (invTagFilter.includes(t) ? " active" : ""),
+        onClick: e => {
+          e.stopPropagation();
+          if (!transferMode) setInvTagFilter(invTagFilter.includes(t) ? invTagFilter.filter(x => x !== t) : [...invTagFilter, t]);
+        }
+      }, t))), item.weight && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 9,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase'
+        }
+      }, item.weight, " kg")), /*#__PURE__*/React.createElement("div", {
+        className: "inv-card-footer"
+      }, transferMode ? /*#__PURE__*/React.createElement("input", {
+        type: "checkbox",
+        checked: checked,
+        onChange: e => {
+          const s = new Set(transferSel);
+          e.target.checked ? s.add(item.id) : s.delete(item.id);
+          setTransferSel(s);
+        },
+        style: {
+          cursor: 'pointer',
+          accentColor: 'var(--gold)',
+          width: 14,
+          height: 14
+        },
+        onClick: e => e.stopPropagation()
+      }) : /*#__PURE__*/React.createElement("div", {
+        className: "inv-card-actions",
+        onClick: e => e.stopPropagation(),
+        style: {
+          width: '100%',
+          justifyContent: 'flex-end'
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: e => {
+          e.stopPropagation();
+          setItf({
+            ...item
+          });
+          setItfEditId(item.id);
+          setShowIF(true);
+        },
+        style: {
+          background: 'rgba(232,213,163,0.10)',
+          border: 'none',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+          fontSize: 10,
+          padding: '3px 8px',
+          borderRadius: 3
+        }
+      }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+        onClick: e => {
+          e.stopPropagation();
+          delItem(item.id);
+        },
+        style: {
+          background: 'rgba(232,213,163,0.10)',
+          border: 'none',
+          color: '#d98a8a',
+          cursor: 'pointer',
+          fontSize: 10,
+          padding: '3px 8px',
+          borderRadius: 3
+        }
+      }, "\u2715"))))));
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        display: 'flex',
+        gap: 12,
+        flexWrap: 'wrap'
+      }
+    }, totalWeight > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 11,
+        color: "var(--text-muted)"
+      }
+    }, "Gesamtgewicht: ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "var(--text-secondary)"
+      }
+    }, totalWeight.toFixed(2), " kg")), (invRarity !== 'all' || invTagFilter.length > 0) && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 11,
+        color: "var(--text-muted)"
+      }
+    }, filtered.length, " von ", inv.length, " Gegenst\xE4nden")));
+  })()), tab === "notizen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "section-title",
+    style: {
+      marginBottom: 12
+    }
+  }, "\uD83D\uDCDC Notizen"), (() => {
+    const allNoteTags = [...new Set(notesList.flatMap(n => n.tags || []))].sort();
+    const filtered = (noteTagFilter.length === 0 ? notesList : notesList.filter(n => (n.tags || []).some(t => noteTagFilter.includes(t)))).slice().sort((a, b) => (a.title || '').localeCompare(b.title || '', 'de'));
+    return /*#__PURE__*/React.createElement(React.Fragment, null, allNoteTags.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginBottom: 12,
+        alignItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 9,
+        color: 'var(--text-muted)',
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase'
+      }
+    }, "Filter:"), allNoteTags.map(t => /*#__PURE__*/React.createElement("button", {
+      key: t,
+      className: "tag-filter-btn" + (noteTagFilter.includes(t) ? ' active' : ''),
+      onClick: () => setNoteTagFilter(noteTagFilter.includes(t) ? noteTagFilter.filter(x => x !== t) : [...noteTagFilter, t])
+    }, t)), noteTagFilter.length > 0 && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setNoteTagFilter([]),
+      style: {
+        background: 'none',
+        border: 'none',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        fontSize: 11,
+        fontFamily: "'Roboto Condensed',sans-serif",
+        padding: '2px 6px'
+      }
+    }, "\u2715 zur\xFCcksetzen")), filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: "var(--text-muted)",
+        fontStyle: "italic",
+        fontSize: 14,
+        marginBottom: 12
+      }
+    }, notesList.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen für diesen Filter.') : filtered.map(note => {
+      const isEx = exNote === note.id;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "note-card",
+        key: note.id,
+        onClick: () => setExNote(isEx ? null : note.id),
+        style: {
+          borderColor: isEx ? 'var(--gold-dim)' : ''
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "note-card-header"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "note-card-title"
+      }, "\uD83D\uDCC4 ", note.title), /*#__PURE__*/React.createElement("button", {
+        className: "btn-icon",
+        style: {
+          padding: "3px 8px",
+          fontSize: 11
+        },
+        onClick: e => {
+          e.stopPropagation();
+          setNf({
+            title: note.title,
+            content: note.content,
+            tags: note.tags || []
+          });
+          setNfEditId(note.id);
+          setShowNF(true);
+        }
+      }, "\u270F\uFE0F Bearbeiten"), /*#__PURE__*/React.createElement("button", {
+        className: "note-del",
+        onClick: e => {
+          e.stopPropagation();
+          delNote(note.id);
+        }
+      }, "\u2715")), (note.tags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+        className: "inv-tags",
+        style: {
+          marginTop: 4
+        }
+      }, note.tags.map(t => /*#__PURE__*/React.createElement("span", {
+        key: t,
+        className: "inv-tag" + (noteTagFilter.includes(t) ? ' active' : ''),
+        onClick: e => {
+          e.stopPropagation();
+          setNoteTagFilter(noteTagFilter.includes(t) ? noteTagFilter.filter(x => x !== t) : [...noteTagFilter, t]);
+        }
+      }, t))), note.content && /*#__PURE__*/React.createElement("div", {
+        className: "note-card-body" + (isEx ? " open" : "")
+      }, /*#__PURE__*/React.createElement("div", null, !isEx ? /*#__PURE__*/React.createElement("div", {
+        className: "note-card-preview"
+      }, note.content.length > 120 ? note.content.slice(0, 120) + '…' : note.content) : /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginTop: 8,
+          fontFamily: "'Roboto',sans-serif",
+          fontSize: 15,
+          color: "var(--text-secondary)",
+          lineHeight: 1.7,
+          whiteSpace: "pre-wrap",
+          paddingBottom: 4
+        }
+      }, note.content))));
+    }));
+  })(), /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    onClick: () => {
+      setNf({
+        title: '',
+        content: '',
+        tags: []
+      });
+      setNfEditId(null);
+      setShowNF(true);
+    }
+  }, "+ Neue Notiz")), tab === "log" && /*#__PURE__*/React.createElement(LogTab, {
+    charId: sel,
+    charName: cur?.name,
+    addLog: addLog,
+    isDmMode: isDmMode
+  }));
+};
 function App() {
   const [chars, setChars] = useState([]);
   const [sel, setSel] = useState(null);
@@ -2289,3106 +5544,156 @@ function App() {
       title: "Charakter reaktivieren"
     }, "\u21A9 aktiv")))));
   };
-  const Sheet = () => {
-    if (!cur) return /*#__PURE__*/React.createElement("div", {
-      className: "empty-state"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "empty-rune"
-    }, "\u2694"), /*#__PURE__*/React.createElement("div", {
-      className: "empty-title"
-    }, "Kein Held ausgew\xE4hlt"), /*#__PURE__*/React.createElement("div", {
-      className: "empty-sub"
-    }, "W\xE4hle einen Helden aus der Liste", /*#__PURE__*/React.createElement("br", null), "oder erstelle einen neuen"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-save",
-      onClick: openNew,
-      style: {
-        marginTop: 8
-      }
-    }, "\u2726 Jetzt erstellen"));
-    const sbl = {};
-    (cur.spells || []).forEach(s => {
-      if (!sbl[s.level]) sbl[s.level] = [];
-      sbl[s.level].push(s);
-    });
-    Object.keys(sbl).forEach(l => sbl[l].sort((a, b) => a.name.localeCompare(b.name, 'de')));
-    const sls = Object.keys(sbl).map(Number).sort((a, b) => a - b);
-    const inv = cur.inventory || [];
-    const currency = cur.currency || {
-      pp: 0,
-      gp: 0,
-      ep: 0,
-      sp: 0,
-      cp: 0
-    };
-    const totalGp = currency.pp * 10 + currency.gp + currency.ep * 0.5 + currency.sp * 0.1 + currency.cp * 0.01;
-    const totalWeight = inv.reduce((s, i) => s + (parseFloat(i.weight) || 0) * i.qty, 0);
-    return /*#__PURE__*/React.createElement("div", {
-      className: "sheet"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "sheet-header"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        minWidth: 0,
-        flex: 1
-      }
-    }, switchList.length < 2 ? /*#__PURE__*/React.createElement("div", {
-      className: "char-name"
-    }, cur.name) : /*#__PURE__*/React.createElement("div", {
-      className: "char-switch" + (charMenuOpen ? " open" : "")
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "char-step",
-      title: "Vorheriger Held",
-      onClick: () => stepChar(-1)
-    }, "\u25C0"), /*#__PURE__*/React.createElement("button", {
-      className: "char-name-btn",
-      title: "Held w\xE4hlen",
-      onClick: () => setCharMenuOpen(o => !o)
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "char-name"
-    }, cur.name), /*#__PURE__*/React.createElement("span", {
-      className: "char-name-caret"
-    }, "\u25BE")), /*#__PURE__*/React.createElement("button", {
-      className: "char-step",
-      title: "N\xE4chster Held",
-      onClick: () => stepChar(1)
-    }, "\u25B6"), charMenuOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        position: 'fixed',
-        inset: 0,
-        zIndex: 29
-      },
-      onClick: () => setCharMenuOpen(false)
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "char-switch-menu"
-    }, switchList.map(c => {
-      const ccc = CC[c.charClass] || CC["Kämpfer"];
-      return /*#__PURE__*/React.createElement("button", {
-        key: c.id,
-        className: "char-switch-item" + (c.id === sel ? " current" : ""),
-        onClick: () => {
-          selectChar(c.id);
-          setCharMenuOpen(false);
-        }
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "char-switch-item-dot",
-        style: {
-          background: ccc.bg,
-          borderColor: ccc.border
-        }
-      }), /*#__PURE__*/React.createElement("span", {
-        className: "char-switch-item-name"
-      }, c.name), /*#__PURE__*/React.createElement("span", {
-        className: "char-switch-item-sub"
-      }, "Lv ", (c.level || 1) + (c.multiclasses || []).reduce((s, m) => s + (m.level || 0), 0)));
-    })))), /*#__PURE__*/React.createElement("div", {
-      className: "char-meta"
-    }, cur.race, " · Stufe ", (cur.level || 1) + (cur.multiclasses || []).reduce((s, m) => s + (m.level || 0), 0), cur.background ? " · " + cur.background : "")), /*#__PURE__*/React.createElement("div", {
-      className: "sheet-header-right",
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        alignItems: "flex-end",
-        flexShrink: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "class-badges"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "class-badge",
-      style: {
-        backgroundColor: cc.bg,
-        borderColor: cc.border,
-        color: cc.text
-      }
-    }, cur.charClass, " ", cur.level), (cur.multiclasses || []).map((mc, i) => {
-      const mcc = CC[mc.charClass] || CC["Kämpfer"];
-      return /*#__PURE__*/React.createElement("div", {
-        key: i,
-        className: "class-badge",
-        style: {
-          backgroundColor: mcc.bg,
-          borderColor: mcc.border,
-          color: mcc.text
-        }
-      }, mc.charClass, " ", mc.level);
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "header-actions"
-    }, /*#__PURE__*/React.createElement("button", {
-      title: "Bearbeiten",
-      onClick: openEdit,
-      style: {
-        padding: "4px 8px",
-        background: "none",
-        border: "1px solid transparent",
-        borderRadius: 3,
-        color: "var(--text-muted)",
-        fontSize: 14,
-        cursor: "pointer",
-        opacity: 0.55,
-        transition: "opacity 0.15s,border-color 0.15s"
-      },
-      onMouseEnter: e => {
-        e.currentTarget.style.opacity = "1";
-        e.currentTarget.style.borderColor = "var(--border-bright)";
-      },
-      onMouseLeave: e => {
-        e.currentTarget.style.opacity = "0.55";
-        e.currentTarget.style.borderColor = "transparent";
-      }
-    }, "\u270E"), cur.archived ? /*#__PURE__*/React.createElement("button", {
-      title: "Reaktivieren",
-      onClick: () => unarchiveChar(cur.id),
-      style: {
-        padding: "4px 10px",
-        background: "none",
-        border: "1px solid var(--gold-dim)",
-        borderRadius: 3,
-        color: "var(--gold-dim)",
-        fontSize: 12,
-        fontFamily: "'Roboto Condensed',sans-serif",
-        cursor: "pointer",
-        opacity: 0.8,
-        letterSpacing: "0.05em"
-      },
-      onMouseEnter: e => {
-        e.currentTarget.style.opacity = "1";
-      },
-      onMouseLeave: e => {
-        e.currentTarget.style.opacity = "0.8";
-      }
-    }, "\u21A9 aktiv") : /*#__PURE__*/React.createElement("button", {
-      title: "Archivieren",
-      onClick: () => appConfirm("Charakter \"" + cur.name + "\" archivieren?", archiveChar, "Archivieren"),
-      style: {
-        padding: "4px 8px",
-        background: "none",
-        border: "1px solid transparent",
-        borderRadius: 3,
-        color: "var(--text-muted)",
-        fontSize: 14,
-        cursor: "pointer",
-        opacity: 0.45,
-        transition: "opacity 0.15s,border-color 0.15s"
-      },
-      onMouseEnter: e => {
-        e.currentTarget.style.opacity = "1";
-        e.currentTarget.style.borderColor = "var(--border)";
-      },
-      onMouseLeave: e => {
-        e.currentTarget.style.opacity = "0.45";
-        e.currentTarget.style.borderColor = "transparent";
-      }
-    }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("button", {
-      title: "L\xF6schen",
-      onClick: deleteChar,
-      style: {
-        padding: "4px 8px",
-        background: "none",
-        border: "1px solid transparent",
-        borderRadius: 3,
-        color: "var(--text-muted)",
-        fontSize: 14,
-        cursor: "pointer",
-        opacity: 0.45,
-        transition: "opacity 0.15s,border-color 0.15s,color 0.15s"
-      },
-      onMouseEnter: e => {
-        e.currentTarget.style.opacity = "1";
-        e.currentTarget.style.color = "var(--crimson-bright)";
-        e.currentTarget.style.borderColor = "var(--crimson)";
-      },
-      onMouseLeave: e => {
-        e.currentTarget.style.opacity = "0.45";
-        e.currentTarget.style.color = "var(--text-muted)";
-        e.currentTarget.style.borderColor = "transparent";
-      }
-    }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
-      className: "hp-bar-container"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "hp-bar-label"
-    }, /*#__PURE__*/React.createElement("span", null, "\u2764 Trefferpunkte"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8
-      }
-    }, statsEdit ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 6,
-        alignItems: "center"
-      }
-    }, /*#__PURE__*/React.createElement("label", {
-      style: {
-        fontSize: 10,
-        color: "var(--text-muted)",
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }, "Akt."), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      value: cur.hp,
-      onChange: e => patchChar({
-        hp: Number(e.target.value)
-      }),
-      style: {
-        width: 52,
-        padding: "2px 4px",
-        background: "var(--bg-card)",
-        border: "1px solid var(--crimson-bright)",
-        borderRadius: 3,
-        color: "var(--crimson-bright)",
-        fontSize: 13,
-        textAlign: "center"
-      }
-    }), /*#__PURE__*/React.createElement("label", {
-      style: {
-        fontSize: 10,
-        color: "var(--text-muted)",
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }, "Max"), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      value: cur.maxHp,
-      onChange: e => patchChar({
-        maxHp: Number(e.target.value)
-      }),
-      style: {
-        width: 52,
-        padding: "2px 4px",
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-bright)",
-        borderRadius: 3,
-        color: "var(--parchment)",
-        fontSize: 13,
-        textAlign: "center"
-      }
-    }), /*#__PURE__*/React.createElement("label", {
-      style: {
-        fontSize: 10,
-        color: "var(--text-muted)",
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }, "Temp"), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      value: cur.tempHp || 0,
-      onChange: e => patchChar({
-        tempHp: Number(e.target.value)
-      }),
-      style: {
-        width: 52,
-        padding: "2px 4px",
-        background: "var(--bg-card)",
-        border: "1px solid #4a90d9",
-        borderRadius: 3,
-        color: "#7ab8f5",
-        fontSize: 13,
-        textAlign: "center"
-      }
-    })) : /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: "var(--crimson-bright)"
-      },
-      title: fxTitle('maxHp')
-    }, cur.hp, " / ", /*#__PURE__*/React.createElement("span", {
-      className: fxOn('maxHp') ? "fx-touched" : undefined
-    }, effCur.maxHp, fxOn('maxHp') && /*#__PURE__*/React.createElement("span", {
-      className: "fx-mark"
-    }, "\u2726")), (cur.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: "#7ab8f5",
-        marginLeft: 6
-      }
-    }, "(+", cur.tempHp, " temp)")))), /*#__PURE__*/React.createElement("div", {
-      className: "hp-bar-track"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        height: "100%",
-        width: "100%"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "hp-bar-fill",
-      style: {
-        width: Math.max(0, Math.min(100, cur.hp / (effCur.maxHp || 1) * 100)) + "%",
-        flexShrink: 0
-      }
-    }), (cur.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: Math.max(0, Math.min(25, cur.tempHp / (effCur.maxHp || 1) * 100)) + "%",
-        background: "linear-gradient(90deg,rgba(74,144,217,0.7),rgba(122,184,245,0.9))",
-        flexShrink: 0,
-        borderRadius: "0 2px 2px 0",
-        marginLeft: 1
-      }
-    })))), /*#__PURE__*/React.createElement("div", {
-      className: "sticky-header"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "flex-end",
-        marginBottom: 6
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "panel-edit-btn" + (statsEdit ? " active" : ""),
-      onClick: () => setStatsEdit(!statsEdit)
-    }, statsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
-      className: "combat-row"
-    }, statsEdit ? (computedAC !== null ? [{
-      k: "speed",
-      l: "Bewegung (m)",
-      s: "👟 Bew.",
-      i: "👟"
-    }, {
-      k: "profBonus",
-      l: "Übungsbonus",
-      s: "📖 ÜB",
-      i: "📖"
-    }] : [{
-      k: "ac",
-      l: "Rüstungsklasse",
-      s: "🛡 RK",
-      i: "🛡"
-    }, {
-      k: "speed",
-      l: "Bewegung (m)",
-      s: "👟 Bew.",
-      i: "👟"
-    }, {
-      k: "profBonus",
-      l: "Übungsbonus",
-      s: "📖 ÜB",
-      i: "📖"
-    }]).map(s => /*#__PURE__*/React.createElement("div", {
-      className: "combat-box",
-      key: s.k
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "combat-label"
-    }, s.i, " ", s.l), /*#__PURE__*/React.createElement("div", {
-      className: "combat-label-short"
-    }, s.s), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      value: cur[s.k],
-      onChange: e => patchChar({
-        [s.k]: Number(e.target.value)
-      }),
-      style: {
-        width: 56,
-        padding: "3px 4px",
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-bright)",
-        borderRadius: 3,
-        color: "var(--gold)",
-        fontSize: 18,
-        textAlign: "center",
-        display: "block",
-        margin: "4px auto 0",
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }))).concat([/*#__PURE__*/React.createElement("div", {
-      className: "combat-box",
-      key: "ini"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "combat-label"
-    }, "\u26A1 Initiative"), /*#__PURE__*/React.createElement("div", {
-      className: "combat-label-short"
-    }, "\u26A1 Init."), /*#__PURE__*/React.createElement("div", {
-      className: "combat-value",
-      style: {
-        fontSize: 14,
-        color: "var(--text-muted)"
-      }
-    }, fnum(initTotal)), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 9,
-        color: "var(--text-muted)",
-        marginTop: 2,
-        fontStyle: "italic"
-      }
-    }, "= DEX-Mod")), (() => {
-      const spAttr = SPELL_ATTR[cur.charClass];
-      if (!spAttr) return null;
-      const sg = fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr]));
-      return /*#__PURE__*/React.createElement("div", {
-        className: "combat-box",
-        key: "spsg"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "combat-label"
-      }, "\u2728 Zauber-SG"), /*#__PURE__*/React.createElement("div", {
-        className: "combat-label-short"
-      }, "\u2728 SG"), /*#__PURE__*/React.createElement("div", {
-        className: "combat-value",
-        style: {
-          fontSize: 14,
-          color: "var(--text-muted)"
-        }
-      }, sg), /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 9,
-          color: "var(--text-muted)",
-          marginTop: 2,
-          fontStyle: "italic"
-        }
-      }, "= ", AL[spAttr], "-Mod"));
-    })()]) : (() => {
-      const spAttr = SPELL_ATTR[cur.charClass];
-      const spSG = spAttr ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttr])) : null;
-      // t: betroffenes Effektziel — faerbt den Wert und erklaert ihn
-      // im Tooltip, damit man eine veraenderte Zahl zuordnen kann.
-      const boxes = [{
-        l: "Rüstungsklasse",
-        s: computedAC !== null ? "🛡 RK*" : "🛡 RK",
-        v: displayAC,
-        i: "🛡",
-        t: 'ac'
-      }, {
-        l: "Initiative",
-        s: "⚡ Init.",
-        v: fnum(initTotal),
-        i: "⚡",
-        t: 'initiative'
-      }, {
-        l: "Bewegung",
-        s: "👟 Bew.",
-        v: effCur.speed + "m",
-        i: "👟",
-        t: 'speed'
-      }, {
-        l: "Übungsbonus",
-        s: "📖 ÜB",
-        v: "+" + effCur.profBonus,
-        i: "📖",
-        t: 'profBonus'
-      }];
-      if (spSG !== null) boxes.push({
-        l: "Zauber-SG",
-        s: "✨ SG",
-        v: spSG,
-        i: "✨",
-        t: 'spellDc'
-      });
-      return boxes.map(s => {
-        const touched = fxOn(s.t) || s.t === 'initiative' && fxOn('dex') || s.t === 'ac' && fxOn('dex');
-        return /*#__PURE__*/React.createElement("div", {
-          className: "combat-box",
-          key: s.l,
-          title: fxTitle(s.t)
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "combat-label"
-        }, s.i, " ", s.l), /*#__PURE__*/React.createElement("div", {
-          className: "combat-label-short"
-        }, s.s), /*#__PURE__*/React.createElement("div", {
-          className: "combat-value" + (touched ? " fx-touched" : "")
-        }, s.v, fxOn(s.t) && /*#__PURE__*/React.createElement("span", {
-          className: "fx-mark"
-        }, "\u2726")));
-      });
-    })()), (() => {
-      const activeSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(l => slots[l] && slots[l].max > 0);
-      const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses || []).some(m => m.charClass === "Zauberer");
-      // Inspiration erscheint hier nur, wenn man welche hat — als
-      // Erinnerung genau dann, wenn sie zaehlt. Bei 0 waere es Ballast.
-      const hasContent = activeSlots.length > 0 || isZauberer && sp.max > 0 || resources.length > 0 || insp > 0;
-      if (!hasContent) return null;
-      return /*#__PURE__*/React.createElement("div", {
-        className: "res-mini-bar"
-      }, insp > 0 && /*#__PURE__*/React.createElement("div", {
-        className: "res-mini-group",
-        title: "Inspiration: " + insp + "/" + inspMax
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "res-mini-label",
-        style: {
-          color: "var(--inspiration)"
-        }
-      }, "INSP"), Array.from({
-        length: inspMax
-      }).map((_, i) => /*#__PURE__*/React.createElement("span", {
-        key: i,
-        className: "res-mini-pip" + (i < insp ? " on" : ""),
-        style: i < insp ? {
-          background: "var(--inspiration)",
-          borderColor: "var(--inspiration)"
-        } : {
-          borderColor: "var(--inspiration)"
-        }
-      }))), activeSlots.length > 0 && /*#__PURE__*/React.createElement("div", {
-        className: "res-mini-group"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "res-mini-label"
-      }, "ZPL"), activeSlots.map(l => {
-        const s = slots[l];
-        const avail = s.max - s.used;
-        return /*#__PURE__*/React.createElement("span", {
-          key: l,
-          className: "res-mini-slot-group",
-          title: "Grad " + l + ": " + avail + "/" + s.max
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "res-mini-slot-grade"
-        }, l), Array.from({
-          length: s.max
-        }).map((_, i) => /*#__PURE__*/React.createElement("span", {
-          key: i,
-          className: "res-mini-pip" + (i < avail ? " on" : "")
-        })));
-      })), isZauberer && sp.max > 0 && /*#__PURE__*/React.createElement("div", {
-        className: "res-mini-group",
-        title: "Zaubereipunkte: " + (sp.max - sp.used) + "/" + sp.max
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "res-mini-label",
-        style: {
-          color: "var(--arcane-bright)"
-        }
-      }, "ZPU"), Array.from({
-        length: sp.max
-      }).map((_, i) => {
-        const avail = sp.max - sp.used;
-        return /*#__PURE__*/React.createElement("span", {
-          key: i,
-          className: "res-mini-pip" + (i < avail ? " on" : ""),
-          style: i < avail ? {
-            background: "var(--arcane-bright)",
-            borderColor: "var(--arcane-bright)"
-          } : {
-            borderColor: "var(--arcane-bright)"
-          }
-        });
-      })), resources.map((res, ri) => {
-        const avail = res.max - res.used;
-        return /*#__PURE__*/React.createElement(React.Fragment, {
-          key: res.id
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "res-mini-group",
-          title: res.name + ": " + avail + "/" + res.max
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "res-mini-label",
-          style: {
-            color: res.color || "var(--gold)"
-          }
-        }, res.abbr || res.name), Array.from({
-          length: res.max
-        }).map((_, i) => /*#__PURE__*/React.createElement("span", {
-          key: i,
-          className: "res-mini-pip" + (i < avail ? " on" : ""),
-          style: i < avail ? {
-            background: res.color || "var(--gold-dim)",
-            borderColor: res.color || "var(--gold)"
-          } : {
-            borderColor: res.color || "var(--gold)"
-          }
-        }))));
-      }));
-    })()), /*#__PURE__*/React.createElement("div", {
-      className: "tabs"
-    }, [["stats", "🎯 Attribute"], ["aktionen", "⚔️ Aktionen"], ["zauber", "✨ Zauber"], ["merkmale", "⭐ Merkmale"], ["inventar", "🎒 Inventar"], ["notizen", "📜 Notizen"], ["log", "📋 Log"]].map(([k, l]) => /*#__PURE__*/React.createElement("div", _extends({
-      key: k,
-      className: "tab" + (tab === k ? " active" : ""),
-      "aria-current": tab === k ? "page" : undefined
-    }, clickable(() => {
-      setTab(k);
-      if (k !== "inventar") {
-        setTransferMode(false);
-        setTransferSel(new Set());
-      }
-    }, l)), l))), tab === "stats" && /*#__PURE__*/React.createElement(React.Fragment, null, itemFx.length > 0 && (() => {
-      const bySource = [];
-      itemFx.forEach(e => {
-        let g = bySource.find(x => x.source === e.source && x.icon === e.icon);
-        if (!g) {
-          g = {
-            source: e.source,
-            icon: e.icon,
-            list: []
-          };
-          bySource.push(g);
-        }
-        g.list.push(e);
-      });
-      return /*#__PURE__*/React.createElement("div", {
-        className: "fx-panel"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "fx-panel-title"
-      }, "\u2726 Aktive Effekte"), bySource.map((g, i) => /*#__PURE__*/React.createElement("div", {
-        className: "fx-src",
-        key: i
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "fx-src-name"
-      }, g.icon, " ", g.source), /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 4
-        }
-      }, g.list.map(e => /*#__PURE__*/React.createElement("span", {
-        key: e.id,
-        className: "fx-chip"
-      }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))))), /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 10,
-          color: 'var(--text-muted)',
-          fontStyle: 'italic',
-          marginTop: 8,
-          lineHeight: 1.5
-        }
-      }, "Betroffene Werte sind mit \u2726 markiert. Zum Abschalten die Waffe ablegen, die R\xFCstung ausziehen oder den Gegenstand im Inventar ausschalten."));
-    })(), /*#__PURE__*/React.createElement("div", {
-      className: "stats-section"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "section-title"
-    }, "\uD83C\uDFAF Grundattribute"), /*#__PURE__*/React.createElement("div", {
-      className: "stats-grid"
-    }, [["str", "Stärke"], ["dex", "Geschick"], ["con", "Konstitution"], ["int", "Intelligenz"], ["wis", "Weisheit"], ["cha", "Charisma"]].map(([k, l]) => /*#__PURE__*/React.createElement("div", {
-      className: "stat-box",
-      key: k,
-      title: fxTitle(k)
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "stat-label"
-    }, l), statsEdit ?
-    /*#__PURE__*/
-    /* Im Bearbeiten-Modus der eigene Wert, nicht der von
-       Gegenstaenden veraenderte. */
-    React.createElement("input", {
-      type: "number",
-      min: 1,
-      max: 30,
-      value: cur[k],
-      onChange: e => patchChar({
-        [k]: Math.max(1, Math.min(30, Number(e.target.value)))
-      }),
-      style: {
-        width: 52,
-        padding: "4px 2px",
-        background: "var(--bg-void)",
-        border: "1px solid var(--gold)",
-        borderRadius: 3,
-        color: "var(--gold)",
-        fontSize: 22,
-        textAlign: "center",
-        display: "block",
-        margin: "4px auto",
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }) : /*#__PURE__*/React.createElement("div", {
-      className: "stat-value" + (fxOn(k) ? " fx-touched" : "")
-    }, effCur[k], fxOn(k) && /*#__PURE__*/React.createElement("span", {
-      className: "fx-mark"
-    }, "\u2726")), /*#__PURE__*/React.createElement("div", {
-      className: "stat-mod" + (fxOn(k) ? " fx-touched" : "")
-    }, fmod(effCur[k])), fxOn(k) && !statsEdit && cur[k] !== effCur[k] && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 9,
-        color: "var(--text-muted)",
-        marginTop: 1,
-        fontStyle: "italic"
-      }
-    }, "eigen ", cur[k]))))), /*#__PURE__*/React.createElement("div", {
-      className: "stats-section"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "section-title"
-    }, "\uD83C\uDFB2 Rettungsw\xFCrfe"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: "var(--text-muted)",
-        marginBottom: 10,
-        fontStyle: "italic"
-      }
-    }, "Klick zum Aktivieren der \xDCbung"), /*#__PURE__*/React.createElement("div", {
-      className: "saves-grid"
-    }, [["str", "STR"], ["dex", "GES"], ["con", "KON"], ["int", "INT"], ["wis", "WEI"], ["cha", "CHA"]].map(([attr, label]) => {
-      const isP = (cur.savingThrowProfs || []).includes(attr);
-      const base = mod(effCur[attr]) + (isP ? effCur.profBonus : 0);
-      const val = fx('save_' + attr, fx('saveAll', base));
-      const touched = fxOn('save_' + attr) || fxOn('saveAll') || fxOn(attr) || fxOn('profBonus');
-      const tip = [fxTitle(attr), fxTitle('profBonus'), fxTitle('saveAll'), fxTitle('save_' + attr)].filter(Boolean).join('\n');
-      return /*#__PURE__*/React.createElement("div", _extends({
-        key: attr,
-        className: "save-box" + (isP ? " prof" : ""),
-        title: tip || undefined
-      }, clickable(() => toggleSave(attr), "Rettungswurf " + label + (isP ? " — Übung aktiv" : ""))), /*#__PURE__*/React.createElement("div", {
-        className: "save-pip"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "save-label"
-      }, label), /*#__PURE__*/React.createElement("div", {
-        className: "save-value" + (touched ? " fx-touched" : ""),
-        style: {
-          color: isP ? "var(--gold)" : "var(--text-muted)"
-        }
-      }, fnum(val)));
-    }))), /*#__PURE__*/React.createElement("div", {
-      className: "stats-section"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        marginBottom: 10,
-        flexWrap: "wrap"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: "var(--text-muted)",
-        fontStyle: "italic"
-      }
-    }, "\u2B24 = \xDCbung \xB7 \u2B24\u2B24 = Expertise \xB7 Klick zum Wechseln"), /*#__PURE__*/React.createElement("button", {
-      className: "joat-toggle",
-      onClick: toggleJoAT,
-      style: {
-        borderRadius: 3,
-        cursor: "pointer",
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 10,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        background: cur.jackOfAllTrades ? "var(--gold-dim)" : "var(--bg-card)",
-        border: `1px solid ${cur.jackOfAllTrades ? "var(--gold)" : "var(--border)"}`,
-        color: cur.jackOfAllTrades ? "var(--gold-bright)" : "var(--text-muted)"
-      }
-    }, cur.jackOfAllTrades ? "✦ Allrounder aktiv" : "◇ Allrounder")), /*#__PURE__*/React.createElement("div", {
-      className: "skills-layout"
-    }, ["str", "dex", "int", "wis", "cha"].map(attr => /*#__PURE__*/React.createElement("div", {
-      className: "skill-group",
-      key: attr
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "skill-group-header"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "skill-attr-badge",
-      style: {
-        color: AC[attr],
-        borderColor: AC[attr] + "60"
-      }
-    }, AL[attr]), /*#__PURE__*/React.createElement("div", {
-      className: "skill-attr-name"
-    }, AF[attr]), /*#__PURE__*/React.createElement("div", {
-      className: "skill-attr-mod" + (fxOn(attr) ? " fx-touched" : ""),
-      style: {
-        color: AC[attr]
-      },
-      title: fxTitle(attr)
-    }, fmod(effCur[attr]))), SKILLS.filter(s => s.attr === attr).map(sk => {
-      const isP = (cur.skillProfs || []).includes(sk.key);
-      const isE = (cur.expertiseProfs || []).includes(sk.key);
-      const joat = cur.jackOfAllTrades && !isP && !isE;
-      const bonus = isE ? effCur.profBonus * 2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus / 2) : 0;
-      const tot = fx('skill_' + sk.key, fx('skillAll', mod(effCur[attr]) + bonus));
-      const skTouched = fxOn('skill_' + sk.key) || fxOn('skillAll') || fxOn(attr) || fxOn('profBonus');
-      const skTip = [fxTitle(attr), fxTitle('profBonus'), fxTitle('skillAll'), fxTitle('skill_' + sk.key)].filter(Boolean).join('\n');
-      const pip = isE ? "⬤⬤" : isP ? "⬤" : joat ? "◑" : "○";
-      const col = isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--border-bright)";
-      return /*#__PURE__*/React.createElement("div", {
-        className: "skill-row",
-        key: sk.key,
-        title: skTip || undefined
-      }, /*#__PURE__*/React.createElement("button", {
-        className: "skill-prof-btn" + (isE ? " expertise" : ""),
-        onClick: () => toggleSkill(sk.key),
-        style: {
-          background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
-          borderColor: col,
-          color: col
-        },
-        title: isE ? "Expertise (Klick: entfernen)" : isP ? "Übung (Klick: Expertise)" : "Kein Bonus (Klick: Übung hinzufügen)"
-      }, pip), /*#__PURE__*/React.createElement("div", {
-        className: "skill-name"
-      }, sk.label), /*#__PURE__*/React.createElement("div", {
-        className: "skill-value" + (skTouched ? " fx-touched" : ""),
-        style: {
-          color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"
-        }
-      }, fnum(tot), isE && /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontSize: 9,
-          opacity: 0.6,
-          marginLeft: 2
-        }
-      }, "EX"), joat && /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontSize: 9,
-          opacity: 0.6,
-          marginLeft: 2
-        }
-      }, "JoAT")));
-    })))))), tab === "inventar" && (() => {
-      const ARMOR_TYPES = [{
-        key: 'light',
-        label: 'Leichte Rüstung',
-        hint: 'Basis + GES-Mod'
-      }, {
-        key: 'medium',
-        label: 'Mittlere Rüstung',
-        hint: 'Basis + GES-Mod (max. +2)'
-      }, {
-        key: 'heavy',
-        label: 'Schwere Rüstung',
-        hint: 'Basis (kein GES)'
-      }, {
-        key: 'shield',
-        label: 'Schild',
-        hint: '+Bonus zur RK'
-      }, {
-        key: 'other',
-        label: 'Sonstiges',
-        hint: 'Kein RK-Einfluss'
-      }];
-      const openEqForm = item => {
-        if (item) {
-          setEqForm({
-            ...item
-          });
-          setEqEditId(item.id);
-        } else {
-          setEqForm({
-            name: '',
-            type: 'light',
-            baseAC: 11,
-            acBonus: 0,
-            equipped: false,
-            notes: '',
-            effects: []
-          });
-          setEqEditId(null);
-        }
-        setShowEF(true);
-      };
-      const saveEqForm = () => {
-        if (!eqForm.name.trim()) {
-          appAlert('Name darf nicht leer sein.');
-          return;
-        }
-        const entry = {
-          ...eqForm,
-          id: eqEditId || Date.now().toString()
-        };
-        if (eqEditId) {
-          updEquipment(equipment.map(e => e.id === eqEditId ? entry : e));
-        } else {
-          // Only one armor at a time should be equipped — but allow multiple, user decides
-          updEquipment([...equipment, entry]);
-        }
-        setShowEF(false);
-        setEqEditId(null);
-      };
-      const warnMultiArmor = equippedArmors.length > 1;
-      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-        className: "section-title",
-        style: {
-          marginBottom: 8
-        }
-      }, "\uD83D\uDEE1 Ausr\xFCstung & R\xFCstung"), /*#__PURE__*/React.createElement("div", {
-        style: {
-          background: 'var(--bg-card)',
-          border: '1px solid ' + (computedAC !== null ? 'var(--gold-dim)' : 'var(--border)'),
-          borderRadius: 6,
-          padding: '10px 14px',
-          marginBottom: 16,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          flexWrap: 'wrap'
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10
-        }
-      }, /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase'
-        }
-      }, "\uD83D\uDEE1 R\xFCstungsklasse"), /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 26,
-          color: computedAC !== null ? 'var(--gold)' : 'var(--text-muted)'
-        }
-      }, displayAC)), computedAC !== null ? /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 12,
-          color: 'var(--text-muted)',
-          fontFamily: "'Roboto Condensed',sans-serif",
-          lineHeight: 1.7
-        }
-      }, (() => {
-        const dex = mod(effCur.dex);
-        const parts = [];
 
-        // Base armor
-        if (equippedArmors.length > 0) {
-          const a = equippedArmors[0];
-          if (a.type === 'heavy') parts.push(a.name + ': ' + a.baseAC);
-          if (a.type === 'medium') parts.push(a.name + ': ' + a.baseAC + ' + GES ' + Math.min(2, dex));
-          if (a.type === 'light') parts.push(a.name + ': ' + a.baseAC + ' + GES ' + dex);
-          if ((a.acBonus || 0) !== 0) parts.push('Magisch: +' + a.acBonus);
-        } else {
-          parts.push('Unbewaffnet: 10 + GES ' + dex);
-        }
-
-        // Shields
-        equippedShields.forEach(sh => {
-          parts.push(sh.name + ': +' + (sh.baseAC || 2) + (sh.acBonus ? ' +' + sh.acBonus : ''));
-        });
-
-        // Item bonuses (other equipped items with acBonus)
-        equipment.filter(e => e.equipped && e.type === 'other' && (e.acBonus || 0) !== 0).forEach(e => {
-          parts.push(e.name + ': +' + e.acBonus);
-        });
-
-        // Talent/ability bonuses
-        acBonuses.filter(b => b.active && (b.bonus || 0) !== 0).forEach(b => {
-          parts.push(b.name + ': ' + (b.bonus >= 0 ? '+' : '') + b.bonus);
-        });
-
-        // Effekte angelegter Gegenstaende auf die RK
-        effectsFor(itemFx, 'ac').forEach(e => {
-          parts.push(e.source + ': ' + (e.mode === 'set' ? 'RK = ' + (+e.value || 0) : fnum(+e.value || 0)));
-        });
-        return /*#__PURE__*/React.createElement("div", null, parts.map((p, i) => /*#__PURE__*/React.createElement("div", {
-          key: i,
-          style: {
-            color: i === 0 ? 'var(--text-secondary)' : 'var(--text-muted)'
-          }
-        }, i === 0 ? '' : '+ ', p)), /*#__PURE__*/React.createElement("div", {
-          style: {
-            borderTop: '1px solid var(--border)',
-            marginTop: 4,
-            paddingTop: 4,
-            color: 'var(--gold)'
-          }
-        }, "= ", displayAC, " RK"));
-      })()) : /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 12,
-          color: 'var(--text-muted)',
-          fontStyle: 'italic'
-        }
-      }, "Keine R\xFCstung angelegt \u2014 Basis 10 + GES-Mod (", fmod(effCur.dex), ")"), warnMultiArmor && /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 11,
-          color: 'var(--crimson-bright)',
-          fontFamily: "'Roboto Condensed',sans-serif"
-        }
-      }, "\u26A0\uFE0F Mehrere R\xFCstungen angelegt!")), equipment.length === 0 ? /*#__PURE__*/React.createElement("div", {
-        style: {
-          color: 'var(--text-muted)',
-          fontStyle: 'italic',
-          fontSize: 14,
-          marginBottom: 12
-        }
-      }, "Noch keine Ausr\xFCstung eingetragen.") : equipment.map(item => {
-        const typeLabel = ARMOR_TYPES.find(t => t.key === item.type) || ARMOR_TYPES[0];
-        const isArmor = item.type !== 'shield' && item.type !== 'other';
-        const isShield = item.type === 'shield';
-        return /*#__PURE__*/React.createElement("div", {
-          key: item.id,
-          style: {
-            background: 'var(--bg-card)',
-            border: '1px solid ' + (item.equipped ? 'var(--gold-dim)' : 'var(--border)'),
-            borderRadius: 6,
-            padding: '10px 14px',
-            marginBottom: 8,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            boxShadow: item.equipped ? 'inset 0 0 0 1px rgba(201,168,76,0.15)' : ''
-          }
-        }, /*#__PURE__*/React.createElement("button", {
-          onClick: () => toggleEquipmentItem(item.id),
-          title: item.equipped ? 'Ablegen' : 'Anlegen',
-          style: {
-            width: 36,
-            height: 36,
-            borderRadius: 4,
-            flexShrink: 0,
-            cursor: 'pointer',
-            fontSize: 18,
-            background: item.equipped ? 'var(--gold-dim)20' : 'var(--bg-panel)',
-            border: '1px solid ' + (item.equipped ? 'var(--gold)' : 'var(--border)'),
-            color: item.equipped ? 'var(--gold)' : 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }
-        }, item.equipped ? '🛡' : '○'), /*#__PURE__*/React.createElement("div", {
-          style: {
-            flex: 1,
-            minWidth: 0
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 13,
-            color: item.equipped ? 'var(--gold)' : 'var(--text-primary)'
-          }
-        }, item.name, item.equipped && /*#__PURE__*/React.createElement("span", {
-          style: {
-            marginLeft: 8,
-            fontSize: 9,
-            letterSpacing: '0.1em',
-            color: 'var(--gold-dim)'
-          }
-        }, "ANGELEGT")), /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontSize: 11,
-            color: 'var(--text-muted)',
-            marginTop: 2
-          }
-        }, typeLabel.label, item.type !== 'other' && /*#__PURE__*/React.createElement("span", {
-          style: {
-            marginLeft: 6
-          }
-        }, "\xB7 ", isShield ? '+' + (item.baseAC || 2) + ' RK' : 'Basis RK ' + item.baseAC)), item.notes && /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontSize: 11,
-            color: 'var(--text-muted)',
-            fontStyle: 'italic',
-            marginTop: 2
-          }
-        }, item.notes)), /*#__PURE__*/React.createElement("button", {
-          onClick: () => openEqForm(item),
-          style: {
-            background: 'none',
-            border: '1px solid var(--border)',
-            borderRadius: 3,
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            padding: '4px 8px',
-            fontSize: 11
-          }
-        }, "\u270E"), /*#__PURE__*/React.createElement("button", {
-          onClick: () => delEquipmentItem(item.id),
-          style: {
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            padding: '4px 6px',
-            fontSize: 14
-          }
-        }, "\u2715"));
-      }), /*#__PURE__*/React.createElement("button", {
-        className: "btn-add",
-        style: {
-          marginTop: 4,
-          width: '100%'
-        },
-        onClick: () => openEqForm(null)
-      }, "+ Ausr\xFCstung hinzuf\xFCgen"), /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginTop: 16
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 9,
-          color: 'var(--text-muted)',
-          letterSpacing: '0.15em',
-          textTransform: 'uppercase',
-          marginBottom: 8
-        }
-      }, "Vorlagen"), /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 6
-        }
-      }, [{
-        name: 'Lederrüstung',
-        type: 'light',
-        baseAC: 11
-      }, {
-        name: 'Verstärkte Lederrüstung',
-        type: 'light',
-        baseAC: 12
-      }, {
-        name: 'Lederlamellenrüstung',
-        type: 'light',
-        baseAC: 13
-      }, {
-        name: 'Schuppenpanzer',
-        type: 'medium',
-        baseAC: 13
-      }, {
-        name: 'Kettenhemd',
-        type: 'medium',
-        baseAC: 13
-      }, {
-        name: 'Brustpanzer',
-        type: 'medium',
-        baseAC: 14
-      }, {
-        name: 'Schienenpanzer',
-        type: 'medium',
-        baseAC: 15
-      }, {
-        name: 'Halbplatte',
-        type: 'medium',
-        baseAC: 15
-      }, {
-        name: 'Ringpanzerhemd',
-        type: 'heavy',
-        baseAC: 14
-      }, {
-        name: 'Kettenpanzer',
-        type: 'heavy',
-        baseAC: 16
-      }, {
-        name: 'Bänderpanzer',
-        type: 'heavy',
-        baseAC: 17
-      }, {
-        name: 'Plattenpanzer',
-        type: 'heavy',
-        baseAC: 18
-      }, {
-        name: 'Schild',
-        type: 'shield',
-        baseAC: 2
-      }].map(tpl => /*#__PURE__*/React.createElement("button", {
-        key: tpl.name,
-        onClick: () => {
-          setEqForm({
-            ...tpl,
-            id: Date.now().toString(),
-            equipped: false,
-            notes: ''
-          });
-          setEqEditId(null);
-          setShowEF(true);
-        },
-        style: {
-          padding: '3px 10px',
-          borderRadius: 12,
-          border: '1px solid var(--border)',
-          background: 'var(--bg-card)',
-          color: 'var(--text-muted)',
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 9,
-          cursor: 'pointer',
-          letterSpacing: '0.06em'
-        }
-      }, tpl.name)))), /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginTop: 20
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          marginBottom: 10
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "section-title",
-        style: {
-          marginBottom: 0
-        }
-      }, "\u2726 RK-Boni durch Talente & F\xE4higkeiten")), acBonuses.length === 0 ? /*#__PURE__*/React.createElement("div", {
-        style: {
-          color: 'var(--text-muted)',
-          fontStyle: 'italic',
-          fontSize: 13,
-          marginBottom: 8
-        }
-      }, "Kein Bonus eingetragen (z.B. Defensiver Kampfstil, Nat\xFCrliche R\xFCstung, Ring des Schutzes).") : acBonuses.map(b => /*#__PURE__*/React.createElement("div", {
-        key: b.id,
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          background: 'var(--bg-card)',
-          border: '1px solid ' + (b.active ? 'var(--gold-dim)' : 'var(--border)'),
-          borderRadius: 5,
-          padding: '7px 10px',
-          marginBottom: 6
-        }
-      }, /*#__PURE__*/React.createElement("button", {
-        onClick: () => updAcBonus(b.id, {
-          active: !b.active
-        }),
-        style: {
-          width: 28,
-          height: 28,
-          borderRadius: 4,
-          flexShrink: 0,
-          cursor: 'pointer',
-          background: b.active ? 'var(--gold-dim)20' : 'var(--bg-panel)',
-          border: '1px solid ' + (b.active ? 'var(--gold)' : 'var(--border)'),
-          color: b.active ? 'var(--gold)' : 'var(--text-muted)',
-          fontSize: 13,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        },
-        title: b.active ? 'Deaktivieren' : 'Aktivieren'
-      }, b.active ? '✦' : '◇'), /*#__PURE__*/React.createElement("input", {
-        style: {
-          flex: 1,
-          background: 'transparent',
-          border: 'none',
-          borderBottom: '1px solid var(--border)',
-          outline: 'none',
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 12,
-          color: 'var(--text-primary)',
-          padding: '2px 4px'
-        },
-        defaultValue: b.name,
-        onBlur: e => updAcBonus(b.id, {
-          name: e.target.value
-        }),
-        key: 'bn_' + b.id
-      }), /*#__PURE__*/React.createElement("input", {
-        type: "number",
-        min: -5,
-        max: 20,
-        style: {
-          width: 52,
-          background: 'transparent',
-          border: '1px solid var(--border)',
-          borderRadius: 3,
-          outline: 'none',
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 14,
-          color: b.active ? 'var(--gold)' : 'var(--text-muted)',
-          padding: '2px 6px',
-          textAlign: 'center'
-        },
-        defaultValue: b.bonus,
-        onBlur: e => updAcBonus(b.id, {
-          bonus: +e.target.value
-        }),
-        key: 'bv_' + b.id
-      }), /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          fontFamily: "'Roboto Condensed',sans-serif",
-          minWidth: 20
-        }
-      }, "RK"), /*#__PURE__*/React.createElement("button", {
-        onClick: () => delAcBonus(b.id),
-        style: {
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          padding: '2px 4px',
-          fontSize: 13
-        }
-      }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
-        className: "btn-add",
-        style: {
-          marginTop: 4
-        },
-        onClick: addAcBonus
-      }, "+ RK-Bonus hinzuf\xFCgen"), acBonuses.filter(b => b.active).length > 0 && /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginTop: 8,
-          fontSize: 12,
-          color: 'var(--text-muted)',
-          fontStyle: 'italic'
-        }
-      }, "Aktive Boni: ", acBonuses.filter(b => b.active).map(b => (b.bonus >= 0 ? '+' : '') + b.bonus + ' (' + b.name + ')').join(', '))));
-    })(), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "slots-panel",
-      style: {
-        marginBottom: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "slots-panel-header"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "slots-title"
-    }, "\u25C7 Ressourcen & Sonderpunkte"), /*#__PURE__*/React.createElement("button", {
-      className: "panel-edit-btn" + (resEdit ? " active" : ""),
-      onClick: () => setResEdit(!resEdit)
-    }, resEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
-      className: "resource-item insp-item"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "resource-header"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 13,
-        color: "var(--inspiration)",
-        flex: 1
-      }
-    }, "\u2726 Inspiration"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: "var(--text-muted)",
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }, "Vorteil auf einen Wurf")), /*#__PURE__*/React.createElement("div", {
-      className: "resource-pips"
-    }, Array.from({
-      length: inspMax
-    }).map((_, i) => /*#__PURE__*/React.createElement("div", _extends({
-      key: i,
-      className: "resource-pip",
-      title: i < insp ? "Inspiration einsetzen" : "Inspiration erhalten",
-      style: {
-        backgroundColor: i < insp ? "var(--inspiration)" : "var(--bg-void)",
-        borderColor: "var(--inspiration)",
-        opacity: i < insp ? 1 : 0.25,
-        boxShadow: i < insp ? "0 0 6px rgba(232,184,75,0.45)" : "none"
-      }
-    }, clickable(() => setInsp(i < insp ? i : i + 1), "Inspiration " + (i + 1) + " von " + inspMax + (i < insp ? " — einsetzen" : " — erhalten"))))), resEdit && inspMax < 10 && /*#__PURE__*/React.createElement("button", {
-      className: "slot-max-btn",
-      onClick: () => setInspMax(inspMax + 1)
-    }, "+"), resEdit && inspMax > 1 && /*#__PURE__*/React.createElement("button", {
-      className: "slot-max-btn",
-      onClick: () => setInspMax(inspMax - 1)
-    }, "\u2212"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 14,
-        color: "var(--inspiration)",
-        marginLeft: 4
-      }
-    }, insp, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 10,
-        color: "var(--text-muted)"
-      }
-    }, "/", inspMax))), insp === 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: "var(--text-muted)",
-        fontStyle: "italic",
-        marginTop: 4
-      }
-    }, "Punkt antippen, wenn die Spielleitung dir Inspiration gibt.")), resources.length === 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: "var(--text-muted)",
-        fontSize: 13,
-        fontStyle: "italic",
-        margin: "10px 0 8px"
-      }
-    }, "Sonst noch keine Ressourcen.", !resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), /*#__PURE__*/React.createElement("div", {
-      className: "resource-list"
-    }, resources.map(res => /*#__PURE__*/React.createElement("div", {
-      className: "resource-item",
-      key: res.id
-    }, resEdit ? /*#__PURE__*/React.createElement("div", {
-      className: "resource-header"
-    }, /*#__PURE__*/React.createElement("input", {
-      className: "form-input",
-      style: {
-        padding: "3px 6px",
-        fontSize: 13,
-        fontFamily: "'Roboto Condensed',sans-serif",
-        flex: 1,
-        background: "transparent",
-        border: "none",
-        borderBottom: "1px solid var(--border)",
-        borderRadius: 0,
-        color: "var(--text-primary)"
-      },
-      key: `res_name_${res.id}_${res.name}`,
-      defaultValue: res.name,
-      onBlur: e => updResource(res.id, {
-        name: e.target.value
-      })
-    }), /*#__PURE__*/React.createElement("input", {
-      className: "form-input",
-      style: {
-        padding: "3px 6px",
-        fontSize: 11,
-        fontFamily: "'Roboto Condensed',sans-serif",
-        width: 52,
-        background: "transparent",
-        border: "none",
-        borderBottom: "1px solid var(--border)",
-        borderRadius: 0,
-        color: "var(--text-muted)"
-      },
-      key: `res_abbr_${res.id}_${res.abbr}`,
-      defaultValue: res.abbr || "",
-      placeholder: "K\xFCrzel",
-      onBlur: e => updResource(res.id, {
-        abbr: e.target.value
-      }),
-      title: "Abk\xFCrzung f\xFCr die Ressourcen-Leiste"
-    }), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "color",
-      defaultValue: res.color || "#c9a84c",
-      onBlur: e => updResource(res.id, {
-        color: e.target.value
-      }),
-      onChange: e => e.target.parentElement.querySelector('.color-preview') && (e.target.parentElement.querySelector('.color-preview').style.background = e.target.value),
-      style: {
-        width: 22,
-        height: 22,
-        padding: 0,
-        border: "none",
-        borderRadius: 3,
-        cursor: "pointer",
-        background: "none"
-      },
-      title: "Farbe w\xE4hlen"
-    }), /*#__PURE__*/React.createElement("select", {
-      className: "form-select",
-      style: {
-        padding: "2px 4px",
-        fontSize: 11,
-        width: "auto"
-      },
-      value: res.restType || "lang",
-      onChange: e => updResource(res.id, {
-        restType: e.target.value
-      })
-    }, /*#__PURE__*/React.createElement("option", {
-      value: "lang"
-    }, "Lange Rast"), /*#__PURE__*/React.createElement("option", {
-      value: "kurz"
-    }, "Kurze Rast"), /*#__PURE__*/React.createElement("option", {
-      value: "tag"
-    }, "T\xE4glich")), /*#__PURE__*/React.createElement("button", {
-      className: "resource-del",
-      onClick: () => delResource(res.id)
-    }, "\u2715"))) : /*#__PURE__*/React.createElement("div", {
-      className: "resource-header"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 13,
-        color: res.color || "#c9a84c",
-        flex: 1
-      }
-    }, res.name || "Ressource"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: "var(--text-muted)",
-        fontFamily: "'Roboto Condensed',sans-serif"
-      }
-    }, res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast")), /*#__PURE__*/React.createElement("div", {
-      className: "resource-pips"
-    }, Array.from({
-      length: res.max
-    }).map((_, i) => {
-      const avail = res.max - res.used;
-      return /*#__PURE__*/React.createElement("div", _extends({
-        key: i,
-        className: "resource-pip",
-        style: {
-          backgroundColor: i < avail ? res.color || "#c9a84c" : "var(--bg-void)",
-          borderColor: res.color || "#c9a84c",
-          opacity: i < avail ? 1 : 0.25,
-          boxShadow: i < avail ? `0 0 5px ${res.color || "#c9a84c"}60` : "none"
-        }
-      }, clickable(() => togResourcePip(res.id, i), (res.name || "Ressource") + " " + (i + 1) + " von " + res.max)));
-    }), resEdit && /*#__PURE__*/React.createElement("button", {
-      className: "slot-max-btn",
-      onClick: () => updResource(res.id, {
-        max: Math.min(30, res.max + 1)
-      })
-    }, "+"), resEdit && res.max > 0 && /*#__PURE__*/React.createElement("button", {
-      className: "slot-max-btn",
-      onClick: () => updResource(res.id, {
-        max: Math.max(0, res.max - 1),
-        used: Math.min(res.used, res.max - 1)
-      })
-    }, "\u2212"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 14,
-        color: res.color || "#c9a84c",
-        marginLeft: 4
-      }
-    }, res.max - res.used, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 10,
-        color: "var(--text-muted)"
-      }
-    }, "/", res.max))), res.used > 0 && /*#__PURE__*/React.createElement("button", {
-      className: "resource-restore-btn",
-      onClick: () => updResource(res.id, {
-        used: 0
-      })
-    }, "\u21BA ", res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast")))), resEdit && /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      onClick: addResource
-    }, "+ Ressource hinzuf\xFCgen")), /*#__PURE__*/React.createElement("div", {
-      className: "section-divider"
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 12
-      }
-    }, "\uD83D\uDDE1 Waffen"), cur.weapons.length === 0 ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: "var(--text-muted)",
-        fontStyle: "italic",
-        fontSize: 14,
-        marginBottom: 12
-      }
-    }, "Keine Waffen angelegt. Klicke unten um eine hinzuzuf\xFCgen.") : /*#__PURE__*/React.createElement("div", {
-      className: "weapon-grid"
-    }, [...cur.weapons].sort((a, b) => {
-      if (!!a.equipped !== !!b.equipped) return a.equipped ? -1 : 1;
-      return (a.name || "").localeCompare(b.name || "", "de");
-    }).map(w => {
-      const {
-        bonus,
-        dmgStr
-      } = weaponStats(w);
-      const isEquipped = !!w.equipped;
-      const meta = [w.range || null, w.damageType || null].filter(Boolean).join(" · ");
-      return /*#__PURE__*/React.createElement("div", _extends({
-        key: w.id,
-        className: "weapon-card" + (isEquipped ? " equipped" : "")
-      }, clickable(() => setWeaponViewer(w.id), (w.name || "Waffe") + " — Details")), /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-img"
-      }, w.imageData ? /*#__PURE__*/React.createElement("img", {
-        src: w.imageData,
-        alt: w.name || "Waffe"
-      }) : /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-glyph"
-      }, "\u2694"), /*#__PURE__*/React.createElement("button", {
-        className: "weapon-equip-btn",
-        title: isEquipped ? "Ablegen" : "Anlegen",
-        onClick: e => {
-          e.stopPropagation();
-          toggleEquipped(w.id);
-        }
-      }, "\u2694")), /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-info"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-name"
-      }, w.name || "—"), meta && /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-meta"
-      }, meta), /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-stats"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-stat"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-stat-label"
-      }, "Angriff"), /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-stat-value atk"
-      }, bonus >= 0 ? "+" + bonus : bonus)), /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-stat"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-stat-label"
-      }, "Schaden"), /*#__PURE__*/React.createElement("div", {
-        className: "weapon-card-stat-value"
-      }, dmgStr)))));
-    })), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap"
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        flex: 1
-      },
-      onClick: () => {
-        setWf(newWeapon());
-        setWfEditId(null);
-        setShowWF(true);
-      }
-    }, "+ Waffe hinzuf\xFCgen"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        flex: 1,
-        borderColor: "var(--gold)",
-        color: "var(--gold)"
-      },
-      onClick: () => openTpl('weapon')
-    }, "\uD83D\uDCD6 Von Vorlage (SRD)"))), tab === "merkmale" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 24
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 12
-      }
-    }, "\u2B50 Klassenf\xE4higkeiten & Merkmale"), (cur.features || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: "var(--text-muted)",
-        fontStyle: "italic",
-        fontSize: 13,
-        marginBottom: 12
-      }
-    }, "Keine F\xE4higkeiten eingetragen.") : /*#__PURE__*/React.createElement("div", {
-      className: "features-grid"
-    }, [...(cur.features || [])].sort((a, b) => (a.source || '').localeCompare(b.source || '', 'de') || a.name.localeCompare(b.name, 'de')).map(feat => /*#__PURE__*/React.createElement("div", _extends({
-      key: feat.id,
-      className: "feature-card" + (exFeature === feat.id ? " expanded" : ""),
-      "aria-expanded": exFeature === feat.id
-    }, clickable(() => setExFeature(exFeature === feat.id ? null : feat.id), feat.name)), /*#__PURE__*/React.createElement("div", {
-      className: "feature-card-banner"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "feature-card-orb"
-    }, "\u2B50"), /*#__PURE__*/React.createElement("div", {
-      className: "feature-card-name"
-    }, feat.name), /*#__PURE__*/React.createElement("div", {
-      className: "feature-actions",
-      onClick: e => e.stopPropagation()
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "spell-edit-btn",
-      onClick: e => {
-        e.stopPropagation();
-        setFf({
-          name: feat.name,
-          source: feat.source || '',
-          description: feat.description || ''
-        });
-        setFfEditId(feat.id);
-        setShowFF(true);
-      }
-    }, "\u270E"), /*#__PURE__*/React.createElement("button", {
-      className: "spell-delete",
-      onClick: e => {
-        e.stopPropagation();
-        delFeature(feat.id);
-      }
-    }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
-      className: "feature-card-body"
-    }, feat.source && /*#__PURE__*/React.createElement("div", {
-      className: "feature-source"
-    }, feat.source)), feat.description && /*#__PURE__*/React.createElement("div", {
-      className: "feature-card-desc-wrap"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "feature-card-desc"
-    }, feat.description)))))), /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      onClick: () => {
-        setFf({
-          name: '',
-          source: '',
-          description: ''
-        });
-        setFfEditId(null);
-        setShowFF(true);
-      }
-    }, "+ F\xE4higkeit hinzuf\xFCgen")), /*#__PURE__*/React.createElement("div", {
-      className: "profs-grid"
-    }, [{
-      title: '🗣 Sprachen',
-      items: languages,
-      add: addLanguage,
-      del: delLanguage,
-      placeholder: 'z.B. Gemeinsprache, Elfisch'
-    }, {
-      title: '🔧 Werkzeugsfähigkeiten',
-      items: toolProfs,
-      add: addToolProf,
-      del: delToolProf,
-      placeholder: 'z.B. Diebeswerkzeug'
-    }, {
-      title: '⚔️ Waffenfähigkeiten',
-      items: weaponProfs,
-      add: addWeaponProf,
-      del: delWeaponProf,
-      placeholder: 'z.B. Einfache Waffen, Kriegswaffen'
-    }, {
-      title: '🛡️ Rüstungsfertigkeiten',
-      items: armorProfs,
-      add: addArmorProf,
-      del: delArmorProf,
-      placeholder: 'z.B. Leichte Rüstung, Schilde'
-    }].map(({
-      title,
-      items,
-      add,
-      del,
-      placeholder
-    }) => /*#__PURE__*/React.createElement("div", {
-      key: title,
-      className: "stats-section",
-      style: {
-        marginBottom: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "section-title"
-    }, title), /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        overflow: 'hidden'
-      }
-    }, items.length === 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        padding: '8px 12px',
-        fontSize: 13,
-        color: 'var(--text-muted)',
-        fontStyle: 'italic'
-      }
-    }, "Keine Eintr\xE4ge."), items.map((item, i) => /*#__PURE__*/React.createElement("div", {
-      key: i,
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        padding: '6px 10px',
-        borderBottom: '1px solid var(--border)',
-        gap: 8
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        fontFamily: "'Roboto',sans-serif",
-        fontSize: 14,
-        color: 'var(--text-secondary)'
-      }
-    }, item), /*#__PURE__*/React.createElement("button", {
-      className: "chip-remove",
-      onClick: () => del(i),
-      style: {
-        background: 'none',
-        border: 'none',
-        color: 'var(--text-muted)',
-        cursor: 'pointer',
-        fontSize: 13,
-        lineHeight: 1
-      }
-    }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 6,
-        padding: '6px 10px'
-      }
-    }, /*#__PURE__*/React.createElement("input", {
-      className: "form-input",
-      style: {
-        flex: 1,
-        padding: '4px 8px',
-        fontSize: 13,
-        background: 'transparent',
-        border: 'none',
-        borderBottom: '1px solid var(--border)',
-        borderRadius: 0,
-        color: 'var(--text-primary)'
-      },
-      placeholder: placeholder,
-      onKeyDown: e => {
-        if (e.key === 'Enter') {
-          add(e.target.value);
-          e.target.value = '';
-        }
-      },
-      onBlur: e => {
-        if (e.target.value.trim()) {
-          add(e.target.value);
-          e.target.value = '';
-        }
-      }
-    }), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        color: 'var(--text-muted)',
-        alignSelf: 'center',
-        whiteSpace: 'nowrap'
-      }
-    }, "\u21B5 Enter"))))))), tab === "zauber" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "slots-panel"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "slots-panel-header"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "slots-title"
-    }, "\u25C8 Zauberpl\xE4tze"), /*#__PURE__*/React.createElement("button", {
-      className: "panel-edit-btn" + (slotsEdit ? " active" : ""),
-      onClick: () => setSlotsEdit(!slotsEdit)
-    }, slotsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), [1, 2, 3, 4, 5, 6, 7, 8, 9].every(l => !slots[l] || slots[l].max === 0) && /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: "var(--text-muted)",
-        fontSize: 13,
-        fontStyle: "italic",
-        marginBottom: 8
-      }
-    }, "Noch keine Slots.", !slotsEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), /*#__PURE__*/React.createElement("div", {
-      className: "slots-grid"
-    }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => {
-      const s = slots[l] || {
-        max: 0,
-        used: 0
-      };
-      if (!slotsEdit && s.max === 0) return null;
-      return /*#__PURE__*/React.createElement("div", {
-        className: "slot-row",
-        key: l
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "slot-row-label"
-      }, "Grad ", l), /*#__PURE__*/React.createElement("div", {
-        className: "slot-pips"
-      }, Array.from({
-        length: s.max
-      }).map((_, i) => /*#__PURE__*/React.createElement("div", {
-        key: i,
-        className: "slot-pip " + (i < s.max - s.used ? "available" : "used"),
-        onClick: () => togSlot(l, i)
-      })), slotsEdit && /*#__PURE__*/React.createElement("button", {
-        className: "slot-max-btn",
-        onClick: () => chgMax(l, 1)
-      }, "+"), slotsEdit && s.max > 0 && /*#__PURE__*/React.createElement("button", {
-        className: "slot-max-btn",
-        onClick: () => chgMax(l, -1)
-      }, "\u2212"), !slotsEdit && s.max === 0 && /*#__PURE__*/React.createElement("span", {
-        style: {
-          color: "var(--text-muted)",
-          fontSize: 11
-        }
-      }, "\u2014")));
-    })), [1, 2, 3, 4, 5, 6, 7, 8, 9].some(l => slots[l] && slots[l].max > 0) && /*#__PURE__*/React.createElement("button", {
-      className: "slot-restore-btn",
-      onClick: resetAll
-    }, "\u21BA Alle Slots wiederherstellen (lange Rast)")), (() => {
-      const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses || []).some(m => m.charClass === "Zauberer");
-      if (!isZauberer) return null;
-      return sp.max > 0 ? /*#__PURE__*/React.createElement("div", {
-        className: "sorcery-panel"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "slots-panel-header",
-        style: {
-          marginBottom: 8
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "sorcery-title",
-        style: {
-          margin: 0
-        }
-      }, "\u2726 Zaubereipunkte"), /*#__PURE__*/React.createElement("button", {
-        className: "panel-edit-btn" + (spEdit ? " active" : ""),
-        onClick: () => setSpEdit(!spEdit),
-        style: {
-          borderColor: "var(--arcane-bright)",
-          color: spEdit ? "var(--arcane-bright)" : "var(--text-muted)",
-          opacity: spEdit ? 1 : 0.6
-        }
-      }, spEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
-        className: "sorcery-pips"
-      }, Array.from({
-        length: sp.max
-      }).map((_, i) => {
-        const avail = sp.max - sp.used;
-        return /*#__PURE__*/React.createElement("div", {
-          key: i,
-          className: "sorcery-pip " + (i < avail ? "available" : "spent"),
-          onClick: () => togSP(i),
-          title: i < avail ? "Punkt ausgeben" : "Punkt zurück"
-        });
-      }), spEdit && /*#__PURE__*/React.createElement("button", {
-        className: "slot-max-btn",
-        onClick: () => spChgMax(1),
-        title: "Max erh\xF6hen"
-      }, "+"), spEdit && sp.max > 0 && /*#__PURE__*/React.createElement("button", {
-        className: "slot-max-btn",
-        onClick: () => spChgMax(-1),
-        title: "Max verringern"
-      }, "\u2212")), /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          flexWrap: "wrap"
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 18,
-          color: "var(--arcane-bright)"
-        }
-      }, sp.max - sp.used, " ", /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontSize: 11,
-          color: "var(--text-muted)"
-        }
-      }, "/ ", sp.max)), sp.used > 0 && /*#__PURE__*/React.createElement("button", {
-        className: "slot-restore-btn",
-        style: {
-          borderColor: "var(--arcane-bright)",
-          color: "var(--arcane-bright)"
-        },
-        onClick: () => updSP({
-          ...sp,
-          used: 0
-        })
-      }, "\u21BA Wiederherstellen (Lange Rast)"))) : /*#__PURE__*/React.createElement("button", {
-        className: "btn-add",
-        style: {
-          marginBottom: 16
-        },
-        onClick: () => updSP({
-          max: cur.level,
-          used: 0
-        })
-      }, "\u2726 Zaubereipunkte aktivieren");
-    })(), /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 8
-      }
-    }, "\u2728 Bekannte Zauber"), (() => {
-      // Build all class/dmg tags from current spells using tplData lookup
-      const allSpellClasses = [...new Set(cur.spells.flatMap(s => s.classes || []))].sort();
-      const allSpellDmg = [...new Set(cur.spells.flatMap(s => s.damageTags || []))].sort();
-      const hasFilters = allSpellClasses.length > 0 || allSpellDmg.length > 0;
-      const filterActive = spellTagFilter.classes.length > 0 || spellTagFilter.dmg.length > 0;
-      return hasFilters && /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 6,
-          marginBottom: 12,
-          alignItems: 'center'
-        }
-      }, allSpellClasses.map(c => {
-        const cc = {
-          'Artifizient': '#70b8c8',
-          'Barbar': '#c84040',
-          'Barde': '#4090c0',
-          'Druide': '#52b788',
-          'Hexenmeister': '#9060c0',
-          'Kämpfer': '#c08040',
-          'Kleriker': '#e0c040',
-          'Magier': '#6080d0',
-          'Mönch': '#d09040',
-          'Paladin': '#e0a030',
-          'Schurke': '#808080',
-          'Waldläufer': '#70a050',
-          'Zauberer': '#c060a0'
-        };
-        const col = cc[c] || '#c9a84c';
-        const on = spellTagFilter.classes.includes(c);
-        return /*#__PURE__*/React.createElement("button", {
-          key: c,
-          onClick: () => setSpellTagFilter(f => ({
-            ...f,
-            classes: on ? f.classes.filter(x => x !== c) : [...f.classes, c]
-          })),
-          style: {
-            padding: '2px 8px',
-            borderRadius: 10,
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 9,
-            cursor: 'pointer',
-            letterSpacing: '0.06em',
-            border: '1px solid ' + (on ? col : col + '40'),
-            background: on ? col + '22' : 'var(--bg-card)',
-            color: on ? col : 'var(--text-muted)'
-          }
-        }, c);
-      }), allSpellDmg.map(d => {
-        const dc = {
-          Feuer: '#e07030',
-          Kälte: '#70b8d8',
-          Blitz: '#c0d850',
-          Säure: '#90c040',
-          Gift: '#80b030',
-          Nekrose: '#9060c0',
-          Strahlend: '#f0e060',
-          Psychisch: '#c070d0',
-          Kraft: '#80a0f0',
-          Hieb: '#a07050',
-          Stich: '#b08060',
-          Wucht: '#c09070'
-        }[d] || '#a0a0a0';
-        const on = spellTagFilter.dmg.includes(d);
-        return /*#__PURE__*/React.createElement("button", {
-          key: d,
-          onClick: () => setSpellTagFilter(f => ({
-            ...f,
-            dmg: f.dmg.includes(d) ? f.dmg.filter(x => x !== d) : [...f.dmg, d]
-          })),
-          style: {
-            padding: '2px 8px',
-            borderRadius: 10,
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 9,
-            cursor: 'pointer',
-            letterSpacing: '0.06em',
-            border: `1px solid ${on ? dc : dc + '40'}`,
-            background: on ? dc + '22' : 'var(--bg-card)',
-            color: on ? dc : 'var(--text-muted)'
-          }
-        }, "\u2694\uFE0F ", d);
-      }), filterActive && /*#__PURE__*/React.createElement("button", {
-        onClick: () => setSpellTagFilter({
-          classes: [],
-          dmg: []
-        }),
-        style: {
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          fontSize: 11,
-          fontFamily: "'Roboto Condensed',sans-serif",
-          padding: '2px 6px'
-        }
-      }, "\u2715 zur\xFCcksetzen"));
-    })(), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap",
-        marginBottom: 8
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        flex: 1
-      },
-      onClick: () => {
-        setSf({
-          ...newSpell(),
-          level: 0
-        });
-        setSfEditId(null);
-        setShowSF(true);
-      }
-    }, "+ Zaubertrick"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        flex: 1
-      },
-      onClick: () => {
-        setSf(newSpell());
-        setSfEditId(null);
-        setShowSF(true);
-      }
-    }, "+ Zauber (Grad 1\u20139)"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        flex: 1,
-        borderColor: "var(--arcane-bright)",
-        color: "var(--arcane-bright)"
-      },
-      onClick: () => openTpl('spell')
-    }, "\uD83D\uDCD6 Von Vorlage (SRD)")), cur.spells.length === 0 ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: "var(--text-muted)",
-        fontStyle: "italic",
-        fontSize: 14,
-        marginBottom: 12
-      }
-    }, "Noch keine Zauber eingetragen.") : [0, ...sls.filter(l => l !== 0)].filter(l => sbl[l]).map(l => {
-      const isCollapsed = collapsedLevels.has(l);
-      const toggleLevel = () => setCollapsedLevels(prev => {
-        const next = new Set(prev);
-        if (next.has(l)) next.delete(l);else next.add(l);
-        return next;
-      });
-      return /*#__PURE__*/React.createElement("div", {
-        className: "spell-level-group",
-        key: l
-      }, /*#__PURE__*/React.createElement("div", _extends({
-        className: "spell-level-header",
-        style: {
-          cursor: "pointer"
-        },
-        "aria-expanded": !isCollapsed
-      }, clickable(toggleLevel, (l === 0 ? "Zaubertricks" : "Grad " + l) + " auf- oder zuklappen")), /*#__PURE__*/React.createElement("div", {
-        className: "spell-level-title"
-      }, l === 0 ? "✦ Zaubertricks" : "Grad " + l), /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          marginLeft: "auto"
-        }
-      }, l > 0 && slots[l] && slots[l].max > 0 && /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          gap: 3
-        }
-      }, Array.from({
-        length: slots[l].max
-      }).map((_, i) => {
-        const avail = slots[l].max - slots[l].used;
-        return /*#__PURE__*/React.createElement("div", {
-          key: i,
-          onClick: e => {
-            e.stopPropagation();
-            togSlot(l, i);
-          },
-          style: {
-            width: 14,
-            height: 14,
-            borderRadius: "50%",
-            background: i < avail ? "var(--gold-dim)" : "transparent",
-            border: "1px solid " + (i < avail ? "var(--gold)" : "var(--border-bright)"),
-            cursor: "pointer",
-            flexShrink: 0,
-            boxShadow: i < avail ? "0 0 4px rgba(201,168,76,0.4)" : "none",
-            transition: "all 0.15s"
-          },
-          title: i < avail ? "Slot verfügbar" : "Slot verbraucht"
-        });
-      }), /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 10,
-          color: "var(--gold)",
-          marginLeft: 2,
-          opacity: 0.85
-        }
-      }, slots[l].max - slots[l].used, "/", slots[l].max)), /*#__PURE__*/React.createElement("div", {
-        className: "spell-level-count"
-      }, (() => {
-        const prep = sbl[l].filter(s => s.prepared !== false).length;
-        const unprep = sbl[l].filter(s => s.prepared === false).length;
-        if (unprep === 0) return sbl[l].length + " Zauber";
-        return prep + " ✓" + (unprep ? " · " + unprep + " ○" : "");
-      })()), /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 10,
-          color: "var(--text-muted)",
-          marginLeft: 4,
-          transition: "transform 0.2s",
-          transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)"
-        }
-      }, "\u25BE"))), !isCollapsed && (() => {
-        const tagFilterFn = s => {
-          if (spellTagFilter.classes.length === 0 && spellTagFilter.dmg.length === 0) return true;
-          const classOk = spellTagFilter.classes.length === 0 || spellTagFilter.classes.some(c => (s.classes || []).includes(c));
-          const dmgOk = spellTagFilter.dmg.length === 0 || spellTagFilter.dmg.some(d => (s.damageTags || []).includes(d));
-          return classOk && dmgOk;
-        };
-        const preparedSpells = sbl[l].filter(s => s.prepared !== false && tagFilterFn(s));
-        const unpreparedSpells = sbl[l].filter(s => s.prepared === false && tagFilterFn(s));
-        const renderSpell = s => {
-          const sc = SC[s.school] || SC["Hervorrufung"];
-          const spellClasses = s.classes || [];
-          const spellDmgTags = s.damageTags || [];
-          const levelLabel = s.level === 0 ? 'Zaubertrick' : `${s.level}. Grad · ${s.school}`;
-          return /*#__PURE__*/React.createElement("div", _extends({
-            key: s.id,
-            className: "spell-card" + (exSpell === s.id ? " expanded" : ""),
-            style: {
-              borderColor: sc.border,
-              borderWidth: 2
-            },
-            "aria-expanded": exSpell === s.id
-          }, clickable(() => setExSpell(exSpell === s.id ? null : s.id), s.name)), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-header",
-            style: {
-              background: `linear-gradient(180deg, ${sc.border} 0%, ${sc.bg} 100%)`
-            }
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-name"
-          }, s.name), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-school-label"
-          }, levelLabel)), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stats-grid"
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-cell"
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-label",
-            style: {
-              color: sc.text
-            }
-          }, "Wirkzeit"), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-value"
-          }, s.castingTime || '—')), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-cell"
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-label",
-            style: {
-              color: sc.text
-            }
-          }, "Reichweite"), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-value"
-          }, s.range || '—')), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-cell"
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-label",
-            style: {
-              color: sc.text
-            }
-          }, "Komponenten"), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-value"
-          }, s.components || '—')), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-cell"
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-label",
-            style: {
-              color: sc.text
-            }
-          }, "Dauer"), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-stat-value"
-          }, s.duration || '—'))), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-desc-wrap"
-          }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-desc",
-            dangerouslySetInnerHTML: {
-              __html: sanitizeHtml(s.description)
-            }
-          }))), (spellClasses.length > 0 || spellDmgTags.length > 0) && /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-tags"
-          }, spellClasses.map(c => {
-            const col = CC_COLORS[c] || '#c9a84c';
-            return /*#__PURE__*/React.createElement("span", {
-              key: c,
-              style: {
-                padding: '1px 6px',
-                borderRadius: 8,
-                fontFamily: "'Roboto Condensed',sans-serif",
-                fontSize: 8,
-                letterSpacing: '0.05em',
-                background: col + '22',
-                border: '1px solid ' + col + '80',
-                color: col
-              }
-            }, c);
-          }), spellDmgTags.map(d => {
-            const col = DMG_COLORS[d] || '#a0a0a0';
-            return /*#__PURE__*/React.createElement("span", {
-              key: d,
-              style: {
-                padding: '1px 6px',
-                borderRadius: 8,
-                fontFamily: "'Roboto Condensed',sans-serif",
-                fontSize: 8,
-                letterSpacing: '0.05em',
-                background: col + '22',
-                border: '1px solid ' + col + '80',
-                color: col
-              }
-            }, "\u2694 ", d);
-          })), /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-footer",
-            style: {
-              background: `${sc.bg}cc`
-            }
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "spell-card-school-footer",
-            style: {
-              color: sc.text
-            }
-          }, s.school), /*#__PURE__*/React.createElement("div", {
-            className: "spell-actions",
-            onClick: e => e.stopPropagation(),
-            style: {
-              alignItems: 'center',
-              gap: 4
-            }
-          }, /*#__PURE__*/React.createElement("button", {
-            title: s.prepared === false ? "Vorbereiten" : "Nicht vorbereitet markieren",
-            onClick: e => {
-              e.stopPropagation();
-              toggleSpellPrepared(s.id);
-            },
-            style: {
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '1px 3px',
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }
-          }, /*#__PURE__*/React.createElement("span", {
-            style: {
-              display: 'inline-block',
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              background: s.prepared === false ? '#e0c040' : '#3aaa5c',
-              boxShadow: s.prepared === false ? '0 0 4px #e0c040aa' : '0 0 6px #3aaa5caa',
-              transition: 'all 0.2s'
-            }
-          })), /*#__PURE__*/React.createElement("button", {
-            className: "spell-edit-btn",
-            onClick: e => {
-              e.stopPropagation();
-              setSf({
-                ...s
-              });
-              setSfEditId(s.id);
-              setShowSF(true);
-            },
-            style: {
-              background: 'rgba(0,0,0,0.12)',
-              border: 'none',
-              color: 'rgba(0,0,0,0.5)',
-              cursor: 'pointer',
-              fontSize: 10,
-              padding: '2px 5px',
-              borderRadius: 3
-            }
-          }, "\u270E"), /*#__PURE__*/React.createElement("button", {
-            className: "spell-delete",
-            onClick: e => {
-              e.stopPropagation();
-              delSpell(s.id);
-            }
-          }, "\u2715"))));
-        };
-        return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-          className: "spells-list"
-        }, preparedSpells.map(renderSpell)), unpreparedSpells.length > 0 && /*#__PURE__*/React.createElement("div", {
-          style: {
-            marginTop: 8
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          onClick: () => setOpenUnprepared(prev => {
-            const s = new Set(prev);
-            s.has(l) ? s.delete(l) : s.add(l);
-            return s;
-          }),
-          style: {
-            cursor: 'pointer',
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 10,
-            color: 'var(--text-muted)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 0',
-            borderTop: '1px solid var(--border)',
-            userSelect: 'none'
-          }
-        }, /*#__PURE__*/React.createElement("span", {
-          style: {
-            fontSize: 9,
-            transition: 'transform 0.2s',
-            transform: openUnprepared.has(l) ? 'rotate(90deg)' : 'rotate(0deg)'
-          }
-        }, "\u25B6"), unpreparedSpells.length, " nicht vorbereitet"), openUnprepared.has(l) && /*#__PURE__*/React.createElement("div", {
-          className: "spells-list",
-          style: {
-            marginTop: 8,
-            opacity: 0.6
-          }
-        }, unpreparedSpells.map(renderSpell))));
-      })());
-    }), (cur.charClass === "Druide" || (cur.multiclasses || []).some(m => m.charClass === "Druide")) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      style: {
-        marginTop: 8,
-        borderColor: "#52b788",
-        color: "#52b788",
-        width: "100%"
-      },
-      onClick: () => openTpl('wildshape')
-    }, "\uD83D\uDC3A Tierverwandlungs-Bestiar"), (cur.wsFavorites || []).length > 0 && tplData && tplData.wildshapes && (() => {
-      const statMod = v => {
-        const m = Math.floor((v - 10) / 2);
-        return (m >= 0 ? '+' : '') + m;
-      };
-      const favAnimals = tplData.wildshapes.filter(w => (cur.wsFavorites || []).includes(w.name));
-      return /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginTop: 16
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 10,
-          paddingBottom: 6,
-          borderBottom: "1px solid var(--border)"
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "section-title",
-        style: {
-          margin: 0
-        }
-      }, "\u2B50 Tierverwandlung \u2013 Favoriten"), /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 11,
-          color: "var(--text-muted)",
-          marginLeft: "auto"
-        }
-      }, favAnimals.length, " Tiere")), /*#__PURE__*/React.createElement("div", {
-        className: "spells-list"
-      }, favAnimals.map((w, i) => {
-        const isExp = wsExpand === "fav_" + w.name;
-        return /*#__PURE__*/React.createElement("div", {
-          key: i,
-          className: "spell-card" + (isExp ? " expanded" : ""),
-          style: {
-            borderColor: "#52b78880"
-          },
-          onClick: () => setWsExpand(isExp ? null : "fav_" + w.name)
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-banner",
-          style: {
-            background: "linear-gradient(135deg,#1a3d2b 0%,#2a5c3f80 100%)"
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-orb",
-          style: {
-            background: "#52b78840",
-            borderColor: "#52b78880",
-            color: "#52b788",
-            fontSize: 10
-          }
-        }, "CR", w.cr), /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-school-label",
-          style: {
-            flex: 1
-          }
-        }, w.name), /*#__PURE__*/React.createElement("div", {
-          className: "spell-actions",
-          onClick: e => e.stopPropagation()
-        }, /*#__PURE__*/React.createElement("button", {
-          className: "spell-edit-btn",
-          style: {
-            color: "#f0c040"
-          },
-          title: "Aus Favoriten entfernen",
-          onClick: e => {
-            e.stopPropagation();
-            toggleWsFav(w.name);
-          }
-        }, "\u2605"))), /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-body"
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-name",
-          style: {
-            fontSize: 10,
-            color: "#52b788",
-            opacity: 0.85
-          }
-        }, w.size, " \xB7 ", w.type), /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-stats"
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-stat"
-        }, /*#__PURE__*/React.createElement("strong", null, "RK"), w.ac), /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-stat"
-        }, /*#__PURE__*/React.createElement("strong", null, "TP"), w.hp), /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-stat"
-        }, /*#__PURE__*/React.createElement("strong", null, "Bew."), w.speed)), /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-stats",
-          style: {
-            marginTop: 4
-          }
-        }, [['STR', w.str], ['GES', w.dex], ['KON', w.con], ['INT', w.int], ['WEI', w.wis], ['CHA', w.cha]].map(([l, v]) => /*#__PURE__*/React.createElement("div", {
-          key: l,
-          className: "spell-card-stat"
-        }, /*#__PURE__*/React.createElement("strong", null, l), v, " (", statMod(v), ")")))), isExp && /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-desc-wrap"
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "spell-card-desc"
-        }, w.senses && /*#__PURE__*/React.createElement("div", {
-          style: {
-            marginBottom: 4
-          }
-        }, "\uD83D\uDC41 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", w.senses), w.skills && /*#__PURE__*/React.createElement("div", {
-          style: {
-            marginBottom: 4
-          }
-        }, "\uD83C\uDFAF ", /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", w.skills), (w.tags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-          style: {
-            marginBottom: 6
-          }
-        }, w.tags.map(t => /*#__PURE__*/React.createElement("span", {
-          className: "ws-tag",
-          key: t,
-          style: {
-            marginRight: 4,
-            marginBottom: 2,
-            display: "inline-block"
-          }
-        }, t))), w.abilities && w.abilities.map((a, ai) => /*#__PURE__*/React.createElement("div", {
-          key: ai,
-          style: {
-            marginBottom: 3
-          }
-        }, "\u2022 ", a)), w.actions && w.actions.map((a, ai) => /*#__PURE__*/React.createElement("div", {
-          key: ai,
-          style: {
-            marginTop: 4,
-            borderTop: "1px solid #52b78830",
-            paddingTop: 4
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 11,
-            color: "#52b788",
-            marginBottom: 2
-          }
-        }, "\u2694 ", a.name), /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontSize: 12
-          }
-        }, a.desc))))));
-      })));
-    })())), tab === "inventar" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 12
-      }
-    }, "\uD83D\uDCB0 W\xE4hrung"), /*#__PURE__*/React.createElement("div", {
-      className: "currency-row"
-    }, COINS.map(c => {
-      const val = currency[c.key] || 0;
-      return /*#__PURE__*/React.createElement("div", {
-        className: "currency-box",
-        key: c.key,
-        style: {
-          borderColor: c.color + '40',
-          cursor: 'pointer',
-          userSelect: 'none'
-        },
-        onClick: e => {
-          setCoinDelta('');
-          setCoinPopover({
-            key: c.key,
-            label: c.label,
-            color: c.color,
-            val
-          });
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "currency-icon",
-        style: {
-          color: c.color
-        }
-      }, "\uD83E\uDE99"), /*#__PURE__*/React.createElement("div", {
-        className: "currency-label",
-        style: {
-          color: c.color
-        }
-      }, c.label), /*#__PURE__*/React.createElement("div", {
-        className: "currency-input",
-        style: {
-          color: c.color,
-          borderColor: c.color + '40',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 16,
-          minHeight: 32
-        }
-      }, val));
-    })), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 10,
-        color: "var(--text-muted)",
-        textAlign: "right",
-        marginBottom: 20
-      }
-    }, "Gesamtwert: ", /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: "var(--gold)"
-      }
-    }, totalGp.toFixed(2), " GM")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        marginBottom: 12
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 0,
-        flex: 1
-      }
-    }, "\uD83C\uDF92 Gegenst\xE4nde"), !transferMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-      className: "btn-icon",
-      style: {
-        padding: "4px 10px",
-        fontSize: 11,
-        borderColor: "var(--border-bright)",
-        color: "var(--text-secondary)"
-      },
-      onClick: () => {
-        setItf(newItem());
-        setItfEditId(null);
-        setShowIF(true);
-      }
-    }, "+ Hinzuf\xFCgen"), inv.length > 0 && chars.filter(c => c.id !== sel && !c.archived && (!c.dmOnly || isDmMode)).length > 0 && /*#__PURE__*/React.createElement("button", {
-      className: "btn-icon",
-      style: {
-        padding: "4px 10px",
-        fontSize: 11,
-        borderColor: "#7ab8f5",
-        color: "#7ab8f5"
-      },
-      onClick: () => {
-        setTransferMode(true);
-        setTransferSel(new Set());
-      }
-    }, "\u27A4 \xDCbergeben")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-      className: "btn-icon",
-      style: {
-        padding: "4px 10px",
-        fontSize: 11
-      },
-      onClick: () => {
-        setTransferMode(false);
-        setTransferSel(new Set());
-      }
-    }, "\u2715 Abbrechen"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-icon",
-      style: {
-        padding: "4px 10px",
-        fontSize: 11,
-        borderColor: transferSel.size > 0 ? "#7ab8f5" : "var(--border)",
-        color: transferSel.size > 0 ? "#7ab8f5" : "var(--text-muted)",
-        opacity: transferSel.size > 0 ? 1 : 0.5
-      },
-      onClick: () => {
-        if (transferSel.size > 0) setShowTransfer(true);
-      },
-      disabled: transferSel.size === 0
-    }, "\u27A4 ", transferSel.size > 0 ? `${transferSel.size} übergeben` : "Auswahl..."))), inv.length > 0 && (() => {
-      const allTags = [...new Set(inv.flatMap(i => i.tags || []))].sort((a, b) => a.localeCompare(b, "de"));
-      return /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginBottom: 12
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          marginBottom: allTags.length > 0 ? 8 : 0
-        }
-      }, /*#__PURE__*/React.createElement("select", {
-        className: "tpl-filter-select",
-        value: invRarity,
-        onChange: e => setInvRarity(e.target.value),
-        style: {
-          padding: "6px 8px"
-        }
-      }, /*#__PURE__*/React.createElement("option", {
-        value: "all"
-      }, "Alle Seltenheiten"), RARITIES.map(r => /*#__PURE__*/React.createElement("option", {
-        key: r.key,
-        value: r.key
-      }, r.label))), invTagFilter.length > 0 && /*#__PURE__*/React.createElement("button", {
-        className: "tag-filter-btn",
-        onClick: () => setInvTagFilter([]),
-        style: {
-          borderColor: "var(--crimson)",
-          color: "var(--crimson)"
-        }
-      }, "\u2715 Filter leeren")), allTags.length > 0 && /*#__PURE__*/React.createElement("div", {
-        className: "tag-filter-bar"
-      }, allTags.map(tag => /*#__PURE__*/React.createElement("button", {
-        key: tag,
-        className: "tag-filter-btn" + (invTagFilter.includes(tag) ? " active" : ""),
-        onClick: () => setInvTagFilter(invTagFilter.includes(tag) ? invTagFilter.filter(t => t !== tag) : [...invTagFilter, tag])
-      }, tag))));
-    })(), (() => {
-      const rarityOrder = {
-        artefakt: 0,
-        legendär: 1,
-        sehrSelten: 2,
-        selten: 3,
-        ungewöhnlich: 4,
-        gewöhnlich: 5
-      };
-      const filtered = inv.filter(item => {
-        const matchRarity = invRarity === 'all' || item.rarity === invRarity;
-        const matchTags = invTagFilter.length === 0 || invTagFilter.every(t => (item.tags || []).includes(t));
-        return matchRarity && matchTags;
-      }).sort((a, b) => {
-        const rd = (rarityOrder[a.rarity] !== undefined ? rarityOrder[a.rarity] : 5) - (rarityOrder[b.rarity] !== undefined ? rarityOrder[b.rarity] : 5);
-        return rd !== 0 ? rd : a.name.localeCompare(b.name, 'de');
-      });
-      if (inv.length === 0) return /*#__PURE__*/React.createElement("div", {
-        style: {
-          color: "var(--text-muted)",
-          fontStyle: "italic",
-          fontSize: 14,
-          marginBottom: 12
-        }
-      }, "Keine Gegenst\xE4nde im Inventar.");
-      if (filtered.length === 0) return /*#__PURE__*/React.createElement("div", {
-        style: {
-          color: "var(--text-muted)",
-          fontStyle: "italic",
-          fontSize: 14,
-          marginBottom: 12
-        }
-      }, "Keine Gegenst\xE4nde gefunden.");
-      return /*#__PURE__*/React.createElement("div", null, transferMode && /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginBottom: 8,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8
-        }
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "checkbox",
-        checked: filtered.length > 0 && filtered.every(i => transferSel.has(i.id)),
-        onChange: e => {
-          if (e.target.checked) setTransferSel(new Set(filtered.map(i => i.id)));else setTransferSel(new Set());
-        },
-        style: {
-          cursor: 'pointer',
-          accentColor: 'var(--gold)'
-        }
-      }), /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 11,
-          color: 'var(--text-muted)'
-        }
-      }, "Alle ausw\xE4hlen")), /*#__PURE__*/React.createElement("div", null, transferMode && /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginBottom: 8,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8
-        }
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "checkbox",
-        checked: filtered.length > 0 && filtered.every(i => transferSel.has(i.id)),
-        onChange: e => {
-          if (e.target.checked) setTransferSel(new Set(filtered.map(i => i.id)));else setTransferSel(new Set());
-        },
-        style: {
-          cursor: 'pointer',
-          accentColor: 'var(--gold)'
-        }
-      }), /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 11,
-          color: 'var(--text-muted)'
-        }
-      }, "Alle ausw\xE4hlen")), /*#__PURE__*/React.createElement("div", {
-        className: "inv-grid"
-      }, filtered.map(item => {
-        const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
-        const checked = transferSel.has(item.id);
-        const icon = item.icon || '🎒';
-        const isExp = exItem === item.id;
-        return /*#__PURE__*/React.createElement("div", _extends({
-          key: item.id,
-          className: "inv-card" + (isExp ? " expanded" : ""),
-          style: {
-            borderColor: r.color,
-            outline: transferMode && checked ? `2px solid ${r.color}` : 'none',
-            outlineOffset: 2
-          },
-          "aria-pressed": transferMode ? checked : undefined
-        }, clickable(transferMode ? () => {
-          const s = new Set(transferSel);
-          checked ? s.delete(item.id) : s.add(item.id);
-          setTransferSel(s);
-        } : () => setItemViewer(item), item.name)), /*#__PURE__*/React.createElement("div", {
-          className: "inv-card-header",
-          style: {
-            background: `linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`,
-            borderBottom: `1px solid ${r.color}55`,
-            position: 'relative'
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          style: {
-            position: 'absolute',
-            top: 5,
-            left: 6,
-            background: 'var(--bg-void)',
-            color: 'var(--parchment)',
-            border: `1px solid ${r.color}77`,
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 9,
-            fontWeight: 700,
-            lineHeight: 1,
-            padding: '2px 5px',
-            borderRadius: 8,
-            minWidth: 16,
-            textAlign: 'center',
-            display: item.qty > 1 ? 'block' : 'none'
-          }
-        }, item.qty), /*#__PURE__*/React.createElement("div", {
-          className: "inv-card-icon"
-        }, icon), /*#__PURE__*/React.createElement("div", {
-          className: "inv-card-name"
-        }, item.name)), /*#__PURE__*/React.createElement("div", {
-          className: "inv-card-body-wrap"
-        }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-          style: {
-            padding: '7px 9px',
-            background: 'var(--bg-card)'
-          }
-        }, item.imageData && /*#__PURE__*/React.createElement("img", {
-          src: item.imageData,
-          alt: item.name,
-          style: {
-            width: '100%',
-            borderRadius: 4,
-            marginBottom: 6,
-            cursor: 'zoom-in',
-            display: 'block',
-            objectFit: 'contain',
-            maxHeight: 180
-          },
-          onClick: e => {
-            e.stopPropagation();
-            setImgViewer({
-              name: item.name,
-              imageData: item.imageData
-            });
-          }
-        }), item.description && /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontFamily: "'Roboto',sans-serif",
-            fontSize: 12,
-            color: 'var(--text-secondary)',
-            lineHeight: 1.45,
-            marginBottom: 4
-          },
-          dangerouslySetInnerHTML: {
-            __html: sanitizeHtml(item.description)
-          }
-        }), item.source && /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 9,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            marginBottom: 4
-          }
-        }, "\uD83D\uDCE6 ", item.source), (item.tags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-          style: {
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 3,
-            marginBottom: 4
-          }
-        }, (item.tags || []).map(t => /*#__PURE__*/React.createElement("span", {
-          key: t,
-          className: "inv-tag" + (invTagFilter.includes(t) ? " active" : ""),
-          onClick: e => {
-            e.stopPropagation();
-            if (!transferMode) setInvTagFilter(invTagFilter.includes(t) ? invTagFilter.filter(x => x !== t) : [...invTagFilter, t]);
-          }
-        }, t))), item.weight && /*#__PURE__*/React.createElement("div", {
-          style: {
-            fontFamily: "'Roboto Condensed',sans-serif",
-            fontSize: 9,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase'
-          }
-        }, item.weight, " kg")), /*#__PURE__*/React.createElement("div", {
-          className: "inv-card-footer"
-        }, transferMode ? /*#__PURE__*/React.createElement("input", {
-          type: "checkbox",
-          checked: checked,
-          onChange: e => {
-            const s = new Set(transferSel);
-            e.target.checked ? s.add(item.id) : s.delete(item.id);
-            setTransferSel(s);
-          },
-          style: {
-            cursor: 'pointer',
-            accentColor: 'var(--gold)',
-            width: 14,
-            height: 14
-          },
-          onClick: e => e.stopPropagation()
-        }) : /*#__PURE__*/React.createElement("div", {
-          className: "inv-card-actions",
-          onClick: e => e.stopPropagation(),
-          style: {
-            width: '100%',
-            justifyContent: 'flex-end'
-          }
-        }, /*#__PURE__*/React.createElement("button", {
-          onClick: e => {
-            e.stopPropagation();
-            setItf({
-              ...item
-            });
-            setItfEditId(item.id);
-            setShowIF(true);
-          },
-          style: {
-            background: 'rgba(232,213,163,0.10)',
-            border: 'none',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-            fontSize: 10,
-            padding: '3px 8px',
-            borderRadius: 3
-          }
-        }, "\u270E"), /*#__PURE__*/React.createElement("button", {
-          onClick: e => {
-            e.stopPropagation();
-            delItem(item.id);
-          },
-          style: {
-            background: 'rgba(232,213,163,0.10)',
-            border: 'none',
-            color: '#d98a8a',
-            cursor: 'pointer',
-            fontSize: 10,
-            padding: '3px 8px',
-            borderRadius: 3
-          }
-        }, "\u2715"))))));
-      }))), /*#__PURE__*/React.createElement("div", {
-        style: {
-          marginTop: 10,
-          display: 'flex',
-          gap: 12,
-          flexWrap: 'wrap'
-        }
-      }, totalWeight > 0 && /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 11,
-          color: "var(--text-muted)"
-        }
-      }, "Gesamtgewicht: ", /*#__PURE__*/React.createElement("span", {
-        style: {
-          color: "var(--text-secondary)"
-        }
-      }, totalWeight.toFixed(2), " kg")), (invRarity !== 'all' || invTagFilter.length > 0) && /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 11,
-          color: "var(--text-muted)"
-        }
-      }, filtered.length, " von ", inv.length, " Gegenst\xE4nden")));
-    })()), tab === "notizen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "section-title",
-      style: {
-        marginBottom: 12
-      }
-    }, "\uD83D\uDCDC Notizen"), (() => {
-      const allNoteTags = [...new Set(notesList.flatMap(n => n.tags || []))].sort();
-      const filtered = (noteTagFilter.length === 0 ? notesList : notesList.filter(n => (n.tags || []).some(t => noteTagFilter.includes(t)))).slice().sort((a, b) => (a.title || '').localeCompare(b.title || '', 'de'));
-      return /*#__PURE__*/React.createElement(React.Fragment, null, allNoteTags.length > 0 && /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 6,
-          marginBottom: 12,
-          alignItems: 'center'
-        }
-      }, /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 9,
-          color: 'var(--text-muted)',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase'
-        }
-      }, "Filter:"), allNoteTags.map(t => /*#__PURE__*/React.createElement("button", {
-        key: t,
-        className: "tag-filter-btn" + (noteTagFilter.includes(t) ? ' active' : ''),
-        onClick: () => setNoteTagFilter(noteTagFilter.includes(t) ? noteTagFilter.filter(x => x !== t) : [...noteTagFilter, t])
-      }, t)), noteTagFilter.length > 0 && /*#__PURE__*/React.createElement("button", {
-        onClick: () => setNoteTagFilter([]),
-        style: {
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          fontSize: 11,
-          fontFamily: "'Roboto Condensed',sans-serif",
-          padding: '2px 6px'
-        }
-      }, "\u2715 zur\xFCcksetzen")), filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
-        style: {
-          color: "var(--text-muted)",
-          fontStyle: "italic",
-          fontSize: 14,
-          marginBottom: 12
-        }
-      }, notesList.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen für diesen Filter.') : filtered.map(note => {
-        const isEx = exNote === note.id;
-        return /*#__PURE__*/React.createElement("div", {
-          className: "note-card",
-          key: note.id,
-          onClick: () => setExNote(isEx ? null : note.id),
-          style: {
-            borderColor: isEx ? 'var(--gold-dim)' : ''
-          }
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "note-card-header"
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "note-card-title"
-        }, "\uD83D\uDCC4 ", note.title), /*#__PURE__*/React.createElement("button", {
-          className: "btn-icon",
-          style: {
-            padding: "3px 8px",
-            fontSize: 11
-          },
-          onClick: e => {
-            e.stopPropagation();
-            setNf({
-              title: note.title,
-              content: note.content,
-              tags: note.tags || []
-            });
-            setNfEditId(note.id);
-            setShowNF(true);
-          }
-        }, "\u270F\uFE0F Bearbeiten"), /*#__PURE__*/React.createElement("button", {
-          className: "note-del",
-          onClick: e => {
-            e.stopPropagation();
-            delNote(note.id);
-          }
-        }, "\u2715")), (note.tags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-          className: "inv-tags",
-          style: {
-            marginTop: 4
-          }
-        }, note.tags.map(t => /*#__PURE__*/React.createElement("span", {
-          key: t,
-          className: "inv-tag" + (noteTagFilter.includes(t) ? ' active' : ''),
-          onClick: e => {
-            e.stopPropagation();
-            setNoteTagFilter(noteTagFilter.includes(t) ? noteTagFilter.filter(x => x !== t) : [...noteTagFilter, t]);
-          }
-        }, t))), note.content && /*#__PURE__*/React.createElement("div", {
-          className: "note-card-body" + (isEx ? " open" : "")
-        }, /*#__PURE__*/React.createElement("div", null, !isEx ? /*#__PURE__*/React.createElement("div", {
-          className: "note-card-preview"
-        }, note.content.length > 120 ? note.content.slice(0, 120) + '…' : note.content) : /*#__PURE__*/React.createElement("div", {
-          style: {
-            marginTop: 8,
-            fontFamily: "'Roboto',sans-serif",
-            fontSize: 15,
-            color: "var(--text-secondary)",
-            lineHeight: 1.7,
-            whiteSpace: "pre-wrap",
-            paddingBottom: 4
-          }
-        }, note.content))));
-      }));
-    })(), /*#__PURE__*/React.createElement("button", {
-      className: "btn-add",
-      onClick: () => {
-        setNf({
-          title: '',
-          content: '',
-          tags: []
-        });
-        setNfEditId(null);
-        setShowNF(true);
-      }
-    }, "+ Neue Notiz")), tab === "log" && /*#__PURE__*/React.createElement(LogTab, {
-      charId: sel,
-      charName: cur?.name,
-      addLog: addLog,
-      isDmMode: isDmMode
-    }));
+  // Wird bei jedem Rendern neu gebaut — genau wie zuvor die
+  // Closure-Variablen von Sheet.
+  const sheetCtx = {
+    acBonuses,
+    addAcBonus,
+    addArmorProf,
+    addLanguage,
+    addLog,
+    addResource,
+    addToolProf,
+    addWeaponProf,
+    appAlert,
+    appConfirm,
+    archiveChar,
+    armorProfs,
+    cc,
+    charMenuOpen,
+    chars,
+    chgMax,
+    collapsedLevels,
+    computedAC,
+    cur,
+    delAcBonus,
+    delArmorProf,
+    delEquipmentItem,
+    delFeature,
+    delItem,
+    delLanguage,
+    delNote,
+    delResource,
+    delSpell,
+    delToolProf,
+    delWeaponProf,
+    deleteChar,
+    displayAC,
+    effCur,
+    eqEditId,
+    eqForm,
+    equipment,
+    equippedArmors,
+    equippedShields,
+    exFeature,
+    exItem,
+    exNote,
+    exSpell,
+    fx,
+    fxOn,
+    fxTitle,
+    initTotal,
+    insp,
+    inspMax,
+    invRarity,
+    invTagFilter,
+    isDmMode,
+    itemFx,
+    noteTagFilter,
+    notesList,
+    openEdit,
+    openNew,
+    openTpl,
+    openUnprepared,
+    patchChar,
+    resEdit,
+    resetAll,
+    resources,
+    save,
+    sel,
+    selectChar,
+    setCharMenuOpen,
+    setCoinDelta,
+    setCoinPopover,
+    setCollapsedLevels,
+    setEqEditId,
+    setEqForm,
+    setExFeature,
+    setExNote,
+    setExSpell,
+    setFf,
+    setFfEditId,
+    setImgViewer,
+    setInsp,
+    setInspMax,
+    setInvRarity,
+    setInvTagFilter,
+    setItemViewer,
+    setItf,
+    setItfEditId,
+    setNf,
+    setNfEditId,
+    setNoteTagFilter,
+    setOpenUnprepared,
+    setResEdit,
+    setSf,
+    setSfEditId,
+    setShowEF,
+    setShowFF,
+    setShowIF,
+    setShowNF,
+    setShowSF,
+    setShowTransfer,
+    setShowWF,
+    setSlotsEdit,
+    setSpEdit,
+    setSpellTagFilter,
+    setStatsEdit,
+    setTab,
+    setTransferMode,
+    setTransferSel,
+    setWeaponViewer,
+    setWf,
+    setWfEditId,
+    setWsExpand,
+    slots,
+    slotsEdit,
+    sp,
+    spChgMax,
+    spEdit,
+    spellTagFilter,
+    statsEdit,
+    stepChar,
+    switchList,
+    tab,
+    togResourcePip,
+    togSP,
+    togSlot,
+    toggleEquipmentItem,
+    toggleEquipped,
+    toggleJoAT,
+    toggleSave,
+    toggleSkill,
+    toggleSpellPrepared,
+    toggleWsFav,
+    toolProfs,
+    tplData,
+    transferMode,
+    transferSel,
+    unarchiveChar,
+    updAcBonus,
+    updEquipment,
+    updResource,
+    updSP,
+    weaponProfs,
+    weaponStats,
+    wsExpand,
+    languages
   };
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(SheetCtx.Provider, {
+    value: sheetCtx
+  }, /*#__PURE__*/React.createElement("div", {
     className: "app" + (sidebarCollapsed ? " sb-collapsed" : "")
   }, sel && /*#__PURE__*/React.createElement("button", {
     className: "sidebar-toggle" + (sidebarCollapsed ? " open" : ""),
