@@ -180,6 +180,23 @@ function App() {
   const [enemyView, setEnemyView] = useState(null);   // offene Werteübersicht
   const [enemyImportBusy, setEnemyImportBusy] = useState(false);
   const [encounters, setEncounters] = useState([]);
+  // Der laufende Kampf liegt im Geraet, nicht nur im Arbeitsspeicher: im
+  // alten Tracker kostete ein versehentliches Neuladen mitten im Kampf die
+  // ganze Initiativreihenfolge. Er gehoert der Spielleitung an diesem
+  // Geraet, deshalb reicht der lokale Speicher — auf dem Server waere er
+  // ein Fremdkoerper zwischen den Charakterboegen.
+  const [kampf, setKampfRoh] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hb_kampf') || 'null'); } catch { return null; }
+  });
+  const [showKampf, setShowKampf] = useState(false);
+  const setKampf = (wertOderFn) => setKampfRoh(vorher => {
+    const neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
+    try {
+      if (neu) localStorage.setItem('hb_kampf', JSON.stringify(neu));
+      else localStorage.removeItem('hb_kampf');
+    } catch {}
+    return neu;
+  });
   const [encForm, setEncForm] = useState(null);
   const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
@@ -1586,6 +1603,11 @@ function App() {
                 const {url, code, pass} = serverCreds();
                 if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
+              {isDmMode && (
+                <button className="btn-tool" onClick={()=>setShowKampf(true)}>
+                  ⚔ Kampf{kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''}
+                </button>
+              )}
             </div>
             {svCode ? (
               <>
@@ -3365,6 +3387,19 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {showKampf && isDmMode && (
+        <KampfAnsicht
+          kampf={kampf} setKampf={setKampf}
+          enemies={enemies} encounters={encounters}
+          helden={advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode))}
+          setDefs={setDefs} abenteuer={abenteuer} advId={advId}
+          onSchliessen={()=>setShowKampf(false)}
+          onGegnerBlatt={(id)=>{ const g = enemies.find(e=>e.id===id); if (g) setEnemyView(g); }}
+          onBeenden={()=>appConfirm('Kampf beenden? Die Trefferpunkte der Helden bleiben vorerst im Bogen unverändert.', ()=>{
+            setKampf(null); setShowKampf(false);
+          }, 'Beenden')} />
       )}
 
       {encForm && (

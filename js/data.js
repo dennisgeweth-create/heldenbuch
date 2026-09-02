@@ -244,6 +244,12 @@ const ARMOR_TEMPLATES = [
   {name:'Schild',                art:'schild',   armorType:'shield', baseAC:2, icon:'🛡'},
 ];
 
+// Zustaende im Kampf. Feste Liste statt freier Eingabe — so heisst
+// "Liegend" bei allen gleich und laesst sich zaehlen.
+const CONDITIONS = ['Geblendet','Betäubt','Bezaubert','Erschöpft','Verängstigt','Gepackt',
+  'Handlungsunfähig','Unsichtbar','Gelähmt','Versteinert','Vergiftet','Liegend',
+  'Festgesetzt','Bewusstlos','Taub'];
+
 // Reiter des Abenteuerlogs.
 const LOG_TABS = ['charakter','zauber','inventar','waffen','attribute','rüst','notizen'];
 const LOG_TAB_ICONS = {'charakter':'👤','zauber':'✨','inventar':'🎒','waffen':'⚔','attribute':'📊','rüst':'🛡','notizen':'📜'};

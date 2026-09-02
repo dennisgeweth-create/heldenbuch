@@ -132,6 +132,110 @@ const collectEffects = (c, setDefs) => {
   return out;
 };
 
+// ── Kampfwerte eines beliebigen Helden ───────────────────────────
+// Bis hierher wurden Ruestungsklasse und Effekte nur fuer den gerade
+// geoeffneten Helden gerechnet, mitten in App. Der Kampf braucht sie fuer
+// alle auf einmal — und zwar nach denselben Regeln, nicht nach
+// nachgebauten. Deshalb steht die Rechnung jetzt hier, und App ruft sie
+// ebenso auf wie die Initiativliste.
+const charWerte = (c, setDefs) => {
+  if (!c) return null;
+  const effs = collectEffects(c, setDefs);
+  const anw  = (t, basis) => applyEffect(effs, t, basis);
+
+  const eff = {
+    ...c,
+    str: anw('str', c.str), dex: anw('dex', c.dex), con: anw('con', c.con),
+    int: anw('int', c.int), wis: anw('wis', c.wis), cha: anw('cha', c.cha),
+    maxHp:     anw('maxHp',     c.maxHp),
+    speed:     anw('speed',     c.speed),
+    profBonus: anw('profBonus', c.profBonus),
+  };
+
+  // ── Ruestungsklasse ──
+  // Dieselbe Reihenfolge wie im Bogen: Grundwert aus der Ruestung, Schild
+  // dazu, dann magische Boni der getragenen Stuecke, dann Talente, und
+  // ganz zuletzt die Effekte ueber fx('ac').
+  const dexMod = mod(eff.dex);
+  const getragen = gearWorn(c);
+  const nhGesperrt = nebenhandGesperrt(c);
+  const ruestung = (() => {
+    const r = c.gearMigrated ? gearAt(c, 'ruestung') : null;
+    return (r && r.armorType && r.armorType !== 'shield' && +r.baseAC > 0) ? r : null;
+  })();
+  const schild = (() => {
+    if (!c.gearMigrated || nhGesperrt) return null;
+    const nh = gearAt(c, 'nebenhand');
+    return (nh && nh.armorType === 'shield') ? nh : null;
+  })();
+  // Talent-Boni zaehlen nur, solange sie nicht als Merkmal-Effekt laufen.
+  const talentBoni = (c.gearMigrated || 0) >= 3 ? 0
+    : (c.acBonuses || []).filter(b => b.active).reduce((s,b) => s + (+b.bonus||0), 0);
+
+  const ac = (() => {
+    if (c.gearMigrated) {
+      const stueckBoni = getragen.reduce((s,{obj}) => s + (+obj.acBonus||0), 0);
+      const schildBonus = schild ? (+schild.baseAC || 2) : 0;
+      if (!ruestung) {
+        const nichts = schildBonus === 0 && talentBoni === 0 && stueckBoni === 0
+          && !effs.some(e => e.target === 'ac');
+        if (nichts) return +c.ac || 10;
+        return anw('ac', 10 + dexMod + schildBonus + talentBoni + stueckBoni);
+      }
+      const t = ruestung.armorType, basis = +ruestung.baseAC || 0;
+      const roh = t === 'heavy' ? basis : t === 'medium' ? basis + Math.min(2, dexMod) : basis + dexMod;
+      return anw('ac', roh + schildBonus + talentBoni + stueckBoni);
+    }
+    // Vor der Umstellung aus der alten Ausruestungsliste.
+    const alt = c.equipment || [];
+    const ruest  = alt.filter(e => e.equipped && e.type !== 'shield' && e.type !== 'other');
+    const schilde= alt.filter(e => e.equipped && e.type === 'shield');
+    const boni   = alt.filter(e => e.equipped && (e.acBonus||0) !== 0).reduce((s,e) => s + (+e.acBonus||0), 0);
+    const shB    = schilde.reduce((s,sh) => s + (sh.baseAC||2), 0);
+    if (!ruest.length) {
+      if (shB === 0 && talentBoni === 0 && boni === 0 && !effs.some(e => e.target === 'ac')) return +c.ac || 10;
+      return anw('ac', 10 + dexMod + shB + talentBoni + boni);
+    }
+    const a = ruest[0];
+    const roh = a.type === 'heavy' ? a.baseAC
+              : a.type === 'medium' ? a.baseAC + Math.min(2, dexMod)
+              : a.baseAC + dexMod;
+    return anw('ac', roh + shB + talentBoni + boni);
+  })();
+
+  // ── Passive Wahrnehmung ──
+  const wahr = SKILLS.find(x => x.key === 'aufmerksamkeit');
+  const passive = (() => {
+    if (!wahr) return null;
+    const isP = (c.skillProfs||[]).includes(wahr.key);
+    const isE = (c.expertiseProfs||[]).includes(wahr.key);
+    const joat = c.jackOfAllTrades && !isP && !isE;
+    const b = isE ? eff.profBonus*2 : isP ? eff.profBonus : joat ? Math.floor(eff.profBonus/2) : 0;
+    return anw('passivePerception', 10 + anw('skill_'+wahr.key, anw('skillAll', mod(eff[wahr.attr]) + b)));
+  })();
+
+  // ── Rettungswuerfe ──
+  const saves = {};
+  ['str','dex','con','int','wis','cha'].forEach(a => {
+    const isP = (c.savingThrowProfs||[]).includes(a);
+    saves[a] = anw('save_'+a, anw('saveAll', mod(eff[a]) + (isP ? eff.profBonus : 0)));
+  });
+
+  return {
+    effekte: effs,
+    eff,
+    ac,
+    maxHp: eff.maxHp,
+    hp: +c.hp || 0,
+    tempHp: +c.tempHp || 0,
+    dex: eff.dex,
+    initiative: anw('initiative', mod(eff.dex) + (+c.initiative || 0)),
+    passive,
+    saves,
+    flags: activeFlags(effs),
+  };
+};
+
 // Einmalige Umstellung auf Ausruestungsplaetze. Legt die Stuecke aus
 // c.equipment als Inventargegenstaende an und setzt die angelegten in ihren
 // Platz. c.equipment und c.acBonuses bleiben dabei unberuehrt liegen — der

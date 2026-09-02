@@ -978,6 +978,106 @@
   .beg-treffer-zeile b { font-family:'Roboto Condensed',sans-serif; font-size:12.5px; font-weight:400; color:var(--text-primary); }
   .beg-treffer-zeile i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); }
 
+  /* ── Kampf ──────────────────────────────────────────────────── */
+  .kampf-schirm { position:fixed; inset:0; z-index:60; background:var(--bg-deep);
+    display:flex; flex-direction:column; }
+  .kampf-kopf { display:flex; align-items:center; gap:12px; padding:10px 16px; flex-wrap:wrap;
+    background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .kampf-titel { font-family:'Roboto Condensed',sans-serif; font-size:15px; color:var(--gold);
+    letter-spacing:0.06em; text-transform:uppercase; }
+  .kampf-runde { display:flex; align-items:baseline; gap:6px; }
+  .kampf-runde span { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-muted); }
+  .kampf-runde b { font-family:'Roboto Condensed',sans-serif; font-size:19px; color:var(--gold); font-weight:400; }
+  .kampf-dran { flex:1; min-width:120px; font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--text-muted); }
+  .kampf-dran b { color:var(--text-primary); font-weight:400; }
+  .kampf-weiter { padding:9px 16px; min-height:40px; border-radius:4px; cursor:pointer;
+    background:var(--gold-dim); border:1px solid var(--gold); color:var(--gold-bright);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.06em; white-space:nowrap; }
+  .kampf-weiter:hover { background:var(--crimson); color:#fff; border-color:var(--crimson); }
+  .kampf-hinweis { padding:8px 16px; background:rgba(217,164,65,0.12); border-bottom:1px solid var(--border);
+    font-family:'Roboto Condensed',sans-serif; font-size:11.5px; color:#d9a441; flex-shrink:0; }
+  .kampf-liste { flex:1; overflow-y:auto; padding:10px 12px 40px; display:flex; flex-direction:column; gap:6px; }
+
+  .kampf-zeile { display:grid; grid-template-columns:48px 40px 1fr auto; gap:10px; align-items:center;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
+  .kampf-zeile.dran { border-color:var(--gold); box-shadow:inset 3px 0 0 var(--gold); background:var(--bg-panel); }
+  .kampf-zeile.tot { opacity:0.45; }
+  .kampf-zeile.held { border-left:3px solid var(--gold-dim); }
+  .kampf-zeile.gegner { border-left:3px solid #6b3030; }
+  .kampf-ini { width:44px; height:44px; border-radius:5px; flex-shrink:0; text-align:center;
+    background:var(--bg-void); border:1px solid var(--border-bright); color:var(--gold);
+    font-family:'Roboto Condensed',sans-serif; font-size:19px; font-variant-numeric:tabular-nums;
+    -moz-appearance:textfield; }
+  .kampf-ini::-webkit-outer-spin-button, .kampf-ini::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .kampf-ini:focus { border-color:var(--gold); outline:none; }
+  .kampf-ini::placeholder { color:var(--text-muted); }
+  .kampf-figur { width:40px; height:40px; border-radius:5px; overflow:hidden; background:var(--bg-void);
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .kampf-figur img { width:100%; height:100%; object-fit:cover; }
+  .kampf-mitte { min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .kampf-name-zeile { display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+  .kampf-name { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-primary); }
+  .kampf-name-knopf { background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;
+    text-decoration-style:dotted; text-underline-offset:3px; }
+  .kampf-name-knopf:hover { color:var(--gold); }
+  .kampf-rk { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
+  .kampf-warte { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#d9a441; }
+  .kampf-unter { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted); }
+  .kampf-balken { height:5px; border-radius:3px; background:var(--bg-void); overflow:hidden; margin-top:3px; }
+  .kampf-balken-fuell { height:100%; transition:width 0.2s; }
+  .kampf-tp { display:flex; align-items:baseline; gap:9px; font-family:'Roboto Condensed',sans-serif;
+    font-size:11.5px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .kampf-tp b { font-size:14px; font-weight:400; }
+  .kampf-temp { color:#7ab8f5; }
+  .kampf-ersch { color:#d9a441; }
+  .kampf-zustaende, .kampf-flags { display:flex; flex-wrap:wrap; gap:3px; margin-top:3px; }
+  .kampf-zustand { font-family:'Roboto Condensed',sans-serif; font-size:10px; padding:2px 8px; border-radius:10px;
+    background:rgba(224,90,90,0.14); border:1px solid #6b3030; color:#f0a0a0; cursor:pointer; }
+  .kampf-flag { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; padding:1px 7px; border-radius:9px;
+    border:1px dashed var(--border-bright); color:var(--text-muted); }
+  .kampf-werkzeug { display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+  .kampf-hp-eingabe { display:flex; gap:3px; }
+  .kampf-hp-eingabe input { width:52px; text-align:center; padding:6px 4px; min-height:36px;
+    background:var(--bg-void); border:1px solid var(--border); border-radius:4px; color:var(--text-primary);
+    font-family:'Roboto Condensed',sans-serif; font-size:14px; }
+  .kampf-hp-eingabe button { width:36px; min-height:36px; border-radius:4px; cursor:pointer;
+    background:var(--bg-void); border:1px solid var(--border); color:var(--text-secondary);
+    font-family:'Roboto Condensed',sans-serif; font-size:15px; }
+  .kampf-minus:hover { border-color:var(--crimson); color:#e04545; }
+  .kampf-plus:hover  { border-color:#56b183; color:#56b183; }
+  .kampf-temp-btn:hover { border-color:#7ab8f5; color:#7ab8f5; }
+  .kampf-zeile-tools { display:flex; gap:3px; }
+  .kampf-zeile-tools button { width:30px; height:28px; border-radius:4px; cursor:pointer;
+    background:none; border:1px solid var(--border); color:var(--text-muted); font-size:11px; }
+  .kampf-zeile-tools button:hover { border-color:var(--gold-dim); color:var(--gold); }
+  .kampf-zustand-wahl { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;
+    padding-top:8px; border-top:1px solid var(--border); }
+  .kampf-zustand-wahl button { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; padding:5px 10px;
+    min-height:32px; border-radius:12px; cursor:pointer; background:var(--bg-void);
+    border:1px solid var(--border); color:var(--text-muted); }
+  .kampf-zustand-wahl button.aktiv { border-color:var(--crimson); color:#f0a0a0; background:rgba(224,90,90,0.14); }
+
+  .kampf-start { flex:1; overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column;
+    gap:14px; align-items:center; }
+  .kampf-start-hinweis { max-width:52ch; text-align:center; color:var(--text-muted); font-size:13.5px; line-height:1.6; }
+  .kampf-leer { color:var(--text-muted); font-style:italic; font-size:13.5px; text-align:center; max-width:44ch; }
+  .kampf-start-liste { width:100%; max-width:520px; display:flex; flex-direction:column; gap:7px; }
+  .kampf-start-eintrag { display:flex; flex-direction:column; gap:3px; text-align:left; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:12px 14px;
+    color:inherit; font:inherit; min-height:56px; }
+  .kampf-start-eintrag:hover:not(:disabled) { border-color:var(--gold); }
+  .kampf-start-eintrag:disabled { opacity:0.4; cursor:not-allowed; }
+  .kampf-start-name { font-family:'Roboto Condensed',sans-serif; font-size:15px; color:var(--gold); }
+  .kampf-start-sub { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
+
+  @media (max-width:720px) {
+    .kampf-zeile { grid-template-columns:44px 1fr; }
+    .kampf-figur { display:none; }
+    .kampf-werkzeug { grid-column:2; align-items:flex-start; margin-top:5px; }
+  }
+
   .sync-line-msg.offen { color:#d98a8a; }
   .sync-line-hint { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#d9a441; white-space:nowrap; }
 
