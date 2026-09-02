@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -433,6 +433,588 @@ const LogTab = ({
       flexShrink: 0
     }
   }, fmt(e.created_at))))));
+};
+
+// ==== js/src/2b-gegner.jsx ====
+// Heldenbuch — Gegner der Spielleitung.
+//
+// Eigene Datei, damit 4-app.jsx nicht weiter waechst. Die Bausteine
+// bekommen alles ueber Eigenschaften statt ueber den Kontext: sie gehoeren
+// zum DM-Bereich, nicht zum Charakterbogen.
+//
+// Gegner liegen zeilenweise auf dem Server, nicht in der DM-Bibliothek.
+// Sonst lüde jede Aenderung an einem Goblin die ganze Sammlung hoch, und
+// mit Bildern waere deren 2-MB-Grenze nach rund dreissig Portraets
+// erreicht.
+
+// Herausforderungsgrade in Spielreihenfolge, nicht alphabetisch: "1/8"
+// gehoert vor "1", und "10" hinter "9".
+const CR_ORDNUNG = ['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'];
+const crRang = cr => {
+  const i = CR_ORDNUNG.indexOf(String(cr || '').trim());
+  return i === -1 ? 999 : i;
+};
+
+// Die fuenf Aktionslisten haben dieselbe Form {name, bonus, damage, type} —
+// deshalb ein Editor fuer alle statt fuenf gleichlautender.
+const GEGNER_LISTEN = [{
+  key: 'attacks',
+  label: 'Angriffe'
+}, {
+  key: 'bonusActions',
+  label: 'Bonusaktionen'
+}, {
+  key: 'reactions',
+  label: 'Reaktionen'
+}, {
+  key: 'legendaryActions',
+  label: 'Legendäre Aktionen'
+}, {
+  key: 'lairActions',
+  label: 'Schauplatzaktionen'
+}];
+const newEnemy = () => ({
+  id: 'e_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+  name: '',
+  type: 'Humanoid',
+  cr: '1/4',
+  size: 'Mittel',
+  ac: 12,
+  hpMax: 10,
+  hpDice: '2d8',
+  str: 10,
+  dex: 10,
+  con: 10,
+  int: 10,
+  wis: 10,
+  cha: 10,
+  speed: 9,
+  attacks: [],
+  traits: [],
+  tags: [],
+  image: null
+});
+
+// ── Werteübersicht ───────────────────────────────────────────────
+const GegnerBlatt = ({
+  gegner,
+  onSchliessen,
+  onBearbeiten,
+  onLoeschen,
+  onBild
+}) => {
+  if (!gegner) return null;
+  const g = gegner;
+  const attr = [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']];
+  const listen = GEGNER_LISTEN.filter(l => (g[l.key] || []).length > 0);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: onSchliessen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal gegner-blatt",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-blatt-kopf"
+  }, g.image && /*#__PURE__*/React.createElement("img", {
+    className: "gegner-blatt-bild",
+    src: g.image,
+    alt: "",
+    onClick: () => onBild && onBild({
+      name: g.name,
+      imageData: g.image
+    })
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "gegner-blatt-titel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-blatt-name"
+  }, g.name), /*#__PURE__*/React.createElement("div", {
+    className: "gegner-blatt-sub"
+  }, g.size, " \xB7 ", g.type, " \xB7 Herausforderung ", g.cr)), /*#__PURE__*/React.createElement("button", {
+    className: "gegner-blatt-zu",
+    onClick: onSchliessen,
+    "aria-label": "Schlie\xDFen"
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "gegner-blatt-koerper"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-kernwerte"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", null, "R\xFCstungsklasse"), /*#__PURE__*/React.createElement("b", null, g.ac)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", null, "Trefferpunkte"), /*#__PURE__*/React.createElement("b", null, g.hpMax, g.hpDice ? ' (' + g.hpDice + ')' : '')), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", null, "Bewegung"), /*#__PURE__*/React.createElement("b", null, g.speed, " m"))), /*#__PURE__*/React.createElement("div", {
+    className: "gegner-attribute"
+  }, attr.map(([k, l]) => /*#__PURE__*/React.createElement("div", {
+    className: "gegner-attr",
+    key: k
+  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("b", null, g[k]), /*#__PURE__*/React.createElement("i", null, fnum(mod(g[k])))))), (g.tags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "gegner-marken"
+  }, (g.tags || []).map(t => /*#__PURE__*/React.createElement("span", {
+    className: "inv-tag",
+    key: t
+  }, t))), (g.traits || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "gegner-abschnitt"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-abschnitt-titel"
+  }, "Merkmale"), (g.traits || []).map((t, i) => /*#__PURE__*/React.createElement("div", {
+    className: "gegner-merkmal",
+    key: i
+  }, t))), listen.map(l => /*#__PURE__*/React.createElement("div", {
+    className: "gegner-abschnitt",
+    key: l.key
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-abschnitt-titel"
+  }, l.label), (g[l.key] || []).map((a, i) => /*#__PURE__*/React.createElement("div", {
+    className: "gegner-aktion",
+    key: i
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-aktion-name"
+  }, a.name), (a.bonus || a.damage) && /*#__PURE__*/React.createElement("div", {
+    className: "gegner-aktion-werte"
+  }, a.bonus ? /*#__PURE__*/React.createElement("span", null, fnum(a.bonus), " zum Treffen") : null, a.damage ? /*#__PURE__*/React.createElement("span", null, a.damage, a.type ? ' ' + a.type : '') : null, a.range ? /*#__PURE__*/React.createElement("span", null, a.range) : null, a.dc ? /*#__PURE__*/React.createElement("span", null, a.dc) : null)))))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    style: {
+      flex: 1
+    },
+    onClick: onBearbeiten
+  }, "\u270E Bearbeiten"), /*#__PURE__*/React.createElement("button", {
+    className: "gegner-loeschen",
+    onClick: onLoeschen
+  }, "\u2715 L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onSchliessen
+  }, "Schlie\xDFen"))));
+};
+
+// ── Bearbeiten ───────────────────────────────────────────────────
+const GegnerFormular = ({
+  form,
+  setForm,
+  onSpeichern,
+  onAbbrechen,
+  neu
+}) => {
+  if (!form) return null;
+  const f = form;
+  const setzen = patch => setForm({
+    ...f,
+    ...patch
+  });
+  const liste = key => f[key] || [];
+  const setListe = (key, wert) => setzen({
+    [key]: wert
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 560
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, neu ? '💀 Neuer Gegner' : '✎ Gegner bearbeiten'), /*#__PURE__*/React.createElement("div", {
+    className: "form-grid",
+    style: {
+      maxHeight: '62vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Name"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: f.name,
+    autoFocus: true,
+    onChange: e => setzen({
+      name: e.target.value
+    }),
+    placeholder: "z.B. Vampir-Spawn"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Art"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: f.type || '',
+    onChange: e => setzen({
+      type: e.target.value
+    }),
+    placeholder: "Untoter"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Herausforderung"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    list: "hb-cr-liste",
+    value: f.cr || '',
+    onChange: e => setzen({
+      cr: e.target.value
+    }),
+    placeholder: "1/4"
+  }), /*#__PURE__*/React.createElement("datalist", {
+    id: "hb-cr-liste"
+  }, CR_ORDNUNG.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Gr\xF6\xDFe"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: f.size || 'Mittel',
+    onChange: e => setzen({
+      size: e.target.value
+    })
+  }, ['Winzig', 'Klein', 'Mittel', 'Groß', 'Riesig', 'Gigantisch'].map(s => /*#__PURE__*/React.createElement("option", {
+    key: s
+  }, s)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "R\xFCstungsklasse"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    value: f.ac,
+    onChange: e => setzen({
+      ac: +e.target.value
+    })
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Trefferpunkte"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    value: f.hpMax,
+    onChange: e => setzen({
+      hpMax: +e.target.value
+    })
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "W\xFCrfel"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: f.hpDice || '',
+    onChange: e => setzen({
+      hpDice: e.target.value
+    }),
+    placeholder: "2d8+4"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Bewegung (m)"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    value: f.speed,
+    onChange: e => setzen({
+      speed: +e.target.value
+    })
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Attribute"), /*#__PURE__*/React.createElement("div", {
+    className: "gegner-attr-eingabe"
+  }, [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']].map(([k, l]) => /*#__PURE__*/React.createElement("div", {
+    key: k
+  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 1,
+    max: 30,
+    value: f[k],
+    "aria-label": l,
+    onChange: e => setzen({
+      [k]: +e.target.value
+    })
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Schlagworte ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic'
+    }
+  }, "(kommagetrennt)")), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: (f.tags || []).join(', '),
+    onChange: e => setzen({
+      tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
+    }),
+    placeholder: "z.B. Strahd, Boss, Untot"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Bild (optional)"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      alignItems: 'flex-start'
+    }
+  }, f.image && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative',
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: f.image,
+    alt: "",
+    style: {
+      width: 84,
+      height: 84,
+      objectFit: 'cover',
+      borderRadius: 5,
+      border: '1px solid var(--border)'
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setzen({
+      image: null
+    }),
+    "aria-label": "Bild entfernen",
+    style: {
+      position: 'absolute',
+      top: -7,
+      right: -7,
+      width: 20,
+      height: 20,
+      borderRadius: '50%',
+      background: 'var(--crimson)',
+      border: 'none',
+      color: '#fff',
+      fontSize: 10,
+      cursor: 'pointer'
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("label", {
+    style: {
+      flex: 1,
+      padding: '11px 14px',
+      background: 'var(--bg-card)',
+      border: '1px dashed var(--border)',
+      borderRadius: 6,
+      cursor: 'pointer',
+      textAlign: 'center',
+      fontSize: 12,
+      color: 'var(--text-muted)',
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, "\uD83D\uDCF7 Bild w\xE4hlen", /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: 'none'
+    },
+    onChange: e => {
+      const d = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (d) compressImage(d, 800, daten => {
+        if (daten) setzen({
+          image: daten
+        });
+      });
+    }
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Merkmale ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic'
+    }
+  }, "(eine Zeile je Merkmal)")), /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input",
+    rows: 3,
+    style: {
+      resize: 'vertical'
+    },
+    value: (f.traits || []).join('\n'),
+    onChange: e => setzen({
+      traits: e.target.value.split('\n').map(t => t.trim()).filter(Boolean)
+    }),
+    placeholder: 'Immunität: Gift\nRegeneration 10/Runde'
+  })), GEGNER_LISTEN.map(l => /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full",
+    key: l.key
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, l.label), liste(l.key).length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic',
+      marginBottom: 6
+    }
+  }, "Noch nichts eingetragen."), liste(l.key).map((a, i) => /*#__PURE__*/React.createElement("div", {
+    className: "gegner-aktion-zeile",
+    key: i
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: a.name || '',
+    placeholder: "Name",
+    "aria-label": "Name",
+    onChange: e => setListe(l.key, liste(l.key).map((x, j) => j === i ? {
+      ...x,
+      name: e.target.value
+    } : x))
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    value: a.bonus || 0,
+    title: "Bonus zum Treffen",
+    "aria-label": "Bonus",
+    onChange: e => setListe(l.key, liste(l.key).map((x, j) => j === i ? {
+      ...x,
+      bonus: +e.target.value
+    } : x))
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: a.damage || '',
+    placeholder: "1d6+2",
+    "aria-label": "Schaden",
+    onChange: e => setListe(l.key, liste(l.key).map((x, j) => j === i ? {
+      ...x,
+      damage: e.target.value
+    } : x))
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: a.type || '',
+    placeholder: "Hieb",
+    "aria-label": "Schadensart",
+    onChange: e => setListe(l.key, liste(l.key).map((x, j) => j === i ? {
+      ...x,
+      type: e.target.value
+    } : x))
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "fx-del",
+    type: "button",
+    title: "Entfernen",
+    onClick: () => setListe(l.key, liste(l.key).filter((_, j) => j !== i))
+  }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-add",
+    style: {
+      width: '100%',
+      marginTop: 4
+    },
+    onClick: () => setListe(l.key, [...liste(l.key), {
+      name: '',
+      bonus: 0,
+      damage: '',
+      type: ''
+    }])
+  }, "+ ", l.label.replace(/e$/, ''), " hinzuf\xFCgen")))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: onSpeichern
+  }, "\uD83D\uDCBE Speichern"))));
+};
+
+// ── Liste im Datenbank-Dialog ────────────────────────────────────
+const GegnerListe = ({
+  enemies,
+  geladen,
+  suche,
+  setSuche,
+  crFilter,
+  setCrFilter,
+  tagFilter,
+  setTagFilter,
+  onAnsehen,
+  onNeu,
+  onImport,
+  importBusy
+}) => {
+  const alleTags = [...new Set(enemies.flatMap(e => e.tags || []))].sort((a, b) => a.localeCompare(b, 'de'));
+  const alleCr = [...new Set(enemies.map(e => e.cr).filter(Boolean))].sort((a, b) => crRang(a) - crRang(b));
+  const q = (suche || '').trim();
+  const gefiltert = enemies.filter(e => {
+    if (crFilter && e.cr !== crFilter) return false;
+    if (tagFilter && !(e.tags || []).includes(tagFilter)) return false;
+    if (!q) return true;
+    return containsFold(e.name || '', q) || containsFold(e.type || '', q) || containsFold((e.tags || []).join(' '), q) || containsFold((e.traits || []).join(' '), q);
+  }).sort((a, b) => crRang(a.cr) - crRang(b.cr) || (a.name || '').localeCompare(b.name || '', 'de'));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "gegner-liste-huelle"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-werkzeuge"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input gegner-suche",
+    type: "search",
+    value: suche || '',
+    placeholder: enemies.length + ' Gegner durchsuchen…',
+    "aria-label": "Gegner durchsuchen",
+    onChange: e => setSuche(e.target.value)
+  }), /*#__PURE__*/React.createElement("select", {
+    className: "tpl-filter-select",
+    value: crFilter || '',
+    onChange: e => setCrFilter(e.target.value),
+    "aria-label": "Herausforderungsgrad"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Alle Grade"), alleCr.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, "HG ", c))), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    onClick: onNeu
+  }, "+ Neu")), alleTags.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "tag-filter-bar"
+  }, alleTags.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    className: "tag-filter-btn" + (tagFilter === t ? " active" : ""),
+    onClick: () => setTagFilter(tagFilter === t ? '' : t)
+  }, t))), enemies.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "gegner-leer"
+  }, /*#__PURE__*/React.createElement("p", null, geladen ? 'Noch keine Gegner. Lies unten eine Sammlung aus einer JSON-Datei ein — etwa die aus dem alten Kampftracker.' : 'Die Gegner konnten nicht geladen werden. Verlasse den DM-Modus und betritt ihn erneut.')) : gefiltert.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "gegner-leer"
+  }, /*#__PURE__*/React.createElement("p", null, "Kein Gegner gefunden.")) : /*#__PURE__*/React.createElement("div", {
+    className: "gegner-reihen"
+  }, gefiltert.map(e => /*#__PURE__*/React.createElement("button", {
+    className: "gegner-reihe",
+    key: e.id,
+    onClick: () => onAnsehen(e)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "gegner-reihe-bild"
+  }, e.image ? /*#__PURE__*/React.createElement("img", {
+    src: e.image,
+    alt: ""
+  }) : /*#__PURE__*/React.createElement("span", null, "\uD83D\uDC80")), /*#__PURE__*/React.createElement("span", {
+    className: "gegner-reihe-text"
+  }, /*#__PURE__*/React.createElement("b", null, e.name), /*#__PURE__*/React.createElement("i", null, e.size, " \xB7 ", e.type)), /*#__PURE__*/React.createElement("span", {
+    className: "gegner-reihe-werte"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "gegner-hg"
+  }, "HG ", e.cr), "RK ", e.ac, " \xB7 ", e.hpMax, " TP")))), /*#__PURE__*/React.createElement("div", {
+    className: "gegner-fuss"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "gegner-import" + (importBusy ? " busy" : "")
+  }, importBusy ? '⏳ Wird eingelesen…' : '⇪ Sammlung einlesen (JSON)', /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "application/json,.json",
+    style: {
+      display: 'none'
+    },
+    disabled: importBusy,
+    onChange: e => {
+      const d = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (d) onImport(d);
+    }
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "gegner-fuss-zahl"
+  }, gefiltert.length === enemies.length ? enemies.length + ' Gegner' : gefiltert.length + ' von ' + enemies.length)));
 };
 
 // ==== js/src/3-sheet.jsx ====
@@ -3850,6 +4432,15 @@ function App() {
     }
   });
   const [showAdvVerwaltung, setShowAdvVerwaltung] = useState(false);
+  // Gegner der Spielleitung. Nur im DM-Modus geladen, eigene Tabelle.
+  const [enemies, setEnemies] = useState([]);
+  const [enemiesGeladen, setEnemiesGeladen] = useState(false);
+  const [enemyForm, setEnemyForm] = useState(null); // offener Bearbeiten-Dialog
+  const [enemyView, setEnemyView] = useState(null); // offene Werteübersicht
+  const [enemyImportBusy, setEnemyImportBusy] = useState(false);
+  const [enemySuche, setEnemySuche] = useState('');
+  const [enemyCr, setEnemyCr] = useState('');
+  const [enemyTag, setEnemyTag] = useState('');
   const [advMenuOffen, setAdvMenuOffen] = useState(false);
   const [gearPick, setGearPick] = useState(null); // offener Platz im Auswahldialog
   const saveTimer = useRef(null);
@@ -4418,12 +5009,25 @@ function App() {
         code,
         pass
       } = serverCreds();
-      const data = await apiDmLoad(url, code, pass, dmLoginInput.trim());
+      const dm = dmLoginInput.trim();
+      const data = await apiDmLoad(url, code, pass, dm);
       setDmLibrary(data.dm_library || {});
-      setDmPass(dmLoginInput.trim());
+      setDmPass(dm);
       setIsDmMode(true);
       setShowDmLogin(false);
       setDmLoginInput('');
+      // Gegner kommen aus einer eigenen Tabelle und nur fuer die
+      // Spielleitung. Faellt der Abruf aus, bleibt der DM-Modus trotzdem
+      // nutzbar — die Gegnerliste sagt dann, dass sie nicht geladen ist.
+      try {
+        const g = await apiDmLoadEnemies(url, code, pass, dm);
+        setEnemies(Array.isArray(g.enemies) ? g.enemies : []);
+        setEnemiesGeladen(true);
+      } catch (e) {
+        setEnemies([]);
+        setEnemiesGeladen(false);
+        console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
+      }
     } catch (e) {
       setDmLoginErr(e.message || 'Falsches DM-Passwort.');
     }
@@ -4432,7 +5036,75 @@ function App() {
     setIsDmMode(false);
     setDmPass('');
     setDmLibrary({});
+    // Nichts von der Spielleitung bleibt im Speicher zurueck, wenn jemand
+    // das Geraet weiterreicht.
+    setEnemies([]);
+    setEnemiesGeladen(false);
   };
+
+  // Einmaliges Einlesen einer Sammlung aus einer JSON-Datei. Geht in einem
+  // Zug zum Server statt in 360 Einzelanfragen — das waere langsam und
+  // wuerde die Anfragebremse reizen.
+  const importEnemies = async datei => {
+    if (!datei) return;
+    setEnemyImportBusy(true);
+    try {
+      const text = await datei.text();
+      const liste = JSON.parse(text);
+      if (!Array.isArray(liste)) throw new Error('Die Datei enthält keine Liste.');
+      const brauchbar = liste.filter(e => e && e.id && e.name);
+      if (!brauchbar.length) throw new Error('Kein Eintrag mit Kennung und Namen gefunden.');
+      const {
+        url,
+        code,
+        pass
+      } = serverCreds();
+      const antwort = await apiDmImportEnemies(url, code, pass, dmPassRef.current, brauchbar);
+      const g = await apiDmLoadEnemies(url, code, pass, dmPassRef.current);
+      setEnemies(Array.isArray(g.enemies) ? g.enemies : []);
+      setEnemiesGeladen(true);
+      const uebersprungen = liste.length - brauchbar.length + (antwort.skipped || 0);
+      appAlert(antwort.imported + ' Gegner eingelesen.' + (uebersprungen ? ' ' + uebersprungen + ' übersprungen (ohne Kennung oder zu groß).' : ''));
+    } catch (err) {
+      appAlert('Einlesen fehlgeschlagen: ' + (err.message || 'unbekannter Fehler'));
+    }
+    setEnemyImportBusy(false);
+  };
+
+  // ── Gegner ──────────────────────────────────────────────────────
+  // Jeder Gegner wird einzeln gespeichert. Fehler werden gezeigt statt
+  // verschluckt: eine stille Absage saehe aus wie ein gelungenes Speichern.
+  const saveEnemy = async e => {
+    if (!e || !e.id) return false;
+    setEnemies(list => list.some(x => x.id === e.id) ? list.map(x => x.id === e.id ? e : x) : [...list, e]);
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiDmSaveEnemy(url, code, pass, dmPassRef.current, e.id, e);
+      return true;
+    } catch (err) {
+      appAlert('Gegner konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
+  const deleteEnemy = id => appConfirm('Gegner wirklich löschen?', async () => {
+    const vorher = enemies;
+    setEnemies(list => list.filter(x => x.id !== id));
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiDmDeleteEnemy(url, code, pass, dmPassRef.current, id);
+    } catch (err) {
+      setEnemies(vorher); // nicht so tun, als waere er weg
+      appAlert('Gegner konnte nicht gelöscht werden: ' + (err.message || 'unbekannter Fehler'));
+    }
+  }, 'Löschen');
   const saveDmLibrary = lib => {
     setDmLibrary(lib);
     const {
@@ -8764,6 +9436,8 @@ function App() {
     onClose: () => setShowAdventLog(false),
     isDmMode: isDmMode
   }), showDB && (() => {
+    // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
+    // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.
     const types = [{
       k: 'spell',
       label: 'Zauber',
@@ -8784,7 +9458,11 @@ function App() {
       k: 'set',
       label: 'Sets',
       icon: '✦'
-    }];
+    }, ...(isDmMode ? [{
+      k: 'enemy',
+      label: 'Gegner',
+      icon: '💀'
+    }] : [])];
     // Reset search when tab changes
     const wkCurrent = '_dbSearch_' + dbTab;
     const wktCurrent = '_dbTagFilter_' + dbTab;
@@ -8841,7 +9519,20 @@ function App() {
         background: dbTab === t.k ? 'var(--bg-panel)' : 'var(--bg-card)',
         color: dbTab === t.k ? 'var(--gold)' : 'var(--text-muted)'
       }
-    }, t.icon, " ", t.label))), dbForm ? /*#__PURE__*/React.createElement("div", {
+    }, t.icon, " ", t.label))), dbTab === 'enemy' ? /*#__PURE__*/React.createElement(GegnerListe, {
+      enemies: enemies,
+      geladen: enemiesGeladen,
+      suche: enemySuche,
+      setSuche: setEnemySuche,
+      crFilter: enemyCr,
+      setCrFilter: setEnemyCr,
+      tagFilter: enemyTag,
+      setTagFilter: setEnemyTag,
+      onAnsehen: g => setEnemyView(g),
+      onNeu: () => setEnemyForm(newEnemy()),
+      onImport: importEnemies,
+      importBusy: enemyImportBusy
+    }) : dbForm ? /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
         overflowY: 'auto'
@@ -10391,7 +11082,35 @@ function App() {
       borderColor: '#c060a0'
     },
     onClick: doDmLogin
-  }, "\uD83D\uDD2E Einloggen")))), showAdvVerwaltung && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDD2E Einloggen")))), enemyView && !enemyForm && /*#__PURE__*/React.createElement(GegnerBlatt, {
+    gegner: enemyView,
+    onSchliessen: () => setEnemyView(null),
+    onBearbeiten: () => setEnemyForm({
+      ...enemyView
+    }),
+    onBild: setImgViewer,
+    onLoeschen: () => {
+      const id = enemyView.id;
+      setEnemyView(null);
+      deleteEnemy(id);
+    }
+  }), enemyForm && /*#__PURE__*/React.createElement(GegnerFormular, {
+    form: enemyForm,
+    setForm: setEnemyForm,
+    neu: !enemies.some(x => x.id === enemyForm.id),
+    onAbbrechen: () => setEnemyForm(null),
+    onSpeichern: async () => {
+      if (!enemyForm.name.trim()) {
+        appAlert('Der Gegner braucht einen Namen.');
+        return;
+      }
+      const gespeichert = await saveEnemy(enemyForm);
+      if (gespeichert) {
+        setEnemyView(enemyForm);
+        setEnemyForm(null);
+      }
+    }
+  }), showAdvVerwaltung && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay",
     onClick: () => setShowAdvVerwaltung(false)
   }, /*#__PURE__*/React.createElement("div", {

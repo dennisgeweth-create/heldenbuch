@@ -857,6 +857,89 @@
   .skill-prof-btn:disabled, .joat-toggle:disabled { cursor:default; }
   .save-box:not(.schaltbar) { cursor:default; }
 
+  /* ── Gegner der Spielleitung ──────────────────────────────── */
+  .gegner-liste-huelle { flex:1; display:flex; flex-direction:column; min-height:0; }
+  .gegner-werkzeuge { display:flex; gap:6px; margin-bottom:8px; flex-shrink:0; }
+  .gegner-suche { flex:1; min-width:0; padding:7px 10px; font-size:14px; }
+  .gegner-reihen { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin-top:8px; }
+  .gegner-reihen::-webkit-scrollbar { width:4px; }
+  .gegner-reihen::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
+  .gegner-reihe { display:flex; align-items:center; gap:10px; width:100%; text-align:left; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:7px 10px;
+    color:inherit; font:inherit; min-height:48px; }
+  .gegner-reihe:hover { border-color:var(--gold-dim); }
+  .gegner-reihe-bild { width:34px; height:34px; flex-shrink:0; border-radius:4px; overflow:hidden;
+    background:var(--bg-void); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .gegner-reihe-bild img { width:100%; height:100%; object-fit:cover; }
+  .gegner-reihe-text { flex:1; min-width:0; display:flex; flex-direction:column; }
+  .gegner-reihe-text b { font-family:'Roboto Condensed',sans-serif; font-size:13.5px; font-weight:400; color:var(--text-primary);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .gegner-reihe-text i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted); }
+  .gegner-reihe-werte { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted);
+    text-align:right; flex-shrink:0; display:flex; flex-direction:column; gap:2px; }
+  .gegner-hg { color:var(--gold); font-size:11px; }
+  .gegner-leer { flex:1; display:flex; align-items:center; justify-content:center; padding:24px 12px; }
+  .gegner-leer p { color:var(--text-muted); font-style:italic; font-size:13.5px; text-align:center; max-width:34ch; line-height:1.6; }
+  .gegner-fuss { display:flex; align-items:center; gap:10px; margin-top:10px; padding-top:10px;
+    border-top:1px solid var(--border); flex-shrink:0; }
+  .gegner-import { flex:1; text-align:center; cursor:pointer; padding:10px 12px; min-height:42px;
+    background:var(--bg-card); border:1px dashed var(--border-bright); border-radius:5px;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-muted); }
+  .gegner-import:hover { border-color:var(--gold-dim); color:var(--gold); }
+  .gegner-import.busy { opacity:0.6; cursor:progress; }
+  .gegner-fuss-zahl { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); white-space:nowrap; }
+
+  /* Werteübersicht */
+  .gegner-blatt { max-width:520px; padding:0; overflow:hidden; max-height:88vh; display:flex; flex-direction:column; }
+  .gegner-blatt-kopf { display:flex; align-items:flex-start; gap:12px; padding:14px 16px;
+    background:var(--bg-card); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .gegner-blatt-bild { width:64px; height:64px; object-fit:cover; border-radius:5px; border:1px solid var(--border-bright);
+    flex-shrink:0; cursor:zoom-in; }
+  .gegner-blatt-titel { flex:1; min-width:0; }
+  .gegner-blatt-name { font-family:'Roboto Condensed',sans-serif; font-size:16px; font-weight:700; color:var(--gold);
+    text-transform:uppercase; letter-spacing:0.05em; }
+  .gegner-blatt-sub { font-family:'Roboto',sans-serif; font-size:12px; color:var(--text-muted); font-style:italic; margin-top:3px; }
+  .gegner-blatt-zu { background:rgba(0,0,0,0.3); border:none; color:var(--text-secondary); cursor:pointer;
+    font-size:15px; padding:4px 8px; border-radius:4px; flex-shrink:0; }
+  .gegner-blatt-koerper { padding:14px 16px; overflow-y:auto; flex:1; background:var(--bg-panel); }
+  .gegner-kernwerte { display:flex; flex-wrap:wrap; gap:16px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .gegner-kernwerte div { display:flex; flex-direction:column; gap:1px; }
+  .gegner-kernwerte span { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--text-muted); }
+  .gegner-kernwerte b { font-family:'Roboto Condensed',sans-serif; font-size:16px; color:var(--gold); font-weight:400; }
+  .gegner-attribute { display:grid; grid-template-columns:repeat(6,1fr); gap:5px; margin:10px 0; }
+  .gegner-attr { background:var(--bg-card); border:1px solid var(--border); border-radius:4px;
+    padding:5px 2px; text-align:center; display:flex; flex-direction:column; gap:1px; }
+  .gegner-attr span { font-family:'Roboto Condensed',sans-serif; font-size:8.5px; letter-spacing:0.08em; color:var(--text-muted); }
+  .gegner-attr b { font-family:'Roboto Condensed',sans-serif; font-size:14px; font-weight:400; color:var(--text-primary); }
+  .gegner-attr i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--gold-dim); }
+  .gegner-marken { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; }
+  .gegner-abschnitt { margin-top:12px; }
+  .gegner-abschnitt-titel { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--gold); border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:7px; }
+  .gegner-merkmal { font-family:'Roboto',sans-serif; font-size:12.5px; color:var(--text-secondary);
+    line-height:1.5; margin-bottom:4px; }
+  .gegner-aktion { margin-bottom:7px; }
+  .gegner-aktion-name { font-family:'Roboto Condensed',sans-serif; font-size:12.5px; color:var(--text-primary); line-height:1.45; }
+  .gegner-aktion-werte { display:flex; flex-wrap:wrap; gap:9px; margin-top:1px; }
+  .gegner-aktion-werte span { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted); }
+  .gegner-loeschen { padding:8px 14px; background:rgba(180,60,60,0.15); border:1px solid rgba(180,60,60,0.4);
+    border-radius:3px; color:#e07070; cursor:pointer; font-family:'Roboto Condensed',sans-serif; font-size:11px; }
+
+  /* Bearbeiten */
+  .gegner-attr-eingabe { display:grid; grid-template-columns:repeat(6,1fr); gap:5px; margin-top:4px; }
+  .gegner-attr-eingabe div { display:flex; flex-direction:column; gap:2px; }
+  .gegner-attr-eingabe span { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.08em;
+    color:var(--text-muted); text-align:center; }
+  .gegner-attr-eingabe input { text-align:center; padding:5px 2px; }
+  .gegner-aktion-zeile { display:grid; grid-template-columns:1fr 56px 76px 76px 30px; gap:4px; margin-bottom:4px; }
+  .gegner-aktion-zeile input { padding:5px 7px; font-size:12px; min-height:0; }
+  @media (max-width:640px) {
+    .gegner-aktion-zeile { grid-template-columns:1fr 1fr 30px; }
+    .gegner-aktion-zeile input:first-child { grid-column:1 / -1; }
+    .gegner-attribute, .gegner-attr-eingabe { grid-template-columns:repeat(3,1fr); }
+  }
+
   .sync-line-msg.offen { color:#d98a8a; }
   .sync-line-hint { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#d9a441; white-space:nowrap; }
 

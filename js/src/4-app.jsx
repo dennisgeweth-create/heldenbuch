@@ -173,6 +173,15 @@ function App() {
   // zwei Spieler duerfen gleichzeitig in verschiedenen Kampagnen blaettern.
   const [advAktiv,   setAdvAktiv]   = useState(() => { try { return localStorage.getItem('hb_adventure') || ''; } catch { return ''; } });
   const [showAdvVerwaltung, setShowAdvVerwaltung] = useState(false);
+  // Gegner der Spielleitung. Nur im DM-Modus geladen, eigene Tabelle.
+  const [enemies, setEnemies] = useState([]);
+  const [enemiesGeladen, setEnemiesGeladen] = useState(false);
+  const [enemyForm, setEnemyForm] = useState(null);   // offener Bearbeiten-Dialog
+  const [enemyView, setEnemyView] = useState(null);   // offene Werteübersicht
+  const [enemyImportBusy, setEnemyImportBusy] = useState(false);
+  const [enemySuche, setEnemySuche] = useState('');
+  const [enemyCr,    setEnemyCr]    = useState('');
+  const [enemyTag,   setEnemyTag]   = useState('');
   const [advMenuOffen, setAdvMenuOffen] = useState(false);
   const [gearPick,   setGearPick]   = useState(null);    // offener Platz im Auswahldialog
   const saveTimer = useRef(null);
@@ -556,12 +565,24 @@ function App() {
     setDmLoginErr('');
     try {
       const {url, code, pass} = serverCreds();
-      const data = await apiDmLoad(url, code, pass, dmLoginInput.trim());
+      const dm = dmLoginInput.trim();
+      const data = await apiDmLoad(url, code, pass, dm);
       setDmLibrary(data.dm_library || {});
-      setDmPass(dmLoginInput.trim());
+      setDmPass(dm);
       setIsDmMode(true);
       setShowDmLogin(false);
       setDmLoginInput('');
+      // Gegner kommen aus einer eigenen Tabelle und nur fuer die
+      // Spielleitung. Faellt der Abruf aus, bleibt der DM-Modus trotzdem
+      // nutzbar — die Gegnerliste sagt dann, dass sie nicht geladen ist.
+      try {
+        const g = await apiDmLoadEnemies(url, code, pass, dm);
+        setEnemies(Array.isArray(g.enemies) ? g.enemies : []);
+        setEnemiesGeladen(true);
+      } catch(e) {
+        setEnemies([]); setEnemiesGeladen(false);
+        console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
+      }
     } catch(e) {
       setDmLoginErr(e.message || 'Falsches DM-Passwort.');
     }
@@ -571,7 +592,62 @@ function App() {
     setIsDmMode(false);
     setDmPass('');
     setDmLibrary({});
+    // Nichts von der Spielleitung bleibt im Speicher zurueck, wenn jemand
+    // das Geraet weiterreicht.
+    setEnemies([]); setEnemiesGeladen(false);
   };
+
+  // Einmaliges Einlesen einer Sammlung aus einer JSON-Datei. Geht in einem
+  // Zug zum Server statt in 360 Einzelanfragen — das waere langsam und
+  // wuerde die Anfragebremse reizen.
+  const importEnemies = async (datei) => {
+    if (!datei) return;
+    setEnemyImportBusy(true);
+    try {
+      const text = await datei.text();
+      const liste = JSON.parse(text);
+      if (!Array.isArray(liste)) throw new Error('Die Datei enthält keine Liste.');
+      const brauchbar = liste.filter(e => e && e.id && e.name);
+      if (!brauchbar.length) throw new Error('Kein Eintrag mit Kennung und Namen gefunden.');
+      const {url, code, pass} = serverCreds();
+      const antwort = await apiDmImportEnemies(url, code, pass, dmPassRef.current, brauchbar);
+      const g = await apiDmLoadEnemies(url, code, pass, dmPassRef.current);
+      setEnemies(Array.isArray(g.enemies) ? g.enemies : []);
+      setEnemiesGeladen(true);
+      const uebersprungen = (liste.length - brauchbar.length) + (antwort.skipped || 0);
+      appAlert(antwort.imported + ' Gegner eingelesen.'
+        + (uebersprungen ? ' ' + uebersprungen + ' übersprungen (ohne Kennung oder zu groß).' : ''));
+    } catch (err) {
+      appAlert('Einlesen fehlgeschlagen: ' + (err.message || 'unbekannter Fehler'));
+    }
+    setEnemyImportBusy(false);
+  };
+
+  // ── Gegner ──────────────────────────────────────────────────────
+  // Jeder Gegner wird einzeln gespeichert. Fehler werden gezeigt statt
+  // verschluckt: eine stille Absage saehe aus wie ein gelungenes Speichern.
+  const saveEnemy = async (e) => {
+    if (!e || !e.id) return false;
+    setEnemies(list => list.some(x=>x.id===e.id) ? list.map(x=>x.id===e.id?e:x) : [...list, e]);
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiDmSaveEnemy(url, code, pass, dmPassRef.current, e.id, e);
+      return true;
+    } catch (err) {
+      appAlert('Gegner konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
+  const deleteEnemy = (id) => appConfirm('Gegner wirklich löschen?', async () => {
+    const vorher = enemies;
+    setEnemies(list => list.filter(x=>x.id!==id));
+    const {url, code, pass} = serverCreds();
+    try { await apiDmDeleteEnemy(url, code, pass, dmPassRef.current, id); }
+    catch (err) {
+      setEnemies(vorher);   // nicht so tun, als waere er weg
+      appAlert('Gegner konnte nicht gelöscht werden: ' + (err.message || 'unbekannter Fehler'));
+    }
+  }, 'Löschen');
 
   const saveDmLibrary = (lib) => {
     setDmLibrary(lib);
@@ -2558,7 +2634,10 @@ function App() {
 
       {/* Server Setup Modal */}
       {showDB && (() => {
-        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'}];
+        // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
+        // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.
+        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'},
+          ...(isDmMode ? [{k:'enemy',label:'Gegner',icon:'💀'}] : [])];
         // Reset search when tab changes
         const wkCurrent = '_dbSearch_'+dbTab;
         const wktCurrent = '_dbTagFilter_'+dbTab;
@@ -2586,8 +2665,19 @@ function App() {
                 ))}
               </div>
 
-              {/* Form or List */}
-              {dbForm ? (
+              {/* Gegner haben eine eigene Ablage und deshalb eine eigene
+                  Liste — die generische darunter arbeitet auf der
+                  Bibliothek, in der Gegner bewusst nicht liegen. */}
+              {dbTab==='enemy' ? (
+                <GegnerListe
+                  enemies={enemies} geladen={enemiesGeladen}
+                  suche={enemySuche} setSuche={setEnemySuche}
+                  crFilter={enemyCr} setCrFilter={setEnemyCr}
+                  tagFilter={enemyTag} setTagFilter={setEnemyTag}
+                  onAnsehen={g=>setEnemyView(g)}
+                  onNeu={()=>setEnemyForm(newEnemy())}
+                  onImport={importEnemies} importBusy={enemyImportBusy} />
+              ) : dbForm ? (
                 <div style={{flex:1,overflowY:'auto'}}>
                   <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--gold)',marginBottom:12}}>{dbFormId?'Eintrag bearbeiten':'Neuer Eintrag'}</div>
 
@@ -3234,6 +3324,25 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Gegner ansehen und bearbeiten */}
+      {enemyView && !enemyForm && (
+        <GegnerBlatt gegner={enemyView}
+          onSchliessen={()=>setEnemyView(null)}
+          onBearbeiten={()=>setEnemyForm({...enemyView})}
+          onBild={setImgViewer}
+          onLoeschen={()=>{ const id=enemyView.id; setEnemyView(null); deleteEnemy(id); }} />
+      )}
+      {enemyForm && (
+        <GegnerFormular form={enemyForm} setForm={setEnemyForm}
+          neu={!enemies.some(x=>x.id===enemyForm.id)}
+          onAbbrechen={()=>setEnemyForm(null)}
+          onSpeichern={async ()=>{
+            if (!enemyForm.name.trim()) { appAlert('Der Gegner braucht einen Namen.'); return; }
+            const gespeichert = await saveEnemy(enemyForm);
+            if (gespeichert) { setEnemyView(enemyForm); setEnemyForm(null); }
+          }} />
       )}
 
       {/* Abenteuer verwalten */}

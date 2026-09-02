@@ -79,6 +79,13 @@
     const apiDmLoad        = (url, code, pass, dmPass)   => apiRequest(url, 'dm_load',         { code, password: pass, dm_password: dmPass });
     const apiDmSaveLibrary = (url, code, pass, dmPass, dmLibrary) => apiRequest(url, 'dm_save_library', { code, password: pass, dm_password: dmPass, dm_library: dmLibrary });
     const apiSetDmPassword = (url, code, pass, dmPass)   => apiRequest(url, 'set_dm_password', { code, password: pass, dm_password: dmPass });
+    // Gegner liegen zeilenweise auf dem Server, nicht in der DM-Bibliothek:
+    // sonst lüde jede Änderung an einem Gegner die ganze Sammlung hoch, und
+    // mit Bildern wäre deren 2-MB-Grenze schnell erreicht.
+    const apiDmLoadEnemies   = (url, code, pass, dmPass)          => apiRequest(url, 'dm_load_enemies',   { code, password: pass, dm_password: dmPass });
+    const apiDmSaveEnemy     = (url, code, pass, dmPass, id, e)   => apiRequest(url, 'dm_save_enemy',     { code, password: pass, dm_password: dmPass, enemy_id: id, enemy: e });
+    const apiDmDeleteEnemy   = (url, code, pass, dmPass, id)      => apiRequest(url, 'dm_delete_enemy',   { code, password: pass, dm_password: dmPass, enemy_id: id });
+    const apiDmImportEnemies = (url, code, pass, dmPass, liste)   => apiRequest(url, 'dm_import_enemies', { code, password: pass, dm_password: dmPass, enemies: liste });
     // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
     // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils
     // dreizeilig — jede Umbenennung haette alle elf treffen muessen.

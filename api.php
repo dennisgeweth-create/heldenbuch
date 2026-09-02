@@ -6,6 +6,7 @@ require_once __DIR__ . '/config.php';
 define('MAX_CHAR_BYTES',  500000);   // 500KB pro Char (ohne Items)
 define('MAX_ITEM_BYTES',  2000000);  // 2MB pro Item (Bild!)
 define('MAX_LIB_BYTES',   2000000);  // 2MB Bibliothek
+define('MAX_ENEMY_BYTES', 2000000);  // 2MB pro Gegner (Bild!)
 define('RATE_LIMIT_ATTEMPTS',   1000);
 define('RATE_LIMIT_WINDOW_SEC', 300);
 
@@ -40,6 +41,12 @@ try {
 } catch (PDOException $e) { respond(500, 'Datenbankverbindung fehlgeschlagen.'); }
 
 // ── Schema ──────────────────────────────────────────────────────
+// hb_enemies: die Gegner der Spielleitung liegen zeilenweise wie
+// hb_items, nicht als Eintrag in der DM-Bibliothek. Die wird als ein
+// Stueck gespeichert — jede Aenderung an einem Goblin lüde die ganze
+// Sammlung erneut hoch, und mit Bildern waere ihre 2-MB-Grenze nach rund
+// dreissig Monsterportraets erreicht. Zeilenweise gilt das Limit je
+// Gegner statt je Sammlung.
 $pdo->exec("
     CREATE TABLE IF NOT EXISTS hb_sessions (
         code            VARCHAR(20)  NOT NULL PRIMARY KEY,
@@ -70,6 +77,16 @@ $pdo->exec("
         updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_sci (session_code, char_id, item_id),
         CONSTRAINT fk_hbi_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS hb_enemies (
+        id           INT         NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        session_code VARCHAR(20) NOT NULL,
+        enemy_id     VARCHAR(50) NOT NULL,
+        enemy_json   LONGTEXT    NOT NULL,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_se (session_code, enemy_id),
+        CONSTRAINT fk_hbe_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
     CREATE TABLE IF NOT EXISTS hb_rate_limits (
@@ -293,6 +310,77 @@ switch ($action) {
         verifyDmSession($pdo, $code, $pass, $dmPass);
         $pdo->prepare("UPDATE hb_sessions SET dm_library_json=? WHERE code=?")->execute([$json, $code]);
         respond(200, 'DM-Bibliothek gespeichert.');
+
+    // ── Gegner ──────────────────────────────────────────────────
+    // Zeilenweise gespeichert, damit das Aendern eines Gegners nicht die
+    // ganze Sammlung hochlaedt. Alle vier Wege verlangen das DM-Passwort:
+    // Spieler sollen die Werte ihrer Gegner nicht abrufen koennen.
+    case 'dm_load_enemies':
+        checkRateLimit($pdo);
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $stmt = $pdo->prepare("SELECT enemy_json FROM hb_enemies WHERE session_code=? ORDER BY id ASC");
+        $stmt->execute([$code]);
+        $enemies = [];
+        foreach ($stmt as $r) {
+            $e = json_decode($r['enemy_json'], true);
+            if (is_array($e)) $enemies[] = $e;
+        }
+        respond(200, 'OK', ['enemies' => $enemies]);
+
+    case 'dm_save_enemy':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $enemyId = (string)($body['enemy_id'] ?? '');
+        $enemy   = $body['enemy'] ?? null;
+        if ($enemyId === '' || $enemy === null) respond(400, 'Fehlende Daten.');
+        if (strlen($enemyId) > 50) respond(400, 'Gegner-Kennung zu lang.');
+        $json = json_encode($enemy, JSON_UNESCAPED_UNICODE);
+        if (strlen($json) > MAX_ENEMY_BYTES) respond(413, 'Gegner zu groß (max 2 MB).');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $pdo->prepare("INSERT INTO hb_enemies (session_code,enemy_id,enemy_json) VALUES(?,?,?)
+                       ON DUPLICATE KEY UPDATE enemy_json=VALUES(enemy_json)")
+            ->execute([$code, $enemyId, $json]);
+        respond(200, 'Gegner gespeichert.');
+
+    case 'dm_delete_enemy':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $enemyId = (string)($body['enemy_id'] ?? '');
+        if ($enemyId === '') respond(400, 'Fehlende Kennung.');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $pdo->prepare("DELETE FROM hb_enemies WHERE session_code=? AND enemy_id=?")
+            ->execute([$code, $enemyId]);
+        respond(200, 'Gegner gelöscht.');
+
+    // Einmaliges Einlesen einer ganzen Sammlung. 360 einzelne Anfragen
+    // waeren langsam und wuerden die Anfragebremse reizen; hier geht alles
+    // in einer Transaktion, damit ein Fehler auf halbem Weg keinen halben
+    // Bestand hinterlaesst.
+    case 'dm_import_enemies':
+        checkRateLimit($pdo);
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $liste = $body['enemies'] ?? null;
+        if (!is_array($liste)) respond(400, 'Fehlende Daten.');
+        if (count($liste) > 2000) respond(413, 'Zu viele Gegner auf einmal (max. 2000).');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $stmt = $pdo->prepare("INSERT INTO hb_enemies (session_code,enemy_id,enemy_json) VALUES(?,?,?)
+                               ON DUPLICATE KEY UPDATE enemy_json=VALUES(enemy_json)");
+        $pdo->beginTransaction();
+        $n = 0; $uebersprungen = 0;
+        try {
+            foreach ($liste as $e) {
+                $eid = (string)($e['id'] ?? '');
+                if ($eid === '' || strlen($eid) > 50) { $uebersprungen++; continue; }
+                $json = json_encode($e, JSON_UNESCAPED_UNICODE);
+                if (strlen($json) > MAX_ENEMY_BYTES) { $uebersprungen++; continue; }
+                $stmt->execute([$code, $eid, $json]);
+                $n++;
+            }
+            $pdo->commit();
+        } catch (PDOException $ex) {
+            $pdo->rollBack();
+            respond(500, 'Einlesen fehlgeschlagen, nichts geändert.');
+        }
+        respond(200, $n . ' Gegner eingelesen.', ['imported' => $n, 'skipped' => $uebersprungen]);
 
     case 'set_dm_password':
         checkRateLimit($pdo);
