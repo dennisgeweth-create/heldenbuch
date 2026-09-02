@@ -29,7 +29,13 @@
   .app { display:flex; height:100vh; overflow:hidden; position:relative; }
   .sidebar { width:260px; min-width:260px; background:var(--bg-deep); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; transform:translateX(0); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); }
   .sidebar.collapsed { transform:translateX(-260px); margin-right:-260px; }
+  /* Eingeklappt ist das der einzige Weg zurueck zur Uebersicht — er
+     bekommt deshalb Beschriftung, Farbe und genug Flaeche zum Treffen.
+     Vorher waren es 5px Pfeil in Grau. */
   .sidebar-toggle { position:fixed; top:50%; transform:translateY(-50%); z-index:20; background:var(--bg-deep); border:1px solid var(--border); border-left:none; border-radius:0 5px 5px 0; padding:12px 5px; cursor:pointer; color:var(--text-muted); font-size:11px; line-height:1; transition:left 0.25s ease, background 0.15s, color 0.15s; }
+  .sidebar-toggle.open { padding:14px 7px; border-color:var(--gold-dim); color:var(--gold); background:var(--bg-panel); display:flex; flex-direction:column; align-items:center; gap:6px; box-shadow:2px 0 12px rgba(0,0,0,0.45); }
+  .sidebar-toggle-text { writing-mode:vertical-rl; font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; }
+  .sidebar-toggle-pfeil { font-size:10px; }
   .sidebar-toggle:hover { background:var(--bg-panel); color:var(--gold); border-color:var(--border-bright); }
   @media (max-width:1024px) { .sidebar-toggle { display:none !important; } }
   .sidebar-header { padding:20px 16px 12px; border-bottom:1px solid var(--border); text-align:center; }
@@ -88,6 +94,17 @@
     /* Auf dem Handy füllt die Liste die Bogenbreite, statt rechts
        aus dem Bildschirm zu laufen. */
     .char-switch-menu { left:0; right:0; max-width:none; }
+
+    /* Nur der offene Reiter traegt seinen Namen. Sieben Woerter
+       nebeneinander ergaben auf 375px eine Buchstabenwand, in der man
+       ausgerechnet den offenen Reiter nicht mehr fand. Die uebrigen
+       bleiben als Symbol stehen — und bekommen dadurch mehr Flaeche
+       zum Treffen statt weniger. */
+    .mobile-nav-label { display:none; }
+    .mobile-nav-btn.active .mobile-nav-label { display:block; }
+    .mobile-nav-btn { min-width:0; flex:1 1 0; padding:6px 2px; }
+    .mobile-nav-btn.active { flex:0 0 auto; padding:6px 12px; }
+    .mobile-nav-icon { font-size:19px; }
   }
   .class-badges { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
   .saves-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px; }

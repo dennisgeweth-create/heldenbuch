@@ -3665,10 +3665,13 @@ function App() {
   const [transferMode, setTransferMode] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [charSearch, setCharSearch] = useState('');
+  // Die Heldenliste bleibt stehen, wo der Benutzer sie gelassen hat.
+  // Vorher klappte sie sich beim Auswaehlen eines Helden selbst weg, und
+  // zurueck ging es nur ueber einen fingerbreiten Streifen am linken Rand
+  // — auf Geraeten ueber 1024px (dazu zaehlt ein Tablet im Querformat)
+  // war das der einzige Weg zurueck zur Uebersicht und schlicht nicht zu
+  // finden.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  useEffect(() => {
-    if (sel) setSidebarCollapsed(true);else setSidebarCollapsed(false);
-  }, [sel]);
 
   // ── Dialoge: Escape und Tastaturfokus ────────────────────────────
   // Beides fehlte in allen 20 Dialogen. Statt jeden einzeln umzubauen, hier
@@ -5956,14 +5959,19 @@ function App() {
     value: sheetCtx
   }, /*#__PURE__*/React.createElement("div", {
     className: "app" + (sidebarCollapsed ? " sb-collapsed" : "")
-  }, sel && /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     className: "sidebar-toggle" + (sidebarCollapsed ? " open" : ""),
     onClick: () => setSidebarCollapsed(c => !c),
-    title: sidebarCollapsed ? "Seitenleiste einblenden" : "Seitenleiste ausblenden",
+    title: sidebarCollapsed ? "Heldenübersicht einblenden" : "Heldenübersicht ausblenden",
+    "aria-expanded": !sidebarCollapsed,
     style: {
       left: sidebarCollapsed ? 0 : 260
     }
-  }, sidebarCollapsed ? '▶' : '◀'), /*#__PURE__*/React.createElement("div", {
+  }, sidebarCollapsed ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    className: "sidebar-toggle-pfeil"
+  }, "\u25B6"), /*#__PURE__*/React.createElement("span", {
+    className: "sidebar-toggle-text"
+  }, "Helden")) : '◀'), /*#__PURE__*/React.createElement("div", {
     className: "sidebar" + (sidebarCollapsed ? " collapsed" : "")
   }, /*#__PURE__*/React.createElement("div", {
     className: "sidebar-header"

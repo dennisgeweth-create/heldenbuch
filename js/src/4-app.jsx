@@ -47,8 +47,13 @@ function App() {
   const [transferMode, setTransferMode] = useState(false);
   const [showArchive,  setShowArchive]  = useState(false);
   const [charSearch,   setCharSearch]   = useState('');
+  // Die Heldenliste bleibt stehen, wo der Benutzer sie gelassen hat.
+  // Vorher klappte sie sich beim Auswaehlen eines Helden selbst weg, und
+  // zurueck ging es nur ueber einen fingerbreiten Streifen am linken Rand
+  // — auf Geraeten ueber 1024px (dazu zaehlt ein Tablet im Querformat)
+  // war das der einzige Weg zurueck zur Uebersicht und schlicht nicht zu
+  // finden.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  useEffect(() => { if (sel) setSidebarCollapsed(true); else setSidebarCollapsed(false); }, [sel]);
 
   // ── Dialoge: Escape und Tastaturfokus ────────────────────────────
   // Beides fehlte in allen 20 Dialogen. Statt jeden einzeln umzubauen, hier
@@ -1379,17 +1384,18 @@ function App() {
     <SheetCtx.Provider value={sheetCtx}>
       <div className={"app"+(sidebarCollapsed?" sb-collapsed":"")}>
 
-        {/* Sidebar toggle — outside sidebar so it stays visible when collapsed */}
-        {sel && (
-          <button
-            className={"sidebar-toggle"+(sidebarCollapsed?" open":"")}
-            onClick={()=>setSidebarCollapsed(c=>!c)}
-            title={sidebarCollapsed?"Seitenleiste einblenden":"Seitenleiste ausblenden"}
-            style={{left: sidebarCollapsed ? 0 : 260}}
-          >
-            {sidebarCollapsed ? '▶' : '◀'}
-          </button>
-        )}
+        {/* Steht ausserhalb der Leiste, damit er im eingeklappten Zustand
+            erreichbar bleibt. Eingeklappt traegt er eine Beschriftung: ein
+            blosser Pfeil sah nach Zierrat aus und wurde uebersehen. */}
+        <button
+          className={"sidebar-toggle"+(sidebarCollapsed?" open":"")}
+          onClick={()=>setSidebarCollapsed(c=>!c)}
+          title={sidebarCollapsed?"Heldenübersicht einblenden":"Heldenübersicht ausblenden"}
+          aria-expanded={!sidebarCollapsed}
+          style={{left: sidebarCollapsed ? 0 : 260}}
+        >
+          {sidebarCollapsed ? <><span className="sidebar-toggle-pfeil">▶</span><span className="sidebar-toggle-text">Helden</span></> : '◀'}
+        </button>
 
         <div className={"sidebar"+(sidebarCollapsed?" collapsed":"")}>
           <div className="sidebar-header">
