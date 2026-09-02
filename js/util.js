@@ -155,7 +155,21 @@ const applyEffect = (effs, target, base) => {
   return (fixed === null ? base : fixed) + bonus;
 };
 const effectsFor = (effs, target) => effs.filter(e => e.target === target);
-const effectText = e => (e.mode === "set" ? "= " : ((+e.value||0) >= 0 ? "+" : "")) + (+e.value || 0);
+// Schalter tragen keine Zahl — dort waere ein "+0" nur irrefuehrend.
+const effectText = e => isFlagEffect(e.target) ? ""
+  : (e.mode === "set" ? "= " : ((+e.value||0) >= 0 ? "+" : "")) + (+e.value || 0);
+// Alle gerade geltenden Schalter, je Ziel einmal, mit ihren Quellen.
+const activeFlags = (effs) => {
+  const nach = {};
+  (effs||[]).forEach(e => {
+    if (!isFlagEffect(e.target)) return;
+    (nach[e.target] = nach[e.target] || []).push(e.source);
+  });
+  return Object.keys(nach).map(t => ({
+    target: t, label: EFFECT_LABELS[t] || t,
+    quellen: [...new Set(nach[t])],
+  })).sort((a,b) => a.label.localeCompare(b.label,'de'));
+};
 
 // Bilder werden vor dem Speichern verkleinert. PNG und WebP koennen
 // transparent sein — dort muss PNG erhalten bleiben, sonst fuellt JPEG die

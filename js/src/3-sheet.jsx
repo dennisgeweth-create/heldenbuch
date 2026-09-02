@@ -85,7 +85,9 @@ const Sheet = () => {
       const isE = (cur.expertiseProfs||[]).includes(wahrSkill.key);
       const joat = cur.jackOfAllTrades && !isP && !isE;
       const b = isE ? effCur.profBonus*2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus/2) : 0;
-      return 10 + fx('skill_'+wahrSkill.key, fx('skillAll', mod(effCur[wahrSkill.attr]) + b));
+      // Das Beobachter-Talent hebt nur die passive Wahrnehmung, nicht den
+      // Wurf — deshalb ein eigenes Ziel und keine Fertigkeitserhoehung.
+      return fx('passivePerception', 10 + fx('skill_'+wahrSkill.key, fx('skillAll', mod(effCur[wahrSkill.attr]) + b)));
     })();
     const ATTR_NAMEN = {str:"Stärke",dex:"Geschick",con:"Konstitution",int:"Intelligenz",wis:"Weisheit",cha:"Charisma"};
     const stickyKatalog = [
@@ -95,7 +97,7 @@ const Sheet = () => {
       {k:'speed',     l:"Bewegung",       s:"👟 Bew.",  i:"👟", t:'speed', v:effCur.speed+"m", feld:'speed'},
       {k:'profBonus', l:"Übungsbonus",    s:"📖 ÜB",   i:"📖", t:'profBonus', v:"+"+effCur.profBonus, feld:'profBonus'},
       {k:'hp',        l:"Trefferpunkte",  s:"❤ TP",    i:"❤", t:'maxHp', v:cur.hp+" / "+effCur.maxHp},
-      ...(passivWert!==null ? [{k:'passive', l:"Passive Wahrnehmung", s:"👁 Pass.", i:"👁", t:'skill_aufmerksamkeit', v:passivWert}] : []),
+      ...(passivWert!==null ? [{k:'passive', l:"Passive Wahrnehmung", s:"👁 Pass.", i:"👁", t:'passivePerception', v:passivWert}] : []),
       ...(spSGL!==null ? [
         {k:'spellDc',     l:"Zauber-SG",     s:"✨ SG", i:"✨", t:'spellDc',     v:spSGL},
         {k:'spellAttack', l:"Zauberangriff", s:"✨ ZA", i:"✨", t:'spellAttack', v:fnum(spAtkL)},
@@ -380,10 +382,32 @@ const Sheet = () => {
                     <div className="fx-src" key={i}>
                       <div className="fx-src-name">{g.icon} {g.source}</div>
                       <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-                        {g.list.map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
+                        {g.list.map(e=>(
+                          <span key={e.id} className={"fx-chip"+(isFlagEffect(e.target)?" fx-chip-flag":"")}>
+                            {EFFECT_LABELS[e.target]||e.target} {effectText(e)}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   ))}
+                  {/* Schalter noch einmal gebuendelt: im Kampf will man
+                      wissen, wogegen man immun ist, ohne erst durch die
+                      Gegenstaende zu suchen, von denen es kommt. */}
+                  {(() => {
+                    const schalter = activeFlags(itemFx);
+                    if (!schalter.length) return null;
+                    return (
+                      <div className="fx-flags">
+                        <div className="fx-flags-title">Gilt gerade</div>
+                        <div className="fx-flags-list">
+                          {schalter.map(f => (
+                            <span key={f.target} className="fx-chip fx-chip-flag"
+                              title={'aus: '+f.quellen.join(', ')}>{f.label}</span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic',marginTop:8,lineHeight:1.5}}>
                     Betroffene Werte sind mit ✦ markiert. Zum Abschalten die Waffe ablegen,
                     die Rüstung ausziehen oder den Gegenstand im Inventar ausschalten.
@@ -468,7 +492,7 @@ const Sheet = () => {
                     return (
                       <div className="passive-box" title="Passive Wahrnehmung — 10 + Wahrnehmung">
                         <div className="passive-label">Passive Wahrnehmung</div>
-                        <div className="passive-value">{10 + tot}</div>
+                        <div className="passive-value">{fx('passivePerception', 10 + tot)}</div>
                       </div>
                     );
                   })()}

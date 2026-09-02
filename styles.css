@@ -242,6 +242,8 @@
   .fx-editor { display:flex; flex-direction:column; gap:6px; }
   .fx-empty { font-size:11px; color:var(--text-muted); font-style:italic; line-height:1.5; }
   .fx-row { display:grid; grid-template-columns:1fr 116px 66px 30px; gap:5px; align-items:center; }
+  /* Schalter haben weder Rechenart noch Wert — drei Spalten statt vier. */
+  .fx-row-flag { grid-template-columns:1fr auto 30px; }
   .fx-row .form-select, .fx-row .form-input { padding:6px 7px; font-size:12px; min-height:0; }
   .fx-value { text-align:center; }
   .fx-del { background:none; border:1px solid var(--border); border-radius:3px; color:var(--text-muted); cursor:pointer; font-size:11px; height:30px; }
@@ -264,6 +266,9 @@
     .fx-row .fx-mode { grid-area:m; }
     .fx-row .fx-value { grid-area:v; }
     .fx-row .fx-del { grid-area:d; }
+    /* Beim Schalter gibt es nichts zu verteilen: eine Zeile genuegt. */
+    .fx-row-flag { grid-template-columns:1fr auto 44px; grid-template-areas:none; }
+    .fx-row-flag .fx-target, .fx-row-flag .fx-del { grid-area:auto; }
   }
   /* Auf Tablets bleibt die einzeilige Aufteilung, braucht aber mehr Breite,
      weil die Schrift dort auf Tippgroesse waechst. Die Handy-Regel oben darf
@@ -765,6 +770,16 @@
      Zwei Spalten Plaetze um eine Mitte, darunter die Haende. Auf schmalen
      Schirmen faellt sie auf zwei Spalten zusammen, die Mitte wandert nach
      oben — dieselbe Reihenfolge, nur gestapelt. */
+  /* Schalter sehen anders aus als Zahlenwerte: sie tragen keine Hoehe,
+     also soll man sie auch nicht danach absuchen. */
+  .fx-chip-flag { border-style:dashed; }
+  .fx-flags { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); }
+  .fx-flags-title { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
+  .fx-flags-list { display:flex; flex-wrap:wrap; gap:4px; }
+  .fx-row-flag .fx-flag-note { font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    color:var(--text-muted); font-style:italic; align-self:center; }
+
   .gear-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
   .gear-ac { margin-left:auto; display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:5px 12px; }
   .gear-ac-l { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); }
@@ -921,19 +936,22 @@
   .gear-vorlage:hover { border-color:var(--gold-dim); color:var(--gold); }
 
   @media (max-width:720px) {
-    .gear-doll { grid-template-columns:1fr 1fr; }
-    /* Die Mitte mit RK und Herleitung zuerst — beim Stapeln ist sie das,
-       was man zuerst sehen will. */
+    /* Eine Spalte: nebeneinander bleibt vom Namen eines Stuecks kaum
+       etwas uebrig, und man muss zwischen zwei Spalten hin und her
+       springen. Untereinander liest sich die Ausruestung als Liste. */
+    .gear-doll { grid-template-columns:1fr; gap:6px; }
+    .gear-hands { grid-template-columns:1fr; gap:6px; margin-top:6px; }
     /* Gestapelt gibt es keine Spalte, an der sich die Hoehe ausrichten
        koennte — hier bekommt die Mitte das Kartenverhaeltnis der Waffen
-       und eine Breite, die nicht die halbe Seite einnimmt. */
-    .gear-mid { grid-column:1 / -1; order:-1; width:100%; max-width:230px;
-      margin:0 auto 4px; aspect-ratio:5/7; min-height:0; }
+       und eine Breite, die nicht die halbe Seite einnimmt. Sie steht
+       zuerst: die Ruestungsklasse will man vor den Plaetzen sehen. */
+    .gear-mid { order:-1; width:100%; max-width:230px;
+      margin:0 auto 6px; aspect-ratio:5/7; min-height:0; }
+    /* In einer Spalte gibt es keine gemeinsame Hoehe zu verteilen —
+       jede Kachel bekommt ihr eigenes Mass zurueck. */
+    .gear-col .gear-slot { flex:0 0 auto; }
     .gear-slot-btn { min-height:52px; }
     .gear-slot-txt i { font-size:13px; }
-  }
-  @media (max-width:420px) {
-    .gear-hands { grid-template-columns:1fr; }
   }
 
 /* Sichtbarer Tastaturfokus. Vorher gab es keinen: wer ohne Maus arbeitet,

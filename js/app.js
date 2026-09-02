@@ -190,44 +190,51 @@ const EffectEditor = ({
     className: "fx-editor"
   }, list.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "fx-empty"
-  }, "Keine Effekte. ", hint || 'Damit kann dieser Gegenstand Werte des Helden verändern.'), list.map(e => /*#__PURE__*/React.createElement("div", {
-    className: "fx-row",
-    key: e.id
-  }, /*#__PURE__*/React.createElement("select", {
-    className: "form-select fx-target",
-    value: e.target,
-    onChange: ev => set(e.id, {
-      target: ev.target.value
-    })
-  }, EFFECT_GROUPS.map(g => /*#__PURE__*/React.createElement("optgroup", {
-    key: g.group,
-    label: g.group
-  }, g.items.map(i => /*#__PURE__*/React.createElement("option", {
-    key: i.key,
-    value: i.key
-  }, i.label))))), /*#__PURE__*/React.createElement("select", {
-    className: "form-select fx-mode",
-    value: e.mode || 'bonus',
-    onChange: ev => set(e.id, {
-      mode: ev.target.value
-    })
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "bonus"
-  }, "Bonus (+/\u2212)"), /*#__PURE__*/React.createElement("option", {
-    value: "set"
-  }, "Fester Wert")), /*#__PURE__*/React.createElement("input", {
-    className: "form-input fx-value",
-    type: "number",
-    value: e.value,
-    onChange: ev => set(e.id, {
-      value: ev.target.value === '' ? 0 : +ev.target.value
-    })
+  }, "Keine Effekte. ", hint || 'Damit kann dieser Gegenstand Werte des Helden verändern.'), list.map(e => {
+    // Schalter haben keine Hoehe: "Immun gegen Gift +1" ergibt keinen
+    // Sinn, also fallen Rechenart und Wert bei ihnen weg.
+    const schalter = isFlagEffect(e.target);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fx-row" + (schalter ? " fx-row-flag" : ""),
+      key: e.id
+    }, /*#__PURE__*/React.createElement("select", {
+      className: "form-select fx-target",
+      value: e.target,
+      onChange: ev => set(e.id, {
+        target: ev.target.value
+      })
+    }, EFFECT_GROUPS.map(g => /*#__PURE__*/React.createElement("optgroup", {
+      key: g.group,
+      label: g.group
+    }, g.items.map(i => /*#__PURE__*/React.createElement("option", {
+      key: i.key,
+      value: i.key
+    }, i.label))))), schalter ? /*#__PURE__*/React.createElement("span", {
+      className: "fx-flag-note"
+    }, "gilt, solange aktiv") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
+      className: "form-select fx-mode",
+      value: e.mode || 'bonus',
+      onChange: ev => set(e.id, {
+        mode: ev.target.value
+      })
+    }, /*#__PURE__*/React.createElement("option", {
+      value: "bonus"
+    }, "Bonus (+/\u2212)"), /*#__PURE__*/React.createElement("option", {
+      value: "set"
+    }, "Fester Wert")), /*#__PURE__*/React.createElement("input", {
+      className: "form-input fx-value",
+      type: "number",
+      value: e.value,
+      onChange: ev => set(e.id, {
+        value: ev.target.value === '' ? 0 : +ev.target.value
+      })
+    })), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fx-del",
+      title: "Effekt entfernen",
+      onClick: () => onChange(list.filter(x => x.id !== e.id))
+    }, "\u2715"));
   }), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "fx-del",
-    title: "Effekt entfernen",
-    onClick: () => onChange(list.filter(x => x.id !== e.id))
-  }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn-add fx-add",
     onClick: () => onChange([...list, newEffect()])
@@ -635,7 +642,9 @@ const Sheet = () => {
     const isE = (cur.expertiseProfs || []).includes(wahrSkill.key);
     const joat = cur.jackOfAllTrades && !isP && !isE;
     const b = isE ? effCur.profBonus * 2 : isP ? effCur.profBonus : joat ? Math.floor(effCur.profBonus / 2) : 0;
-    return 10 + fx('skill_' + wahrSkill.key, fx('skillAll', mod(effCur[wahrSkill.attr]) + b));
+    // Das Beobachter-Talent hebt nur die passive Wahrnehmung, nicht den
+    // Wurf — deshalb ein eigenes Ziel und keine Fertigkeitserhoehung.
+    return fx('passivePerception', 10 + fx('skill_' + wahrSkill.key, fx('skillAll', mod(effCur[wahrSkill.attr]) + b)));
   })();
   const ATTR_NAMEN = {
     str: "Stärke",
@@ -688,7 +697,7 @@ const Sheet = () => {
     l: "Passive Wahrnehmung",
     s: "👁 Pass.",
     i: "👁",
-    t: 'skill_aufmerksamkeit',
+    t: 'passivePerception',
     v: passivWert
   }] : []), ...(spSGL !== null ? [{
     k: 'spellDc',
@@ -1224,8 +1233,22 @@ const Sheet = () => {
       }
     }, g.list.map(e => /*#__PURE__*/React.createElement("span", {
       key: e.id,
-      className: "fx-chip"
-    }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))))), /*#__PURE__*/React.createElement("div", {
+      className: "fx-chip" + (isFlagEffect(e.target) ? " fx-chip-flag" : "")
+    }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))))), (() => {
+      const schalter = activeFlags(itemFx);
+      if (!schalter.length) return null;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "fx-flags"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "fx-flags-title"
+      }, "Gilt gerade"), /*#__PURE__*/React.createElement("div", {
+        className: "fx-flags-list"
+      }, schalter.map(f => /*#__PURE__*/React.createElement("span", {
+        key: f.target,
+        className: "fx-chip fx-chip-flag",
+        title: 'aus: ' + f.quellen.join(', ')
+      }, f.label))));
+    })(), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 10,
         color: 'var(--text-muted)',
@@ -1320,7 +1343,7 @@ const Sheet = () => {
       className: "passive-label"
     }, "Passive Wahrnehmung"), /*#__PURE__*/React.createElement("div", {
       className: "passive-value"
-    }, 10 + tot));
+    }, fx('passivePerception', 10 + tot)));
   })()), /*#__PURE__*/React.createElement("div", {
     className: "sheet-col-right"
   }, /*#__PURE__*/React.createElement("div", {

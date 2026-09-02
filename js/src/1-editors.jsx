@@ -105,8 +105,12 @@ const EffectEditor = ({ effects, onChange, hint }) => {
       {list.length === 0 && (
         <div className="fx-empty">Keine Effekte. {hint || 'Damit kann dieser Gegenstand Werte des Helden verändern.'}</div>
       )}
-      {list.map(e => (
-        <div className="fx-row" key={e.id}>
+      {list.map(e => {
+        // Schalter haben keine Hoehe: "Immun gegen Gift +1" ergibt keinen
+        // Sinn, also fallen Rechenart und Wert bei ihnen weg.
+        const schalter = isFlagEffect(e.target);
+        return (
+        <div className={"fx-row"+(schalter?" fx-row-flag":"")} key={e.id}>
           <select className="form-select fx-target" value={e.target}
             onChange={ev=>set(e.id,{target:ev.target.value})}>
             {EFFECT_GROUPS.map(g => (
@@ -115,17 +119,24 @@ const EffectEditor = ({ effects, onChange, hint }) => {
               </optgroup>
             ))}
           </select>
-          <select className="form-select fx-mode" value={e.mode||'bonus'}
-            onChange={ev=>set(e.id,{mode:ev.target.value})}>
-            <option value="bonus">Bonus (+/−)</option>
-            <option value="set">Fester Wert</option>
-          </select>
-          <input className="form-input fx-value" type="number" value={e.value}
-            onChange={ev=>set(e.id,{value:ev.target.value===''?0:+ev.target.value})} />
+          {schalter ? (
+            <span className="fx-flag-note">gilt, solange aktiv</span>
+          ) : (
+            <>
+              <select className="form-select fx-mode" value={e.mode||'bonus'}
+                onChange={ev=>set(e.id,{mode:ev.target.value})}>
+                <option value="bonus">Bonus (+/−)</option>
+                <option value="set">Fester Wert</option>
+              </select>
+              <input className="form-input fx-value" type="number" value={e.value}
+                onChange={ev=>set(e.id,{value:ev.target.value===''?0:+ev.target.value})} />
+            </>
+          )}
           <button type="button" className="fx-del" title="Effekt entfernen"
             onClick={()=>onChange(list.filter(x=>x.id!==e.id))}>✕</button>
         </div>
-      ))}
+        );
+      })}
       <button type="button" className="btn-add fx-add" onClick={()=>onChange([...list, newEffect()])}>
         + Effekt hinzufügen
       </button>

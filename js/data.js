@@ -58,6 +58,10 @@ const SKILLS = [
   {key:"taueschen",     label:"Täuschen",               attr:"cha"},
   {key:"ueberreden",    label:"Überzeugen",             attr:"cha"},
 ];
+// Schadensfarben der Zaubermarken. Deckt mehr Arten ab als DTYPE_COLORS,
+// das nur die Waffenschadensarten kennt.
+const DMG_COLORS = {Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrotisch:'#9060c0',Gleißend:'#f0e060',Psychisch:'#c070d0',Energie:'#80a0f0',Schall:'#c0a0e0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'};
+
 // ── Effekte von Waffen, Rüstung und Gegenständen ────────────────────
 // Ein Effekt veraendert einen Wert des Helden, solange sein Traeger aktiv
 // ist (Waffe/Ruestung angelegt, Gegenstand eingeschaltet).
@@ -90,9 +94,56 @@ const EFFECT_GROUPS = [
     {key:"skillAll", label:"Alle Fertigkeiten"},
     ...SKILLS.map(s=>({key:"skill_"+s.key, label:s.label})),
   ]},
+  {group:"Sinne & Bewegung", items:[
+    {key:"passivePerception", label:"Passive Wahrnehmung"},
+    {key:"darkvision", label:"Dunkelsicht (m)"},
+    {key:"swimSpeed",  label:"Schwimmbewegung (m)"},
+    {key:"climbSpeed", label:"Kletterbewegung (m)"},
+    {key:"flySpeed",   label:"Flugbewegung (m)"},
+  ]},
+  // ── Schalter statt Zahlen ─────────────────────────────────────
+  // flag:true heisst: der Effekt gilt oder gilt nicht, eine Hoehe gibt
+  // es nicht. Der Editor blendet Rechenart und Wert dafuer aus, und die
+  // Anzeige zeigt nur den Namen. Sie fliessen in keine Rechnung ein —
+  // das Heldenbuch fuehrt sie auf, gewuerfelt wird am Tisch.
+  {group:"Immunitäten", items:[
+    {key:"imm_crit",      label:"Immun gegen kritische Treffer", flag:true},
+    {key:"imm_charm",     label:"Immun gegen Bezaubern",         flag:true},
+    {key:"imm_fear",      label:"Immun gegen Furcht",            flag:true},
+    {key:"imm_poison",    label:"Immun gegen Gift",              flag:true},
+    {key:"imm_disease",   label:"Immun gegen Krankheit",         flag:true},
+    {key:"imm_sleep",     label:"Immun gegen magischen Schlaf",  flag:true},
+    {key:"imm_paralysis", label:"Immun gegen Gelähmt",           flag:true},
+    {key:"imm_blind",     label:"Immun gegen Blind",             flag:true},
+  ]},
+  {group:"Vorteil & Nachteil", items:[
+    {key:"adv_initiative", label:"Vorteil auf Initiative",              flag:true},
+    {key:"adv_stealth",    label:"Vorteil auf Heimlichkeit",            flag:true},
+    {key:"dis_stealth",    label:"Nachteil auf Heimlichkeit",           flag:true},
+    {key:"adv_saveSpell",  label:"Vorteil auf RW gegen Zauber",         flag:true},
+    {key:"adv_savePoison", label:"Vorteil auf RW gegen Gift",           flag:true},
+    {key:"adv_death",      label:"Vorteil auf Rettungswürfe gegen Tod", flag:true},
+  ]},
+  {group:"Besonderes", items:[
+    {key:"spc_surprise",   label:"Kann nicht überrascht werden", flag:true},
+    {key:"spc_water",      label:"Wasseratmung",                 flag:true},
+    {key:"spc_noSleep",    label:"Braucht keinen Schlaf",        flag:true},
+    {key:"spc_speakAll",   label:"Versteht alle Sprachen",       flag:true},
+  ]},
+  // Aus denselben Schadensarten gebaut, die auch die Zaubermarken
+  // faerben — so heisst die Resistenz genau wie der Schaden, gegen den
+  // sie schuetzt.
+  {group:"Resistenzen", items:
+    Object.keys(DMG_COLORS).map(t=>({key:"res_"+t, label:"Resistenz: "+t, flag:true})),
+  },
 ];
 const EFFECT_LABELS = {};
-EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{EFFECT_LABELS[i.key]=i.label;}));
+const EFFECT_FLAGS  = new Set();
+EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{
+  EFFECT_LABELS[i.key] = i.label;
+  if (i.flag) EFFECT_FLAGS.add(i.key);
+}));
+const isFlagEffect = (t) => EFFECT_FLAGS.has(t);
 
 const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachengeborener","Gnom","Halbelf","Anderes"];
 const CLASSES = Object.keys(CC);
@@ -125,9 +176,6 @@ const EMOJI_LIST = [
 // Klassenfarben fuer die Marken auf den Zauberkarten. Lagen bis Stufe 1 im
 // Rendercode der Karte und wurden bei jedem Zauber neu angelegt.
 const CC_COLORS = {'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};
-// Schadensfarben der Zaubermarken. Deckt mehr Arten ab als DTYPE_COLORS,
-// das nur die Waffenschadensarten kennt.
-const DMG_COLORS = {Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrotisch:'#9060c0',Gleißend:'#f0e060',Psychisch:'#c070d0',Energie:'#80a0f0',Schall:'#c0a0e0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'};
 
 // ── Ausruestungsplaetze ─────────────────────────────────────────
 // spalte: wo der Platz in der Puppe steht. nimmt: welche Traegerart ein
