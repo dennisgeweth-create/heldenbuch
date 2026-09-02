@@ -5,6 +5,47 @@
 
 const newEffect = () => ({id:Date.now().toString()+Math.random().toString(36).slice(2,6), target:"str", mode:"bonus", value:1});
 
+// ── Abenteuer ────────────────────────────────────────────────────
+// Ein Held gehoert zu genau einem Abenteuer (c.adventure). Die Liste der
+// Abenteuer liegt in der geteilten Datenbank unter _adventures und wird
+// damit ueber denselben Weg synchronisiert wie Zauber und Gegenstaende —
+// ohne neue Spalte auf dem Server. Die Gegenstandsdatenbank bleibt
+// absichtlich abenteueruebergreifend: ein Heiltrank ist in jeder
+// Kampagne derselbe.
+const ADV_ERSTES = 'strahd';
+const advListe = (lib) => {
+  const l = (lib && lib._adventures) || [];
+  return Array.isArray(l) ? l.filter(a => a && a.id) : [];
+};
+// Sorgt dafuer, dass es mindestens ein Abenteuer gibt und jeder Held
+// einem zugeordnet ist. Gibt {lib, chars} zurueck, wenn sich etwas
+// geaendert hat, sonst null.
+const advMigration = (lib, chars) => {
+  const vorhanden = advListe(lib);
+  let neueListe = vorhanden;
+  if (!vorhanden.length) {
+    // Der Bestand ist das, womit die Gruppe angefangen hat.
+    neueListe = [{id: ADV_ERSTES, name: 'Strahd'}];
+  }
+  const ziel = neueListe[0].id;
+  const gueltig = new Set(neueListe.map(a => a.id));
+  let charsGeaendert = false;
+  const neueChars = (chars || []).map(c => {
+    // Auch ein Held mit unbekanntem Abenteuer landet wieder im ersten —
+    // sonst waere er nirgends sichtbar.
+    if (c.adventure && gueltig.has(c.adventure)) return c;
+    charsGeaendert = true;
+    return {...c, adventure: ziel};
+  });
+  const libGeaendert = neueListe !== vorhanden;
+  if (!libGeaendert && !charsGeaendert) return null;
+  return {
+    lib: libGeaendert ? {...(lib||{}), _adventures: neueListe} : lib,
+    chars: charsGeaendert ? neueChars : chars,
+    libGeaendert, charsGeaendert,
+  };
+};
+
 // ── Getragene Ausruestung ────────────────────────────────────────
 // c.gear ordnet jedem Platz hoechstens einen Traeger zu:
 //   {ruestung:{k:'i',id:'…'}, haupthand:{k:'w',id:'…'}}
@@ -227,6 +268,8 @@ const newChar   = () => ({
   // nichts umzustellen.
   inventory:[], currency:{pp:0,gp:0,ep:0,sp:0,cp:0}, equipment:[], acBonuses:[],
   gear:{}, gearMigrated:GEAR_MIGRATION,
+  // Wird beim Anlegen auf das gerade offene Abenteuer gesetzt.
+  adventure:"",
   spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
 });
 const newWeapon = () => ({id:Date.now().toString(),name:"",attrKey:"str",proficient:true,range:"1,5m",attackBonus:0,damage:"1W6",damageType:"Hieb",description:"",properties:[],equipped:false,imageData:"",effects:[]});

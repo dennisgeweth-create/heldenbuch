@@ -552,6 +552,44 @@
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
   /* Fußbereich der Seitenleiste: Primäraktion, Werkzeuge, Sync — drei
      Ebenen mit abgestuftem Gewicht statt einem Stapel gleicher Knöpfe. */
+  /* ── Abenteuer ─────────────────────────────────────────────── */
+  .adv-leiste { position:relative; border-top:1px solid var(--border); flex-shrink:0; }
+  .adv-knopf { width:100%; display:flex; align-items:center; gap:8px; padding:9px 12px; background:none; border:none;
+    cursor:pointer; text-align:left; color:inherit; font:inherit; }
+  .adv-knopf:hover { background:var(--bg-hover); }
+  .adv-knopf-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-muted); flex-shrink:0; }
+  .adv-knopf-name { font-family:'Roboto Condensed',sans-serif; font-size:12.5px; color:var(--gold);
+    flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .adv-knopf-caret { font-size:9px; color:var(--text-muted); flex-shrink:0; }
+  .adv-menu { position:absolute; left:6px; right:6px; bottom:100%; z-index:30; margin-bottom:4px;
+    background:var(--bg-panel); border:1px solid var(--border-bright); border-radius:6px;
+    box-shadow:0 -6px 24px rgba(0,0,0,0.6); overflow:hidden; max-height:60vh; overflow-y:auto; }
+  .adv-menu-eintrag { width:100%; display:flex; align-items:center; gap:8px; padding:9px 12px; background:none;
+    border:none; border-bottom:1px solid var(--border); cursor:pointer; text-align:left; color:inherit; font:inherit; min-height:42px; }
+  .adv-menu-eintrag:hover { background:var(--bg-hover); }
+  .adv-menu-eintrag.aktiv { background:var(--gold-dim); }
+  .adv-menu-name { flex:1; min-width:0; font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .adv-menu-eintrag.aktiv .adv-menu-name { color:var(--gold-bright); }
+  .adv-menu-zahl { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); flex-shrink:0; }
+  .adv-menu-verwalten { width:100%; padding:9px 12px; background:var(--bg-card); border:none; cursor:pointer;
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); text-align:left; min-height:42px; }
+  .adv-menu-verwalten:hover { color:var(--gold); }
+  .adv-verwaltung { display:flex; flex-direction:column; gap:6px; }
+  .adv-zeile { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border);
+    border-radius:5px; padding:7px 10px; }
+  .adv-zeile-name { flex:1; min-width:0; background:transparent; border:none; border-bottom:1px solid var(--border);
+    outline:none; font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); padding:3px 4px; }
+  .adv-zeile-name:focus { border-bottom-color:var(--gold-dim); }
+  .adv-zeile-zahl { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted);
+    white-space:nowrap; flex-shrink:0; }
+  .adv-zeile-del { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px;
+    padding:4px 6px; flex-shrink:0; }
+  .adv-zeile-del:disabled { opacity:0.3; cursor:not-allowed; }
+  .adv-zeile-del:not(:disabled):hover { color:var(--crimson-bright); }
+  .adv-verschieben { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+
   .sidebar-footer { padding:8px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px; }
   .sidebar-footer .btn-new { margin:0; }
   .sidebar-tools { display:grid; grid-template-columns:1fr 1fr; gap:6px; }

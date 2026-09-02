@@ -169,6 +169,11 @@ function App() {
   const [setupErr,   setSetupErr]   = useState('');
   const [setupBusy,  setSetupBusy]  = useState(false);
   const [gearReady,  setGearReady]  = useState(false);   // Serverstand da, Umstellung darf laufen
+  // Welches Abenteuer gerade offen ist. Steht im Geraet, nicht am Server:
+  // zwei Spieler duerfen gleichzeitig in verschiedenen Kampagnen blaettern.
+  const [advAktiv,   setAdvAktiv]   = useState(() => { try { return localStorage.getItem('hb_adventure') || ''; } catch { return ''; } });
+  const [showAdvVerwaltung, setShowAdvVerwaltung] = useState(false);
+  const [advMenuOffen, setAdvMenuOffen] = useState(false);
   const [gearPick,   setGearPick]   = useState(null);    // offener Platz im Auswahldialog
   const saveTimer = useRef(null);
   const autoSyncTimer = useRef(null);
@@ -412,6 +417,17 @@ function App() {
     if (!liste.some(c => (c.gearMigrated||0) < GEAR_MIGRATION)) return;
     save(liste.map(c => { const p = migrateGear(c); return p ? {...c, ...p} : c; }));
   }, [gearReady, chars]);
+
+  // Abenteuer anlegen und Helden zuordnen. Wie die Ausruestungsumstellung
+  // wartet auch das den Serverstand ab — sonst schriebe es den lokalen
+  // Stand fest und der vom Server ginge verloren.
+  useEffect(() => {
+    if (!gearReady) return;
+    const ergebnis = advMigration(userLibrary, charsRef.current);
+    if (!ergebnis) return;
+    if (ergebnis.libGeaendert)   saveLibrary(ergebnis.lib);
+    if (ergebnis.charsGeaendert) save(ergebnis.chars);
+  }, [gearReady, chars, userLibrary]);
 
   const saveLibrary = (lib) => {
     setUserLibrary(lib);
@@ -731,10 +747,29 @@ function App() {
 
   // Dieselbe Auswahl wie die Liste "Aktiv" in der Seitenleiste, damit der
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
-  const switchList = chars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
+  // ── Abenteuer ───────────────────────────────────────────────────
+  const abenteuer = advListe(userLibrary);
+  const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
+  const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
+  const advWechseln = (id) => {
+    setAdvAktiv(id);
+    try { localStorage.setItem('hb_adventure', id); } catch {}
+    // Der offene Held gehoert zum alten Abenteuer und wuerde sonst
+    // weiterhin rechts stehen, waehrend links seine Gruppe fehlt.
+    selectChar(null); setMv('list'); setAdvMenuOffen(false);
+  };
+  // Alles, was zum offenen Abenteuer gehoert. Ein Held ohne Zuordnung
+  // taucht im ersten Abenteuer auf, damit nichts unsichtbar wird.
+  const imAbenteuer = (c) => !advId || (c.adventure || (abenteuer[0]||{}).id) === advId;
+  const advChars = chars.filter(imAbenteuer);
+  const advSpeichern = (liste) => saveLibrary({...userLibrary, _adventures: liste});
+
+  const switchList = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
   const switchIndex = switchList.findIndex(c => c.id === sel);
 
-  const openNew  = () => { setEc(newChar()); setShowCF(true); };
+  // Der Neue gehoert in das Abenteuer, das gerade offen ist — sonst
+  // legte man ihn an und faende ihn nicht wieder.
+  const openNew  = () => { setEc({...newChar(), adventure: advId}); setShowCF(true); };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
 
   const saveChar = () => {
@@ -1265,8 +1300,8 @@ function App() {
   };
 
   const CharList = () => {
-    const active   = chars.filter(c=>!c.archived && (c.dmOnly !== true || isDmMode));
-    const archived = chars.filter(c=> c.archived && (c.dmOnly !== true || isDmMode));
+    const active   = advChars.filter(c=>!c.archived && (c.dmOnly !== true || isDmMode));
+    const archived = advChars.filter(c=> c.archived && (c.dmOnly !== true || isDmMode));
     const q = charSearch.toLowerCase();
     const filterSearch = list => q ? list.filter(c=>(c.name||'').toLowerCase().includes(q) || (c.charClass||'').toLowerCase().includes(q) || (c.race||'').toLowerCase().includes(q)) : list;
     const list = filterSearch(showArchive ? archived : active);
@@ -1404,6 +1439,37 @@ function App() {
             </div>
             <CharList />
           </div>
+          {/* Abenteuer stehen unter der Heldenliste, nicht darueber: man
+              wechselt sie selten, sucht aber staendig einen Helden. */}
+          {abenteuer.length > 0 && (
+            <div className="adv-leiste">
+              <button className="adv-knopf" onClick={()=>setAdvMenuOffen(o=>!o)}
+                title="Abenteuer wechseln" aria-expanded={advMenuOffen}>
+                <span className="adv-knopf-label">Abenteuer</span>
+                <span className="adv-knopf-name">{advName}</span>
+                <span className="adv-knopf-caret">{advMenuOffen ? '▾' : '▸'}</span>
+              </button>
+              {advMenuOffen && (
+                <>
+                  <div style={{position:'fixed',inset:0,zIndex:29}} onClick={()=>setAdvMenuOffen(false)} />
+                  <div className="adv-menu">
+                    {abenteuer.map(a => {
+                      const n = chars.filter(c => (c.adventure||abenteuer[0].id) === a.id && !c.archived).length;
+                      return (
+                        <button key={a.id} className={"adv-menu-eintrag"+(a.id===advId?" aktiv":"")}
+                          onClick={()=>advWechseln(a.id)}>
+                          <span className="adv-menu-name">{a.name}</span>
+                          <span className="adv-menu-zahl">{n}</span>
+                        </button>
+                      );
+                    })}
+                    <button className="adv-menu-verwalten"
+                      onClick={()=>{setAdvMenuOffen(false);setShowAdvVerwaltung(true);}}>⚙ Abenteuer verwalten</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="sidebar-footer">
             <button className="btn-new" onClick={openNew}>✦ Neuer Charakter</button>
             <div className="sidebar-tools">
@@ -3165,6 +3231,64 @@ function App() {
               <button className="btn-save" style={{background:'linear-gradient(135deg,#6030a0,#402070)',borderColor:'#c060a0'}} onClick={doDmLogin}>
                 🔮 Einloggen
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Abenteuer verwalten */}
+      {showAdvVerwaltung && (
+        <div className="form-overlay" onClick={()=>setShowAdvVerwaltung(false)}>
+          <div className="form-modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
+            <div className="form-title">🗺 Abenteuer</div>
+            <p style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,marginBottom:14}}>
+              Jedes Abenteuer hat eigene Helden. Zauber, Waffen und Gegenstände aus der
+              Datenbank gelten weiterhin für alle — ein Heiltrank ist in jeder Kampagne derselbe.
+            </p>
+            <div className="adv-verwaltung">
+              {abenteuer.map((a,i) => {
+                const helden = chars.filter(c => (c.adventure||abenteuer[0].id) === a.id);
+                return (
+                  <div className="adv-zeile" key={a.id}>
+                    <input className="adv-zeile-name" defaultValue={a.name} key={'n_'+a.id}
+                      aria-label={'Name des Abenteuers '+a.name}
+                      onBlur={e=>{
+                        const name = e.target.value.trim();
+                        if (!name || name === a.name) { e.target.value = a.name; return; }
+                        advSpeichern(abenteuer.map(x => x.id===a.id ? {...x, name} : x));
+                      }} />
+                    <span className="adv-zeile-zahl">{helden.length} {helden.length===1?'Held':'Helden'}</span>
+                    <button className="adv-zeile-del" aria-label={'Abenteuer '+a.name+' löschen'}
+                      title={helden.length ? 'Erst die Helden verschieben oder löschen'
+                            : abenteuer.length<2 ? 'Das letzte Abenteuer bleibt' : 'Abenteuer löschen'}
+                      disabled={helden.length>0 || abenteuer.length<2}
+                      onClick={()=>appConfirm('Abenteuer „'+a.name+'“ löschen?', ()=>{
+                        const rest = abenteuer.filter(x=>x.id!==a.id);
+                        advSpeichern(rest);
+                        if (advId === a.id) advWechseln(rest[0].id);
+                      }, 'Löschen')}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+            <button className="btn-add" style={{width:'100%',marginTop:10}}
+              onClick={()=>{
+                const id = 'adv_' + Date.now().toString(36);
+                advSpeichern([...abenteuer, {id, name:'Neues Abenteuer'}]);
+                advWechseln(id);
+                setShowAdvVerwaltung(false);
+              }}>+ Neues Abenteuer</button>
+            {cur && abenteuer.length > 1 && (
+              <div className="adv-verschieben">
+                <div className="form-label">„{cur.name}“ verschieben nach</div>
+                <select className="form-select" value={cur.adventure||abenteuer[0].id}
+                  onChange={e=>{ patchChar({adventure:e.target.value}); advWechseln(e.target.value); setShowAdvVerwaltung(false); }}>
+                  {abenteuer.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="form-actions">
+              <button className="btn-cancel" onClick={()=>setShowAdvVerwaltung(false)}>Schließen</button>
             </div>
           </div>
         </div>

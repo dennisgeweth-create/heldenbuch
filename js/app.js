@@ -3810,6 +3810,17 @@ function App() {
   const [setupErr, setSetupErr] = useState('');
   const [setupBusy, setSetupBusy] = useState(false);
   const [gearReady, setGearReady] = useState(false); // Serverstand da, Umstellung darf laufen
+  // Welches Abenteuer gerade offen ist. Steht im Geraet, nicht am Server:
+  // zwei Spieler duerfen gleichzeitig in verschiedenen Kampagnen blaettern.
+  const [advAktiv, setAdvAktiv] = useState(() => {
+    try {
+      return localStorage.getItem('hb_adventure') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [showAdvVerwaltung, setShowAdvVerwaltung] = useState(false);
+  const [advMenuOffen, setAdvMenuOffen] = useState(false);
   const [gearPick, setGearPick] = useState(null); // offener Platz im Auswahldialog
   const saveTimer = useRef(null);
   const autoSyncTimer = useRef(null);
@@ -4125,6 +4136,17 @@ function App() {
       } : c;
     }));
   }, [gearReady, chars]);
+
+  // Abenteuer anlegen und Helden zuordnen. Wie die Ausruestungsumstellung
+  // wartet auch das den Serverstand ab — sonst schriebe es den lokalen
+  // Stand fest und der vom Server ginge verloren.
+  useEffect(() => {
+    if (!gearReady) return;
+    const ergebnis = advMigration(userLibrary, charsRef.current);
+    if (!ergebnis) return;
+    if (ergebnis.libGeaendert) saveLibrary(ergebnis.lib);
+    if (ergebnis.charsGeaendert) save(ergebnis.chars);
+  }, [gearReady, chars, userLibrary]);
   const saveLibrary = lib => {
     setUserLibrary(lib);
     safeSetItem('hb_library', JSON.stringify(lib));
@@ -4613,10 +4635,39 @@ function App() {
 
   // Dieselbe Auswahl wie die Liste "Aktiv" in der Seitenleiste, damit der
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
-  const switchList = chars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
+  // ── Abenteuer ───────────────────────────────────────────────────
+  const abenteuer = advListe(userLibrary);
+  const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
+  const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
+  const advWechseln = id => {
+    setAdvAktiv(id);
+    try {
+      localStorage.setItem('hb_adventure', id);
+    } catch {}
+    // Der offene Held gehoert zum alten Abenteuer und wuerde sonst
+    // weiterhin rechts stehen, waehrend links seine Gruppe fehlt.
+    selectChar(null);
+    setMv('list');
+    setAdvMenuOffen(false);
+  };
+  // Alles, was zum offenen Abenteuer gehoert. Ein Held ohne Zuordnung
+  // taucht im ersten Abenteuer auf, damit nichts unsichtbar wird.
+  const imAbenteuer = c => !advId || (c.adventure || (abenteuer[0] || {}).id) === advId;
+  const advChars = chars.filter(imAbenteuer);
+  const advSpeichern = liste => saveLibrary({
+    ...userLibrary,
+    _adventures: liste
+  });
+  const switchList = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
   const switchIndex = switchList.findIndex(c => c.id === sel);
+
+  // Der Neue gehoert in das Abenteuer, das gerade offen ist — sonst
+  // legte man ihn an und faende ihn nicht wieder.
   const openNew = () => {
-    setEc(newChar());
+    setEc({
+      ...newChar(),
+      adventure: advId
+    });
     setShowCF(true);
   };
   const openEdit = () => {
@@ -5649,8 +5700,8 @@ function App() {
     }, "Alle ", alEntries.length, " Eintr\xE4ge geladen"))));
   };
   const CharList = () => {
-    const active = chars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
-    const archived = chars.filter(c => c.archived && (c.dmOnly !== true || isDmMode));
+    const active = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
+    const archived = advChars.filter(c => c.archived && (c.dmOnly !== true || isDmMode));
     const q = charSearch.toLowerCase();
     const filterSearch = list => q ? list.filter(c => (c.name || '').toLowerCase().includes(q) || (c.charClass || '').toLowerCase().includes(q) || (c.race || '').toLowerCase().includes(q)) : list;
     const list = filterSearch(showArchive ? archived : active);
@@ -5987,7 +6038,46 @@ function App() {
     placeholder: "\uD83D\uDD0D Held suchen...",
     value: charSearch,
     onChange: e => setCharSearch(e.target.value)
-  })), /*#__PURE__*/React.createElement(CharList, null)), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(CharList, null)), abenteuer.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "adv-leiste"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "adv-knopf",
+    onClick: () => setAdvMenuOffen(o => !o),
+    title: "Abenteuer wechseln",
+    "aria-expanded": advMenuOffen
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adv-knopf-label"
+  }, "Abenteuer"), /*#__PURE__*/React.createElement("span", {
+    className: "adv-knopf-name"
+  }, advName), /*#__PURE__*/React.createElement("span", {
+    className: "adv-knopf-caret"
+  }, advMenuOffen ? '▾' : '▸')), advMenuOffen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 29
+    },
+    onClick: () => setAdvMenuOffen(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adv-menu"
+  }, abenteuer.map(a => {
+    const n = chars.filter(c => (c.adventure || abenteuer[0].id) === a.id && !c.archived).length;
+    return /*#__PURE__*/React.createElement("button", {
+      key: a.id,
+      className: "adv-menu-eintrag" + (a.id === advId ? " aktiv" : ""),
+      onClick: () => advWechseln(a.id)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adv-menu-name"
+    }, a.name), /*#__PURE__*/React.createElement("span", {
+      className: "adv-menu-zahl"
+    }, n));
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "adv-menu-verwalten",
+    onClick: () => {
+      setAdvMenuOffen(false);
+      setShowAdvVerwaltung(true);
+    }
+  }, "\u2699 Abenteuer verwalten")))), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-footer"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-new",
@@ -10271,7 +10361,98 @@ function App() {
       borderColor: '#c060a0'
     },
     onClick: doDmLogin
-  }, "\uD83D\uDD2E Einloggen")))), showSetup && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDD2E Einloggen")))), showAdvVerwaltung && /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: () => setShowAdvVerwaltung(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 460
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDDFA Abenteuer"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12.5,
+      color: 'var(--text-muted)',
+      lineHeight: 1.6,
+      marginBottom: 14
+    }
+  }, "Jedes Abenteuer hat eigene Helden. Zauber, Waffen und Gegenst\xE4nde aus der Datenbank gelten weiterhin f\xFCr alle \u2014 ein Heiltrank ist in jeder Kampagne derselbe."), /*#__PURE__*/React.createElement("div", {
+    className: "adv-verwaltung"
+  }, abenteuer.map((a, i) => {
+    const helden = chars.filter(c => (c.adventure || abenteuer[0].id) === a.id);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "adv-zeile",
+      key: a.id
+    }, /*#__PURE__*/React.createElement("input", {
+      className: "adv-zeile-name",
+      defaultValue: a.name,
+      key: 'n_' + a.id,
+      "aria-label": 'Name des Abenteuers ' + a.name,
+      onBlur: e => {
+        const name = e.target.value.trim();
+        if (!name || name === a.name) {
+          e.target.value = a.name;
+          return;
+        }
+        advSpeichern(abenteuer.map(x => x.id === a.id ? {
+          ...x,
+          name
+        } : x));
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "adv-zeile-zahl"
+    }, helden.length, " ", helden.length === 1 ? 'Held' : 'Helden'), /*#__PURE__*/React.createElement("button", {
+      className: "adv-zeile-del",
+      "aria-label": 'Abenteuer ' + a.name + ' löschen',
+      title: helden.length ? 'Erst die Helden verschieben oder löschen' : abenteuer.length < 2 ? 'Das letzte Abenteuer bleibt' : 'Abenteuer löschen',
+      disabled: helden.length > 0 || abenteuer.length < 2,
+      onClick: () => appConfirm('Abenteuer „' + a.name + '“ löschen?', () => {
+        const rest = abenteuer.filter(x => x.id !== a.id);
+        advSpeichern(rest);
+        if (advId === a.id) advWechseln(rest[0].id);
+      }, 'Löschen')
+    }, "\u2715"));
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      width: '100%',
+      marginTop: 10
+    },
+    onClick: () => {
+      const id = 'adv_' + Date.now().toString(36);
+      advSpeichern([...abenteuer, {
+        id,
+        name: 'Neues Abenteuer'
+      }]);
+      advWechseln(id);
+      setShowAdvVerwaltung(false);
+    }
+  }, "+ Neues Abenteuer"), cur && abenteuer.length > 1 && /*#__PURE__*/React.createElement("div", {
+    className: "adv-verschieben"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "\u201E", cur.name, "\u201C verschieben nach"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: cur.adventure || abenteuer[0].id,
+    onChange: e => {
+      patchChar({
+        adventure: e.target.value
+      });
+      advWechseln(e.target.value);
+      setShowAdvVerwaltung(false);
+    }
+  }, abenteuer.map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.id,
+    value: a.id
+  }, a.name)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setShowAdvVerwaltung(false)
+  }, "Schlie\xDFen")))), showSetup && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
