@@ -1619,7 +1619,7 @@ function App() {
                   <span className={"sync-line-msg"+(offeneAenderungen>0?" offen":"")}>
                     · {offeneAenderungen>0 ? offeneAenderungen+" nicht gesichert" : (syncMsg||"Verbunden")}
                   </span>
-                  <span className="sync-line-ver">v3.9</span>
+                  <span className="sync-line-ver">v4.0</span>
                   {spiegelVoll && (
                     <span className="sync-line-hint" title="Der Browserspeicher ist voll. Die Charaktere liegen weiter auf dem Server und werden bei jedem Start von dort geladen — nur die lokale Kopie für den Offline-Fall entfällt.">
                       ⚠ ohne lokale Kopie

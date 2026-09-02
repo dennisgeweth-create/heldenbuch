@@ -7840,7 +7840,7 @@ function App() {
     className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
   }, "\xB7 ", offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-ver"
-  }, "v3.9"), spiegelVoll && /*#__PURE__*/React.createElement("span", {
+  }, "v4.0"), spiegelVoll && /*#__PURE__*/React.createElement("span", {
     className: "sync-line-hint",
     title: "Der Browserspeicher ist voll. Die Charaktere liegen weiter auf dem Server und werden bei jedem Start von dort geladen \u2014 nur die lokale Kopie f\xFCr den Offline-Fall entf\xE4llt."
   }, "\u26A0 ohne lokale Kopie")), /*#__PURE__*/React.createElement("div", {
