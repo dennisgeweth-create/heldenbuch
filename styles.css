@@ -71,8 +71,6 @@
 
   /* Heldenwechsel im Bogenkopf (alle Größen) */
   .char-switch { display:flex; align-items:center; gap:6px; min-width:0; position:relative; }
-  .char-step { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; background:none; border:1px solid transparent; border-radius:4px; color:var(--gold-dim); font-size:15px; cursor:pointer; transition:color 0.15s, border-color 0.15s; }
-  .char-step:hover { color:var(--gold); border-color:var(--border-bright); }
   .char-name-btn { display:flex; align-items:baseline; gap:8px; min-width:0; background:none; border:none; padding:0; cursor:pointer; text-align:left; }
   .char-name-btn .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .char-name-caret { font-size:13px; color:var(--gold-dim); flex-shrink:0; transition:transform 0.15s; }
@@ -86,7 +84,6 @@
   .char-switch-item-name { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .char-switch-item-sub { font-size:11px; color:var(--text-muted); margin-left:auto; flex-shrink:0; font-family:'Roboto Condensed',sans-serif; }
   @media (hover:none), (pointer:coarse) {
-    .char-step { width:44px; height:44px; font-size:17px; }
     .char-switch-menu { left:50px; }
     .char-switch-item { min-height:44px; }
   }
@@ -107,8 +104,14 @@
     .mobile-nav-icon { font-size:19px; }
   }
   .class-badges { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
-  .saves-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px; }
-  .save-box { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:8px 10px; cursor:pointer; }
+  /* auto-fit statt fester Dreiteilung: in der linken Spalte des
+     Attribute-Tabs stehen nur 230-300px zur Verfuegung, und drei Kaesten
+     mit Punkt, Kuerzel und Wert brauchen zusammen mehr. Sie schrumpften
+     nicht (1fr hat min-width:auto), sondern standen ueber den Block
+     hinaus. Jetzt bricht das Raster bei Enge auf zwei Spalten um.
+     min-width:0 erlaubt dem Kasten, unter seine Inhaltsbreite zu gehen. */
+  .saves-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(76px,1fr)); gap:8px; margin-top:4px; }
+  .save-box { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:8px 10px; cursor:pointer; min-width:0; }
   .save-box:hover { border-color:var(--border-bright); }
   .save-box.prof { border-color:var(--gold-dim); background:var(--bg-panel); }
   .save-pip { width:14px; height:14px; border-radius:50%; border:1px solid var(--border-bright); background:var(--bg-void); flex-shrink:0; }

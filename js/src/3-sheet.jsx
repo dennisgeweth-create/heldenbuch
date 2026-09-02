@@ -33,7 +33,7 @@ const Sheet = () => {
     setSpellTagFilter, setStatsEdit, setTab, setTransferMode,
     setTransferSel, setWeaponViewer, setWf, setWfEditId, setWsExpand,
     slots, slotsEdit, sp, spChgMax, spEdit, spellTagFilter, statsEdit,
-    stepChar, switchList, tab, toggleEquipped, toggleFeatureFx,
+    switchList, tab, toggleEquipped, toggleFeatureFx,
     toggleJoAT, toggleSave, toggleSkill, toggleSpellPrepared,
     toggleWsFav, togResourcePip, togSlot, togSP, toolProfs, tplData,
     transferMode, transferSel, unarchiveChar, updResource, updSP,
@@ -124,13 +124,14 @@ const Sheet = () => {
             {switchList.length < 2 ? (
               <div className="char-name">{cur.name}</div>
             ) : (
+              /* Ohne Blaetterpfeile: gewechselt wird ueber das Menue am
+                 Namen. Sich durch die Gruppe zu klicken, um zu einem
+                 bestimmten Helden zu kommen, brauchte niemand. */
               <div className={"char-switch"+(charMenuOpen?" open":"")}>
-                <button className="char-step" title="Vorheriger Held" onClick={()=>stepChar(-1)}>◀</button>
                 <button className="char-name-btn" title="Held wählen" onClick={()=>setCharMenuOpen(o=>!o)}>
                   <div className="char-name">{cur.name}</div>
                   <span className="char-name-caret">▾</span>
                 </button>
-                <button className="char-step" title="Nächster Held" onClick={()=>stepChar(1)}>▶</button>
                 {charMenuOpen && (
                   <>
                     <div style={{position:'fixed',inset:0,zIndex:29}} onClick={()=>setCharMenuOpen(false)} />

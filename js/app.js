@@ -556,7 +556,6 @@ const Sheet = () => {
     spEdit,
     spellTagFilter,
     statsEdit,
-    stepChar,
     switchList,
     tab,
     toggleEquipped,
@@ -744,13 +743,14 @@ const Sheet = () => {
     }
   }, switchList.length < 2 ? /*#__PURE__*/React.createElement("div", {
     className: "char-name"
-  }, cur.name) : /*#__PURE__*/React.createElement("div", {
+  }, cur.name) :
+  /*#__PURE__*/
+  /* Ohne Blaetterpfeile: gewechselt wird ueber das Menue am
+     Namen. Sich durch die Gruppe zu klicken, um zu einem
+     bestimmten Helden zu kommen, brauchte niemand. */
+  React.createElement("div", {
     className: "char-switch" + (charMenuOpen ? " open" : "")
   }, /*#__PURE__*/React.createElement("button", {
-    className: "char-step",
-    title: "Vorheriger Held",
-    onClick: () => stepChar(-1)
-  }, "\u25C0"), /*#__PURE__*/React.createElement("button", {
     className: "char-name-btn",
     title: "Held w\xE4hlen",
     onClick: () => setCharMenuOpen(o => !o)
@@ -758,11 +758,7 @@ const Sheet = () => {
     className: "char-name"
   }, cur.name), /*#__PURE__*/React.createElement("span", {
     className: "char-name-caret"
-  }, "\u25BE")), /*#__PURE__*/React.createElement("button", {
-    className: "char-step",
-    title: "N\xE4chster Held",
-    onClick: () => stepChar(1)
-  }, "\u25B6"), charMenuOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\u25BE")), charMenuOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       inset: 0,
@@ -4619,14 +4615,6 @@ function App() {
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
   const switchList = chars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
   const switchIndex = switchList.findIndex(c => c.id === sel);
-  const stepChar = dir => {
-    if (!switchList.length) return;
-    // Ein archivierter Held steht nicht in der Liste (Index -1): dann zum
-    // ersten aktiven springen statt stumm nichts zu tun.
-    const next = switchIndex === -1 ? switchList[0] : switchList[(switchIndex + dir + switchList.length) % switchList.length];
-    selectChar(next.id);
-    setCharMenuOpen(false);
-  };
   const openNew = () => {
     setEc(newChar());
     setShowCF(true);
@@ -5931,7 +5919,6 @@ function App() {
     spEdit,
     spellTagFilter,
     statsEdit,
-    stepChar,
     switchList,
     tab,
     toggleEquipped,

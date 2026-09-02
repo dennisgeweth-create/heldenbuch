@@ -733,16 +733,6 @@ function App() {
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
   const switchList = chars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
   const switchIndex = switchList.findIndex(c => c.id === sel);
-  const stepChar = dir => {
-    if (!switchList.length) return;
-    // Ein archivierter Held steht nicht in der Liste (Index -1): dann zum
-    // ersten aktiven springen statt stumm nichts zu tun.
-    const next = switchIndex === -1
-      ? switchList[0]
-      : switchList[(switchIndex + dir + switchList.length) % switchList.length];
-    selectChar(next.id);
-    setCharMenuOpen(false);
-  };
 
   const openNew  = () => { setEc(newChar()); setShowCF(true); };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
@@ -1372,7 +1362,7 @@ function App() {
     setShowWF, setSlotsEdit, setSpEdit, setSpellTagFilter, setStatsEdit,
     setTab, setTransferMode, setTransferSel, setWeaponViewer, setWf,
     setWfEditId, setWsExpand, slots, slotsEdit, sp, spChgMax, spEdit,
-    spellTagFilter, statsEdit, stepChar, switchList, tab,
+    spellTagFilter, statsEdit, switchList, tab,
     toggleEquipped, toggleFeatureFx, toggleJoAT, toggleSave,
     toggleSkill, toggleSpellPrepared, toggleWsFav, togResourcePip,
     togSlot, togSP, toolProfs, tplData, transferMode, transferSel,
