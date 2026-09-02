@@ -940,6 +940,44 @@
     .gegner-attribute, .gegner-attr-eingabe { grid-template-columns:repeat(3,1fr); }
   }
 
+  /* Begegnungen */
+  .db-reiter { display:flex; gap:4px; margin-bottom:14px; flex-shrink:0;
+    overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+  .db-reiter::-webkit-scrollbar { display:none; }
+
+  .beg-filter { display:flex; align-items:center; gap:7px; flex:1; cursor:pointer;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); }
+  .beg-filter input { width:15px; height:15px; cursor:pointer; accent-color:var(--gold); }
+  .beg-reihe { display:flex; align-items:stretch; gap:4px; }
+  .beg-reihe-haupt { flex:1; min-width:0; display:flex; align-items:center; text-align:left; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:9px 11px;
+    color:inherit; font:inherit; min-height:48px; }
+  .beg-reihe-haupt:hover { border-color:var(--gold-dim); }
+  .beg-reihe-text { display:flex; flex-direction:column; min-width:0; }
+  .beg-reihe-text b { font-family:'Roboto Condensed',sans-serif; font-size:13.5px; font-weight:400;
+    color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .beg-reihe-text i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted); }
+  .beg-reihe-del { flex-shrink:0; width:38px; background:var(--bg-card); border:1px solid var(--border);
+    border-radius:5px; color:var(--text-muted); cursor:pointer; font-size:13px; }
+  .beg-reihe-del:hover { color:var(--crimson-bright); border-color:var(--crimson); }
+  .beg-teil { display:grid; grid-template-columns:1fr 62px 30px; gap:6px; align-items:center; margin-bottom:5px; }
+  .beg-teil-name { font-family:'Roboto Condensed',sans-serif; font-size:12.5px; color:var(--text-primary);
+    display:flex; flex-direction:column; min-width:0; }
+  .beg-teil-name i { font-style:normal; font-size:10px; color:var(--text-muted); }
+  .beg-teil-name i.beg-fehlt { color:#d98a8a; }
+  .beg-teil-zahl { text-align:center; padding:5px 4px; font-size:12px; min-height:0; }
+  .beg-suche-huelle { position:relative; margin-top:8px; }
+  .beg-treffer { position:absolute; left:0; right:0; top:100%; margin-top:3px; z-index:20;
+    background:var(--bg-panel); border:1px solid var(--border-bright); border-radius:5px;
+    max-height:220px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,0.55); }
+  .beg-treffer-zeile { width:100%; display:flex; flex-direction:column; text-align:left; gap:1px;
+    padding:7px 11px; background:none; border:none; border-bottom:1px solid var(--border);
+    cursor:pointer; color:inherit; font:inherit; min-height:42px; }
+  .beg-treffer-zeile:last-child { border-bottom:none; }
+  .beg-treffer-zeile:hover { background:var(--bg-hover); }
+  .beg-treffer-zeile b { font-family:'Roboto Condensed',sans-serif; font-size:12.5px; font-weight:400; color:var(--text-primary); }
+  .beg-treffer-zeile i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); }
+
   .sync-line-msg.offen { color:#d98a8a; }
   .sync-line-hint { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#d9a441; white-space:nowrap; }
 

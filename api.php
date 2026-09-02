@@ -89,6 +89,16 @@ $pdo->exec("
         CONSTRAINT fk_hbe_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    CREATE TABLE IF NOT EXISTS hb_encounters (
+        id           INT         NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        session_code VARCHAR(20) NOT NULL,
+        enc_id       VARCHAR(50) NOT NULL,
+        enc_json     LONGTEXT    NOT NULL,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_sen (session_code, enc_id),
+        CONSTRAINT fk_hben_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_rate_limits (
         ip           VARCHAR(45) NOT NULL PRIMARY KEY,
         attempts     SMALLINT    NOT NULL DEFAULT 1,
@@ -381,6 +391,46 @@ switch ($action) {
             respond(500, 'Einlesen fehlgeschlagen, nichts geändert.');
         }
         respond(200, $n . ' Gegner eingelesen.', ['imported' => $n, 'skipped' => $uebersprungen]);
+
+    // ── Begegnungen ─────────────────────────────────────────────
+    // Dieselbe Ablage wie bei den Gegnern: einzeln gespeichert, hinter dem
+    // DM-Passwort. Sie sind klein, aber eine zweite Ablageart nebeneinander
+    // waere nur eine weitere Regel, die man sich merken muss.
+    case 'dm_load_encounters':
+        checkRateLimit($pdo);
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $stmt = $pdo->prepare("SELECT enc_json FROM hb_encounters WHERE session_code=? ORDER BY id ASC");
+        $stmt->execute([$code]);
+        $encs = [];
+        foreach ($stmt as $r) {
+            $e = json_decode($r['enc_json'], true);
+            if (is_array($e)) $encs[] = $e;
+        }
+        respond(200, 'OK', ['encounters' => $encs]);
+
+    case 'dm_save_encounter':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $encId = (string)($body['enc_id'] ?? '');
+        $enc   = $body['encounter'] ?? null;
+        if ($encId === '' || $enc === null) respond(400, 'Fehlende Daten.');
+        if (strlen($encId) > 50) respond(400, 'Kennung zu lang.');
+        $json = json_encode($enc, JSON_UNESCAPED_UNICODE);
+        if (strlen($json) > MAX_CHAR_BYTES) respond(413, 'Begegnung zu groß.');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $pdo->prepare("INSERT INTO hb_encounters (session_code,enc_id,enc_json) VALUES(?,?,?)
+                       ON DUPLICATE KEY UPDATE enc_json=VALUES(enc_json)")
+            ->execute([$code, $encId, $json]);
+        respond(200, 'Begegnung gespeichert.');
+
+    case 'dm_delete_encounter':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $encId = (string)($body['enc_id'] ?? '');
+        if ($encId === '') respond(400, 'Fehlende Kennung.');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $pdo->prepare("DELETE FROM hb_encounters WHERE session_code=? AND enc_id=?")
+            ->execute([$code, $encId]);
+        respond(200, 'Begegnung gelöscht.');
 
     case 'set_dm_password':
         checkRateLimit($pdo);

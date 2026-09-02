@@ -1017,6 +1017,244 @@ const GegnerListe = ({
   }, gefiltert.length === enemies.length ? enemies.length + ' Gegner' : gefiltert.length + ' von ' + enemies.length)));
 };
 
+// ── Begegnungen ──────────────────────────────────────────────────
+// Eine Begegnung ist eine Liste aus Gegnern mit Anzahl. Sie gehoert zu
+// einem Abenteuer, damit die Krypten von Strahd nicht in der naechsten
+// Kampagne auftauchen.
+const SCHWIERIGKEITEN = ['Leicht', 'Mittel', 'Schwer', 'Tödlich'];
+const newEncounter = advId => ({
+  id: 'enc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+  name: '',
+  difficulty: 'Mittel',
+  description: '',
+  enemies: [],
+  adventure: advId || ''
+});
+const BegegnungFormular = ({
+  form,
+  setForm,
+  enemies,
+  abenteuer,
+  onSpeichern,
+  onAbbrechen,
+  neu
+}) => {
+  const [suche, setSuche] = useState('');
+  if (!form) return null;
+  const f = form;
+  const setzen = patch => setForm({
+    ...f,
+    ...patch
+  });
+  const teile = f.enemies || [];
+  const q = suche.trim();
+  const treffer = !q ? [] : enemies.filter(e => containsFold(e.name || '', q) || containsFold((e.tags || []).join(' '), q)).sort((a, b) => crRang(a.cr) - crRang(b.cr) || (a.name || '').localeCompare(b.name || '', 'de')).slice(0, 12);
+  const hinzu = e => {
+    const drin = teile.find(t => t.enemyId === e.id);
+    setzen({
+      enemies: drin ? teile.map(t => t.enemyId === e.id ? {
+        ...t,
+        count: (t.count || 1) + 1
+      } : t) : [...teile, {
+        enemyId: e.id,
+        count: 1,
+        name: e.name
+      }]
+    });
+    setSuche('');
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 540
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, neu ? '⚔ Neue Begegnung' : '✎ Begegnung bearbeiten'), /*#__PURE__*/React.createElement("div", {
+    className: "form-grid",
+    style: {
+      maxHeight: '62vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Name"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: f.name,
+    autoFocus: true,
+    onChange: e => setzen({
+      name: e.target.value
+    }),
+    placeholder: "z.B. Vampirhorst"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Schwierigkeit"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: f.difficulty || 'Mittel',
+    onChange: e => setzen({
+      difficulty: e.target.value
+    })
+  }, SCHWIERIGKEITEN.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s
+  }, s)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Abenteuer"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: f.adventure || '',
+    onChange: e => setzen({
+      adventure: e.target.value
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 alle \u2014"), (abenteuer || []).map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.id,
+    value: a.id
+  }, a.name)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Beschreibung"), /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input",
+    rows: 2,
+    style: {
+      resize: 'vertical'
+    },
+    value: f.description || '',
+    onChange: e => setzen({
+      description: e.target.value
+    }),
+    placeholder: "Ein verlassenes Herrenhaus \u2014 bewohnt von blutdurstigen Vampir-Spawns."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Gegner"), teile.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic',
+      marginBottom: 6
+    }
+  }, "Noch keiner. Suche unten nach einem Gegner, um ihn aufzunehmen."), teile.map((t, i) => {
+    const g = enemies.find(e => e.id === t.enemyId);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "beg-teil",
+      key: t.enemyId + i
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "beg-teil-name"
+    }, t.name || g && g.name || 'Unbekannt', g ? /*#__PURE__*/React.createElement("i", null, " HG ", g.cr, " \xB7 RK ", g.ac, " \xB7 ", g.hpMax, " TP") : /*#__PURE__*/React.createElement("i", {
+      className: "beg-fehlt"
+    }, "nicht mehr in der Sammlung")), /*#__PURE__*/React.createElement("input", {
+      className: "form-input beg-teil-zahl",
+      type: "number",
+      min: 1,
+      max: 99,
+      value: t.count || 1,
+      "aria-label": 'Anzahl ' + (t.name || ''),
+      onChange: e => setzen({
+        enemies: teile.map((x, j) => j === i ? {
+          ...x,
+          count: Math.max(1, +e.target.value)
+        } : x)
+      })
+    }), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fx-del",
+      title: "Entfernen",
+      onClick: () => setzen({
+        enemies: teile.filter((_, j) => j !== i)
+      })
+    }, "\u2715"));
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "beg-suche-huelle"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: suche,
+    onChange: e => setSuche(e.target.value),
+    placeholder: "Gegner suchen und hinzuf\xFCgen\u2026",
+    "aria-label": "Gegner suchen"
+  }), treffer.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "beg-treffer"
+  }, treffer.map(e => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: e.id,
+    className: "beg-treffer-zeile",
+    onClick: () => hinzu(e)
+  }, /*#__PURE__*/React.createElement("b", null, e.name), /*#__PURE__*/React.createElement("i", null, "HG ", e.cr, " \xB7 ", e.type)))), q && treffer.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic',
+      marginTop: 5
+    }
+  }, "Kein Gegner gefunden.")))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: onSpeichern
+  }, "\uD83D\uDCBE Speichern"))));
+};
+const BegegnungListe = ({
+  encounters,
+  enemies,
+  abenteuer,
+  advId,
+  nurAktives,
+  setNurAktives,
+  onBearbeiten,
+  onLoeschen,
+  onNeu
+}) => {
+  const sichtbar = encounters.filter(e => !nurAktives || !e.adventure || e.adventure === advId).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+  const advName = id => (abenteuer.find(a => a.id === id) || {}).name;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "gegner-liste-huelle"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gegner-werkzeuge"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "beg-filter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: nurAktives,
+    onChange: e => setNurAktives(e.target.checked)
+  }), "Nur das offene Abenteuer"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    onClick: onNeu
+  }, "+ Neu")), sichtbar.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "gegner-leer"
+  }, /*#__PURE__*/React.createElement("p", null, encounters.length === 0 ? 'Noch keine Begegnung. Stelle eine aus deinen Gegnern zusammen.' : 'Keine Begegnung in diesem Abenteuer.')) : /*#__PURE__*/React.createElement("div", {
+    className: "gegner-reihen"
+  }, sichtbar.map(e => {
+    const anzahl = (e.enemies || []).reduce((s, t) => s + (+t.count || 1), 0);
+    const fehlend = (e.enemies || []).filter(t => !enemies.some(g => g.id === t.enemyId)).length;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "beg-reihe",
+      key: e.id
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "beg-reihe-haupt",
+      onClick: () => onBearbeiten(e)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "beg-reihe-text"
+    }, /*#__PURE__*/React.createElement("b", null, e.name || '(ohne Namen)'), /*#__PURE__*/React.createElement("i", null, e.difficulty, ' · ', anzahl, " Gegner", e.adventure && advName(e.adventure) ? ' · ' + advName(e.adventure) : '', fehlend ? ' · ' + fehlend + ' fehlt' : ''))), /*#__PURE__*/React.createElement("button", {
+      className: "beg-reihe-del",
+      onClick: () => onLoeschen(e),
+      "aria-label": 'Begegnung ' + e.name + ' löschen'
+    }, "\u2715"));
+  })));
+};
+
 // ==== js/src/3-sheet.jsx ====
 // Heldenbuch — der Charakterbogen mit seinen sieben Reitern.
 
@@ -4438,6 +4676,9 @@ function App() {
   const [enemyForm, setEnemyForm] = useState(null); // offener Bearbeiten-Dialog
   const [enemyView, setEnemyView] = useState(null); // offene Werteübersicht
   const [enemyImportBusy, setEnemyImportBusy] = useState(false);
+  const [encounters, setEncounters] = useState([]);
+  const [encForm, setEncForm] = useState(null);
+  const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
   const [enemyCr, setEnemyCr] = useState('');
   const [enemyTag, setEnemyTag] = useState('');
@@ -5020,11 +5261,13 @@ function App() {
       // Spielleitung. Faellt der Abruf aus, bleibt der DM-Modus trotzdem
       // nutzbar — die Gegnerliste sagt dann, dass sie nicht geladen ist.
       try {
-        const g = await apiDmLoadEnemies(url, code, pass, dm);
+        const [g, b] = await Promise.all([apiDmLoadEnemies(url, code, pass, dm), apiDmLoadEncounters(url, code, pass, dm)]);
         setEnemies(Array.isArray(g.enemies) ? g.enemies : []);
+        setEncounters(Array.isArray(b.encounters) ? b.encounters : []);
         setEnemiesGeladen(true);
       } catch (e) {
         setEnemies([]);
+        setEncounters([]);
         setEnemiesGeladen(false);
         console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
       }
@@ -5039,6 +5282,7 @@ function App() {
     // Nichts von der Spielleitung bleibt im Speicher zurueck, wenn jemand
     // das Geraet weiterreicht.
     setEnemies([]);
+    setEncounters([]);
     setEnemiesGeladen(false);
   };
 
@@ -5090,6 +5334,37 @@ function App() {
       return false;
     }
   };
+  const saveEncounter = async b => {
+    if (!b || !b.id) return false;
+    setEncounters(list => list.some(x => x.id === b.id) ? list.map(x => x.id === b.id ? b : x) : [...list, b]);
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiDmSaveEncounter(url, code, pass, dmPassRef.current, b.id, b);
+      return true;
+    } catch (err) {
+      appAlert('Begegnung konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
+  const deleteEncounter = b => appConfirm('Begegnung „' + (b.name || '') + '“ löschen?', async () => {
+    const vorher = encounters;
+    setEncounters(list => list.filter(x => x.id !== b.id));
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiDmDeleteEncounter(url, code, pass, dmPassRef.current, b.id);
+    } catch (err) {
+      setEncounters(vorher);
+      appAlert('Begegnung konnte nicht gelöscht werden: ' + (err.message || 'unbekannter Fehler'));
+    }
+  }, 'Löschen');
   const deleteEnemy = id => appConfirm('Gegner wirklich löschen?', async () => {
     const vorher = enemies;
     setEnemies(list => list.filter(x => x.id !== id));
@@ -9462,6 +9737,10 @@ function App() {
       k: 'enemy',
       label: 'Gegner',
       icon: '💀'
+    }, {
+      k: 'encounter',
+      label: 'Begegnungen',
+      icon: '⚔'
     }] : [])];
     // Reset search when tab changes
     const wkCurrent = '_dbSearch_' + dbTab;
@@ -9492,12 +9771,7 @@ function App() {
         marginLeft: 8
       }
     }, "\uD83D\uDD2E DM-Modus")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 4,
-        marginBottom: 14,
-        flexShrink: 0
-      }
+      className: "db-reiter"
     }, types.map(t => /*#__PURE__*/React.createElement("button", {
       key: t.k,
       onClick: () => {
@@ -9508,8 +9782,9 @@ function App() {
         setDbExpandedEntry(null);
       },
       style: {
-        flex: 1,
-        padding: '7px 4px',
+        flex: '1 0 auto',
+        whiteSpace: 'nowrap',
+        padding: '7px 9px',
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 11,
         cursor: 'pointer',
@@ -9519,7 +9794,19 @@ function App() {
         background: dbTab === t.k ? 'var(--bg-panel)' : 'var(--bg-card)',
         color: dbTab === t.k ? 'var(--gold)' : 'var(--text-muted)'
       }
-    }, t.icon, " ", t.label))), dbTab === 'enemy' ? /*#__PURE__*/React.createElement(GegnerListe, {
+    }, t.icon, " ", t.label))), dbTab === 'encounter' ? /*#__PURE__*/React.createElement(BegegnungListe, {
+      encounters: encounters,
+      enemies: enemies,
+      abenteuer: abenteuer,
+      advId: advId,
+      nurAktives: encNurAktives,
+      setNurAktives: setEncNurAktives,
+      onBearbeiten: b => setEncForm({
+        ...b
+      }),
+      onLoeschen: deleteEncounter,
+      onNeu: () => setEncForm(newEncounter(advId))
+    }) : dbTab === 'enemy' ? /*#__PURE__*/React.createElement(GegnerListe, {
       enemies: enemies,
       geladen: enemiesGeladen,
       suche: enemySuche,
@@ -11082,7 +11369,21 @@ function App() {
       borderColor: '#c060a0'
     },
     onClick: doDmLogin
-  }, "\uD83D\uDD2E Einloggen")))), enemyView && !enemyForm && /*#__PURE__*/React.createElement(GegnerBlatt, {
+  }, "\uD83D\uDD2E Einloggen")))), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
+    form: encForm,
+    setForm: setEncForm,
+    enemies: enemies,
+    abenteuer: abenteuer,
+    neu: !encounters.some(x => x.id === encForm.id),
+    onAbbrechen: () => setEncForm(null),
+    onSpeichern: async () => {
+      if (!encForm.name.trim()) {
+        appAlert('Die Begegnung braucht einen Namen.');
+        return;
+      }
+      if (await saveEncounter(encForm)) setEncForm(null);
+    }
+  }), enemyView && !enemyForm && /*#__PURE__*/React.createElement(GegnerBlatt, {
     gegner: enemyView,
     onSchliessen: () => setEnemyView(null),
     onBearbeiten: () => setEnemyForm({

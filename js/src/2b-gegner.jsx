@@ -337,3 +337,171 @@ const GegnerListe = ({ enemies, geladen, suche, setSuche, crFilter, setCrFilter,
     </div>
   );
 };
+
+// ── Begegnungen ──────────────────────────────────────────────────
+// Eine Begegnung ist eine Liste aus Gegnern mit Anzahl. Sie gehoert zu
+// einem Abenteuer, damit die Krypten von Strahd nicht in der naechsten
+// Kampagne auftauchen.
+const SCHWIERIGKEITEN = ['Leicht','Mittel','Schwer','Tödlich'];
+
+const newEncounter = (advId) => ({
+  id: 'enc_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+  name:'', difficulty:'Mittel', description:'', enemies:[], adventure: advId || '',
+});
+
+const BegegnungFormular = ({ form, setForm, enemies, abenteuer, onSpeichern, onAbbrechen, neu }) => {
+  const [suche, setSuche] = useState('');
+  if (!form) return null;
+  const f = form;
+  const setzen = (patch) => setForm({...f, ...patch});
+  const teile = f.enemies || [];
+
+  const q = suche.trim();
+  const treffer = !q ? [] : enemies
+    .filter(e => containsFold(e.name||'', q) || containsFold((e.tags||[]).join(' '), q))
+    .sort((a,b) => crRang(a.cr)-crRang(b.cr) || (a.name||'').localeCompare(b.name||'','de'))
+    .slice(0, 12);
+
+  const hinzu = (e) => {
+    const drin = teile.find(t => t.enemyId === e.id);
+    setzen({enemies: drin
+      ? teile.map(t => t.enemyId===e.id ? {...t, count:(t.count||1)+1} : t)
+      : [...teile, {enemyId:e.id, count:1, name:e.name}]});
+    setSuche('');
+  };
+
+  return (
+    <div className="form-overlay">
+      <div className="form-modal" style={{maxWidth:540}}>
+        <div className="form-title">{neu ? '⚔ Neue Begegnung' : '✎ Begegnung bearbeiten'}</div>
+        <div className="form-grid" style={{maxHeight:'62vh',overflowY:'auto',paddingRight:4}}>
+
+          <div className="form-group form-full">
+            <label className="form-label">Name</label>
+            <input className="form-input" value={f.name} autoFocus
+              onChange={e=>setzen({name:e.target.value})} placeholder="z.B. Vampirhorst" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Schwierigkeit</label>
+            <select className="form-select" value={f.difficulty||'Mittel'} onChange={e=>setzen({difficulty:e.target.value})}>
+              {SCHWIERIGKEITEN.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Abenteuer</label>
+            <select className="form-select" value={f.adventure||''} onChange={e=>setzen({adventure:e.target.value})}>
+              <option value="">— alle —</option>
+              {(abenteuer||[]).map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group form-full">
+            <label className="form-label">Beschreibung</label>
+            <textarea className="form-input" rows={2} style={{resize:'vertical'}} value={f.description||''}
+              onChange={e=>setzen({description:e.target.value})}
+              placeholder="Ein verlassenes Herrenhaus — bewohnt von blutdurstigen Vampir-Spawns." />
+          </div>
+
+          <div className="form-group form-full">
+            <label className="form-label">Gegner</label>
+            {teile.length === 0 && (
+              <div style={{fontSize:11.5,color:'var(--text-muted)',fontStyle:'italic',marginBottom:6}}>
+                Noch keiner. Suche unten nach einem Gegner, um ihn aufzunehmen.
+              </div>
+            )}
+            {teile.map((t,i) => {
+              const g = enemies.find(e => e.id === t.enemyId);
+              return (
+                <div className="beg-teil" key={t.enemyId+i}>
+                  <span className="beg-teil-name">
+                    {t.name || (g && g.name) || 'Unbekannt'}
+                    {g ? <i> HG {g.cr} · RK {g.ac} · {g.hpMax} TP</i>
+                       : <i className="beg-fehlt">nicht mehr in der Sammlung</i>}
+                  </span>
+                  <input className="form-input beg-teil-zahl" type="number" min={1} max={99}
+                    value={t.count||1} aria-label={'Anzahl ' + (t.name||'')}
+                    onChange={e=>setzen({enemies: teile.map((x,j)=>j===i?{...x,count:Math.max(1,+e.target.value)}:x)})} />
+                  <button type="button" className="fx-del" title="Entfernen"
+                    onClick={()=>setzen({enemies: teile.filter((_,j)=>j!==i)})}>✕</button>
+                </div>
+              );
+            })}
+
+            <div className="beg-suche-huelle">
+              <input className="form-input" value={suche} onChange={e=>setSuche(e.target.value)}
+                placeholder="Gegner suchen und hinzufügen…" aria-label="Gegner suchen" />
+              {treffer.length > 0 && (
+                <div className="beg-treffer">
+                  {treffer.map(e => (
+                    <button type="button" key={e.id} className="beg-treffer-zeile" onClick={()=>hinzu(e)}>
+                      <b>{e.name}</b>
+                      <i>HG {e.cr} · {e.type}</i>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {q && treffer.length === 0 && (
+                <div style={{fontSize:11.5,color:'var(--text-muted)',fontStyle:'italic',marginTop:5}}>Kein Gegner gefunden.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          <button className="btn-save" onClick={onSpeichern}>💾 Speichern</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BegegnungListe = ({ encounters, enemies, abenteuer, advId, nurAktives, setNurAktives,
+                          onBearbeiten, onLoeschen, onNeu }) => {
+  const sichtbar = encounters
+    .filter(e => !nurAktives || !e.adventure || e.adventure === advId)
+    .sort((a,b) => (a.name||'').localeCompare(b.name||'','de'));
+  const advName = (id) => (abenteuer.find(a=>a.id===id)||{}).name;
+
+  return (
+    <div className="gegner-liste-huelle">
+      <div className="gegner-werkzeuge">
+        <label className="beg-filter">
+          <input type="checkbox" checked={nurAktives} onChange={e=>setNurAktives(e.target.checked)} />
+          Nur das offene Abenteuer
+        </label>
+        <button className="btn-icon" onClick={onNeu}>+ Neu</button>
+      </div>
+
+      {sichtbar.length === 0 ? (
+        <div className="gegner-leer">
+          <p>{encounters.length === 0
+            ? 'Noch keine Begegnung. Stelle eine aus deinen Gegnern zusammen.'
+            : 'Keine Begegnung in diesem Abenteuer.'}</p>
+        </div>
+      ) : (
+        <div className="gegner-reihen">
+          {sichtbar.map(e => {
+            const anzahl = (e.enemies||[]).reduce((s,t)=>s+(+t.count||1), 0);
+            const fehlend = (e.enemies||[]).filter(t => !enemies.some(g=>g.id===t.enemyId)).length;
+            return (
+              <div className="beg-reihe" key={e.id}>
+                <button className="beg-reihe-haupt" onClick={()=>onBearbeiten(e)}>
+                  <span className="beg-reihe-text">
+                    <b>{e.name || '(ohne Namen)'}</b>
+                    <i>
+                      {e.difficulty}
+                      {' · '}{anzahl} Gegner
+                      {e.adventure && advName(e.adventure) ? ' · ' + advName(e.adventure) : ''}
+                      {fehlend ? ' · ' + fehlend + ' fehlt' : ''}
+                    </i>
+                  </span>
+                </button>
+                <button className="beg-reihe-del" onClick={()=>onLoeschen(e)} aria-label={'Begegnung ' + e.name + ' löschen'}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};

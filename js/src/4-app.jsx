@@ -179,6 +179,9 @@ function App() {
   const [enemyForm, setEnemyForm] = useState(null);   // offener Bearbeiten-Dialog
   const [enemyView, setEnemyView] = useState(null);   // offene Werteübersicht
   const [enemyImportBusy, setEnemyImportBusy] = useState(false);
+  const [encounters, setEncounters] = useState([]);
+  const [encForm, setEncForm] = useState(null);
+  const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
   const [enemyCr,    setEnemyCr]    = useState('');
   const [enemyTag,   setEnemyTag]   = useState('');
@@ -576,11 +579,15 @@ function App() {
       // Spielleitung. Faellt der Abruf aus, bleibt der DM-Modus trotzdem
       // nutzbar — die Gegnerliste sagt dann, dass sie nicht geladen ist.
       try {
-        const g = await apiDmLoadEnemies(url, code, pass, dm);
+        const [g, b] = await Promise.all([
+          apiDmLoadEnemies(url, code, pass, dm),
+          apiDmLoadEncounters(url, code, pass, dm),
+        ]);
         setEnemies(Array.isArray(g.enemies) ? g.enemies : []);
+        setEncounters(Array.isArray(b.encounters) ? b.encounters : []);
         setEnemiesGeladen(true);
       } catch(e) {
-        setEnemies([]); setEnemiesGeladen(false);
+        setEnemies([]); setEncounters([]); setEnemiesGeladen(false);
         console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
       }
     } catch(e) {
@@ -594,7 +601,7 @@ function App() {
     setDmLibrary({});
     // Nichts von der Spielleitung bleibt im Speicher zurueck, wenn jemand
     // das Geraet weiterreicht.
-    setEnemies([]); setEnemiesGeladen(false);
+    setEnemies([]); setEncounters([]); setEnemiesGeladen(false);
   };
 
   // Einmaliges Einlesen einer Sammlung aus einer JSON-Datei. Geht in einem
@@ -638,6 +645,29 @@ function App() {
       return false;
     }
   };
+  const saveEncounter = async (b) => {
+    if (!b || !b.id) return false;
+    setEncounters(list => list.some(x=>x.id===b.id) ? list.map(x=>x.id===b.id?b:x) : [...list, b]);
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiDmSaveEncounter(url, code, pass, dmPassRef.current, b.id, b);
+      return true;
+    } catch (err) {
+      appAlert('Begegnung konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
+  const deleteEncounter = (b) => appConfirm('Begegnung „' + (b.name||'') + '“ löschen?', async () => {
+    const vorher = encounters;
+    setEncounters(list => list.filter(x=>x.id!==b.id));
+    const {url, code, pass} = serverCreds();
+    try { await apiDmDeleteEncounter(url, code, pass, dmPassRef.current, b.id); }
+    catch (err) {
+      setEncounters(vorher);
+      appAlert('Begegnung konnte nicht gelöscht werden: ' + (err.message || 'unbekannter Fehler'));
+    }
+  }, 'Löschen');
+
   const deleteEnemy = (id) => appConfirm('Gegner wirklich löschen?', async () => {
     const vorher = enemies;
     setEnemies(list => list.filter(x=>x.id!==id));
@@ -2637,7 +2667,7 @@ function App() {
         // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
         // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.
         const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'},
-          ...(isDmMode ? [{k:'enemy',label:'Gegner',icon:'💀'}] : [])];
+          ...(isDmMode ? [{k:'enemy',label:'Gegner',icon:'💀'},{k:'encounter',label:'Begegnungen',icon:'⚔'}] : [])];
         // Reset search when tab changes
         const wkCurrent = '_dbSearch_'+dbTab;
         const wktCurrent = '_dbTagFilter_'+dbTab;
@@ -2653,10 +2683,13 @@ function App() {
               <div className="form-title">📚 Datenbank verwalten {isDmMode && <span style={{fontSize:11,color:'#c060a0',fontFamily:"'Roboto Condensed',sans-serif",marginLeft:8}}>🔮 DM-Modus</span>}</div>
 
               {/* Tabs */}
-              <div style={{display:'flex',gap:4,marginBottom:14,flexShrink:0}}>
+              {/* Mit sieben Reitern reicht die Breite nicht mehr fuer alle
+                  Woerter nebeneinander: statt sie umbrechen zu lassen,
+                  darf die Zeile seitlich scrollen. */}
+              <div className="db-reiter">
                 {types.map(t=>(
                   <button key={t.k} onClick={()=>{setDbTab(t.k);setDbForm(null);setDbFormId(null);setDbGradeFilter('');setDbExpandedEntry(null);}}
-                    style={{flex:1,padding:'7px 4px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,cursor:'pointer',border:'1px solid',borderRadius:4,
+                    style={{flex:'1 0 auto',whiteSpace:'nowrap',padding:'7px 9px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,cursor:'pointer',border:'1px solid',borderRadius:4,
                       borderColor:dbTab===t.k?'var(--gold)':'var(--border)',
                       background:dbTab===t.k?'var(--bg-panel)':'var(--bg-card)',
                       color:dbTab===t.k?'var(--gold)':'var(--text-muted)'}}>
@@ -2668,7 +2701,15 @@ function App() {
               {/* Gegner haben eine eigene Ablage und deshalb eine eigene
                   Liste — die generische darunter arbeitet auf der
                   Bibliothek, in der Gegner bewusst nicht liegen. */}
-              {dbTab==='enemy' ? (
+              {dbTab==='encounter' ? (
+                <BegegnungListe
+                  encounters={encounters} enemies={enemies}
+                  abenteuer={abenteuer} advId={advId}
+                  nurAktives={encNurAktives} setNurAktives={setEncNurAktives}
+                  onBearbeiten={b=>setEncForm({...b})}
+                  onLoeschen={deleteEncounter}
+                  onNeu={()=>setEncForm(newEncounter(advId))} />
+              ) : dbTab==='enemy' ? (
                 <GegnerListe
                   enemies={enemies} geladen={enemiesGeladen}
                   suche={enemySuche} setSuche={setEnemySuche}
@@ -3324,6 +3365,17 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {encForm && (
+        <BegegnungFormular form={encForm} setForm={setEncForm}
+          enemies={enemies} abenteuer={abenteuer}
+          neu={!encounters.some(x=>x.id===encForm.id)}
+          onAbbrechen={()=>setEncForm(null)}
+          onSpeichern={async ()=>{
+            if (!encForm.name.trim()) { appAlert('Die Begegnung braucht einen Namen.'); return; }
+            if (await saveEncounter(encForm)) setEncForm(null);
+          }} />
       )}
 
       {/* Gegner ansehen und bearbeiten */}

@@ -86,6 +86,9 @@
     const apiDmSaveEnemy     = (url, code, pass, dmPass, id, e)   => apiRequest(url, 'dm_save_enemy',     { code, password: pass, dm_password: dmPass, enemy_id: id, enemy: e });
     const apiDmDeleteEnemy   = (url, code, pass, dmPass, id)      => apiRequest(url, 'dm_delete_enemy',   { code, password: pass, dm_password: dmPass, enemy_id: id });
     const apiDmImportEnemies = (url, code, pass, dmPass, liste)   => apiRequest(url, 'dm_import_enemies', { code, password: pass, dm_password: dmPass, enemies: liste });
+    const apiDmLoadEncounters  = (url, code, pass, dmPass)        => apiRequest(url, 'dm_load_encounters',  { code, password: pass, dm_password: dmPass });
+    const apiDmSaveEncounter   = (url, code, pass, dmPass, id, e) => apiRequest(url, 'dm_save_encounter',   { code, password: pass, dm_password: dmPass, enc_id: id, encounter: e });
+    const apiDmDeleteEncounter = (url, code, pass, dmPass, id)    => apiRequest(url, 'dm_delete_encounter', { code, password: pass, dm_password: dmPass, enc_id: id });
     // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
     // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils
     // dreizeilig — jede Umbenennung haette alle elf treffen muessen.
