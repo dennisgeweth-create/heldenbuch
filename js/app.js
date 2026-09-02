@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -1979,6 +1979,661 @@ const KampfAnsicht = ({
     detailOffen: detailOffen,
     setDetailOffen: setDetailOffen
   }))));
+};
+
+// ==== js/src/2d-chronik.jsx ====
+// ── Chronik: Kalender und Ereignisse der Spielleitung ─────────────
+// Am Tisch laeuft mehr Zeit ab, als die Gruppe mitbekommt: ein Finger
+// waechst nach, ein Fest rueckt naeher, ein Bote ist fuenf Tage nach Krezk
+// unterwegs. Das steht sonst auf einem Zettel neben dem Schirm und wird
+// beim "wir schlafen drei Tage" von Hand nachgerechnet.
+//
+// Deshalb liegt hier eine Uhr je Abenteuer und daran haengen Ereignisse mit
+// einem absoluten Faelligkeitszeitpunkt. Absolut, nicht als Restzeit: sonst
+// muesste jedes Weiterdrehen jedes Ereignis anfassen, und ein doppelt
+// ausgeloester Klick zoege die Zeit zweimal ab.
+const STD_TAG = 24;
+const EREIGNIS_ARTEN = [{
+  k: 'frist',
+  icon: '⏳',
+  label: 'Frist',
+  vorbei: 'ist abgelaufen'
+}, {
+  k: 'reise',
+  icon: '🧭',
+  label: 'Reise',
+  vorbei: 'ist angekommen'
+}, {
+  k: 'termin',
+  icon: '📅',
+  label: 'Termin',
+  vorbei: 'ist jetzt'
+}];
+const artInfo = k => EREIGNIS_ARTEN.find(a => a.k === k) || EREIGNIS_ARTEN[0];
+const newEreignis = (advId, jetzt) => ({
+  id: 'ev' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+  adventure: advId || '',
+  art: 'frist',
+  name: '',
+  ort: '',
+  ziel: '',
+  notiz: '',
+  faellig: (jetzt || 0) + 3 * STD_TAG,
+  // null = laeuft mit, ohne Frist
+  wiederholung: 0,
+  // Stunden; 0 = einmalig
+  bindung: null,
+  // {charId, featureId, wirkung:'aus'|'an'}
+  erledigt: false
+});
+
+// "3 Tage", "5 Std", "2 Tage 4 Std" — Stunden fallen weg, wo sie niemand
+// eingetragen hat, damit die Anzeige nicht mit "0 Std" zugestellt wird.
+const restText = std => {
+  if (std <= 0) return 'fällig';
+  const t = Math.floor(std / STD_TAG),
+    r = std % STD_TAG;
+  if (t && r) return t + (t === 1 ? ' Tag ' : ' Tage ') + r + ' Std';
+  if (t) return t + (t === 1 ? ' Tag' : ' Tage');
+  return r + ' Std';
+};
+const uhrTag = std => Math.floor((std || 0) / STD_TAG) + 1;
+const uhrStunde = std => ((std || 0) % STD_TAG + STD_TAG) % STD_TAG;
+const zeitDerUhr = (chronik, advId) => (chronik && chronik.zeit || {})[advId] || 0;
+const ereignisseDerUhr = (chronik, advId) => (chronik && chronik.ereignisse || []).filter(e => !e.adventure || e.adventure === advId);
+
+// Untertitel einer Zeile: bei Reisen die Strecke, sonst Ort oder Notiz.
+const ereignisUnterzeile = e => {
+  if (e.art === 'reise') return (e.ort || '?') + ' → ' + (e.ziel || '?');
+  return e.ort || e.notiz || '';
+};
+
+// ── Die Leiste ───────────────────────────────────────────────────
+const ChronikLeiste = ({
+  chronik,
+  advId,
+  advName,
+  chars,
+  ueberlagert,
+  onZeit,
+  onNeu,
+  onBearbeiten,
+  onLoeschen,
+  onAbhaken,
+  onWiederOeffnen,
+  onSchliessen
+}) => {
+  const [zeigeErledigt, setZeigeErledigt] = React.useState(false);
+  const jetzt = zeitDerUhr(chronik, advId);
+  const alle = ereignisseDerUhr(chronik, advId);
+  const offen = alle.filter(e => !e.erledigt);
+  const nachRest = (a, b) => a.faellig - b.faellig;
+  const faellig = offen.filter(e => e.faellig != null && e.faellig <= jetzt).sort(nachRest);
+  const laufend = offen.filter(e => e.faellig != null && e.faellig > jetzt).sort(nachRest);
+  const ohneFrist = offen.filter(e => e.faellig == null).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+  const erledigt = alle.filter(e => e.erledigt).sort((a, b) => (b.erledigtBei || 0) - (a.erledigtBei || 0));
+  const heldName = id => (chars.find(c => c.id === id) || {}).name || 'unbekannt';
+  const Zeile = ({
+    e,
+    art
+  }) => {
+    const info = artInfo(e.art);
+    const unter = ereignisUnterzeile(e);
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'chr-ev' + (art === 'faellig' ? ' faellig' : '') + (art === 'erledigt' ? ' erledigt' : '')
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "chr-ev-haupt",
+      onClick: () => onBearbeiten(e),
+      title: "Ereignis bearbeiten"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "chr-ev-icon"
+    }, info.icon), /*#__PURE__*/React.createElement("span", {
+      className: "chr-ev-text"
+    }, /*#__PURE__*/React.createElement("b", null, e.name || '(ohne Namen)'), (unter || e.bindung) && /*#__PURE__*/React.createElement("i", null, unter, e.bindung && /*#__PURE__*/React.createElement("span", {
+      className: "chr-ev-bindung",
+      title: 'Schaltet ein Merkmal bei ' + heldName(e.bindung.charId)
+    }, (unter ? ' · ' : '') + '⚡ ' + heldName(e.bindung.charId)))), /*#__PURE__*/React.createElement("span", {
+      className: "chr-ev-rest"
+    }, art === 'erledigt' ? 'Tag ' + uhrTag(e.erledigtBei) : e.faellig == null ? '—' : restText(e.faellig - jetzt), e.wiederholung > 0 && art !== 'erledigt' && /*#__PURE__*/React.createElement("i", null, "\u21BB"))), art === 'faellig' && /*#__PURE__*/React.createElement("button", {
+      className: "chr-ev-ok",
+      onClick: () => onAbhaken(e),
+      title: "Abhaken"
+    }, "\u2713"), art === 'erledigt' && /*#__PURE__*/React.createElement("button", {
+      className: "chr-ev-ok",
+      onClick: () => onWiederOeffnen(e),
+      title: "Wieder aufnehmen"
+    }, "\u21A9"), /*#__PURE__*/React.createElement("button", {
+      className: "chr-ev-del",
+      onClick: () => onLoeschen(e),
+      "aria-label": 'Ereignis ' + (e.name || '') + ' löschen'
+    }, "\u2715"));
+  };
+  return /*#__PURE__*/React.createElement("aside", {
+    className: 'chronik' + (ueberlagert ? ' ueberlagert' : '')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "chronik-kopf"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "chronik-titel"
+  }, "\uD83D\uDD70 Chronik"), /*#__PURE__*/React.createElement("div", {
+    className: "chronik-adv"
+  }, advName)), /*#__PURE__*/React.createElement("button", {
+    className: "chronik-zu",
+    onClick: onSchliessen,
+    "aria-label": "Chronik schlie\xDFen"
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "chronik-uhr"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "chronik-uhr-zahl"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "chronik-tag"
+  }, "Tag ", uhrTag(jetzt)), /*#__PURE__*/React.createElement("span", {
+    className: "chronik-stunde"
+  }, uhrStunde(jetzt), " Uhr")), /*#__PURE__*/React.createElement("button", {
+    className: "chronik-zeit-knopf",
+    onClick: onZeit
+  }, "\u23E9 Zeit vergeht")), /*#__PURE__*/React.createElement("div", {
+    className: "chronik-rollen"
+  }, offen.length === 0 && erledigt.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "chronik-leer"
+  }, /*#__PURE__*/React.createElement("p", null, "Noch nichts eingetragen."), /*#__PURE__*/React.createElement("p", null, "Trag ein, was im Hintergrund l\xE4uft \u2014 eine Frist, eine Reise, ein Termin. Beim Weiterdrehen der Uhr rechnet sich alles von selbst ab.")), faellig.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "chronik-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "chronik-block-titel faellig"
+  }, "\u23F0 F\xE4llig"), faellig.map(e => /*#__PURE__*/React.createElement(Zeile, {
+    key: e.id,
+    e: e,
+    art: "faellig"
+  }))), laufend.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "chronik-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "chronik-block-titel"
+  }, "L\xE4uft"), laufend.map(e => /*#__PURE__*/React.createElement(Zeile, {
+    key: e.id,
+    e: e,
+    art: "laufend"
+  }))), ohneFrist.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "chronik-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "chronik-block-titel"
+  }, "Ohne Frist"), ohneFrist.map(e => /*#__PURE__*/React.createElement(Zeile, {
+    key: e.id,
+    e: e,
+    art: "offen"
+  }))), erledigt.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "chronik-block"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "chronik-block-titel klappbar",
+    onClick: () => setZeigeErledigt(v => !v)
+  }, (zeigeErledigt ? '▾ ' : '▸ ') + 'Vorbei (' + erledigt.length + ')'), zeigeErledigt && erledigt.map(e => /*#__PURE__*/React.createElement(Zeile, {
+    key: e.id,
+    e: e,
+    art: "erledigt"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "chronik-fuss"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: onNeu
+  }, "+ Ereignis")));
+};
+
+// ── Ereignis anlegen und ändern ──────────────────────────────────
+const EreignisFormular = ({
+  ereignis,
+  chronik,
+  advId,
+  abenteuer,
+  chars,
+  neu,
+  onAendern,
+  onSpeichern,
+  onAbbrechen
+}) => {
+  const e = ereignis;
+  const setzen = p => onAendern({
+    ...e,
+    ...p
+  });
+  // Jede Kampagne hat ihre eigene Uhr, deshalb rechnet die Restzeit gegen
+  // die Uhr des Abenteuers, an dem dieses Ereignis haengt — nicht gegen die
+  // gerade offene.
+  const jetzt = zeitDerUhr(chronik, e.adventure || advId);
+  // Umhaengen laesst die Restzeit stehen und setzt die Faelligkeit auf die
+  // andere Uhr um. Sonst spraenge "noch 3 Tage" auf "vor 40 Tagen".
+  const abenteuerWechseln = neuAdv => {
+    const rest = e.faellig == null ? null : Math.max(0, e.faellig - jetzt);
+    onAendern({
+      ...e,
+      adventure: neuAdv,
+      bindung: null,
+      faellig: rest == null ? null : zeitDerUhr(chronik, neuAdv) + rest
+    });
+  };
+  const ohneFrist = e.faellig == null;
+  const rest = ohneFrist ? 0 : Math.max(0, e.faellig - jetzt);
+  const restTage = Math.floor(rest / STD_TAG),
+    restStd = rest % STD_TAG;
+  const fristSetzen = (t, s) => setzen({
+    faellig: jetzt + Math.max(0, t) * STD_TAG + Math.max(0, s)
+  });
+
+  // Nur Helden des Abenteuers, an das dieses Ereignis haengt — sonst steht
+  // die halbe Kampagne im Auswahlfeld.
+  const helden = chars.filter(c => !c.archived && (!e.adventure || !c.adventure || c.adventure === e.adventure));
+  const held = helden.find(c => c.id === (e.bindung && e.bindung.charId));
+  const merkmale = held && held.features || [];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 520
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, neu ? '🕰 Neues Ereignis' : '✎ Ereignis bearbeiten'), /*#__PURE__*/React.createElement("div", {
+    className: "form-grid",
+    style: {
+      maxHeight: '62vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Art"), /*#__PURE__*/React.createElement("div", {
+    className: "chr-art-wahl"
+  }, EREIGNIS_ARTEN.map(a => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: a.k,
+    className: 'chr-art' + (e.art === a.k ? ' aktiv' : ''),
+    onClick: () => setzen({
+      art: a.k
+    })
+  }, /*#__PURE__*/React.createElement("span", null, a.icon), a.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Was"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: e.name,
+    autoFocus: true,
+    onChange: ev => setzen({
+      name: ev.target.value
+    }),
+    placeholder: e.art === 'reise' ? 'z.B. Ismark reitet nach Krezk' : e.art === 'termin' ? 'z.B. Fest des heiligen Andral' : 'z.B. Armins Finger wächst nach'
+  })), e.art === 'reise' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Von"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: e.ort || '',
+    onChange: ev => setzen({
+      ort: ev.target.value
+    }),
+    placeholder: "Vallaki"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Nach"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: e.ziel || '',
+    onChange: ev => setzen({
+      ziel: ev.target.value
+    }),
+    placeholder: "Krezk"
+  }))) : /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Wo (freiwillig)"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: e.ort || '',
+    onChange: ev => setzen({
+      ort: ev.target.value
+    }),
+    placeholder: "Vallaki"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, e.art === 'reise' ? 'Reisezeit' : e.art === 'termin' ? 'Noch bis dahin' : 'Restzeit'), /*#__PURE__*/React.createElement("div", {
+    className: "chr-frist"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 999,
+    disabled: ohneFrist,
+    value: restTage,
+    "aria-label": "Tage",
+    onChange: ev => fristSetzen(+ev.target.value, restStd)
+  }), /*#__PURE__*/React.createElement("span", null, "Tage"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 23,
+    disabled: ohneFrist,
+    value: restStd,
+    "aria-label": "Stunden",
+    onChange: ev => fristSetzen(restTage, +ev.target.value)
+  }), /*#__PURE__*/React.createElement("span", null, "Std")), /*#__PURE__*/React.createElement("label", {
+    className: "chr-check"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: ohneFrist,
+    onChange: ev => setzen({
+      faellig: ev.target.checked ? null : jetzt + STD_TAG
+    })
+  }), "Ohne Frist \u2014 l\xE4uft einfach mit"), !ohneFrist && /*#__PURE__*/React.createElement("div", {
+    className: "chr-hinweis"
+  }, "F\xE4llig an Tag ", uhrTag(e.faellig), ", ", uhrStunde(e.faellig), " Uhr.")), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Wiederholt sich alle"), /*#__PURE__*/React.createElement("div", {
+    className: "chr-frist"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 365,
+    value: Math.round((e.wiederholung || 0) / STD_TAG),
+    "aria-label": "Wiederholung in Tagen",
+    onChange: ev => setzen({
+      wiederholung: Math.max(0, +ev.target.value) * STD_TAG
+    })
+  }), /*#__PURE__*/React.createElement("span", null, "Tage")), /*#__PURE__*/React.createElement("div", {
+    className: "chr-hinweis"
+  }, "0 = einmalig")), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Abenteuer"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: e.adventure || advId,
+    onChange: ev => abenteuerWechseln(ev.target.value)
+  }, (abenteuer || []).map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.id,
+    value: a.id
+  }, a.name)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Notiz f\xFCr dich"), /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input",
+    rows: 2,
+    style: {
+      resize: 'vertical'
+    },
+    value: e.notiz || '',
+    onChange: ev => setzen({
+      notiz: ev.target.value
+    }),
+    placeholder: "Was du wissen musst, wenn es soweit ist."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full chr-bindung"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Wenn es soweit ist: Merkmal umschalten"), /*#__PURE__*/React.createElement("div", {
+    className: "chr-bindung-reihe"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: e.bindung && e.bindung.charId || '',
+    onChange: ev => setzen({
+      bindung: ev.target.value ? {
+        charId: ev.target.value,
+        featureId: '',
+        wirkung: 'aus'
+      } : null
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 nichts umschalten \u2014"), helden.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.name))), e.bindung && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: e.bindung.featureId || '',
+    onChange: ev => setzen({
+      bindung: {
+        ...e.bindung,
+        featureId: ev.target.value
+      }
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 Merkmal w\xE4hlen \u2014"), merkmale.map(f => /*#__PURE__*/React.createElement("option", {
+    key: f.id,
+    value: f.id
+  }, f.name))), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: e.bindung.wirkung || 'aus',
+    onChange: ev => setzen({
+      bindung: {
+        ...e.bindung,
+        wirkung: ev.target.value
+      }
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "aus"
+  }, "abschalten"), /*#__PURE__*/React.createElement("option", {
+    value: "an"
+  }, "einschalten")))), e.bindung && merkmale.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "chr-hinweis warn"
+  }, "Dieser Held hat noch kein Merkmal, das man umschalten k\xF6nnte."))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: !e.name.trim(),
+    onClick: onSpeichern
+  }, "\uD83D\uDCBE Speichern"))));
+};
+
+// ── Zeit vergeht ─────────────────────────────────────────────────
+// Zeigt vorher, was passieren wird. Was in fremde Charakterboegen
+// schreibt, steht einzeln zum Abwaehlen da — dieselbe Regel wie beim
+// Uebertragen der Trefferpunkte nach dem Kampf.
+const ZeitDialog = ({
+  chronik,
+  advId,
+  chars,
+  onAnwenden,
+  onUhrStellen,
+  onAbbrechen
+}) => {
+  const jetzt = zeitDerUhr(chronik, advId);
+  const [tage, setTage] = React.useState(1);
+  const [std, setStd] = React.useState(0);
+  const [abgewaehlt, setAbgewaehlt] = React.useState({});
+  const [stellen, setStellen] = React.useState(false);
+  const [zielTag, setZielTag] = React.useState(uhrTag(jetzt));
+  const [zielStd, setZielStd] = React.useState(uhrStunde(jetzt));
+  const [ergebnis, setErgebnis] = React.useState(null);
+  const delta = Math.max(0, tage) * STD_TAG + Math.max(0, std);
+  const nachher = jetzt + delta;
+  const feuert = ereignisseDerUhr(chronik, advId).filter(e => !e.erledigt && e.faellig != null && e.faellig > jetzt && e.faellig <= nachher).sort((a, b) => a.faellig - b.faellig);
+  const held = id => chars.find(c => c.id === id);
+  const merkmal = b => {
+    const c = b && held(b.charId);
+    return c && (c.features || []).find(f => f.id === b.featureId);
+  };
+  const bindungen = feuert.map(e => ({
+    e,
+    b: e.bindung,
+    c: e.bindung && held(e.bindung.charId),
+    f: merkmal(e.bindung)
+  })).filter(x => x.b);
+  const anwenden = () => {
+    const gewaehlt = bindungen.filter(x => x.c && x.f && !abgewaehlt[x.e.id]).map(x => ({
+      charId: x.b.charId,
+      featureId: x.b.featureId,
+      wirkung: x.b.wirkung || 'aus',
+      charName: x.c.name,
+      featureName: x.f.name,
+      ereignis: x.e.name
+    }));
+    onAnwenden(delta, feuert, gewaehlt);
+    setErgebnis({
+      delta,
+      feuert,
+      nachher
+    });
+  };
+  if (ergebnis) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "form-overlay"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "form-modal",
+      style: {
+        maxWidth: 460
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "form-title"
+    }, "\u23E9 ", restText(ergebnis.delta), " vergangen"), /*#__PURE__*/React.createElement("div", {
+      className: "zeit-jetzt"
+    }, "Es ist jetzt ", /*#__PURE__*/React.createElement("b", null, "Tag ", uhrTag(ergebnis.nachher), ", ", uhrStunde(ergebnis.nachher), " Uhr"), "."), ergebnis.feuert.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "chr-hinweis"
+    }, "Nichts ist f\xE4llig geworden.") : /*#__PURE__*/React.createElement("div", {
+      className: "zeit-vorschau-block"
+    }, ergebnis.feuert.map(e => /*#__PURE__*/React.createElement("div", {
+      className: "zeit-vorschau-zeile",
+      key: e.id
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "chr-ev-icon"
+    }, artInfo(e.art).icon), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, e.name), " \u2014 ", artInfo(e.art).vorbei, e.art === 'reise' && e.ziel ? ' in ' + e.ziel : '', e.notiz && /*#__PURE__*/React.createElement("i", {
+      className: "zeit-notiz"
+    }, e.notiz))))), /*#__PURE__*/React.createElement("div", {
+      className: "form-actions"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn-save",
+      onClick: onAbbrechen
+    }, "Weiter"))));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 500
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\u23E9 Zeit vergeht"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxHeight: '64vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zeit-jetzt"
+  }, "Gerade: ", /*#__PURE__*/React.createElement("b", null, "Tag ", uhrTag(jetzt), ", ", uhrStunde(jetzt), " Uhr")), /*#__PURE__*/React.createElement("div", {
+    className: "zeit-schnell"
+  }, [['1 Std', 0, 1], ['Rast · 8 Std', 0, 8], ['1 Tag', 1, 0], ['3 Tage', 3, 0], ['1 Woche', 7, 0]].map(w => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: w[0],
+    className: 'zeit-knopf' + (tage === w[1] && std === w[2] ? ' aktiv' : ''),
+    onClick: () => {
+      setTage(w[1]);
+      setStd(w[2]);
+    }
+  }, w[0]))), /*#__PURE__*/React.createElement("div", {
+    className: "chr-frist",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 999,
+    value: tage,
+    "aria-label": "Tage",
+    onChange: e => setTage(Math.max(0, +e.target.value))
+  }), /*#__PURE__*/React.createElement("span", null, "Tage"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 23,
+    value: std,
+    "aria-label": "Stunden",
+    onChange: e => setStd(Math.max(0, +e.target.value))
+  }), /*#__PURE__*/React.createElement("span", null, "Std")), /*#__PURE__*/React.createElement("div", {
+    className: "zeit-nachher"
+  }, "Danach: ", /*#__PURE__*/React.createElement("b", null, "Tag ", uhrTag(nachher), ", ", uhrStunde(nachher), " Uhr")), delta > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "zeit-vorschau-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zeit-vorschau-titel"
+  }, feuert.length === 0 ? 'Nichts wird fällig.' : feuert.length + (feuert.length === 1 ? ' Ereignis wird fällig' : ' Ereignisse werden fällig')), feuert.map(e => /*#__PURE__*/React.createElement("div", {
+    className: "zeit-vorschau-zeile",
+    key: e.id
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "chr-ev-icon"
+  }, artInfo(e.art).icon), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, e.name), " \u2014 ", artInfo(e.art).vorbei, e.art === 'reise' && e.ziel ? ' in ' + e.ziel : '', e.wiederholung > 0 && /*#__PURE__*/React.createElement("i", {
+    className: "zeit-notiz"
+  }, "l\xE4uft danach weiter, alle ", Math.round(e.wiederholung / STD_TAG), " Tage")))), bindungen.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "zeit-bindungen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zeit-vorschau-titel"
+  }, "Das wird in fremde B\xF6gen geschrieben"), bindungen.map(x => /*#__PURE__*/React.createElement("label", {
+    className: 'zeit-bindung' + (!x.c || !x.f ? ' fehlt' : ''),
+    key: x.e.id
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    disabled: !x.c || !x.f,
+    checked: !!(x.c && x.f) && !abgewaehlt[x.e.id],
+    onChange: ev => setAbgewaehlt(a => ({
+      ...a,
+      [x.e.id]: !ev.target.checked
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, !x.c ? 'Der Held zu „' + x.e.name + '“ ist nicht mehr da.' : !x.f ? 'Bei ' + x.c.name + ': das Merkmal zu „' + x.e.name + '“ gibt es nicht mehr.' : /*#__PURE__*/React.createElement(React.Fragment, null, "Bei ", /*#__PURE__*/React.createElement("b", null, x.c.name), ": \u201E", x.f.name, "\u201C ", x.b.wirkung === 'an' ? 'einschalten' : 'abschalten')))))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "zeit-stellen-link",
+    onClick: () => setStellen(v => !v)
+  }, (stellen ? '▾ ' : '▸ ') + 'Uhr direkt stellen'), stellen && /*#__PURE__*/React.createElement("div", {
+    className: "zeit-stellen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "chr-frist"
+  }, /*#__PURE__*/React.createElement("span", null, "Tag"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 1,
+    max: 9999,
+    value: zielTag,
+    "aria-label": "Tag",
+    onChange: e => setZielTag(Math.max(1, +e.target.value))
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 23,
+    value: zielStd,
+    "aria-label": "Stunde",
+    onChange: e => setZielStd(Math.max(0, +e.target.value))
+  }), /*#__PURE__*/React.createElement("span", null, "Uhr"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => {
+      onUhrStellen((zielTag - 1) * STD_TAG + zielStd);
+      onAbbrechen();
+    }
+  }, "Setzen")), /*#__PURE__*/React.createElement("div", {
+    className: "chr-hinweis"
+  }, "Stellt nur die Uhr. Es wird nichts f\xE4llig und nichts geschrieben."))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: delta === 0,
+    onClick: anwenden
+  }, delta === 0 ? 'Keine Zeit gewählt' : '⏩ ' + restText(delta) + ' vergehen lassen'))));
 };
 
 // ==== js/src/3-sheet.jsx ====
@@ -5424,6 +6079,22 @@ function App() {
     return neu;
   });
   const [encForm, setEncForm] = useState(null);
+  // Die Chronik liegt als ein Stueck am Server: "die Gruppe schlaeft drei
+  // Tage" ruehrt jedes offene Ereignis an, das waere zeilenweise ein
+  // Dutzend Anfragen fuer einen Knopfdruck.
+  const [chronik, setChronik] = useState({
+    zeit: {},
+    ereignisse: []
+  });
+  const [showChronik, setShowChronik] = useState(() => {
+    try {
+      return localStorage.getItem('hb_chronik_offen') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [ereignisForm, setEreignisForm] = useState(null); // {e, neu}
+  const [zeitOffen, setZeitOffen] = useState(false);
   const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
   const [enemyCr, setEnemyCr] = useState('');
@@ -6017,6 +6688,24 @@ function App() {
         setEnemiesGeladen(false);
         console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
       }
+      // Eigener Versuch: faellt die Chronik aus, bleibt die Gegnerliste
+      // trotzdem geladen. Sie haengen sachlich nicht zusammen.
+      try {
+        const ch = await apiDmLoadChronik(url, code, pass, dm);
+        setChronik(ch.chronik && typeof ch.chronik === 'object' ? {
+          zeit: ch.chronik.zeit || {},
+          ereignisse: ch.chronik.ereignisse || []
+        } : {
+          zeit: {},
+          ereignisse: []
+        });
+      } catch (e) {
+        setChronik({
+          zeit: {},
+          ereignisse: []
+        });
+        console.error('[Heldenbuch] Chronik konnte nicht geladen werden:', e);
+      }
     } catch (e) {
       setDmLoginErr(e.message || 'Falsches DM-Passwort.');
     }
@@ -6030,6 +6719,13 @@ function App() {
     setEnemies([]);
     setEncounters([]);
     setEnemiesGeladen(false);
+    setChronik({
+      zeit: {},
+      ereignisse: []
+    });
+    setShowChronik(false);
+    setEreignisForm(null);
+    setZeitOffen(false);
   };
 
   // Einmaliges Einlesen einer Sammlung aus einer JSON-Datei. Geht in einem
@@ -6126,6 +6822,134 @@ function App() {
       appAlert('Gegner konnte nicht gelöscht werden: ' + (err.message || 'unbekannter Fehler'));
     }
   }, 'Löschen');
+
+  // ── Chronik ─────────────────────────────────────────────────────
+  // Wie bei den Gegnern: ein Fehlschlag wird gezeigt, nicht verschluckt.
+  // Eine stille Absage saehe aus wie ein gelungenes Speichern, und die
+  // naechste Sitzung faenge dann am falschen Tag an.
+  const saveChronik = ch => {
+    setChronik(ch);
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    if (!url || !code || !pass || !dmPassRef.current) return;
+    apiDmSaveChronik(url, code, pass, dmPassRef.current, ch).catch(err => appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
+  };
+  const chronikUmschalten = () => setShowChronik(v => {
+    try {
+      localStorage.setItem('hb_chronik_offen', v ? '0' : '1');
+    } catch {}
+    return !v;
+  });
+  const chronikJetzt = () => zeitDerUhr(chronik, advId);
+  const ereignisSpeichern = e => {
+    const liste = chronik.ereignisse || [];
+    saveChronik({
+      ...chronik,
+      ereignisse: liste.some(x => x.id === e.id) ? liste.map(x => x.id === e.id ? e : x) : [...liste, e]
+    });
+    setEreignisForm(null);
+  };
+  const ereignisLoeschen = e => appConfirm('Ereignis „' + (e.name || '') + '“ löschen?', () => {
+    saveChronik({
+      ...chronik,
+      ereignisse: (chronik.ereignisse || []).filter(x => x.id !== e.id)
+    });
+  }, 'Löschen');
+  // Abhaken heisst nur "zur Kenntnis genommen". Es schreibt nichts in
+  // fremde Boegen — das tut allein das Zeitfenster, und dort ausdruecklich.
+  const ereignisAbhaken = e => {
+    const jetzt = chronikJetzt();
+    saveChronik({
+      ...chronik,
+      ereignisse: (chronik.ereignisse || []).map(x => {
+        if (x.id !== e.id) return x;
+        if (x.wiederholung > 0 && x.faellig != null) {
+          let f = x.faellig;
+          while (f <= jetzt) f += x.wiederholung;
+          return {
+            ...x,
+            faellig: f
+          };
+        }
+        return {
+          ...x,
+          erledigt: true,
+          erledigtBei: x.faellig != null ? x.faellig : jetzt
+        };
+      })
+    });
+  };
+  const ereignisWiederOeffnen = e => saveChronik({
+    ...chronik,
+    ereignisse: (chronik.ereignisse || []).map(x => x.id === e.id ? {
+      ...x,
+      erledigt: false
+    } : x)
+  });
+  const uhrStellen = stunde => saveChronik({
+    ...chronik,
+    zeit: {
+      ...(chronik.zeit || {}),
+      [advId]: Math.max(0, stunde)
+    }
+  });
+
+  // Die Uhr weiterdrehen. Faellige Ereignisse werden abgelegt oder — wenn
+  // sie sich wiederholen — auf den naechsten Termin gesetzt. Die Merkmale
+  // gehen denselben Speicherweg wie jede andere Aenderung am Bogen.
+  const zeitAnwenden = (delta, feuert, bindungen) => {
+    const jetzt = chronikJetzt();
+    const nachher = jetzt + delta;
+    const gefeuert = new Set(feuert.map(e => e.id));
+    const ereignisse = (chronik.ereignisse || []).map(e => {
+      if (!gefeuert.has(e.id)) return e;
+      if (e.wiederholung > 0 && e.faellig != null) {
+        let f = e.faellig;
+        while (f <= nachher) f += e.wiederholung;
+        return {
+          ...e,
+          faellig: f
+        };
+      }
+      return {
+        ...e,
+        erledigt: true,
+        erledigtBei: e.faellig
+      };
+    });
+    saveChronik({
+      ...chronik,
+      zeit: {
+        ...(chronik.zeit || {}),
+        [advId]: nachher
+      },
+      ereignisse
+    });
+    if (bindungen && bindungen.length) {
+      save(charsRef.current.map(c => {
+        const treffer = bindungen.filter(b => b.charId === c.id);
+        if (!treffer.length) return c;
+        return {
+          ...c,
+          features: (c.features || []).map(f => {
+            const b = treffer.find(x => x.featureId === f.id);
+            return b ? {
+              ...f,
+              effectsActive: b.wirkung === 'an'
+            } : f;
+          })
+        };
+      }));
+      // Im Abenteuerlog nachvollziehbar: es sind fremde Boegen.
+      bindungen.forEach(b => addLog(b.charId, b.charName, 'attribute', 'Merkmal ' + (b.wirkung === 'an' ? 'eingeschaltet' : 'abgeschaltet') + ': ' + b.featureName, {
+        ereignis: b.ereignis || undefined,
+        tag: uhrTag(nachher)
+      }));
+    }
+  };
   const saveDmLibrary = lib => {
     setDmLibrary(lib);
     const {
@@ -6362,6 +7186,9 @@ function App() {
   const abenteuer = advListe(userLibrary);
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
+  // Steht am Knopf, damit die Leiste zugeklappt bleiben darf, ohne dass
+  // eine abgelaufene Frist unbemerkt liegen bleibt.
+  const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId).filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;
   const advWechseln = id => {
     setAdvAktiv(id);
     try {
@@ -7830,7 +8657,10 @@ function App() {
   }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setShowKampf(true)
-  }, "\u2694 Kampf", kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : '')), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\u2694 Kampf", kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool" + (showChronik ? " an" : ""),
+    onClick: chronikUmschalten
+  }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : '')), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "sync-line"
   }, /*#__PURE__*/React.createElement("div", {
     className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
@@ -7929,7 +8759,13 @@ function App() {
       setAdventTabFilter([]);
       setShowAdventLog(true);
     }
-  }, "\uD83D\uDCD6 Abenteuerlog"))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setShowKampf(true)
+  }, "\u2694 Kampf", kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool" + (showChronik ? " an" : ""),
+    onClick: chronikUmschalten
+  }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''))), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 8
     }
@@ -7996,10 +8832,30 @@ function App() {
     onClick: deleteChar
   }, "\u2715")))), /*#__PURE__*/React.createElement(Sheet, null)), !isTouchLayout && /*#__PURE__*/React.createElement("div", {
     className: "desktop-sheet"
-  }, /*#__PURE__*/React.createElement(Sheet, null))), /*#__PURE__*/React.createElement("nav", {
+  }, /*#__PURE__*/React.createElement(Sheet, null))), isDmMode && showChronik && /*#__PURE__*/React.createElement(ChronikLeiste, {
+    chronik: chronik,
+    advId: advId,
+    advName: advName,
+    chars: chars,
+    ueberlagert: isTouchLayout,
+    onZeit: () => setZeitOffen(true),
+    onNeu: () => setEreignisForm({
+      e: newEreignis(advId, chronikJetzt()),
+      neu: true
+    }),
+    onBearbeiten: e => setEreignisForm({
+      e,
+      neu: false
+    }),
+    onLoeschen: ereignisLoeschen,
+    onAbhaken: ereignisAbhaken,
+    onWiederOeffnen: ereignisWiederOeffnen,
+    onSchliessen: chronikUmschalten
+  }), /*#__PURE__*/React.createElement("nav", {
     className: "mobile-bottom-nav",
     style: {
-      left: isTouchLayout || sidebarCollapsed ? 0 : 260
+      left: isTouchLayout || sidebarCollapsed ? 0 : 260,
+      right: !isTouchLayout && isDmMode && showChronik ? 300 : 0
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "mobile-bottom-nav-inner-wrap"
@@ -12118,7 +12974,27 @@ function App() {
       borderColor: '#c060a0'
     },
     onClick: doDmLogin
-  }, "\uD83D\uDD2E Einloggen")))), showKampf && isDmMode && /*#__PURE__*/React.createElement(KampfAnsicht, {
+  }, "\uD83D\uDD2E Einloggen")))), ereignisForm && isDmMode && /*#__PURE__*/React.createElement(EreignisFormular, {
+    ereignis: ereignisForm.e,
+    neu: ereignisForm.neu,
+    chronik: chronik,
+    advId: advId,
+    abenteuer: abenteuer,
+    chars: chars,
+    onAendern: e => setEreignisForm(f => ({
+      ...f,
+      e
+    })),
+    onSpeichern: () => ereignisSpeichern(ereignisForm.e),
+    onAbbrechen: () => setEreignisForm(null)
+  }), zeitOffen && isDmMode && /*#__PURE__*/React.createElement(ZeitDialog, {
+    chronik: chronik,
+    advId: advId,
+    chars: chars,
+    onAnwenden: zeitAnwenden,
+    onUhrStellen: uhrStellen,
+    onAbbrechen: () => setZeitOffen(false)
+  }), showKampf && isDmMode && /*#__PURE__*/React.createElement(KampfAnsicht, {
     kampf: kampf,
     setKampf: setKampf,
     enemies: enemies,

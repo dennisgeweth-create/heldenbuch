@@ -12,6 +12,9 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `0-basis.jsx` | Hooks und Kürzel, gilt für alle folgenden Dateien |
 | ↳ `1-editors.jsx` | Rich-Text- und Effekt-Editor |
 | ↳ `2-logtab.jsx` | Abenteuerlog eines Helden |
+| ↳ `2b-gegner.jsx` | Gegnersammlung und Begegnungen der Spielleitung |
+| ↳ `2c-kampf.jsx` | Kampftracker: Aufstellung, Runden, Übertragen |
+| ↳ `2d-chronik.jsx` | Kalender und Ereignisse der Spielleitung |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `4-app.jsx` | Zustand, Server-Sync, Seitenleiste, Dialoge |

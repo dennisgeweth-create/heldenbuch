@@ -99,6 +99,13 @@ $pdo->exec("
         CONSTRAINT fk_hben_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    CREATE TABLE IF NOT EXISTS hb_chronik (
+        session_code VARCHAR(20) NOT NULL PRIMARY KEY,
+        chronik_json LONGTEXT    NOT NULL,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_hbch_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_rate_limits (
         ip           VARCHAR(45) NOT NULL PRIMARY KEY,
         attempts     SMALLINT    NOT NULL DEFAULT 1,
@@ -431,6 +438,33 @@ switch ($action) {
         $pdo->prepare("DELETE FROM hb_encounters WHERE session_code=? AND enc_id=?")
             ->execute([$code, $encId]);
         respond(200, 'Begegnung gelöscht.');
+
+    // -- Chronik ---------------------------------------------------
+    // Anders als Gegner und Begegnungen liegt die Chronik als ein Stueck:
+    // "die Gruppe schlaeft drei Tage" ruehrt jedes offene Ereignis an. In
+    // Zeilen waere das ein Dutzend Anfragen fuer einen Knopfdruck. Sie ist
+    // reiner Text ohne Bilder, die Groesse bleibt also klein.
+    case 'dm_load_chronik':
+        checkRateLimit($pdo);
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $stmt = $pdo->prepare("SELECT chronik_json FROM hb_chronik WHERE session_code=?");
+        $stmt->execute([$code]);
+        $row = $stmt->fetch();
+        $ch  = $row ? json_decode($row['chronik_json'], true) : null;
+        respond(200, 'OK', ['chronik' => is_array($ch) ? $ch : null]);
+
+    case 'dm_save_chronik':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $ch = $body['chronik'] ?? null;
+        if (!is_array($ch)) respond(400, 'Fehlende Daten.');
+        $json = json_encode($ch, JSON_UNESCAPED_UNICODE);
+        if (strlen($json) > MAX_LIB_BYTES) respond(413, 'Chronik zu groß.');
+        verifyDmSession($pdo, $code, $pass, $dmPass);
+        $pdo->prepare("INSERT INTO hb_chronik (session_code,chronik_json) VALUES(?,?)
+                       ON DUPLICATE KEY UPDATE chronik_json=VALUES(chronik_json)")
+            ->execute([$code, $json]);
+        respond(200, 'Chronik gespeichert.');
 
     case 'set_dm_password':
         checkRateLimit($pdo);

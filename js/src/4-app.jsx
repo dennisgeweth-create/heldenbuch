@@ -198,6 +198,15 @@ function App() {
     return neu;
   });
   const [encForm, setEncForm] = useState(null);
+  // Die Chronik liegt als ein Stueck am Server: "die Gruppe schlaeft drei
+  // Tage" ruehrt jedes offene Ereignis an, das waere zeilenweise ein
+  // Dutzend Anfragen fuer einen Knopfdruck.
+  const [chronik, setChronik] = useState({zeit:{}, ereignisse:[]});
+  const [showChronik, setShowChronik] = useState(() => {
+    try { return localStorage.getItem('hb_chronik_offen') === '1'; } catch { return false; }
+  });
+  const [ereignisForm, setEreignisForm] = useState(null);  // {e, neu}
+  const [zeitOffen, setZeitOffen] = useState(false);
   const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
   const [enemyCr,    setEnemyCr]    = useState('');
@@ -607,6 +616,17 @@ function App() {
         setEnemies([]); setEncounters([]); setEnemiesGeladen(false);
         console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
       }
+      // Eigener Versuch: faellt die Chronik aus, bleibt die Gegnerliste
+      // trotzdem geladen. Sie haengen sachlich nicht zusammen.
+      try {
+        const ch = await apiDmLoadChronik(url, code, pass, dm);
+        setChronik(ch.chronik && typeof ch.chronik === 'object'
+          ? {zeit: ch.chronik.zeit || {}, ereignisse: ch.chronik.ereignisse || []}
+          : {zeit:{}, ereignisse:[]});
+      } catch(e) {
+        setChronik({zeit:{}, ereignisse:[]});
+        console.error('[Heldenbuch] Chronik konnte nicht geladen werden:', e);
+      }
     } catch(e) {
       setDmLoginErr(e.message || 'Falsches DM-Passwort.');
     }
@@ -619,6 +639,8 @@ function App() {
     // Nichts von der Spielleitung bleibt im Speicher zurueck, wenn jemand
     // das Geraet weiterreicht.
     setEnemies([]); setEncounters([]); setEnemiesGeladen(false);
+    setChronik({zeit:{}, ereignisse:[]}); setShowChronik(false);
+    setEreignisForm(null); setZeitOffen(false);
   };
 
   // Einmaliges Einlesen einer Sammlung aus einer JSON-Datei. Geht in einem
@@ -695,6 +717,84 @@ function App() {
       appAlert('Gegner konnte nicht gelöscht werden: ' + (err.message || 'unbekannter Fehler'));
     }
   }, 'Löschen');
+
+  // ── Chronik ─────────────────────────────────────────────────────
+  // Wie bei den Gegnern: ein Fehlschlag wird gezeigt, nicht verschluckt.
+  // Eine stille Absage saehe aus wie ein gelungenes Speichern, und die
+  // naechste Sitzung faenge dann am falschen Tag an.
+  const saveChronik = (ch) => {
+    setChronik(ch);
+    const {url, code, pass} = serverCreds();
+    if (!url || !code || !pass || !dmPassRef.current) return;
+    apiDmSaveChronik(url, code, pass, dmPassRef.current, ch).catch(err =>
+      appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
+  };
+  const chronikUmschalten = () => setShowChronik(v => {
+    try { localStorage.setItem('hb_chronik_offen', v ? '0' : '1'); } catch {}
+    return !v;
+  });
+  const chronikJetzt = () => zeitDerUhr(chronik, advId);
+  const ereignisSpeichern = (e) => {
+    const liste = chronik.ereignisse || [];
+    saveChronik({...chronik, ereignisse: liste.some(x=>x.id===e.id)
+      ? liste.map(x=>x.id===e.id?e:x) : [...liste, e]});
+    setEreignisForm(null);
+  };
+  const ereignisLoeschen = (e) => appConfirm('Ereignis „' + (e.name||'') + '“ löschen?', () => {
+    saveChronik({...chronik, ereignisse: (chronik.ereignisse||[]).filter(x=>x.id!==e.id)});
+  }, 'Löschen');
+  // Abhaken heisst nur "zur Kenntnis genommen". Es schreibt nichts in
+  // fremde Boegen — das tut allein das Zeitfenster, und dort ausdruecklich.
+  const ereignisAbhaken = (e) => {
+    const jetzt = chronikJetzt();
+    saveChronik({...chronik, ereignisse: (chronik.ereignisse||[]).map(x => {
+      if (x.id !== e.id) return x;
+      if (x.wiederholung > 0 && x.faellig != null) {
+        let f = x.faellig;
+        while (f <= jetzt) f += x.wiederholung;
+        return {...x, faellig: f};
+      }
+      return {...x, erledigt: true, erledigtBei: x.faellig != null ? x.faellig : jetzt};
+    })});
+  };
+  const ereignisWiederOeffnen = (e) => saveChronik({...chronik,
+    ereignisse: (chronik.ereignisse||[]).map(x => x.id===e.id ? {...x, erledigt:false} : x)});
+  const uhrStellen = (stunde) => saveChronik({...chronik,
+    zeit: {...(chronik.zeit||{}), [advId]: Math.max(0, stunde)}});
+
+  // Die Uhr weiterdrehen. Faellige Ereignisse werden abgelegt oder — wenn
+  // sie sich wiederholen — auf den naechsten Termin gesetzt. Die Merkmale
+  // gehen denselben Speicherweg wie jede andere Aenderung am Bogen.
+  const zeitAnwenden = (delta, feuert, bindungen) => {
+    const jetzt = chronikJetzt();
+    const nachher = jetzt + delta;
+    const gefeuert = new Set(feuert.map(e => e.id));
+    const ereignisse = (chronik.ereignisse||[]).map(e => {
+      if (!gefeuert.has(e.id)) return e;
+      if (e.wiederholung > 0 && e.faellig != null) {
+        let f = e.faellig;
+        while (f <= nachher) f += e.wiederholung;
+        return {...e, faellig: f};
+      }
+      return {...e, erledigt: true, erledigtBei: e.faellig};
+    });
+    saveChronik({...chronik, zeit: {...(chronik.zeit||{}), [advId]: nachher}, ereignisse});
+
+    if (bindungen && bindungen.length) {
+      save(charsRef.current.map(c => {
+        const treffer = bindungen.filter(b => b.charId === c.id);
+        if (!treffer.length) return c;
+        return {...c, features: (c.features||[]).map(f => {
+          const b = treffer.find(x => x.featureId === f.id);
+          return b ? {...f, effectsActive: b.wirkung === 'an'} : f;
+        })};
+      }));
+      // Im Abenteuerlog nachvollziehbar: es sind fremde Boegen.
+      bindungen.forEach(b => addLog(b.charId, b.charName, 'attribute',
+        'Merkmal ' + (b.wirkung === 'an' ? 'eingeschaltet' : 'abgeschaltet') + ': ' + b.featureName,
+        {ereignis: b.ereignis || undefined, tag: uhrTag(nachher)}));
+    }
+  };
 
   const saveDmLibrary = (lib) => {
     setDmLibrary(lib);
@@ -874,6 +974,10 @@ function App() {
   const abenteuer = advListe(userLibrary);
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
+  // Steht am Knopf, damit die Leiste zugeklappt bleiben darf, ohne dass
+  // eine abgelaufene Frist unbemerkt liegen bleibt.
+  const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId)
+    .filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;
   const advWechseln = (id) => {
     setAdvAktiv(id);
     try { localStorage.setItem('hb_adventure', id); } catch {}
@@ -1608,6 +1712,11 @@ function App() {
                   ⚔ Kampf{kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''}
                 </button>
               )}
+              {isDmMode && (
+                <button className={"btn-tool"+(showChronik?" an":"")} onClick={chronikUmschalten}>
+                  🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
+                </button>
+              )}
             </div>
             {svCode ? (
               <>
@@ -1668,6 +1777,16 @@ function App() {
                   }}>
                     📖 Abenteuerlog
                   </button>
+                  {isDmMode && (
+                    <button className="btn-tool" onClick={()=>setShowKampf(true)}>
+                      ⚔ Kampf{kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''}
+                    </button>
+                  )}
+                  {isDmMode && (
+                    <button className={"btn-tool"+(showChronik?" an":"")} onClick={chronikUmschalten}>
+                      🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
+                    </button>
+                  )}
                 </div>
               </div>
               <div style={{padding:8}}>
@@ -1706,7 +1825,23 @@ function App() {
           {!isTouchLayout && <div className="desktop-sheet"><Sheet /></div>}
         </div>
 
-        <nav className="mobile-bottom-nav" style={{left: (isTouchLayout || sidebarCollapsed) ? 0 : 260}}>
+        {isDmMode && showChronik && (
+          <ChronikLeiste
+            chronik={chronik} advId={advId} advName={advName} chars={chars}
+            ueberlagert={isTouchLayout}
+            onZeit={()=>setZeitOffen(true)}
+            onNeu={()=>setEreignisForm({e: newEreignis(advId, chronikJetzt()), neu:true})}
+            onBearbeiten={(e)=>setEreignisForm({e, neu:false})}
+            onLoeschen={ereignisLoeschen}
+            onAbhaken={ereignisAbhaken}
+            onWiederOeffnen={ereignisWiederOeffnen}
+            onSchliessen={chronikUmschalten} />
+        )}
+
+        {/* Die Leiste steht rechts daneben, nicht darueber: sonst laege der
+            Knopf "+ Ereignis" unter der Reiterleiste. */}
+        <nav className="mobile-bottom-nav" style={{left: (isTouchLayout || sidebarCollapsed) ? 0 : 260,
+          right: (!isTouchLayout && isDmMode && showChronik) ? 300 : 0}}>
           <div className="mobile-bottom-nav-inner-wrap">
             {mv==="list" ? (
               <button className="mobile-nav-btn active">
@@ -3387,6 +3522,23 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {ereignisForm && isDmMode && (
+        <EreignisFormular
+          ereignis={ereignisForm.e} neu={ereignisForm.neu}
+          chronik={chronik} advId={advId} abenteuer={abenteuer} chars={chars}
+          onAendern={(e)=>setEreignisForm(f=>({...f, e}))}
+          onSpeichern={()=>ereignisSpeichern(ereignisForm.e)}
+          onAbbrechen={()=>setEreignisForm(null)} />
+      )}
+
+      {zeitOffen && isDmMode && (
+        <ZeitDialog
+          chronik={chronik} advId={advId} chars={chars}
+          onAnwenden={zeitAnwenden}
+          onUhrStellen={uhrStellen}
+          onAbbrechen={()=>setZeitOffen(false)} />
       )}
 
       {showKampf && isDmMode && (
