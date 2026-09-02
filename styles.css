@@ -772,6 +772,9 @@
      oben — dieselbe Reihenfolge, nur gestapelt. */
   /* Schalter sehen anders aus als Zahlenwerte: sie tragen keine Hoehe,
      also soll man sie auch nicht danach absuchen. */
+  /* Ein Rueckstand ist keine Nebensache — er bekommt die Warnfarbe. */
+  .sync-line-msg.offen { color:#d98a8a; }
+
   .fx-chip-flag { border-style:dashed; }
   .fx-flags { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); }
   .fx-flags-title { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;

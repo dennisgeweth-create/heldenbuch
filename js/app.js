@@ -3773,6 +3773,7 @@ function App() {
   const [svPass, setSvPass] = useState('');
   const [syncStatus, setSyncStatus] = useState('idle');
   const [syncMsg, setSyncMsg] = useState('');
+  const [offeneAenderungen, setOffeneAenderungen] = useState(0);
   const [isDmMode, setIsDmMode] = useState(false);
   const [dmPass, setDmPass] = useState('');
   const [dmLibrary, setDmLibrary] = useState({});
@@ -3823,6 +3824,48 @@ function App() {
   const selectChar = id => {
     selRef.current = id;
     setSel(id);
+  };
+
+  // ── Warteschlange zum Server ────────────────────────────────────
+  // Sie lag bisher nur im Arbeitsspeicher. Wer aenderte, waehrend der
+  // Server nicht erreichbar war, und dann das Fenster schloss, verlor die
+  // Aenderung stillschweigend: beim naechsten Laden stand pendingRef auf
+  // false, und der Serverstand ueberschrieb die lokale Kopie. Jetzt liegt
+  // sie neben den Daten und wird beim Start wieder aufgenommen — was
+  // einmal geaendert wurde, geht zum Server, sobald er antwortet.
+  const WARTESCHLANGE = 'hb_pending';
+  const zaehleOffen = () => Object.keys(pendingChars.current).length + Object.keys(pendingItems.current).length + pendingDeletes.current.size + pendingItemDel.current.size;
+  const merkeWarteschlange = () => {
+    try {
+      const offen = zaehleOffen();
+      setOffeneAenderungen(offen);
+      if (offen === 0) {
+        localStorage.removeItem(WARTESCHLANGE);
+        return;
+      }
+      localStorage.setItem(WARTESCHLANGE, JSON.stringify({
+        chars: pendingChars.current,
+        items: pendingItems.current,
+        delChars: [...pendingDeletes.current],
+        delItems: [...pendingItemDel.current]
+      }));
+    } catch {}
+  };
+  const ladeWarteschlange = () => {
+    try {
+      const roh = JSON.parse(localStorage.getItem(WARTESCHLANGE) || 'null');
+      if (!roh) return false;
+      pendingChars.current = roh.chars || {};
+      pendingItems.current = roh.items || {};
+      pendingDeletes.current = new Set(roh.delChars || []);
+      pendingItemDel.current = new Set(roh.delItems || []);
+      const offen = zaehleOffen();
+      pendingRef.current = offen > 0;
+      setOffeneAenderungen(offen);
+      return pendingRef.current;
+    } catch {
+      return false;
+    }
   };
   const libRef = useRef({});
   const dmLibRef = useRef({});
@@ -3879,6 +3922,13 @@ function App() {
       pendingDeletes.current = new Set();
       pendingItems.current = {};
       pendingItemDel.current = new Set();
+      // Die gespeicherte Warteschlange bleibt hier absichtlich stehen. Wer
+      // sie schon jetzt loeschte, verloere alles, wenn das Fenster
+      // ausgerechnet waehrend des Sendens zugeht. Geleert wird sie erst,
+      // wenn der Server bestaetigt hat. Ein doppelt gesendeter Eintrag
+      // schadet nicht: save_char und save_item ueberschreiben denselben
+      // Datensatz, und Loeschungen sind ohnehin wiederholbar.
+
       try {
         const ops = [...Object.values(toSave).map(c => apiSaveChar(url, code, pass, c.id, c)), ...Object.values(toSaveI).map(({
           charId,
@@ -3889,6 +3939,9 @@ function App() {
           return apiDeleteItem(url, code, pass, charId, itemId);
         })];
         if (ops.length > 0) await Promise.all(ops);
+        // Waehrend des Wartens kann schon wieder etwas dazugekommen sein —
+        // deshalb den aktuellen Stand sichern, nicht blind leeren.
+        merkeWarteschlange();
         setSyncStatus('ok');
         setSyncMsg('Gespeichert ✓');
       } catch (e) {
@@ -3898,6 +3951,7 @@ function App() {
         for (const id of toDelete) pendingDeletes.current.add(id);
         for (const k of toDeleteI) pendingItemDel.current.add(k);
         pendingRef.current = true;
+        merkeWarteschlange();
         setSyncStatus('err');
         setSyncMsg(e.message);
       }
@@ -3927,6 +3981,11 @@ function App() {
         const lib = localStorage.getItem('hb_library');
         if (lib) setUserLibrary(JSON.parse(lib));
       } catch {}
+      // Offene Aenderungen der letzten Sitzung zuerst aufnehmen: sie setzen
+      // pendingRef, und der Ladevorgang unten laesst die lokale Kopie dann
+      // stehen, statt sie mit dem Serverstand zu ueberschreiben. Der
+      // Sekundentakt schiebt sie hoch, sobald der Server antwortet.
+      ladeWarteschlange();
       // Load server data on startup — but only apply if no unsaved local changes
       apiLoadChars(url, code, pass).then(d => {
         if (d.has_dm) setHasDmMode(true);
@@ -3944,18 +4003,33 @@ function App() {
         setSyncMsg('Verbunden ✓');
         setGearReady(true);
       }).catch(() => {
-        setSyncStatus('ok');
-        setSyncMsg('Lokal ✓');
+        // Kein "Lokal ✓": das las sich wie ein gelungener Speichervorgang,
+        // obwohl nichts beim Server angekommen ist. Der Zustand ist ein
+        // Fehler, kein Betriebsmodus — und wird auch so angezeigt.
+        setSyncStatus('err');
+        setSyncMsg('Server nicht erreichbar');
         setGearReady(true);
       });
     } else {
-      try {
-        const v = localStorage.getItem('dnd_chars');
-        if (v) applyChars(JSON.parse(v));
-      } catch {}
+      // Ohne Gruppe wird nichts geladen. Sonst laege hinter dem
+      // Anmeldefenster ein Stand, an dem man arbeiten koennte, ohne dass
+      // er je irgendwo ankommt.
       setShowSetup(true);
       setGearReady(true);
     }
+  }, []);
+
+  // Beim Schliessen warnen, solange etwas aussteht. Der Browser zeigt dazu
+  // seine eigene Rueckfrage; Text laesst sich nicht vorgeben.
+  useEffect(() => {
+    const warnen = e => {
+      if (pendingRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', warnen);
+    return () => window.removeEventListener('beforeunload', warnen);
   }, []);
 
   // Umstellung auf Ausruestungsplaetze, einmal je Held.
@@ -4294,6 +4368,7 @@ function App() {
     try {
       localStorage.setItem('dnd_chars', JSON.stringify(u));
     } catch {}
+    merkeWarteschlange();
     setSyncStatus('busy');
     setSyncMsg('Speichert...');
   };
@@ -4368,18 +4443,34 @@ function App() {
     setSetupBusy(false);
   };
   const signOut = () => {
-    ['sv_url', 'sv_code', 'sv_pass'].forEach(k => localStorage.removeItem(k));
-    setSvUrl('');
-    setSvCode('');
-    setSvPass('');
-    setSyncStatus('idle');
-    setSyncMsg('');
-    setSetupForm({
-      url: '',
-      code: '',
-      pass: ''
-    });
-    setShowSetup(true);
+    // Abmelden mit offenen Aenderungen hiesse, sie wegzuwerfen: die
+    // Zugangsdaten waeren weg, und ohne sie kommt die Warteschlange
+    // nirgends mehr an.
+    if (pendingRef.current) {
+      const n = zaehleOffen();
+      appAlert('Es ' + (n === 1 ? 'wartet noch eine Änderung' : 'warten noch ' + n + ' Änderungen') + ' auf den Server. Warte, bis oben „Gespeichert ✓“ steht, sonst ' + (n === 1 ? 'geht sie' : 'gehen sie') + ' verloren.');
+      return;
+    }
+    appConfirm('Von der Gruppe abmelden? Die Charaktere bleiben auf dem Server.', () => {
+      ['sv_url', 'sv_code', 'sv_pass'].forEach(k => localStorage.removeItem(k));
+      // Die lokale Kopie geht mit: sonst bliebe ein Stand liegen, der zu
+      // keiner Gruppe mehr gehoert.
+      localStorage.removeItem('dnd_chars');
+      localStorage.removeItem(WARTESCHLANGE);
+      applyChars([]);
+      setSvUrl('');
+      setSvCode('');
+      setSvPass('');
+      setSyncStatus('idle');
+      setSyncMsg('');
+      setOffeneAenderungen(0);
+      setSetupForm({
+        url: '',
+        code: '',
+        pass: ''
+      });
+      setShowSetup(true);
+    }, 'Abmelden');
   };
   const cur = chars.find(c => c.id === sel);
   const cc = CC[cur && cur.charClass] || CC["Kämpfer"];
@@ -5859,12 +5950,12 @@ function App() {
   }, "\uD83D\uDCD6 Abenteuerlog")), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "sync-line"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "sync-dot " + (syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
+    className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
   }), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-code"
   }, svCode), /*#__PURE__*/React.createElement("span", {
-    className: "sync-line-msg"
-  }, "\xB7 ", syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
+    className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
+  }, "\xB7 ", offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-ver"
   }, "v3.9")), /*#__PURE__*/React.createElement("div", {
     className: "sync-actions"
@@ -5925,7 +6016,7 @@ function App() {
       marginTop: 6
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "sync-dot " + (syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
+    className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "'Roboto Condensed',sans-serif",
@@ -5933,7 +6024,7 @@ function App() {
       color: 'var(--text-muted)',
       letterSpacing: '0.08em'
     }
-  }, svCode, " \xB7 ", syncMsg || 'Verbunden')), /*#__PURE__*/React.createElement("div", {
+  }, svCode, " \xB7 ", offeneAenderungen > 0 ? offeneAenderungen + ' nicht gesichert' : syncMsg || 'Verbunden')), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-tools",
     style: {
       marginTop: 10
