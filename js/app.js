@@ -583,6 +583,7 @@ const Sheet = () => {
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
   // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
+  const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
   const invSucheRef = useRef(null);
   // Nach dem Zuruecksetzen steht der Zeiger wieder im Feld: der haeufigste
@@ -1030,15 +1031,6 @@ const Sheet = () => {
   })))), /*#__PURE__*/React.createElement("div", {
     className: "sticky-header"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "sticky-tools"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "panel-edit-btn",
-    title: "Werte in der Leiste ausw\xE4hlen",
-    onClick: () => setLeisteWahlOffen(true)
-  }, "\u2699 Leiste"), /*#__PURE__*/React.createElement("button", {
-    className: "panel-edit-btn" + (statsEdit ? " active" : ""),
-    onClick: () => setStatsEdit(!statsEdit)
-  }, statsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
     className: "combat-row"
   }, statsEdit ? (
   /* Im Bearbeiten-Modus bekommen die gewaehlten Werte ein
@@ -1092,7 +1084,34 @@ const Sheet = () => {
     }, b.v, fxOn(b.t) && /*#__PURE__*/React.createElement("span", {
       className: "fx-mark"
     }, "\u2726")));
-  })), (() => {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "leiste-werkzeug"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "leiste-zahnrad" + (werkzeugOffen || statsEdit ? " aktiv" : ""),
+    onClick: () => setWerkzeugOffen(o => !o),
+    title: "Leiste einstellen",
+    "aria-expanded": werkzeugOffen,
+    "aria-label": "Leiste einstellen"
+  }, "\u2699"), werkzeugOffen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 29
+    },
+    onClick: () => setWerkzeugOffen(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "leiste-werkzeug-menu"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setLeisteWahlOffen(true);
+      setWerkzeugOffen(false);
+    }
+  }, "\u2699 Werte ausw\xE4hlen"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setStatsEdit(!statsEdit);
+      setWerkzeugOffen(false);
+    }
+  }, statsEdit ? "✓ Bearbeiten beenden" : "✏️ Werte bearbeiten"))))), (() => {
     const activeSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(l => slots[l] && slots[l].max > 0);
     const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses || []).some(m => m.charClass === "Zauberer");
     // Inspiration erscheint hier nur, wenn man welche hat — als
@@ -1259,10 +1278,9 @@ const Sheet = () => {
     className: "section-head"
   }, /*#__PURE__*/React.createElement("div", {
     className: "section-title"
-  }, "\uD83C\uDFAF Attribute & Fertigkeiten"), /*#__PURE__*/React.createElement("button", {
-    className: "panel-edit-btn" + (statsEdit ? " active" : ""),
-    onClick: () => setStatsEdit(!statsEdit)
-  }, statsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83C\uDFAF Attribute & Fertigkeiten"), statsEdit && /*#__PURE__*/React.createElement("span", {
+    className: "stats-edit-marke"
+  }, "Bearbeiten")), /*#__PURE__*/React.createElement("div", {
     className: "sheet-columns"
   }, /*#__PURE__*/React.createElement("div", {
     className: "sheet-col-left"
@@ -1310,9 +1328,9 @@ const Sheet = () => {
     const tip = [fxTitle(attr), fxTitle('profBonus'), fxTitle('saveAll'), fxTitle('save_' + attr)].filter(Boolean).join('\n');
     return /*#__PURE__*/React.createElement("div", _extends({
       key: attr,
-      className: "save-box" + (isP ? " prof" : ""),
+      className: "save-box" + (isP ? " prof" : "") + (statsEdit ? " schaltbar" : ""),
       title: tip || undefined
-    }, clickable(() => toggleSave(attr), "Rettungswurf " + label + (isP ? " — Übung aktiv" : ""))), /*#__PURE__*/React.createElement("div", {
+    }, statsEdit ? clickable(() => toggleSave(attr), "Rettungswurf " + label + (isP ? " — Übung aktiv" : "")) : {}), /*#__PURE__*/React.createElement("div", {
       className: "save-pip"
     }), /*#__PURE__*/React.createElement("div", {
       className: "save-label"
@@ -1324,7 +1342,7 @@ const Sheet = () => {
     }, fnum(val)));
   })), /*#__PURE__*/React.createElement("div", {
     className: "block-hint"
-  }, "Klick schaltet die \xDCbung um")), (() => {
+  }, statsEdit ? "Klick schaltet die Übung um" : "zum Ändern unten auf Bearbeiten")), (() => {
     const sk = SKILLS.find(x => x.key === 'aufmerksamkeit');
     if (!sk) return null;
     const isP = (cur.skillProfs || []).includes(sk.key);
@@ -1350,7 +1368,11 @@ const Sheet = () => {
     className: "block-title"
   }, "\u2726 Fertigkeiten"), /*#__PURE__*/React.createElement("button", {
     className: "joat-toggle",
-    onClick: toggleJoAT,
+    disabled: !statsEdit,
+    title: statsEdit ? undefined : "Zum Ändern unten auf Bearbeiten",
+    onClick: () => {
+      if (statsEdit) toggleJoAT();
+    },
     style: {
       borderRadius: 3,
       cursor: "pointer",
@@ -1379,13 +1401,16 @@ const Sheet = () => {
       title: skTip || undefined
     }, /*#__PURE__*/React.createElement("button", {
       className: "skill-prof-btn" + (isE ? " expertise" : ""),
-      onClick: () => toggleSkill(sk.key),
+      disabled: !statsEdit,
+      onClick: () => {
+        if (statsEdit) toggleSkill(sk.key);
+      },
       style: {
         background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
         borderColor: col,
         color: col
       },
-      title: isE ? "Expertise (Klick: entfernen)" : isP ? "Übung (Klick: Expertise)" : "Kein Bonus (Klick: Übung hinzufügen)"
+      title: !statsEdit ? "Zum Ändern unten auf Bearbeiten" : isE ? "Expertise (Klick: entfernen)" : isP ? "Übung (Klick: Expertise)" : "Kein Bonus (Klick: Übung hinzufügen)"
     }, pip), /*#__PURE__*/React.createElement("div", {
       className: "skill-name"
     }, sk.label), /*#__PURE__*/React.createElement("div", {
@@ -1406,7 +1431,12 @@ const Sheet = () => {
     }, "JoAT")));
   }), /*#__PURE__*/React.createElement("div", {
     className: "block-hint"
-  }, "\u2B24 \xDCbung \xB7 \u2B24\u2B24 Expertise \xB7 Klick zum Wechseln")))))), tab === "inventar" && /*#__PURE__*/React.createElement(AusruestungsPuppe, null), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\u2B24 \xDCbung \xB7 \u2B24\u2B24 Expertise", statsEdit ? " · Klick zum Wechseln" : " · zum Ändern unten auf Bearbeiten")))), /*#__PURE__*/React.createElement("div", {
+    className: "stats-fuss"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "panel-edit-btn gross" + (statsEdit ? " active" : ""),
+    onClick: () => setStatsEdit(!statsEdit)
+  }, statsEdit ? "✓ Fertig" : "✏️ Attribute & Übungen bearbeiten")))), tab === "inventar" && /*#__PURE__*/React.createElement(AusruestungsPuppe, null), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "slots-panel",
     style: {
       marginBottom: 0

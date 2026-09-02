@@ -177,7 +177,6 @@
   .block-hint { font-size:10px; color:var(--text-muted); font-style:italic; margin-top:8px; }
 
   /* Werkzeuge ueber der mitscrollenden Leiste. */
-  .sticky-tools { display:flex; justify-content:flex-end; gap:6px; margin-bottom:6px; }
 
   /* Auswahl der Leisten-Werte. */
   .leiste-wahl { display:flex; flex-direction:column; gap:2px; max-height:52vh; overflow-y:auto; }
@@ -831,6 +830,33 @@
   /* Schalter sehen anders aus als Zahlenwerte: sie tragen keine Hoehe,
      also soll man sie auch nicht danach absuchen. */
   /* Ein Rueckstand ist keine Nebensache — er bekommt die Warnfarbe. */
+  /* Werkzeug am Ende der Kampfwerte-Leiste. Klein genug, um nicht zu
+     stoeren, immer an derselben Stelle, und mit voller Trefferflaeche. */
+  .leiste-werkzeug { position:relative; display:flex; align-items:center; flex-shrink:0; }
+  .leiste-zahnrad { width:34px; height:34px; border-radius:5px; cursor:pointer; flex-shrink:0;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-muted); font-size:14px; line-height:1; }
+  .leiste-zahnrad:hover { border-color:var(--gold-dim); color:var(--gold); }
+  .leiste-zahnrad.aktiv { border-color:var(--gold); color:var(--gold); background:var(--bg-panel); }
+  .leiste-werkzeug-menu { position:absolute; right:0; top:100%; margin-top:5px; z-index:30; min-width:190px;
+    background:var(--bg-panel); border:1px solid var(--border-bright); border-radius:6px; overflow:hidden;
+    box-shadow:0 8px 26px rgba(0,0,0,0.6); display:flex; flex-direction:column; }
+  .leiste-werkzeug-menu button { padding:11px 14px; background:none; border:none; border-bottom:1px solid var(--border);
+    cursor:pointer; text-align:left; font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    color:var(--text-secondary); white-space:nowrap; min-height:44px; }
+  .leiste-werkzeug-menu button:last-child { border-bottom:none; }
+  .leiste-werkzeug-menu button:hover { background:var(--bg-hover); color:var(--gold); }
+  @media (hover:none), (pointer:coarse) { .leiste-zahnrad { width:40px; height:40px; font-size:16px; } }
+
+  /* Bearbeiten-Knopf unter den Attributen: dort wird er gesucht, wenn man
+     wirklich etwas aendern will, und stoert davor nicht. */
+  .stats-fuss { display:flex; justify-content:center; margin-top:16px; }
+  .panel-edit-btn.gross { padding:10px 20px; font-size:12px; min-height:44px; }
+  .stats-edit-marke { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--gold); border:1px solid var(--gold-dim); border-radius:10px; padding:2px 9px; }
+  /* Nicht schaltbare Uebungspunkte sehen auch so aus. */
+  .skill-prof-btn:disabled, .joat-toggle:disabled { cursor:default; }
+  .save-box:not(.schaltbar) { cursor:default; }
+
   .sync-line-msg.offen { color:#d98a8a; }
   .sync-line-hint { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#d9a441; white-space:nowrap; }
 

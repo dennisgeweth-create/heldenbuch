@@ -43,6 +43,7 @@ const Sheet = () => {
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
   // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
+  const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
   const invSucheRef = useRef(null);
   // Nach dem Zuruecksetzen steht der Zeiger wieder im Feld: der haeufigste
@@ -255,13 +256,6 @@ const Sheet = () => {
             Zauber-SG, und wer viel schleicht, vermisste die Passive
             Wahrnehmung. Die Auswahl haengt am Charakter, nicht am Geraet —
             sie gilt damit auch am Tablet der Gruppe. */}
-        <div className="sticky-tools">
-          <button className="panel-edit-btn" title="Werte in der Leiste auswählen"
-            onClick={()=>setLeisteWahlOffen(true)}>⚙ Leiste</button>
-          <button className={"panel-edit-btn"+(statsEdit?" active":"")} onClick={()=>setStatsEdit(!statsEdit)}>
-            {statsEdit ? "✓ Fertig" : "✏️ Bearbeiten"}
-          </button>
-        </div>
 
         <div className="combat-row">
           {statsEdit ? (
@@ -293,6 +287,29 @@ const Sheet = () => {
               );
             })
           )}
+          {/* Die beiden Werkzeuge sassen als eigene Knopfzeile ueber der
+              Leiste und nahmen dort dauerhaft Platz weg, obwohl man sie
+              selten braucht. Jetzt haengen sie als Zahnrad am Ende der
+              Leiste — immer an derselben Stelle, aber nicht mehr im Weg. */}
+          <div className="leiste-werkzeug">
+            <button className={"leiste-zahnrad"+(werkzeugOffen||statsEdit?" aktiv":"")}
+              onClick={()=>setWerkzeugOffen(o=>!o)}
+              title="Leiste einstellen" aria-expanded={werkzeugOffen}
+              aria-label="Leiste einstellen">⚙</button>
+            {werkzeugOffen && (
+              <>
+                <div style={{position:'fixed',inset:0,zIndex:29}} onClick={()=>setWerkzeugOffen(false)} />
+                <div className="leiste-werkzeug-menu">
+                  <button onClick={()=>{setLeisteWahlOffen(true);setWerkzeugOffen(false);}}>
+                    ⚙ Werte auswählen
+                  </button>
+                  <button onClick={()=>{setStatsEdit(!statsEdit);setWerkzeugOffen(false);}}>
+                    {statsEdit ? "✓ Bearbeiten beenden" : "✏️ Werte bearbeiten"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Resource mini-bar */}
@@ -421,12 +438,11 @@ const Sheet = () => {
                 Fertigkeiten in einer alphabetischen Liste. Auf schmalen
                 Schirmen stapelt sich beides. */}
             <div className="stats-section">
+              {/* Der Bearbeiten-Knopf steht unter den Werten, nicht ueber
+                  ihnen: gelesen wird hier staendig, geaendert selten. */}
               <div className="section-head">
                 <div className="section-title">🎯 Attribute &amp; Fertigkeiten</div>
-                <button className={"panel-edit-btn"+(statsEdit?" active":"")}
-                  onClick={()=>setStatsEdit(!statsEdit)}>
-                  {statsEdit ? "✓ Fertig" : "✏️ Bearbeiten"}
-                </button>
+                {statsEdit && <span className="stats-edit-marke">Bearbeiten</span>}
               </div>
 
               <div className="sheet-columns">
@@ -468,8 +484,8 @@ const Sheet = () => {
                         const touched = fxOn('save_'+attr)||fxOn('saveAll')||fxOn(attr)||fxOn('profBonus');
                         const tip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('saveAll'),fxTitle('save_'+attr)].filter(Boolean).join('\n');
                         return (
-                          <div key={attr} className={"save-box"+(isP?" prof":"")} title={tip||undefined}
-                            {...clickable(()=>toggleSave(attr), "Rettungswurf "+label+(isP?" — Übung aktiv":""))}>
+                          <div key={attr} className={"save-box"+(isP?" prof":"")+(statsEdit?" schaltbar":"")} title={tip||undefined}
+                            {...(statsEdit ? clickable(()=>toggleSave(attr), "Rettungswurf "+label+(isP?" — Übung aktiv":"")) : {})}>
                             <div className="save-pip"/>
                             <div className="save-label">{label}</div>
                             <div className={"save-value"+(touched?" fx-touched":"")} style={{color:isP?"var(--gold)":"var(--text-muted)"}}>{fnum(val)}</div>
@@ -477,7 +493,9 @@ const Sheet = () => {
                         );
                       })}
                     </div>
-                    <div className="block-hint">Klick schaltet die Übung um</div>
+                    <div className="block-hint">
+                      {statsEdit ? "Klick schaltet die Übung um" : "zum Ändern unten auf Bearbeiten"}
+                    </div>
                   </div>
 
                   {/* Steht im Bogen unter den Fertigkeiten und fehlte hier
@@ -506,7 +524,9 @@ const Sheet = () => {
                       <div className="block-title">✦ Fertigkeiten</div>
                       <button
                         className="joat-toggle"
-                        onClick={toggleJoAT}
+                        disabled={!statsEdit}
+                        title={statsEdit ? undefined : "Zum Ändern unten auf Bearbeiten"}
+                        onClick={()=>{ if (statsEdit) toggleJoAT(); }}
                         style={{
                           borderRadius:3,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,
                           letterSpacing:"0.08em",textTransform:"uppercase",
@@ -535,10 +555,12 @@ const Sheet = () => {
                         <div className="skill-row" key={sk.key} title={skTip||undefined}>
                           <button
                             className={"skill-prof-btn"+(isE?" expertise":"")}
-                            onClick={()=>toggleSkill(sk.key)}
+                            disabled={!statsEdit}
+                            onClick={()=>{ if (statsEdit) toggleSkill(sk.key); }}
                             style={{ background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
                                      borderColor: col, color: col }}
-                            title={isE?"Expertise (Klick: entfernen)":isP?"Übung (Klick: Expertise)":"Kein Bonus (Klick: Übung hinzufügen)"}
+                            title={!statsEdit ? "Zum Ändern unten auf Bearbeiten"
+                                  : isE?"Expertise (Klick: entfernen)":isP?"Übung (Klick: Expertise)":"Kein Bonus (Klick: Übung hinzufügen)"}
                           >{pip}</button>
                           <div className="skill-name">{sk.label}</div>
                           <div className="skill-attr-tag" style={{color:AC[attr],borderColor:AC[attr]+"55"}}>{AL[attr]}</div>
@@ -550,9 +572,19 @@ const Sheet = () => {
                         </div>
                       );
                     })}
-                    <div className="block-hint">⬤ Übung · ⬤⬤ Expertise · Klick zum Wechseln</div>
+                    <div className="block-hint">
+                      ⬤ Übung · ⬤⬤ Expertise
+                      {statsEdit ? " · Klick zum Wechseln" : " · zum Ändern unten auf Bearbeiten"}
+                    </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="stats-fuss">
+                <button className={"panel-edit-btn gross"+(statsEdit?" active":"")}
+                  onClick={()=>setStatsEdit(!statsEdit)}>
+                  {statsEdit ? "✓ Fertig" : "✏️ Attribute & Übungen bearbeiten"}
+                </button>
               </div>
             </div>
           </>
