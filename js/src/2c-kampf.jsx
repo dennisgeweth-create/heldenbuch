@@ -73,7 +73,8 @@ const sortiereNachIni = (liste) => [...liste].sort((a,b) => {
 
 // ── Eine Zeile ───────────────────────────────────────────────────
 const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
-                      onErschoepfung, onEntfernen, onBlatt, zustandOffen, setZustandOffen }) => {
+                      onErschoepfung, onEntfernen, onBlatt, zustandOffen, setZustandOffen,
+                      detailOffen, setDetailOffen }) => {
   const [eingabe, setEingabe] = React.useState('');
   const tot = t.hp <= 0;
   const anteil = t.hpMax > 0 ? Math.max(0, Math.min(1, t.hp / t.hpMax)) : 0;
@@ -105,11 +106,17 @@ const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
           {t.art === 'gegner' && t.vorlageId ? (
             <button className="kampf-name kampf-name-knopf" onClick={()=>onBlatt(t.vorlageId)}
               title="Werte nachschlagen">{t.name}</button>
+          ) : t.art === 'held' ? (
+            <button className="kampf-name kampf-name-knopf"
+              onClick={()=>setDetailOffen(detailOffen===t.id ? null : t.id)}
+              title="Werte aus dem Bogen" aria-expanded={detailOffen===t.id}>{t.name}</button>
           ) : (
             <span className="kampf-name">{t.name}</span>
           )}
           <span className="kampf-rk">RK {t.ac}</span>
+          {t.passive != null && <span className="kampf-passiv" title="Passive Wahrnehmung">👁 {t.passive}</span>}
           {t.ini === null && <span className="kampf-warte">Initiative fehlt</span>}
+          {t.fehlt && <span className="kampf-warte">nicht mehr im Abenteuer</span>}
         </div>
         {t.unterzeile && <div className="kampf-unter">{t.unterzeile}</div>}
 
@@ -163,6 +170,41 @@ const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
           ))}
         </div>
       )}
+
+      {/* Was der Bogen ueber diesen Helden weiss — die Zahlen, nach denen
+          am Tisch sonst gefragt wird. Sie kommen bei jedem Rendern frisch
+          aus dem Charakter, nicht aus einem Abzug vom Kampfbeginn. */}
+      {detailOffen === t.id && t.art === 'held' && (
+        <div className="kampf-detail">
+          {t.saves && (
+            <div className="kampf-detail-block">
+              <div className="kampf-detail-titel">Rettungswürfe</div>
+              <div className="kampf-saves">
+                {[['str','STR'],['dex','GES'],['con','KON'],['int','INT'],['wis','WEI'],['cha','CHA']].map(([k,l]) => (
+                  <div className="kampf-save" key={k}>
+                    <span>{l}</span><b>{fnum(t.saves[k])}</b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {(t.effekte||[]).length > 0 && (
+            <div className="kampf-detail-block">
+              <div className="kampf-detail-titel">Wirkt gerade</div>
+              <div className="kampf-effekte">
+                {(t.effekte||[]).map((e,i) => (
+                  <span className="kampf-effekt" key={i}>
+                    <i>{e.source}</i> {EFFECT_LABELS[e.target]||e.target} {effectText(e)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {(t.effekte||[]).length === 0 && !t.saves && (
+            <div className="kampf-detail-leer">Keine besonderen Werte.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -171,6 +213,7 @@ const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
 const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                         abenteuer, advId, onSchliessen, onGegnerBlatt, onBeenden }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
+  const [detailOffen, setDetailOffen] = React.useState(null);
 
   if (!kampf || !kampf.aktiv) {
     const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
@@ -211,7 +254,25 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     );
   }
 
-  const liste = kampf.teilnehmer;
+  // Im Kampf steht nur, was zum Kampf gehoert: Trefferpunkte, Zustaende,
+  // Initiative. Alles, was aus dem Bogen kommt — Ruestungsklasse, maximale
+  // Trefferpunkte, Immunitaeten, Rettungswuerfe —, wird bei jedem Rendern
+  // neu gelesen. Legt ein Held mitten im Kampf einen Schild an, steht seine
+  // RK hier sofort richtig, statt bis zum naechsten Kampf falsch zu bleiben.
+  const liste = kampf.teilnehmer.map(t => {
+    if (t.art !== 'held') return t;
+    const c = helden.find(h => h.id === t.charId);
+    if (!c) return {...t, fehlt: true};
+    const w = charWerte(c, setDefs);
+    return {...t,
+      name: c.name,
+      unterzeile: (c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level,
+      ac: w.ac, hpMax: w.maxHp, dex: w.dex,
+      bild: c.portrait || null,
+      passive: w.passive, saves: w.saves, effekte: w.effekte,
+      flags: w.flags.map(f => f.label),
+    };
+  });
   const amZug = liste[kampf.zug] || null;
   const aendern = (id, fn) => setKampf(k => ({...k, teilnehmer: k.teilnehmer.map(t => t.id===id ? fn(t) : t)}));
 
@@ -281,7 +342,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             onSchaden={n=>schaden(t.id,n)} onHeilen={n=>heilen(t.id,n)} onTemp={n=>temp(t.id,n)}
             onIni={v=>ini(t.id,v)} onZustand={z=>zustand(t.id,z)}
             onErschoepfung={d=>erschoepfung(t.id,d)} onEntfernen={()=>entfernen(t.id)}
-            onBlatt={onGegnerBlatt} />
+            onBlatt={onGegnerBlatt}
+            detailOffen={detailOffen} setDetailOffen={setDetailOffen} />
         ))}
       </div>
     </div>

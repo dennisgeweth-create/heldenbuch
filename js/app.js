@@ -1365,7 +1365,9 @@ const KampfZeile = ({
   onEntfernen,
   onBlatt,
   zustandOffen,
-  setZustandOffen
+  setZustandOffen,
+  detailOffen,
+  setDetailOffen
 }) => {
   const [eingabe, setEingabe] = React.useState('');
   const tot = t.hp <= 0;
@@ -1407,13 +1409,23 @@ const KampfZeile = ({
     className: "kampf-name kampf-name-knopf",
     onClick: () => onBlatt(t.vorlageId),
     title: "Werte nachschlagen"
+  }, t.name) : t.art === 'held' ? /*#__PURE__*/React.createElement("button", {
+    className: "kampf-name kampf-name-knopf",
+    onClick: () => setDetailOffen(detailOffen === t.id ? null : t.id),
+    title: "Werte aus dem Bogen",
+    "aria-expanded": detailOffen === t.id
   }, t.name) : /*#__PURE__*/React.createElement("span", {
     className: "kampf-name"
   }, t.name), /*#__PURE__*/React.createElement("span", {
     className: "kampf-rk"
-  }, "RK ", t.ac), t.ini === null && /*#__PURE__*/React.createElement("span", {
+  }, "RK ", t.ac), t.passive != null && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-passiv",
+    title: "Passive Wahrnehmung"
+  }, "\uD83D\uDC41 ", t.passive), t.ini === null && /*#__PURE__*/React.createElement("span", {
     className: "kampf-warte"
-  }, "Initiative fehlt")), t.unterzeile && /*#__PURE__*/React.createElement("div", {
+  }, "Initiative fehlt"), t.fehlt && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-warte"
+  }, "nicht mehr im Abenteuer")), t.unterzeile && /*#__PURE__*/React.createElement("div", {
     className: "kampf-unter"
   }, t.unterzeile), /*#__PURE__*/React.createElement("div", {
     className: "kampf-balken",
@@ -1493,7 +1505,29 @@ const KampfZeile = ({
     key: z,
     className: (t.zustaende || []).includes(z) ? 'aktiv' : '',
     onClick: () => onZustand(z)
-  }, z))));
+  }, z))), detailOffen === t.id && t.art === 'held' && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-detail"
+  }, t.saves && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-detail-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-detail-titel"
+  }, "Rettungsw\xFCrfe"), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-saves"
+  }, [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']].map(([k, l]) => /*#__PURE__*/React.createElement("div", {
+    className: "kampf-save",
+    key: k
+  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("b", null, fnum(t.saves[k])))))), (t.effekte || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-detail-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-detail-titel"
+  }, "Wirkt gerade"), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-effekte"
+  }, (t.effekte || []).map((e, i) => /*#__PURE__*/React.createElement("span", {
+    className: "kampf-effekt",
+    key: i
+  }, /*#__PURE__*/React.createElement("i", null, e.source), " ", EFFECT_LABELS[e.target] || e.target, " ", effectText(e))))), (t.effekte || []).length === 0 && !t.saves && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-detail-leer"
+  }, "Keine besonderen Werte.")));
 };
 
 // ── Der Kampf ────────────────────────────────────────────────────
@@ -1511,6 +1545,7 @@ const KampfAnsicht = ({
   onBeenden
 }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
+  const [detailOffen, setDetailOffen] = React.useState(null);
   if (!kampf || !kampf.aktiv) {
     const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
     return /*#__PURE__*/React.createElement("div", {
@@ -1545,7 +1580,34 @@ const KampfAnsicht = ({
       }, b.difficulty, " \xB7 ", anzahl, " Gegner \xB7 ", helden.length, " Helden", fehlend ? ' · ' + fehlend + ' Gegner fehlt in der Sammlung' : ''));
     }))));
   }
-  const liste = kampf.teilnehmer;
+
+  // Im Kampf steht nur, was zum Kampf gehoert: Trefferpunkte, Zustaende,
+  // Initiative. Alles, was aus dem Bogen kommt — Ruestungsklasse, maximale
+  // Trefferpunkte, Immunitaeten, Rettungswuerfe —, wird bei jedem Rendern
+  // neu gelesen. Legt ein Held mitten im Kampf einen Schild an, steht seine
+  // RK hier sofort richtig, statt bis zum naechsten Kampf falsch zu bleiben.
+  const liste = kampf.teilnehmer.map(t => {
+    if (t.art !== 'held') return t;
+    const c = helden.find(h => h.id === t.charId);
+    if (!c) return {
+      ...t,
+      fehlt: true
+    };
+    const w = charWerte(c, setDefs);
+    return {
+      ...t,
+      name: c.name,
+      unterzeile: (c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level,
+      ac: w.ac,
+      hpMax: w.maxHp,
+      dex: w.dex,
+      bild: c.portrait || null,
+      passive: w.passive,
+      saves: w.saves,
+      effekte: w.effekte,
+      flags: w.flags.map(f => f.label)
+    };
+  });
   const amZug = liste[kampf.zug] || null;
   const aendern = (id, fn) => setKampf(k => ({
     ...k,
@@ -1654,7 +1716,9 @@ const KampfAnsicht = ({
     onZustand: z => zustand(t.id, z),
     onErschoepfung: d => erschoepfung(t.id, d),
     onEntfernen: () => entfernen(t.id),
-    onBlatt: onGegnerBlatt
+    onBlatt: onGegnerBlatt,
+    detailOffen: detailOffen,
+    setDetailOffen: setDetailOffen
   }))));
 };
 
