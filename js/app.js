@@ -3826,6 +3826,47 @@ function App() {
     setSel(id);
   };
 
+  // ── Lokale Kopie ────────────────────────────────────────────────
+  // Der Browser gibt einer Seite rund 5 MB. Mit Heldenbildern und
+  // Gegenstandsbildern ist das erreichbar, und dann wirft setItem. Bisher
+  // riss das die Anmeldung mit: der Fehler landete ungefangen im
+  // Anmeldefenster ("exceeded the quota") und niemand kam mehr hinein.
+  //
+  // Die Kopie ist eine Bequemlichkeit — sie zeigt den letzten Stand, bis
+  // der Server antwortet. Ihr Fehlen darf nichts blockieren: die Daten
+  // liegen auf dem Server, und die Warteschlange merkt sich Kennungen,
+  // keine Inhalte. Passt die Kopie nicht mehr, sagen wir das und arbeiten
+  // ohne sie weiter.
+  const [spiegelVoll, setSpiegelVoll] = useState(false);
+  const spiegleChars = json => {
+    try {
+      localStorage.setItem('dnd_chars', json);
+      setSpiegelVoll(false);
+      return true;
+    } catch (e) {
+      // Platz schaffen: die Bibliothek laesst sich jederzeit neu laden.
+      try {
+        localStorage.removeItem('hb_library');
+      } catch {}
+      try {
+        localStorage.removeItem('hb_dm_library');
+      } catch {}
+      try {
+        localStorage.setItem('dnd_chars', json);
+        setSpiegelVoll(false);
+        return true;
+      } catch {}
+      // Ein unvollstaendiger Stand waere schlimmer als keiner: er saehe
+      // aus wie Datenverlust. Lieber gar keine Kopie.
+      try {
+        localStorage.removeItem('dnd_chars');
+      } catch {}
+      console.warn('[Heldenbuch] Lokale Kopie passt nicht in den Browserspeicher:', e && e.message);
+      setSpiegelVoll(true);
+      return false;
+    }
+  };
+
   // ── Warteschlange zum Server ────────────────────────────────────
   // Sie lag bisher nur im Arbeitsspeicher. Wer aenderte, waehrend der
   // Server nicht erreichbar war, und dann das Fenster schloss, verlor die
@@ -3835,6 +3876,12 @@ function App() {
   // einmal geaendert wurde, geht zum Server, sobald er antwortet.
   const WARTESCHLANGE = 'hb_pending';
   const zaehleOffen = () => Object.keys(pendingChars.current).length + Object.keys(pendingItems.current).length + pendingDeletes.current.size + pendingItemDel.current.size;
+  // Gemerkt wird nur, WAS offen ist — nicht der Inhalt. Der steht ohnehin
+  // in dnd_chars. Ihn danebenzulegen hat den Browserspeicher gesprengt:
+  // Heldenbilder und Gegenstandsbilder wiegen je einige zehn Kilobyte, und
+  // mit sechs Helden ist die Grenze von rund 5 MB schnell erreicht. So
+  // bleiben ein paar hundert Byte, und beim Senden wird ohnehin der
+  // aktuelle Stand gelesen statt eines alten Abzugs.
   const merkeWarteschlange = () => {
     try {
       const offen = zaehleOffen();
@@ -3844,8 +3891,8 @@ function App() {
         return;
       }
       localStorage.setItem(WARTESCHLANGE, JSON.stringify({
-        chars: pendingChars.current,
-        items: pendingItems.current,
+        chars: Object.keys(pendingChars.current),
+        items: Object.keys(pendingItems.current),
         delChars: [...pendingDeletes.current],
         delItems: [...pendingItemDel.current]
       }));
@@ -3855,8 +3902,27 @@ function App() {
     try {
       const roh = JSON.parse(localStorage.getItem(WARTESCHLANGE) || 'null');
       if (!roh) return false;
-      pendingChars.current = roh.chars || {};
-      pendingItems.current = roh.items || {};
+      // Aus den Kennungen den heutigen Stand zusammensuchen. Was es nicht
+      // mehr gibt, faellt weg — dafuer gibt es nichts mehr zu senden.
+      pendingChars.current = {};
+      (roh.chars || []).forEach(id => {
+        const c = charsRef.current.find(x => x.id === id);
+        if (c) pendingChars.current[id] = {
+          ...c,
+          inventory: []
+        };
+      });
+      pendingItems.current = {};
+      (roh.items || []).forEach(k => {
+        const [charId, itemId] = k.split('__');
+        const c = charsRef.current.find(x => x.id === charId);
+        const item = c && (c.inventory || []).find(i => i.id === itemId);
+        if (item) pendingItems.current[k] = {
+          charId,
+          itemId,
+          item
+        };
+      });
       pendingDeletes.current = new Set(roh.delChars || []);
       pendingItemDel.current = new Set(roh.delItems || []);
       const offen = zaehleOffen();
@@ -3996,18 +4062,26 @@ function App() {
         if (!pendingRef.current) {
           // No unsaved local changes — server is authoritative
           applyChars(d.chars || []);
-          localStorage.setItem('dnd_chars', JSON.stringify(d.chars || []));
+          spiegleChars(JSON.stringify(d.chars || []));
         }
         // If pendingRef=true: local has newer unsaved data — keep it, interval will push to server
         setSyncStatus('ok');
         setSyncMsg('Verbunden ✓');
         setGearReady(true);
-      }).catch(() => {
+      }).catch(e => {
         // Kein "Lokal ✓": das las sich wie ein gelungener Speichervorgang,
         // obwohl nichts beim Server angekommen ist. Der Zustand ist ein
         // Fehler, kein Betriebsmodus — und wird auch so angezeigt.
+        //
+        // Gezeigt wird der Grund, den der Server nennt, nicht ein
+        // geratener. "Server nicht erreichbar" stimmt nur, wenn die
+        // Verbindung selbst scheitert; ein falsches Passwort oder eine
+        // Absage der Datenbank sehen von hier genauso aus und wuerden
+        // sonst unter der falschen Ueberschrift landen.
+        const grund = e && e.message ? e.message : 'Laden fehlgeschlagen';
+        console.error('[Heldenbuch] Laden fehlgeschlagen:', e);
         setSyncStatus('err');
-        setSyncMsg('Server nicht erreichbar');
+        setSyncMsg(grund);
         setGearReady(true);
       });
     } else {
@@ -4268,7 +4342,7 @@ function App() {
       // User explicitly requested reload — always apply server data
       pendingRef.current = false; // cancel any pending local saves
       applyChars(data.chars || []);
-      localStorage.setItem('dnd_chars', JSON.stringify(data.chars || []));
+      spiegleChars(JSON.stringify(data.chars || []));
       if (data.library) {
         setUserLibrary(data.library);
         safeSetItem('hb_library', JSON.stringify(data.library));
@@ -4365,9 +4439,7 @@ function App() {
       }
     }
     pendingRef.current = true;
-    try {
-      localStorage.setItem('dnd_chars', JSON.stringify(u));
-    } catch {}
+    spiegleChars(JSON.stringify(u));
     merkeWarteschlange();
     setSyncStatus('busy');
     setSyncMsg('Speichert...');
@@ -4428,7 +4500,7 @@ function App() {
       setSvPass(pass);
       applyChars(data.chars || []);
       pendingRef.current = false;
-      localStorage.setItem('dnd_chars', JSON.stringify(data.chars || []));
+      spiegleChars(JSON.stringify(data.chars || []));
       if (data.library) {
         setUserLibrary(data.library);
         safeSetItem('hb_library', JSON.stringify(data.library));
@@ -5957,7 +6029,10 @@ function App() {
     className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
   }, "\xB7 ", offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-ver"
-  }, "v3.9")), /*#__PURE__*/React.createElement("div", {
+  }, "v3.9"), spiegelVoll && /*#__PURE__*/React.createElement("span", {
+    className: "sync-line-hint",
+    title: "Der Browserspeicher ist voll. Die Charaktere liegen weiter auf dem Server und werden bei jedem Start von dort geladen \u2014 nur die lokale Kopie f\xFCr den Offline-Fall entf\xE4llt."
+  }, "\u26A0 ohne lokale Kopie")), /*#__PURE__*/React.createElement("div", {
     className: "sync-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-sync",
