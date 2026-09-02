@@ -213,6 +213,97 @@ const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
   );
 };
 
+// ── Spontan zusammenstellen ──────────────────────────────────────
+// Nicht jeder Kampf ist vorbereitet. Hier werden Gegner direkt gewaehlt,
+// ohne den Umweg ueber eine gespeicherte Begegnung — dasselbe Fenster
+// nimmt auch Nachzuegler in einen laufenden Kampf auf.
+const SpontanWahl = ({ enemies, laufend, onStarten, onAbbrechen }) => {
+  const [suche, setSuche] = React.useState('');
+  const [gewaehlt, setGewaehlt] = React.useState([]);
+
+  const q = suche.trim();
+  const treffer = enemies
+    .filter(e => !q || containsFold(e.name||'', q) || containsFold((e.tags||[]).join(' '), q)
+                 || containsFold(e.type||'', q))
+    .sort((a,b) => crRang(a.cr)-crRang(b.cr) || (a.name||'').localeCompare(b.name||'','de'))
+    .slice(0, q ? 25 : 15);
+
+  const hinzu = (e) => setGewaehlt(g => {
+    const drin = g.find(x => x.enemyId === e.id);
+    return drin ? g.map(x => x.enemyId===e.id ? {...x, count:x.count+1} : x)
+                : [...g, {enemyId:e.id, count:1, name:e.name}];
+  });
+  const anzahlSetzen = (id, n) => setGewaehlt(g => g.map(x => x.enemyId===id ? {...x, count:Math.max(1,n)} : x));
+  const entfernen = (id) => setGewaehlt(g => g.filter(x => x.enemyId !== id));
+
+  const gesamt = gewaehlt.reduce((s,x) => s + x.count, 0);
+
+  return (
+    <div className="form-overlay" onClick={onAbbrechen}>
+      <div className="form-modal spontan" onClick={e=>e.stopPropagation()}>
+        <div className="form-title">
+          {laufend ? '⚡ Gegner in den Kampf holen' : '⚡ Spontaner Kampf'}
+        </div>
+
+        {gewaehlt.length > 0 && (
+          <div className="spontan-gewaehlt">
+            {gewaehlt.map(x => {
+              const g = enemies.find(e => e.id === x.enemyId);
+              return (
+                <div className="spontan-teil" key={x.enemyId}>
+                  <span className="spontan-teil-name">
+                    {x.name}
+                    {g && <i>HG {g.cr} · RK {g.ac} · {g.hpMax} TP</i>}
+                  </span>
+                  <input className="form-input spontan-zahl" type="number" min={1} max={30}
+                    value={x.count} aria-label={'Anzahl ' + x.name}
+                    onChange={e=>anzahlSetzen(x.enemyId, +e.target.value)} />
+                  <button type="button" className="fx-del" title="Entfernen"
+                    onClick={()=>entfernen(x.enemyId)}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <input className="form-input spontan-suche" value={suche} autoFocus
+          placeholder={enemies.length + ' Gegner durchsuchen…'} aria-label="Gegner suchen"
+          onChange={e=>setSuche(e.target.value)} />
+
+        <div className="spontan-treffer">
+          {treffer.length === 0 ? (
+            <div className="spontan-leer">Kein Gegner gefunden.</div>
+          ) : treffer.map(e => (
+            <button type="button" key={e.id} className="spontan-zeile" onClick={()=>hinzu(e)}>
+              <span className="spontan-bild">
+                {e.image ? <img src={e.image} alt="" /> : <span>💀</span>}
+              </span>
+              <span className="spontan-text">
+                <b>{e.name}</b>
+                <i>{e.size} · {e.type}</i>
+              </span>
+              <span className="spontan-werte">
+                <span className="gegner-hg">HG {e.cr}</span>
+                RK {e.ac} · {e.hpMax} TP
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          <button className="btn-save" disabled={gesamt === 0}
+            onClick={()=>onStarten(gewaehlt)}>
+            {gesamt === 0 ? 'Noch nichts gewählt'
+              : laufend ? gesamt + (gesamt===1?' Gegner':' Gegner') + ' dazunehmen'
+                        : 'Kampf mit ' + gesamt + (gesamt===1?' Gegner':' Gegnern') + ' starten'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Trefferpunkte zurueck in die Boegen ──────────────────────────
 // Kein stiller Automatismus: es sind die Boegen der Spieler, das
 // Heldenbuch speichert im Sekundentakt, und wer seinen Bogen gerade offen
@@ -298,6 +389,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [uebertragen, setUebertragen] = React.useState(false);
+  const [spontan, setSpontan] = React.useState(false);
 
   if (!kampf || !kampf.aktiv) {
     const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
@@ -307,11 +399,24 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           <div className="kampf-titel">⚔ Kampf</div>
           <button className="btn-cancel" onClick={onSchliessen}>Schließen</button>
         </div>
+        {spontan && (
+          <SpontanWahl enemies={enemies} laufend={false}
+            onAbbrechen={()=>setSpontan(false)}
+            onStarten={(auswahl)=>{
+              setSpontan(false);
+              setKampf(kampfAufstellen(
+                {name:'Spontaner Kampf', enemies:auswahl}, enemies, helden, setDefs));
+            }} />
+        )}
         <div className="kampf-start">
           <p className="kampf-start-hinweis">
-            Wähle eine Begegnung. Die Trefferpunkte der Gegner werden ausgewürfelt,
-            die Helden des offenen Abenteuers kommen mit ihren gerechneten Werten dazu.
+            Wähle eine Begegnung — oder stell dir eine spontan zusammen. Die
+            Trefferpunkte der Gegner werden ausgewürfelt, die Helden des offenen
+            Abenteuers kommen mit ihren gerechneten Werten dazu.
           </p>
+          <button className="kampf-spontan-knopf" onClick={()=>setSpontan(true)}>
+            ⚡ Spontaner Kampf — Gegner direkt wählen
+          </button>
           {waehlbar.length === 0 ? (
             <p className="kampf-leer">Keine Begegnung in diesem Abenteuer. Lege eine unter 📚 Datenbank › Begegnungen an.</p>
           ) : (
@@ -408,6 +513,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           {amZug ? <>Am Zug: <b>{amZug.name}</b></> : 'Niemand am Zug'}
         </div>
         <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
+        <button className="btn-cancel" onClick={()=>setSpontan(true)} title="Gegner nachträglich dazunehmen">⚡ Gegner</button>
         <button className="btn-cancel" onClick={()=>setUebertragen(true)}>Kampf beenden</button>
         <button className="btn-cancel" onClick={onSchliessen} title="Nur schließen, der Kampf läuft weiter">✕</button>
       </div>
@@ -417,6 +523,23 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           {ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative'} —
           sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen.
         </div>
+      )}
+
+      {spontan && (
+        <SpontanWahl enemies={enemies} laufend={true}
+          onAbbrechen={()=>setSpontan(false)}
+          onStarten={(auswahl)=>{
+            setSpontan(false);
+            // Nur die Gegner aufstellen — die Helden stehen schon in der
+            // Liste und duerfen nicht ein zweites Mal hinein.
+            const frisch = kampfAufstellen({name:'', enemies:auswahl}, enemies, [], setDefs);
+            setKampf(k => {
+              const dranId = k.teilnehmer[k.zug] && k.teilnehmer[k.zug].id;
+              const teilnehmer = sortiereNachIni([...k.teilnehmer, ...frisch.teilnehmer]);
+              const zug = Math.max(0, teilnehmer.findIndex(t => t.id === dranId));
+              return {...k, teilnehmer, zug};
+            });
+          }} />
       )}
 
       {uebertragen && (

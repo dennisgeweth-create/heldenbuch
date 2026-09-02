@@ -1535,6 +1535,107 @@ const KampfZeile = ({
   }, "Keine besonderen Werte.")));
 };
 
+// ── Spontan zusammenstellen ──────────────────────────────────────
+// Nicht jeder Kampf ist vorbereitet. Hier werden Gegner direkt gewaehlt,
+// ohne den Umweg ueber eine gespeicherte Begegnung — dasselbe Fenster
+// nimmt auch Nachzuegler in einen laufenden Kampf auf.
+const SpontanWahl = ({
+  enemies,
+  laufend,
+  onStarten,
+  onAbbrechen
+}) => {
+  const [suche, setSuche] = React.useState('');
+  const [gewaehlt, setGewaehlt] = React.useState([]);
+  const q = suche.trim();
+  const treffer = enemies.filter(e => !q || containsFold(e.name || '', q) || containsFold((e.tags || []).join(' '), q) || containsFold(e.type || '', q)).sort((a, b) => crRang(a.cr) - crRang(b.cr) || (a.name || '').localeCompare(b.name || '', 'de')).slice(0, q ? 25 : 15);
+  const hinzu = e => setGewaehlt(g => {
+    const drin = g.find(x => x.enemyId === e.id);
+    return drin ? g.map(x => x.enemyId === e.id ? {
+      ...x,
+      count: x.count + 1
+    } : x) : [...g, {
+      enemyId: e.id,
+      count: 1,
+      name: e.name
+    }];
+  });
+  const anzahlSetzen = (id, n) => setGewaehlt(g => g.map(x => x.enemyId === id ? {
+    ...x,
+    count: Math.max(1, n)
+  } : x));
+  const entfernen = id => setGewaehlt(g => g.filter(x => x.enemyId !== id));
+  const gesamt = gewaehlt.reduce((s, x) => s + x.count, 0);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: onAbbrechen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal spontan",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, laufend ? '⚡ Gegner in den Kampf holen' : '⚡ Spontaner Kampf'), gewaehlt.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "spontan-gewaehlt"
+  }, gewaehlt.map(x => {
+    const g = enemies.find(e => e.id === x.enemyId);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "spontan-teil",
+      key: x.enemyId
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "spontan-teil-name"
+    }, x.name, g && /*#__PURE__*/React.createElement("i", null, "HG ", g.cr, " \xB7 RK ", g.ac, " \xB7 ", g.hpMax, " TP")), /*#__PURE__*/React.createElement("input", {
+      className: "form-input spontan-zahl",
+      type: "number",
+      min: 1,
+      max: 30,
+      value: x.count,
+      "aria-label": 'Anzahl ' + x.name,
+      onChange: e => anzahlSetzen(x.enemyId, +e.target.value)
+    }), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fx-del",
+      title: "Entfernen",
+      onClick: () => entfernen(x.enemyId)
+    }, "\u2715"));
+  })), /*#__PURE__*/React.createElement("input", {
+    className: "form-input spontan-suche",
+    value: suche,
+    autoFocus: true,
+    placeholder: enemies.length + ' Gegner durchsuchen…',
+    "aria-label": "Gegner suchen",
+    onChange: e => setSuche(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "spontan-treffer"
+  }, treffer.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "spontan-leer"
+  }, "Kein Gegner gefunden.") : treffer.map(e => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: e.id,
+    className: "spontan-zeile",
+    onClick: () => hinzu(e)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "spontan-bild"
+  }, e.image ? /*#__PURE__*/React.createElement("img", {
+    src: e.image,
+    alt: ""
+  }) : /*#__PURE__*/React.createElement("span", null, "\uD83D\uDC80")), /*#__PURE__*/React.createElement("span", {
+    className: "spontan-text"
+  }, /*#__PURE__*/React.createElement("b", null, e.name), /*#__PURE__*/React.createElement("i", null, e.size, " \xB7 ", e.type)), /*#__PURE__*/React.createElement("span", {
+    className: "spontan-werte"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "gegner-hg"
+  }, "HG ", e.cr), "RK ", e.ac, " \xB7 ", e.hpMax, " TP")))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: gesamt === 0,
+    onClick: () => onStarten(gewaehlt)
+  }, gesamt === 0 ? 'Noch nichts gewählt' : laufend ? gesamt + (gesamt === 1 ? ' Gegner' : ' Gegner') + ' dazunehmen' : 'Kampf mit ' + gesamt + (gesamt === 1 ? ' Gegner' : ' Gegnern') + ' starten'))));
+};
+
 // ── Trefferpunkte zurueck in die Boegen ──────────────────────────
 // Kein stiller Automatismus: es sind die Boegen der Spieler, das
 // Heldenbuch speichert im Sekundentakt, und wer seinen Bogen gerade offen
@@ -1649,6 +1750,7 @@ const KampfAnsicht = ({
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [uebertragen, setUebertragen] = React.useState(false);
+  const [spontan, setSpontan] = React.useState(false);
   if (!kampf || !kampf.aktiv) {
     const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
     return /*#__PURE__*/React.createElement("div", {
@@ -1660,11 +1762,25 @@ const KampfAnsicht = ({
     }, "\u2694 Kampf"), /*#__PURE__*/React.createElement("button", {
       className: "btn-cancel",
       onClick: onSchliessen
-    }, "Schlie\xDFen")), /*#__PURE__*/React.createElement("div", {
+    }, "Schlie\xDFen")), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
+      enemies: enemies,
+      laufend: false,
+      onAbbrechen: () => setSpontan(false),
+      onStarten: auswahl => {
+        setSpontan(false);
+        setKampf(kampfAufstellen({
+          name: 'Spontaner Kampf',
+          enemies: auswahl
+        }, enemies, helden, setDefs));
+      }
+    }), /*#__PURE__*/React.createElement("div", {
       className: "kampf-start"
     }, /*#__PURE__*/React.createElement("p", {
       className: "kampf-start-hinweis"
-    }, "W\xE4hle eine Begegnung. Die Trefferpunkte der Gegner werden ausgew\xFCrfelt, die Helden des offenen Abenteuers kommen mit ihren gerechneten Werten dazu."), waehlbar.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    }, "W\xE4hle eine Begegnung \u2014 oder stell dir eine spontan zusammen. Die Trefferpunkte der Gegner werden ausgew\xFCrfelt, die Helden des offenen Abenteuers kommen mit ihren gerechneten Werten dazu."), /*#__PURE__*/React.createElement("button", {
+      className: "kampf-spontan-knopf",
+      onClick: () => setSpontan(true)
+    }, "\u26A1 Spontaner Kampf \u2014 Gegner direkt w\xE4hlen"), waehlbar.length === 0 ? /*#__PURE__*/React.createElement("p", {
       className: "kampf-leer"
     }, "Keine Begegnung in diesem Abenteuer. Lege eine unter \uD83D\uDCDA Datenbank \u203A Begegnungen an.") : /*#__PURE__*/React.createElement("div", {
       className: "kampf-start-liste"
@@ -1797,6 +1913,10 @@ const KampfAnsicht = ({
     onClick: naechster
   }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
+    onClick: () => setSpontan(true),
+    title: "Gegner nachtr\xE4glich dazunehmen"
+  }, "\u26A1 Gegner"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
     onClick: () => setUebertragen(true)
   }, "Kampf beenden"), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
@@ -1804,7 +1924,30 @@ const KampfAnsicht = ({
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter"
   }, "\u2715")), ohneIni > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
-  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen."), uebertragen && /*#__PURE__*/React.createElement(UebertragenDialog, {
+  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen."), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
+    enemies: enemies,
+    laufend: true,
+    onAbbrechen: () => setSpontan(false),
+    onStarten: auswahl => {
+      setSpontan(false);
+      // Nur die Gegner aufstellen — die Helden stehen schon in der
+      // Liste und duerfen nicht ein zweites Mal hinein.
+      const frisch = kampfAufstellen({
+        name: '',
+        enemies: auswahl
+      }, enemies, [], setDefs);
+      setKampf(k => {
+        const dranId = k.teilnehmer[k.zug] && k.teilnehmer[k.zug].id;
+        const teilnehmer = sortiereNachIni([...k.teilnehmer, ...frisch.teilnehmer]);
+        const zug = Math.max(0, teilnehmer.findIndex(t => t.id === dranId));
+        return {
+          ...k,
+          teilnehmer,
+          zug
+        };
+      });
+    }
+  }), uebertragen && /*#__PURE__*/React.createElement(UebertragenDialog, {
     teilnehmer: kampf.teilnehmer,
     helden: helden,
     setDefs: setDefs,
