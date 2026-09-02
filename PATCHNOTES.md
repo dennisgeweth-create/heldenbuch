@@ -75,6 +75,134 @@ landet zusätzlich im Abenteuerlog.
 - Der laufende Kampf liegt **auf deinem Gerät**, nicht auf dem Server. Er
   übersteht ein Neuladen, aber kein Wechseln des Geräts.
 
+## v3.10
+
+### Neu: Ausrüstung mit Plätzen statt einer Liste
+
+Der Inventar-Reiter hat oben eine Ausrüstungsanzeige bekommen: **15 Plätze** —
+Kopf, Hals, Umhang, Rüstung, Armschienen, Handschuhe, Gürtel, Stiefel, zwei
+Ringe, Wunderding, Sonstiges und drei für die Hände. Ein Tipp auf ein angelegtes
+Stück zeigt seine Einzelheiten, der **⇄** daneben wechselt oder legt ab. Ein
+leerer Platz führt direkt zur Auswahl.
+
+- Die **Rüstungsklasse wird gerechnet** und in der Mitte aufgeschlüsselt:
+  „Kettenhemd: 13 + GES 2 · + Schild: +2 · + Ring des Schutzes: +1 = 18 RK".
+  Kein Nachrechnen mehr von Hand.
+- Die **Handplätze zeigen auf deine Waffen** — wechselst du hier, wechselt es
+  auch auf der Waffenkarte im Aktionen-Reiter. Ein Zweihänder in der Haupthand
+  belegt und sperrt die Nebenhand.
+- **Rüstungsvorlagen** von Lederrüstung bis Plattenpanzer stehen in der Auswahl
+  des Rüstungsplatzes und legen das Stück in einem Schritt an *und* ziehen es an.
+- In der Mitte kannst du ein **Bild deines Helden** hochladen, im Format einer
+  Spielkarte. Ohne Bild stehen dort die gekreuzten Schwerter als Knopf.
+
+Getragenes ist jetzt ein ganz normaler Inventargegenstand mit einem Platz — es
+gibt keine zweite Ausrüstungsliste mehr, die man doppelt pflegen muss.
+Bestehende Ausrüstung wurde beim ersten Öffnen automatisch übernommen.
+
+### Neu: Sets
+
+Gegenstände können zu einem Set gehören. Unter **📚 Datenbank › ✦ Sets** legst du
+fest, was ab wie vielen getragenen Teilen dazukommt — etwa „2 Teile: Bewegung +3“
+und „4 Teile: Rüstungsklasse +2“. Erreichte Stufen wirken alle zugleich.
+
+Unter der Ausrüstung steht dann, wie weit du bist: **„✦ Hain des Ersten Lichts
+2 / 4 Teile"**, erreichte Stufen hell, offene gedämpft. Gezählt werden getragene
+Stücke — zwei Ringe desselben Sets sind zwei Teile.
+
+### Neu: Mehrere Abenteuer
+
+Eine Anmeldung kann jetzt mehrere Kampagnen führen. Unter der Heldenliste steht,
+welches Abenteuer offen ist; die Liste zeigt nur dessen Helden. Euer bisheriger
+Bestand ist automatisch zu **„Strahd"** geworden.
+
+Neue Abenteuer legst du unter **⚙ Abenteuer verwalten** an, dort lassen sie sich
+auch umbenennen und Helden verschieben. Zauber, Waffen und Gegenstände aus der
+Datenbank gelten weiterhin für alle — ein Heiltrank ist in jeder Kampagne
+derselbe.
+
+### Effekte können sehr viel mehr
+
+Gegenstände, Waffen und **neuerdings auch Merkmale** können Werte verändern. Aus
+41 möglichen Zielen sind **77** geworden:
+
+- **Immunitäten** gegen kritische Treffer, Bezaubern, Furcht, Gift, Krankheit,
+  magischen Schlaf, Gelähmt und Blind
+- **Resistenzen** gegen alle 13 Schadensarten
+- **Vorteil und Nachteil** auf Initiative, Heimlichkeit, Rettungswürfe gegen
+  Zauber und Gift, Todesrettungswürfe
+- **Sinne und Bewegung**: Passive Wahrnehmung, Dunkelsicht, Schwimm-, Kletter-
+  und Flugbewegung
+- **Besonderes**: nicht überraschbar, Wasseratmung, braucht keinen Schlaf,
+  versteht alle Sprachen
+
+Diese neue Sorte trägt keine Zahl — sie gilt oder gilt nicht. Im Effekte-
+Überblick stehen sie zusätzlich gebündelt unter **„Gilt gerade"**, damit im Kampf
+auf einen Blick klar ist, wogegen du immun bist, ohne die Gegenstände
+durchzusehen.
+
+**Merkmale mit Effekten** sind der Grund, warum die RK-Boni aus Talenten
+umgezogen sind: Der Defensive Kampfstil steht jetzt bei den Merkmalen, wo er
+hingehört, mit einem Schalter auf der Karte — er greift ja nicht ohne Rüstung.
+
+### Suchen und Finden
+
+- **Inventarsuche** über *alle* Angaben eines Gegenstands: Name, Schlagworte,
+  Herkunft, Seltenheit, Effekte und Beschreibung. Umlaute darfst du weglassen,
+  „ubermantel" findet den Übermantel. Ein großer Zurücksetzen-Knopf räumt Suche,
+  Seltenheit und Schlagworte auf einmal weg.
+- Die **Gegenstandsdatenbank** kennt jetzt Ausrüstungsplatz, Rüstungswerte,
+  Effekte und Set-Zugehörigkeit. Was du daraus übernimmst, bringt alles mit.
+
+### Bedienung
+
+- Die **Heldenliste klappt sich nicht mehr weg**, wenn du einen Helden auswählst.
+  Wer mehr Platz für den Bogen will, klappt sie selbst ein — der Knopf am linken
+  Rand trägt dann die Aufschrift „Helden".
+- Der **Bearbeiten-Knopf im Attribute-Tab steht unten**, wo man ihn sucht, wenn
+  man wirklich etwas ändern will. Läuft der Modus, steht oben eine Marke.
+- **Übungen, Expertise, Rettungswürfe und der Allrounder lassen sich nur noch im
+  Bearbeiten-Modus umschalten.** Am Spieltisch tippt man auf einer
+  Fertigkeitszeile schnell daneben, und eine versehentlich gesetzte Übung
+  verschiebt still einen Wurf.
+- Die beiden Werkzeuge über der Kampfwerte-Leiste sind zu einem **Zahnrad am Ende
+  der Leiste** geworden — immer an derselben Stelle, aber nicht mehr im Weg.
+- Die **Blätterpfeile am Heldennamen sind weg**; gewechselt wird über das Menü am
+  Namen. (Der Hinweis dazu in v3.9 gilt nicht mehr.)
+- **Am Handy**: die Ausrüstungsplätze stehen untereinander statt in zwei engen
+  Spalten, und in der Tableiste trägt nur noch der offene Reiter seinen Namen —
+  die übrigen sechs sind Symbole und dadurch größer zu treffen.
+
+### Fehlerbehebungen
+
+- **Kritisch:** Wer viele Bilder gespeichert hatte, kam irgendwann **gar nicht
+  mehr hinein** — die Anmeldung brach mit „exceeded the quota" ab, weil der
+  Browserspeicher voll war. Behoben; ein voller Speicher blockiert jetzt nichts
+  mehr, und die App sagt es, statt eine halbe Kopie zu hinterlassen.
+- **Kritisch:** Änderungen, die entstanden während der Server nicht erreichbar
+  war, gingen beim Schließen des Fensters **still verloren**. Sie überstehen das
+  jetzt und gehen zum Server, sobald er wieder antwortet.
+- Die Meldung **„Lokal ✓"** ist weg. Sie las sich wie ein gelungenes Speichern,
+  obwohl nichts angekommen war. Jetzt steht dort der echte Grund und, solange
+  etwas aussteht, **„N nicht gesichert"** in Rot — und der Browser fragt nach,
+  wenn du das Fenster schließen willst.
+- **Abmelden** verlangt jetzt, dass nichts mehr aussteht.
+- Ohne Gruppe werden **keine Charaktere mehr geladen** — es gab sonst einen
+  Stand hinter dem Anmeldefenster, an dem man arbeiten konnte, ohne dass er je
+  irgendwo ankam.
+- In der Ausrüstungsanzeige **öffneten Waffen ihre Einzelheiten nicht**.
+- Auf dem Tablet standen die **Rettungswürfe über ihren Kasten hinaus**.
+- Bei angelegter Ausrüstung stand in der Gegenstandsansicht **„Ruht"**, obwohl
+  die Effekte längst wirkten.
+
+### Technik (kurz)
+
+- Der Anwendungscode liegt jetzt in sieben Quelldateien statt einer.
+- Die Rüstungsklasse wird an **einer** Stelle gerechnet und von Bogen und
+  Kampftracker gemeinsam benutzt — statt zweier Fassungen, die auseinanderlaufen.
+- Die Warteschlange zum Server merkt sich **Kennungen statt Inhalte**: ein paar
+  Byte statt eines vollständigen zweiten Abzugs aller Charaktere.
+
 ## v3.9
 
 ### Neu: Heldenwechsel im Charakterbogen
