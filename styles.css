@@ -1059,6 +1059,22 @@
     border:1px solid var(--border); color:var(--text-muted); }
   .kampf-zustand-wahl button.aktiv { border-color:var(--crimson); color:#f0a0a0; background:rgba(224,90,90,0.14); }
 
+  /* Trefferpunkte uebertragen */
+  .ueb-liste { display:flex; flex-direction:column; gap:5px; max-height:46vh; overflow-y:auto; }
+  .ueb-zeile { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:9px 11px;
+    cursor:pointer; min-height:46px; }
+  .ueb-zeile.gleich { opacity:0.5; cursor:default; }
+  .ueb-zeile.fremd { border-color:#d9a441; }
+  .ueb-zeile input { width:16px; height:16px; cursor:pointer; accent-color:var(--gold); }
+  .ueb-name { font-family:'Roboto Condensed',sans-serif; font-size:13.5px; color:var(--text-primary); }
+  .ueb-werte { display:flex; align-items:baseline; gap:7px; font-family:'Roboto Condensed',sans-serif;
+    font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .ueb-werte b { font-size:15px; font-weight:400; color:var(--text-primary); }
+  .ueb-werte i { font-style:normal; color:var(--gold); }
+  .ueb-hinweis { grid-column:2 / -1; font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); }
+  .ueb-warnung { grid-column:2 / -1; font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:#d9a441; }
+
   .kampf-passiv { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted); }
   .kampf-detail { grid-column:1 / -1; margin-top:7px; padding-top:8px; border-top:1px solid var(--border);
     display:flex; flex-direction:column; gap:9px; }

@@ -1322,6 +1322,11 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
       hpMax: werte.maxHp,
       hp: werte.hp,
       tempHp: werte.tempHp,
+      // Der Stand des Bogens beim Kampfbeginn. Weicht er beim Uebertragen
+      // davon ab, hat der Spieler selbst etwas geaendert — dann wird nicht
+      // ungefragt darueber geschrieben.
+      hpBeiStart: werte.hp,
+      tempBeiStart: werte.tempHp,
       // Die Initiative der Helden wuerfeln die Spieler selbst — hier bleibt
       // das Feld leer, bis jemand die Zahl ansagt.
       ini: null,
@@ -1530,6 +1535,103 @@ const KampfZeile = ({
   }, "Keine besonderen Werte.")));
 };
 
+// ── Trefferpunkte zurueck in die Boegen ──────────────────────────
+// Kein stiller Automatismus: es sind die Boegen der Spieler, das
+// Heldenbuch speichert im Sekundentakt, und wer seinen Bogen gerade offen
+// hat, merkt vom Ueberschreiben nichts. Deshalb steht hier, was sich
+// aendern wuerde, und jede Zeile laesst sich abwaehlen.
+const UebertragenDialog = ({
+  teilnehmer,
+  helden,
+  setDefs,
+  onUebertragen,
+  onOhne,
+  onAbbrechen
+}) => {
+  const zeilen = teilnehmer.filter(t => t.art === 'held').map(t => {
+    const c = helden.find(h => h.id === t.charId);
+    if (!c) return null;
+    const imBogen = +c.hp || 0;
+    const tempBogen = +c.tempHp || 0;
+    // Hat der Spieler seinen Bogen waehrend des Kampfes selbst angefasst?
+    const fremd = t.hpBeiStart !== undefined && imBogen !== t.hpBeiStart;
+    const gleich = imBogen === t.hp && tempBogen === (t.tempHp || 0);
+    return {
+      charId: c.id,
+      name: c.name,
+      imBogen,
+      tempBogen,
+      imKampf: t.hp,
+      tempKampf: t.tempHp || 0,
+      fremd,
+      gleich
+    };
+  }).filter(Boolean);
+
+  // Vorgewaehlt ist, was sich unterscheidet und was der Spieler nicht
+  // selbst angefasst hat.
+  const [gewaehlt, setGewaehlt] = React.useState(() => new Set(zeilen.filter(z => !z.gleich && !z.fremd).map(z => z.charId)));
+  const umschalten = id => setGewaehlt(m => {
+    const n = new Set(m);
+    if (n.has(id)) n.delete(id);else n.add(id);
+    return n;
+  });
+  const zuUebertragen = zeilen.filter(z => gewaehlt.has(z.charId));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 520
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "Trefferpunkte \xFCbertragen"), zeilen.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: 'var(--text-muted)',
+      lineHeight: 1.6
+    }
+  }, "In diesem Kampf steht kein Held aus dem Abenteuer \u2014 es gibt nichts zu \xFCbertragen.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12.5,
+      color: 'var(--text-muted)',
+      lineHeight: 1.6,
+      marginBottom: 12
+    }
+  }, "Was hier angehakt ist, wird in den Bogen geschrieben. Die Spieler bekommen es beim n\xE4chsten Abgleich, ohne R\xFCckfrage."), /*#__PURE__*/React.createElement("div", {
+    className: "ueb-liste"
+  }, zeilen.map(z => /*#__PURE__*/React.createElement("label", {
+    className: "ueb-zeile" + (z.gleich ? " gleich" : "") + (z.fremd ? " fremd" : ""),
+    key: z.charId
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: gewaehlt.has(z.charId),
+    disabled: z.gleich,
+    onChange: () => umschalten(z.charId)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "ueb-name"
+  }, z.name), /*#__PURE__*/React.createElement("span", {
+    className: "ueb-werte"
+  }, /*#__PURE__*/React.createElement("b", null, z.imBogen), z.tempBogen ? ' +' + z.tempBogen : '', /*#__PURE__*/React.createElement("i", null, "\u2192"), /*#__PURE__*/React.createElement("b", null, z.imKampf), z.tempKampf ? ' +' + z.tempKampf : ''), z.gleich && /*#__PURE__*/React.createElement("span", {
+    className: "ueb-hinweis"
+  }, "unver\xE4ndert"), z.fremd && !z.gleich && /*#__PURE__*/React.createElement("span", {
+    className: "ueb-warnung"
+  }, "Bogen wurde w\xE4hrend des Kampfes ge\xE4ndert"))))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onOhne
+  }, "Ohne \xDCbertragen beenden"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: zuUebertragen.length === 0,
+    onClick: () => onUebertragen(zuUebertragen)
+  }, zuUebertragen.length === 0 ? 'Nichts ausgewählt' : zuUebertragen.length + (zuUebertragen.length === 1 ? ' Bogen' : ' Bögen') + ' schreiben'))));
+};
+
 // ── Der Kampf ────────────────────────────────────────────────────
 const KampfAnsicht = ({
   kampf,
@@ -1546,6 +1648,7 @@ const KampfAnsicht = ({
 }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
+  const [uebertragen, setUebertragen] = React.useState(false);
   if (!kampf || !kampf.aktiv) {
     const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
     return /*#__PURE__*/React.createElement("div", {
@@ -1694,14 +1797,27 @@ const KampfAnsicht = ({
     onClick: naechster
   }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
-    onClick: onBeenden
+    onClick: () => setUebertragen(true)
   }, "Kampf beenden"), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: onSchliessen,
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter"
   }, "\u2715")), ohneIni > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
-  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen."), /*#__PURE__*/React.createElement("div", {
+  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen."), uebertragen && /*#__PURE__*/React.createElement(UebertragenDialog, {
+    teilnehmer: kampf.teilnehmer,
+    helden: helden,
+    setDefs: setDefs,
+    onAbbrechen: () => setUebertragen(false),
+    onOhne: () => {
+      setUebertragen(false);
+      onBeenden();
+    },
+    onUebertragen: zeilen => {
+      setUebertragen(false);
+      onBeenden(zeilen);
+    }
+  }), /*#__PURE__*/React.createElement("div", {
     className: "kampf-liste"
   }, liste.map(t => /*#__PURE__*/React.createElement(KampfZeile, {
     key: t.id,
@@ -11873,10 +11989,26 @@ function App() {
       const g = enemies.find(e => e.id === id);
       if (g) setEnemyView(g);
     },
-    onBeenden: () => appConfirm('Kampf beenden? Die Trefferpunkte der Helden bleiben vorerst im Bogen unverändert.', () => {
+    onBeenden: zeilen => {
+      // Geht durch denselben Speicherweg wie jede andere Aenderung:
+      // dieselbe Warteschlange, dieselbe Anzeige "N nicht gesichert".
+      if (zeilen && zeilen.length) {
+        save(charsRef.current.map(c => {
+          const z = zeilen.find(x => x.charId === c.id);
+          return z ? {
+            ...c,
+            hp: z.imKampf,
+            tempHp: z.tempKampf
+          } : c;
+        }));
+        // Im Abenteuerlog nachvollziehbar: es sind fremde Boegen.
+        zeilen.forEach(z => addLog(z.charId, z.name, 'charakter', 'Trefferpunkte aus dem Kampf: ' + z.imBogen + ' → ' + z.imKampf, {
+          kampf: kampf && kampf.name || undefined
+        }));
+      }
       setKampf(null);
       setShowKampf(false);
-    }, 'Beenden')
+    }
   }), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
     form: encForm,
     setForm: setEncForm,

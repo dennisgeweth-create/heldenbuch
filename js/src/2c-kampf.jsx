@@ -50,6 +50,10 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
       name: h.name,
       unterzeile: (h.race ? h.race + ' · ' : '') + h.charClass + ' ' + h.level,
       ac: werte.ac, hpMax: werte.maxHp, hp: werte.hp, tempHp: werte.tempHp,
+      // Der Stand des Bogens beim Kampfbeginn. Weicht er beim Uebertragen
+      // davon ab, hat der Spieler selbst etwas geaendert — dann wird nicht
+      // ungefragt darueber geschrieben.
+      hpBeiStart: werte.hp, tempBeiStart: werte.tempHp,
       // Die Initiative der Helden wuerfeln die Spieler selbst — hier bleibt
       // das Feld leer, bis jemand die Zahl ansagt.
       ini: null, dex: werte.dex, iniBonus: werte.initiative,
@@ -209,11 +213,91 @@ const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
   );
 };
 
+// ── Trefferpunkte zurueck in die Boegen ──────────────────────────
+// Kein stiller Automatismus: es sind die Boegen der Spieler, das
+// Heldenbuch speichert im Sekundentakt, und wer seinen Bogen gerade offen
+// hat, merkt vom Ueberschreiben nichts. Deshalb steht hier, was sich
+// aendern wuerde, und jede Zeile laesst sich abwaehlen.
+const UebertragenDialog = ({ teilnehmer, helden, setDefs, onUebertragen, onOhne, onAbbrechen }) => {
+  const zeilen = teilnehmer.filter(t => t.art === 'held').map(t => {
+    const c = helden.find(h => h.id === t.charId);
+    if (!c) return null;
+    const imBogen = +c.hp || 0;
+    const tempBogen = +c.tempHp || 0;
+    // Hat der Spieler seinen Bogen waehrend des Kampfes selbst angefasst?
+    const fremd = t.hpBeiStart !== undefined && imBogen !== t.hpBeiStart;
+    const gleich = imBogen === t.hp && tempBogen === (t.tempHp||0);
+    return {charId: c.id, name: c.name, imBogen, tempBogen,
+            imKampf: t.hp, tempKampf: t.tempHp||0, fremd, gleich};
+  }).filter(Boolean);
+
+  // Vorgewaehlt ist, was sich unterscheidet und was der Spieler nicht
+  // selbst angefasst hat.
+  const [gewaehlt, setGewaehlt] = React.useState(
+    () => new Set(zeilen.filter(z => !z.gleich && !z.fremd).map(z => z.charId)));
+
+  const umschalten = (id) => setGewaehlt(m => {
+    const n = new Set(m);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+
+  const zuUebertragen = zeilen.filter(z => gewaehlt.has(z.charId));
+
+  return (
+    <div className="form-overlay">
+      <div className="form-modal" style={{maxWidth:520}}>
+        <div className="form-title">Trefferpunkte übertragen</div>
+        {zeilen.length === 0 ? (
+          <p style={{fontSize:13,color:'var(--text-muted)',lineHeight:1.6}}>
+            In diesem Kampf steht kein Held aus dem Abenteuer — es gibt nichts zu übertragen.
+          </p>
+        ) : (
+          <>
+            <p style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,marginBottom:12}}>
+              Was hier angehakt ist, wird in den Bogen geschrieben. Die Spieler bekommen
+              es beim nächsten Abgleich, ohne Rückfrage.
+            </p>
+            <div className="ueb-liste">
+              {zeilen.map(z => (
+                <label className={"ueb-zeile"+(z.gleich?" gleich":"")+(z.fremd?" fremd":"")} key={z.charId}>
+                  <input type="checkbox" checked={gewaehlt.has(z.charId)} disabled={z.gleich}
+                    onChange={()=>umschalten(z.charId)} />
+                  <span className="ueb-name">{z.name}</span>
+                  <span className="ueb-werte">
+                    <b>{z.imBogen}</b>{z.tempBogen ? ' +' + z.tempBogen : ''}
+                    <i>→</i>
+                    <b>{z.imKampf}</b>{z.tempKampf ? ' +' + z.tempKampf : ''}
+                  </span>
+                  {z.gleich && <span className="ueb-hinweis">unverändert</span>}
+                  {z.fremd && !z.gleich && (
+                    <span className="ueb-warnung">Bogen wurde während des Kampfes geändert</span>
+                  )}
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          <button className="btn-cancel" onClick={onOhne}>Ohne Übertragen beenden</button>
+          <button className="btn-save" disabled={zuUebertragen.length === 0}
+            onClick={()=>onUebertragen(zuUebertragen)}>
+            {zuUebertragen.length === 0 ? 'Nichts ausgewählt'
+              : zuUebertragen.length + (zuUebertragen.length === 1 ? ' Bogen' : ' Bögen') + ' schreiben'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Der Kampf ────────────────────────────────────────────────────
 const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                         abenteuer, advId, onSchliessen, onGegnerBlatt, onBeenden }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
+  const [uebertragen, setUebertragen] = React.useState(false);
 
   if (!kampf || !kampf.aktiv) {
     const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
@@ -324,7 +408,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           {amZug ? <>Am Zug: <b>{amZug.name}</b></> : 'Niemand am Zug'}
         </div>
         <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
-        <button className="btn-cancel" onClick={onBeenden}>Kampf beenden</button>
+        <button className="btn-cancel" onClick={()=>setUebertragen(true)}>Kampf beenden</button>
         <button className="btn-cancel" onClick={onSchliessen} title="Nur schließen, der Kampf läuft weiter">✕</button>
       </div>
 
@@ -333,6 +417,14 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           {ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative'} —
           sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen.
         </div>
+      )}
+
+      {uebertragen && (
+        <UebertragenDialog
+          teilnehmer={kampf.teilnehmer} helden={helden} setDefs={setDefs}
+          onAbbrechen={()=>setUebertragen(false)}
+          onOhne={()=>{ setUebertragen(false); onBeenden(); }}
+          onUebertragen={(zeilen)=>{ setUebertragen(false); onBeenden(zeilen); }} />
       )}
 
       <div className="kampf-liste">
