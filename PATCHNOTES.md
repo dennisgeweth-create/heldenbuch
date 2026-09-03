@@ -159,6 +159,12 @@ keinen Ladevorgang.
 
 ### Kleinigkeiten und Fehlerbehebungen
 
+- **Ein Neuladen wirft dich nicht mehr auf den Startschirm.** Offener Held,
+  offener Reiter und die ein- oder ausgeklappte Heldenliste stehen danach wieder
+  so da wie vorher. Gibt es den Helden nicht mehr oder gehört er zu einem
+  anderen Abenteuer, landest du wie bisher in der Übersicht. Für die
+  Spielleitung kommt auch der Kampfschirm zurück — wenn ein Kampf läuft und er
+  vorher offen war.
 - Die Knöpfe im Kampf sind ein zusammenhängendes Bedienteil statt loser Tasten
   und tragen ihre Farbe schon im Ruhezustand — mitten im Kampf sucht niemand mit
   der Maus, welche die rote ist.

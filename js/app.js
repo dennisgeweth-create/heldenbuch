@@ -6740,6 +6740,7 @@ function App() {
   const [setupErr, setSetupErr] = useState('');
   const [setupBusy, setSetupBusy] = useState(false);
   const [gearReady, setGearReady] = useState(false); // Serverstand da, Umstellung darf laufen
+  const [ansichtBereit, setAnsichtBereit] = useState(false); // Merker gelesen, ab jetzt schreiben
   // Welches Abenteuer gerade offen ist. Steht im Geraet, nicht am Server:
   // zwei Spieler duerfen gleichzeitig in verschiedenen Kampagnen blaettern.
   const [advAktiv, setAdvAktiv] = useState(() => {
@@ -6808,6 +6809,8 @@ function App() {
   const pollToken = useRef(null);
   const revRef = useRef(null);
   const ruheRef = useRef(0);
+  // Wo man beim letzten Mal war. Wird einmal nach dem Laden angewandt.
+  const ansichtGeholt = useRef(false);
   const charsRef = useRef([]);
   const selRef = useRef(null);
   const pendingRef = useRef(false);
@@ -7144,6 +7147,50 @@ function App() {
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', wach);
     };
   }, []);
+
+  // ── Wo man war ──────────────────────────────────────────────────
+  // Ein Neuladen mitten in der Sitzung warf einen bisher auf den
+  // Startschirm zurueck — offener Held weg, offener Reiter weg. Gemerkt
+  // wird das im Geraet, nicht am Server: zwei Leute duerfen gleichzeitig
+  // verschiedene Boegen offen haben.
+  const ANSICHT = 'hb_ansicht';
+
+  // Zuerst lesen, dann schreiben. Andersherum ueberschriebe der leere
+  // Startzustand den Merker, bevor ihn jemand gelesen hat — genau das
+  // hatte diesen Einbau im ersten Anlauf wirkungslos gemacht.
+  useEffect(() => {
+    if (ansichtGeholt.current) return;
+    if (!chars.length && !gearReady) return; // noch nichts zum Wiederfinden
+    ansichtGeholt.current = true;
+    let a = null;
+    try {
+      a = JSON.parse(localStorage.getItem(ANSICHT) || 'null');
+    } catch {}
+    if (a) {
+      if (typeof a.sidebar === 'boolean') setSidebarCollapsed(a.sidebar);
+      // Nur, wenn es den Helden noch gibt und er zum offenen Abenteuer
+      // gehoert — sonst landet man auf einem Bogen, der nicht dazu passt.
+      const held = chars.find(c => c.id === a.sel && !c.archived && imAbenteuer(c));
+      if (held) {
+        selectChar(held.id);
+        if (a.tab) setTab(a.tab);
+        if (a.mv === 'sheet') setMv('sheet');
+      }
+    }
+    setAnsichtBereit(true);
+  }, [chars, gearReady]);
+  useEffect(() => {
+    if (!ansichtBereit) return;
+    try {
+      localStorage.setItem(ANSICHT, JSON.stringify({
+        sel,
+        tab,
+        mv,
+        sidebar: sidebarCollapsed,
+        kampf: showKampf
+      }));
+    } catch {}
+  }, [ansichtBereit, sel, tab, mv, sidebarCollapsed, showKampf]);
 
   // tplData only loaded when template picker opens (openTpl)
 
@@ -7541,6 +7588,13 @@ function App() {
         });
         console.error('[Heldenbuch] Chronik konnte nicht geladen werden:', e);
       }
+      // Der Kampfschirm braucht den DM-Modus und kann deshalb erst hier
+      // zurueckkommen. Nur, wenn ein Kampf laeuft und er vorher offen war
+      // — wer ihn zugeklappt hat, will ihn nicht wiederhaben.
+      try {
+        const a = JSON.parse(localStorage.getItem(ANSICHT) || 'null');
+        if (a && a.kampf && kampf) setShowKampf(true);
+      } catch {}
     } catch (e) {
       setDmLoginErr(e.message || 'Falsches DM-Passwort.');
     }
@@ -8005,6 +8059,7 @@ function App() {
       // keiner Gruppe mehr gehoert.
       localStorage.removeItem('dnd_chars');
       localStorage.removeItem(WARTESCHLANGE);
+      localStorage.removeItem(ANSICHT);
       applyChars([]);
       setSvUrl('');
       setSvCode('');
