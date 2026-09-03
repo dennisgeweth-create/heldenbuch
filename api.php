@@ -41,12 +41,25 @@ try {
 } catch (PDOException $e) { respond(500, 'Datenbankverbindung fehlgeschlagen.'); }
 
 // ── Schema ──────────────────────────────────────────────────────
+// hb_vitals und hb_rev tragen den Hintergrundabgleich. Beide sind
+// abgeleitet, nicht Wahrheit: die steht weiter in hb_chars.char_json. Sie
+// existieren, damit ein Abgleich nicht das Naheliegende tun muss — alles
+// lesen, um festzustellen, dass sich nichts geaendert hat.
+//   hb_vitals: die vier Werte, die sich im Kampf im Sekundentakt aendern.
+//              Ein paar Byte je Held statt eines Bogens mit Bild.
+//   hb_rev:    zaehlt nur hoch, wenn sich etwas anderes geaendert hat.
+//              Solange die Zahl steht, muss niemand laden.
+//
+// Jede Tabelle mit Fremdschluessel braucht dieselbe Kollation wie
+// hb_sessions.code — sonst lehnt MySQL den Schluessel ab, und weil dieser
+// Block bei jeder Anfrage laeuft, faellt die ganze Schnittstelle aus.
 // hb_enemies: die Gegner der Spielleitung liegen zeilenweise wie
 // hb_items, nicht als Eintrag in der DM-Bibliothek. Die wird als ein
 // Stueck gespeichert — jede Aenderung an einem Goblin lüde die ganze
 // Sammlung erneut hoch, und mit Bildern waere ihre 2-MB-Grenze nach rund
 // dreissig Monsterportraets erreicht. Zeilenweise gilt das Limit je
 // Gegner statt je Sammlung.
+try {
 $pdo->exec("
     CREATE TABLE IF NOT EXISTS hb_sessions (
         code            VARCHAR(20)  NOT NULL PRIMARY KEY,
@@ -106,16 +119,6 @@ $pdo->exec("
         CONSTRAINT fk_hbch_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    -- hb_vitals und hb_rev tragen den Hintergrundabgleich. Beide sind
-    -- abgeleitet, nicht Wahrheit: die Wahrheit steht weiter in
-    -- hb_chars.char_json. Sie existieren, damit ein Abgleich nicht das
-    -- Naheliegende tun muss — alles lesen, um festzustellen, dass sich
-    -- nichts geaendert hat.
-    --
-    -- hb_vitals: die vier Werte, die sich im Kampf im Sekundentakt
-    -- aendern. Ein paar Byte je Held statt eines Charakterbogens mit Bild.
-    -- hb_rev: zaehlt nur hoch, wenn sich etwas anderes als diese vier
-    -- Werte geaendert hat. Solange die Zahl steht, muss niemand laden.
     CREATE TABLE IF NOT EXISTS hb_vitals (
         session_code VARCHAR(20)  NOT NULL,
         char_id      VARCHAR(50)  NOT NULL,
@@ -129,7 +132,7 @@ $pdo->exec("
         session_code VARCHAR(20) NOT NULL PRIMARY KEY,
         rev          BIGINT      NOT NULL DEFAULT 1,
         CONSTRAINT fk_hbr_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
     CREATE TABLE IF NOT EXISTS hb_rate_limits (
         ip           VARCHAR(45) NOT NULL PRIMARY KEY,
@@ -150,6 +153,14 @@ $pdo->exec("
         CONSTRAINT fk_hbl_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ");
+} catch (PDOException $e) {
+    // Bis hierher lief dieser Block ungeschuetzt: eine einzige abgelehnte
+    // Tabelle machte damit jede Anfrage zu einem leeren 500er, ohne einen
+    // Hinweis worauf. Jetzt sagt die Antwort, was die Datenbank
+    // beanstandet — das ist der Unterschied zwischen fuenf Minuten und
+    // einem Abend Suchen.
+    respond(500, 'Datenbank-Schema: ' . $e->getMessage());
+}
 
 // Legacy-Migration: alte chars_json Spalte hinzufügen falls nicht da
 try { $pdo->exec("ALTER TABLE hb_sessions ADD COLUMN chars_json LONGTEXT"); } catch (PDOException $e) {}
