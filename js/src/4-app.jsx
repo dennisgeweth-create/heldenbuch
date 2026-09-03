@@ -723,6 +723,26 @@ function App() {
   // Wie bei den Gegnern: ein Fehlschlag wird gezeigt, nicht verschluckt.
   // Eine stille Absage saehe aus wie ein gelungenes Speichern, und die
   // naechste Sitzung faenge dann am falschen Tag an.
+  // Der Kampftracker schreibt sofort in den Bogen, nicht erst am Ende.
+  // Dieselbe Warteschlange wie jede andere Aenderung, damit die Anzeige
+  // "N nicht gesichert" stimmt und nichts an ihr vorbeigeht.
+  const heldImKampfAendern = (charId, patch, name) => {
+    const vorher = charsRef.current.find(c => c.id === charId);
+    if (!vorher) return;
+    save(charsRef.current.map(c => c.id === charId ? {...c, ...patch} : c));
+    // Ins Log kommen nur die beiden Augenblicke, die man spaeter
+    // nachlesen will. Jeder einzelne Treffer waere eine Zeile, und nach
+    // einem Kampf stuenden dreissig davon im Abenteuerlog.
+    const alt = +vorher.hp || 0, neu = patch.hp;
+    if (neu !== undefined && alt > 0 && neu <= 0) {
+      addLog(charId, name || vorher.name, 'charakter', 'Bei 0 Trefferpunkten',
+        {kampf: (kampf && kampf.name) || undefined});
+    } else if (neu !== undefined && alt <= 0 && neu > 0) {
+      addLog(charId, name || vorher.name, 'charakter', 'Wieder auf den Beinen: ' + neu + ' TP',
+        {kampf: (kampf && kampf.name) || undefined});
+    }
+  };
+
   const saveChronik = (ch) => {
     setChronik(ch);
     chronikMerkmaleAbgleichen(ch);
@@ -994,7 +1014,7 @@ function App() {
     ...cur,
     str: fx('str', cur.str), dex: fx('dex', cur.dex), con: fx('con', cur.con),
     int: fx('int', cur.int), wis: fx('wis', cur.wis), cha: fx('cha', cur.cha),
-    maxHp:     fx('maxHp',     cur.maxHp),
+    maxHp:     fx('maxHp',     cur.maxHp) + (+cur.tempMaxHp || 0),
     speed:     fx('speed',     cur.speed),
     profBonus: fx('profBonus', cur.profBonus),
   } : null;
@@ -3629,21 +3649,10 @@ function App() {
           setDefs={setDefs} abenteuer={abenteuer} advId={advId}
           onSchliessen={()=>setShowKampf(false)}
           onGegnerBlatt={(id)=>{ const g = enemies.find(e=>e.id===id); if (g) setEnemyView(g); }}
-          onBeenden={(zeilen)=>{
-            // Geht durch denselben Speicherweg wie jede andere Aenderung:
-            // dieselbe Warteschlange, dieselbe Anzeige "N nicht gesichert".
-            if (zeilen && zeilen.length) {
-              save(charsRef.current.map(c => {
-                const z = zeilen.find(x => x.charId === c.id);
-                return z ? {...c, hp: z.imKampf, tempHp: z.tempKampf} : c;
-              }));
-              // Im Abenteuerlog nachvollziehbar: es sind fremde Boegen.
-              zeilen.forEach(z => addLog(z.charId, z.name, 'charakter',
-                'Trefferpunkte aus dem Kampf: ' + z.imBogen + ' → ' + z.imKampf,
-                {kampf: (kampf && kampf.name) || undefined}));
-            }
-            setKampf(null); setShowKampf(false);
-          }} />
+          onHeldAendern={heldImKampfAendern}
+          onBeenden={()=>appConfirm(
+            'Kampf beenden? Die Trefferpunkte stehen schon in den Bögen — es geht nichts verloren.',
+            ()=>{ setKampf(null); setShowKampf(false); }, 'Beenden')} />
       )}
 
       {encForm && (

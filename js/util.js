@@ -185,7 +185,11 @@ const charWerte = (c, setDefs) => {
     ...c,
     str: anw('str', c.str), dex: anw('dex', c.dex), con: anw('con', c.con),
     int: anw('int', c.int), wis: anw('wis', c.wis), cha: anw('cha', c.cha),
-    maxHp:     anw('maxHp',     c.maxHp),
+    // Temporaere maximale Trefferpunkte kommen obendrauf und gehoeren
+    // nicht ins Effektsystem: sie sind eine Zahl fuer diesen Abend, kein
+    // Merkmal des Helden. Ein Heldenmahl gibt sie, eine lange Rast nimmt
+    // sie wieder.
+    maxHp:     anw('maxHp',     c.maxHp) + (+c.tempMaxHp || 0),
     speed:     anw('speed',     c.speed),
     profBonus: anw('profBonus', c.profBonus),
   };

@@ -979,105 +979,6 @@
   .beg-treffer-zeile i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted); }
 
   /* ── Kampf ──────────────────────────────────────────────────── */
-  .kampf-schirm { position:fixed; inset:0; z-index:60; background:var(--bg-deep);
-    display:flex; flex-direction:column; }
-  .kampf-kopf { display:flex; align-items:center; gap:12px; padding:10px 16px; flex-wrap:wrap;
-    background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0; }
-  .kampf-titel { font-family:'Roboto Condensed',sans-serif; font-size:15px; color:var(--gold);
-    letter-spacing:0.06em; text-transform:uppercase; }
-  .kampf-runde { display:flex; align-items:baseline; gap:6px; }
-  .kampf-runde span { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;
-    text-transform:uppercase; color:var(--text-muted); }
-  .kampf-runde b { font-family:'Roboto Condensed',sans-serif; font-size:19px; color:var(--gold); font-weight:400; }
-  .kampf-dran { flex:1; min-width:120px; font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
-    color:var(--text-muted); }
-  .kampf-dran b { color:var(--text-primary); font-weight:400; }
-  .kampf-weiter { padding:9px 16px; min-height:40px; border-radius:4px; cursor:pointer;
-    background:var(--gold-dim); border:1px solid var(--gold); color:var(--gold-bright);
-    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.06em; white-space:nowrap; }
-  .kampf-weiter:hover { background:var(--crimson); color:#fff; border-color:var(--crimson); }
-  .kampf-hinweis { padding:8px 16px; background:rgba(217,164,65,0.12); border-bottom:1px solid var(--border);
-    font-family:'Roboto Condensed',sans-serif; font-size:11.5px; color:#d9a441; flex-shrink:0; }
-  .kampf-liste { flex:1; overflow-y:auto; padding:10px 12px 40px; display:flex; flex-direction:column; gap:6px; }
-
-  .kampf-zeile { display:grid; grid-template-columns:48px 40px 1fr auto; gap:10px; align-items:center;
-    background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
-  .kampf-zeile.dran { border-color:var(--gold); box-shadow:inset 3px 0 0 var(--gold); background:var(--bg-panel); }
-  .kampf-zeile.tot { opacity:0.45; }
-  .kampf-zeile.held { border-left:3px solid var(--gold-dim); }
-  .kampf-zeile.gegner { border-left:3px solid #6b3030; }
-  .kampf-ini { width:44px; height:44px; border-radius:5px; flex-shrink:0; text-align:center;
-    background:var(--bg-void); border:1px solid var(--border-bright); color:var(--gold);
-    font-family:'Roboto Condensed',sans-serif; font-size:19px; font-variant-numeric:tabular-nums;
-    -moz-appearance:textfield; }
-  .kampf-ini::-webkit-outer-spin-button, .kampf-ini::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
-  .kampf-ini:focus { border-color:var(--gold); outline:none; }
-  .kampf-ini::placeholder { color:var(--text-muted); }
-  .kampf-figur { width:40px; height:40px; border-radius:5px; overflow:hidden; background:var(--bg-void);
-    border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:18px; }
-  .kampf-figur img { width:100%; height:100%; object-fit:cover; }
-  .kampf-mitte { min-width:0; display:flex; flex-direction:column; gap:2px; }
-  .kampf-name-zeile { display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
-  .kampf-name { font-family:'Roboto Condensed',sans-serif; font-size:14px; color:var(--text-primary); }
-  .kampf-name-knopf { background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;
-    text-decoration-style:dotted; text-underline-offset:3px; }
-  .kampf-name-knopf:hover { color:var(--gold); }
-  .kampf-rk { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
-  .kampf-warte { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:#d9a441; }
-  .kampf-unter { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-muted); }
-  .kampf-balken { height:5px; border-radius:3px; background:var(--bg-void); overflow:hidden; margin-top:3px; }
-  .kampf-balken-fuell { height:100%; transition:width 0.2s; }
-  .kampf-tp { display:flex; align-items:baseline; gap:9px; font-family:'Roboto Condensed',sans-serif;
-    font-size:11.5px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
-  .kampf-tp b { font-size:14px; font-weight:400; }
-  .kampf-temp { color:#7ab8f5; }
-  .kampf-ersch { color:#d9a441; }
-  .kampf-zustaende, .kampf-flags { display:flex; flex-wrap:wrap; gap:3px; margin-top:3px; }
-  .kampf-zustand { font-family:'Roboto Condensed',sans-serif; font-size:10px; padding:2px 8px; border-radius:10px;
-    background:rgba(224,90,90,0.14); border:1px solid #6b3030; color:#f0a0a0; cursor:pointer; }
-  .kampf-flag { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; padding:1px 7px; border-radius:9px;
-    border:1px dashed var(--border-bright); color:var(--text-muted); }
-  .kampf-werkzeug { display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
-  /* Eingabe und Tasten sind ein Bedienteil, kein Feld mit vier losen
-     Knoepfen daneben — deshalb aneinander und mit einer gemeinsamen
-     Aussenkante. Jede Taste traegt ihre Farbe schon im Ruhezustand: mitten
-     im Kampf sucht niemand per Zeigergeste, welche die rote ist. */
-  .kampf-hp-eingabe { display:flex; align-items:stretch; }
-  .kampf-hp-eingabe input { width:54px; text-align:center; padding:6px 4px; min-height:38px;
-    background:var(--bg-void); border:1px solid var(--border); border-right:none;
-    border-radius:5px 0 0 5px; color:var(--text-primary);
-    font-family:'Roboto Condensed',sans-serif; font-size:15px; font-variant-numeric:tabular-nums; }
-  .kampf-hp-eingabe input:focus { border-color:var(--border-bright); outline-offset:-2px; }
-  .kampf-tat { width:36px; min-height:38px; cursor:pointer; padding:0;
-    background:var(--bg-card); border:1px solid var(--border); border-right:none;
-    color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:15px;
-    line-height:1; transition:background 0.12s, color 0.12s, border-color 0.12s; }
-  .kampf-tat:last-child { border-right:1px solid var(--border); border-radius:0 5px 5px 0; }
-  .kampf-tat.schaden { color:#e08080; }
-  .kampf-tat.heilung { color:#7fc79b; }
-  .kampf-tat.temp    { color:#7ab8f5; font-size:13px; }
-  .kampf-tat.maxtp   { color:#d4a6c8; font-size:13px; }
-  .kampf-tat.schaden:hover { background:rgba(224,90,90,0.18);  border-color:var(--crimson); color:#f0a0a0; }
-  .kampf-tat.heilung:hover { background:rgba(86,177,131,0.18); border-color:#56b183;        color:#8fd9ae; }
-  .kampf-tat.temp:hover    { background:rgba(122,184,245,0.18);border-color:#7ab8f5;        color:#a5d0f8; }
-  .kampf-tat.maxtp:hover   { background:rgba(192,96,160,0.18); border-color:#c060a0;        color:#e8b6dc; }
-
-  .kampf-zeile-tools { display:flex; gap:4px; }
-  .kampf-zeile-tools button { width:32px; height:30px; border-radius:5px; cursor:pointer;
-    background:var(--bg-card); border:1px solid var(--border); color:var(--text-muted); font-size:11px;
-    transition:background 0.12s, color 0.12s, border-color 0.12s; }
-  .kampf-zeile-tools button:hover { background:var(--bg-hover); border-color:var(--border-bright);
-    color:var(--text-primary); }
-  .kampf-zeile-tools button.ersch:hover { border-color:var(--inspiration); color:var(--inspiration); }
-  .kampf-zeile-tools button.raus:hover  { border-color:var(--crimson); color:#f0a0a0;
-    background:rgba(224,90,90,0.14); }
-  .kampf-zustand-wahl { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;
-    padding-top:8px; border-top:1px solid var(--border); }
-  .kampf-zustand-wahl button { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; padding:5px 10px;
-    min-height:32px; border-radius:12px; cursor:pointer; background:var(--bg-void);
-    border:1px solid var(--border); color:var(--text-muted); }
-  .kampf-zustand-wahl button.aktiv { border-color:var(--crimson); color:#f0a0a0; background:rgba(224,90,90,0.14); }
-
   /* Spontaner Kampf */
   .kampf-spontan-knopf { width:100%; max-width:520px; padding:13px 16px; min-height:52px; border-radius:6px;
     cursor:pointer; background:var(--bg-panel); border:1px dashed var(--gold-dim); color:var(--gold);
@@ -1475,26 +1376,6 @@
   .skill-vt.schlecht { color:var(--gold); }
   .skill-vt.neutral { color:var(--text-muted); }
 
-  /* Kopfzeile des Kampfes: drei verschiedene Handlungen sahen als dreimal
-     btn-cancel gleich aus. Jetzt traegt jede ihr Gewicht — dazunehmen ist
-     ein Nebenweg, beenden ein Abschluss, schliessen nur ein Wegklicken. */
-  .kampf-kopf-btn { padding:9px 14px; min-height:40px; border-radius:4px; cursor:pointer;
-    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.04em;
-    background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary);
-    transition:background 0.12s, color 0.12s, border-color 0.12s; }
-  .kampf-kopf-btn:hover { background:var(--bg-hover); border-color:var(--border-bright); color:var(--text-primary); }
-  .kampf-kopf-btn.zusatz { border-color:#8c4a76; color:#e08fc4; }
-  .kampf-kopf-btn.zusatz:hover { background:rgba(192,96,160,0.16); border-color:#c060a0; }
-  .kampf-kopf-btn.ende { border-color:var(--gold-dim); color:var(--gold); }
-  .kampf-kopf-btn.ende:hover { background:rgba(224,90,90,0.14); border-color:var(--crimson); color:#f0a0a0; }
-  .kampf-kopf-x { width:40px; min-height:40px; border-radius:4px; cursor:pointer; padding:0;
-    background:none; border:1px solid var(--border); color:var(--text-muted); font-size:13px; }
-  .kampf-kopf-x:hover { background:var(--bg-hover); border-color:var(--border-bright); color:var(--text-primary); }
-  @media (max-width:1024px) {
-    .kampf-tat { width:44px; min-height:44px; }
-    .kampf-hp-eingabe input { min-height:44px; width:58px; }
-    .kampf-zeile-tools button { width:40px; height:40px; font-size:13px; }
-  }
 
   /* Einstellungen eines Abenteuers */
   .einst-block { margin-bottom:20px; padding-top:14px; border-top:1px solid var(--border); }
@@ -1523,3 +1404,320 @@
   .feature-gesperrt { font-size:12px; opacity:0.7; padding:0 4px; cursor:help; }
   .feature-fx-tog:disabled { opacity:0.6; cursor:default; }
   @media (max-width:700px) { .einst-wahl { grid-template-columns:1fr; } }
+
+/* ── Kampftracker ────────────────────────────────────────────────
+   Aufbau wie im alten Tracker: links Helden und Gegnersammlung, rechts
+   die Initiativkarten. Die Karte traegt alles, wonach am Tisch gefragt
+   wird, in einer Zeile — Initiative, Name, Notiz, RK, Trefferpunkte,
+   Tasten. */
+  .kampf-schirm { position:fixed; inset:0; z-index:60; background:var(--bg-deep);
+    display:grid; grid-template-columns:305px 1fr; overflow:hidden; }
+  .kampf-schirm.start { display:flex; flex-direction:column; }
+
+  .kampf-seite { display:flex; flex-direction:column; min-height:0; overflow:hidden;
+    background:var(--bg-void); border-right:1px solid var(--border); }
+  .kampf-seite-kopf { display:flex; justify-content:space-between; align-items:center;
+    padding:12px 14px 8px; font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--text-muted); flex-shrink:0; }
+  .kampf-seite-kopf.gegner { border-top:1px solid var(--border); padding-top:14px; }
+  .kampf-seite-rechts { color:var(--gold-dim); }
+  .kampf-seite-leer { padding:12px 14px; font-size:11.5px; color:var(--text-muted);
+    line-height:1.5; font-style:italic; }
+  .kampf-seite-helden { overflow-y:auto; max-height:45%; padding:0 8px 8px; flex-shrink:0; }
+  .kampf-seite-held { display:flex; align-items:center; gap:9px; padding:8px 6px;
+    border-bottom:1px solid var(--border); }
+  .kampf-seite-held.draussen { opacity:0.55; }
+  .kampf-seite-figur { width:26px; height:26px; flex-shrink:0; border-radius:4px; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; background:var(--bg-card);
+    border:1px solid var(--border); font-size:13px; }
+  .kampf-seite-figur img { width:100%; height:100%; object-fit:cover; }
+  .kampf-seite-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .kampf-seite-text b { font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--text-primary); font-weight:400; }
+  .kampf-seite-text i { font-style:normal; font-size:10px; color:var(--text-muted); }
+  .kampf-seite-zahl { flex-shrink:0; display:flex; align-items:center; gap:6px;
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted);
+    font-variant-numeric:tabular-nums; }
+  .kampf-seite-zahl b { font-size:13px; font-weight:400; }
+  .kampf-seite-suche { margin:0 8px 6px; padding:7px 10px; font-size:12px; flex-shrink:0;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:4px;
+    color:var(--text-primary); }
+  .kampf-seite-gegner { flex:1; overflow-y:auto; padding:0 8px 12px; min-height:0; }
+  .kampf-seite-gzeile { display:flex; align-items:center; gap:8px; padding:7px 6px;
+    border-bottom:1px solid var(--border); }
+  .kampf-seite-gtext { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+  .kampf-seite-gtext b { font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    color:var(--parchment-dim); font-weight:400; letter-spacing:0.03em; }
+  .kampf-seite-gtext i { font-style:normal; font-size:9.5px; color:var(--text-muted); }
+  .kampf-seite-plus { width:26px; height:26px; flex-shrink:0; border-radius:4px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary);
+    font-size:14px; line-height:1; padding:0; }
+  .kampf-seite-plus:hover { border-color:var(--gold); color:var(--gold); background:var(--bg-hover); }
+  .kampf-seite-helden::-webkit-scrollbar, .kampf-seite-gegner::-webkit-scrollbar { width:4px; }
+  .kampf-seite-helden::-webkit-scrollbar-thumb,
+  .kampf-seite-gegner::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
+
+  .kampf-haupt { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .kampf-kopf { display:flex; align-items:center; gap:10px; padding:10px 16px; flex-wrap:wrap;
+    background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .kampf-titel { font-family:'Roboto Condensed',sans-serif; font-size:15px; color:var(--gold);
+    letter-spacing:0.06em; text-transform:uppercase; }
+  .kampf-runde { display:flex; align-items:baseline; gap:6px; }
+  .kampf-runde span { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-muted); }
+  .kampf-runde b { font-family:'Roboto Condensed',sans-serif; font-size:19px; color:var(--gold); font-weight:400; }
+  .kampf-dran { flex:1; min-width:100px; font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--text-muted); }
+  .kampf-dran b { color:var(--text-primary); font-weight:400; }
+  .kampf-weiter { padding:9px 16px; min-height:40px; border-radius:4px; cursor:pointer;
+    background:var(--gold-dim); border:1px solid var(--gold); color:var(--gold-bright);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.05em; }
+  .kampf-weiter:hover { background:var(--crimson); color:var(--parchment); }
+  .kampf-kopf-btn { padding:9px 13px; min-height:40px; border-radius:4px; cursor:pointer;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.04em;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary);
+    transition:background 0.12s, color 0.12s, border-color 0.12s; }
+  .kampf-kopf-btn:hover { background:var(--bg-hover); border-color:var(--border-bright); color:var(--text-primary); }
+  .kampf-kopf-btn.zusatz { border-color:#8c4a76; color:#e08fc4; }
+  .kampf-kopf-btn.zusatz:hover { background:rgba(192,96,160,0.16); border-color:#c060a0; }
+  .kampf-kopf-btn.ende { border-color:var(--gold-dim); color:var(--gold); }
+  .kampf-kopf-btn.ende:hover { background:rgba(224,90,90,0.14); border-color:var(--crimson); color:#f0a0a0; }
+  .kampf-kopf-x { width:40px; min-height:40px; border-radius:4px; cursor:pointer; padding:0;
+    background:none; border:1px solid var(--border); color:var(--text-muted); font-size:13px; }
+  .kampf-kopf-x:hover { background:var(--bg-hover); border-color:var(--border-bright); color:var(--text-primary); }
+  .kampf-hinweis { padding:8px 16px; font-size:11.5px; color:var(--inspiration);
+    background:rgba(232,184,75,0.08); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .kampf-liste { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .kampf-liste::-webkit-scrollbar { width:6px; }
+  .kampf-liste::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  /* Die Karte. Ein Raster statt einer Flexkette: die Spalten stehen bei
+     jeder Figur an derselben Stelle, egal wie lang der Name ist. */
+  .kampf-zeile { position:relative; display:grid; gap:12px; align-items:center;
+    grid-template-columns:52px 40px minmax(150px,1fr) minmax(160px,250px) 58px 118px auto;
+    padding:12px 40px 12px 12px; border-radius:7px;
+    background:var(--bg-card); border:1px solid var(--border); }
+  .kampf-zeile.dran { border-color:var(--gold); background:rgba(224,90,90,0.06);
+    box-shadow:0 0 0 1px var(--gold-dim) inset; }
+  .kampf-zeile.tot { opacity:0.62; }
+  .kampf-zeile.held  { border-left:3px solid #4a90d9; }
+  .kampf-zeile.gegner { border-left:3px solid var(--gold-dim); }
+
+  .kampf-ini-feld { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .kampf-ini { width:52px; height:40px; text-align:center; padding:2px;
+    background:var(--bg-void); border:1px solid var(--border); border-radius:5px;
+    color:var(--gold); font-family:'Roboto Condensed',sans-serif; font-size:18px;
+    font-variant-numeric:tabular-nums; }
+  .kampf-ini::-webkit-outer-spin-button, .kampf-ini::-webkit-inner-spin-button {
+    -webkit-appearance:none; margin:0; }
+  .kampf-ini-label { font-family:'Roboto Condensed',sans-serif; font-size:8.5px;
+    letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); }
+  .kampf-figur { width:36px; height:36px; border-radius:6px; overflow:hidden; display:flex;
+    align-items:center; justify-content:center; background:var(--bg-void);
+    border:1px solid var(--border); font-size:17px; }
+  .kampf-figur img { width:100%; height:100%; object-fit:cover; }
+
+  .kampf-namensblock { min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .kampf-name { font-family:'Roboto Condensed',sans-serif; font-size:15px;
+    color:var(--text-primary); overflow-wrap:anywhere; }
+  .kampf-name-knopf { background:none; border:none; padding:0; cursor:pointer; text-align:left;
+    color:var(--gold); text-decoration:underline; text-decoration-color:var(--gold-dim);
+    text-underline-offset:3px; }
+  .kampf-name-knopf:hover { color:var(--gold-bright); }
+  .kampf-unter { font-size:10.5px; color:var(--text-muted); }
+  .kampf-marken { display:flex; flex-wrap:wrap; gap:4px; }
+  .kampf-warte { font-size:9.5px; color:var(--inspiration); font-family:'Roboto Condensed',sans-serif; }
+  .kampf-passiv { font-size:9.5px; color:var(--text-muted); }
+  .kampf-marke { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; padding:2px 7px;
+    border-radius:9px; border:1px solid var(--border-bright); color:var(--text-muted); }
+  .kampf-marke.gut { border-color:#3f7a5c; color:#7fc79b; }
+  .kampf-marke.schlecht { border-color:var(--gold-dim); color:#f0a0a0; }
+  .kampf-marke.ersch { border-color:#7a5c10; color:var(--inspiration); }
+  .kampf-zustand { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; padding:2px 7px;
+    border-radius:9px; cursor:pointer; background:rgba(224,90,90,0.14);
+    border:1px solid var(--gold-dim); color:#f0a0a0; }
+  .kampf-zustand:hover { background:rgba(224,90,90,0.28); }
+  .kampf-flag { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; padding:2px 7px;
+    border-radius:9px; border:1px solid #3a5a80; color:#7ab8f5; }
+
+  .kampf-notiz { min-height:64px; resize:vertical; padding:7px 9px; font-size:12px;
+    line-height:1.45; background:var(--bg-void); border:1px solid var(--border);
+    border-radius:5px; color:var(--text-primary); font-family:'Roboto',sans-serif; }
+  .kampf-notiz:focus { border-color:var(--border-bright); }
+  .kampf-ac { text-align:center; padding:6px 4px; border-radius:5px;
+    background:rgba(74,144,217,0.14); border:1px solid #3a5a80; color:#7ab8f5;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.04em; }
+
+  .kampf-hp { display:flex; flex-direction:column; gap:4px; }
+  .kampf-hp-zahl { display:flex; align-items:baseline; gap:5px; flex-wrap:wrap;
+    font-family:'Roboto Condensed',sans-serif; font-variant-numeric:tabular-nums; }
+  .kampf-hp-zahl b { font-size:20px; font-weight:400; }
+  .kampf-hp-zahl span { font-size:12px; color:var(--text-muted); }
+  .kampf-balken { height:5px; border-radius:3px; overflow:hidden; background:var(--bg-void);
+    border:1px solid var(--border); }
+  .kampf-balken.klein { height:4px; margin-top:2px; }
+  .kampf-balken-fuell { height:100%; transition:width 0.2s; }
+  .kampf-hp-unter { display:flex; flex-wrap:wrap; gap:6px; }
+  .kampf-temp { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; color:#7ab8f5; font-style:normal; }
+  .kampf-maxtemp { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; color:#d4a6c8; }
+
+  /* Tasten: die kleinen Schritte direkt, alles Groessere im Fenster. Jede
+     traegt ihre Farbe schon im Ruhezustand — mitten im Kampf sucht niemand
+     per Zeigergeste, welche die rote ist. */
+  .kampf-tasten { position:relative; display:flex; align-items:center; gap:8px; }
+  .kampf-tasten-grid { display:grid; gap:4px; grid-template-columns:36px 36px 90px; }
+  .kt { min-height:28px; padding:0 6px; border-radius:4px; cursor:pointer;
+    background:var(--bg-void); border:1px solid var(--border); color:var(--text-secondary);
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.03em;
+    white-space:nowrap; transition:background 0.12s, color 0.12s, border-color 0.12s; }
+  .kt.breit { grid-column:span 1; }
+  .kt.weit  { grid-column:span 2; }
+  .kt.dmg  { border-color:#6b2020; color:#e08080; }
+  .kt.heal { border-color:#2f6b4c; color:#7fc79b; }
+  .kt.temp { border-color:#2f5a80; color:#7ab8f5; }
+  .kt.max  { border-color:#7a4a68; color:#d4a6c8; }
+  .kt.dmg:hover  { background:rgba(224,90,90,0.2);  border-color:var(--crimson); color:#f0a0a0; }
+  .kt.heal:hover { background:rgba(86,177,131,0.2); border-color:#56b183; color:#8fd9ae; }
+  .kt.temp:hover { background:rgba(122,184,245,0.2);border-color:#7ab8f5; color:#a5d0f8; }
+  .kt.max:hover  { background:rgba(192,96,160,0.2); border-color:#c060a0; color:#e8b6dc; }
+  .kt.zust { min-height:64px; padding:0 12px; border-color:var(--border-bright); }
+  .kt.zust:hover, .kt.zust.offen { border-color:var(--gold); color:var(--gold);
+    background:rgba(224,90,90,0.1); }
+  .kampf-raus { position:absolute; top:8px; right:8px; width:24px; height:24px; padding:0;
+    border-radius:4px; cursor:pointer; background:none; border:1px solid transparent;
+    color:var(--text-muted); font-size:11px; }
+  .kampf-raus:hover { border-color:var(--crimson); color:#f0a0a0; background:rgba(224,90,90,0.12); }
+
+  /* Zustandsfenster an der Karte */
+  .kampf-zust-schirm { position:fixed; inset:0; z-index:40; }
+  .kampf-zust-panel { position:absolute; top:100%; right:0; z-index:41; margin-top:6px;
+    width:290px; padding:12px; border-radius:7px; background:var(--bg-panel);
+    border:1px solid var(--gold-dim); box-shadow:0 12px 34px rgba(0,0,0,0.65); }
+  .kampf-zust-titel { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--gold); margin-bottom:9px; }
+  .kampf-zust-marken { display:flex; gap:6px; margin-bottom:10px; }
+  .zust-marke { flex:1; padding:8px 4px; border-radius:5px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; }
+  .zust-marke.gut.an { border-color:#56b183; color:#8fd9ae; background:rgba(86,177,131,0.16); }
+  .zust-marke.schlecht.an { border-color:var(--crimson); color:#f0a0a0; background:rgba(224,90,90,0.16); }
+  .kampf-zust-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .zust-chip { font-family:'Roboto Condensed',sans-serif; font-size:10.5px; padding:5px 9px;
+    border-radius:11px; cursor:pointer; background:var(--bg-void);
+    border:1px solid var(--border); color:var(--text-muted); }
+  .zust-chip:hover { border-color:var(--border-bright); color:var(--text-primary); }
+  .zust-chip.an { border-color:var(--crimson); color:#f0a0a0; background:rgba(224,90,90,0.16); }
+  .kampf-zust-ersch { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+  .kampf-zust-untertitel { font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--gold); margin-bottom:7px; }
+  .kampf-ersch-pips { display:flex; gap:5px; }
+  .ersch-pip { width:28px; height:28px; border-radius:50%; cursor:pointer; padding:0;
+    background:var(--bg-void); border:1px solid var(--border); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; }
+  .ersch-pip.an { border-color:var(--inspiration); color:var(--inspiration);
+    background:rgba(232,184,75,0.16); }
+  .kampf-zust-zu { width:100%; margin-top:12px; padding:8px; border-radius:5px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.08em;
+    text-transform:uppercase; }
+  .kampf-zust-zu:hover { border-color:var(--border-bright); color:var(--text-primary); }
+
+  /* Todesrettungswürfe — spannen die volle Kartenbreite unter den Werten */
+  .kampf-todes { grid-column:1 / -1; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    margin-top:2px; padding:9px 11px; border-radius:6px;
+    background:rgba(224,90,90,0.07); border:1px solid var(--gold-dim); }
+  .kampf-todes.stabil { background:rgba(86,177,131,0.08); border-color:#3f7a5c; }
+  .kampf-todes.tot { background:rgba(0,0,0,0.4); border-color:var(--border-bright); }
+  .td-titel { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--gold); }
+  .kampf-todes.stabil .td-titel { color:#8fd9ae; }
+  .kampf-todes.tot .td-titel { color:var(--text-muted); }
+  .td-reihe { display:flex; align-items:center; gap:5px; }
+  .td-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; color:var(--text-muted);
+    min-width:44px; }
+  .td-pip { width:26px; height:26px; border-radius:50%; padding:0; cursor:pointer;
+    background:var(--bg-void); border:1px solid var(--border); color:var(--text-muted); font-size:11px; }
+  .td-pip.gut.an { border-color:#56b183; color:#8fd9ae; background:rgba(86,177,131,0.18); }
+  .td-pip.schlecht.an { border-color:var(--crimson); color:#f0a0a0; background:rgba(224,90,90,0.18); }
+  .td-reset { margin-left:auto; padding:5px 10px; border-radius:4px; cursor:pointer;
+    background:none; border:1px solid var(--border); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:10.5px; }
+  .td-reset:hover { border-color:var(--border-bright); color:var(--text-primary); }
+
+  /* Zahlenfenster für Schaden, Heilung und temporäre Punkte */
+  .wert-fenster { width:100%; max-width:460px; padding:24px; border-radius:10px;
+    background:var(--bg-deep); border:1px solid var(--gold-dim);
+    box-shadow:0 18px 50px rgba(0,0,0,0.7); }
+  .wert-fenster.heal { border-color:#3f7a5c; }
+  .wert-fenster.temp { border-color:#3a5a80; }
+  .wert-fenster.max  { border-color:#7a4a68; }
+  .wert-titel { text-align:center; font-family:'Roboto Condensed',sans-serif; font-size:17px;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--gold); }
+  .wert-fenster.heal .wert-titel { color:#8fd9ae; }
+  .wert-fenster.temp .wert-titel { color:#7ab8f5; }
+  .wert-fenster.max  .wert-titel { color:#e8b6dc; }
+  .wert-strich { width:44px; height:2px; margin:14px auto 18px; background:var(--border-bright); border-radius:1px; }
+  .wert-label { text-align:center; font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; }
+  .wert-label.mitte { margin-top:14px; }
+  .wert-reihe { display:grid; grid-template-columns:repeat(6,1fr); gap:7px; }
+  .wert-sprung { min-height:40px; border-radius:5px; cursor:pointer; padding:0;
+    font-family:'Roboto Condensed',sans-serif; font-size:14px; font-variant-numeric:tabular-nums;
+    transition:background 0.12s, border-color 0.12s; }
+  .wert-sprung.minus { background:rgba(224,90,90,0.1); border:1px solid #6b2020; color:#e08080; }
+  .wert-sprung.minus:hover { background:rgba(224,90,90,0.26); border-color:var(--crimson); }
+  .wert-sprung.plus { background:rgba(86,177,131,0.1); border:1px solid #2f6b4c; color:#7fc79b; }
+  .wert-sprung.plus:hover { background:rgba(86,177,131,0.26); border-color:#56b183; }
+  .wert-stepper { display:flex; align-items:stretch; gap:8px; margin-top:20px; }
+  .wert-stepper button { width:44px; min-height:48px; border-radius:5px; cursor:pointer; padding:0;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary); font-size:17px; }
+  .wert-stepper button:hover { border-color:var(--border-bright); color:var(--text-primary); }
+  .wert-stepper input { flex:1; min-width:0; text-align:center; padding:6px; min-height:48px;
+    background:var(--bg-void); border:1px solid var(--border); border-radius:5px;
+    color:var(--parchment); font-family:'Roboto Condensed',sans-serif; font-size:24px;
+    font-variant-numeric:tabular-nums; }
+  .wert-stepper .wert-reset { font-size:14px; }
+  .wert-aktionen { display:flex; gap:8px; margin-top:18px; }
+  .wert-ok { flex:1; min-height:44px; border-radius:5px; cursor:pointer;
+    background:linear-gradient(135deg,#7a5c10,var(--gold-dim)); border:1px solid var(--gold-dim);
+    color:var(--gold-bright); font-family:'Roboto Condensed',sans-serif; font-size:13px;
+    letter-spacing:0.1em; text-transform:uppercase; }
+  .wert-ok:disabled { opacity:0.45; cursor:default; }
+  .wert-ab { min-height:44px; padding:0 20px; border-radius:5px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; letter-spacing:0.1em;
+    text-transform:uppercase; }
+  .wert-ab:hover { border-color:var(--border-bright); color:var(--text-primary); }
+
+  /* Schmaler: die Seitenspalte wird zur ausklappbaren Schublade, die Karte
+     bricht in zwei Reihen. Am Handy bleibt der Tracker bedienbar, ohne
+     dass eine Spalte die andere zerdrueckt. */
+  @media (max-width:1200px) {
+    .kampf-zeile { grid-template-columns:48px 34px minmax(120px,1fr) 54px 108px auto;
+      padding-right:36px; }
+    .kampf-notiz { grid-column:1 / -1; min-height:48px; }
+  }
+  @media (max-width:1024px) {
+    .kampf-schirm { grid-template-columns:1fr; }
+    .kampf-seite { display:none; }
+    .kampf-schirm.seite-offen { grid-template-columns:1fr; }
+    .kampf-schirm.seite-offen .kampf-seite { display:flex; position:absolute; inset:0; z-index:42; }
+    .kampf-schirm.seite-offen .kampf-haupt { display:none; }
+    .kampf-zeile { grid-template-columns:46px 1fr auto; gap:9px; padding:10px 34px 10px 10px; }
+    .kampf-figur { display:none; }
+    .kampf-ac { grid-column:2; justify-self:start; padding:4px 10px; }
+    .kampf-hp { grid-column:1 / -1; }
+    .kampf-tasten { grid-column:1 / -1; }
+    .kampf-tasten-grid { flex:1; grid-template-columns:1fr 1fr 1fr; }
+    .kt { min-height:40px; font-size:12px; }
+    .kt.zust { min-height:40px; }
+    .kampf-zust-panel { right:auto; left:0; width:min(290px, 86vw); }
+    .wert-reihe { grid-template-columns:repeat(3,1fr); }
+  }
+  .kampf-seite-knopf { display:none; width:40px; min-height:40px; padding:0; border-radius:4px;
+    cursor:pointer; background:var(--bg-card); border:1px solid var(--border);
+    color:var(--text-secondary); font-size:15px; }
+  .kampf-seite-knopf:hover { border-color:var(--border-bright); color:var(--text-primary); }
+  .kampf-seite-zu { background:none; border:1px solid var(--border); border-radius:3px;
+    color:var(--text-muted); cursor:pointer; font-size:11px; padding:5px 9px; }
+  @media (max-width:1024px) { .kampf-seite-knopf { display:block; } }

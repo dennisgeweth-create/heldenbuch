@@ -236,11 +236,18 @@ const Sheet = () => {
                   <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Temp</label>
                   <input type="number" value={cur.tempHp||0} onChange={e=>patchChar({tempHp:Number(e.target.value)})}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid #4a90d9",borderRadius:3,color:"#7ab8f5",fontSize:13,textAlign:"center"}}/>
+                  {/* Temporaeres Maximum: kommt meist aus dem Kampftracker und
+                      muss nach der langen Rast wieder weg. Unsichtbar waere es
+                      ein Bonus, den niemand mehr findet. */}
+                  <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>T.Max</label>
+                  <input type="number" value={cur.tempMaxHp||0} onChange={e=>patchChar({tempMaxHp:Math.max(0,Number(e.target.value))})}
+                    style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid #7a4a68",borderRadius:3,color:"#d4a6c8",fontSize:13,textAlign:"center"}}/>
                 </div>
               ) : (
                 <span style={{color:"var(--crimson-bright)"}} title={fxTitle('maxHp')}>
                   {cur.hp} / <span className={fxOn('maxHp')?"fx-touched":undefined}>{effCur.maxHp}{fxOn('maxHp')&&<span className="fx-mark">✦</span>}</span>
                   {(cur.tempHp||0) > 0 && <span style={{color:"#7ab8f5",marginLeft:6}}>(+{cur.tempHp} temp)</span>}
+                  {(cur.tempMaxHp||0) > 0 && <span style={{color:"#d4a6c8",marginLeft:6}}>(+{cur.tempMaxHp} max)</span>}
                 </span>
               )}
             </div>

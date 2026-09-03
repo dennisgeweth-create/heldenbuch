@@ -1262,10 +1262,15 @@ const BegegnungListe = ({
 // offenen Abenteuers. Anders als im alten Kampftracker uebersteht sie ein
 // Neuladen: der Stand liegt im Geraet, nicht nur im Arbeitsspeicher.
 //
-// Bewusst uebernommen aus dem alten Tracker, weil dort richtig entschieden:
-// die Trefferpunkte der Gegner werden ausgewuerfelt statt gemittelt,
-// gleichartige Gegner durchnummeriert, und die Zustaende sind eine feste
-// Liste statt freier Eingabe.
+// Aufbau und Bedienung folgen dem alten Tracker, weil er sich am Tisch
+// bewaehrt hat: Helden und Gegnersammlung links, Initiativkarten rechts,
+// je Karte ein Notizfeld und ein Tastenblock mit den kleinen Schritten
+// direkt und den grossen im Fenster.
+//
+// Der wichtige Unterschied zum alten: die Trefferpunkte der Helden liegen
+// nicht im Kampf, sondern im Bogen. Was hier eingetragen wird, steht dort
+// sofort — es gibt kein Uebertragen am Ende und damit auch keinen Kampf,
+// der mit einem Klick daneben verlorengeht.
 
 const w20 = () => Math.floor(Math.random() * 20) + 1;
 
@@ -1280,6 +1285,29 @@ const wuerfelTP = vorlage => {
   return Math.max(1, summe);
 };
 
+// Ein Gegner aus seiner Vorlage. Steht hier einzeln, weil ihn auch die
+// Gegnerliste in der Seitenspalte braucht — dort kommt einer nach dem
+// anderen dazu, mitten im laufenden Kampf.
+const gegnerAusVorlage = (vorlage, name) => {
+  const tp = wuerfelTP(vorlage);
+  return {
+    id: vorlage.id + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+    art: 'gegner',
+    vorlageId: vorlage.id,
+    name: name || vorlage.name,
+    ac: +vorlage.ac || 10,
+    hpMax: tp,
+    hp: tp,
+    tempHp: 0,
+    ini: w20() + mod(+vorlage.dex || 10),
+    dex: +vorlage.dex || 10,
+    zustaende: [],
+    erschoepfung: 0,
+    notiz: '',
+    bild: vorlage.image || null
+  };
+};
+
 // ── Kampf aufstellen ─────────────────────────────────────────────
 const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
   const teilnehmer = [];
@@ -1292,52 +1320,25 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
     if (!vorlage) return; // geloescht — still ueberspringen
     const anzahl = Math.max(1, +count || 1);
     for (let i = 0; i < anzahl; i++) {
-      const tp = wuerfelTP(vorlage);
-      teilnehmer.push({
-        id: enemyId + '-' + Date.now().toString(36) + '-' + i,
-        art: 'gegner',
-        vorlageId: enemyId,
-        name: anzahl > 1 ? (name || vorlage.name) + ' ' + (i + 1) : name || vorlage.name,
-        ac: +vorlage.ac || 10,
-        hpMax: tp,
-        hp: tp,
-        tempHp: 0,
-        ini: w20() + mod(+vorlage.dex || 10),
-        dex: +vorlage.dex || 10,
-        zustaende: [],
-        erschoepfung: 0,
-        bild: vorlage.image || null
-      });
+      teilnehmer.push(gegnerAusVorlage(vorlage, anzahl > 1 ? (name || vorlage.name) + ' ' + (i + 1) : name || vorlage.name));
     }
   });
+
+  // Vom Helden bleibt im Kampf nur, was zum Kampf gehoert: Initiative,
+  // Zustaende, Erschoepfung, Notiz. Trefferpunkte stehen im Bogen.
   helden.forEach(h => {
-    const werte = charWerte(h, setDefs);
     teilnehmer.push({
       id: 'held-' + h.id,
       art: 'held',
       charId: h.id,
-      name: h.name,
-      unterzeile: (h.race ? h.race + ' · ' : '') + h.charClass + ' ' + h.level,
-      ac: werte.ac,
-      hpMax: werte.maxHp,
-      hp: werte.hp,
-      tempHp: werte.tempHp,
-      // Der Stand des Bogens beim Kampfbeginn. Weicht er beim Uebertragen
-      // davon ab, hat der Spieler selbst etwas geaendert — dann wird nicht
-      // ungefragt darueber geschrieben.
-      hpBeiStart: werte.hp,
-      tempBeiStart: werte.tempHp,
       // Die Initiative der Helden wuerfeln die Spieler selbst — hier bleibt
       // das Feld leer, bis jemand die Zahl ansagt.
       ini: null,
-      dex: werte.dex,
-      iniBonus: werte.initiative,
       zustaende: [],
       erschoepfung: 0,
-      bild: h.portrait || null,
-      passive: werte.passive,
-      flags: werte.flags.map(f => f.label),
-      saves: werte.saves
+      notiz: '',
+      vorteil: false,
+      nachteil: false
     });
   });
   return {
@@ -1354,63 +1355,277 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
 const sortiereNachIni = liste => [...liste].sort((a, b) => {
   const av = a.ini === null ? -999 : a.ini,
     bv = b.ini === null ? -999 : b.ini;
-  return bv - av || mod(b.dex) - mod(a.dex) || (a.name || '').localeCompare(b.name || '', 'de');
+  return bv - av || mod(b.dex || 10) - mod(a.dex || 10) || (a.name || '').localeCompare(b.name || '', 'de');
 });
 
-// ── Eine Zeile ───────────────────────────────────────────────────
+// ── Todesrettungswuerfe ──────────────────────────────────────────
+// Bei 0 Trefferpunkten wird gewuerfelt: drei Erfolge stabilisieren, drei
+// Fehlschlaege toeten. Die Punkte stehen im Bogen, nicht im Kampf — wer
+// draussen vor der Tuer verblutet, tut das auch nach einem Neuladen.
+const TODES_LEER = {
+  erfolge: 0,
+  fehler: 0
+};
+const todesStand = d => {
+  const s = d || TODES_LEER;
+  if ((s.erfolge || 0) >= 3) return 'stabil';
+  if ((s.fehler || 0) >= 3) return 'tot';
+  return 'offen';
+};
+const TodesWuerfe = ({
+  stand,
+  onSetzen
+}) => {
+  const s = stand || TODES_LEER;
+  const lage = todesStand(s);
+  const Reihe = ({
+    feld,
+    wert,
+    label,
+    klasse
+  }) => /*#__PURE__*/React.createElement("div", {
+    className: "td-reihe"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "td-label"
+  }, label), [1, 2, 3].map(i => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    type: "button",
+    className: 'td-pip ' + klasse + (wert >= i ? ' an' : ''),
+    "aria-label": label + ' ' + i,
+    "aria-pressed": wert >= i,
+    onClick: () => onSetzen({
+      ...s,
+      [feld]: wert === i ? i - 1 : i
+    })
+  }, wert >= i ? klasse === 'gut' ? '✓' : '✕' : '○')));
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'kampf-todes' + (lage !== 'offen' ? ' ' + lage : '')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "td-titel"
+  }, lage === 'stabil' ? '☘ Stabilisiert' : lage === 'tot' ? '☠ Tot' : '☠ Todesrettungswürfe'), /*#__PURE__*/React.createElement(Reihe, {
+    feld: "erfolge",
+    wert: s.erfolge || 0,
+    label: "Erfolg",
+    klasse: "gut"
+  }), /*#__PURE__*/React.createElement(Reihe, {
+    feld: "fehler",
+    wert: s.fehler || 0,
+    label: "Fehler",
+    klasse: "schlecht"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "td-reset",
+    onClick: () => onSetzen({
+      erfolge: 0,
+      fehler: 0
+    })
+  }, "\u21BA Zur\xFCcksetzen"));
+};
+
+// ── Zahlenfenster ────────────────────────────────────────────────
+// Die kleinen Schritte liegen auf der Karte, alles Groessere hier: sechs
+// Sprungtasten in beide Richtungen und ein Feld fuer die krumme Zahl.
+// Zwei Richtungen auch beim Schaden — man vertippt sich, und dann will man
+// zurueck, ohne den Kopf zu verdrehen.
+const WERT_MODI = {
+  schaden: {
+    titel: 'Schaden',
+    vorzeichen: -1,
+    farbe: 'dmg',
+    beides: true
+  },
+  heilung: {
+    titel: 'Heilung',
+    vorzeichen: +1,
+    farbe: 'heal',
+    beides: true
+  },
+  temp: {
+    titel: 'Temp HP',
+    vorzeichen: +1,
+    farbe: 'temp',
+    beides: false
+  },
+  maxtemp: {
+    titel: 'Temp. max. TP',
+    vorzeichen: +1,
+    farbe: 'max',
+    beides: false
+  },
+  maxhp: {
+    titel: 'Max. TP',
+    vorzeichen: +1,
+    farbe: 'max',
+    beides: false
+  }
+};
+const SPRUENGE = [1, 2, 5, 10, 20, 50];
+const WertDialog = ({
+  modus,
+  name,
+  start,
+  onAnwenden,
+  onAbbrechen
+}) => {
+  const cfg = WERT_MODI[modus] || WERT_MODI.schaden;
+  const [wert, setWert] = React.useState(+start || 0);
+  const stufe = n => setWert(w => w + n);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: onAbbrechen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: 'wert-fenster ' + cfg.farbe,
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "wert-titel"
+  }, cfg.titel, " \u2014 ", name), /*#__PURE__*/React.createElement("div", {
+    className: "wert-strich"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "wert-label"
+  }, cfg.titel, " ", cfg.vorzeichen < 0 ? '−' : '+'), /*#__PURE__*/React.createElement("div", {
+    className: "wert-reihe"
+  }, SPRUENGE.map(n => /*#__PURE__*/React.createElement("button", {
+    key: n,
+    type: "button",
+    className: 'wert-sprung ' + (cfg.vorzeichen < 0 ? 'minus' : 'plus'),
+    onClick: () => stufe(n)
+  }, (cfg.vorzeichen < 0 ? '−' : '+') + n))), cfg.beides && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "wert-label mitte"
+  }, cfg.vorzeichen < 0 ? '+' : '−'), /*#__PURE__*/React.createElement("div", {
+    className: "wert-reihe"
+  }, SPRUENGE.map(n => /*#__PURE__*/React.createElement("button", {
+    key: n,
+    type: "button",
+    className: 'wert-sprung ' + (cfg.vorzeichen < 0 ? 'plus' : 'minus'),
+    onClick: () => stufe(-n)
+  }, (cfg.vorzeichen < 0 ? '+' : '−') + n)))), /*#__PURE__*/React.createElement("div", {
+    className: "wert-stepper"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => stufe(-1),
+    "aria-label": "Eins weniger"
+  }, "\u2212"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: wert,
+    "aria-label": cfg.titel,
+    onChange: e => setWert(e.target.value === '' ? 0 : +e.target.value),
+    onKeyDown: e => {
+      if (e.key === 'Enter' && wert) onAnwenden(Math.abs(wert) * (wert < 0 ? -1 : 1));
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => stufe(1),
+    "aria-label": "Eins mehr"
+  }, "+"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "wert-reset",
+    onClick: () => setWert(0),
+    "aria-label": "Zur\xFCcksetzen"
+  }, "\u21BA")), /*#__PURE__*/React.createElement("div", {
+    className: "wert-aktionen"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "wert-ok",
+    disabled: !wert,
+    onClick: () => onAnwenden(wert)
+  }, "Anwenden"), /*#__PURE__*/React.createElement("button", {
+    className: "wert-ab",
+    onClick: onAbbrechen
+  }, "Abbrechen"))));
+};
+
+// ── Zustandsfenster ──────────────────────────────────────────────
+const ZustandWahl = ({
+  t,
+  onZustand,
+  onErschoepfung,
+  onMarke,
+  onSchliessen
+}) => /*#__PURE__*/React.createElement("div", {
+  className: "kampf-zust-panel",
+  onClick: e => e.stopPropagation()
+}, /*#__PURE__*/React.createElement("div", {
+  className: "kampf-zust-titel"
+}, "Zust\xE4nde \u2014 ", t.name), /*#__PURE__*/React.createElement("div", {
+  className: "kampf-zust-marken"
+}, /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: 'zust-marke gut' + (t.vorteil ? ' an' : ''),
+  onClick: () => onMarke('vorteil')
+}, "\uD83D\uDC4D Vorteil"), /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: 'zust-marke schlecht' + (t.nachteil ? ' an' : ''),
+  onClick: () => onMarke('nachteil')
+}, "\uD83D\uDC4E Nachteil")), /*#__PURE__*/React.createElement("div", {
+  className: "kampf-zust-chips"
+}, CONDITIONS.map(z => /*#__PURE__*/React.createElement("button", {
+  key: z,
+  type: "button",
+  className: 'zust-chip' + ((t.zustaende || []).includes(z) ? ' an' : ''),
+  onClick: () => onZustand(z)
+}, z))), /*#__PURE__*/React.createElement("div", {
+  className: "kampf-zust-ersch"
+}, /*#__PURE__*/React.createElement("div", {
+  className: "kampf-zust-untertitel"
+}, "Ersch\xF6pfung (Stufe ", t.erschoepfung || 0, "/6)"), /*#__PURE__*/React.createElement("div", {
+  className: "kampf-ersch-pips"
+}, [1, 2, 3, 4, 5, 6].map(i => /*#__PURE__*/React.createElement("button", {
+  key: i,
+  type: "button",
+  className: 'ersch-pip' + ((t.erschoepfung || 0) >= i ? ' an' : ''),
+  "aria-label": 'Erschöpfung ' + i,
+  "aria-pressed": (t.erschoepfung || 0) >= i,
+  onClick: () => onErschoepfung((t.erschoepfung || 0) === i ? i - 1 : i)
+}, i)))), /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: "kampf-zust-zu",
+  onClick: onSchliessen
+}, "Schlie\xDFen \u2715"));
+
+// ── Eine Karte ───────────────────────────────────────────────────
 const KampfZeile = ({
   t,
   dran,
-  onSchaden,
-  onHeilen,
-  onTemp,
-  onMaxTp,
+  onWert,
+  onFenster,
   onIni,
+  onNotiz,
   onZustand,
+  onMarke,
   onErschoepfung,
   onEntfernen,
   onBlatt,
+  onTodes,
   zustandOffen,
   setZustandOffen,
   detailOffen,
   setDetailOffen
 }) => {
-  const [eingabe, setEingabe] = React.useState('');
-  const tot = t.hp <= 0;
-  const anteil = t.hpMax > 0 ? Math.max(0, Math.min(1, t.hp / t.hpMax)) : 0;
-  // Ampel fuer die Trefferpunkte. Gruen gibt es in der Palette nicht —
-  // sie ist durchgehend rot-gold, deshalb hier eine eigene Farbe.
-  const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? '#d9a441' : '#e04545';
-  const zahl = () => {
-    const n = parseInt(eingabe, 10);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-  const anwenden = fn => {
-    const n = zahl();
-    if (n) {
-      fn(n);
-      setEingabe('');
-    }
-  };
+  const gesamtMax = Math.max(1, t.hpMax || 1);
+  const anteil = Math.max(0, Math.min(1, (t.hp || 0) / gesamtMax));
+  const tot = (t.hp || 0) <= 0;
+  const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a';
+  const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
   return /*#__PURE__*/React.createElement("div", {
-    className: "kampf-zeile" + (dran ? " dran" : "") + (tot ? " tot" : "") + (t.art === 'held' ? " held" : " gegner")
+    className: 'kampf-zeile' + (dran ? ' dran' : '') + (tot ? ' tot' : '') + (t.art === 'held' ? ' held' : ' gegner')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-ini-feld"
   }, /*#__PURE__*/React.createElement("input", {
     className: "kampf-ini",
     type: "number",
     value: t.ini === null ? '' : t.ini,
-    placeholder: "\u2013",
+    placeholder: "\u2014",
     "aria-label": 'Initiative ' + t.name,
     title: "Initiative eintragen",
     onChange: e => onIni(e.target.value)
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "kampf-ini-label"
+  }, "init.")), /*#__PURE__*/React.createElement("div", {
     className: "kampf-figur"
   }, t.bild ? /*#__PURE__*/React.createElement("img", {
     src: t.bild,
     alt: ""
   }) : /*#__PURE__*/React.createElement("span", null, t.art === 'held' ? '🛡' : '💀')), /*#__PURE__*/React.createElement("div", {
-    className: "kampf-mitte"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "kampf-name-zeile"
+    className: "kampf-namensblock"
   }, t.art === 'gegner' && t.vorlageId ? /*#__PURE__*/React.createElement("button", {
     className: "kampf-name kampf-name-knopf",
     onClick: () => onBlatt(t.vorlageId),
@@ -1422,20 +1637,51 @@ const KampfZeile = ({
     "aria-expanded": detailOffen === t.id
   }, t.name) : /*#__PURE__*/React.createElement("span", {
     className: "kampf-name"
-  }, t.name), /*#__PURE__*/React.createElement("span", {
-    className: "kampf-rk"
-  }, "RK ", t.ac), t.passive != null && /*#__PURE__*/React.createElement("span", {
-    className: "kampf-passiv",
-    title: "Passive Wahrnehmung"
-  }, "\uD83D\uDC41 ", t.passive), t.ini === null && /*#__PURE__*/React.createElement("span", {
+  }, t.name), t.unterzeile && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-unter"
+  }, t.unterzeile), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-marken"
+  }, t.ini === null && /*#__PURE__*/React.createElement("span", {
     className: "kampf-warte"
   }, "Initiative fehlt"), t.fehlt && /*#__PURE__*/React.createElement("span", {
     className: "kampf-warte"
-  }, "nicht mehr im Abenteuer")), t.unterzeile && /*#__PURE__*/React.createElement("div", {
-    className: "kampf-unter"
-  }, t.unterzeile), /*#__PURE__*/React.createElement("div", {
-    className: "kampf-balken",
-    "aria-label": 'Trefferpunkte ' + t.hp + ' von ' + t.hpMax
+  }, "nicht mehr im Abenteuer"), t.passive != null && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-passiv",
+    title: "Passive Wahrnehmung"
+  }, "\uD83D\uDC41 ", t.passive), t.vorteil && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-marke gut"
+  }, "\uD83D\uDC4D Vorteil"), t.nachteil && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-marke schlecht"
+  }, "\uD83D\uDC4E Nachteil"), (t.erschoepfung || 0) > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-marke ersch"
+  }, "Ersch\xF6pfung ", t.erschoepfung), (t.zustaende || []).map(z => /*#__PURE__*/React.createElement("button", {
+    key: z,
+    className: "kampf-zustand",
+    onClick: () => onZustand(z),
+    title: "Entfernen"
+  }, z, " \u2715")), (t.flags || []).map(f => /*#__PURE__*/React.createElement("span", {
+    key: f,
+    className: "kampf-flag"
+  }, f)))), /*#__PURE__*/React.createElement("textarea", {
+    className: "kampf-notiz",
+    value: t.notiz || '',
+    placeholder: "Notiz\u2026",
+    "aria-label": 'Notiz zu ' + t.name,
+    onChange: e => onNotiz(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-ac"
+  }, "AC ", t.ac), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-hp"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-hp-zahl"
+  }, /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: farbe
+    }
+  }, (t.hp || 0) + (t.tempHp || 0)), /*#__PURE__*/React.createElement("span", null, "/ ", t.hpMax), (t.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("i", {
+    className: "kampf-temp"
+  }, "\uD83D\uDEE1+", t.tempHp)), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-balken"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-balken-fuell",
     style: {
@@ -1443,82 +1689,65 @@ const KampfZeile = ({
       background: farbe
     }
   })), /*#__PURE__*/React.createElement("div", {
-    className: "kampf-tp"
-  }, /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: farbe
-    }
-  }, t.hp), " / ", t.hpMax, t.tempHp > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-hp-unter"
+  }, (t.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("span", {
     className: "kampf-temp"
-  }, "+", t.tempHp, " tempor\xE4r"), t.erschoepfung > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "kampf-ersch"
-  }, "Ersch\xF6pfung ", t.erschoepfung)), (t.zustaende || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "kampf-zustaende"
-  }, (t.zustaende || []).map(z => /*#__PURE__*/React.createElement("button", {
-    key: z,
-    className: "kampf-zustand",
-    onClick: () => onZustand(z),
-    title: "Entfernen"
-  }, z, " \u2715"))), (t.flags || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "kampf-flags"
-  }, (t.flags || []).map(f => /*#__PURE__*/React.createElement("span", {
-    key: f,
-    className: "kampf-flag"
-  }, f)))), /*#__PURE__*/React.createElement("div", {
-    className: "kampf-werkzeug"
+  }, "+", t.tempHp, " Temp HP"), (t.tempMaxHp || 0) > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-maxtemp"
+  }, "+", t.tempMaxHp, " Temp. Max"))), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-tasten"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "kampf-hp-eingabe"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "1",
-    value: eingabe,
-    placeholder: "\u2014",
-    "aria-label": 'Schaden oder Heilung für ' + t.name,
-    onChange: e => setEingabe(e.target.value),
-    onKeyDown: e => {
-      if (e.key === 'Enter') anwenden(onSchaden);
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-tat schaden",
-    title: "Schaden",
-    onClick: () => anwenden(onSchaden)
-  }, "\u2212"), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-tat heilung",
-    title: "Heilung",
-    onClick: () => anwenden(onHeilen)
-  }, "+"), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-tat temp",
-    onClick: () => anwenden(onTemp),
-    title: "Tempor\xE4re Trefferpunkte \u2014 der h\xF6here Wert gilt, sie z\xE4hlen nicht zusammen"
-  }, "t"), t.art === 'gegner' && /*#__PURE__*/React.createElement("button", {
-    className: "kampf-tat maxtp",
-    onClick: () => anwenden(onMaxTp),
-    title: "Max. Trefferpunkte setzen"
-  }, "M")), /*#__PURE__*/React.createElement("div", {
-    className: "kampf-zeile-tools"
+    className: "kampf-tasten-grid"
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setZustandOffen(zustandOffen === t.id ? null : t.id),
-    title: "Zust\xE4nde",
-    "aria-expanded": zustandOffen === t.id
-  }, "\u25C7"), /*#__PURE__*/React.createElement("button", {
-    className: "ersch",
-    onClick: () => onErschoepfung(1),
-    title: "Ersch\xF6pfung +1"
-  }, "\u25B2"), /*#__PURE__*/React.createElement("button", {
-    className: "ersch",
-    onClick: () => onErschoepfung(-1),
-    title: "Ersch\xF6pfung \u22121"
-  }, "\u25BC"), /*#__PURE__*/React.createElement("button", {
-    className: "raus",
-    onClick: onEntfernen,
-    title: "Aus dem Kampf nehmen"
-  }, "\u2715"))), zustandOffen === t.id && /*#__PURE__*/React.createElement("div", {
-    className: "kampf-zustand-wahl"
-  }, CONDITIONS.map(z => /*#__PURE__*/React.createElement("button", {
-    key: z,
-    className: (t.zustaende || []).includes(z) ? 'aktiv' : '',
-    onClick: () => onZustand(z)
-  }, z))), detailOffen === t.id && t.art === 'held' && /*#__PURE__*/React.createElement("div", {
+    className: "kt dmg",
+    title: "1 Schaden",
+    onClick: () => onWert('schaden', 1)
+  }, "-1"), /*#__PURE__*/React.createElement("button", {
+    className: "kt dmg",
+    title: "5 Schaden",
+    onClick: () => onWert('schaden', 5)
+  }, "-5"), /*#__PURE__*/React.createElement("button", {
+    className: "kt dmg breit",
+    onClick: () => onFenster('schaden')
+  }, "Schaden\u2026"), /*#__PURE__*/React.createElement("button", {
+    className: "kt heal",
+    title: "1 heilen",
+    onClick: () => onWert('heilung', 1)
+  }, "+1"), /*#__PURE__*/React.createElement("button", {
+    className: "kt heal",
+    title: "5 heilen",
+    onClick: () => onWert('heilung', 5)
+  }, "+5"), /*#__PURE__*/React.createElement("button", {
+    className: "kt heal breit",
+    onClick: () => onFenster('heilung')
+  }, "Heilen\u2026"), /*#__PURE__*/React.createElement("button", {
+    className: "kt temp weit",
+    onClick: () => onFenster('temp')
+  }, "+Temp HP"), t.art === 'held' ? /*#__PURE__*/React.createElement("button", {
+    className: "kt max breit",
+    onClick: () => onFenster('maxtemp'),
+    title: "Tempor\xE4re maximale Trefferpunkte \u2014 Heldenmahl, Aid, ein Segen f\xFCr diesen Abend"
+  }, "+Temp Max") : /*#__PURE__*/React.createElement("button", {
+    className: "kt max breit",
+    onClick: () => onFenster('maxhp'),
+    title: "Maximale Trefferpunkte setzen"
+  }, "Max TP")), /*#__PURE__*/React.createElement("button", {
+    className: 'kt zust' + (zustandOffen === t.id ? ' offen' : ''),
+    "aria-expanded": zustandOffen === t.id,
+    onClick: () => setZustandOffen(zustandOffen === t.id ? null : t.id)
+  }, "Zust\xE4nde"), zustandOffen === t.id && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-zust-schirm",
+    onClick: () => setZustandOffen(null)
+  }), /*#__PURE__*/React.createElement(ZustandWahl, {
+    t: t,
+    onZustand: onZustand,
+    onErschoepfung: onErschoepfung,
+    onMarke: onMarke,
+    onSchliessen: () => setZustandOffen(null)
+  }))), t.art === 'held' && (tot || lage !== 'offen') && /*#__PURE__*/React.createElement(TodesWuerfe, {
+    stand: t.deathSaves,
+    onSetzen: onTodes
+  }), detailOffen === t.id && t.art === 'held' && /*#__PURE__*/React.createElement("div", {
     className: "kampf-detail"
   }, t.saves && /*#__PURE__*/React.createElement("div", {
     className: "kampf-detail-block"
@@ -1526,10 +1755,10 @@ const KampfZeile = ({
     className: "kampf-detail-titel"
   }, "Rettungsw\xFCrfe"), /*#__PURE__*/React.createElement("div", {
     className: "kampf-saves"
-  }, [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']].map(([k, l]) => /*#__PURE__*/React.createElement("div", {
+  }, Object.keys(t.saves).map(k => /*#__PURE__*/React.createElement("div", {
     className: "kampf-save",
     key: k
-  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("b", null, fnum(t.saves[k])))))), (t.effekte || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, AL[k]), /*#__PURE__*/React.createElement("b", null, fnum(t.saves[k])))))), (t.effekte || []).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-detail-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-detail-titel"
@@ -1538,15 +1767,19 @@ const KampfZeile = ({
   }, (t.effekte || []).map((e, i) => /*#__PURE__*/React.createElement("span", {
     className: "kampf-effekt",
     key: i
-  }, /*#__PURE__*/React.createElement("i", null, e.source), " ", EFFECT_LABELS[e.target] || e.target, " ", effectText(e))))), (t.effekte || []).length === 0 && !t.saves && /*#__PURE__*/React.createElement("div", {
+  }, e.source, ": ", EFFECT_LABELS[e.target] || e.target, " ", effectText(e))))), (t.effekte || []).length === 0 && !t.saves && /*#__PURE__*/React.createElement("div", {
     className: "kampf-detail-leer"
-  }, "Keine besonderen Werte.")));
+  }, "Keine besonderen Werte.")), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-raus",
+    onClick: onEntfernen,
+    title: "Aus dem Kampf nehmen",
+    "aria-label": t.name + ' aus dem Kampf nehmen'
+  }, "\u2715"));
 };
 
 // ── Spontan zusammenstellen ──────────────────────────────────────
 // Nicht jeder Kampf ist vorbereitet. Hier werden Gegner direkt gewaehlt,
-// ohne den Umweg ueber eine gespeicherte Begegnung — dasselbe Fenster
-// nimmt auch Nachzuegler in einen laufenden Kampf auf.
+// ohne den Umweg ueber eine gespeicherte Begegnung.
 const SpontanWahl = ({
   enemies,
   laufend,
@@ -1641,104 +1874,104 @@ const SpontanWahl = ({
     className: "btn-save",
     disabled: gesamt === 0,
     onClick: () => onStarten(gewaehlt)
-  }, gesamt === 0 ? 'Noch nichts gewählt' : laufend ? gesamt + (gesamt === 1 ? ' Gegner' : ' Gegner') + ' dazunehmen' : 'Kampf mit ' + gesamt + (gesamt === 1 ? ' Gegner' : ' Gegnern') + ' starten'))));
+  }, gesamt === 0 ? 'Noch nichts gewählt' : laufend ? gesamt + ' Gegner dazunehmen' : 'Kampf mit ' + gesamt + (gesamt === 1 ? ' Gegner' : ' Gegnern') + ' starten'))));
 };
 
-// ── Trefferpunkte zurueck in die Boegen ──────────────────────────
-// Kein stiller Automatismus: es sind die Boegen der Spieler, das
-// Heldenbuch speichert im Sekundentakt, und wer seinen Bogen gerade offen
-// hat, merkt vom Ueberschreiben nichts. Deshalb steht hier, was sich
-// aendern wuerde, und jede Zeile laesst sich abwaehlen.
-const UebertragenDialog = ({
-  teilnehmer,
+// ── Die Seitenspalte ─────────────────────────────────────────────
+// Oben die Helden des Abenteuers mit ihrem Stand, unten die ganze
+// Gegnersammlung mit einem Pluszeichen je Zeile. So kommt der Nachzuegler
+// mit einem Klick in den Kampf, ohne Umweg ueber ein Fenster.
+const KampfSeite = ({
   helden,
   setDefs,
-  onUebertragen,
-  onOhne,
-  onAbbrechen
+  enemies,
+  imKampf,
+  ueberlagert,
+  onZu,
+  onGegnerDazu,
+  onHeldDazu
 }) => {
-  const zeilen = teilnehmer.filter(t => t.art === 'held').map(t => {
-    const c = helden.find(h => h.id === t.charId);
-    if (!c) return null;
-    const imBogen = +c.hp || 0;
-    const tempBogen = +c.tempHp || 0;
-    // Hat der Spieler seinen Bogen waehrend des Kampfes selbst angefasst?
-    const fremd = t.hpBeiStart !== undefined && imBogen !== t.hpBeiStart;
-    const gleich = imBogen === t.hp && tempBogen === (t.tempHp || 0);
-    return {
-      charId: c.id,
-      name: c.name,
-      imBogen,
-      tempBogen,
-      imKampf: t.hp,
-      tempKampf: t.tempHp || 0,
-      fremd,
-      gleich
-    };
-  }).filter(Boolean);
-
-  // Vorgewaehlt ist, was sich unterscheidet und was der Spieler nicht
-  // selbst angefasst hat.
-  const [gewaehlt, setGewaehlt] = React.useState(() => new Set(zeilen.filter(z => !z.gleich && !z.fremd).map(z => z.charId)));
-  const umschalten = id => setGewaehlt(m => {
-    const n = new Set(m);
-    if (n.has(id)) n.delete(id);else n.add(id);
-    return n;
-  });
-  const zuUebertragen = zeilen.filter(z => gewaehlt.has(z.charId));
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
+  const [suche, setSuche] = React.useState('');
+  const q = suche.trim();
+  const treffer = enemies.filter(e => !q || containsFold(e.name || '', q) || containsFold((e.tags || []).join(' '), q) || containsFold(e.type || '', q)).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de')).slice(0, 200);
+  return /*#__PURE__*/React.createElement("aside", {
+    className: "kampf-seite"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "form-modal",
-    style: {
-      maxWidth: 520
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-title"
-  }, "Trefferpunkte \xFCbertragen"), zeilen.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 13,
-      color: 'var(--text-muted)',
-      lineHeight: 1.6
-    }
-  }, "In diesem Kampf steht kein Held aus dem Abenteuer \u2014 es gibt nichts zu \xFCbertragen.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 12.5,
-      color: 'var(--text-muted)',
-      lineHeight: 1.6,
-      marginBottom: 12
-    }
-  }, "Was hier angehakt ist, wird in den Bogen geschrieben. Die Spieler bekommen es beim n\xE4chsten Abgleich, ohne R\xFCckfrage."), /*#__PURE__*/React.createElement("div", {
-    className: "ueb-liste"
-  }, zeilen.map(z => /*#__PURE__*/React.createElement("label", {
-    className: "ueb-zeile" + (z.gleich ? " gleich" : "") + (z.fremd ? " fremd" : ""),
-    key: z.charId
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: gewaehlt.has(z.charId),
-    disabled: z.gleich,
-    onChange: () => umschalten(z.charId)
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "ueb-name"
-  }, z.name), /*#__PURE__*/React.createElement("span", {
-    className: "ueb-werte"
-  }, /*#__PURE__*/React.createElement("b", null, z.imBogen), z.tempBogen ? ' +' + z.tempBogen : '', /*#__PURE__*/React.createElement("i", null, "\u2192"), /*#__PURE__*/React.createElement("b", null, z.imKampf), z.tempKampf ? ' +' + z.tempKampf : ''), z.gleich && /*#__PURE__*/React.createElement("span", {
-    className: "ueb-hinweis"
-  }, "unver\xE4ndert"), z.fremd && !z.gleich && /*#__PURE__*/React.createElement("span", {
-    className: "ueb-warnung"
-  }, "Bogen wurde w\xE4hrend des Kampfes ge\xE4ndert"))))), /*#__PURE__*/React.createElement("div", {
-    className: "form-actions"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn-cancel",
-    onClick: onAbbrechen
-  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-cancel",
-    onClick: onOhne
-  }, "Ohne \xDCbertragen beenden"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-save",
-    disabled: zuUebertragen.length === 0,
-    onClick: () => onUebertragen(zuUebertragen)
-  }, zuUebertragen.length === 0 ? 'Nichts ausgewählt' : zuUebertragen.length + (zuUebertragen.length === 1 ? ' Bogen' : ' Bögen') + ' schreiben'))));
+    className: "kampf-seite-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "\u2694 Helden"), ueberlagert ? /*#__PURE__*/React.createElement("button", {
+    className: "kampf-seite-zu",
+    onClick: onZu,
+    "aria-label": "Spalte schlie\xDFen"
+  }, "\u2715") : /*#__PURE__*/React.createElement("span", {
+    className: "kampf-seite-rechts"
+  }, "im Kampf")), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-helden"
+  }, helden.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-leer"
+  }, "Kein Held im Abenteuer."), helden.map(h => {
+    const w = charWerte(h, setDefs);
+    const gesamt = Math.max(1, w.maxHp || 1);
+    const anteil = Math.max(0, Math.min(1, (w.hp || 0) / gesamt));
+    const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a';
+    const drin = imKampf.has(h.id);
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'kampf-seite-held' + (drin ? '' : ' draussen'),
+      key: h.id
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "kampf-seite-figur"
+    }, h.portrait ? /*#__PURE__*/React.createElement("img", {
+      src: h.portrait,
+      alt: ""
+    }) : /*#__PURE__*/React.createElement("span", null, "\uD83D\uDEE1")), /*#__PURE__*/React.createElement("div", {
+      className: "kampf-seite-text"
+    }, /*#__PURE__*/React.createElement("b", null, h.name), /*#__PURE__*/React.createElement("i", null, h.charClass, " ", h.level, " \xB7 AC ", w.ac), /*#__PURE__*/React.createElement("div", {
+      className: "kampf-balken klein"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "kampf-balken-fuell",
+      style: {
+        width: anteil * 100 + '%',
+        background: farbe
+      }
+    })), (w.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "kampf-temp"
+    }, "+", w.tempHp, " Temp HP")), /*#__PURE__*/React.createElement("div", {
+      className: "kampf-seite-zahl"
+    }, /*#__PURE__*/React.createElement("b", {
+      style: {
+        color: farbe
+      }
+    }, (w.hp || 0) + (w.tempHp || 0)), "/", w.maxHp, !drin && /*#__PURE__*/React.createElement("button", {
+      className: "kampf-seite-plus",
+      title: "In den Kampf holen",
+      onClick: () => onHeldDazu(h)
+    }, "+")));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-kopf gegner"
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDC80 Gegner"), /*#__PURE__*/React.createElement("span", {
+    className: "kampf-seite-rechts"
+  }, enemies.length)), /*#__PURE__*/React.createElement("input", {
+    className: "kampf-seite-suche",
+    value: suche,
+    placeholder: "\uD83D\uDD0D Suchen\u2026",
+    "aria-label": "Gegner suchen",
+    onChange: e => setSuche(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-gegner"
+  }, enemies.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-leer"
+  }, "Noch keine Gegner. Unter \uD83D\uDCDA Datenbank \u203A \uD83D\uDC80 Gegner eine Sammlung einlesen.") : treffer.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-leer"
+  }, "Kein Gegner gefunden.") : treffer.map(e => /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-gzeile",
+    key: e.id
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kampf-seite-gtext"
+  }, /*#__PURE__*/React.createElement("b", null, e.name), /*#__PURE__*/React.createElement("i", null, "HP ", e.hpMax, " \xB7 AC ", e.ac)), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-seite-plus",
+    title: e.name + ' dazunehmen',
+    "aria-label": e.name + ' dazunehmen',
+    onClick: () => onGegnerDazu(e)
+  }, "+")))));
 };
 
 // ── Der Kampf ────────────────────────────────────────────────────
@@ -1753,24 +1986,30 @@ const KampfAnsicht = ({
   advId,
   onSchliessen,
   onGegnerBlatt,
-  onBeenden
+  onBeenden,
+  onHeldAendern
 }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
-  const [uebertragen, setUebertragen] = React.useState(false);
   const [spontan, setSpontan] = React.useState(false);
+  const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
+  // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
+  const [seiteOffen, setSeiteOffen] = React.useState(false);
   if (!kampf || !kampf.aktiv) {
     const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
     return /*#__PURE__*/React.createElement("div", {
-      className: "kampf-schirm"
+      className: "kampf-schirm start"
     }, /*#__PURE__*/React.createElement("div", {
       className: "kampf-kopf"
     }, /*#__PURE__*/React.createElement("div", {
       className: "kampf-titel"
-    }, "\u2694 Kampf"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-cancel",
-      onClick: onSchliessen
-    }, "Schlie\xDFen")), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
+    }, "\u2694 Kampf"), /*#__PURE__*/React.createElement("div", {
+      className: "kampf-dran"
+    }), /*#__PURE__*/React.createElement("button", {
+      className: "kampf-kopf-x",
+      onClick: onSchliessen,
+      "aria-label": "Schlie\xDFen"
+    }, "\u2715")), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
       enemies: enemies,
       laufend: false,
       onAbbrechen: () => setSpontan(false),
@@ -1808,17 +2047,20 @@ const KampfAnsicht = ({
     }))));
   }
 
-  // Im Kampf steht nur, was zum Kampf gehoert: Trefferpunkte, Zustaende,
-  // Initiative. Alles, was aus dem Bogen kommt — Ruestungsklasse, maximale
-  // Trefferpunkte, Immunitaeten, Rettungswuerfe —, wird bei jedem Rendern
-  // neu gelesen. Legt ein Held mitten im Kampf einen Schild an, steht seine
-  // RK hier sofort richtig, statt bis zum naechsten Kampf falsch zu bleiben.
+  // Alles, was aus dem Bogen kommt, wird bei jedem Rendern neu gelesen:
+  // Ruestungsklasse, Trefferpunkte, Immunitaeten, Rettungswuerfe. Legt ein
+  // Held mitten im Kampf einen Schild an, steht seine RK hier sofort
+  // richtig — und was hier eingetragen wird, steht dort sofort.
   const liste = kampf.teilnehmer.map(t => {
     if (t.art !== 'held') return t;
     const c = helden.find(h => h.id === t.charId);
     if (!c) return {
       ...t,
-      fehlt: true
+      fehlt: true,
+      name: t.name || 'Fehlt',
+      hp: 0,
+      hpMax: 1,
+      ac: 10
     };
     const w = charWerte(c, setDefs);
     return {
@@ -1827,7 +2069,11 @@ const KampfAnsicht = ({
       unterzeile: (c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level,
       ac: w.ac,
       hpMax: w.maxHp,
+      hp: w.hp,
+      tempHp: w.tempHp,
       dex: w.dex,
+      tempMaxHp: +c.tempMaxHp || 0,
+      deathSaves: c.deathSaves || TODES_LEER,
       bild: c.portrait || null,
       passive: w.passive,
       saves: w.saves,
@@ -1836,59 +2082,135 @@ const KampfAnsicht = ({
     };
   });
   const amZug = liste[kampf.zug] || null;
-  const aendern = (id, fn) => setKampf(k => ({
+  const imKampf = new Set(kampf.teilnehmer.filter(t => t.art === 'held').map(t => t.charId));
+
+  // Was zum Kampf gehoert, bleibt im Kampf.
+  const aendernKampf = (id, fn) => setKampf(k => ({
     ...k,
     teilnehmer: k.teilnehmer.map(t => t.id === id ? fn(t) : t)
   }));
-  const schaden = (id, n) => aendern(id, t => {
+
+  // Was zum Helden gehoert, geht in den Bogen — sofort, nicht am Ende.
+  const aendernWerte = (id, fn) => {
+    const t = liste.find(x => x.id === id);
+    if (!t || t.fehlt) return;
+    const neu = fn(t);
+    if (t.art === 'held') {
+      const p = {
+        hp: neu.hp,
+        tempHp: neu.tempHp
+      };
+      if (neu.tempMaxHp !== undefined) p.tempMaxHp = neu.tempMaxHp;
+      if (neu.deathSaves !== undefined) p.deathSaves = neu.deathSaves;
+      // Wer wieder ueber null steht, wuerfelt nicht mehr ums Ueberleben.
+      if (neu.hp > 0) p.deathSaves = TODES_LEER;
+      onHeldAendern(t.charId, p, t.name);
+    } else {
+      aendernKampf(id, fn);
+    }
+  };
+  const schaden = (t, n) => {
     // Temporäre Punkte fangen zuerst — so steht es im Regelwerk.
     const vomTemp = Math.min(t.tempHp || 0, n);
-    const rest = n - vomTemp;
     return {
       ...t,
       tempHp: (t.tempHp || 0) - vomTemp,
-      hp: Math.max(0, t.hp - rest)
+      hp: Math.max(0, (t.hp || 0) - (n - vomTemp))
     };
+  };
+  const heilen = (t, n) => ({
+    ...t,
+    hp: Math.min(t.hpMax, Math.max(0, (t.hp || 0) + n))
   });
-  const heilen = (id, n) => aendern(id, t => ({
+  const temp = (t, n) => ({
     ...t,
-    hp: Math.min(t.hpMax, t.hp + n)
-  }));
-  const temp = (id, n) => aendern(id, t => ({
-    ...t,
-    tempHp: Math.max(t.tempHp || 0, n)
-  }));
-  // Sinkt die Obergrenze unter den aktuellen Stand, sinkt der Stand mit —
-  // sonst staende dort mehr, als der Gegner haben kann.
-  const maxTp = (id, n) => aendern(id, t => ({
-    ...t,
-    hpMax: Math.max(1, n),
-    hp: Math.min(t.hp, Math.max(1, n))
-  }));
-  const zustand = (id, z) => aendern(id, t => ({
+    tempHp: Math.max(0, n < 0 ? (t.tempHp || 0) + n : Math.max(t.tempHp || 0, n))
+  });
+
+  // Auf der Karte: die kleinen Schritte ohne Fenster.
+  const wertDirekt = (id, modus, n) => {
+    if (modus === 'schaden') aendernWerte(id, t => schaden(t, n));
+    if (modus === 'heilung') aendernWerte(id, t => heilen(t, n));
+  };
+  const fensterAnwenden = n => {
+    const {
+      id,
+      modus
+    } = wertDlg;
+    setWertDlg(null);
+    if (!n) return;
+    if (modus === 'schaden') aendernWerte(id, t => n > 0 ? schaden(t, n) : heilen(t, -n));
+    if (modus === 'heilung') aendernWerte(id, t => n > 0 ? heilen(t, n) : schaden(t, -n));
+    if (modus === 'temp') aendernWerte(id, t => temp(t, n));
+    if (modus === 'maxtemp') aendernWerte(id, t => ({
+      ...t,
+      tempMaxHp: Math.max(0, (t.tempMaxHp || 0) + n)
+    }));
+    // Sinkt die Obergrenze unter den aktuellen Stand, sinkt der Stand mit.
+    if (modus === 'maxhp') aendernKampf(id, t => {
+      const m = Math.max(1, (t.hpMax || 1) + n);
+      return {
+        ...t,
+        hpMax: m,
+        hp: Math.min(t.hp, m)
+      };
+    });
+  };
+  const zustand = (id, z) => aendernKampf(id, t => ({
     ...t,
     zustaende: (t.zustaende || []).includes(z) ? (t.zustaende || []).filter(x => x !== z) : [...(t.zustaende || []), z]
   }));
-  const erschoepfung = (id, d) => aendern(id, t => ({
+  const marke = (id, k) => aendernKampf(id, t => ({
     ...t,
-    erschoepfung: Math.max(0, Math.min(6, (t.erschoepfung || 0) + d))
+    [k]: !t[k]
   }));
-  const ini = (id, v) => setKampf(k => {
-    const n = v === '' ? null : parseInt(v, 10);
-    const neu = k.teilnehmer.map(t => t.id === id ? {
+  const erschoepfung = (id, stufe) => aendernKampf(id, t => ({
+    ...t,
+    erschoepfung: Math.max(0, Math.min(6, stufe))
+  }));
+  const notiz = (id, v) => aendernKampf(id, t => ({
+    ...t,
+    notiz: v
+  }));
+
+  // Der Kampf speichert von Helden nur, was zum Kampf gehoert — zum
+  // Sortieren fehlt dort die Geschicklichkeit. Sie kommt fuer den
+  // Vergleich aus dem Bogen und wird nicht mitgespeichert.
+  const heldDex = t => {
+    if (t.art !== 'held') return t.dex || 10;
+    const c = helden.find(h => h.id === t.charId);
+    return c ? charWerte(c, setDefs).dex : 10;
+  };
+  const heldName = t => {
+    if (t.art !== 'held') return t.name || '';
+    const c = helden.find(h => h.id === t.charId);
+    return c ? c.name : t.name || '';
+  };
+  // Sortiert die rohen Eintraege und behaelt sie roh: sortiert wird auf
+  // einer angereicherten Kopie, zurueck kommen die Originale.
+  const sortiereRoh = teilnehmer => {
+    const reihe = sortiereNachIni(teilnehmer.map(t => ({
       ...t,
-      ini: Number.isFinite(n) ? n : null
-    } : t);
-    const sortiert = sortiereNachIni(neu);
-    // Der Zug bleibt bei derselben Figur, auch wenn die Reihenfolge sich
-    // durch die neue Zahl verschiebt.
+      dex: heldDex(t),
+      name: heldName(t)
+    })));
+    return reihe.map(x => teilnehmer.find(t => t.id === x.id));
+  };
+  const neuOrdnen = (k, teilnehmer) => {
     const dranId = k.teilnehmer[k.zug] && k.teilnehmer[k.zug].id;
-    const zug = Math.max(0, sortiert.findIndex(t => t.id === dranId));
+    const reihe = sortiereRoh(teilnehmer);
     return {
       ...k,
-      teilnehmer: sortiert,
-      zug
+      teilnehmer: reihe,
+      zug: Math.max(0, reihe.findIndex(t => t.id === dranId))
     };
+  };
+  const ini = (id, v) => setKampf(k => {
+    const n = v === '' ? null : parseInt(v, 10);
+    return neuOrdnen(k, k.teilnehmer.map(t => t.id === id ? {
+      ...t,
+      ini: Number.isFinite(n) ? n : null
+    } : t));
   });
   const entfernen = id => setKampf(k => {
     const idx = k.teilnehmer.findIndex(t => t.id === id);
@@ -1900,6 +2222,7 @@ const KampfAnsicht = ({
       zug
     };
   });
+  const dazu = neue => setKampf(k => neuOrdnen(k, [...k.teilnehmer, ...neue]));
   const naechster = () => setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
@@ -1912,27 +2235,71 @@ const KampfAnsicht = ({
       zug: naechsterZug
     };
   });
+
+  // Wuerfelt nur fuer die, bei denen noch nichts steht — eine angesagte
+  // Zahl wird nicht ueberschrieben.
+  const alleIni = () => setKampf(k => neuOrdnen(k, k.teilnehmer.map(t => t.ini !== null ? t : {
+    ...t,
+    ini: w20() + mod(heldDex(t))
+  })));
   const ohneIni = liste.filter(t => t.ini === null).length;
+  const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
   return /*#__PURE__*/React.createElement("div", {
-    className: "kampf-schirm"
+    className: 'kampf-schirm' + (seiteOffen ? ' seite-offen' : '')
+  }, /*#__PURE__*/React.createElement(KampfSeite, {
+    helden: helden,
+    setDefs: setDefs,
+    enemies: enemies,
+    imKampf: imKampf,
+    ueberlagert: seiteOffen,
+    onZu: () => setSeiteOffen(false),
+    onGegnerDazu: e => {
+      dazu([gegnerAusVorlage(e)]);
+      setSeiteOffen(false);
+    },
+    onHeldDazu: h => {
+      dazu([{
+        id: 'held-' + h.id,
+        art: 'held',
+        charId: h.id,
+        ini: null,
+        zustaende: [],
+        erschoepfung: 0,
+        notiz: '',
+        vorteil: false,
+        nachteil: false
+      }]);
+      setSeiteOffen(false);
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-haupt"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-kopf"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "kampf-seite-knopf",
+    onClick: () => setSeiteOffen(true),
+    title: "Helden und Gegner",
+    "aria-label": "Helden und Gegner"
+  }, "\u2630"), /*#__PURE__*/React.createElement("div", {
     className: "kampf-titel"
   }, "\u2694 ", kampf.name), /*#__PURE__*/React.createElement("div", {
     className: "kampf-runde"
   }, /*#__PURE__*/React.createElement("span", null, "Runde"), /*#__PURE__*/React.createElement("b", null, kampf.runde)), /*#__PURE__*/React.createElement("div", {
     className: "kampf-dran"
   }, amZug ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, amZug.name)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-weiter",
-    onClick: naechster
-  }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-btn",
+    onClick: alleIni,
+    title: "F\xFCr alle ohne Zahl w\xFCrfeln"
+  }, "\uD83C\uDFB2 Alle Init."), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn zusatz",
     onClick: () => setSpontan(true),
     title: "Gegner nachtr\xE4glich dazunehmen"
   }, "\u26A1 Gegner"), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-weiter",
+    onClick: naechster
+  }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn ende",
-    onClick: () => setUebertragen(true)
+    onClick: onBeenden
   }, "\u23F9 Kampf beenden"), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
@@ -1940,42 +2307,30 @@ const KampfAnsicht = ({
     "aria-label": "Kampftracker schlie\xDFen"
   }, "\u2715")), ohneIni > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
-  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen."), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
+  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
     enemies: enemies,
     laufend: true,
     onAbbrechen: () => setSpontan(false),
     onStarten: auswahl => {
       setSpontan(false);
-      // Nur die Gegner aufstellen — die Helden stehen schon in der
-      // Liste und duerfen nicht ein zweites Mal hinein.
-      const frisch = kampfAufstellen({
-        name: '',
-        enemies: auswahl
-      }, enemies, [], setDefs);
-      setKampf(k => {
-        const dranId = k.teilnehmer[k.zug] && k.teilnehmer[k.zug].id;
-        const teilnehmer = sortiereNachIni([...k.teilnehmer, ...frisch.teilnehmer]);
-        const zug = Math.max(0, teilnehmer.findIndex(t => t.id === dranId));
-        return {
-          ...k,
-          teilnehmer,
-          zug
-        };
+      const frisch = [];
+      auswahl.forEach(({
+        enemyId,
+        count
+      }) => {
+        const v = enemies.find(e => e.id === enemyId);
+        if (!v) return;
+        const n = Math.max(1, +count || 1);
+        for (let i = 0; i < n; i++) frisch.push(gegnerAusVorlage(v, n > 1 ? v.name + ' ' + (i + 1) : v.name));
       });
+      dazu(frisch);
     }
-  }), uebertragen && /*#__PURE__*/React.createElement(UebertragenDialog, {
-    teilnehmer: kampf.teilnehmer,
-    helden: helden,
-    setDefs: setDefs,
-    onAbbrechen: () => setUebertragen(false),
-    onOhne: () => {
-      setUebertragen(false);
-      onBeenden();
-    },
-    onUebertragen: zeilen => {
-      setUebertragen(false);
-      onBeenden(zeilen);
-    }
+  }), wertDlg && dlgZiel && /*#__PURE__*/React.createElement(WertDialog, {
+    modus: wertDlg.modus,
+    name: dlgZiel.name,
+    start: 0,
+    onAbbrechen: () => setWertDlg(null),
+    onAnwenden: fensterAnwenden
   }), /*#__PURE__*/React.createElement("div", {
     className: "kampf-liste"
   }, liste.map(t => /*#__PURE__*/React.createElement(KampfZeile, {
@@ -1984,18 +2339,25 @@ const KampfAnsicht = ({
     dran: amZug && amZug.id === t.id,
     zustandOffen: zustandOffen,
     setZustandOffen: setZustandOffen,
-    onSchaden: n => schaden(t.id, n),
-    onHeilen: n => heilen(t.id, n),
-    onTemp: n => temp(t.id, n),
-    onMaxTp: n => maxTp(t.id, n),
-    onIni: v => ini(t.id, v),
-    onZustand: z => zustand(t.id, z),
-    onErschoepfung: d => erschoepfung(t.id, d),
-    onEntfernen: () => entfernen(t.id),
-    onBlatt: onGegnerBlatt,
     detailOffen: detailOffen,
-    setDetailOffen: setDetailOffen
-  }))));
+    setDetailOffen: setDetailOffen,
+    onWert: (modus, n) => wertDirekt(t.id, modus, n),
+    onFenster: modus => setWertDlg({
+      id: t.id,
+      modus
+    }),
+    onIni: v => ini(t.id, v),
+    onNotiz: v => notiz(t.id, v),
+    onZustand: z => zustand(t.id, z),
+    onMarke: k => marke(t.id, k),
+    onErschoepfung: st => erschoepfung(t.id, st),
+    onTodes: d => aendernWerte(t.id, alt => ({
+      ...alt,
+      deathSaves: d
+    })),
+    onEntfernen: () => entfernen(t.id),
+    onBlatt: onGegnerBlatt
+  })))));
 };
 
 // ==== js/src/2d-chronik.jsx ====
@@ -3480,6 +3842,28 @@ const Sheet = () => {
       fontSize: 13,
       textAlign: "center"
     }
+  }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 10,
+      color: "var(--text-muted)",
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, "T.Max"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: cur.tempMaxHp || 0,
+    onChange: e => patchChar({
+      tempMaxHp: Math.max(0, Number(e.target.value))
+    }),
+    style: {
+      width: 52,
+      padding: "2px 4px",
+      background: "var(--bg-card)",
+      border: "1px solid #7a4a68",
+      borderRadius: 3,
+      color: "#d4a6c8",
+      fontSize: 13,
+      textAlign: "center"
+    }
   })) : /*#__PURE__*/React.createElement("span", {
     style: {
       color: "var(--crimson-bright)"
@@ -3494,7 +3878,12 @@ const Sheet = () => {
       color: "#7ab8f5",
       marginLeft: 6
     }
-  }, "(+", cur.tempHp, " temp)")))), /*#__PURE__*/React.createElement("div", {
+  }, "(+", cur.tempHp, " temp)"), (cur.tempMaxHp || 0) > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#d4a6c8",
+      marginLeft: 6
+    }
+  }, "(+", cur.tempMaxHp, " max)")))), /*#__PURE__*/React.createElement("div", {
     className: "hp-bar-track"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -7139,6 +7528,31 @@ function App() {
   // Wie bei den Gegnern: ein Fehlschlag wird gezeigt, nicht verschluckt.
   // Eine stille Absage saehe aus wie ein gelungenes Speichern, und die
   // naechste Sitzung faenge dann am falschen Tag an.
+  // Der Kampftracker schreibt sofort in den Bogen, nicht erst am Ende.
+  // Dieselbe Warteschlange wie jede andere Aenderung, damit die Anzeige
+  // "N nicht gesichert" stimmt und nichts an ihr vorbeigeht.
+  const heldImKampfAendern = (charId, patch, name) => {
+    const vorher = charsRef.current.find(c => c.id === charId);
+    if (!vorher) return;
+    save(charsRef.current.map(c => c.id === charId ? {
+      ...c,
+      ...patch
+    } : c));
+    // Ins Log kommen nur die beiden Augenblicke, die man spaeter
+    // nachlesen will. Jeder einzelne Treffer waere eine Zeile, und nach
+    // einem Kampf stuenden dreissig davon im Abenteuerlog.
+    const alt = +vorher.hp || 0,
+      neu = patch.hp;
+    if (neu !== undefined && alt > 0 && neu <= 0) {
+      addLog(charId, name || vorher.name, 'charakter', 'Bei 0 Trefferpunkten', {
+        kampf: kampf && kampf.name || undefined
+      });
+    } else if (neu !== undefined && alt <= 0 && neu > 0) {
+      addLog(charId, name || vorher.name, 'charakter', 'Wieder auf den Beinen: ' + neu + ' TP', {
+        kampf: kampf && kampf.name || undefined
+      });
+    }
+  };
   const saveChronik = ch => {
     setChronik(ch);
     chronikMerkmaleAbgleichen(ch);
@@ -7530,7 +7944,7 @@ function App() {
     int: fx('int', cur.int),
     wis: fx('wis', cur.wis),
     cha: fx('cha', cur.cha),
-    maxHp: fx('maxHp', cur.maxHp),
+    maxHp: fx('maxHp', cur.maxHp) + (+cur.tempMaxHp || 0),
     speed: fx('speed', cur.speed),
     profBonus: fx('profBonus', cur.profBonus)
   } : null;
@@ -13417,26 +13831,11 @@ function App() {
       const g = enemies.find(e => e.id === id);
       if (g) setEnemyView(g);
     },
-    onBeenden: zeilen => {
-      // Geht durch denselben Speicherweg wie jede andere Aenderung:
-      // dieselbe Warteschlange, dieselbe Anzeige "N nicht gesichert".
-      if (zeilen && zeilen.length) {
-        save(charsRef.current.map(c => {
-          const z = zeilen.find(x => x.charId === c.id);
-          return z ? {
-            ...c,
-            hp: z.imKampf,
-            tempHp: z.tempKampf
-          } : c;
-        }));
-        // Im Abenteuerlog nachvollziehbar: es sind fremde Boegen.
-        zeilen.forEach(z => addLog(z.charId, z.name, 'charakter', 'Trefferpunkte aus dem Kampf: ' + z.imBogen + ' → ' + z.imKampf, {
-          kampf: kampf && kampf.name || undefined
-        }));
-      }
+    onHeldAendern: heldImKampfAendern,
+    onBeenden: () => appConfirm('Kampf beenden? Die Trefferpunkte stehen schon in den Bögen — es geht nichts verloren.', () => {
       setKampf(null);
       setShowKampf(false);
-    }
+    }, 'Beenden')
   }), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
     form: encForm,
     setForm: setEncForm,
