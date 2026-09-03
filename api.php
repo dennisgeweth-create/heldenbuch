@@ -106,6 +106,31 @@ $pdo->exec("
         CONSTRAINT fk_hbch_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    -- hb_vitals und hb_rev tragen den Hintergrundabgleich. Beide sind
+    -- abgeleitet, nicht Wahrheit: die Wahrheit steht weiter in
+    -- hb_chars.char_json. Sie existieren, damit ein Abgleich nicht das
+    -- Naheliegende tun muss — alles lesen, um festzustellen, dass sich
+    -- nichts geaendert hat.
+    --
+    -- hb_vitals: die vier Werte, die sich im Kampf im Sekundentakt
+    -- aendern. Ein paar Byte je Held statt eines Charakterbogens mit Bild.
+    -- hb_rev: zaehlt nur hoch, wenn sich etwas anderes als diese vier
+    -- Werte geaendert hat. Solange die Zahl steht, muss niemand laden.
+    CREATE TABLE IF NOT EXISTS hb_vitals (
+        session_code VARCHAR(20)  NOT NULL,
+        char_id      VARCHAR(50)  NOT NULL,
+        vitals_json  VARCHAR(255) NOT NULL,
+        updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_code, char_id),
+        CONSTRAINT fk_hbv_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS hb_rev (
+        session_code VARCHAR(20) NOT NULL PRIMARY KEY,
+        rev          BIGINT      NOT NULL DEFAULT 1,
+        CONSTRAINT fk_hbr_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
     CREATE TABLE IF NOT EXISTS hb_rate_limits (
         ip           VARCHAR(45) NOT NULL PRIMARY KEY,
         attempts     SMALLINT    NOT NULL DEFAULT 1,
@@ -147,6 +172,41 @@ function checkRateLimit(PDO $pdo): void {
         $pdo->prepare("INSERT INTO hb_rate_limits (ip) VALUES (?)")->execute([$ip]);
     }
 }
+// ── Hintergrundabgleich ─────────────────────────────────────────
+// Diese vier Werte aendern sich im Kampf staendig, alles andere am Bogen
+// so gut wie nie. Deshalb werden sie getrennt gefuehrt.
+const VITAL_FELDER = ['hp', 'tempHp', 'tempMaxHp', 'deathSaves'];
+function vitalsAus(array $c): array {
+    $v = [];
+    foreach (VITAL_FELDER as $f) if (array_key_exists($f, $c)) $v[$f] = $c[$f];
+    return $v;
+}
+function ohneVitals(array $c): array {
+    foreach (VITAL_FELDER as $f) unset($c[$f]);
+    return $c;
+}
+// Nur hochzaehlen, wenn sich etwas anderes als die vier Werte geaendert
+// hat. Ein Trefferpunkt weniger soll keinen vollen Ladevorgang bei jedem
+// in der Gruppe ausloesen.
+function revHoch(PDO $pdo, string $code): void {
+    $pdo->prepare("INSERT INTO hb_rev (session_code,rev) VALUES(?,1)
+                   ON DUPLICATE KEY UPDATE rev=rev+1")->execute([$code]);
+}
+function revStand(PDO $pdo, string $code): int {
+    $st = $pdo->prepare("SELECT rev FROM hb_rev WHERE session_code=?");
+    $st->execute([$code]);
+    $r = $st->fetch();
+    return (int)($r['rev'] ?? 0);
+}
+// Kennung fuer den Abgleich. Sie wird aus dem Passwort-Hash abgeleitet und
+// ist damit ohne den Hash nicht zu erraten — aber ihre Pruefung kostet
+// einen Stringvergleich statt eines bcrypt-Durchlaufs. Genau deshalb gibt
+// es sie: der Abgleich laeuft alle paar Sekunden auf jedem Geraet, und
+// bcrypt ist mit Absicht langsam.
+function pollToken(string $code, string $hash): string {
+    return hash('sha256', $code . '|' . $hash);
+}
+
 function validateCode(string $c): bool { $l=strlen($c); return $l>=3&&$l<=20&&preg_match('/^[A-Za-z0-9_\-]+$/',$c); }
 function validatePassword(string $p): bool { $l=strlen($p); return $l>=6&&$l<=128; }
 function respond(int $status, string $message, array $extra=[]): never {
@@ -244,12 +304,58 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $row    = verifySession($pdo, $code, $pass);
         $result = loadAll($pdo, $code, $row);
+
+        // hb_vitals einmalig fuellen, damit der Abgleich auch fuer
+        // Charaktere greift, die seit der Umstellung nicht gespeichert
+        // wurden. Bewusst nur einfuegen, nie ueberschreiben: was schon
+        // dasteht, kann frischer sein als dieser Lesevorgang.
+        $vs = $pdo->prepare("INSERT INTO hb_vitals (session_code,char_id,vitals_json) VALUES(?,?,?)
+                             ON DUPLICATE KEY UPDATE vitals_json=vitals_json");
+        foreach ($result['chars'] as $c) {
+            if (empty($c['id'])) continue;
+            $vj = json_encode(vitalsAus($c), JSON_UNESCAPED_UNICODE);
+            if (strlen($vj) <= 255) $vs->execute([$code, (string)$c['id'], $vj]);
+        }
+
         respond(200, 'OK', [
             'chars'      => $result['chars'],
             'library'    => json_decode($row['library_json']??'{}', true) ?? [],
             'has_dm'     => !empty($row['dm_pass_hash']),
             'updated_at' => $result['updated_at'],
+            // Fuer den Hintergrundabgleich: die billige Kennung und der
+            // Stand, ab dem nichts Neues mehr kam.
+            'poll_token' => pollToken($code, (string)$row['password_hash']),
+            'rev'        => revStand($pdo, $code),
         ]);
+
+    // ── Hintergrundabgleich ─────────────────────────────────────
+    // Der billigste Weg zu wissen, ob sich etwas getan hat: zwei kleine
+    // Abfragen auf Schluesselspalten, keine Charakterbogen, kein bcrypt.
+    // Die Antwort ist ein paar hundert Byte gross und traegt die
+    // Trefferpunkte gleich mit — damit reicht sie im Kampf allein aus,
+    // und geladen wird nur, wenn sich sonst etwas geaendert hat.
+    //
+    // Ohne Anfragebremse mit Absicht: die kostet zwei Schreibvorgaenge
+    // und waere teurer als die Abfrage selbst. Geschuetzt ist der Weg
+    // ueber die Kennung, die ohne den Passwort-Hash nicht zu raten ist.
+    case 'poll':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $tok = (string)($body['poll_token'] ?? '');
+        $st  = $pdo->prepare("SELECT password_hash FROM hb_sessions WHERE code=?");
+        $st->execute([$code]);
+        $row = $st->fetch();
+        if (!$row) respond(401, 'Unbekannter Code.');
+        if ($tok === '' || !hash_equals(pollToken($code, (string)$row['password_hash']), $tok))
+            respond(401, 'Kennung ungültig. Bitte neu laden.');
+
+        $st = $pdo->prepare("SELECT char_id, vitals_json FROM hb_vitals WHERE session_code=?");
+        $st->execute([$code]);
+        $vitals = [];
+        foreach ($st as $r) {
+            $v = json_decode($r['vitals_json'], true);
+            if (is_array($v)) $vitals[$r['char_id']] = $v;
+        }
+        respond(200, 'OK', ['rev' => revStand($pdo, $code), 'vitals' => $vitals]);
 
     // Charakter-Basis speichern (OHNE inventory)
     case 'save_char':
@@ -257,14 +363,35 @@ switch ($action) {
         $char   = $body['char']    ?? null;
         $charId = $body['char_id'] ?? null;
         if (!$char || !$charId) respond(400, 'Fehlende Daten.');
+        if (!is_array($char)) respond(400, 'Charakter hat das falsche Format.');
         unset($char['inventory']); // Items kommen über save_item
         $json = json_encode($char, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_CHAR_BYTES) respond(413, 'Charakter zu groß.');
         verifySession($pdo, $code, $pass);
+
+        // Vorher lesen, um zu wissen, ob sich mehr geaendert hat als die
+        // Trefferpunkte. Das kostet einen Lesevorgang je Speichern —
+        // gespart wird dafuer ein voller Ladevorgang bei jedem anderen in
+        // der Gruppe, und zwar bei jedem einzelnen Treffer im Kampf.
+        $st = $pdo->prepare("SELECT char_json FROM hb_chars WHERE session_code=? AND char_id=?");
+        $st->execute([$code, $charId]);
+        $altRow  = $st->fetch();
+        $altChar = $altRow ? (json_decode($altRow['char_json'], true) ?: []) : null;
+        $inhaltNeu = json_encode(ohneVitals($char), JSON_UNESCAPED_UNICODE);
+        $inhaltAlt = $altChar === null ? null : json_encode(ohneVitals($altChar), JSON_UNESCAPED_UNICODE);
+
         $pdo->prepare("INSERT INTO hb_chars (session_code,char_id,char_json) VALUES(?,?,?)
                        ON DUPLICATE KEY UPDATE char_json=VALUES(char_json), updated_at=NOW()")
             ->execute([$code, $charId, $json]);
-        respond(200, 'Charakter gespeichert.');
+
+        $vitals = json_encode(vitalsAus($char), JSON_UNESCAPED_UNICODE);
+        if (strlen($vitals) <= 255) {
+            $pdo->prepare("INSERT INTO hb_vitals (session_code,char_id,vitals_json) VALUES(?,?,?)
+                           ON DUPLICATE KEY UPDATE vitals_json=VALUES(vitals_json), updated_at=NOW()")
+                ->execute([$code, $charId, $vitals]);
+        }
+        if ($inhaltNeu !== $inhaltAlt) revHoch($pdo, $code);
+        respond(200, 'Charakter gespeichert.', ['rev' => revStand($pdo, $code)]);
 
     // Charakter löschen (kaskadiert nicht — Items manuell löschen)
     case 'delete_char':
@@ -274,7 +401,9 @@ switch ($action) {
         verifySession($pdo, $code, $pass);
         $pdo->prepare("DELETE FROM hb_chars WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
         $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
-        respond(200, 'Charakter gelöscht.');
+        $pdo->prepare("DELETE FROM hb_vitals WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
+        revHoch($pdo, $code);
+        respond(200, 'Charakter gelöscht.', ['rev' => revStand($pdo, $code)]);
 
     // Einzelnes Item speichern
     case 'save_item':
@@ -289,7 +418,8 @@ switch ($action) {
         $pdo->prepare("INSERT INTO hb_items (session_code,char_id,item_id,item_json) VALUES(?,?,?,?)
                        ON DUPLICATE KEY UPDATE item_json=VALUES(item_json), updated_at=NOW()")
             ->execute([$code, $charId, $itemId, $json]);
-        respond(200, 'Item gespeichert.');
+        revHoch($pdo, $code);
+        respond(200, 'Item gespeichert.', ['rev' => revStand($pdo, $code)]);
 
     // Item löschen
     case 'delete_item':
@@ -300,7 +430,8 @@ switch ($action) {
         verifySession($pdo, $code, $pass);
         $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=? AND item_id=?")
             ->execute([$code, $charId, $itemId]);
-        respond(200, 'Item gelöscht.');
+        revHoch($pdo, $code);
+        respond(200, 'Item gelöscht.', ['rev' => revStand($pdo, $code)]);
 
     case 'save_library':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
@@ -310,7 +441,8 @@ switch ($action) {
         if (strlen($libJson) > MAX_LIB_BYTES) respond(413, 'Bibliothek zu groß.');
         verifySession($pdo, $code, $pass);
         $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$libJson, $code]);
-        respond(200, 'Bibliothek gespeichert.');
+        revHoch($pdo, $code);
+        respond(200, 'Bibliothek gespeichert.', ['rev' => revStand($pdo, $code)]);
 
     case 'dm_load':
         checkRateLimit($pdo);

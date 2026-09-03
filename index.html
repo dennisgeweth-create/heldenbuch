@@ -76,6 +76,10 @@
     const apiSaveItem      = (url, code, pass, charId, itemId, item) => apiRequest(url, 'save_item',   { code, password: pass, char_id: charId, item_id: itemId, item });
     const apiDeleteItem    = (url, code, pass, charId, itemId)       => apiRequest(url, 'delete_item', { code, password: pass, char_id: charId, item_id: itemId });
     const apiSaveLibrary   = (url, code, pass, library)  => apiRequest(url, 'save_library',   { code, password: pass, library });
+    // Traegt kein Passwort, sondern die abgeleitete Kennung: der Abgleich
+    // laeuft im Sekundenbereich, und bcrypt bei jeder Anfrage waere die
+    // teuerste Zeile der ganzen Anwendung.
+    const apiPoll          = (url, code, token)  => apiRequest(url, 'poll',           { code, poll_token: token });
     const apiDmLoad        = (url, code, pass, dmPass)   => apiRequest(url, 'dm_load',         { code, password: pass, dm_password: dmPass });
     const apiDmSaveLibrary = (url, code, pass, dmPass, dmLibrary) => apiRequest(url, 'dm_save_library', { code, password: pass, dm_password: dmPass, dm_library: dmLibrary });
     const apiSetDmPassword = (url, code, pass, dmPass)   => apiRequest(url, 'set_dm_password', { code, password: pass, dm_password: dmPass });

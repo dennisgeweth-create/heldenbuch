@@ -216,6 +216,11 @@ function App() {
   const [gearPick,   setGearPick]   = useState(null);    // offener Platz im Auswahldialog
   const saveTimer = useRef(null);
   const autoSyncTimer = useRef(null);
+  // Hintergrundabgleich: die Kennung (billig statt bcrypt), der zuletzt
+  // gesehene Stand und ein Zaehler ruhiger Runden fuer die Bremse.
+  const pollToken   = useRef(null);
+  const revRef      = useRef(null);
+  const ruheRef     = useRef(0);
   const charsRef = useRef([]);
   const selRef   = useRef(null);
   const pendingRef     = useRef(false);
@@ -363,7 +368,12 @@ function App() {
           ...[...toDelete].map(id => apiDeleteChar(url, code, pass, id)),
           ...[...toDeleteI].map(k => { const [charId,itemId]=k.split('__'); return apiDeleteItem(url, code, pass, charId, itemId); }),
         ];
-        if (ops.length > 0) await Promise.all(ops);
+        const antworten = ops.length > 0 ? await Promise.all(ops) : [];
+        // Jede Antwort traegt den Stand nach dem Schreiben. Ihn hier zu
+        // uebernehmen heisst: der naechste Abgleich erkennt die eigene
+        // Aenderung und laedt sie nicht noch einmal herunter.
+        const staende = antworten.map(a => a && a.rev).filter(r => typeof r === 'number');
+        if (staende.length) revRef.current = Math.max(revRef.current || 0, ...staende);
         // Waehrend des Wartens kann schon wieder etwas dazugekommen sein —
         // deshalb den aktuellen Stand sichern, nicht blind leeren.
         merkeWarteschlange();
@@ -384,6 +394,112 @@ function App() {
   }, []);
 
 
+  // ── Hintergrundabgleich ─────────────────────────────────────────
+  // Damit der Spieler seine Trefferpunkte fallen sieht, waehrend die
+  // Spielleitung sie eintraegt. Gebaut auf der Annahme, dass sich fast
+  // immer nichts geaendert hat — der Normalfall muss deshalb so gut wie
+  // nichts kosten:
+  //
+  //   · Die Anfrage traegt eine abgeleitete Kennung statt des Passworts.
+  //     bcrypt ist mit Absicht langsam und liefe sonst alle paar Sekunden
+  //     auf jedem Geraet der Gruppe.
+  //   · Die Antwort sind ein Zaehler und die Trefferpunkte — ein paar
+  //     hundert Byte. Ein voller Ladevorgang mit allen Bildern laeuft nur,
+  //     wenn sich am Bogen wirklich etwas geaendert hat.
+  //   · Im Hintergrund liegendes Fenster: gar nichts. Sichtbar werden
+  //     loest sofort einen Abgleich aus.
+  //   · Eigene offene Aenderungen: gar nichts. Erst senden, dann fragen.
+  //   · Bleibt es ruhig, wird der Abstand groesser.
+  const POLL_SCHNELL = 5000, POLL_RUHIG = 15000, POLL_LEISE = 60000;
+  const pollAbstand = () => ruheRef.current < 12 ? POLL_SCHNELL
+                          : ruheRef.current < 50 ? POLL_RUHIG : POLL_LEISE;
+
+  // Die vier Werte aus der Antwort in die Charaktere schreiben. Bewusst
+  // ueber applyChars und nicht ueber save: was vom Server kommt, darf
+  // nicht als eigene Aenderung wieder hochgehen.
+  const vitalsAnwenden = (vitals) => {
+    if (!vitals) return false;
+    let geaendert = false;
+    const neu = charsRef.current.map(c => {
+      const v = vitals[c.id];
+      if (!v) return c;
+      const p = {};
+      ['hp','tempHp','tempMaxHp'].forEach(k => {
+        if (v[k] !== undefined && (+v[k]||0) !== (+c[k]||0)) p[k] = +v[k]||0;
+      });
+      if (JSON.stringify(v.deathSaves||null) !== JSON.stringify(c.deathSaves||null)) {
+        p.deathSaves = v.deathSaves;
+      }
+      if (!Object.keys(p).length) return c;
+      geaendert = true;
+      return {...c, ...p};
+    });
+    if (geaendert) { applyChars(neu); spiegleChars(JSON.stringify(neu)); }
+    return geaendert;
+  };
+
+  useEffect(() => {
+    let beendet = false, timer = null;
+    const plan = (ms) => { if (!beendet) timer = setTimeout(lauf, ms); };
+
+    const lauf = async () => {
+      if (beendet) return;
+      const {url, code, pass} = serverCreds();
+      const tok = pollToken.current;
+      // Nichts zu tun — und das ist der haeufigste Fall.
+      if (!url || !code || !tok || pendingRef.current
+          || (typeof document !== 'undefined' && document.hidden)) {
+        plan(POLL_RUHIG);
+        return;
+      }
+      try {
+        const d = await apiPoll(url, code, tok);
+        const etwasNeu = vitalsAnwenden(d.vitals);
+        const revNeu = d.rev != null && revRef.current != null && d.rev !== revRef.current;
+        if (revNeu) {
+          // Am Bogen hat sich mehr geaendert als Trefferpunkte — jetzt
+          // lohnt der volle Ladevorgang, und nur jetzt.
+          revRef.current = d.rev;
+          const data = await apiLoad(url, code, pass);
+          if (!pendingRef.current) {
+            applyChars(data.chars || []);
+            spiegleChars(JSON.stringify(data.chars || []));
+            if (data.library) { setUserLibrary(data.library); safeSetItem('hb_library', JSON.stringify(data.library)); }
+          }
+          if (data.rev != null) revRef.current = data.rev;
+        } else if (revRef.current == null && d.rev != null) {
+          revRef.current = d.rev;
+        }
+        ruheRef.current = (etwasNeu || revNeu) ? 0 : ruheRef.current + 1;
+      } catch (e) {
+        // Still bleiben: der Sekundentakt des Sendens meldet Fehler
+        // ohnehin, und eine zweite rote Zeile fuer einen misslungenen
+        // Abgleich waere nur Laerm. Aber weit zurueckschalten: gegen einen
+        // Server, der nicht antwortet oder die Kennung nicht mehr kennt,
+        // hilft haeufiges Fragen nichts. Ein gelungener Ladevorgang setzt
+        // die Bremse wieder zurueck.
+        ruheRef.current = 50;
+      }
+      plan(pollAbstand());
+    };
+
+    // Sichtbar werden heisst: es kann etwas verpasst worden sein.
+    const wach = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        ruheRef.current = 0;
+        if (timer) clearTimeout(timer);
+        plan(300);
+      }
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', wach);
+    plan(POLL_SCHNELL);
+    return () => {
+      beendet = true;
+      if (timer) clearTimeout(timer);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', wach);
+    };
+  }, []);
+
   // tplData only loaded when template picker opens (openTpl)
 
   useEffect(() => {
@@ -400,6 +516,8 @@ function App() {
       ladeWarteschlange();
       // Load server data on startup — but only apply if no unsaved local changes
       apiLoadChars(url, code, pass).then(d => {
+        pollToken.current = d.poll_token || null;
+        revRef.current    = d.rev != null ? d.rev : null;
         if (d.has_dm) setHasDmMode(true);
         if (d.library) { setUserLibrary(d.library); safeSetItem('hb_library', JSON.stringify(d.library)); }
         if (!pendingRef.current) {
@@ -578,6 +696,9 @@ function App() {
     setSyncStatus('busy'); setSyncMsg('Lade vom Server...');
     try {
       const data = await apiLoad(url, code, pass);
+      pollToken.current = data.poll_token || null;
+      revRef.current    = data.rev != null ? data.rev : null;
+      ruheRef.current   = 0;
       // User explicitly requested reload — always apply server data
       pendingRef.current = false;   // cancel any pending local saves
       applyChars(data.chars || []);
@@ -920,6 +1041,8 @@ function App() {
     try {
       if (setupMode === 'register') await registerGroup(url, code.toUpperCase(), pass, regDmPass||'');
       const data = await apiLoad(url, code.toUpperCase(), pass);
+      pollToken.current = data.poll_token || null;
+      revRef.current    = data.rev != null ? data.rev : null;
       localStorage.setItem('sv_url',  url);
       localStorage.setItem('sv_code', code.toUpperCase());
       localStorage.setItem('sv_pass', pass);
