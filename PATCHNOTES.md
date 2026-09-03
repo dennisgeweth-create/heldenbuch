@@ -1,5 +1,173 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.0.1
+
+### Neu: 🕰 Chronik — der Kalender der Spielleitung
+
+Im DM-Modus liegt neben ⚔ Kampf jetzt **🕰 Chronik**. Sie öffnet eine Spalte
+rechts neben dem Bogen und trägt **eine Uhr je Abenteuer**: Strahd auf Tag 9
+lässt Eberron auf Tag 1 stehen.
+
+Daran hängen Ereignisse in drei Arten, die sich darin unterscheiden, was ihr
+Ablaufen bedeutet:
+
+| | wenn die Zeit um ist |
+|---|---|
+| ⏳ **Frist** | „Armins Finger wächst nach — ist abgelaufen" |
+| 🧭 **Reise** | „Ismark reitet nach Krezk — **ist angekommen in Krezk**" |
+| 📅 **Termin** | „Fest des heiligen Andral — ist jetzt" |
+
+Die Reise trägt Von und Nach. Damit bekommst du am richtigen Tag gesagt, wo du
+einen NSC hinstellen musst, dem die Gruppe nie begegnet ist. Ein Ereignis darf
+auch **ohne Frist** mitlaufen — für das, was einfach nur dastehen soll — oder
+sich **alle N Tage wiederholen**; dann stellt es sich beim Feuern selbst auf den
+nächsten Termin.
+
+**„Die Gruppe schläft drei Tage".** Über **⏩ Zeit vergeht** — Schnellknöpfe für
+1 Std, Rast · 8 Std, 1 Tag, 3 Tage, 1 Woche, oder Tage und Stunden von Hand.
+Bevor etwas passiert, steht da, was passieren wird. Danach zeigt dasselbe
+Fenster, was fällig geworden ist, samt deiner Notiz dazu.
+
+Dazu: **✓** hakt ab, ohne irgendwo hineinzuschreiben. **↩** holt zurück.
+**Uhr direkt stellen** korrigiert einen Verzähler, ohne etwas fällig zu machen.
+Steht etwas Fälliges an, sagt das der Knopf in der Leiste — die Chronik darf
+also zugeklappt bleiben, ohne dass eine Frist untergeht.
+
+### Die Chronik greift in die Bögen
+
+Ein Ereignis kann einem Helden etwas antun. Zwei Wege:
+
+**Merkmal umschalten.** Läuft die Frist ab, wird ein Merkmal ab- oder
+eingeschaltet. Der Malus verschwindet mit der Frist, statt drei Sitzungen später
+aufzufallen.
+
+**Effekt setzen** — derselbe Effekt-Editor wie bei Waffen, wahlweise *ab sofort
+bis die Frist abläuft* (der Fluch, der nach drei Tagen vergeht) oder *erst wenn
+sie abgelaufen ist* (der Fluch, der in drei Tagen zuschlägt und dann bleibt).
+
+Das Merkmal dazu wird bei jeder Änderung **neu aus der Uhr abgeleitet**, nicht
+gesetzt und irgendwann wieder entfernt. Nichts kann hängenbleiben, und wer die
+Uhr zurückstellt, bekommt den Fluch zurück. Im Bogen sind diese Merkmale
+gesperrt (🕰 statt ✎ ✕) — dort geändert wären sie beim nächsten Weiterdrehen
+überschrieben.
+
+**Die Sicherung:** ein umgeschaltetes Merkmal ist ein Eingriff in einen fremden
+Bogen und steht im Zeitfenster einzeln zum Abwählen — dieselbe Regel wie beim
+Kampf. Jede Änderung landet im Abenteuerlog.
+
+### Neu: ⚙ Einstellungen je Abenteuer
+
+Unter **Abenteuer ▸ ⚙ Einstellungen**, nur im DM-Modus. Was hier steht, gilt für
+die ganze Gruppe.
+
+**Trefferpunkte: Offen oder Verdeckt.** Verdeckt heißt: der Spieler liest
+„Schwer verwundet" statt „14 / 38", mit einem 🔒 daneben — auch im
+Bearbeiten-Modus, und dort gibt es dann kein Eingabefeld. Der Balken folgt dem
+Zustand in groben Stufen, nicht dem genauen Anteil; ein exakter Balken verriete
+die Zahl, die er verbergen soll. Die Spielleitung sieht die Zahlen wie immer.
+
+**Klassen je Abenteuer.** Ändern, ergänzen, entfernen — mit Farbe, und mit der
+Angabe, wie viele Helden eine Klasse spielen, bevor du sie streichst. Eine
+Hausklasse braucht nur Namen und Farbe; Trefferwürfel und Zauberattribut stehen
+ohnehin im Bogen. Ein neuer Held startet mit der ersten Klasse der Liste, und
+eine Klasse, die noch in einem Bogen steht, bleibt dort wählbar — sonst spränge
+der Held beim Öffnen still auf eine andere.
+
+### Vorteil und Nachteil auf Fertigkeiten
+
+Bisher gab es nur „Heimlichkeit". Jetzt jede Fertigkeit, in beide Richtungen,
+dazu *auf alle Fertigkeiten* sowie Nachteil auf Initiative und auf
+Todesrettungswürfe. Ein gebrochener Arm gibt keinen Abzug in Zahlen, er gibt
+Nachteil — „−2 auf Athletik" war eine Notlüge im Bogen.
+
+Die Fertigkeitszeile trägt die Marke direkt: **▲** Vorteil, **▼** Nachteil,
+**⇅** wenn beides gilt und sich nach Regelwerk aufhebt.
+
+### Der Kampftracker sieht wieder aus wie der alte
+
+Links die Seitenspalte: oben die Helden mit Klasse, RK, Balken und temporären
+Trefferpunkten, darunter **die ganze Gegnersammlung mit Suchfeld und einem `+`
+je Zeile** — ein Klick, und der Nachzügler steht mit ausgewürfelten
+Trefferpunkten in der Initiative.
+
+Rechts die Karten: Initiativfeld, Bild, Name, **Notizfeld**, RK, Trefferpunkte,
+Tastenblock. Die kleinen Schritte gehen direkt (`-1 -5 +1 +5`), alles Größere im
+Fenster: Sprungtasten 1/2/5/10/20/50 in beide Richtungen und ein Zähler für die
+krumme Zahl.
+
+Das Zustandsfenster hat **👍 Vorteil / 👎 Nachteil**, die fünfzehn Zustände als
+Chips und **Erschöpfung als sechs Stufen** statt zweier Pfeile. In der Kopfzeile
+ist **🎲 Alle Init.** dazugekommen — würfelt für jeden, bei dem noch nichts
+steht.
+
+**Das Notizfeld je Figur sieht nur die Spielleitung.** Es liegt im Kampf, und
+der Kampf liegt nur auf ihrem Gerät.
+
+### Trefferpunkte gelten sofort
+
+Die Trefferpunkte der Helden liegen nicht mehr im Kampf, sondern **im Bogen**.
+Was im Tracker eingetragen wird, steht dort im selben Augenblick. Damit fällt
+das Übertragen am Ende weg — und mit ihm der Kampf, der mit einem Klick daneben
+verlorenging.
+
+Ins Abenteuerlog kommen nur noch die beiden Augenblicke, die man nachlesen will:
+*bei 0 Trefferpunkten* und *wieder auf den Beinen*. Jeder einzelne Treffer wäre
+sonst eine Zeile.
+
+### ☠ Todesrettungswürfe
+
+Fällt ein Held auf 0, klappt unter seiner Karte eine Reihe auf: drei Erfolge,
+drei Fehlschläge, anklickbar. Drei Erfolge → **Stabilisiert**, drei Fehlschläge →
+**Tot**, dazu ein ↺. Heilung über null setzt sie zurück und blendet die Reihe
+wieder aus.
+
+Sie stehen im Bogen, nicht im Kampf — wer vor der Tür verblutet, tut das auch
+nach einem Neuladen und nach dem Kampfende.
+
+### Temporäre maximale Trefferpunkte
+
+Heldenmahl, Aid, ein Segen für diesen Abend: **+Temp Max** im Tracker hebt die
+Obergrenze eines Helden. Sie steht auch im Bogen — im Trefferpunktblock als
+„(+20 max)" und im Bearbeiten-Modus als viertes Feld *T.Max*. Ein Bonus für einen
+Abend, den man nach der langen Rast nicht mehr findet, wäre eine Falle.
+
+Bei Gegnern gibt es stattdessen **Max TP**, weil deren Obergrenze ohnehin nur im
+Kampf lebt.
+
+### Der Bogen hält sich von selbst aktuell
+
+Bisher sah ein Spieler neue Trefferpunkte erst nach **↺ Laden**. Jetzt läuft ein
+Abgleich im Hintergrund, und der Balken fällt, während die Spielleitung den
+Schaden einträgt.
+
+Gebaut auf der Annahme, dass sich fast immer nichts geändert hat — der Normalfall
+kostet deshalb so gut wie nichts:
+
+- Die Anfrage trägt eine abgeleitete Kennung statt des Passworts. Die
+  Passwortprüfung ist mit Absicht langsam und liefe sonst alle paar Sekunden auf
+  jedem Gerät der Gruppe.
+- Die Antwort sind ein Zähler und die Trefferpunkte — ein paar hundert Byte. Ein
+  voller Ladevorgang mit allen Bildern läuft nur, wenn sich am Bogen wirklich
+  etwas anderes geändert hat.
+- Liegt das Fenster im Hintergrund: gar nichts. Sichtbar werden löst sofort einen
+  Abgleich aus.
+- Eigene Änderungen werden erkannt und nicht noch einmal heruntergeladen.
+- Bleibt es ruhig, wächst der Abstand von 5 auf 15 und dann 60 Sekunden.
+
+Nachgemessen: eine reine Trefferpunktänderung kostet **eine** kleine Anfrage und
+keinen Ladevorgang.
+
+### Kleinigkeiten und Fehlerbehebungen
+
+- Die Knöpfe im Kampf sind ein zusammenhängendes Bedienteil statt loser Tasten
+  und tragen ihre Farbe schon im Ruhezustand — mitten im Kampf sucht niemand mit
+  der Maus, welche die rote ist.
+- **Kritisch:** eine fehlende Sortierregel an einer neuen Tabelle ließ den
+  Server auf *jede* Anfrage mit einem leeren Fehler antworten. Behoben — und der
+  Schema-Aufbau nennt jetzt den Grund, statt stumm alles lahmzulegen.
+- Ereignisse der Chronik gehören immer zu genau einem Abenteuer. Beim Umhängen
+  bleibt die Restzeit stehen und wird auf die andere Uhr umgerechnet.
+
 ## v4.0
 
 ### Neu: Kampftracker im Heldenbuch — nur für die Spielleitung
