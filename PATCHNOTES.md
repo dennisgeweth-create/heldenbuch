@@ -159,6 +159,11 @@ keinen Ladevorgang.
 
 ### Kleinigkeiten und Fehlerbehebungen
 
+- **Verdeckte Trefferpunkte blitzten beim Neuladen kurz auf.** Die
+  Einstellungen des Abenteuers kommen einen Augenblick nach dem Bogen — und
+  solange sie fehlten, galt „offen". Jetzt gilt in dieser Lücke verdeckt: eine
+  Zahl, die einen Augenblick später erscheint, verrät nichts, eine Zahl, die
+  kurz aufblitzt, schon.
 - **Ein Neuladen wirft dich nicht mehr auf den Startschirm.** Offener Held,
   offener Reiter und die ein- oder ausgeklappte Heldenliste stehen danach wieder
   so da wie vorher. Gibt es den Helden nicht mehr oder gehört er zu einem

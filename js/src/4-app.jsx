@@ -125,6 +125,12 @@ function App() {
   const [userLibrary, setUserLibrary] = useState(() => {
     try { return JSON.parse(localStorage.getItem('hb_library') || '{}'); } catch { return {}; }
   });
+  // Ob die geteilte Datenbank schon vorliegt. Nur dann sind die
+  // Einstellungen des Abenteuers bekannt — und nur dann duerfen verdeckte
+  // Trefferpunkte als Zahl erscheinen.
+  const [libGeladen, setLibGeladen] = useState(() => {
+    try { return !!localStorage.getItem('hb_library'); } catch { return false; }
+  });
   const libTimer = useRef(null);
   const [tplSearch,setTplSearch]= useState('');
   const [tplFilter,setTplFilter]= useState('all');
@@ -467,7 +473,7 @@ function App() {
           if (!pendingRef.current) {
             applyChars(data.chars || []);
             spiegleChars(JSON.stringify(data.chars || []));
-            if (data.library) { setUserLibrary(data.library); safeSetItem('hb_library', JSON.stringify(data.library)); }
+            if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
           }
           if (data.rev != null) revRef.current = data.rev;
         } else if (revRef.current == null && d.rev != null) {
@@ -550,7 +556,7 @@ function App() {
     if (url && code && pass) {
       // Load localStorage immediately for instant display while server loads
       try { const v=localStorage.getItem('dnd_chars'); if(v) applyChars(JSON.parse(v)); } catch {}
-      try { const lib=localStorage.getItem('hb_library'); if(lib) setUserLibrary(JSON.parse(lib)); } catch {}
+      try { const lib=localStorage.getItem('hb_library'); if(lib) { setUserLibrary(JSON.parse(lib)); setLibGeladen(true); } } catch {}
       // Offene Aenderungen der letzten Sitzung zuerst aufnehmen: sie setzen
       // pendingRef, und der Ladevorgang unten laesst die lokale Kopie dann
       // stehen, statt sie mit dem Serverstand zu ueberschreiben. Der
@@ -561,7 +567,7 @@ function App() {
         pollToken.current = d.poll_token || null;
         revRef.current    = d.rev != null ? d.rev : null;
         if (d.has_dm) setHasDmMode(true);
-        if (d.library) { setUserLibrary(d.library); safeSetItem('hb_library', JSON.stringify(d.library)); }
+        if (d.library) { setUserLibrary(d.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(d.library)); }
         if (!pendingRef.current) {
           // No unsaved local changes — server is authoritative
           applyChars(d.chars || []);
@@ -629,6 +635,10 @@ function App() {
   }, [gearReady, chars, userLibrary]);
 
   const saveLibrary = (lib) => {
+    // Setzt bewusst nicht libGeladen: hier kommt auch die
+    // Abenteuer-Umstellung durch, die ein Abenteuer ohne Einstellungen
+    // erfindet. Das darf nicht als "Einstellungen bekannt" gelten, sonst
+    // stuenden verdeckte Trefferpunkte doch wieder offen da.
     setUserLibrary(lib);
     safeSetItem('hb_library', JSON.stringify(lib));
     const {url, code, pass} = serverCreds();
@@ -745,7 +755,7 @@ function App() {
       pendingRef.current = false;   // cancel any pending local saves
       applyChars(data.chars || []);
       spiegleChars(JSON.stringify(data.chars || []));
-      if (data.library) { setUserLibrary(data.library); safeSetItem('hb_library', JSON.stringify(data.library)); }
+      if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
       if (data.has_dm) setHasDmMode(true);
       setSyncStatus('ok'); setSyncMsg('Geladen ✓');
     } catch(e) {
@@ -1099,7 +1109,7 @@ function App() {
       applyChars(data.chars || []);
       pendingRef.current = false;
       spiegleChars(JSON.stringify(data.chars || []));
-      if (data.library) { setUserLibrary(data.library); safeSetItem('hb_library', JSON.stringify(data.library)); }
+      if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
       if (data.has_dm) setHasDmMode(true);
       setSyncStatus('ok'); setSyncMsg('Verbunden ✓');
       setShowSetup(false);
@@ -1145,7 +1155,7 @@ function App() {
   // des Regelwerks.
   const klassen = advKlassen(advObj);
   // Ob dieser Bogen seine Trefferpunkte als Zahl zeigen darf.
-  const tpOffen = tpSichtbar(advObj, isDmMode);
+  const tpOffen = tpSichtbar(advObj, isDmMode, libGeladen);
   // Steht am Chronik-Knopf, damit die Leiste zugeklappt bleiben darf, ohne
   // dass eine abgelaufene Frist unbemerkt liegen bleibt.
   const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId)

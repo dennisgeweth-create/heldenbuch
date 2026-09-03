@@ -6679,6 +6679,16 @@ function App() {
       return {};
     }
   });
+  // Ob die geteilte Datenbank schon vorliegt. Nur dann sind die
+  // Einstellungen des Abenteuers bekannt — und nur dann duerfen verdeckte
+  // Trefferpunkte als Zahl erscheinen.
+  const [libGeladen, setLibGeladen] = useState(() => {
+    try {
+      return !!localStorage.getItem('hb_library');
+    } catch {
+      return false;
+    }
+  });
   const libTimer = useRef(null);
   const [tplSearch, setTplSearch] = useState('');
   const [tplFilter, setTplFilter] = useState('all');
@@ -7111,6 +7121,7 @@ function App() {
             spiegleChars(JSON.stringify(data.chars || []));
             if (data.library) {
               setUserLibrary(data.library);
+              setLibGeladen(true);
               safeSetItem('hb_library', JSON.stringify(data.library));
             }
           }
@@ -7211,7 +7222,10 @@ function App() {
       } catch {}
       try {
         const lib = localStorage.getItem('hb_library');
-        if (lib) setUserLibrary(JSON.parse(lib));
+        if (lib) {
+          setUserLibrary(JSON.parse(lib));
+          setLibGeladen(true);
+        }
       } catch {}
       // Offene Aenderungen der letzten Sitzung zuerst aufnehmen: sie setzen
       // pendingRef, und der Ladevorgang unten laesst die lokale Kopie dann
@@ -7225,6 +7239,7 @@ function App() {
         if (d.has_dm) setHasDmMode(true);
         if (d.library) {
           setUserLibrary(d.library);
+          setLibGeladen(true);
           safeSetItem('hb_library', JSON.stringify(d.library));
         }
         if (!pendingRef.current) {
@@ -7306,6 +7321,10 @@ function App() {
     if (ergebnis.charsGeaendert) save(ergebnis.chars);
   }, [gearReady, chars, userLibrary]);
   const saveLibrary = lib => {
+    // Setzt bewusst nicht libGeladen: hier kommt auch die
+    // Abenteuer-Umstellung durch, die ein Abenteuer ohne Einstellungen
+    // erfindet. Das darf nicht als "Einstellungen bekannt" gelten, sonst
+    // stuenden verdeckte Trefferpunkte doch wieder offen da.
     setUserLibrary(lib);
     safeSetItem('hb_library', JSON.stringify(lib));
     const {
@@ -7527,6 +7546,7 @@ function App() {
       spiegleChars(JSON.stringify(data.chars || []));
       if (data.library) {
         setUserLibrary(data.library);
+        setLibGeladen(true);
         safeSetItem('hb_library', JSON.stringify(data.library));
       }
       if (data.has_dm) setHasDmMode(true);
@@ -8033,6 +8053,7 @@ function App() {
       spiegleChars(JSON.stringify(data.chars || []));
       if (data.library) {
         setUserLibrary(data.library);
+        setLibGeladen(true);
         safeSetItem('hb_library', JSON.stringify(data.library));
       }
       if (data.has_dm) setHasDmMode(true);
@@ -8087,7 +8108,7 @@ function App() {
   // des Regelwerks.
   const klassen = advKlassen(advObj);
   // Ob dieser Bogen seine Trefferpunkte als Zahl zeigen darf.
-  const tpOffen = tpSichtbar(advObj, isDmMode);
+  const tpOffen = tpSichtbar(advObj, isDmMode, libGeladen);
   // Steht am Chronik-Knopf, damit die Leiste zugeklappt bleiben darf, ohne
   // dass eine abgelaufene Frist unbemerkt liegen bleibt.
   const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId).filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;

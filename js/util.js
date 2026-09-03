@@ -53,7 +53,15 @@ const tpZustand = (hp, maxHp) => {
   return TP_ZUSTAENDE.find(z => anteil >= z.ab) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1];
 };
 // Wahr, wenn dieser Bogen seine Trefferpunkte gerade als Zahl zeigen darf.
-const tpSichtbar = (adv, istDm) => istDm || !(adv && adv.hpVerdeckt);
+//
+// bekannt sagt, ob die Einstellung ueberhaupt schon vorliegt. Ohne sie gilt
+// verdeckt, nicht offen: die Bibliothek kommt Sekundenbruchteile nach den
+// Charakteren, und in dieser Luecke standen die Zahlen sonst kurz offen da.
+// Schlimmer noch, wenn sie fehlt — dann legt die Abenteuer-Umstellung ein
+// Abenteuer ohne Einstellung an, und das las sich wie "nichts verdeckt".
+// Andersherum ist der Fehler harmlos: eine Zahl, die einen Augenblick
+// spaeter erscheint, verraet nichts.
+const tpSichtbar = (adv, istDm, bekannt) => istDm || (!!bekannt && !!adv && !adv.hpVerdeckt);
 
 // Sorgt dafuer, dass es mindestens ein Abenteuer gibt und jeder Held
 // einem zugeordnet ist. Gibt {lib, chars} zurueck, wenn sich etwas
