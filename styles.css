@@ -1721,3 +1721,14 @@
   .kampf-seite-zu { background:none; border:1px solid var(--border); border-radius:3px;
     color:var(--text-muted); cursor:pointer; font-size:11px; padding:5px 9px; }
   @media (max-width:1024px) { .kampf-seite-knopf { display:block; } }
+
+  /* Schaden und Heilung am Bogen — dieselben Tasten wie im Kampf, damit
+     man nicht zwei Bedienungen lernen muss. Sie stehen unter dem Balken
+     und nur im DM-Modus. */
+  .tp-tasten { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+  .tp-tasten .kt { min-height:32px; }
+  .tp-tasten .kt.breit { padding:0 11px; }
+  .hp-bar-container .kampf-todes { margin-top:10px; }
+  @media (max-width:640px) {
+    .tp-tasten .kt { min-height:40px; flex:1 1 auto; }
+  }

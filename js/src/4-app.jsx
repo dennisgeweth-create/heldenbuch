@@ -1864,7 +1864,7 @@ function App() {
     gearArmor, gearAusVorlage, gearPick, gearSetList, gearShield,
     gearWornList, initTotal, insp, inspMax, invRarity, invTagFilter,
     isDmMode, itemFx, klassen, languages, nhGesperrt, notesList, noteTagFilter,
-    openEdit, openNew, openTpl, openUnprepared, patchChar, resEdit,
+    openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
     setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
     setExNote, setExSpell, setFf, setFfEditId, setGearPick, setGearSlot,

@@ -3339,6 +3339,7 @@ const Sheet = () => {
     openTpl,
     openUnprepared,
     patchChar,
+    patchCurrent,
     resEdit,
     resetAll,
     resources,
@@ -3421,6 +3422,10 @@ const Sheet = () => {
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
   // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
+  // Schaden und Heilung ausserhalb des Kampfes. Dieselben Regeln und
+  // dasselbe Fenster wie im Kampftracker — wer beides bedient, soll nicht
+  // zwei Bedienungen lernen muessen.
+  const [tpDlg, setTpDlg] = useState(null); // 'schaden' | 'heilung' | 'temp' | 'maxtemp'
   const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
   const invSucheRef = useRef(null);
@@ -3484,6 +3489,48 @@ const Sheet = () => {
     // Wurf — deshalb ein eigenes Ziel und keine Fertigkeitserhoehung.
     return fx('passivePerception', 10 + fx('skill_' + wahrSkill.key, fx('skillAll', mod(effCur[wahrSkill.attr]) + b)));
   })();
+  // ── Trefferpunkte ausserhalb des Kampfes ──
+  // Gleiche Regeln wie im Kampf: temporaere Punkte fangen zuerst, Heilung
+  // deckelt am wirksamen Maximum, und wer wieder ueber null steht,
+  // wuerfelt nicht mehr ums Ueberleben.
+  const tpMerken = (alt, neu) => {
+    if (alt > 0 && neu <= 0) addLog(cur.id, cur.name, 'charakter', 'Bei 0 Trefferpunkten');else if (alt <= 0 && neu > 0) addLog(cur.id, cur.name, 'charakter', 'Wieder auf den Beinen: ' + neu + ' TP');
+  };
+  const tpSchaden = n => patchCurrent(c => {
+    const vomTemp = Math.min(+c.tempHp || 0, n);
+    const neu = Math.max(0, (+c.hp || 0) - (n - vomTemp));
+    tpMerken(+c.hp || 0, neu);
+    return {
+      tempHp: (+c.tempHp || 0) - vomTemp,
+      hp: neu
+    };
+  });
+  const tpHeilen = n => patchCurrent(c => {
+    const neu = Math.min(effCur.maxHp, Math.max(0, (+c.hp || 0) + n));
+    tpMerken(+c.hp || 0, neu);
+    return neu > 0 ? {
+      hp: neu,
+      deathSaves: {
+        erfolge: 0,
+        fehler: 0
+      }
+    } : {
+      hp: neu
+    };
+  });
+  const tpTemp = n => patchCurrent(c => ({
+    tempHp: Math.max(0, n < 0 ? (+c.tempHp || 0) + n : Math.max(+c.tempHp || 0, n))
+  }));
+  const tpMaxTemp = n => patchCurrent(c => ({
+    tempMaxHp: Math.max(0, (+c.tempMaxHp || 0) + n)
+  }));
+  const tpAnwenden = (modus, n) => {
+    if (!n) return;
+    if (modus === 'schaden') n > 0 ? tpSchaden(n) : tpHeilen(-n);
+    if (modus === 'heilung') n > 0 ? tpHeilen(n) : tpSchaden(-n);
+    if (modus === 'temp') tpTemp(n);
+    if (modus === 'maxtemp') tpMaxTemp(n);
+  };
   const ATTR_NAMEN = {
     str: "Stärke",
     dex: "Geschick",
@@ -3908,7 +3955,67 @@ const Sheet = () => {
       borderRadius: "0 2px 2px 0",
       marginLeft: 1
     }
-  })))), /*#__PURE__*/React.createElement("div", {
+  }))), isDmMode && /*#__PURE__*/React.createElement("div", {
+    className: "tp-tasten"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "kt dmg",
+    title: "1 Schaden",
+    onClick: () => tpSchaden(1)
+  }, "-1"), /*#__PURE__*/React.createElement("button", {
+    className: "kt dmg",
+    title: "5 Schaden",
+    onClick: () => tpSchaden(5)
+  }, "-5"), /*#__PURE__*/React.createElement("button", {
+    className: "kt dmg breit",
+    onClick: () => setTpDlg('schaden')
+  }, "Schaden\u2026"), /*#__PURE__*/React.createElement("button", {
+    className: "kt heal",
+    title: "1 heilen",
+    onClick: () => tpHeilen(1)
+  }, "+1"), /*#__PURE__*/React.createElement("button", {
+    className: "kt heal",
+    title: "5 heilen",
+    onClick: () => tpHeilen(5)
+  }, "+5"), /*#__PURE__*/React.createElement("button", {
+    className: "kt heal breit",
+    onClick: () => setTpDlg('heilung')
+  }, "Heilen\u2026"), /*#__PURE__*/React.createElement("button", {
+    className: "kt temp breit",
+    onClick: () => setTpDlg('temp')
+  }, "+Temp HP"), /*#__PURE__*/React.createElement("button", {
+    className: "kt max breit",
+    onClick: () => setTpDlg('maxtemp'),
+    title: "Tempor\xE4re maximale Trefferpunkte"
+  }, "+Temp Max"), /*#__PURE__*/React.createElement("button", {
+    className: "kt heal breit",
+    title: "Volle Trefferpunkte, tempor\xE4res zur\xFCcksetzen",
+    onClick: () => patchCurrent(c => {
+      tpMerken(+c.hp || 0, effCur.maxHp);
+      return {
+        hp: effCur.maxHp - (+c.tempMaxHp || 0),
+        tempHp: 0,
+        tempMaxHp: 0,
+        deathSaves: {
+          erfolge: 0,
+          fehler: 0
+        }
+      };
+    })
+  }, "\u263E Lange Rast")), isDmMode && (cur.hp || 0) <= 0 && /*#__PURE__*/React.createElement(TodesWuerfe, {
+    stand: cur.deathSaves,
+    onSetzen: d => patchChar({
+      deathSaves: d
+    })
+  }), tpDlg && /*#__PURE__*/React.createElement(WertDialog, {
+    modus: tpDlg,
+    name: cur.name,
+    start: 0,
+    onAbbrechen: () => setTpDlg(null),
+    onAnwenden: n => {
+      setTpDlg(null);
+      tpAnwenden(tpDlg, n);
+    }
+  })), /*#__PURE__*/React.createElement("div", {
     className: "sticky-header"
   }, /*#__PURE__*/React.createElement("div", {
     className: "combat-row"
@@ -9469,6 +9576,7 @@ function App() {
     openTpl,
     openUnprepared,
     patchChar,
+    patchCurrent,
     resEdit,
     resetAll,
     resources,

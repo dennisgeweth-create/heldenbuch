@@ -22,7 +22,7 @@ const Sheet = () => {
     effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
     initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
     klassen, languages, notesList, noteTagFilter, openEdit, openNew, openTpl,
-    openUnprepared, patchChar, resEdit, resetAll, resources, save, sel,
+    openUnprepared, patchChar, patchCurrent, resEdit, resetAll, resources, save, sel,
     selectChar, setCharMenuOpen, setCoinDelta, setCoinPopover,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
     setFfEditId, setImgViewer, setInsp, setInspMax, setInvRarity,
@@ -43,6 +43,10 @@ const Sheet = () => {
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
   // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
+  // Schaden und Heilung ausserhalb des Kampfes. Dieselben Regeln und
+  // dasselbe Fenster wie im Kampftracker — wer beides bedient, soll nicht
+  // zwei Bedienungen lernen muessen.
+  const [tpDlg, setTpDlg] = useState(null);   // 'schaden' | 'heilung' | 'temp' | 'maxtemp'
   const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
   const invSucheRef = useRef(null);
@@ -90,6 +94,35 @@ const Sheet = () => {
       // Wurf — deshalb ein eigenes Ziel und keine Fertigkeitserhoehung.
       return fx('passivePerception', 10 + fx('skill_'+wahrSkill.key, fx('skillAll', mod(effCur[wahrSkill.attr]) + b)));
     })();
+    // ── Trefferpunkte ausserhalb des Kampfes ──
+    // Gleiche Regeln wie im Kampf: temporaere Punkte fangen zuerst, Heilung
+    // deckelt am wirksamen Maximum, und wer wieder ueber null steht,
+    // wuerfelt nicht mehr ums Ueberleben.
+    const tpMerken = (alt, neu) => {
+      if (alt > 0 && neu <= 0) addLog(cur.id, cur.name, 'charakter', 'Bei 0 Trefferpunkten');
+      else if (alt <= 0 && neu > 0) addLog(cur.id, cur.name, 'charakter', 'Wieder auf den Beinen: ' + neu + ' TP');
+    };
+    const tpSchaden = (n) => patchCurrent(c => {
+      const vomTemp = Math.min(+c.tempHp||0, n);
+      const neu = Math.max(0, (+c.hp||0) - (n - vomTemp));
+      tpMerken(+c.hp||0, neu);
+      return {tempHp: (+c.tempHp||0) - vomTemp, hp: neu};
+    });
+    const tpHeilen = (n) => patchCurrent(c => {
+      const neu = Math.min(effCur.maxHp, Math.max(0, (+c.hp||0) + n));
+      tpMerken(+c.hp||0, neu);
+      return neu > 0 ? {hp: neu, deathSaves: {erfolge:0, fehler:0}} : {hp: neu};
+    });
+    const tpTemp = (n) => patchCurrent(c => ({tempHp: Math.max(0, n < 0 ? (+c.tempHp||0) + n : Math.max(+c.tempHp||0, n))}));
+    const tpMaxTemp = (n) => patchCurrent(c => ({tempMaxHp: Math.max(0, (+c.tempMaxHp||0) + n)}));
+    const tpAnwenden = (modus, n) => {
+      if (!n) return;
+      if (modus === 'schaden') n > 0 ? tpSchaden(n) : tpHeilen(-n);
+      if (modus === 'heilung') n > 0 ? tpHeilen(n) : tpSchaden(-n);
+      if (modus === 'temp')    tpTemp(n);
+      if (modus === 'maxtemp') tpMaxTemp(n);
+    };
+
     const ATTR_NAMEN = {str:"Stärke",dex:"Geschick",con:"Konstitution",int:"Intelligenz",wis:"Weisheit",cha:"Charisma"};
     const stickyKatalog = [
       {k:'ac',        l:"Rüstungsklasse", s:computedAC!==null?"🛡 RK*":"🛡 RK", i:"🛡", t:'ac',
@@ -268,6 +301,39 @@ const Sheet = () => {
               )}
             </div>
           </div>
+          {/* Schaden und Heilung ohne Umweg ueber einen Kampf. Nur fuer die
+              Spielleitung: es ist der Bogen eines anderen, und ausserhalb
+              des Kampfes traegt ihn sonst der Spieler selbst nach. */}
+          {isDmMode && (
+            <div className="tp-tasten">
+              <button className="kt dmg"  title="1 Schaden" onClick={()=>tpSchaden(1)}>-1</button>
+              <button className="kt dmg"  title="5 Schaden" onClick={()=>tpSchaden(5)}>-5</button>
+              <button className="kt dmg breit" onClick={()=>setTpDlg('schaden')}>Schaden…</button>
+              <button className="kt heal" title="1 heilen" onClick={()=>tpHeilen(1)}>+1</button>
+              <button className="kt heal" title="5 heilen" onClick={()=>tpHeilen(5)}>+5</button>
+              <button className="kt heal breit" onClick={()=>setTpDlg('heilung')}>Heilen…</button>
+              <button className="kt temp breit" onClick={()=>setTpDlg('temp')}>+Temp HP</button>
+              <button className="kt max breit" onClick={()=>setTpDlg('maxtemp')}
+                title="Temporäre maximale Trefferpunkte">+Temp Max</button>
+              <button className="kt heal breit" title="Volle Trefferpunkte, temporäres zurücksetzen"
+                onClick={()=>patchCurrent(c => {
+                  tpMerken(+c.hp||0, effCur.maxHp);
+                  return {hp: effCur.maxHp - (+c.tempMaxHp||0), tempHp: 0, tempMaxHp: 0,
+                          deathSaves: {erfolge:0, fehler:0}};
+                })}>☾ Lange Rast</button>
+            </div>
+          )}
+          {/* Faellt jemand ausserhalb des Kampfes auf null, wird auch dort
+              gewuerfelt. Dieselben Punkte wie im Kampftracker. */}
+          {isDmMode && (cur.hp||0) <= 0 && (
+            <TodesWuerfe stand={cur.deathSaves}
+              onSetzen={(d)=>patchChar({deathSaves:d})} />
+          )}
+          {tpDlg && (
+            <WertDialog modus={tpDlg} name={cur.name} start={0}
+              onAbbrechen={()=>setTpDlg(null)}
+              onAnwenden={(n)=>{ setTpDlg(null); tpAnwenden(tpDlg, n); }} />
+          )}
         </div>
 
         {/* ── Sticky header: Kampfwerte + Ressourcen ── */}

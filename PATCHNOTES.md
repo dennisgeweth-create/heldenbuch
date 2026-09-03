@@ -157,6 +157,22 @@ kostet deshalb so gut wie nichts:
 Nachgemessen: eine reine Trefferpunktänderung kostet **eine** kleine Anfrage und
 keinen Ladevorgang.
 
+### Schaden und Heilung ohne Umweg über einen Kampf
+
+Im DM-Modus steht unter dem Trefferpunktbalken jedes Bogens dieselbe Tastenreihe
+wie im Kampftracker: `-1 -5 Schaden…` / `+1 +5 Heilen…` / `+Temp HP` /
+`+Temp Max`. Eine Falle im Gang, ein Trank auf der Straße, ein Sturz vom Pferd —
+dafür muss niemand mehr einen Kampf starten.
+
+Dazu **☾ Lange Rast**: volle Trefferpunkte, temporäre Punkte und temporäres
+Maximum zurückgesetzt, Todesrettungswürfe gelöscht — ein Knopf statt vier Felder.
+
+Fällt jemand dabei auf null, klappen die **Todesrettungswürfe** auch hier auf.
+Die Regeln sind dieselben wie im Kampf: temporäre Punkte fangen den Schaden
+zuerst, Heilung deckelt am wirksamen Maximum, und wer wieder über null steht,
+würfelt nicht mehr ums Überleben. Im Abenteuerlog stehen die beiden Augenblicke,
+die man nachlesen will.
+
 ### Kleinigkeiten und Fehlerbehebungen
 
 - **Verdeckte Trefferpunkte blitzten beim Neuladen kurz auf.** Die
