@@ -24,7 +24,8 @@ const newEreignis = (advId, jetzt) => ({
   name: '', ort: '', ziel: '', notiz: '',
   faellig: (jetzt || 0) + 3 * STD_TAG,   // null = laeuft mit, ohne Frist
   wiederholung: 0,                       // Stunden; 0 = einmalig
-  bindung: null,                         // {charId, featureId, wirkung:'aus'|'an'}
+  // {charId, art:'merkmal'|'effekt', …} — siehe chronikMerkmale()
+  bindung: null,
   erledigt: false,
 });
 
@@ -49,6 +50,40 @@ const ereignisUnterzeile = (e) => {
   if (e.art === 'reise') return (e.ort || '?') + ' → ' + (e.ziel || '?');
   return e.ort || e.notiz || '';
 };
+
+// ── Effekte aus der Chronik ──────────────────────────────────────
+// Ein Ereignis kann einem Helden einen Effekt anhaengen, so wie es eine
+// Waffe tut. Das Merkmal dazu wird nicht "irgendwann gesetzt und
+// irgendwann wieder entfernt" — es wird bei jeder Aenderung neu aus der
+// Uhr abgeleitet. Damit gibt es keinen Stand, der haengenbleiben kann:
+// wer die Uhr zurueckstellt, bekommt den Fluch zurueck.
+//
+//   sofort  — gilt ab dem Eintragen bis die Frist ablaeuft (der Fluch,
+//             der nach drei Tagen vergeht)
+//   spaeter — gilt erst ab der Faelligkeit (der Fluch, der in drei Tagen
+//             zuschlaegt und dann bleibt)
+const CHR_PRAEFIX = 'chr_';
+const chronikMerkmale = (chronik, advId) => {
+  const jetzt = zeitDerUhr(chronik, advId);
+  const soll = {};
+  ereignisseDerUhr(chronik, advId).forEach(e => {
+    const b = e.bindung;
+    if (!b || b.art !== 'effekt' || !b.charId || !(b.effects||[]).length) return;
+    const abgelaufen = e.faellig != null && e.faellig <= jetzt;
+    const gilt = b.sofort === false ? abgelaufen : (!e.erledigt && !abgelaufen);
+    if (!gilt) return;
+    (soll[b.charId] = soll[b.charId] || []).push({
+      id: CHR_PRAEFIX + e.id,
+      name: e.name || 'Ereignis',
+      source: 'Chronik',
+      description: e.notiz || '',
+      effects: b.effects,
+      effectsActive: true,
+    });
+  });
+  return soll;
+};
+const istChronikMerkmal = (f) => String((f && f.id) || '').indexOf(CHR_PRAEFIX) === 0;
 
 // ── Die Leiste ───────────────────────────────────────────────────
 const ChronikLeiste = ({ chronik, advId, advName, chars, ueberlagert,
@@ -199,7 +234,8 @@ const EreignisFormular = ({ ereignis, chronik, advId, abenteuer, chars, neu,
   // die halbe Kampagne im Auswahlfeld.
   const helden = chars.filter(c => !c.archived
     && (!e.adventure || !c.adventure || c.adventure === e.adventure));
-  const held = helden.find(c => c.id === (e.bindung && e.bindung.charId));
+  const b = e.bindung || {};
+  const held = helden.find(c => c.id === b.charId);
   const merkmale = (held && held.features) || [];
 
   return (
@@ -305,32 +341,66 @@ const EreignisFormular = ({ ereignis, chronik, advId, abenteuer, chars, neu,
               statt drei Sitzungen spaeter aufzufallen. Geschrieben wird
               trotzdem erst nach ausdruecklicher Bestaetigung im Zeitfenster. */}
           <div className="form-group form-full chr-bindung">
-            <label className="form-label">Wenn es soweit ist: Merkmal umschalten</label>
+            <label className="form-label">Wirkung auf einen Helden</label>
             <div className="chr-bindung-reihe">
-              <select className="form-select" value={(e.bindung && e.bindung.charId) || ''}
+              <select className="form-select" value={b.charId || ''}
                 onChange={ev=>setzen({bindung: ev.target.value
-                  ? {charId:ev.target.value, featureId:'', wirkung:'aus'} : null})}>
-                <option value="">— nichts umschalten —</option>
+                  ? {...b, charId:ev.target.value, art:b.art||'merkmal', featureId:''} : null})}>
+                <option value="">— keine —</option>
                 {helden.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              {e.bindung && (
+
+              {b.charId && (
+                <div className="chr-art-wahl">
+                  <button type="button" className={'chr-art' + (b.art !== 'effekt' ? ' aktiv' : '')}
+                    onClick={()=>setzen({bindung:{...b, art:'merkmal', featureId:b.featureId||'', wirkung:b.wirkung||'aus'}})}>
+                    <span>⭐</span>Merkmal umschalten
+                  </button>
+                  <button type="button" className={'chr-art' + (b.art === 'effekt' ? ' aktiv' : '')}
+                    onClick={()=>setzen({bindung:{...b, art:'effekt', effects:b.effects||[], sofort:b.sofort!==false}})}>
+                    <span>✦</span>Effekt setzen
+                  </button>
+                </div>
+              )}
+
+              {b.charId && b.art !== 'effekt' && (
                 <>
-                  <select className="form-select" value={e.bindung.featureId||''}
-                    onChange={ev=>setzen({bindung:{...e.bindung, featureId:ev.target.value}})}>
+                  <select className="form-select" value={b.featureId||''}
+                    onChange={ev=>setzen({bindung:{...b, featureId:ev.target.value}})}>
                     <option value="">— Merkmal wählen —</option>
                     {merkmale.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
-                  <select className="form-select" value={e.bindung.wirkung||'aus'}
-                    onChange={ev=>setzen({bindung:{...e.bindung, wirkung:ev.target.value}})}>
-                    <option value="aus">abschalten</option>
-                    <option value="an">einschalten</option>
+                  <select className="form-select" value={b.wirkung||'aus'}
+                    onChange={ev=>setzen({bindung:{...b, wirkung:ev.target.value}})}>
+                    <option value="aus">abschalten, wenn die Frist abläuft</option>
+                    <option value="an">einschalten, wenn die Frist abläuft</option>
                   </select>
+                  {merkmale.length === 0 && (
+                    <div className="chr-hinweis warn">Dieser Held hat noch kein Merkmal, das man umschalten könnte.</div>
+                  )}
+                </>
+              )}
+
+              {b.charId && b.art === 'effekt' && (
+                <>
+                  <select className="form-select" value={b.sofort === false ? 'spaeter' : 'sofort'}
+                    onChange={ev=>setzen({bindung:{...b, sofort: ev.target.value === 'sofort'}})}>
+                    <option value="sofort">gilt ab sofort, bis die Frist abläuft</option>
+                    <option value="spaeter">gilt erst, wenn die Frist abgelaufen ist</option>
+                  </select>
+                  <EffectEditor effects={b.effects||[]}
+                    onChange={v=>setzen({bindung:{...b, effects:v}})}
+                    hint={'Damit verändert dieses Ereignis die Werte von '
+                          + ((held && held.name) || 'diesem Helden') + '.'} />
+                  <div className="chr-hinweis">
+                    {b.sofort === false
+                      ? 'Steht als Merkmal „' + (e.name || 'Ereignis') + '“ im Bogen, sobald die Frist abgelaufen ist — und bleibt dann.'
+                      : 'Steht ab dem Speichern als Merkmal „' + (e.name || 'Ereignis') + '“ im Bogen und verschwindet mit der Frist.'}
+                    {' '}Wird das Ereignis gelöscht, geht es mit.
+                  </div>
                 </>
               )}
             </div>
-            {e.bindung && merkmale.length === 0 && (
-              <div className="chr-hinweis warn">Dieser Held hat noch kein Merkmal, das man umschalten könnte.</div>
-            )}
           </div>
         </div>
 
@@ -369,9 +439,16 @@ const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrech
     return c && (c.features||[]).find(f => f.id === b.featureId);
   };
 
-  const bindungen = feuert
-    .map(e => ({e, b:e.bindung, c:e.bindung && held(e.bindung.charId), f:merkmal(e.bindung)}))
-    .filter(x => x.b);
+  const angebunden = feuert
+    .map(e => ({e, b:e.bindung, c:e.bindung && held(e.bindung.charId)}))
+    .filter(x => x.b && x.b.charId);
+  // Ein umgeschaltetes Merkmal ist ein Eingriff in einen fremden Bogen und
+  // steht deshalb zum Abwaehlen da. Ein Chronik-Effekt dagegen wird aus der
+  // Uhr abgeleitet — ihn hier abzuwaehlen hiesse, ihn im naechsten
+  // Augenblick wieder abzuleiten. Er steht als Ansage, nicht als Kaestchen.
+  const bindungen = angebunden.filter(x => x.b.art !== 'effekt')
+    .map(x => ({...x, f: merkmal(x.b)}));
+  const effektB = angebunden.filter(x => x.b.art === 'effekt' && (x.b.effects||[]).length);
 
   const anwenden = () => {
     const gewaehlt = bindungen
@@ -461,6 +538,21 @@ const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrech
                   </span>
                 </div>
               ))}
+
+              {effektB.length > 0 && (
+                <div className="zeit-bindungen">
+                  <div className="zeit-vorschau-titel">Effekte in fremden Bögen</div>
+                  {effektB.map(x => (
+                    <div className="zeit-bindung" key={'fx_'+x.e.id}>
+                      <span className="chr-ev-icon">✦</span>
+                      <span>
+                        {x.c ? <>Bei <b>{x.c.name}</b>: </> : 'Bei einem Helden, der nicht mehr da ist: '}
+                        „{x.e.name}“ {x.b.sofort === false ? 'greift ab jetzt' : 'endet'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {bindungen.length > 0 && (
                 <div className="zeit-bindungen">

@@ -173,6 +173,7 @@ function App() {
   // zwei Spieler duerfen gleichzeitig in verschiedenen Kampagnen blaettern.
   const [advAktiv,   setAdvAktiv]   = useState(() => { try { return localStorage.getItem('hb_adventure') || ''; } catch { return ''; } });
   const [showAdvVerwaltung, setShowAdvVerwaltung] = useState(false);
+  const [advEinstellung, setAdvEinstellung] = useState(null);  // Abenteuer im Einstellungsfenster
   // Gegner der Spielleitung. Nur im DM-Modus geladen, eigene Tabelle.
   const [enemies, setEnemies] = useState([]);
   const [enemiesGeladen, setEnemiesGeladen] = useState(false);
@@ -640,7 +641,7 @@ function App() {
     // das Geraet weiterreicht.
     setEnemies([]); setEncounters([]); setEnemiesGeladen(false);
     setChronik({zeit:{}, ereignisse:[]}); setShowChronik(false);
-    setEreignisForm(null); setZeitOffen(false);
+    setEreignisForm(null); setZeitOffen(false); setAdvEinstellung(null);
   };
 
   // Einmaliges Einlesen einer Sammlung aus einer JSON-Datei. Geht in einem
@@ -724,10 +725,37 @@ function App() {
   // naechste Sitzung faenge dann am falschen Tag an.
   const saveChronik = (ch) => {
     setChronik(ch);
+    chronikMerkmaleAbgleichen(ch);
     const {url, code, pass} = serverCreds();
     if (!url || !code || !pass || !dmPassRef.current) return;
     apiDmSaveChronik(url, code, pass, dmPassRef.current, ch).catch(err =>
       appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
+  };
+
+  // Die Chronik-Merkmale werden nicht gesetzt und irgendwann wieder
+  // entfernt, sondern nach jeder Aenderung neu abgeleitet. Was abgeleitet
+  // wird, kann nicht haengenbleiben — und ein zurueckgedrehter Tag bringt
+  // den Fluch von selbst zurueck.
+  const chronikMerkmaleAbgleichen = (ch) => {
+    const soll = chronikMerkmale(ch, advId);
+    const dazu = [], weg = [];
+    let geaendert = false;
+    const neu = charsRef.current.map(c => {
+      // Nur Helden des offenen Abenteuers: die Uhr eines anderen Abenteuers
+      // sagt ueber sie nichts aus, und ihre Merkmale duerfen nicht fallen.
+      if ((c.adventure || '') !== advId) return c;
+      const alt   = (c.features||[]).filter(istChronikMerkmal);
+      const neuF  = soll[c.id] || [];
+      if (JSON.stringify(alt) === JSON.stringify(neuF)) return c;
+      geaendert = true;
+      neuF.filter(f => !alt.some(a => a.id === f.id)).forEach(f => dazu.push({c, f}));
+      alt.filter(f => !neuF.some(n2 => n2.id === f.id)).forEach(f => weg.push({c, f}));
+      return {...c, features: [...(c.features||[]).filter(f => !istChronikMerkmal(f)), ...neuF]};
+    });
+    if (!geaendert) return;
+    save(neu);
+    dazu.forEach(({c,f}) => addLog(c.id, c.name, 'attribute', 'Aus der Chronik: ' + f.name, {wirkt: 'ab jetzt'}));
+    weg.forEach(({c,f})  => addLog(c.id, c.name, 'attribute', 'Aus der Chronik beendet: ' + f.name));
   };
   const chronikUmschalten = () => setShowChronik(v => {
     try { localStorage.setItem('hb_chronik_offen', v ? '0' : '1'); } catch {}
@@ -913,7 +941,29 @@ function App() {
   };
 
   const cur = chars.find(c=>c.id===sel);
-  const cc  = CC[cur && cur.charClass] || CC["Kämpfer"];
+  // ── Abenteuer ───────────────────────────────────────────────────
+  // Steht vor allem, was Farben, Klassen oder Trefferpunkte braucht: die
+  // Einstellungen des offenen Abenteuers gehen in beides ein.
+  const abenteuer = advListe(userLibrary);
+  const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
+  const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
+  const advObj  = abenteuer.find(a => a.id === advId) || null;
+  // Welche Klassen dieses Abenteuer kennt — ohne eigene Liste die zwoelf
+  // des Regelwerks.
+  const klassen = advKlassen(advObj);
+  // Ob dieser Bogen seine Trefferpunkte als Zahl zeigen darf.
+  const tpOffen = tpSichtbar(advObj, isDmMode);
+  // Steht am Chronik-Knopf, damit die Leiste zugeklappt bleiben darf, ohne
+  // dass eine abgelaufene Frist unbemerkt liegen bleibt.
+  const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId)
+    .filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;
+
+  // Eine Auswahlliste, die den bereits eingetragenen Wert immer enthaelt.
+  const klassenWahl = (aktuell) => {
+    const namen = klassen.map(k => k.name);
+    return aktuell && !namen.includes(aktuell) ? [aktuell, ...namen] : namen;
+  };
+  const cc  = klassenStil((cur && cur.charClass) || 'Kämpfer', klassen);
 
   // ── Effekte angelegter Gegenstaende ──────────────────────────────
   // itemFx sind die gerade wirkenden Effekte, effCur ist der Held mit
@@ -970,14 +1020,6 @@ function App() {
 
   // Dieselbe Auswahl wie die Liste "Aktiv" in der Seitenleiste, damit der
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
-  // ── Abenteuer ───────────────────────────────────────────────────
-  const abenteuer = advListe(userLibrary);
-  const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
-  const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
-  // Steht am Knopf, damit die Leiste zugeklappt bleiben darf, ohne dass
-  // eine abgelaufene Frist unbemerkt liegen bleibt.
-  const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId)
-    .filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;
   const advWechseln = (id) => {
     setAdvAktiv(id);
     try { localStorage.setItem('hb_adventure', id); } catch {}
@@ -996,7 +1038,13 @@ function App() {
 
   // Der Neue gehoert in das Abenteuer, das gerade offen ist — sonst
   // legte man ihn an und faende ihn nicht wieder.
-  const openNew  = () => { setEc({...newChar(), adventure: advId}); setShowCF(true); };
+  // Die Vorgabe kommt aus dem Abenteuer: hat es "Kaempfer" gestrichen,
+  // soll der neue Held nicht damit anfangen.
+  const openNew  = () => {
+    const erste = (klassen[0] || {}).name;
+    setEc({...newChar(), adventure: advId, ...(erste ? {charClass: erste} : {})});
+    setShowCF(true);
+  };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
 
   const saveChar = () => {
@@ -1612,7 +1660,7 @@ function App() {
     effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
     gearArmor, gearAusVorlage, gearPick, gearSetList, gearShield,
     gearWornList, initTotal, insp, inspMax, invRarity, invTagFilter,
-    isDmMode, itemFx, languages, nhGesperrt, notesList, noteTagFilter,
+    isDmMode, itemFx, klassen, languages, nhGesperrt, notesList, noteTagFilter,
     openEdit, openNew, openTpl, openUnprepared, patchChar, resEdit,
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
     setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
@@ -1624,7 +1672,7 @@ function App() {
     setShowWF, setSlotsEdit, setSpEdit, setSpellTagFilter, setStatsEdit,
     setTab, setTransferMode, setTransferSel, setWeaponViewer, setWf,
     setWfEditId, setWsExpand, slots, slotsEdit, sp, spChgMax, spEdit,
-    spellTagFilter, statsEdit, switchList, tab,
+    spellTagFilter, statsEdit, switchList, tab, tpOffen,
     toggleEquipped, toggleFeatureFx, toggleJoAT, toggleSave,
     toggleSkill, toggleSpellPrepared, toggleWsFav, togResourcePip,
     togSlot, togSP, toolProfs, tplData, transferMode, transferSel,
@@ -1690,6 +1738,15 @@ function App() {
                         </button>
                       );
                     })}
+                    {/* Was hier steht, gilt fuer die ganze Gruppe — verdeckte
+                        Trefferpunkte waeren keine, wenn jeder sie wieder
+                        aufdecken koennte. Deshalb nur im DM-Modus. */}
+                    {isDmMode && (
+                      <button className="adv-menu-verwalten"
+                        onClick={()=>{setAdvMenuOffen(false);
+                          const a = abenteuer.find(x=>x.id===advId);
+                          if (a) setAdvEinstellung({...a});}}>⚙ Einstellungen · {advName}</button>
+                    )}
                     <button className="adv-menu-verwalten"
                       onClick={()=>{setAdvMenuOffen(false);setShowAdvVerwaltung(true);}}>⚙ Abenteuer verwalten</button>
                   </div>
@@ -1891,7 +1948,10 @@ function App() {
             <div className="section-title" style={{margin:"4px 0 10px"}}>Klassen &amp; Stufen</div>
             <div className="multiclass-row" style={{marginBottom:8}}>
               <select className="form-select" style={{flex:1}} value={ec.charClass} onChange={e=>setEc({...ec,charClass:e.target.value})}>
-                {CLASSES.map(c=><option key={c}>{c}</option>)}
+                {/* Eine Klasse, die im Bogen steht und nicht mehr in der Liste
+                    ist, bleibt waehlbar — sonst spraenge der Held beim
+                    Oeffnen still auf eine andere Klasse. */}
+                {klassenWahl(ec.charClass).map(c=><option key={c}>{c}</option>)}
               </select>
               <input className="form-input" type="number" min="1" max="20" value={ec.level}
                 onChange={e=>setEc({...ec,level:Math.max(1,Math.min(20,+e.target.value))})}
@@ -1902,7 +1962,7 @@ function App() {
               <div className="multiclass-row" key={i} style={{marginBottom:8}}>
                 <select className="form-select" style={{flex:1}} value={mc.charClass}
                   onChange={e=>setEc({...ec,multiclasses:ec.multiclasses.map((m,j)=>j===i?{...m,charClass:e.target.value}:m)})}>
-                  {CLASSES.map(c=><option key={c}>{c}</option>)}
+                  {klassenWahl(mc.charClass).map(c=><option key={c}>{c}</option>)}
                 </select>
                 <input className="form-input" type="number" min="1" max="20" value={mc.level}
                   onChange={e=>setEc({...ec,multiclasses:ec.multiclasses.map((m,j)=>j===i?{...m,level:Math.max(1,+e.target.value)}:m)})}
@@ -2505,7 +2565,7 @@ function App() {
               ) : (
                 <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
                   {others.map(c=>{
-                    const cc = CC[c.charClass]||CC["Kämpfer"];
+                    const cc = klassenStil(c.charClass || 'Kämpfer', klassen);
                     return (
                       <button key={c.id}
                         onClick={()=>doTransfer(c.id, transferSel)}
@@ -3524,6 +3584,26 @@ function App() {
         </div>
       )}
 
+      {advEinstellung && isDmMode && (
+        <AbenteuerEinstellungen
+          adv={advEinstellung}
+          helden={chars.filter(c => (c.adventure||(abenteuer[0]||{}).id) === advEinstellung.id)}
+          onAendern={setAdvEinstellung}
+          onAbbrechen={()=>setAdvEinstellung(null)}
+          onSpeichern={()=>{
+            // Leere Klassennamen fallen weg, sonst stuende eine namenlose
+            // Zeile im Auswahlfeld des Bogens.
+            const geputzt = {...advEinstellung};
+            if (Array.isArray(geputzt.klassen)) {
+              geputzt.klassen = geputzt.klassen.filter(k => (k.name||'').trim())
+                .map(k => ({name:k.name.trim(), color:k.color||'#8b9198'}));
+              if (!geputzt.klassen.length) delete geputzt.klassen;
+            }
+            advSpeichern(abenteuer.map(a => a.id===geputzt.id ? geputzt : a));
+            setAdvEinstellung(null);
+          }} />
+      )}
+
       {ereignisForm && isDmMode && (
         <EreignisFormular
           ereignis={ereignisForm.e} neu={ereignisForm.neu}
@@ -3618,6 +3698,11 @@ function App() {
                         advSpeichern(abenteuer.map(x => x.id===a.id ? {...x, name} : x));
                       }} />
                     <span className="adv-zeile-zahl">{helden.length} {helden.length===1?'Held':'Helden'}</span>
+                    {isDmMode && (
+                      <button className="adv-zeile-einst" aria-label={'Einstellungen für '+a.name}
+                        title="Einstellungen"
+                        onClick={()=>{setShowAdvVerwaltung(false);setAdvEinstellung({...a});}}>⚙</button>
+                    )}
                     <button className="adv-zeile-del" aria-label={'Abenteuer '+a.name+' löschen'}
                       title={helden.length ? 'Erst die Helden verschieben oder löschen'
                             : abenteuer.length<2 ? 'Das letzte Abenteuer bleibt' : 'Abenteuer löschen'}

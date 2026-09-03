@@ -17,6 +17,44 @@ const advListe = (lib) => {
   const l = (lib && lib._adventures) || [];
   return Array.isArray(l) ? l.filter(a => a && a.id) : [];
 };
+// ── Einstellungen eines Abenteuers ───────────────────────────────
+// Sie haengen am Abenteuer selbst, nicht an einer eigenen Ablage: die
+// Liste wird ohnehin schon mit allen geteilt, und ein zweiter Ort waere
+// ein zweiter Ort, an dem etwas auseinanderlaufen kann.
+//
+// Die Klassenliste ist bewusst nur eine Liste von Namen mit Farbe. Das
+// Regelwerk der Klasse (Trefferwuerfel, Zauberattribut) steht weiter im
+// Bogen des Helden — eine Hausklasse soll ohne Regelarbeit eintragbar sein.
+const KLASSEN_STANDARD = Object.keys(CC).map(n => ({name: n, color: CC[n].text}));
+const advKlassen = (adv) =>
+  (adv && Array.isArray(adv.klassen) && adv.klassen.length) ? adv.klassen : KLASSEN_STANDARD;
+// Farben einer Klasse: die zwoelf des Regelwerks behalten ihr eigenes
+// Dreigespann, eine Hausklasse leitet ihres aus einer Farbe ab.
+const klassenStil = (name, klassen) => {
+  if (CC[name]) return CC[name];
+  const k = (klassen || []).find(x => x.name === name);
+  const c = (k && k.color) || '#8b9198';
+  return {bg: c + '22', border: c + '80', text: c};
+};
+// Verdeckte Trefferpunkte: in manchen Runden kennt nur die Spielleitung
+// die Zahl. Der Spieler sieht dann einen Zustand statt einer Ziffer.
+// balken ist bewusst grob: ein auf den Punkt genauer Balken verriete die
+// Zahl, die der Zustand gerade verbergen soll.
+const TP_ZUSTAENDE = [
+  {ab: 1.0,  balken: 1.0,  label: 'Unverletzt',       color: '#56b183'},
+  {ab: 0.75, balken: 0.85, label: 'Leicht verletzt',  color: '#9cc45a'},
+  {ab: 0.5,  balken: 0.62, label: 'Verwundet',        color: '#e8b84b'},
+  {ab: 0.25, balken: 0.37, label: 'Schwer verwundet', color: '#e07a3a'},
+  {ab: 0.01, balken: 0.12, label: 'Am Ende',          color: '#e05a5a'},
+  {ab: 0,    balken: 0,    label: 'Kampfunfähig',     color: '#8b9198'},
+];
+const tpZustand = (hp, maxHp) => {
+  const anteil = maxHp > 0 ? Math.max(0, hp) / maxHp : 0;
+  return TP_ZUSTAENDE.find(z => anteil >= z.ab) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1];
+};
+// Wahr, wenn dieser Bogen seine Trefferpunkte gerade als Zahl zeigen darf.
+const tpSichtbar = (adv, istDm) => istDm || !(adv && adv.hpVerdeckt);
+
 // Sorgt dafuer, dass es mindestens ein Abenteuer gibt und jeder Held
 // einem zugeordnet ist. Gibt {lib, chars} zurueck, wenn sich etwas
 // geaendert hat, sonst null.

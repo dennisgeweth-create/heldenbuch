@@ -76,7 +76,7 @@ const sortiereNachIni = (liste) => [...liste].sort((a,b) => {
 });
 
 // ── Eine Zeile ───────────────────────────────────────────────────
-const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
+const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onMaxTp, onIni, onZustand,
                       onErschoepfung, onEntfernen, onBlatt, zustandOffen, setZustandOffen,
                       detailOffen, setDetailOffen }) => {
   const [eingabe, setEingabe] = React.useState('');
@@ -153,16 +153,24 @@ const KampfZeile = ({ t, dran, onSchaden, onHeilen, onTemp, onIni, onZustand,
             aria-label={'Schaden oder Heilung für ' + t.name}
             onChange={e=>setEingabe(e.target.value)}
             onKeyDown={e=>{ if(e.key==='Enter') anwenden(onSchaden); }} />
-          <button className="kampf-minus" title="Schaden" onClick={()=>anwenden(onSchaden)}>−</button>
-          <button className="kampf-plus"  title="Heilung" onClick={()=>anwenden(onHeilen)}>+</button>
-          <button className="kampf-temp-btn" title="Temporäre Trefferpunkte" onClick={()=>anwenden(onTemp)}>t</button>
+          <button className="kampf-tat schaden" title="Schaden" onClick={()=>anwenden(onSchaden)}>−</button>
+          <button className="kampf-tat heilung" title="Heilung" onClick={()=>anwenden(onHeilen)}>+</button>
+          <button className="kampf-tat temp" onClick={()=>anwenden(onTemp)}
+            title="Temporäre Trefferpunkte — der höhere Wert gilt, sie zählen nicht zusammen">t</button>
+          {/* Nur bei Gegnern: die Obergrenze eines Helden kommt aus seinem
+              Bogen und wird bei jedem Rendern von dort geholt — hier
+              eingetippt waere sie im naechsten Augenblick wieder weg. */}
+          {t.art === 'gegner' && (
+            <button className="kampf-tat maxtp" onClick={()=>anwenden(onMaxTp)}
+              title="Max. Trefferpunkte setzen">M</button>
+          )}
         </div>
         <div className="kampf-zeile-tools">
           <button onClick={()=>setZustandOffen(zustandOffen===t.id ? null : t.id)}
             title="Zustände" aria-expanded={zustandOffen===t.id}>◇</button>
-          <button onClick={()=>onErschoepfung(1)} title="Erschöpfung +1">▲</button>
-          <button onClick={()=>onErschoepfung(-1)} title="Erschöpfung −1">▼</button>
-          <button onClick={onEntfernen} title="Aus dem Kampf nehmen">✕</button>
+          <button className="ersch" onClick={()=>onErschoepfung(1)} title="Erschöpfung +1">▲</button>
+          <button className="ersch" onClick={()=>onErschoepfung(-1)} title="Erschöpfung −1">▼</button>
+          <button className="raus" onClick={onEntfernen} title="Aus dem Kampf nehmen">✕</button>
         </div>
       </div>
 
@@ -473,6 +481,9 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   });
   const heilen = (id, n) => aendern(id, t => ({...t, hp: Math.min(t.hpMax, t.hp + n)}));
   const temp   = (id, n) => aendern(id, t => ({...t, tempHp: Math.max(t.tempHp||0, n)}));
+  // Sinkt die Obergrenze unter den aktuellen Stand, sinkt der Stand mit —
+  // sonst staende dort mehr, als der Gegner haben kann.
+  const maxTp  = (id, n) => aendern(id, t => ({...t, hpMax: Math.max(1, n), hp: Math.min(t.hp, Math.max(1, n))}));
   const zustand = (id, z) => aendern(id, t => ({...t,
     zustaende: (t.zustaende||[]).includes(z) ? (t.zustaende||[]).filter(x=>x!==z) : [...(t.zustaende||[]), z]}));
   const erschoepfung = (id, d) => aendern(id, t => ({...t, erschoepfung: Math.max(0, Math.min(6, (t.erschoepfung||0) + d))}));
@@ -513,9 +524,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           {amZug ? <>Am Zug: <b>{amZug.name}</b></> : 'Niemand am Zug'}
         </div>
         <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
-        <button className="btn-cancel" onClick={()=>setSpontan(true)} title="Gegner nachträglich dazunehmen">⚡ Gegner</button>
-        <button className="btn-cancel" onClick={()=>setUebertragen(true)}>Kampf beenden</button>
-        <button className="btn-cancel" onClick={onSchliessen} title="Nur schließen, der Kampf läuft weiter">✕</button>
+        <button className="kampf-kopf-btn zusatz" onClick={()=>setSpontan(true)}
+          title="Gegner nachträglich dazunehmen">⚡ Gegner</button>
+        <button className="kampf-kopf-btn ende" onClick={()=>setUebertragen(true)}>⏹ Kampf beenden</button>
+        <button className="kampf-kopf-x" onClick={onSchliessen}
+          title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
       </div>
 
       {ohneIni > 0 && (
@@ -555,6 +568,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           <KampfZeile key={t.id} t={t} dran={amZug && amZug.id === t.id}
             zustandOffen={zustandOffen} setZustandOffen={setZustandOffen}
             onSchaden={n=>schaden(t.id,n)} onHeilen={n=>heilen(t.id,n)} onTemp={n=>temp(t.id,n)}
+            onMaxTp={n=>maxTp(t.id,n)}
             onIni={v=>ini(t.id,v)} onZustand={z=>zustand(t.id,z)}
             onErschoepfung={d=>erschoepfung(t.id,d)} onEntfernen={()=>entfernen(t.id)}
             onBlatt={onGegnerBlatt}

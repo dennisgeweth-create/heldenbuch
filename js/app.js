@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -1364,6 +1364,7 @@ const KampfZeile = ({
   onSchaden,
   onHeilen,
   onTemp,
+  onMaxTp,
   onIni,
   onZustand,
   onErschoepfung,
@@ -1478,30 +1479,37 @@ const KampfZeile = ({
       if (e.key === 'Enter') anwenden(onSchaden);
     }
   }), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-minus",
+    className: "kampf-tat schaden",
     title: "Schaden",
     onClick: () => anwenden(onSchaden)
   }, "\u2212"), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-plus",
+    className: "kampf-tat heilung",
     title: "Heilung",
     onClick: () => anwenden(onHeilen)
   }, "+"), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-temp-btn",
-    title: "Tempor\xE4re Trefferpunkte",
-    onClick: () => anwenden(onTemp)
-  }, "t")), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-tat temp",
+    onClick: () => anwenden(onTemp),
+    title: "Tempor\xE4re Trefferpunkte \u2014 der h\xF6here Wert gilt, sie z\xE4hlen nicht zusammen"
+  }, "t"), t.art === 'gegner' && /*#__PURE__*/React.createElement("button", {
+    className: "kampf-tat maxtp",
+    onClick: () => anwenden(onMaxTp),
+    title: "Max. Trefferpunkte setzen"
+  }, "M")), /*#__PURE__*/React.createElement("div", {
     className: "kampf-zeile-tools"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setZustandOffen(zustandOffen === t.id ? null : t.id),
     title: "Zust\xE4nde",
     "aria-expanded": zustandOffen === t.id
   }, "\u25C7"), /*#__PURE__*/React.createElement("button", {
+    className: "ersch",
     onClick: () => onErschoepfung(1),
     title: "Ersch\xF6pfung +1"
   }, "\u25B2"), /*#__PURE__*/React.createElement("button", {
+    className: "ersch",
     onClick: () => onErschoepfung(-1),
     title: "Ersch\xF6pfung \u22121"
   }, "\u25BC"), /*#__PURE__*/React.createElement("button", {
+    className: "raus",
     onClick: onEntfernen,
     title: "Aus dem Kampf nehmen"
   }, "\u2715"))), zustandOffen === t.id && /*#__PURE__*/React.createElement("div", {
@@ -1850,6 +1858,13 @@ const KampfAnsicht = ({
     ...t,
     tempHp: Math.max(t.tempHp || 0, n)
   }));
+  // Sinkt die Obergrenze unter den aktuellen Stand, sinkt der Stand mit —
+  // sonst staende dort mehr, als der Gegner haben kann.
+  const maxTp = (id, n) => aendern(id, t => ({
+    ...t,
+    hpMax: Math.max(1, n),
+    hp: Math.min(t.hp, Math.max(1, n))
+  }));
   const zustand = (id, z) => aendern(id, t => ({
     ...t,
     zustaende: (t.zustaende || []).includes(z) ? (t.zustaende || []).filter(x => x !== z) : [...(t.zustaende || []), z]
@@ -1912,16 +1927,17 @@ const KampfAnsicht = ({
     className: "kampf-weiter",
     onClick: naechster
   }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-cancel",
+    className: "kampf-kopf-btn zusatz",
     onClick: () => setSpontan(true),
     title: "Gegner nachtr\xE4glich dazunehmen"
   }, "\u26A1 Gegner"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-cancel",
+    className: "kampf-kopf-btn ende",
     onClick: () => setUebertragen(true)
-  }, "Kampf beenden"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-cancel",
+  }, "\u23F9 Kampf beenden"), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-x",
     onClick: onSchliessen,
-    title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter"
+    title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter",
+    "aria-label": "Kampftracker schlie\xDFen"
   }, "\u2715")), ohneIni > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
   }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Auf die Zahl links tippen."), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
@@ -1971,6 +1987,7 @@ const KampfAnsicht = ({
     onSchaden: n => schaden(t.id, n),
     onHeilen: n => heilen(t.id, n),
     onTemp: n => temp(t.id, n),
+    onMaxTp: n => maxTp(t.id, n),
     onIni: v => ini(t.id, v),
     onZustand: z => zustand(t.id, z),
     onErschoepfung: d => erschoepfung(t.id, d),
@@ -2022,8 +2039,8 @@ const newEreignis = (advId, jetzt) => ({
   // null = laeuft mit, ohne Frist
   wiederholung: 0,
   // Stunden; 0 = einmalig
+  // {charId, art:'merkmal'|'effekt', …} — siehe chronikMerkmale()
   bindung: null,
-  // {charId, featureId, wirkung:'aus'|'an'}
   erledigt: false
 });
 
@@ -2047,6 +2064,40 @@ const ereignisUnterzeile = e => {
   if (e.art === 'reise') return (e.ort || '?') + ' → ' + (e.ziel || '?');
   return e.ort || e.notiz || '';
 };
+
+// ── Effekte aus der Chronik ──────────────────────────────────────
+// Ein Ereignis kann einem Helden einen Effekt anhaengen, so wie es eine
+// Waffe tut. Das Merkmal dazu wird nicht "irgendwann gesetzt und
+// irgendwann wieder entfernt" — es wird bei jeder Aenderung neu aus der
+// Uhr abgeleitet. Damit gibt es keinen Stand, der haengenbleiben kann:
+// wer die Uhr zurueckstellt, bekommt den Fluch zurueck.
+//
+//   sofort  — gilt ab dem Eintragen bis die Frist ablaeuft (der Fluch,
+//             der nach drei Tagen vergeht)
+//   spaeter — gilt erst ab der Faelligkeit (der Fluch, der in drei Tagen
+//             zuschlaegt und dann bleibt)
+const CHR_PRAEFIX = 'chr_';
+const chronikMerkmale = (chronik, advId) => {
+  const jetzt = zeitDerUhr(chronik, advId);
+  const soll = {};
+  ereignisseDerUhr(chronik, advId).forEach(e => {
+    const b = e.bindung;
+    if (!b || b.art !== 'effekt' || !b.charId || !(b.effects || []).length) return;
+    const abgelaufen = e.faellig != null && e.faellig <= jetzt;
+    const gilt = b.sofort === false ? abgelaufen : !e.erledigt && !abgelaufen;
+    if (!gilt) return;
+    (soll[b.charId] = soll[b.charId] || []).push({
+      id: CHR_PRAEFIX + e.id,
+      name: e.name || 'Ereignis',
+      source: 'Chronik',
+      description: e.notiz || '',
+      effects: b.effects,
+      effectsActive: true
+    });
+  });
+  return soll;
+};
+const istChronikMerkmal = f => String(f && f.id || '').indexOf(CHR_PRAEFIX) === 0;
 
 // ── Die Leiste ───────────────────────────────────────────────────
 const ChronikLeiste = ({
@@ -2219,7 +2270,8 @@ const EreignisFormular = ({
   // Nur Helden des Abenteuers, an das dieses Ereignis haengt — sonst steht
   // die halbe Kampagne im Auswahlfeld.
   const helden = chars.filter(c => !c.archived && (!e.adventure || !c.adventure || c.adventure === e.adventure));
-  const held = helden.find(c => c.id === (e.bindung && e.bindung.charId));
+  const b = e.bindung || {};
+  const held = helden.find(c => c.id === b.charId);
   const merkmale = held && held.features || [];
   return /*#__PURE__*/React.createElement("div", {
     className: "form-overlay"
@@ -2377,29 +2429,54 @@ const EreignisFormular = ({
     className: "form-group form-full chr-bindung"
   }, /*#__PURE__*/React.createElement("label", {
     className: "form-label"
-  }, "Wenn es soweit ist: Merkmal umschalten"), /*#__PURE__*/React.createElement("div", {
+  }, "Wirkung auf einen Helden"), /*#__PURE__*/React.createElement("div", {
     className: "chr-bindung-reihe"
   }, /*#__PURE__*/React.createElement("select", {
     className: "form-select",
-    value: e.bindung && e.bindung.charId || '',
+    value: b.charId || '',
     onChange: ev => setzen({
       bindung: ev.target.value ? {
+        ...b,
         charId: ev.target.value,
-        featureId: '',
-        wirkung: 'aus'
+        art: b.art || 'merkmal',
+        featureId: ''
       } : null
     })
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "\u2014 nichts umschalten \u2014"), helden.map(c => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 keine \u2014"), helden.map(c => /*#__PURE__*/React.createElement("option", {
     key: c.id,
     value: c.id
-  }, c.name))), e.bindung && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
+  }, c.name))), b.charId && /*#__PURE__*/React.createElement("div", {
+    className: "chr-art-wahl"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'chr-art' + (b.art !== 'effekt' ? ' aktiv' : ''),
+    onClick: () => setzen({
+      bindung: {
+        ...b,
+        art: 'merkmal',
+        featureId: b.featureId || '',
+        wirkung: b.wirkung || 'aus'
+      }
+    })
+  }, /*#__PURE__*/React.createElement("span", null, "\u2B50"), "Merkmal umschalten"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'chr-art' + (b.art === 'effekt' ? ' aktiv' : ''),
+    onClick: () => setzen({
+      bindung: {
+        ...b,
+        art: 'effekt',
+        effects: b.effects || [],
+        sofort: b.sofort !== false
+      }
+    })
+  }, /*#__PURE__*/React.createElement("span", null, "\u2726"), "Effekt setzen")), b.charId && b.art !== 'effekt' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
     className: "form-select",
-    value: e.bindung.featureId || '',
+    value: b.featureId || '',
     onChange: ev => setzen({
       bindung: {
-        ...e.bindung,
+        ...b,
         featureId: ev.target.value
       }
     })
@@ -2410,20 +2487,44 @@ const EreignisFormular = ({
     value: f.id
   }, f.name))), /*#__PURE__*/React.createElement("select", {
     className: "form-select",
-    value: e.bindung.wirkung || 'aus',
+    value: b.wirkung || 'aus',
     onChange: ev => setzen({
       bindung: {
-        ...e.bindung,
+        ...b,
         wirkung: ev.target.value
       }
     })
   }, /*#__PURE__*/React.createElement("option", {
     value: "aus"
-  }, "abschalten"), /*#__PURE__*/React.createElement("option", {
+  }, "abschalten, wenn die Frist abl\xE4uft"), /*#__PURE__*/React.createElement("option", {
     value: "an"
-  }, "einschalten")))), e.bindung && merkmale.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, "einschalten, wenn die Frist abl\xE4uft")), merkmale.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "chr-hinweis warn"
-  }, "Dieser Held hat noch kein Merkmal, das man umschalten k\xF6nnte."))), /*#__PURE__*/React.createElement("div", {
+  }, "Dieser Held hat noch kein Merkmal, das man umschalten k\xF6nnte.")), b.charId && b.art === 'effekt' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: b.sofort === false ? 'spaeter' : 'sofort',
+    onChange: ev => setzen({
+      bindung: {
+        ...b,
+        sofort: ev.target.value === 'sofort'
+      }
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "sofort"
+  }, "gilt ab sofort, bis die Frist abl\xE4uft"), /*#__PURE__*/React.createElement("option", {
+    value: "spaeter"
+  }, "gilt erst, wenn die Frist abgelaufen ist")), /*#__PURE__*/React.createElement(EffectEditor, {
+    effects: b.effects || [],
+    onChange: v => setzen({
+      bindung: {
+        ...b,
+        effects: v
+      }
+    }),
+    hint: 'Damit verändert dieses Ereignis die Werte von ' + (held && held.name || 'diesem Helden') + '.'
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "chr-hinweis"
+  }, b.sofort === false ? 'Steht als Merkmal „' + (e.name || 'Ereignis') + '“ im Bogen, sobald die Frist abgelaufen ist — und bleibt dann.' : 'Steht ab dem Speichern als Merkmal „' + (e.name || 'Ereignis') + '“ im Bogen und verschwindet mit der Frist.', ' ', "Wird das Ereignis gel\xF6scht, geht es mit."))))), /*#__PURE__*/React.createElement("div", {
     className: "form-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
@@ -2463,12 +2564,20 @@ const ZeitDialog = ({
     const c = b && held(b.charId);
     return c && (c.features || []).find(f => f.id === b.featureId);
   };
-  const bindungen = feuert.map(e => ({
+  const angebunden = feuert.map(e => ({
     e,
     b: e.bindung,
-    c: e.bindung && held(e.bindung.charId),
-    f: merkmal(e.bindung)
-  })).filter(x => x.b);
+    c: e.bindung && held(e.bindung.charId)
+  })).filter(x => x.b && x.b.charId);
+  // Ein umgeschaltetes Merkmal ist ein Eingriff in einen fremden Bogen und
+  // steht deshalb zum Abwaehlen da. Ein Chronik-Effekt dagegen wird aus der
+  // Uhr abgeleitet — ihn hier abzuwaehlen hiesse, ihn im naechsten
+  // Augenblick wieder abzuleiten. Er steht als Ansage, nicht als Kaestchen.
+  const bindungen = angebunden.filter(x => x.b.art !== 'effekt').map(x => ({
+    ...x,
+    f: merkmal(x.b)
+  }));
+  const effektB = angebunden.filter(x => x.b.art === 'effekt' && (x.b.effects || []).length);
   const anwenden = () => {
     const gewaehlt = bindungen.filter(x => x.c && x.f && !abgewaehlt[x.e.id]).map(x => ({
       charId: x.b.charId,
@@ -2576,7 +2685,16 @@ const ZeitDialog = ({
     className: "chr-ev-icon"
   }, artInfo(e.art).icon), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, e.name), " \u2014 ", artInfo(e.art).vorbei, e.art === 'reise' && e.ziel ? ' in ' + e.ziel : '', e.wiederholung > 0 && /*#__PURE__*/React.createElement("i", {
     className: "zeit-notiz"
-  }, "l\xE4uft danach weiter, alle ", Math.round(e.wiederholung / STD_TAG), " Tage")))), bindungen.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "l\xE4uft danach weiter, alle ", Math.round(e.wiederholung / STD_TAG), " Tage")))), effektB.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "zeit-bindungen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zeit-vorschau-titel"
+  }, "Effekte in fremden B\xF6gen"), effektB.map(x => /*#__PURE__*/React.createElement("div", {
+    className: "zeit-bindung",
+    key: 'fx_' + x.e.id
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "chr-ev-icon"
+  }, "\u2726"), /*#__PURE__*/React.createElement("span", null, x.c ? /*#__PURE__*/React.createElement(React.Fragment, null, "Bei ", /*#__PURE__*/React.createElement("b", null, x.c.name), ": ") : 'Bei einem Helden, der nicht mehr da ist: ', "\u201E", x.e.name, "\u201C ", x.b.sofort === false ? 'greift ab jetzt' : 'endet')))), bindungen.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "zeit-bindungen"
   }, /*#__PURE__*/React.createElement("div", {
     className: "zeit-vorschau-titel"
@@ -2634,6 +2752,161 @@ const ZeitDialog = ({
     disabled: delta === 0,
     onClick: anwenden
   }, delta === 0 ? 'Keine Zeit gewählt' : '⏩ ' + restText(delta) + ' vergehen lassen'))));
+};
+
+// ==== js/src/2e-abenteuer.jsx ====
+// ── Einstellungen eines Abenteuers ───────────────────────────────
+// Was hier steht, gilt fuer alle in der Gruppe — es liegt in derselben
+// geteilten Datenbank wie die Abenteuerliste selbst. Deshalb sind es
+// bewusst wenige, klar benannte Schalter und keine Sammelkiste.
+const AbenteuerEinstellungen = ({
+  adv,
+  helden,
+  onAendern,
+  onSpeichern,
+  onAbbrechen
+}) => {
+  const klassen = advKlassen(adv);
+  const eigene = Array.isArray(adv.klassen) && adv.klassen.length > 0;
+  const setzen = p => onAendern({
+    ...adv,
+    ...p
+  });
+
+  // Welche Klassen im Abenteuer tatsaechlich gespielt werden. Eine davon
+  // zu entfernen nimmt einem Helden seine Klasse — das sagt die Zeile.
+  const inBenutzung = {};
+  (helden || []).forEach(c => {
+    [c.charClass, ...(c.multiclasses || []).map(m => m.charClass)].filter(Boolean).forEach(k => {
+      inBenutzung[k] = (inBenutzung[k] || 0) + 1;
+    });
+  });
+  const klassenSetzen = liste => setzen({
+    klassen: liste
+  });
+  const aendern = (i, p) => klassenSetzen(klassen.map((k, j) => j === i ? {
+    ...k,
+    ...p
+  } : k));
+  const entfernen = i => klassenSetzen(klassen.filter((_, j) => j !== i));
+  const hinzu = () => klassenSetzen([...klassen, {
+    name: '',
+    color: '#8b9198'
+  }]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 560
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\u2699 Einstellungen \xB7 ", adv.name || 'Abenteuer'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxHeight: '64vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full",
+    style: {
+      marginBottom: 18
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "form-label"
+  }, "Name des Abenteuers"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: adv.name || '',
+    onChange: e => setzen({
+      name: e.target.value
+    }),
+    placeholder: "z.B. Strahd"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "einst-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel"
+  }, "\u2764 Trefferpunkte"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-wahl"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (!adv.hpVerdeckt ? ' aktiv' : ''),
+    onClick: () => setzen({
+      hpVerdeckt: false
+    })
+  }, /*#__PURE__*/React.createElement("b", null, "Offen"), /*#__PURE__*/React.createElement("i", null, "Jeder sieht seine Zahlen und kann sie \xE4ndern.")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (adv.hpVerdeckt ? ' aktiv' : ''),
+    onClick: () => setzen({
+      hpVerdeckt: true
+    })
+  }, /*#__PURE__*/React.createElement("b", null, "Verdeckt"), /*#__PURE__*/React.createElement("i", null, "Spieler sehen nur ihren Zustand \u2014 \u201EVerwundet\u201C statt \u201E14 / 38\u201C. Zahlen und Eingabefelder bleiben der Spielleitung."))), adv.hpVerdeckt && /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis"
+  }, "Die Trefferpunkte werden dann im DM-Modus gepflegt \u2014 im Bogen oder \xFCber den Kampftracker. Maximum und tempor\xE4re Trefferpunkte sind mit verdeckt, sonst lie\xDFe sich die Zahl zur\xFCckrechnen.")), /*#__PURE__*/React.createElement("div", {
+    className: "einst-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel"
+  }, "\uD83C\uDF93 Klassen"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "Was hier steht, steht im Charakterbogen zur Wahl. Eine Hausklasse braucht nur Namen und Farbe \u2014 Trefferw\xFCrfel und Zauberattribut stehen ohnehin im Bogen des Helden."), klassen.map((k, i) => {
+    const genutzt = inBenutzung[k.name] || 0;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "einst-klasse",
+      key: i
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "color",
+      className: "einst-farbe",
+      value: k.color || '#8b9198',
+      "aria-label": 'Farbe für ' + (k.name || 'Klasse'),
+      onChange: e => aendern(i, {
+        color: e.target.value
+      })
+    }), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      value: k.name,
+      "aria-label": "Klassenname",
+      placeholder: "Name der Klasse",
+      onChange: e => aendern(i, {
+        name: e.target.value
+      })
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "einst-genutzt"
+    }, genutzt ? genutzt + (genutzt === 1 ? ' Held' : ' Helden') : ''), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fx-del",
+      title: genutzt ? 'Wird noch gespielt — entfernen lässt die Klasse im Bogen stehen' : 'Entfernen',
+      onClick: () => entfernen(i)
+    }, "\u2715"));
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "einst-klassen-fuss"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: hinzu
+  }, "+ Klasse"), eigene && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => klassenSetzen(KLASSEN_STANDARD.map(k => ({
+      ...k
+    })))
+  }, "\u21BA Die zw\xF6lf des Regelwerks"), !eigene && /*#__PURE__*/React.createElement("span", {
+    className: "einst-hinweis",
+    style: {
+      margin: 0
+    }
+  }, "Noch unver\xE4ndert \u2014 das sind die zw\xF6lf des Regelwerks.")))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: onSpeichern
+  }, "\uD83D\uDCBE Speichern"))));
 };
 
 // ==== js/src/3-sheet.jsx ====
@@ -2695,6 +2968,7 @@ const Sheet = () => {
     invTagFilter,
     isDmMode,
     itemFx,
+    klassen,
     languages,
     notesList,
     noteTagFilter,
@@ -2759,6 +3033,7 @@ const Sheet = () => {
     statsEdit,
     switchList,
     tab,
+    tpOffen,
     toggleEquipped,
     toggleFeatureFx,
     toggleJoAT,
@@ -2892,7 +3167,7 @@ const Sheet = () => {
     s: "❤ TP",
     i: "❤",
     t: 'maxHp',
-    v: cur.hp + " / " + effCur.maxHp
+    v: tpOffen ? cur.hp + " / " + effCur.maxHp : tpZustand(cur.hp, effCur.maxHp).label
   }, ...(passivWert !== null ? [{
     k: 'passive',
     l: "Passive Wahrnehmung",
@@ -2970,7 +3245,7 @@ const Sheet = () => {
   }), /*#__PURE__*/React.createElement("div", {
     className: "char-switch-menu"
   }, switchList.map(c => {
-    const ccc = CC[c.charClass] || CC["Kämpfer"];
+    const ccc = klassenStil(c.charClass || 'Kämpfer', klassen);
     return /*#__PURE__*/React.createElement("button", {
       key: c.id,
       className: "char-switch-item" + (c.id === sel ? " current" : ""),
@@ -3010,7 +3285,7 @@ const Sheet = () => {
       color: cc.text
     }
   }, cur.charClass, " ", cur.level), (cur.multiclasses || []).map((mc, i) => {
-    const mcc = CC[mc.charClass] || CC["Kämpfer"];
+    const mcc = klassenStil(mc.charClass || 'Kämpfer', klassen);
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       className: "class-badge",
@@ -3121,7 +3396,19 @@ const Sheet = () => {
       alignItems: "center",
       gap: 8
     }
-  }, statsEdit ? /*#__PURE__*/React.createElement("div", {
+  }, !tpOffen ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: tpZustand(cur.hp, effCur.maxHp).color,
+      fontFamily: "'Roboto Condensed',sans-serif"
+    },
+    title: "In diesem Abenteuer f\xFChrt die Spielleitung die Trefferpunkte"
+  }, tpZustand(cur.hp, effCur.maxHp).label, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "var(--text-muted)",
+      marginLeft: 6,
+      fontSize: 11
+    }
+  }, "\uD83D\uDD12")) : statsEdit ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
@@ -3218,10 +3505,13 @@ const Sheet = () => {
   }, /*#__PURE__*/React.createElement("div", {
     className: "hp-bar-fill",
     style: {
-      width: Math.max(0, Math.min(100, cur.hp / (effCur.maxHp || 1) * 100)) + "%",
-      flexShrink: 0
+      width: (tpOffen ? Math.max(0, Math.min(100, cur.hp / (effCur.maxHp || 1) * 100)) : tpZustand(cur.hp, effCur.maxHp).balken * 100) + "%",
+      flexShrink: 0,
+      ...(tpOffen ? {} : {
+        background: tpZustand(cur.hp, effCur.maxHp).color
+      })
     }
-  }), (cur.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("div", {
+  }), tpOffen && (cur.tempHp || 0) > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       width: Math.max(0, Math.min(25, cur.tempHp / (effCur.maxHp || 1) * 100)) + "%",
       background: "linear-gradient(90deg,rgba(74,144,217,0.7),rgba(122,184,245,0.9))",
@@ -3594,6 +3884,11 @@ const Sheet = () => {
     const tot = fx('skill_' + sk.key, fx('skillAll', mod(effCur[attr]) + bonus));
     const skTouched = fxOn('skill_' + sk.key) || fxOn('skillAll') || fxOn(attr) || fxOn('profBonus');
     const skTip = [fxTitle(attr), fxTitle('profBonus'), fxTitle('skillAll'), fxTitle('skill_' + sk.key)].filter(Boolean).join('\n');
+    // Vorteil und Nachteil tragen keine Zahl, sie stehen als
+    // Marke neben dem Wurf. Beides zugleich hebt sich nach
+    // Regelwerk auf — das sagt die Marke dann auch.
+    const vt = fxOn('adv_skill_' + sk.key) || fxOn('adv_skillAll') || sk.key === 'heimlichkeit' && fxOn('adv_stealth');
+    const nt = fxOn('dis_skill_' + sk.key) || fxOn('dis_skillAll') || sk.key === 'heimlichkeit' && fxOn('dis_stealth');
     const pip = isE ? "⬤⬤" : isP ? "⬤" : joat ? "◑" : "○";
     const col = isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--border-bright)";
     return /*#__PURE__*/React.createElement("div", {
@@ -3625,7 +3920,16 @@ const Sheet = () => {
       style: {
         color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"
       }
-    }, fnum(tot), isE && /*#__PURE__*/React.createElement("span", {
+    }, fnum(tot), vt && nt && /*#__PURE__*/React.createElement("span", {
+      className: "skill-vt neutral",
+      title: "Vorteil und Nachteil heben sich auf"
+    }, "\u21C5"), vt && !nt && /*#__PURE__*/React.createElement("span", {
+      className: "skill-vt gut",
+      title: "Vorteil"
+    }, "\u25B2"), nt && !vt && /*#__PURE__*/React.createElement("span", {
+      className: "skill-vt schlecht",
+      title: "Nachteil"
+    }, "\u25BC"), isE && /*#__PURE__*/React.createElement("span", {
       className: "skill-flag"
     }, "EX"), joat && /*#__PURE__*/React.createElement("span", {
       className: "skill-flag"
@@ -3953,7 +4257,10 @@ const Sheet = () => {
   }, feat.name), /*#__PURE__*/React.createElement("div", {
     className: "feature-actions",
     onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("button", {
+  }, istChronikMerkmal(feat) ? /*#__PURE__*/React.createElement("span", {
+    className: "feature-gesperrt",
+    title: "Kommt aus der Chronik der Spielleitung"
+  }, "\uD83D\uDD70") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "spell-edit-btn",
     onClick: e => {
       e.stopPropagation();
@@ -3971,7 +4278,7 @@ const Sheet = () => {
       e.stopPropagation();
       delFeature(feat.id);
     }
-  }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
     className: "feature-card-body"
   }, feat.source && /*#__PURE__*/React.createElement("div", {
     className: "feature-source"
@@ -3985,9 +4292,12 @@ const Sheet = () => {
     className: "fx-chip"
   }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))), /*#__PURE__*/React.createElement("button", {
     className: "feature-fx-tog",
-    onClick: () => toggleFeatureFx(feat.id),
+    disabled: istChronikMerkmal(feat),
+    onClick: () => {
+      if (!istChronikMerkmal(feat)) toggleFeatureFx(feat.id);
+    },
     "aria-pressed": feat.effectsActive !== false,
-    title: feat.effectsActive === false ? 'Einschalten' : 'Ausschalten'
+    title: istChronikMerkmal(feat) ? 'Läuft mit der Chronik ab' : feat.effectsActive === false ? 'Einschalten' : 'Ausschalten'
   }, feat.effectsActive === false ? '◇ Ruht' : '✦ Wirkt'))), feat.description && /*#__PURE__*/React.createElement("div", {
     className: "feature-card-desc-wrap"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -6051,6 +6361,7 @@ function App() {
     }
   });
   const [showAdvVerwaltung, setShowAdvVerwaltung] = useState(false);
+  const [advEinstellung, setAdvEinstellung] = useState(null); // Abenteuer im Einstellungsfenster
   // Gegner der Spielleitung. Nur im DM-Modus geladen, eigene Tabelle.
   const [enemies, setEnemies] = useState([]);
   const [enemiesGeladen, setEnemiesGeladen] = useState(false);
@@ -6726,6 +7037,7 @@ function App() {
     setShowChronik(false);
     setEreignisForm(null);
     setZeitOffen(false);
+    setAdvEinstellung(null);
   };
 
   // Einmaliges Einlesen einer Sammlung aus einer JSON-Datei. Geht in einem
@@ -6829,6 +7141,7 @@ function App() {
   // naechste Sitzung faenge dann am falschen Tag an.
   const saveChronik = ch => {
     setChronik(ch);
+    chronikMerkmaleAbgleichen(ch);
     const {
       url,
       code,
@@ -6836,6 +7149,50 @@ function App() {
     } = serverCreds();
     if (!url || !code || !pass || !dmPassRef.current) return;
     apiDmSaveChronik(url, code, pass, dmPassRef.current, ch).catch(err => appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
+  };
+
+  // Die Chronik-Merkmale werden nicht gesetzt und irgendwann wieder
+  // entfernt, sondern nach jeder Aenderung neu abgeleitet. Was abgeleitet
+  // wird, kann nicht haengenbleiben — und ein zurueckgedrehter Tag bringt
+  // den Fluch von selbst zurueck.
+  const chronikMerkmaleAbgleichen = ch => {
+    const soll = chronikMerkmale(ch, advId);
+    const dazu = [],
+      weg = [];
+    let geaendert = false;
+    const neu = charsRef.current.map(c => {
+      // Nur Helden des offenen Abenteuers: die Uhr eines anderen Abenteuers
+      // sagt ueber sie nichts aus, und ihre Merkmale duerfen nicht fallen.
+      if ((c.adventure || '') !== advId) return c;
+      const alt = (c.features || []).filter(istChronikMerkmal);
+      const neuF = soll[c.id] || [];
+      if (JSON.stringify(alt) === JSON.stringify(neuF)) return c;
+      geaendert = true;
+      neuF.filter(f => !alt.some(a => a.id === f.id)).forEach(f => dazu.push({
+        c,
+        f
+      }));
+      alt.filter(f => !neuF.some(n2 => n2.id === f.id)).forEach(f => weg.push({
+        c,
+        f
+      }));
+      return {
+        ...c,
+        features: [...(c.features || []).filter(f => !istChronikMerkmal(f)), ...neuF]
+      };
+    });
+    if (!geaendert) return;
+    save(neu);
+    dazu.forEach(({
+      c,
+      f
+    }) => addLog(c.id, c.name, 'attribute', 'Aus der Chronik: ' + f.name, {
+      wirkt: 'ab jetzt'
+    }));
+    weg.forEach(({
+      c,
+      f
+    }) => addLog(c.id, c.name, 'attribute', 'Aus der Chronik beendet: ' + f.name));
   };
   const chronikUmschalten = () => setShowChronik(v => {
     try {
@@ -7113,7 +7470,28 @@ function App() {
     }, 'Abmelden');
   };
   const cur = chars.find(c => c.id === sel);
-  const cc = CC[cur && cur.charClass] || CC["Kämpfer"];
+  // ── Abenteuer ───────────────────────────────────────────────────
+  // Steht vor allem, was Farben, Klassen oder Trefferpunkte braucht: die
+  // Einstellungen des offenen Abenteuers gehen in beides ein.
+  const abenteuer = advListe(userLibrary);
+  const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
+  const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
+  const advObj = abenteuer.find(a => a.id === advId) || null;
+  // Welche Klassen dieses Abenteuer kennt — ohne eigene Liste die zwoelf
+  // des Regelwerks.
+  const klassen = advKlassen(advObj);
+  // Ob dieser Bogen seine Trefferpunkte als Zahl zeigen darf.
+  const tpOffen = tpSichtbar(advObj, isDmMode);
+  // Steht am Chronik-Knopf, damit die Leiste zugeklappt bleiben darf, ohne
+  // dass eine abgelaufene Frist unbemerkt liegen bleibt.
+  const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId).filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;
+
+  // Eine Auswahlliste, die den bereits eingetragenen Wert immer enthaelt.
+  const klassenWahl = aktuell => {
+    const namen = klassen.map(k => k.name);
+    return aktuell && !namen.includes(aktuell) ? [aktuell, ...namen] : namen;
+  };
+  const cc = klassenStil(cur && cur.charClass || 'Kämpfer', klassen);
 
   // ── Effekte angelegter Gegenstaende ──────────────────────────────
   // itemFx sind die gerade wirkenden Effekte, effCur ist der Held mit
@@ -7182,13 +7560,6 @@ function App() {
 
   // Dieselbe Auswahl wie die Liste "Aktiv" in der Seitenleiste, damit der
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
-  // ── Abenteuer ───────────────────────────────────────────────────
-  const abenteuer = advListe(userLibrary);
-  const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
-  const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
-  // Steht am Knopf, damit die Leiste zugeklappt bleiben darf, ohne dass
-  // eine abgelaufene Frist unbemerkt liegen bleibt.
-  const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId).filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;
   const advWechseln = id => {
     setAdvAktiv(id);
     try {
@@ -7213,10 +7584,16 @@ function App() {
 
   // Der Neue gehoert in das Abenteuer, das gerade offen ist — sonst
   // legte man ihn an und faende ihn nicht wieder.
+  // Die Vorgabe kommt aus dem Abenteuer: hat es "Kaempfer" gestrichen,
+  // soll der neue Held nicht damit anfangen.
   const openNew = () => {
+    const erste = (klassen[0] || {}).name;
     setEc({
       ...newChar(),
-      adventure: advId
+      adventure: advId,
+      ...(erste ? {
+        charClass: erste
+      } : {})
     });
     setShowCF(true);
   };
@@ -8455,6 +8832,7 @@ function App() {
     invTagFilter,
     isDmMode,
     itemFx,
+    klassen,
     languages,
     nhGesperrt,
     notesList,
@@ -8522,6 +8900,7 @@ function App() {
     statsEdit,
     switchList,
     tab,
+    tpOffen,
     toggleEquipped,
     toggleFeatureFx,
     toggleJoAT,
@@ -8621,7 +9000,16 @@ function App() {
     }, a.name), /*#__PURE__*/React.createElement("span", {
       className: "adv-menu-zahl"
     }, n));
-  }), /*#__PURE__*/React.createElement("button", {
+  }), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "adv-menu-verwalten",
+    onClick: () => {
+      setAdvMenuOffen(false);
+      const a = abenteuer.find(x => x.id === advId);
+      if (a) setAdvEinstellung({
+        ...a
+      });
+    }
+  }, "\u2699 Einstellungen \xB7 ", advName), /*#__PURE__*/React.createElement("button", {
     className: "adv-menu-verwalten",
     onClick: () => {
       setAdvMenuOffen(false);
@@ -8975,7 +9363,7 @@ function App() {
       ...ec,
       charClass: e.target.value
     })
-  }, CLASSES.map(c => /*#__PURE__*/React.createElement("option", {
+  }, klassenWahl(ec.charClass).map(c => /*#__PURE__*/React.createElement("option", {
     key: c
   }, c))), /*#__PURE__*/React.createElement("input", {
     className: "form-input",
@@ -9019,7 +9407,7 @@ function App() {
         charClass: e.target.value
       } : m)
     })
-  }, CLASSES.map(c => /*#__PURE__*/React.createElement("option", {
+  }, klassenWahl(mc.charClass).map(c => /*#__PURE__*/React.createElement("option", {
     key: c
   }, c))), /*#__PURE__*/React.createElement("input", {
     className: "form-input",
@@ -10501,7 +10889,7 @@ function App() {
         marginBottom: 16
       }
     }, others.map(c => {
-      const cc = CC[c.charClass] || CC["Kämpfer"];
+      const cc = klassenStil(c.charClass || 'Kämpfer', klassen);
       return /*#__PURE__*/React.createElement("button", {
         key: c.id,
         onClick: () => doTransfer(c.id, transferSel),
@@ -12974,7 +13362,28 @@ function App() {
       borderColor: '#c060a0'
     },
     onClick: doDmLogin
-  }, "\uD83D\uDD2E Einloggen")))), ereignisForm && isDmMode && /*#__PURE__*/React.createElement(EreignisFormular, {
+  }, "\uD83D\uDD2E Einloggen")))), advEinstellung && isDmMode && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {
+    adv: advEinstellung,
+    helden: chars.filter(c => (c.adventure || (abenteuer[0] || {}).id) === advEinstellung.id),
+    onAendern: setAdvEinstellung,
+    onAbbrechen: () => setAdvEinstellung(null),
+    onSpeichern: () => {
+      // Leere Klassennamen fallen weg, sonst stuende eine namenlose
+      // Zeile im Auswahlfeld des Bogens.
+      const geputzt = {
+        ...advEinstellung
+      };
+      if (Array.isArray(geputzt.klassen)) {
+        geputzt.klassen = geputzt.klassen.filter(k => (k.name || '').trim()).map(k => ({
+          name: k.name.trim(),
+          color: k.color || '#8b9198'
+        }));
+        if (!geputzt.klassen.length) delete geputzt.klassen;
+      }
+      advSpeichern(abenteuer.map(a => a.id === geputzt.id ? geputzt : a));
+      setAdvEinstellung(null);
+    }
+  }), ereignisForm && isDmMode && /*#__PURE__*/React.createElement(EreignisFormular, {
     ereignis: ereignisForm.e,
     neu: ereignisForm.neu,
     chronik: chronik,
@@ -13113,7 +13522,17 @@ function App() {
       }
     }), /*#__PURE__*/React.createElement("span", {
       className: "adv-zeile-zahl"
-    }, helden.length, " ", helden.length === 1 ? 'Held' : 'Helden'), /*#__PURE__*/React.createElement("button", {
+    }, helden.length, " ", helden.length === 1 ? 'Held' : 'Helden'), isDmMode && /*#__PURE__*/React.createElement("button", {
+      className: "adv-zeile-einst",
+      "aria-label": 'Einstellungen für ' + a.name,
+      title: "Einstellungen",
+      onClick: () => {
+        setShowAdvVerwaltung(false);
+        setAdvEinstellung({
+          ...a
+        });
+      }
+    }, "\u2699"), /*#__PURE__*/React.createElement("button", {
       className: "adv-zeile-del",
       "aria-label": 'Abenteuer ' + a.name + ' löschen',
       title: helden.length ? 'Erst die Helden verschieben oder löschen' : abenteuer.length < 2 ? 'Das letzte Abenteuer bleibt' : 'Abenteuer löschen',

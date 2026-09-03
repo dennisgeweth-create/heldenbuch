@@ -21,7 +21,7 @@ const Sheet = () => {
     delResource, delSpell, delToolProf, delWeaponProf, displayAC,
     effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
     initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
-    languages, notesList, noteTagFilter, openEdit, openNew, openTpl,
+    klassen, languages, notesList, noteTagFilter, openEdit, openNew, openTpl,
     openUnprepared, patchChar, resEdit, resetAll, resources, save, sel,
     selectChar, setCharMenuOpen, setCoinDelta, setCoinPopover,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
@@ -33,7 +33,7 @@ const Sheet = () => {
     setSpellTagFilter, setStatsEdit, setTab, setTransferMode,
     setTransferSel, setWeaponViewer, setWf, setWfEditId, setWsExpand,
     slots, slotsEdit, sp, spChgMax, spEdit, spellTagFilter, statsEdit,
-    switchList, tab, toggleEquipped, toggleFeatureFx,
+    switchList, tab, tpOffen, toggleEquipped, toggleFeatureFx,
     toggleJoAT, toggleSave, toggleSkill, toggleSpellPrepared,
     toggleWsFav, togResourcePip, togSlot, togSP, toolProfs, tplData,
     transferMode, transferSel, unarchiveChar, updResource, updSP,
@@ -97,7 +97,8 @@ const Sheet = () => {
       {k:'initiative',l:"Initiative",     s:"⚡ Init.", i:"⚡", t:'initiative', v:fnum(initTotal)},
       {k:'speed',     l:"Bewegung",       s:"👟 Bew.",  i:"👟", t:'speed', v:effCur.speed+"m", feld:'speed'},
       {k:'profBonus', l:"Übungsbonus",    s:"📖 ÜB",   i:"📖", t:'profBonus', v:"+"+effCur.profBonus, feld:'profBonus'},
-      {k:'hp',        l:"Trefferpunkte",  s:"❤ TP",    i:"❤", t:'maxHp', v:cur.hp+" / "+effCur.maxHp},
+      {k:'hp',        l:"Trefferpunkte",  s:"❤ TP",    i:"❤", t:'maxHp',
+       v: tpOffen ? cur.hp+" / "+effCur.maxHp : tpZustand(cur.hp, effCur.maxHp).label},
       ...(passivWert!==null ? [{k:'passive', l:"Passive Wahrnehmung", s:"👁 Pass.", i:"👁", t:'passivePerception', v:passivWert}] : []),
       ...(spSGL!==null ? [
         {k:'spellDc',     l:"Zauber-SG",     s:"✨ SG", i:"✨", t:'spellDc',     v:spSGL},
@@ -138,7 +139,7 @@ const Sheet = () => {
                     <div style={{position:'fixed',inset:0,zIndex:29}} onClick={()=>setCharMenuOpen(false)} />
                     <div className="char-switch-menu">
                       {switchList.map(c=>{
-                        const ccc = CC[c.charClass]||CC["Kämpfer"];
+                        const ccc = klassenStil(c.charClass || 'Kämpfer', klassen);
                         return (
                           <button key={c.id} className={"char-switch-item"+(c.id===sel?" current":"")}
                             onClick={()=>{ selectChar(c.id); setCharMenuOpen(false); }}>
@@ -165,7 +166,7 @@ const Sheet = () => {
                 {cur.charClass} {cur.level}
               </div>
               {(cur.multiclasses||[]).map((mc,i)=>{
-                const mcc = CC[mc.charClass]||CC["Kämpfer"];
+                const mcc = klassenStil(mc.charClass || 'Kämpfer', klassen);
                 return <div key={i} className="class-badge" style={{backgroundColor:mcc.bg,borderColor:mcc.border,color:mcc.text}}>{mc.charClass} {mc.level}</div>;
               })}
             </div>
@@ -209,12 +210,22 @@ const Sheet = () => {
           </div>
         </div>
 
-        {/* ── HP-Block ── */}
+        {/* ── HP-Block ──
+            In manchen Runden kennt nur die Spielleitung die Zahl. Dann steht
+            hier der Zustand, und die Eingabefelder bleiben weg: eine Zahl,
+            die man selbst eintragen darf, waere keine verdeckte Zahl. */}
         <div className="hp-bar-container">
           <div className="hp-bar-label">
             <span>❤ Trefferpunkte</span>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              {statsEdit ? (
+              {!tpOffen ? (
+                <span style={{color:tpZustand(cur.hp, effCur.maxHp).color,
+                              fontFamily:"'Roboto Condensed',sans-serif"}}
+                  title="In diesem Abenteuer führt die Spielleitung die Trefferpunkte">
+                  {tpZustand(cur.hp, effCur.maxHp).label}
+                  <span style={{color:"var(--text-muted)",marginLeft:6,fontSize:11}}>🔒</span>
+                </span>
+              ) : statsEdit ? (
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Akt.</label>
                   <input type="number" value={cur.hp} onChange={e=>patchChar({hp:Number(e.target.value)})}
@@ -236,8 +247,12 @@ const Sheet = () => {
           </div>
           <div className="hp-bar-track">
             <div style={{display:"flex",height:"100%",width:"100%"}}>
-              <div className="hp-bar-fill" style={{width:Math.max(0,Math.min(100,(cur.hp/(effCur.maxHp||1))*100))+"%",flexShrink:0}} />
-              {(cur.tempHp||0) > 0 && (
+              <div className="hp-bar-fill" style={{
+                width: (tpOffen ? Math.max(0,Math.min(100,(cur.hp/(effCur.maxHp||1))*100))
+                                : tpZustand(cur.hp, effCur.maxHp).balken*100) + "%",
+                flexShrink:0,
+                ...(tpOffen ? {} : {background: tpZustand(cur.hp, effCur.maxHp).color})}} />
+              {tpOffen && (cur.tempHp||0) > 0 && (
                 <div style={{
                   width:Math.max(0,Math.min(25,(cur.tempHp/(effCur.maxHp||1))*100))+"%",
                   background:"linear-gradient(90deg,rgba(74,144,217,0.7),rgba(122,184,245,0.9))",
@@ -549,6 +564,13 @@ const Sheet = () => {
                       const tot   = fx('skill_'+sk.key, fx('skillAll', mod(effCur[attr]) + bonus));
                       const skTouched = fxOn('skill_'+sk.key)||fxOn('skillAll')||fxOn(attr)||fxOn('profBonus');
                       const skTip = [fxTitle(attr),fxTitle('profBonus'),fxTitle('skillAll'),fxTitle('skill_'+sk.key)].filter(Boolean).join('\n');
+                      // Vorteil und Nachteil tragen keine Zahl, sie stehen als
+                      // Marke neben dem Wurf. Beides zugleich hebt sich nach
+                      // Regelwerk auf — das sagt die Marke dann auch.
+                      const vt = fxOn('adv_skill_'+sk.key) || fxOn('adv_skillAll')
+                              || (sk.key==='heimlichkeit' && fxOn('adv_stealth'));
+                      const nt = fxOn('dis_skill_'+sk.key) || fxOn('dis_skillAll')
+                              || (sk.key==='heimlichkeit' && fxOn('dis_stealth'));
                       const pip   = isE ? "⬤⬤" : isP ? "⬤" : joat ? "◑" : "○";
                       const col   = isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--border-bright)";
                       return (
@@ -566,6 +588,9 @@ const Sheet = () => {
                           <div className="skill-attr-tag" style={{color:AC[attr],borderColor:AC[attr]+"55"}}>{AL[attr]}</div>
                           <div className={"skill-value"+(skTouched?" fx-touched":"")} style={{color: isE ? "var(--arcane-bright)" : isP ? "var(--gold)" : joat ? "var(--gold-dim)" : "var(--text-muted)"}}>
                             {fnum(tot)}
+                            {vt && nt && <span className="skill-vt neutral" title="Vorteil und Nachteil heben sich auf">⇅</span>}
+                            {vt && !nt && <span className="skill-vt gut" title="Vorteil">▲</span>}
+                            {nt && !vt && <span className="skill-vt schlecht" title="Nachteil">▼</span>}
                             {isE && <span className="skill-flag">EX</span>}
                             {joat && <span className="skill-flag">JoAT</span>}
                           </div>
@@ -793,11 +818,21 @@ const Sheet = () => {
                         <div className="feature-card-orb">⭐</div>
                         <div className="feature-card-name">{feat.name}</div>
                         <div className="feature-actions" onClick={e=>e.stopPropagation()}>
-                          {/* Das ganze Merkmal uebernehmen, nicht nur die drei
-                              Textfelder — sonst faellt beim Bearbeiten weg,
-                              was an Effekten daranhaengt. */}
-                          <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setFf({effects:[],effectsActive:true,...feat});setFfEditId(feat.id);setShowFF(true);}}>✎</button>
-                          <button className="spell-delete" onClick={e=>{e.stopPropagation();delFeature(feat.id);}}>✕</button>
+                          {/* Was aus der Chronik kommt, wird dort gepflegt.
+                              Hier geaendert waere es beim naechsten Tick
+                              wieder ueberschrieben — also gar nicht erst
+                              anbieten. */}
+                          {istChronikMerkmal(feat) ? (
+                            <span className="feature-gesperrt" title="Kommt aus der Chronik der Spielleitung">🕰</span>
+                          ) : (
+                            <>
+                              {/* Das ganze Merkmal uebernehmen, nicht nur die drei
+                                  Textfelder — sonst faellt beim Bearbeiten weg,
+                                  was an Effekten daranhaengt. */}
+                              <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setFf({effects:[],effectsActive:true,...feat});setFfEditId(feat.id);setShowFF(true);}}>✎</button>
+                              <button className="spell-delete" onClick={e=>{e.stopPropagation();delFeature(feat.id);}}>✕</button>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="feature-card-body">
@@ -807,9 +842,11 @@ const Sheet = () => {
                             <div className={"feature-fx-chips"+(feat.effectsActive===false?" ruht":"")}>
                               {(feat.effects||[]).map(e=><span key={e.id} className="fx-chip">{EFFECT_LABELS[e.target]||e.target} {effectText(e)}</span>)}
                             </div>
-                            <button className="feature-fx-tog" onClick={()=>toggleFeatureFx(feat.id)}
+                            <button className="feature-fx-tog" disabled={istChronikMerkmal(feat)}
+                              onClick={()=>{ if (!istChronikMerkmal(feat)) toggleFeatureFx(feat.id); }}
                               aria-pressed={feat.effectsActive!==false}
-                              title={feat.effectsActive===false?'Einschalten':'Ausschalten'}>
+                              title={istChronikMerkmal(feat) ? 'Läuft mit der Chronik ab'
+                                    : feat.effectsActive===false?'Einschalten':'Ausschalten'}>
                               {feat.effectsActive===false ? '◇ Ruht' : '✦ Wirkt'}
                             </button>
                           </div>

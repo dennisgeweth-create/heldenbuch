@@ -118,11 +118,22 @@ const EFFECT_GROUPS = [
   ]},
   {group:"Vorteil & Nachteil", items:[
     {key:"adv_initiative", label:"Vorteil auf Initiative",              flag:true},
-    {key:"adv_stealth",    label:"Vorteil auf Heimlichkeit",            flag:true},
-    {key:"dis_stealth",    label:"Nachteil auf Heimlichkeit",           flag:true},
+    {key:"dis_initiative", label:"Nachteil auf Initiative",             flag:true},
     {key:"adv_saveSpell",  label:"Vorteil auf RW gegen Zauber",         flag:true},
     {key:"adv_savePoison", label:"Vorteil auf RW gegen Gift",           flag:true},
     {key:"adv_death",      label:"Vorteil auf Rettungswürfe gegen Tod", flag:true},
+    {key:"dis_death",      label:"Nachteil auf Rettungswürfe gegen Tod",flag:true},
+  ]},
+  // Je Fertigkeit ein Paar. Ein gebrochener Arm gibt keinen Abzug in
+  // Zahlen, er gibt Nachteil — dafuer gab es bisher kein Ziel, und "-2 auf
+  // Athletik" war eine Notluege im Bogen.
+  {group:"Vorteil auf Fertigkeiten", items:[
+    {key:"adv_skillAll", label:"Vorteil auf alle Fertigkeiten", flag:true},
+    ...SKILLS.map(s=>({key:"adv_skill_"+s.key, label:"Vorteil: "+s.label, flag:true})),
+  ]},
+  {group:"Nachteil auf Fertigkeiten", items:[
+    {key:"dis_skillAll", label:"Nachteil auf alle Fertigkeiten", flag:true},
+    ...SKILLS.map(s=>({key:"dis_skill_"+s.key, label:"Nachteil: "+s.label, flag:true})),
   ]},
   {group:"Besonderes", items:[
     {key:"spc_surprise",   label:"Kann nicht überrascht werden", flag:true},
@@ -143,6 +154,11 @@ EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{
   EFFECT_LABELS[i.key] = i.label;
   if (i.flag) EFFECT_FLAGS.add(i.key);
 }));
+// Frueher gab es genau ein Paar fuer Heimlichkeit. Seit es jede Fertigkeit
+// gibt, waere es zweimal in der Auswahl gestanden. Die alten Schluessel
+// bleiben lesbar, damit bereits eingetragene Effekte nicht namenlos werden.
+[['adv_stealth','Vorteil: Heimlichkeit'],['dis_stealth','Nachteil: Heimlichkeit']]
+  .forEach(([k,l]) => { EFFECT_LABELS[k] = l; EFFECT_FLAGS.add(k); });
 const isFlagEffect = (t) => EFFECT_FLAGS.has(t);
 
 const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachengeborener","Gnom","Halbelf","Anderes"];
