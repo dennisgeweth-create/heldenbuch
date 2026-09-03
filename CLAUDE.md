@@ -16,6 +16,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2c-kampf.jsx` | Kampftracker: Aufstellung, Runden, Todesrettungswürfe |
 | ↳ `2d-chronik.jsx` | Kalender und Ereignisse der Spielleitung |
 | ↳ `2e-abenteuer.jsx` | Einstellungen eines Abenteuers (nur im DM-Modus) |
+| ↳ `2f-automat.jsx` | Spielautomat der Taverne (Marken liegen im Gerät) |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `4-app.jsx` | Zustand, Server-Sync, Seitenleiste, Dialoge |

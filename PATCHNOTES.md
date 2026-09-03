@@ -157,6 +157,23 @@ kostet deshalb so gut wie nichts:
 Nachgemessen: eine reine Trefferpunktänderung kostet **eine** kleine Anfrage und
 keinen Ladevorgang.
 
+### Neu: 🎰 Taverne des Glücks — noch im Bau
+
+Ein Spielautomat als Zeitvertreib: **Dreifaches Glück**, drei Walzen, fünf
+Linien, drei gleiche Symbole zahlen. Erreichbar über **🎰 Taverne** in der
+Leiste, für alle, nicht nur die Spielleitung.
+
+Gespielt wird mit **Spielmarken, die im Gerät liegen** — nicht am Charakter,
+nicht am Server, ohne jede Verbindung zum Charakterbogen. Wer leer ist, bekommt
+vom Wirt 200 neue. Es geht um nichts.
+
+Die Auszahlungstabelle steht offen im Automaten, samt der **ausgerechneten
+Quote** — sie ergibt sich aus Häufigkeit und Auszahlung je Symbol und ist keine
+Schätzung. Zurzeit 89,2 %.
+
+Es fehlen noch: laufende Walzen, das Rad der Fortuna beim Vollbild, die beiden
+Risikospiele und die Stellschrauben für die Spielleitung.
+
 ### Schaden und Heilung ohne Umweg über einen Kampf
 
 Im DM-Modus steht unter dem Trefferpunktbalken jedes Bogens dieselbe Tastenreihe

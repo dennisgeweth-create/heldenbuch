@@ -214,6 +214,9 @@ function App() {
     try { return localStorage.getItem('hb_chronik_offen') === '1'; } catch { return false; }
   });
   const [ereignisForm, setEreignisForm] = useState(null);  // {e, neu}
+  // Der Automat in der Taverne. Zeitvertreib fuer alle, nicht nur die
+  // Spielleitung — und ohne jede Verbindung zum Charakterbogen.
+  const [showAutomat, setShowAutomat] = useState(false);
   const [zeitOffen, setZeitOffen] = useState(false);
   const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
@@ -1977,6 +1980,7 @@ function App() {
                   🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
                 </button>
               )}
+              <button className="btn-tool" onClick={()=>setShowAutomat(true)}>🎰 Taverne</button>
             </div>
             {svCode ? (
               <>
@@ -2047,6 +2051,7 @@ function App() {
                       🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
                     </button>
                   )}
+                  <button className="btn-tool" onClick={()=>setShowAutomat(true)}>🎰 Taverne</button>
                 </div>
               </div>
               <div style={{padding:8}}>
@@ -3786,6 +3791,8 @@ function App() {
           </div>
         </div>
       )}
+
+      {showAutomat && <AutomatSchirm onSchliessen={()=>setShowAutomat(false)} />}
 
       {advEinstellung && isDmMode && (
         <AbenteuerEinstellungen
