@@ -1279,12 +1279,49 @@ function App() {
   // — es weiss, zu welchen Gruppen es gehoert. Angeben muss man ihn nur,
   // wenn es mehrere sind oder wenn man die Verwaltung ist und in eine
   // Gruppe will, in der man nicht Mitglied ist.
+  // Das allererste Konto. Der Server laesst es ohne Anmeldung anlegen,
+  // aber nur solange es ueberhaupt keines gibt und nur unter dem Namen aus
+  // der config.php — sonst machte sich der erste Besucher zum Admin.
+  // Danach legt die Verwaltung die Konten an.
+  //
+  // Ohne diesen Knopf war der Server in der Lage dazu und die Anwendung
+  // bot es nirgends an: anmelden konnte sich niemand, weil es nichts gab,
+  // womit man sich anmelden koennte.
+  const erstesKontoAnlegen = async () => {
+    const url  = serverCreds().url;
+    const name = (setupForm.name || '').trim();
+    const pw   = setupForm.pass || '';
+    if (!name || !pw) { setSetupErr('Bitte Name und Passwort angeben.'); return; }
+    if (pw.length < 6) { setSetupErr('Das Passwort braucht mindestens sechs Zeichen.'); return; }
+    setSetupBusy(true); setSetupErr('');
+    try {
+      await apiKontoNeu(url, name, pw, true);
+    } catch(e) {
+      setSetupBusy(false);
+      setSetupErr(e.status === 401
+        ? 'Es gibt schon Konten — dann legt sie die Verwaltung an, nicht diese Maske.'
+        : e.message);
+      return;
+    }
+    setSetupBusy(false);
+    // Angelegt ist angemeldet: derselbe Weg wie sonst auch.
+    await applyKontoSetup();
+  };
+
   const applyKontoSetup = async () => {
     const url  = serverCreds().url;
     const name = (setupForm.name || '').trim();
     const pw   = setupForm.pass || '';
     if (!url) { setSetupErr('Die Adresse des Servers lässt sich hier nicht ermitteln.'); return; }
     if (!name || !pw) { setSetupErr('Bitte Name und Passwort angeben.'); return; }
+    // Der Wechsel holt den Stand vom Server und ersetzt damit die oertliche
+    // Kopie. Was noch nicht oben ist, waere weg.
+    if (pendingRef.current) {
+      const n = zaehleOffen();
+      setSetupErr((n === 1 ? 'Eine Änderung wartet' : n + ' Änderungen warten')
+        + ' noch auf den Server. Warte, bis oben „Gespeichert ✓“ steht.');
+      return;
+    }
     setSetupBusy(true); setSetupErr('');
     try {
       const an = await apiLogin(url, name, pw);
@@ -2400,6 +2437,17 @@ function App() {
                   )}
                   {isDmMode && (
                     <button className="btn-sync dm active" title="DM-Modus verlassen" onClick={doDmLogout}>🔮 DM aus</button>
+                  )}
+                  {/* Wer ueber den Gruppenzugang verbunden ist, kam an das
+                      Einrichtungsfenster nicht mehr heran — es steht nur da,
+                      solange man nicht verbunden ist. Damit war der Weg zum
+                      eigenen Konto verschlossen, ausser ueber Abmelden. */}
+                  {!konto && (
+                    <button className="btn-sync" title="Mit dem eigenen Konto anmelden"
+                      onClick={()=>{setSetupMode('konto'); setSetupErr('');
+                                    setSetupForm(f=>({...f, pass:''})); setShowSetup(true);}}>
+                      👤 Konto
+                    </button>
                   )}
                   <button className="btn-sync" title="Von der Gruppe abmelden" onClick={signOut}>⎋ Abmelden</button>
                 </div>
@@ -4653,6 +4701,19 @@ function App() {
             {setupErr && (
               <div style={{background:"#3a1010",border:"1px solid var(--crimson)",borderRadius:4,padding:"8px 12px",fontSize:13,color:"#e87070",marginBottom:8}}>
                 ⚠️ {setupErr}
+              </div>
+            )}
+            {/* Nur fuer den allerersten Start eines eigenen Servers. Wo es
+                schon Konten gibt, sagt der Server das auch so. */}
+            {setupMode === 'konto' && (
+              <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                Noch kein Konto? Das <b>allererste</b> legt sich hier selbst an — unter dem
+                Namen, der als <code>ADMIN_USER</code> in der <code>config.php</code> steht.
+                Alle weiteren macht danach die Verwaltung.
+                <button type="button" className="btn-icon" style={{marginLeft:8}}
+                  disabled={setupBusy} onClick={erstesKontoAnlegen}>
+                  Erstes Konto anlegen
+                </button>
               </div>
             )}
             <div className="form-actions">

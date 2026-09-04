@@ -9621,6 +9621,39 @@ function App() {
   // — es weiss, zu welchen Gruppen es gehoert. Angeben muss man ihn nur,
   // wenn es mehrere sind oder wenn man die Verwaltung ist und in eine
   // Gruppe will, in der man nicht Mitglied ist.
+  // Das allererste Konto. Der Server laesst es ohne Anmeldung anlegen,
+  // aber nur solange es ueberhaupt keines gibt und nur unter dem Namen aus
+  // der config.php — sonst machte sich der erste Besucher zum Admin.
+  // Danach legt die Verwaltung die Konten an.
+  //
+  // Ohne diesen Knopf war der Server in der Lage dazu und die Anwendung
+  // bot es nirgends an: anmelden konnte sich niemand, weil es nichts gab,
+  // womit man sich anmelden koennte.
+  const erstesKontoAnlegen = async () => {
+    const url = serverCreds().url;
+    const name = (setupForm.name || '').trim();
+    const pw = setupForm.pass || '';
+    if (!name || !pw) {
+      setSetupErr('Bitte Name und Passwort angeben.');
+      return;
+    }
+    if (pw.length < 6) {
+      setSetupErr('Das Passwort braucht mindestens sechs Zeichen.');
+      return;
+    }
+    setSetupBusy(true);
+    setSetupErr('');
+    try {
+      await apiKontoNeu(url, name, pw, true);
+    } catch (e) {
+      setSetupBusy(false);
+      setSetupErr(e.status === 401 ? 'Es gibt schon Konten — dann legt sie die Verwaltung an, nicht diese Maske.' : e.message);
+      return;
+    }
+    setSetupBusy(false);
+    // Angelegt ist angemeldet: derselbe Weg wie sonst auch.
+    await applyKontoSetup();
+  };
   const applyKontoSetup = async () => {
     const url = serverCreds().url;
     const name = (setupForm.name || '').trim();
@@ -9631,6 +9664,13 @@ function App() {
     }
     if (!name || !pw) {
       setSetupErr('Bitte Name und Passwort angeben.');
+      return;
+    }
+    // Der Wechsel holt den Stand vom Server und ersetzt damit die oertliche
+    // Kopie. Was noch nicht oben ist, waere weg.
+    if (pendingRef.current) {
+      const n = zaehleOffen();
+      setSetupErr((n === 1 ? 'Eine Änderung wartet' : n + ' Änderungen warten') + ' noch auf den Server. Warte, bis oben „Gespeichert ✓“ steht.');
       return;
     }
     setSetupBusy(true);
@@ -11634,7 +11674,19 @@ function App() {
     className: "btn-sync dm active",
     title: "DM-Modus verlassen",
     onClick: doDmLogout
-  }, "\uD83D\uDD2E DM aus"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDD2E DM aus"), !konto && /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync",
+    title: "Mit dem eigenen Konto anmelden",
+    onClick: () => {
+      setSetupMode('konto');
+      setSetupErr('');
+      setSetupForm(f => ({
+        ...f,
+        pass: ''
+      }));
+      setShowSetup(true);
+    }
+  }, "\uD83D\uDC64 Konto"), /*#__PURE__*/React.createElement("button", {
     className: "btn-sync",
     title: "Von der Gruppe abmelden",
     onClick: signOut
@@ -16590,7 +16642,21 @@ function App() {
       color: "#e87070",
       marginBottom: 8
     }
-  }, "\u26A0\uFE0F ", setupErr), /*#__PURE__*/React.createElement("div", {
+  }, "\u26A0\uFE0F ", setupErr), setupMode === 'konto' && /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "Noch kein Konto? Das ", /*#__PURE__*/React.createElement("b", null, "allererste"), " legt sich hier selbst an \u2014 unter dem Namen, der als ", /*#__PURE__*/React.createElement("code", null, "ADMIN_USER"), " in der ", /*#__PURE__*/React.createElement("code", null, "config.php"), " steht. Alle weiteren macht danach die Verwaltung.", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    style: {
+      marginLeft: 8
+    },
+    disabled: setupBusy,
+    onClick: erstesKontoAnlegen
+  }, "Erstes Konto anlegen")), /*#__PURE__*/React.createElement("div", {
     className: "form-actions"
   }, svCode && /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
