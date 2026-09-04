@@ -163,6 +163,9 @@ function App() {
   // Spalte und wird nie in den Charakter geschrieben — was die Anwendung
   // schreibt, darf nicht ueber Rechte entscheiden.
   const [besitzer,   setBesitzer]   = useState({});
+  // Wer welches Abenteuer leitet: {advId: [userId]}. Leer heisst "niemand
+  // eingetragen" und damit: jede Spielleitung der Gruppe.
+  const [advDms,     setAdvDms]     = useState({});
   const [mitglieder, setMitglieder] = useState([]);
   const [showDmLogin,setShowDmLogin]= useState(false);
   const [dmLoginInput,setDmLoginInput]=useState('');
@@ -374,6 +377,16 @@ function App() {
     return (g && g.rolle) || '';
   };
   const kontoIstDm = (k, code) => ['dm', 'admin'].includes(rolleIn(k, code));
+  // Leitet dieses Konto dieses Abenteuer? Ohne Konto gilt der alte Weg,
+  // und der leitet alles. Ist fuer ein Abenteuer niemand eingetragen,
+  // leitet es jede Spielleitung der Gruppe — dieselbe einseitige Regel
+  // wie beim Besitz: eintragen grenzt ein, nichts eintragen aendert nichts.
+  const leitetAbenteuer = (k, karte, advId) => {
+    if (!k) return true;
+    if (k.ist_admin) return true;
+    const liste = (karte || {})[advId];
+    return !Array.isArray(liste) || liste.length === 0 || liste.includes(k.id);
+  };
   // Die Spielleitung erreicht ihre Sachen entweder mit dem DM-Passwort
   // oder als angemeldeter DM. Der Server prueft beides; hier steht nur,
   // ob es sich lohnt zu fragen.
@@ -644,6 +657,7 @@ function App() {
         revRef.current    = d.rev != null ? d.rev : null;
         if (d.has_dm) setHasDmMode(true);
         setBesitzer(d.owners || {});
+        setAdvDms(d.adv_dms || {});
         if (d.library) { setUserLibrary(d.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(d.library)); }
         if (!pendingRef.current) {
           // No unsaved local changes — server is authoritative
@@ -835,6 +849,7 @@ function App() {
       if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
+      setAdvDms(data.adv_dms || {});
       setSyncStatus('ok'); setSyncMsg('Geladen ✓');
     } catch(e) {
       setSyncStatus('err'); setSyncMsg(e.message);
@@ -911,6 +926,15 @@ function App() {
 
   // Einen Bogen einem Konto zuordnen — oder die Zuordnung aufheben.
   // Danach steht der Besitz auch oertlich richtig, ohne alles neu zu laden.
+  // Wer ein Abenteuer leitet, bestimmt die Verwaltung.
+  const advDmSetzen = async (advId2, userIds) => {
+    const {url, code} = serverCreds();
+    try {
+      const a = await apiAdvDmSetzen(url, code, advId2, userIds);
+      setAdvDms(a.adv_dms || {});
+    } catch(e) { appAlert('Das ging nicht: ' + (e.message || '')); }
+  };
+
   const besitzerSetzen = async (charId, userId) => {
     const {url, code, pass} = serverCreds();
     try {
@@ -1262,9 +1286,14 @@ function App() {
         : ((gruppen[0] && gruppen[0].session_code) || '');
       if (!gcode) {
         localStorage.removeItem('sv_token');
+        // Die Verwaltung ist in keiner Gruppe Mitglied und darf trotzdem in
+        // jede. Ihr zu sagen, sie solle sich von der Verwaltung aufnehmen
+        // lassen, waere ein Kreis.
         throw new Error(gewuenscht
           ? 'Dein Konto gehört nicht zu der Gruppe ' + gewuenscht + '.'
-          : 'Dein Konto gehört zu keiner Gruppe. Die Verwaltung muss dich aufnehmen.');
+          : (k && k.ist_admin
+              ? 'Gib den Gruppencode an — als Verwaltung gehörst du zu keiner Gruppe und kommst in jede.'
+              : 'Dein Konto gehört zu keiner Gruppe. Die Verwaltung muss dich aufnehmen.'));
       }
       // Das Gruppenpasswort gibt es hier nicht — die Kennung ersetzt es.
       const data = await apiLoadChars(url, gcode, '');
@@ -1281,6 +1310,7 @@ function App() {
       if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
+      setAdvDms(data.adv_dms || {});
       setSyncStatus('ok'); setSyncMsg('Angemeldet ✓');
       setShowSetup(false);
       // Ein Einmalpasswort gilt genau bis hierher.
@@ -1325,6 +1355,7 @@ function App() {
       if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
+      setAdvDms(data.adv_dms || {});
       setSyncStatus('ok'); setSyncMsg('Verbunden ✓');
       setShowSetup(false);
     } catch(e) { setSetupErr(e.message); }
@@ -1374,6 +1405,18 @@ function App() {
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
   const advObj  = abenteuer.find(a => a.id === advId) || null;
+
+  // Wechselt die Spielleitung in ein Abenteuer, das sie nicht leitet, ist
+  // sie dort ein Spieler — also raus aus dem DM-Modus. Das ist kein
+  // Schoenheitsfehler: an isDmMode haengt auch, ob verdeckte
+  // Trefferpunkte als Zahl dastehen. Wer Eberron leitet, soll die von
+  // Strahd nicht sehen.
+  useEffect(() => {
+    if (!isDmMode || !konto) return;
+    if (leitetAbenteuer(konto, advDms, advId)) return;
+    doDmLogout();
+  }, [advId, advDms, konto, isDmMode]);
+
   // Welche Klassen dieses Abenteuer kennt — ohne eigene Liste die zwoelf
   // des Regelwerks.
   const klassen = advKlassen(advObj);
@@ -2236,8 +2279,9 @@ function App() {
                   <button className="btn-sync" title="Daten neu vom Server laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺ Laden</button>
                   {/* Wer als Spielleitung angemeldet ist, kommt ohne zweites
                       Passwort hinein — die Rolle steht am Konto. */}
-                  {kontoIstDm(konto, svCode) && !isDmMode && (
-                    <button className="btn-sync dm" title="In den DM-Modus wechseln"
+                  {kontoIstDm(konto, svCode) && leitetAbenteuer(konto, advDms, advId) && !isDmMode && (
+                    <button className="btn-sync dm"
+                      title="In den DM-Modus wechseln"
                       onClick={dmMitKonto}>🔮 DM</button>
                   )}
                   {/* Ohne Konto der alte Weg ueber das DM-Passwort. Mit Konto
@@ -4090,6 +4134,8 @@ function App() {
           adv={advEinstellung}
           helden={chars.filter(c => (c.adventure||(abenteuer[0]||{}).id) === advEinstellung.id)}
           besitzer={besitzer} mitglieder={mitglieder} onBesitzer={besitzerSetzen}
+          advDms={advDms[advEinstellung.id] || []} istAdmin={!!(konto && konto.ist_admin)}
+          onAdvDms={(ids)=>advDmSetzen(advEinstellung.id, ids)}
           onAendern={setAdvEinstellung}
           onAbbrechen={()=>setAdvEinstellung(null)}
           onSpeichern={()=>{

@@ -183,6 +183,20 @@ $pdo->exec("
         CONSTRAINT fk_hbm_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    -- Wer leitet welches Abenteuer. Eine eigene Tabelle und nicht ein
+    -- Feld in der Bibliothek: die schreibt jedes Mitglied, und was die
+    -- Anwendung schreibt, darf nicht ueber Rechte entscheiden. Sonst
+    -- traegt sich ein Spieler selbst als Spielleitung ein.
+    CREATE TABLE IF NOT EXISTS hb_adv_dm (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        user_id      INT         NOT NULL,
+        PRIMARY KEY (session_code, adv_id, user_id),
+        KEY idx_advdm_user (user_id),
+        CONSTRAINT fk_hbad_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE,
+        CONSTRAINT fk_hbad_user    FOREIGN KEY (user_id)      REFERENCES hb_users(id)      ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_rate_limits (
         ip           VARCHAR(45) NOT NULL PRIMARY KEY,
         attempts     SMALLINT    NOT NULL DEFAULT 1,
@@ -331,6 +345,31 @@ function nutzerAntwort(PDO $pdo, array $u): array {
     ];
 }
 
+// ── Wer leitet welches Abenteuer ────────────────────────────────
+// Auch hier ist die Regel einseitig: solange fuer ein Abenteuer niemand
+// eingetragen ist, leitet es jede Spielleitung der Gruppe — also genau
+// wie bisher. Erst der erste Eintrag grenzt ein. Damit aendert sich fuer
+// eine Runde, die nichts eintraegt, nichts, und jeder Eintrag macht es
+// enger statt kaputt.
+function advDmKarte(PDO $pdo, string $code): array {
+    $st = $pdo->prepare("SELECT adv_id, user_id FROM hb_adv_dm WHERE session_code=?");
+    $st->execute([$code]);
+    $karte = [];
+    foreach ($st->fetchAll() as $r) $karte[(string)$r['adv_id']][] = (int)$r['user_id'];
+    return $karte;
+}
+function istDmVon(PDO $pdo, array $z, string $code, string $advId): bool {
+    if (!$z['user']) return true;                       // der alte Weg leitet alles
+    if ($z['rolle'] === 'admin') return true;
+    if ($z['rolle'] !== 'dm') return false;
+    if ($advId === '') return true;                     // kein Abenteuer genannt
+    $st = $pdo->prepare("SELECT user_id FROM hb_adv_dm WHERE session_code=? AND adv_id=?");
+    $st->execute([$code, $advId]);
+    $ids = array_map('intval', array_column($st->fetchAll(), 'user_id'));
+    if (!$ids) return true;                             // niemand eingetragen
+    return in_array((int)$z['user']['id'], $ids, true);
+}
+
 // ── Besitz eines Bogens ─────────────────────────────────────────
 // Die Regel ist mit Absicht einseitig: ein Bogen ohne Besitzer darf von
 // jedem in der Gruppe geaendert werden — genau wie bisher. Erst die
@@ -342,12 +381,26 @@ function nutzerAntwort(PDO $pdo, array $u): array {
 // ist die Gruppe. Das bleibt so, bis er abgeschaltet wird.
 function besitzPruefen(PDO $pdo, array $z, string $code, string $charId): void {
     if (!$z['user']) return;
-    if ($z['rolle'] === 'dm' || $z['rolle'] === 'admin') return;
-    $st = $pdo->prepare("SELECT owner FROM hb_chars WHERE session_code=? AND char_id=?");
+    if ($z['rolle'] === 'admin') return;
+    $st = $pdo->prepare("SELECT owner, char_json FROM hb_chars WHERE session_code=? AND char_id=?");
     $st->execute([$code, $charId]);
     $r = $st->fetch();
-    if (!$r || $r['owner'] === null) return;
-    if ((int)$r['owner'] !== (int)$z['user']['id']) respond(403, 'Dieser Bogen gehört jemand anderem.');
+    if (!$r) return;                                    // gibt es noch nicht
+    // Die Spielleitung darf an jeden Bogen ihres Abenteuers — aber nur an
+    // die ihres Abenteuers. Ein DM der Nebenrunde hat in Strahd nichts
+    // verloren, und ohne diese Zeile haette er es.
+    $eigener = $r['owner'] !== null && (int)$r['owner'] === (int)$z['user']['id'];
+    if ($z['rolle'] === 'dm') {
+        $c = json_decode((string)$r['char_json'], true) ?: [];
+        if (istDmVon($pdo, $z, $code, (string)($c['adventure'] ?? ''))) return;
+        // Leitet sie dieses Abenteuer nicht, ist sie darin ein Spieler wie
+        // jeder andere — und bekommt den Grund gesagt, der wirklich
+        // zutrifft, statt "gehoert jemand anderem".
+        if ($eigener) return;
+        respond(403, 'Dieses Abenteuer leitet jemand anderes.');
+    }
+    if ($r['owner'] === null) return;
+    if (!$eigener) respond(403, 'Dieser Bogen gehört jemand anderem.');
 }
 
 // ── Zugang zu einer Gruppe ──────────────────────────────────────
@@ -501,6 +554,9 @@ switch ($action) {
         respond(200, 'OK', [
             'chars'      => $result['chars'],
             'owners'     => (object)$result['owners'],
+            // Wer welches Abenteuer leitet. Kein Geheimnis — die Runde
+            // weiss ohnehin, wer am Schirm sitzt.
+            'adv_dms'    => (object)advDmKarte($pdo, $code),
             'library'    => json_decode($row['library_json']??'{}', true) ?? [],
             'has_dm'     => !empty($row['dm_pass_hash']),
             'updated_at' => $result['updated_at'],
@@ -990,6 +1046,15 @@ switch ($action) {
         $z = zugangDm($pdo, $code, $pass, $dmPass, $body);
         $charId = (string)($body['char_id'] ?? '');
         if ($charId === '') respond(400, 'Fehlende char_id.');
+        // Zuordnen darf nur, wer das Abenteuer dieses Helden leitet.
+        $cs = $pdo->prepare("SELECT char_json FROM hb_chars WHERE session_code=? AND char_id=?");
+        $cs->execute([$code, $charId]);
+        $cr = $cs->fetch();
+        if (!$cr) respond(404, 'Bogen nicht gefunden.');
+        $cj = json_decode((string)$cr['char_json'], true) ?: [];
+        if (!istDmVon($pdo, $z, $code, (string)($cj['adventure'] ?? ''))) {
+            respond(403, 'Dieses Abenteuer leitet jemand anderes.');
+        }
         $owner = $body['owner'] ?? null;
         if ($owner === null || $owner === '' || (int)$owner === 0) {
             $pdo->prepare("UPDATE hb_chars SET owner=NULL WHERE session_code=? AND char_id=?")
@@ -1011,6 +1076,33 @@ switch ($action) {
             if (!$vor) respond(404, 'Bogen nicht gefunden.');
         }
         respond(200, 'Zugeordnet.');
+    }
+
+    // Wer ein Abenteuer leitet, bestimmt die Verwaltung. Eine leere Liste
+    // heisst "niemand eingetragen" und damit wieder: jede Spielleitung der
+    // Gruppe.
+    case 'adv_dm_set': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+        $advId = trim((string)($body['adv_id'] ?? ''));
+        if ($advId === '' || strlen($advId) > 50) respond(400, 'Kein Abenteuer angegeben.');
+        $ids = $body['user_ids'] ?? [];
+        if (!is_array($ids)) respond(400, 'user_ids muss eine Liste sein.');
+        sitzungsZeile($pdo, $code);
+        $pdo->prepare("DELETE FROM hb_adv_dm WHERE session_code=? AND adv_id=?")->execute([$code, $advId]);
+        $ein = $pdo->prepare("INSERT INTO hb_adv_dm (session_code,adv_id,user_id) VALUES(?,?,?)");
+        $pruef = $pdo->prepare("SELECT rolle FROM hb_mitglied WHERE user_id=? AND session_code=?");
+        foreach ($ids as $id) {
+            $id = (int)$id;
+            if (!$id) continue;
+            // Nur, wer in der Gruppe ist. Ein Fremder als Spielleitung
+            // waere eine Zuordnung, die niemand mehr aufloesen kann.
+            $pruef->execute([$id, $code]);
+            if (!$pruef->fetch()) respond(404, 'Ein Konto gehört nicht zu der Gruppe.');
+            $ein->execute([$code, $advId, $id]);
+        }
+        respond(200, 'Spielleitung gesetzt.', ['adv_dms' => (object)advDmKarte($pdo, $code)]);
     }
 
     // Wer gehoert zu dieser Gruppe. Die Spielleitung braucht das zum

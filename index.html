@@ -135,6 +135,9 @@
     const apiMitglieder = (url, code, pass, dmPass) =>
       apiRequest(url, 'member_list', { code, password: pass, dm_password: dmPass });
 
+    const apiAdvDmSetzen = (url, code, advId, userIds) =>
+      apiRequest(url, 'adv_dm_set', { code, adv_id: advId, user_ids: userIds });
+
     // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
     // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils
     // dreizeilig — jede Umbenennung haette alle elf treffen muessen.

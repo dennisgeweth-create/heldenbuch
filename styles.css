@@ -1896,6 +1896,11 @@
   .einst-besitz-name { flex:1; font-family:'Roboto Condensed',sans-serif; font-size:13px;
     color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .einst-klasse .form-select { max-width:200px; text-transform:none; letter-spacing:0; }
+  .einst-dm-zeile { display:flex; align-items:center; gap:9px; padding:5px 0;
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-secondary);
+    cursor:pointer; }
+  .einst-dm-zeile input { width:15px; height:15px; accent-color:#c060a0; cursor:pointer; }
+  .einst-dm-zeile input:disabled { cursor:default; }
   .char-eigen { font-size:10px; color:#7ab8f5; }
   .einst-vollwahl { flex:1; min-width:180px; text-transform:none; letter-spacing:0;
     font-size:12.5px; }

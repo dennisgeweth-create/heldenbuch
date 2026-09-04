@@ -3,7 +3,8 @@
 // geteilten Datenbank wie die Abenteuerliste selbst. Deshalb sind es
 // bewusst wenige, klar benannte Schalter und keine Sammelkiste.
 const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrechen,
-                                  besitzer, mitglieder, onBesitzer }) => {
+                                  besitzer, mitglieder, onBesitzer,
+                                  advDms, istAdmin, onAdvDms }) => {
   const klassen = advKlassen(adv);
   const eigene  = Array.isArray(adv.klassen) && adv.klassen.length > 0;
   const setzen  = (p) => onAendern({...adv, ...p});
@@ -171,6 +172,30 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               Automaten will, regelt ihn auf 80 % ein und sagt nichts.
             </div>
           </div>
+
+          {/* ── Wer leitet dieses Abenteuer ── */}
+          {(mitglieder || []).some(m => m.rolle === 'dm') && (
+            <div className="einst-block">
+              <div className="einst-titel">🔮 Spielleitung dieses Abenteuers</div>
+              <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                {(advDms || []).length === 0
+                  ? 'Niemand eingetragen — dann leitet es jede Spielleitung der Gruppe. Wer hier steht, leitet es allein.'
+                  : 'Nur wer hier steht, kommt in diesem Abenteuer in den DM-Modus, an fremde Bögen und an die verdeckten Trefferpunkte.'}
+                {!istAdmin && ' Ändern kann das nur die Verwaltung.'}
+              </div>
+              {(mitglieder || []).filter(m => m.rolle === 'dm').map(m => {
+                const drin = (advDms || []).includes(m.id);
+                return (
+                  <label className="einst-dm-zeile" key={m.id}>
+                    <input type="checkbox" checked={drin} disabled={!istAdmin}
+                      onChange={()=>onAdvDms(drin ? (advDms || []).filter(x => x !== m.id)
+                                                  : [...(advDms || []), m.id])} />
+                    <span>{m.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
 
           {/* ── Wem gehoert welcher Held ── */}
           <div className="einst-block">

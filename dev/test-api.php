@@ -467,6 +467,103 @@ pruefe('und niemanden von ausserhalb', !in_array($fremdName, $namenM, true), imp
 $r = ruf('member_list', ['code' => $code, 'password' => $pass, 'dm_password' => $dmp]);
 pruefe('ueber das DM-Passwort geht sie auch (200)', $r['status'] === 200, kurz($r));
 
+// ════════════════════════════════════════════════════════════════
+//  Spielleitung je Abenteuer — Stufe 4
+// ════════════════════════════════════════════════════════════════
+
+abschnitt('Solange niemand eingetragen ist');
+// Ein zweiter DM in derselben Gruppe.
+$dm2 = 'dmzwei' . rand(1000, 9999);
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => $dm2, 'neu' => 'einmalpasswort']);
+$idDm2 = (int)$r['body']['id'];
+ruf('member_set', ['token' => $tAdmin, 'user_id' => $idDm2, 'gruppe' => $code, 'rolle' => 'dm']);
+$r = ruf('login', ['user' => $dm2, 'password' => 'einmalpasswort']);
+$tDm2 = (string)$r['body']['token'];
+
+// Je ein Held in zwei Abenteuern.
+$hS = ['id' => 's1', 'name' => 'Strahdheld',  'charClass' => 'Kleriker', 'level' => 2,
+       'hp' => 12, 'maxHp' => 12, 'adventure' => 'strahd'];
+$hE = ['id' => 'e1', 'name' => 'Eberronheld', 'charClass' => 'Magier',   'level' => 2,
+       'hp' => 9,  'maxHp' => 9,  'adventure' => 'eberron'];
+ruf('save_char', ['code' => $code, 'password' => $pass, 'char_id' => 's1', 'char' => $hS]);
+ruf('save_char', ['code' => $code, 'password' => $pass, 'char_id' => 'e1', 'char' => $hE]);
+ruf('char_owner_set', ['code' => $code, 'token' => $tAdmin, 'char_id' => 's1', 'owner' => $idSpieler]);
+ruf('char_owner_set', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'e1', 'owner' => $idZweiter]);
+
+$hS['hp'] = 11;
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm,  'char_id' => 's1', 'char' => $hS]);
+pruefe('jede Spielleitung darf ueberall (200)', $r['status'] === 200, kurz($r));
+$hE['hp'] = 8;
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm2, 'char_id' => 'e1', 'char' => $hE]);
+pruefe('auch die zweite (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tDm]);
+pruefe('load nennt die Spielleitungen', array_key_exists('adv_dms', $r['body']));
+pruefe('und die Liste ist leer', empty((array)$r['body']['adv_dms']),
+       json_encode($r['body']['adv_dms']));
+
+abschnitt('Eingetragen wird eingegrenzt');
+$r = ruf('adv_dm_set', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'user_ids' => [$idDm]]);
+pruefe('eine Spielleitung traegt sich nicht selbst ein (403)', $r['status'] === 403, kurz($r));
+$r = ruf('adv_dm_set', ['code' => $code, 'token' => $tAdmin, 'adv_id' => 'strahd', 'user_ids' => [$idFremd]]);
+pruefe('ein Fremder wird abgelehnt (404)', $r['status'] === 404, kurz($r));
+$r = ruf('adv_dm_set', ['code' => $code, 'token' => $tAdmin, 'adv_id' => 'strahd', 'user_ids' => [$idDm]]);
+pruefe('die Verwaltung traegt ein (200)', $r['status'] === 200, kurz($r));
+pruefe('die Antwort traegt die neue Karte',
+       (($r['body']['adv_dms']['strahd'][0] ?? 0) === $idDm), json_encode($r['body']['adv_dms'] ?? null));
+
+$hS['hp'] = 10;
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm,  'char_id' => 's1', 'char' => $hS]);
+pruefe('die eingetragene Spielleitung darf weiter (200)', $r['status'] === 200, kurz($r));
+$hS['hp'] = 99;
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm2, 'char_id' => 's1', 'char' => $hS]);
+pruefe('die andere nicht mehr (403)', $r['status'] === 403, kurz($r));
+pruefe('und die Meldung nennt den Grund',
+       strpos((string)($r['body']['message'] ?? ''), 'Abenteuer') !== false,
+       (string)($r['body']['message'] ?? ''));
+$r = ruf('load', ['code' => $code, 'token' => $tDm]);
+$s1 = null; foreach ($r['body']['chars'] as $c) if ($c['id'] === 's1') $s1 = $c;
+pruefe('es steht auch nichts Fremdes drin', ($s1['hp'] ?? null) === 10, json_encode($s1['hp'] ?? null));
+
+$hE['hp'] = 7;
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm2, 'char_id' => 'e1', 'char' => $hE]);
+pruefe('im nicht eingetragenen Abenteuer duerfen weiter beide (200)', $r['status'] === 200, kurz($r));
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm,  'char_id' => 'e1', 'char' => $hE]);
+pruefe('auch die erste (200)', $r['status'] === 200, kurz($r));
+
+abschnitt('Zuordnen gilt auch nur im eigenen Abenteuer');
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tDm2, 'char_id' => 's1', 'owner' => $idZweiter]);
+pruefe('die fremde Spielleitung ordnet nicht zu (403)', $r['status'] === 403, kurz($r));
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tDm, 'char_id' => 's1', 'owner' => $idZweiter]);
+pruefe('die eigene schon (200)', $r['status'] === 200, kurz($r));
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tDm, 'char_id' => 's1', 'owner' => $idSpieler]);
+pruefe('und wieder zurueck (200)', $r['status'] === 200, kurz($r));
+
+abschnitt('Der Spieler bleibt ein Spieler');
+$hS['hp'] = 6;
+$r = ruf('save_char', ['code' => $code, 'token' => $tSpieler, 'char_id' => 's1', 'char' => $hS]);
+pruefe('der Besitzer darf seinen Bogen (200)', $r['status'] === 200, kurz($r));
+$r = ruf('save_char', ['code' => $code, 'token' => $tZweiter, 'char_id' => 's1', 'char' => $hS]);
+pruefe('ein anderer Spieler nicht (403)', $r['status'] === 403, kurz($r));
+
+abschnitt('Austragen macht es wieder weit');
+$r = ruf('adv_dm_set', ['code' => $code, 'token' => $tAdmin, 'adv_id' => 'strahd', 'user_ids' => []]);
+pruefe('die Verwaltung traegt alle aus (200)', $r['status'] === 200, kurz($r));
+$hS['hp'] = 5;
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm2, 'char_id' => 's1', 'char' => $hS]);
+pruefe('danach darf wieder jede Spielleitung (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'password' => $pass]);
+pruefe('und die Karte ist wieder leer', empty((array)$r['body']['adv_dms']),
+       json_encode($r['body']['adv_dms']));
+
+abschnitt('Der alte Weg kennt das alles nicht');
+$r = ruf('adv_dm_set', ['code' => $code, 'token' => $tAdmin, 'adv_id' => 'strahd', 'user_ids' => [$idDm]]);
+$hS['hp'] = 4;
+$r = ruf('save_char', ['code' => $code, 'password' => $pass, 'char_id' => 's1', 'char' => $hS]);
+pruefe('das Gruppenpasswort schreibt weiter ueberall (200)', $r['status'] === 200, kurz($r));
+$r = ruf('char_owner_set', ['code' => $code, 'password' => $pass, 'dm_password' => $dmp,
+                            'char_id' => 's1', 'owner' => $idSpieler]);
+pruefe('und das DM-Passwort ordnet weiter zu (200)', $r['status'] === 200, kurz($r));
+
 echo "\n" . str_repeat('─', 52) . "\n";
 echo $rot === 0 ? "Alle $gruen Pruefungen bestanden.\n" : "$gruen bestanden, $rot fehlgeschlagen.\n";
 exit($rot === 0 ? 0 : 1);

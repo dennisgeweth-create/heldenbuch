@@ -3208,7 +3208,10 @@ const AbenteuerEinstellungen = ({
   onAbbrechen,
   besitzer,
   mitglieder,
-  onBesitzer
+  onBesitzer,
+  advDms,
+  istAdmin,
+  onAdvDms
 }) => {
   const klassen = advKlassen(adv);
   const eigene = Array.isArray(adv.klassen) && adv.klassen.length > 0;
@@ -3425,7 +3428,28 @@ const AbenteuerEinstellungen = ({
     })
   }, "\u21BA Standardautomat")), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
-  }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), /*#__PURE__*/React.createElement("div", {
+  }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), (mitglieder || []).some(m => m.rolle === 'dm') && /*#__PURE__*/React.createElement("div", {
+    className: "einst-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel"
+  }, "\uD83D\uDD2E Spielleitung dieses Abenteuers"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, (advDms || []).length === 0 ? 'Niemand eingetragen — dann leitet es jede Spielleitung der Gruppe. Wer hier steht, leitet es allein.' : 'Nur wer hier steht, kommt in diesem Abenteuer in den DM-Modus, an fremde Bögen und an die verdeckten Trefferpunkte.', !istAdmin && ' Ändern kann das nur die Verwaltung.'), (mitglieder || []).filter(m => m.rolle === 'dm').map(m => {
+    const drin = (advDms || []).includes(m.id);
+    return /*#__PURE__*/React.createElement("label", {
+      className: "einst-dm-zeile",
+      key: m.id
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: drin,
+      disabled: !istAdmin,
+      onChange: () => onAdvDms(drin ? (advDms || []).filter(x => x !== m.id) : [...(advDms || []), m.id])
+    }), /*#__PURE__*/React.createElement("span", null, m.name));
+  })), /*#__PURE__*/React.createElement("div", {
     className: "einst-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "einst-titel"
@@ -8063,6 +8087,9 @@ function App() {
   // Spalte und wird nie in den Charakter geschrieben — was die Anwendung
   // schreibt, darf nicht ueber Rechte entscheiden.
   const [besitzer, setBesitzer] = useState({});
+  // Wer welches Abenteuer leitet: {advId: [userId]}. Leer heisst "niemand
+  // eingetragen" und damit: jede Spielleitung der Gruppe.
+  const [advDms, setAdvDms] = useState({});
   const [mitglieder, setMitglieder] = useState([]);
   const [showDmLogin, setShowDmLogin] = useState(false);
   const [dmLoginInput, setDmLoginInput] = useState('');
@@ -8338,6 +8365,16 @@ function App() {
     return g && g.rolle || '';
   };
   const kontoIstDm = (k, code) => ['dm', 'admin'].includes(rolleIn(k, code));
+  // Leitet dieses Konto dieses Abenteuer? Ohne Konto gilt der alte Weg,
+  // und der leitet alles. Ist fuer ein Abenteuer niemand eingetragen,
+  // leitet es jede Spielleitung der Gruppe — dieselbe einseitige Regel
+  // wie beim Besitz: eintragen grenzt ein, nichts eintragen aendert nichts.
+  const leitetAbenteuer = (k, karte, advId) => {
+    if (!k) return true;
+    if (k.ist_admin) return true;
+    const liste = (karte || {})[advId];
+    return !Array.isArray(liste) || liste.length === 0 || liste.includes(k.id);
+  };
   // Die Spielleitung erreicht ihre Sachen entweder mit dem DM-Passwort
   // oder als angemeldeter DM. Der Server prueft beides; hier steht nur,
   // ob es sich lohnt zu fragen.
@@ -8667,6 +8704,7 @@ function App() {
         revRef.current = d.rev != null ? d.rev : null;
         if (d.has_dm) setHasDmMode(true);
         setBesitzer(d.owners || {});
+        setAdvDms(d.adv_dms || {});
         if (d.library) {
           setUserLibrary(d.library);
           setLibGeladen(true);
@@ -8977,6 +9015,7 @@ function App() {
       }
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
+      setAdvDms(data.adv_dms || {});
       setSyncStatus('ok');
       setSyncMsg('Geladen ✓');
     } catch (e) {
@@ -9075,6 +9114,19 @@ function App() {
 
   // Einen Bogen einem Konto zuordnen — oder die Zuordnung aufheben.
   // Danach steht der Besitz auch oertlich richtig, ohne alles neu zu laden.
+  // Wer ein Abenteuer leitet, bestimmt die Verwaltung.
+  const advDmSetzen = async (advId2, userIds) => {
+    const {
+      url,
+      code
+    } = serverCreds();
+    try {
+      const a = await apiAdvDmSetzen(url, code, advId2, userIds);
+      setAdvDms(a.adv_dms || {});
+    } catch (e) {
+      appAlert('Das ging nicht: ' + (e.message || ''));
+    }
+  };
   const besitzerSetzen = async (charId, userId) => {
     const {
       url,
@@ -9579,7 +9631,10 @@ function App() {
       const gcode = gewuenscht && (k.ist_admin || gruppen.some(g => g.session_code === gewuenscht)) ? gewuenscht : gruppen[0] && gruppen[0].session_code || '';
       if (!gcode) {
         localStorage.removeItem('sv_token');
-        throw new Error(gewuenscht ? 'Dein Konto gehört nicht zu der Gruppe ' + gewuenscht + '.' : 'Dein Konto gehört zu keiner Gruppe. Die Verwaltung muss dich aufnehmen.');
+        // Die Verwaltung ist in keiner Gruppe Mitglied und darf trotzdem in
+        // jede. Ihr zu sagen, sie solle sich von der Verwaltung aufnehmen
+        // lassen, waere ein Kreis.
+        throw new Error(gewuenscht ? 'Dein Konto gehört nicht zu der Gruppe ' + gewuenscht + '.' : k && k.ist_admin ? 'Gib den Gruppencode an — als Verwaltung gehörst du zu keiner Gruppe und kommst in jede.' : 'Dein Konto gehört zu keiner Gruppe. Die Verwaltung muss dich aufnehmen.');
       }
       // Das Gruppenpasswort gibt es hier nicht — die Kennung ersetzt es.
       const data = await apiLoadChars(url, gcode, '');
@@ -9602,6 +9657,7 @@ function App() {
       }
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
+      setAdvDms(data.adv_dms || {});
       setSyncStatus('ok');
       setSyncMsg('Angemeldet ✓');
       setShowSetup(false);
@@ -9689,6 +9745,7 @@ function App() {
       }
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
+      setAdvDms(data.adv_dms || {});
       setSyncStatus('ok');
       setSyncMsg('Verbunden ✓');
       setShowSetup(false);
@@ -9745,6 +9802,18 @@ function App() {
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
   const advObj = abenteuer.find(a => a.id === advId) || null;
+
+  // Wechselt die Spielleitung in ein Abenteuer, das sie nicht leitet, ist
+  // sie dort ein Spieler — also raus aus dem DM-Modus. Das ist kein
+  // Schoenheitsfehler: an isDmMode haengt auch, ob verdeckte
+  // Trefferpunkte als Zahl dastehen. Wer Eberron leitet, soll die von
+  // Strahd nicht sehen.
+  useEffect(() => {
+    if (!isDmMode || !konto) return;
+    if (leitetAbenteuer(konto, advDms, advId)) return;
+    doDmLogout();
+  }, [advId, advDms, konto, isDmMode]);
+
   // Welche Klassen dieses Abenteuer kennt — ohne eigene Liste die zwoelf
   // des Regelwerks.
   const klassen = advKlassen(advObj);
@@ -11351,7 +11420,7 @@ function App() {
     className: "btn-sync",
     title: "Daten neu vom Server laden",
     onClick: () => doSyncLoad(svUrl, svCode, svPass)
-  }, "\u21BA Laden"), kontoIstDm(konto, svCode) && !isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, "\u21BA Laden"), kontoIstDm(konto, svCode) && leitetAbenteuer(konto, advDms, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-sync dm",
     title: "In den DM-Modus wechseln",
     onClick: dmMitKonto
@@ -15738,6 +15807,9 @@ function App() {
     besitzer: besitzer,
     mitglieder: mitglieder,
     onBesitzer: besitzerSetzen,
+    advDms: advDms[advEinstellung.id] || [],
+    istAdmin: !!(konto && konto.ist_admin),
+    onAdvDms: ids => advDmSetzen(advEinstellung.id, ids),
     onAendern: setAdvEinstellung,
     onAbbrechen: () => setAdvEinstellung(null),
     onSpeichern: () => {
