@@ -163,6 +163,13 @@ Ein Spielautomat als Zeitvertreib: **Dreifaches Glück**, drei Walzen, fünf
 Linien, drei gleiche Symbole zahlen. Erreichbar über **🎰 Taverne** in der
 Leiste, für alle, nicht nur die Spielleitung.
 
+Die Taverne ist ein **Fenster, kein Vorhang**: sie liegt über dem Heldenbuch,
+nimmt aber keine Klicks weg. Du kannst nebenher deinen Bogen ansehen, den Helden
+wechseln, Reiter durchgehen — die Taverne bleibt offen und dort stehen, wo du
+sie hingeschoben hast. Verschoben wird sie am Kopf, und ihr Platz bleibt bis zum
+nächsten Mal gemerkt. Am Handy bleibt sie bildschirmfüllend; ein schwebendes
+Fenster ist dort keine gute Idee.
+
 Gespielt wird mit **Spielmarken, die im Gerät liegen** — nicht am Charakter,
 nicht am Server, ohne jede Verbindung zum Charakterbogen. Wer leer ist, bekommt
 vom Wirt 200 neue. Es geht um nichts.

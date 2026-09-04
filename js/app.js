@@ -3806,6 +3806,37 @@ const RisikoFenster = ({
   }, "Weiter"))));
 };
 
+// ── Das Fenster ──────────────────────────────────────────────────
+// Der Automat ist Zeitvertreib und darf deshalb niemanden aufhalten: er
+// liegt als Fenster ueber der Anwendung, nimmt keine Klicks weg und
+// laesst sich am Kopf verschieben. Wer nebenbei seinen Bogen ansehen
+// will, klickt einfach dorthin.
+const FENSTER_BREITE = 430;
+const fensterLesen = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || 'null');
+    if (d && d.fenster && Number.isFinite(+d.fenster.x)) return {
+      x: +d.fenster.x,
+      y: +d.fenster.y
+    };
+  } catch {}
+  return null;
+};
+const fensterSchreiben = pos => {
+  try {
+    const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || '{}') || {};
+    localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify({
+      ...d,
+      fenster: pos
+    }));
+  } catch {}
+};
+// Immer so viel stehen lassen, dass man den Kopf noch zu fassen bekommt.
+const fensterKlemmen = pos => ({
+  x: Math.max(-FENSTER_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
+  y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
+});
+
 // ── Der Schirm ───────────────────────────────────────────────────
 const AutomatSchirm = ({
   cfg,
@@ -3833,6 +3864,12 @@ const AutomatSchirm = ({
   const [risiko, setRisiko] = React.useState(null);
   const laufRef = React.useRef(null);
   const radRef = React.useRef(null);
+  const [pos, setPos] = React.useState(() => fensterLesen() || fensterKlemmen({
+    x: Math.max(20, (window.innerWidth || 1200) - FENSTER_BREITE - 40),
+    y: 70
+  }));
+  const zug = React.useRef(null); // {dx, dy} waehrend des Schiebens
+
   const setMarken = n => {
     const m = Math.max(0, Math.round(n));
     waehrung.schreiben(m);
@@ -3887,6 +3924,45 @@ const AutomatSchirm = ({
   React.useEffect(() => {
     if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
   }, [einsaetze]);
+
+  // Wird das Browserfenster kleiner, darf die Taverne nicht draussen
+  // liegenbleiben — sie waere sonst nur noch ueber das Zuruecksetzen des
+  // Speichers zu erreichen.
+  React.useEffect(() => {
+    const anpassen = () => setPos(p => {
+      const k = fensterKlemmen(p);
+      return k.x === p.x && k.y === p.y ? p : k;
+    });
+    window.addEventListener('resize', anpassen);
+    return () => window.removeEventListener('resize', anpassen);
+  }, []);
+
+  // Schieben am Kopf. Zeigerereignisse statt Maus: dasselbe fuer Finger
+  // und Stift, und der Zeiger bleibt beim Fenster, auch wenn er darueber
+  // hinausrutscht.
+  const zugStart = e => {
+    if (e.target.closest('button')) return; // der Schliessknopf schiebt nicht
+    zug.current = {
+      dx: e.clientX - pos.x,
+      dy: e.clientY - pos.y
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+  const zugBewegen = e => {
+    if (!zug.current) return;
+    setPos(fensterKlemmen({
+      x: e.clientX - zug.current.dx,
+      y: e.clientY - zug.current.dy
+    }));
+  };
+  const zugEnde = () => {
+    if (zug.current) {
+      zug.current = null;
+      fensterSchreiben(pos);
+    }
+  };
   const frei = freidrehe > 0;
   const kannDrehen = !laeuft && !rad && !risiko && (frei || marken >= einsatz);
   const drehen = () => {
@@ -4046,14 +4122,26 @@ const AutomatSchirm = ({
     gezeigt.forEach(t => t.felder.forEach(f => leuchtet.add(f)));
   }
   return /*#__PURE__*/React.createElement("div", {
-    className: "automat-schirm"
+    className: "automat-schirm",
+    style: {
+      left: pos.x,
+      top: pos.y,
+      width: FENSTER_BREITE
+    }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "automat-kopf"
+    className: "automat-kopf",
+    onPointerDown: zugStart,
+    onPointerMove: zugBewegen,
+    onPointerUp: zugEnde,
+    onPointerCancel: zugEnde,
+    title: "Zum Verschieben ziehen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "automat-kopf-text"
   }, /*#__PURE__*/React.createElement("div", {
     className: "automat-titel"
   }, "\uD83C\uDFB0 Dreifaches Gl\xFCck"), /*#__PURE__*/React.createElement("div", {
     className: "automat-ort"
-  }, "Taverne des Gl\xFCcks"), /*#__PURE__*/React.createElement("div", {
+  }, "Taverne des Gl\xFCcks")), /*#__PURE__*/React.createElement("div", {
     className: "automat-kasse"
   }, /*#__PURE__*/React.createElement("span", null, waehrung.kurz), /*#__PURE__*/React.createElement("b", null, marken), /*#__PURE__*/React.createElement("i", null, waehrung.name)), /*#__PURE__*/React.createElement("button", {
     className: "automat-x",
@@ -10725,8 +10813,8 @@ function App() {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => setShowAutomat(true)
+    className: "btn-tool" + (showAutomat ? " an" : ""),
+    onClick: () => setShowAutomat(o => !o)
   }, "\uD83C\uDFB0 Taverne")), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "sync-line"
   }, /*#__PURE__*/React.createElement("div", {
@@ -10833,8 +10921,8 @@ function App() {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => setShowAutomat(true)
+    className: "btn-tool" + (showAutomat ? " an" : ""),
+    onClick: () => setShowAutomat(o => !o)
   }, "\uD83C\uDFB0 Taverne"))), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 8

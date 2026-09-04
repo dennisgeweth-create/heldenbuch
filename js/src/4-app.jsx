@@ -1980,7 +1980,8 @@ function App() {
                   🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
                 </button>
               )}
-              <button className="btn-tool" onClick={()=>setShowAutomat(true)}>🎰 Taverne</button>
+              <button className={"btn-tool"+(showAutomat?" an":"")}
+                onClick={()=>setShowAutomat(o=>!o)}>🎰 Taverne</button>
             </div>
             {svCode ? (
               <>
@@ -2051,7 +2052,8 @@ function App() {
                       🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
                     </button>
                   )}
-                  <button className="btn-tool" onClick={()=>setShowAutomat(true)}>🎰 Taverne</button>
+                  <button className={"btn-tool"+(showAutomat?" an":"")}
+                onClick={()=>setShowAutomat(o=>!o)}>🎰 Taverne</button>
                 </div>
               </div>
               <div style={{padding:8}}>

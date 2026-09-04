@@ -1736,22 +1736,31 @@
 /* ── Dreifaches Glück: der Automat in der Taverne ────────────────
    Eigene Farbwelt, warmes Messing auf Rauch — er gehört nicht zum Bogen
    und soll auch nicht so aussehen. */
-  .automat-schirm { position:fixed; inset:0; z-index:62; display:flex; flex-direction:column;
-    background:#14110d; overflow:hidden; }
-  .automat-kopf { display:flex; align-items:center; gap:14px; flex-wrap:wrap; flex-shrink:0;
-    padding:12px 18px; background:#1d1913; border-bottom:1px solid #362e23; }
-  .automat-titel { font-family:'Roboto Condensed',sans-serif; font-size:17px; color:#f2cd7d;
-    letter-spacing:0.06em; }
-  .automat-ort { flex:1; min-width:80px; font-family:'Roboto Condensed',sans-serif; font-size:10px;
-    letter-spacing:0.2em; text-transform:uppercase; color:#8a6520; }
-  .automat-kasse { display:flex; align-items:baseline; gap:7px; padding:6px 14px; border-radius:5px;
-    background:#14110d; border:1px solid #4d4234; }
+  /* Ein Fenster, kein Vorhang: es liegt ueber der Anwendung, nimmt aber
+     keine Klicks weg. Wer nebenbei seinen Bogen ansehen will, klickt
+     einfach dorthin — die Taverne bleibt offen und dort stehen, wo man
+     sie hingeschoben hat. */
+  .automat-schirm { position:fixed; z-index:62; display:flex; flex-direction:column;
+    max-height:min(86vh, 760px); border-radius:10px; overflow:hidden;
+    background:#14110d; border:1px solid #4d4234;
+    box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5); }
+  .automat-kopf { display:flex; align-items:center; gap:10px; flex-shrink:0;
+    padding:10px 14px; background:#1d1913; border-bottom:1px solid #362e23;
+    cursor:grab; touch-action:none; user-select:none; }
+  .automat-kopf-text { flex:1; min-width:0; }
+  .automat-kopf:active { cursor:grabbing; }
+  .automat-titel { font-family:'Roboto Condensed',sans-serif; font-size:16px; color:#f2cd7d;
+    letter-spacing:0.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .automat-ort { font-family:'Roboto Condensed',sans-serif; font-size:9px; margin-top:1px;
+    letter-spacing:0.2em; text-transform:uppercase; color:#8a6520; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .automat-kasse { display:flex; align-items:baseline; gap:6px; padding:5px 11px; border-radius:5px;
+    flex-shrink:0; background:#14110d; border:1px solid #4d4234; }
   .automat-kasse span { font-size:14px; color:#d9a441; }
   .automat-kasse b { font-family:'Roboto Condensed',sans-serif; font-size:20px; color:#f2cd7d;
     font-weight:400; font-variant-numeric:tabular-nums; }
-  .automat-kasse i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:9.5px;
-    letter-spacing:0.14em; text-transform:uppercase; color:#a0957f; }
-  .automat-x { width:38px; min-height:38px; padding:0; border-radius:4px; cursor:pointer;
+  .automat-kasse i { display:none; }
+  .automat-x { width:34px; min-height:34px; flex-shrink:0; padding:0; border-radius:4px; cursor:pointer;
     background:none; border:1px solid #4d4234; color:#a0957f; font-size:13px; }
   .automat-x:hover { color:#ece6da; border-color:#8a6520; }
 
@@ -1937,3 +1946,12 @@
   .risiko-tasten { display:flex; flex-direction:column; gap:8px; }
   .automat-nachschub.nehmen { border-style:solid; border-color:#8a6520; color:#d9a441; margin-top:0; }
   @media (max-width:560px) { .leiter-feld { width:26px; height:26px; } }
+
+  /* Am schmalen Schirm ist ein schwebendes Fenster keine gute Idee — dort
+     bleibt die Taverne das, was sie vorher war: bildschirmfüllend.
+     !important, weil die Stelle im Code die Position setzt. */
+  @media (max-width: 700px) {
+    .automat-schirm { left:0 !important; top:0 !important; right:0; bottom:0;
+      width:auto !important; max-height:none; border-radius:0; border:none; }
+    .automat-kopf { cursor:default; }
+  }
