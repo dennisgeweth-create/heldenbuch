@@ -42,11 +42,12 @@ const gegnerAusVorlage = (vorlage, name) => {
   };
 };
 
-// ── Kampf aufstellen ─────────────────────────────────────────────
-const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
+// Die Gegner einer Begegnung, ausgewuerfelt und durchnummeriert. Steht
+// einzeln, weil eine Begegnung auch in einen schon laufenden Kampf
+// nachgeladen werden kann.
+const gegnerAusBegegnung = (begegnung, enemies) => {
   const teilnehmer = [];
-
-  (begegnung.enemies || []).forEach(({enemyId, count, name}) => {
+  ((begegnung && begegnung.enemies) || []).forEach(({enemyId, count, name}) => {
     const vorlage = enemies.find(e => e.id === enemyId);
     if (!vorlage) return;                       // geloescht — still ueberspringen
     const anzahl = Math.max(1, +count || 1);
@@ -55,15 +56,22 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
         anzahl > 1 ? (name || vorlage.name) + ' ' + (i+1) : (name || vorlage.name)));
     }
   });
+  return teilnehmer;
+};
+
+// ── Kampf aufstellen ─────────────────────────────────────────────
+const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
+  const teilnehmer = gegnerAusBegegnung(begegnung, enemies);
 
   // Vom Helden bleibt im Kampf nur, was zum Kampf gehoert: Initiative,
-  // Zustaende, Erschoepfung, Notiz. Trefferpunkte stehen im Bogen.
+  // Zustaende, Erschoepfung. Trefferpunkte und Notiz stehen ausserhalb —
+  // die einen im Bogen, die andere in der DM-Bibliothek.
   helden.forEach(h => {
     teilnehmer.push({
       id: 'held-' + h.id, art: 'held', charId: h.id,
       // Die Initiative der Helden wuerfeln die Spieler selbst — hier bleibt
       // das Feld leer, bis jemand die Zahl ansagt.
-      ini: null, zustaende: [], erschoepfung: 0, notiz: '',
+      ini: null, zustaende: [], erschoepfung: 0,
       vorteil: false, nachteil: false,
     });
   });
@@ -219,7 +227,7 @@ const ZustandWahl = ({ t, onZustand, onErschoepfung, onMarke, onSchliessen }) =>
 );
 
 // ── Eine Karte ───────────────────────────────────────────────────
-const KampfZeile = ({ t, dran, onWert, onFenster, onIni, onNotiz, onZustand, onMarke,
+const KampfZeile = ({ t, dran, onWert, onFenster, onIni, onNotiz, onNotizFertig, onZustand, onMarke,
                       onErschoepfung, onEntfernen, onBlatt, onTodes,
                       zustandOffen, setZustandOffen, detailOffen, setDetailOffen }) => {
   const gesamtMax = Math.max(1, t.hpMax || 1);
@@ -269,10 +277,15 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onIni, onNotiz, onZustand, onM
         </div>
       </div>
 
-      {/* Steht nur hier, nicht im Bogen: es ist die Notiz der Spielleitung
-          zu diesem Kampf, nicht die des Spielers zu seinem Helden. */}
+      {/* Die Notiz der Spielleitung, nicht die des Spielers zu seinem Helden.
+          Bei einem Helden bleibt sie ueber den Kampf hinaus stehen (sie liegt
+          in der DM-Bibliothek); bei einem Gegner endet sie mit ihm — eine
+          Notiz an Goblin 3 hat nach dem Kampf niemanden mehr, zu dem sie
+          gehoert. Gesichert wird kurz nach dem Tippen und beim Verlassen des
+          Feldes. */}
       <textarea className="kampf-notiz" value={t.notiz || ''} placeholder="Notiz…"
-        aria-label={'Notiz zu ' + t.name} onChange={e=>onNotiz(e.target.value)} />
+        aria-label={'Notiz zu ' + t.name} onChange={e=>onNotiz(e.target.value)}
+        onBlur={()=>onNotizFertig && onNotizFertig()} />
 
       <div className="kampf-ac">AC {t.ac}</div>
 
@@ -367,6 +380,46 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onIni, onNotiz, onZustand, onM
 // ── Spontan zusammenstellen ──────────────────────────────────────
 // Nicht jeder Kampf ist vorbereitet. Hier werden Gegner direkt gewaehlt,
 // ohne den Umweg ueber eine gespeicherte Begegnung.
+// Eine gespeicherte Begegnung in den laufenden Kampf holen. Frueher war
+// das die Startseite des Trackers; sie stand jedem Kampf im Weg, der ohne
+// Begegnung anfangen sollte — und das ist der Normalfall am Tisch.
+const BegegnungWahl = ({ encounters, enemies, advId, onLaden, onAbbrechen }) => {
+  const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
+  return (
+    <div className="form-overlay" onClick={onAbbrechen}>
+      <div className="form-modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
+        <div className="form-title">📋 Begegnung laden</div>
+        {waehlbar.length === 0 ? (
+          <p className="kampf-leer">
+            Keine Begegnung in diesem Abenteuer. Lege eine unter 📚 Datenbank › Begegnungen an.
+          </p>
+        ) : (
+          <div className="kampf-start-liste">
+            {waehlbar.map(b => {
+              const anzahl  = (b.enemies||[]).reduce((s,t)=>s+(+t.count||1), 0);
+              const fehlend = (b.enemies||[]).filter(t => !enemies.some(g=>g.id===t.enemyId)).length;
+              return (
+                <button key={b.id} className="kampf-start-eintrag"
+                  disabled={anzahl === 0 || fehlend === anzahl}
+                  onClick={()=>onLaden(b)}>
+                  <span className="kampf-start-name">{b.name}</span>
+                  <span className="kampf-start-sub">
+                    {b.difficulty} · {anzahl} Gegner
+                    {fehlend ? ' · ' + fehlend + ' Gegner fehlt in der Sammlung' : ''}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SpontanWahl = ({ enemies, laufend, onStarten, onAbbrechen }) => {
   const [suche, setSuche] = React.useState('');
   const [gewaehlt, setGewaehlt] = React.useState([]);
@@ -538,66 +591,43 @@ const KampfSeite = ({ helden, setDefs, enemies, imKampf, ueberlagert, onZu,
 // ── Der Kampf ────────────────────────────────────────────────────
 const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                         abenteuer, advId, onSchliessen, onGegnerBlatt, onBeenden,
-                        onHeldAendern }) => {
+                        onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [spontan, setSpontan] = React.useState(false);
+  const [begegnungOffen, setBegegnungOffen] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
 
-  if (!kampf || !kampf.aktiv) {
-    const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
-    return (
-      <div className="kampf-schirm start">
-        <div className="kampf-kopf">
-          <div className="kampf-titel">⚔ Kampf</div>
-          <div className="kampf-dran" />
-          <button className="kampf-kopf-x" onClick={onSchliessen} aria-label="Schließen">✕</button>
-        </div>
-        {spontan && (
-          <SpontanWahl enemies={enemies} laufend={false}
-            onAbbrechen={()=>setSpontan(false)}
-            onStarten={(auswahl)=>{
-              setSpontan(false);
-              setKampf(kampfAufstellen(
-                {name:'Spontaner Kampf', enemies:auswahl}, enemies, helden, setDefs));
-            }} />
-        )}
-        <div className="kampf-start">
-          <p className="kampf-start-hinweis">
-            Wähle eine Begegnung — oder stell dir eine spontan zusammen. Die
-            Trefferpunkte der Gegner werden ausgewürfelt, die Helden des offenen
-            Abenteuers kommen mit ihren gerechneten Werten dazu.
-          </p>
-          <button className="kampf-spontan-knopf" onClick={()=>setSpontan(true)}>
-            ⚡ Spontaner Kampf — Gegner direkt wählen
-          </button>
-          {waehlbar.length === 0 ? (
-            <p className="kampf-leer">Keine Begegnung in diesem Abenteuer. Lege eine unter 📚 Datenbank › Begegnungen an.</p>
-          ) : (
-            <div className="kampf-start-liste">
-              {waehlbar.map(b => {
-                const anzahl = (b.enemies||[]).reduce((s,t)=>s+(+t.count||1), 0);
-                const fehlend = (b.enemies||[]).filter(t => !enemies.some(g=>g.id===t.enemyId)).length;
-                return (
-                  <button key={b.id} className="kampf-start-eintrag"
-                    disabled={anzahl === 0 || fehlend === anzahl}
-                    onClick={()=>setKampf(kampfAufstellen(b, enemies, helden, setDefs))}>
-                    <span className="kampf-start-name">{b.name}</span>
-                    <span className="kampf-start-sub">
-                      {b.difficulty} · {anzahl} Gegner · {helden.length} Helden
-                      {fehlend ? ' · ' + fehlend + ' Gegner fehlt in der Sammlung' : ''}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  // Der Tracker faengt sofort an. Frueher stand hier eine Startseite mit
+  // der Begegnungsliste — die war im Weg, weil der haeufigste Fall keiner
+  // Begegnung entspricht: die Gruppe laeuft in etwas hinein, und die Gegner
+  // kommen einzeln dazu. Wer eine vorbereitete Begegnung will, laedt sie
+  // oben nach; der Kampf steht dann schon.
+  React.useEffect(() => {
+    if (!kampf || !kampf.aktiv) {
+      setKampf(kampfAufstellen({name: 'Kampf', enemies: []}, enemies, helden, setDefs));
+    }
+  }, []);
+
+  // Bis v4.1 lag die Heldennotiz im Kampf und war mit ihm weg. Ein Kampf,
+  // der jetzt noch offen ist, traegt seine Notizen also im alten Feld —
+  // die werden einmalig herausgehoben, damit sie nicht doch noch
+  // verlorengehen. Danach ist die Bibliothek die einzige Quelle.
+  React.useEffect(() => {
+    if (!kampf || !kampf.aktiv) return;
+    const alt = kampf.teilnehmer.filter(t => t.art === 'held' && t.notiz
+                                             && !((heldNotizen || {})[t.charId]));
+    if (!alt.length) return;
+    alt.forEach(t => onHeldNotiz(t.charId, t.notiz));
+    setKampf(k => k && ({...k, teilnehmer: k.teilnehmer.map(t =>
+      t.art === 'held' ? {...t, notiz: ''} : t)}));
+  }, []);
+
+  // Ein Bild lang gibt es noch keinen Kampf — der Effekt oben stellt ihn
+  // auf. Etwas anzuzeigen, das sofort wieder verschwindet, waere Flackern.
+  if (!kampf || !kampf.aktiv) return null;
 
   // Alles, was aus dem Bogen kommt, wird bei jedem Rendern neu gelesen:
   // Ruestungsklasse, Trefferpunkte, Immunitaeten, Rettungswuerfe. Legt ein
@@ -614,6 +644,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       ac: w.ac, hpMax: w.maxHp, hp: w.hp, tempHp: w.tempHp, dex: w.dex,
       tempMaxHp: +c.tempMaxHp || 0,
       deathSaves: c.deathSaves || TODES_LEER,
+      notiz: (heldNotizen || {})[c.id] || '',
       bild: c.portrait || null,
       passive: w.passive, saves: w.saves, effekte: w.effekte,
       flags: w.flags.map(f => f.label),
@@ -676,7 +707,13 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     zustaende: (t.zustaende||[]).includes(z) ? (t.zustaende||[]).filter(x=>x!==z) : [...(t.zustaende||[]), z]}));
   const marke = (id, k) => aendernKampf(id, t => ({...t, [k]: !t[k]}));
   const erschoepfung = (id, stufe) => aendernKampf(id, t => ({...t, erschoepfung: Math.max(0, Math.min(6, stufe))}));
-  const notiz = (id, v) => aendernKampf(id, t => ({...t, notiz: v}));
+  // Die Notiz zu einem Helden gehoert zu ihm, nicht zu diesem Kampf —
+  // deshalb denselben Weg wie die Trefferpunkte: hinaus aus dem Kampf.
+  const notiz = (id, v) => {
+    const t = liste.find(x => x.id === id);
+    if (t && t.art === 'held' && !t.fehlt) onHeldNotiz(t.charId, v);
+    else aendernKampf(id, alt => ({...alt, notiz: v}));
+  };
 
   // Der Kampf speichert von Helden nur, was zum Kampf gehoert — zum
   // Sortieren fehlt dort die Geschicklichkeit. Sie kommt fuer den
@@ -717,6 +754,21 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
 
   const dazu = (neue) => setKampf(k => neuOrdnen(k, [...k.teilnehmer, ...neue]));
 
+  // Eine vorbereitete Begegnung in den laufenden Kampf. Steht noch kein
+  // Gegner drin und heisst der Kampf noch wie der leere, uebernimmt er den
+  // Namen der Begegnung — das ist der Fall, in dem der Tracker gerade erst
+  // aufgegangen ist.
+  const begegnungLaden = (b) => {
+    setBegegnungOffen(false);
+    const neue = gegnerAusBegegnung(b, enemies);
+    if (!neue.length) return;
+    setKampf(k => {
+      const leer = !k.teilnehmer.some(t => t.art === 'gegner');
+      return neuOrdnen({...k, name: (leer && b.name) ? b.name : k.name},
+                       [...k.teilnehmer, ...neue]);
+    });
+  };
+
   const naechster = () => setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
@@ -755,6 +807,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             title="Für alle ohne Zahl würfeln">🎲 Alle Init.</button>
           <button className="kampf-kopf-btn zusatz" onClick={()=>setSpontan(true)}
             title="Gegner nachträglich dazunehmen">⚡ Gegner</button>
+          <button className="kampf-kopf-btn zusatz" onClick={()=>setBegegnungOffen(true)}
+            title="Eine vorbereitete Begegnung dazuladen">📋 Begegnung</button>
           <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
           <button className="kampf-kopf-btn ende" onClick={onBeenden}>⏹ Kampf beenden</button>
           <button className="kampf-kopf-x" onClick={onSchliessen}
@@ -766,6 +820,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             {ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative'} —
             sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben würfeln lassen.
           </div>
+        )}
+
+        {begegnungOffen && (
+          <BegegnungWahl encounters={encounters} enemies={enemies} advId={advId}
+            onAbbrechen={()=>setBegegnungOffen(false)} onLaden={begegnungLaden} />
         )}
 
         {spontan && (
@@ -797,6 +856,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               onWert={(modus,n)=>wertDirekt(t.id, modus, n)}
               onFenster={(modus)=>setWertDlg({id:t.id, modus})}
               onIni={v=>ini(t.id,v)} onNotiz={v=>notiz(t.id,v)}
+              onNotizFertig={t.art === 'held' ? onHeldNotizSichern : undefined}
               onZustand={z=>zustand(t.id,z)} onMarke={k=>marke(t.id,k)}
               onErschoepfung={st=>erschoepfung(t.id,st)}
               onTodes={(d)=>aendernWerte(t.id, alt => ({...alt, deathSaves:d}))}

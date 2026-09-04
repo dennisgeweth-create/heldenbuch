@@ -1027,6 +1027,42 @@ function App() {
     }
   };
 
+  // ── Notizen der Spielleitung zu den Helden ────────────────────
+  // Sie lagen bis v4.1 im Kampf und waren mit ihm weg. Jetzt liegen sie in
+  // der DM-Bibliothek: dort ueberstehen sie das Kampfende, den Neustart und
+  // den Geraetewechsel — und sie sind, anders als ein Feld im Bogen, auch
+  // auf dem Server hinter dem DM-Passwort. Ein Spieler bekommt sie nie zu
+  // sehen, nicht einmal in der Antwort des Servers.
+  //
+  // Beim Tippen wird nicht gespeichert: die Bibliothek geht als ein Stueck
+  // hoch, und das je Tastendruck waere teuer. Stattdessen kurz nach dem
+  // letzten Zeichen und beim Verlassen des Feldes.
+  const notizTimer = useRef(null);
+  const heldNotizSichern = () => {
+    if (notizTimer.current) { clearTimeout(notizTimer.current); notizTimer.current = null; }
+    const {url, code, pass} = serverCreds();
+    if (!url || !code || !pass || !dmPassRef.current) return;
+    apiDmSaveLibrary(url, code, pass, dmPassRef.current, dmLibRef.current).catch(()=>{});
+  };
+  const heldNotizSetzen = (charId, text) => {
+    // Funktional, damit zwei Notizen im selben Durchlauf einander nicht
+    // ueberschreiben — beim einmaligen Uebernehmen alter Kampfnotizen
+    // kommen sie genau so.
+    setDmLibrary(prev => {
+      const notizen = {...((prev && prev.heldNotizen) || {})};
+      if (text) notizen[charId] = text; else delete notizen[charId];
+      return {...(prev || {}), heldNotizen: notizen};
+    });
+    if (notizTimer.current) clearTimeout(notizTimer.current);
+    notizTimer.current = setTimeout(heldNotizSichern, 900);
+  };
+  // Was noch im Zeitgeber haengt, geht beim Verlassen der Seite trotzdem raus.
+  useEffect(() => {
+    const raus = () => { if (notizTimer.current) heldNotizSichern(); };
+    window.addEventListener('pagehide', raus);
+    return () => { window.removeEventListener('pagehide', raus); raus(); };
+  }, []);
+
   const saveDmLibrary = (lib) => {
     setDmLibrary(lib);
     const {url, code, pass} = serverCreds();
@@ -3845,6 +3881,9 @@ function App() {
           onSchliessen={()=>setShowKampf(false)}
           onGegnerBlatt={(id)=>{ const g = enemies.find(e=>e.id===id); if (g) setEnemyView(g); }}
           onHeldAendern={heldImKampfAendern}
+          heldNotizen={dmLibrary.heldNotizen}
+          onHeldNotiz={heldNotizSetzen}
+          onHeldNotizSichern={heldNotizSichern}
           onBeenden={()=>appConfirm(
             'Kampf beenden? Die Trefferpunkte stehen schon in den Bögen — es geht nichts verloren.',
             ()=>{ setKampf(null); setShowKampf(false); }, 'Beenden')} />

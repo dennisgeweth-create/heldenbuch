@@ -1308,10 +1308,12 @@ const gegnerAusVorlage = (vorlage, name) => {
   };
 };
 
-// ── Kampf aufstellen ─────────────────────────────────────────────
-const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
+// Die Gegner einer Begegnung, ausgewuerfelt und durchnummeriert. Steht
+// einzeln, weil eine Begegnung auch in einen schon laufenden Kampf
+// nachgeladen werden kann.
+const gegnerAusBegegnung = (begegnung, enemies) => {
   const teilnehmer = [];
-  (begegnung.enemies || []).forEach(({
+  (begegnung && begegnung.enemies || []).forEach(({
     enemyId,
     count,
     name
@@ -1323,9 +1325,16 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
       teilnehmer.push(gegnerAusVorlage(vorlage, anzahl > 1 ? (name || vorlage.name) + ' ' + (i + 1) : name || vorlage.name));
     }
   });
+  return teilnehmer;
+};
+
+// ── Kampf aufstellen ─────────────────────────────────────────────
+const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
+  const teilnehmer = gegnerAusBegegnung(begegnung, enemies);
 
   // Vom Helden bleibt im Kampf nur, was zum Kampf gehoert: Initiative,
-  // Zustaende, Erschoepfung, Notiz. Trefferpunkte stehen im Bogen.
+  // Zustaende, Erschoepfung. Trefferpunkte und Notiz stehen ausserhalb —
+  // die einen im Bogen, die andere in der DM-Bibliothek.
   helden.forEach(h => {
     teilnehmer.push({
       id: 'held-' + h.id,
@@ -1336,7 +1345,6 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
       ini: null,
       zustaende: [],
       erschoepfung: 0,
-      notiz: '',
       vorteil: false,
       nachteil: false
     });
@@ -1589,6 +1597,7 @@ const KampfZeile = ({
   onFenster,
   onIni,
   onNotiz,
+  onNotizFertig,
   onZustand,
   onMarke,
   onErschoepfung,
@@ -1667,7 +1676,8 @@ const KampfZeile = ({
     value: t.notiz || '',
     placeholder: "Notiz\u2026",
     "aria-label": 'Notiz zu ' + t.name,
-    onChange: e => onNotiz(e.target.value)
+    onChange: e => onNotiz(e.target.value),
+    onBlur: () => onNotizFertig && onNotizFertig()
   }), /*#__PURE__*/React.createElement("div", {
     className: "kampf-ac"
   }, "AC ", t.ac), /*#__PURE__*/React.createElement("div", {
@@ -1780,6 +1790,52 @@ const KampfZeile = ({
 // ── Spontan zusammenstellen ──────────────────────────────────────
 // Nicht jeder Kampf ist vorbereitet. Hier werden Gegner direkt gewaehlt,
 // ohne den Umweg ueber eine gespeicherte Begegnung.
+// Eine gespeicherte Begegnung in den laufenden Kampf holen. Frueher war
+// das die Startseite des Trackers; sie stand jedem Kampf im Weg, der ohne
+// Begegnung anfangen sollte — und das ist der Normalfall am Tisch.
+const BegegnungWahl = ({
+  encounters,
+  enemies,
+  advId,
+  onLaden,
+  onAbbrechen
+}) => {
+  const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: onAbbrechen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    onClick: e => e.stopPropagation(),
+    style: {
+      maxWidth: 520
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDCCB Begegnung laden"), waehlbar.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "kampf-leer"
+  }, "Keine Begegnung in diesem Abenteuer. Lege eine unter \uD83D\uDCDA Datenbank \u203A Begegnungen an.") : /*#__PURE__*/React.createElement("div", {
+    className: "kampf-start-liste"
+  }, waehlbar.map(b => {
+    const anzahl = (b.enemies || []).reduce((s, t) => s + (+t.count || 1), 0);
+    const fehlend = (b.enemies || []).filter(t => !enemies.some(g => g.id === t.enemyId)).length;
+    return /*#__PURE__*/React.createElement("button", {
+      key: b.id,
+      className: "kampf-start-eintrag",
+      disabled: anzahl === 0 || fehlend === anzahl,
+      onClick: () => onLaden(b)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "kampf-start-name"
+    }, b.name), /*#__PURE__*/React.createElement("span", {
+      className: "kampf-start-sub"
+    }, b.difficulty, " \xB7 ", anzahl, " Gegner", fehlend ? ' · ' + fehlend + ' Gegner fehlt in der Sammlung' : ''));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"))));
+};
 const SpontanWahl = ({
   enemies,
   laufend,
@@ -1987,65 +2043,54 @@ const KampfAnsicht = ({
   onSchliessen,
   onGegnerBlatt,
   onBeenden,
-  onHeldAendern
+  onHeldAendern,
+  heldNotizen,
+  onHeldNotiz,
+  onHeldNotizSichern
 }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [spontan, setSpontan] = React.useState(false);
+  const [begegnungOffen, setBegegnungOffen] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
-  if (!kampf || !kampf.aktiv) {
-    const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
-    return /*#__PURE__*/React.createElement("div", {
-      className: "kampf-schirm start"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "kampf-kopf"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "kampf-titel"
-    }, "\u2694 Kampf"), /*#__PURE__*/React.createElement("div", {
-      className: "kampf-dran"
-    }), /*#__PURE__*/React.createElement("button", {
-      className: "kampf-kopf-x",
-      onClick: onSchliessen,
-      "aria-label": "Schlie\xDFen"
-    }, "\u2715")), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
-      enemies: enemies,
-      laufend: false,
-      onAbbrechen: () => setSpontan(false),
-      onStarten: auswahl => {
-        setSpontan(false);
-        setKampf(kampfAufstellen({
-          name: 'Spontaner Kampf',
-          enemies: auswahl
-        }, enemies, helden, setDefs));
-      }
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "kampf-start"
-    }, /*#__PURE__*/React.createElement("p", {
-      className: "kampf-start-hinweis"
-    }, "W\xE4hle eine Begegnung \u2014 oder stell dir eine spontan zusammen. Die Trefferpunkte der Gegner werden ausgew\xFCrfelt, die Helden des offenen Abenteuers kommen mit ihren gerechneten Werten dazu."), /*#__PURE__*/React.createElement("button", {
-      className: "kampf-spontan-knopf",
-      onClick: () => setSpontan(true)
-    }, "\u26A1 Spontaner Kampf \u2014 Gegner direkt w\xE4hlen"), waehlbar.length === 0 ? /*#__PURE__*/React.createElement("p", {
-      className: "kampf-leer"
-    }, "Keine Begegnung in diesem Abenteuer. Lege eine unter \uD83D\uDCDA Datenbank \u203A Begegnungen an.") : /*#__PURE__*/React.createElement("div", {
-      className: "kampf-start-liste"
-    }, waehlbar.map(b => {
-      const anzahl = (b.enemies || []).reduce((s, t) => s + (+t.count || 1), 0);
-      const fehlend = (b.enemies || []).filter(t => !enemies.some(g => g.id === t.enemyId)).length;
-      return /*#__PURE__*/React.createElement("button", {
-        key: b.id,
-        className: "kampf-start-eintrag",
-        disabled: anzahl === 0 || fehlend === anzahl,
-        onClick: () => setKampf(kampfAufstellen(b, enemies, helden, setDefs))
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "kampf-start-name"
-      }, b.name), /*#__PURE__*/React.createElement("span", {
-        className: "kampf-start-sub"
-      }, b.difficulty, " \xB7 ", anzahl, " Gegner \xB7 ", helden.length, " Helden", fehlend ? ' · ' + fehlend + ' Gegner fehlt in der Sammlung' : ''));
-    }))));
-  }
+
+  // Der Tracker faengt sofort an. Frueher stand hier eine Startseite mit
+  // der Begegnungsliste — die war im Weg, weil der haeufigste Fall keiner
+  // Begegnung entspricht: die Gruppe laeuft in etwas hinein, und die Gegner
+  // kommen einzeln dazu. Wer eine vorbereitete Begegnung will, laedt sie
+  // oben nach; der Kampf steht dann schon.
+  React.useEffect(() => {
+    if (!kampf || !kampf.aktiv) {
+      setKampf(kampfAufstellen({
+        name: 'Kampf',
+        enemies: []
+      }, enemies, helden, setDefs));
+    }
+  }, []);
+
+  // Bis v4.1 lag die Heldennotiz im Kampf und war mit ihm weg. Ein Kampf,
+  // der jetzt noch offen ist, traegt seine Notizen also im alten Feld —
+  // die werden einmalig herausgehoben, damit sie nicht doch noch
+  // verlorengehen. Danach ist die Bibliothek die einzige Quelle.
+  React.useEffect(() => {
+    if (!kampf || !kampf.aktiv) return;
+    const alt = kampf.teilnehmer.filter(t => t.art === 'held' && t.notiz && !(heldNotizen || {})[t.charId]);
+    if (!alt.length) return;
+    alt.forEach(t => onHeldNotiz(t.charId, t.notiz));
+    setKampf(k => k && {
+      ...k,
+      teilnehmer: k.teilnehmer.map(t => t.art === 'held' ? {
+        ...t,
+        notiz: ''
+      } : t)
+    });
+  }, []);
+
+  // Ein Bild lang gibt es noch keinen Kampf — der Effekt oben stellt ihn
+  // auf. Etwas anzuzeigen, das sofort wieder verschwindet, waere Flackern.
+  if (!kampf || !kampf.aktiv) return null;
 
   // Alles, was aus dem Bogen kommt, wird bei jedem Rendern neu gelesen:
   // Ruestungsklasse, Trefferpunkte, Immunitaeten, Rettungswuerfe. Legt ein
@@ -2074,6 +2119,7 @@ const KampfAnsicht = ({
       dex: w.dex,
       tempMaxHp: +c.tempMaxHp || 0,
       deathSaves: c.deathSaves || TODES_LEER,
+      notiz: (heldNotizen || {})[c.id] || '',
       bild: c.portrait || null,
       passive: w.passive,
       saves: w.saves,
@@ -2168,10 +2214,15 @@ const KampfAnsicht = ({
     ...t,
     erschoepfung: Math.max(0, Math.min(6, stufe))
   }));
-  const notiz = (id, v) => aendernKampf(id, t => ({
-    ...t,
-    notiz: v
-  }));
+  // Die Notiz zu einem Helden gehoert zu ihm, nicht zu diesem Kampf —
+  // deshalb denselben Weg wie die Trefferpunkte: hinaus aus dem Kampf.
+  const notiz = (id, v) => {
+    const t = liste.find(x => x.id === id);
+    if (t && t.art === 'held' && !t.fehlt) onHeldNotiz(t.charId, v);else aendernKampf(id, alt => ({
+      ...alt,
+      notiz: v
+    }));
+  };
 
   // Der Kampf speichert von Helden nur, was zum Kampf gehoert — zum
   // Sortieren fehlt dort die Geschicklichkeit. Sie kommt fuer den
@@ -2223,6 +2274,23 @@ const KampfAnsicht = ({
     };
   });
   const dazu = neue => setKampf(k => neuOrdnen(k, [...k.teilnehmer, ...neue]));
+
+  // Eine vorbereitete Begegnung in den laufenden Kampf. Steht noch kein
+  // Gegner drin und heisst der Kampf noch wie der leere, uebernimmt er den
+  // Namen der Begegnung — das ist der Fall, in dem der Tracker gerade erst
+  // aufgegangen ist.
+  const begegnungLaden = b => {
+    setBegegnungOffen(false);
+    const neue = gegnerAusBegegnung(b, enemies);
+    if (!neue.length) return;
+    setKampf(k => {
+      const leer = !k.teilnehmer.some(t => t.art === 'gegner');
+      return neuOrdnen({
+        ...k,
+        name: leer && b.name ? b.name : k.name
+      }, [...k.teilnehmer, ...neue]);
+    });
+  };
   const naechster = () => setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
@@ -2295,6 +2363,10 @@ const KampfAnsicht = ({
     onClick: () => setSpontan(true),
     title: "Gegner nachtr\xE4glich dazunehmen"
   }, "\u26A1 Gegner"), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-btn zusatz",
+    onClick: () => setBegegnungOffen(true),
+    title: "Eine vorbereitete Begegnung dazuladen"
+  }, "\uD83D\uDCCB Begegnung"), /*#__PURE__*/React.createElement("button", {
     className: "kampf-weiter",
     onClick: naechster
   }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
@@ -2307,7 +2379,13 @@ const KampfAnsicht = ({
     "aria-label": "Kampftracker schlie\xDFen"
   }, "\u2715")), ohneIni > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
-  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
+  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), begegnungOffen && /*#__PURE__*/React.createElement(BegegnungWahl, {
+    encounters: encounters,
+    enemies: enemies,
+    advId: advId,
+    onAbbrechen: () => setBegegnungOffen(false),
+    onLaden: begegnungLaden
+  }), spontan && /*#__PURE__*/React.createElement(SpontanWahl, {
     enemies: enemies,
     laufend: true,
     onAbbrechen: () => setSpontan(false),
@@ -2348,6 +2426,7 @@ const KampfAnsicht = ({
     }),
     onIni: v => ini(t.id, v),
     onNotiz: v => notiz(t.id, v),
+    onNotizFertig: t.art === 'held' ? onHeldNotizSichern : undefined,
     onZustand: z => zustand(t.id, z),
     onMarke: k => marke(t.id, k),
     onErschoepfung: st => erschoepfung(t.id, st),
@@ -9153,6 +9232,59 @@ function App() {
       }));
     }
   };
+
+  // ── Notizen der Spielleitung zu den Helden ────────────────────
+  // Sie lagen bis v4.1 im Kampf und waren mit ihm weg. Jetzt liegen sie in
+  // der DM-Bibliothek: dort ueberstehen sie das Kampfende, den Neustart und
+  // den Geraetewechsel — und sie sind, anders als ein Feld im Bogen, auch
+  // auf dem Server hinter dem DM-Passwort. Ein Spieler bekommt sie nie zu
+  // sehen, nicht einmal in der Antwort des Servers.
+  //
+  // Beim Tippen wird nicht gespeichert: die Bibliothek geht als ein Stueck
+  // hoch, und das je Tastendruck waere teuer. Stattdessen kurz nach dem
+  // letzten Zeichen und beim Verlassen des Feldes.
+  const notizTimer = useRef(null);
+  const heldNotizSichern = () => {
+    if (notizTimer.current) {
+      clearTimeout(notizTimer.current);
+      notizTimer.current = null;
+    }
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    if (!url || !code || !pass || !dmPassRef.current) return;
+    apiDmSaveLibrary(url, code, pass, dmPassRef.current, dmLibRef.current).catch(() => {});
+  };
+  const heldNotizSetzen = (charId, text) => {
+    // Funktional, damit zwei Notizen im selben Durchlauf einander nicht
+    // ueberschreiben — beim einmaligen Uebernehmen alter Kampfnotizen
+    // kommen sie genau so.
+    setDmLibrary(prev => {
+      const notizen = {
+        ...(prev && prev.heldNotizen || {})
+      };
+      if (text) notizen[charId] = text;else delete notizen[charId];
+      return {
+        ...(prev || {}),
+        heldNotizen: notizen
+      };
+    });
+    if (notizTimer.current) clearTimeout(notizTimer.current);
+    notizTimer.current = setTimeout(heldNotizSichern, 900);
+  };
+  // Was noch im Zeitgeber haengt, geht beim Verlassen der Seite trotzdem raus.
+  useEffect(() => {
+    const raus = () => {
+      if (notizTimer.current) heldNotizSichern();
+    };
+    window.addEventListener('pagehide', raus);
+    return () => {
+      window.removeEventListener('pagehide', raus);
+      raus();
+    };
+  }, []);
   const saveDmLibrary = lib => {
     setDmLibrary(lib);
     const {
@@ -15278,6 +15410,9 @@ function App() {
       if (g) setEnemyView(g);
     },
     onHeldAendern: heldImKampfAendern,
+    heldNotizen: dmLibrary.heldNotizen,
+    onHeldNotiz: heldNotizSetzen,
+    onHeldNotizSichern: heldNotizSichern,
     onBeenden: () => appConfirm('Kampf beenden? Die Trefferpunkte stehen schon in den Bögen — es geht nichts verloren.', () => {
       setKampf(null);
       setShowKampf(false);
