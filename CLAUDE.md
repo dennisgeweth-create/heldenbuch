@@ -50,6 +50,32 @@ python devserver.py
 Nicht `python -m http.server`: das sendet keine Cache-Vorgabe, und der Browser
 liefert dann alte Stände von `styles.css` und `js/*.js` aus.
 
+## Konten, Rollen, Rechte
+
+Zwei Wege in eine Gruppe, beide gelten:
+
+- **alt** — Gruppencode + Passwort, dazu ein DM-Passwort. Kennt keinen
+  Besitz und keine Rollen: wer es hat, darf alles.
+- **Konto** — `login` gibt eine Kennung, die jede Anfrage traegt
+  (`sv_token`, angehaengt in `apiRequest`). Die Rechte stehen am Konto.
+
+Rollen je Gruppe (`hb_mitglied`): `spieler`, `dm`. Die Verwaltung steht
+als `ADMIN_USER` in der `config.php` — nicht in der Datenbank, damit sich
+niemand selbst dazu macht.
+
+Zwei Regeln, beide einseitig — nichts eintragen aendert nichts, jeder
+Eintrag grenzt ein:
+
+- **Besitz** (`hb_chars.owner`): ein Bogen ohne Besitzer ist fuer jeden
+  in der Gruppe aenderbar. Geprueft in `besitzPruefen()` vor `save_char`,
+  `delete_char`, `save_item`, `delete_item`.
+- **Spielleitung je Abenteuer** (`hb_adv_dm`): ist fuer ein Abenteuer
+  niemand eingetragen, leitet es jede Spielleitung der Gruppe.
+
+Was die Anwendung schreibt, entscheidet nie ueber Rechte — deshalb liegen
+Besitz und Spielleitung in eigenen Spalten und Tabellen und nicht in
+`char_json` oder der Bibliothek.
+
 ## Serverseite lokal testen
 
 `api.php` lief frueher erst auf dem Server zum ersten Mal. Seit XAMPP

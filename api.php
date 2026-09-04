@@ -1200,6 +1200,32 @@ switch ($action) {
         respond(200, 'Zugeordnet.');
     }
 
+    // Ein Konto entfernen. Was daran haengt, wird nicht mitgeloescht:
+    // Boegen verlieren ihren Besitzer, statt fuer alle gesperrt
+    // liegenzubleiben, und Logzeilen behalten ihren Inhalt und verlieren
+    // die Kennung. Die Kampagnenhistorie gehoert der Runde, nicht dem
+    // Einzelnen — Loecher darin waeren fuer alle ein Verlust.
+    case 'user_delete': {
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+        $ziel = (int)($body['user_id'] ?? 0);
+        if (!$ziel) respond(400, 'Kein Konto angegeben.');
+        if ($ziel === (int)$u['id']) respond(400, 'Das eigene Konto lässt sich nicht löschen.');
+        $st = $pdo->prepare("SELECT name FROM hb_users WHERE id=?");
+        $st->execute([$ziel]);
+        $z = $st->fetch();
+        if (!$z) respond(404, 'Konto nicht gefunden.');
+        // Der Name aus der Konfiguration bleibt: ohne ihn kaeme niemand
+        // mehr in die Verwaltung, ausser ueber die Datenbank.
+        if (adminName() !== '' && (string)$z['name'] === adminName()) {
+            respond(400, 'Dieses Konto steht in der Konfiguration und bleibt.');
+        }
+        $pdo->prepare("UPDATE hb_chars SET owner=NULL WHERE owner=?")->execute([$ziel]);
+        $pdo->prepare("UPDATE hb_logs  SET user_id=NULL WHERE user_id=?")->execute([$ziel]);
+        $pdo->prepare("DELETE FROM hb_users WHERE id=?")->execute([$ziel]);
+        respond(200, 'Konto gelöscht.');
+    }
+
     // Was ueber mich gespeichert ist. Beantwortet die Frage, bevor sie
     // gestellt wird — und ist, wenn der Adminbereich einmal steht, dort
     // ohnehin fast fertig.

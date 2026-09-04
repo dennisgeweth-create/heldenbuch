@@ -8092,6 +8092,7 @@ function App() {
   const [advDms, setAdvDms] = useState({});
   const [logTage, setLogTage] = useState(180);
   const [kontoDlg, setKontoDlg] = useState(null); // {daten, laedt, err}
+  const [verwaltung, setVerwaltung] = useState(null); // {laedt, users, mitglied, err, …}
   const [mitglieder, setMitglieder] = useState([]);
   const [showDmLogin, setShowDmLogin] = useState(false);
   const [dmLoginInput, setDmLoginInput] = useState('');
@@ -9737,6 +9738,132 @@ function App() {
       setLogTage(a.tage || 180);
     } catch (e) {
       appAlert('Das ging nicht: ' + (e.message || ''));
+    }
+  };
+
+  // ── Verwaltung ──────────────────────────────────────────────────
+  // Einmalpasswoerter werden hier erzeugt und einmal angezeigt. Der
+  // Server speichert nur ihren Hash; wer es nicht weitergibt, muss neu
+  // zuruecksetzen. Ohne mehrdeutige Zeichen — das Ding wird abgetippt
+  // oder vorgelesen.
+  const einmalPasswort = () => {
+    const zeichen = 'abcdefghijkmnpqrstuvwxyz23456789';
+    const roh = new Uint32Array(12);
+    (window.crypto || window.msCrypto).getRandomValues(roh);
+    return [...roh].map(n => zeichen[n % zeichen.length]).join('');
+  };
+  const verwaltungLaden = async () => {
+    setVerwaltung(v => ({
+      ...(v || {}),
+      laedt: true,
+      err: ''
+    }));
+    try {
+      const d = await apiKontoListe(serverCreds().url);
+      setVerwaltung(v => ({
+        ...(v || {}),
+        laedt: false,
+        err: '',
+        users: d.users || [],
+        mitglied: d.mitglied || [],
+        adminUser: d.admin_user || ''
+      }));
+    } catch (e) {
+      setVerwaltung(v => ({
+        ...(v || {}),
+        laedt: false,
+        err: e.message
+      }));
+    }
+  };
+  const verwaltungOeffnen = () => {
+    setKontoDlg(null);
+    setVerwaltung({
+      laedt: true,
+      users: [],
+      mitglied: [],
+      err: '',
+      neuName: '',
+      gezeigt: null
+    });
+    verwaltungLaden();
+  };
+  const kontoAnlegen = async () => {
+    const name = (verwaltung && verwaltung.neuName || '').trim();
+    if (name.length < 3) {
+      setVerwaltung(v => ({
+        ...v,
+        err: 'Der Name braucht mindestens drei Zeichen.'
+      }));
+      return;
+    }
+    const pw = einmalPasswort();
+    try {
+      await apiKontoNeu(serverCreds().url, name, pw, false);
+      setVerwaltung(v => ({
+        ...v,
+        neuName: '',
+        err: '',
+        gezeigt: {
+          name,
+          pw,
+          was: 'angelegt'
+        }
+      }));
+      verwaltungLaden();
+    } catch (e) {
+      setVerwaltung(v => ({
+        ...v,
+        err: e.message
+      }));
+    }
+  };
+  const kontoZuruecksetzen = u => appConfirm('Für „' + u.name + '“ ein neues Einmalpasswort erzeugen? Das bisherige gilt dann nicht mehr, ' + 'und alle offenen Anmeldungen dieses Kontos enden.', async () => {
+    const pw = einmalPasswort();
+    try {
+      await apiKontoReset(serverCreds().url, u.id, pw);
+      setVerwaltung(v => ({
+        ...v,
+        err: '',
+        gezeigt: {
+          name: u.name,
+          pw,
+          was: 'zurückgesetzt'
+        }
+      }));
+      verwaltungLaden();
+    } catch (e) {
+      setVerwaltung(v => ({
+        ...v,
+        err: e.message
+      }));
+    }
+  }, 'Zurücksetzen');
+  const kontoEntfernen = u => appConfirm('„' + u.name + '“ endgültig löschen? Die Bögen dieses Kontos bleiben und gehören danach ' + 'niemandem; die Zeilen im Abenteuerlog bleiben stehen und verlieren nur die Kennung.', async () => {
+    try {
+      await apiKontoLoeschen(serverCreds().url, u.id);
+      verwaltungLaden();
+    } catch (e) {
+      setVerwaltung(v => ({
+        ...v,
+        err: e.message
+      }));
+    }
+  }, 'Löschen');
+  const rolleSetzen = async (u, rolle) => {
+    try {
+      await apiRolleSetzen(serverCreds().url, u.id, svCode, rolle);
+      verwaltungLaden();
+      // Die eigene Rolle kann sich mitgeaendert haben.
+      try {
+        const m = await apiMe(serverCreds().url);
+        setKonto(m.user || null);
+      } catch {}
+    } catch (e) {
+      setVerwaltung(v => ({
+        ...v,
+        err: e.message
+      }));
     }
   };
   const passwortAendern = async () => {
@@ -15736,7 +15863,126 @@ function App() {
       if (confirmDlg.onOk) confirmDlg.onOk();
       setConfirmDlg(null);
     }
-  }, confirmDlg.okLabel || 'Bestätigen')))), kontoDlg && /*#__PURE__*/React.createElement("div", {
+  }, confirmDlg.okLabel || 'Bestätigen')))), verwaltung && /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: () => setVerwaltung(null)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 620
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDEE0 Verwaltung \xB7 ", svCode), verwaltung.err && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#3a1010",
+      border: "1px solid var(--crimson)",
+      borderRadius: 4,
+      padding: "8px 12px",
+      fontSize: 13,
+      color: "#e87070",
+      marginBottom: 8
+    }
+  }, "\u26A0\uFE0F ", verwaltung.err), verwaltung.gezeigt && /*#__PURE__*/React.createElement("div", {
+    className: "verw-passwort"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, verwaltung.gezeigt.name), " ", verwaltung.gezeigt.was, ". Einmalpasswort:", /*#__PURE__*/React.createElement("code", {
+    className: "verw-code"
+  }, verwaltung.gezeigt.pw)), /*#__PURE__*/React.createElement("i", null, "Gib es weiter \u2014 es steht nur hier und nur jetzt. Beim ersten Anmelden muss ein eigenes gew\xE4hlt werden."), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    onClick: () => setVerwaltung(v => ({
+      ...v,
+      gezeigt: null
+    }))
+  }, "Verstanden")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxHeight: '56vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel"
+  }, "\uD83D\uDC65 Konten"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "Die Rolle gilt f\xFCr diese Gruppe. \u201ESpielleitung\u201C hei\xDFt noch nicht, welches Abenteuer \u2014 das steht in den Einstellungen des Abenteuers."), verwaltung.laedt && /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      margin: 0
+    }
+  }, "Wird geholt\u2026"), (verwaltung.users || []).map(u => {
+    const m = (verwaltung.mitglied || []).find(x => +x.user_id === +u.id && x.session_code === svCode);
+    const selbst = konto && +konto.id === +u.id;
+    const ausConfig = verwaltung.adminUser && u.name === verwaltung.adminUser;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "verw-zeile",
+      key: u.id
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "verw-name"
+    }, u.name, (+u.ist_admin === 1 || ausConfig) && /*#__PURE__*/React.createElement("i", {
+      className: "verw-marke admin"
+    }, "Verwaltung"), +u.muss_wechseln === 1 && /*#__PURE__*/React.createElement("i", {
+      className: "verw-marke"
+    }, "Einmalpasswort"), +u.angemeldet > 0 && /*#__PURE__*/React.createElement("i", {
+      className: "verw-marke an"
+    }, "angemeldet")), /*#__PURE__*/React.createElement("select", {
+      className: "form-select verw-rolle",
+      "aria-label": 'Rolle von ' + u.name,
+      value: m && m.rolle || '',
+      onChange: e => rolleSetzen(u, e.target.value)
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "nicht in der Gruppe"), /*#__PURE__*/React.createElement("option", {
+      value: "spieler"
+    }, "Spieler"), /*#__PURE__*/React.createElement("option", {
+      value: "dm"
+    }, "Spielleitung")), /*#__PURE__*/React.createElement("button", {
+      className: "btn-icon",
+      title: "Neues Einmalpasswort",
+      onClick: () => kontoZuruecksetzen(u)
+    }, "\uD83D\uDD11"), /*#__PURE__*/React.createElement("button", {
+      className: "fx-del",
+      title: selbst ? 'Das eigene Konto bleibt' : ausConfig ? 'Steht in der Konfiguration' : 'Konto löschen',
+      disabled: selbst || ausConfig,
+      onClick: () => kontoEntfernen(u)
+    }, "\u2715"));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "einst-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel"
+  }, "\u2726 Neues Konto"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "Das Passwort wird hier erzeugt und einmal angezeigt. Danach steht in der Datenbank nur noch sein Hash \u2014 auch die Verwaltung kann es nicht nachsehen."), /*#__PURE__*/React.createElement("div", {
+    className: "einst-klasse"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    placeholder: "Name des Kontos",
+    maxLength: 40,
+    value: verwaltung.neuName || '',
+    onChange: e => setVerwaltung(v => ({
+      ...v,
+      neuName: e.target.value,
+      err: ''
+    })),
+    onKeyDown: e => e.key === 'Enter' && kontoAnlegen()
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    onClick: kontoAnlegen
+  }, "Anlegen")))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setVerwaltung(null)
+  }, "Schlie\xDFen")))), kontoDlg && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay",
     onClick: () => setKontoDlg(null)
   }, /*#__PURE__*/React.createElement("div", {
@@ -15793,7 +16039,10 @@ function App() {
           pflicht: false
         });
       }
-    }, "Passwort \xE4ndern"))), /*#__PURE__*/React.createElement("div", {
+    }, "Passwort \xE4ndern"), d.konto.ist_admin && /*#__PURE__*/React.createElement("button", {
+      className: "btn-icon",
+      onClick: verwaltungOeffnen
+    }, "\uD83D\uDEE0 Verwaltung"))), /*#__PURE__*/React.createElement("div", {
       className: "einst-block"
     }, /*#__PURE__*/React.createElement("div", {
       className: "einst-titel"

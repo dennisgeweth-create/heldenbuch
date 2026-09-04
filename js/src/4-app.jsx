@@ -168,6 +168,7 @@ function App() {
   const [advDms,     setAdvDms]     = useState({});
   const [logTage,    setLogTage]    = useState(180);
   const [kontoDlg,   setKontoDlg]   = useState(null);   // {daten, laedt, err}
+  const [verwaltung, setVerwaltung] = useState(null);   // {laedt, users, mitglied, err, …}
   const [mitglieder, setMitglieder] = useState([]);
   const [showDmLogin,setShowDmLogin]= useState(false);
   const [dmLoginInput,setDmLoginInput]=useState('');
@@ -1360,6 +1361,68 @@ function App() {
       const a = await apiLogFrist(url, code, tage);
       setLogTage(a.tage || 180);
     } catch(e) { appAlert('Das ging nicht: ' + (e.message || '')); }
+  };
+
+  // ── Verwaltung ──────────────────────────────────────────────────
+  // Einmalpasswoerter werden hier erzeugt und einmal angezeigt. Der
+  // Server speichert nur ihren Hash; wer es nicht weitergibt, muss neu
+  // zuruecksetzen. Ohne mehrdeutige Zeichen — das Ding wird abgetippt
+  // oder vorgelesen.
+  const einmalPasswort = () => {
+    const zeichen = 'abcdefghijkmnpqrstuvwxyz23456789';
+    const roh = new Uint32Array(12);
+    (window.crypto || window.msCrypto).getRandomValues(roh);
+    return [...roh].map(n => zeichen[n % zeichen.length]).join('');
+  };
+
+  const verwaltungLaden = async () => {
+    setVerwaltung(v => ({...(v || {}), laedt: true, err: ''}));
+    try {
+      const d = await apiKontoListe(serverCreds().url);
+      setVerwaltung(v => ({...(v || {}), laedt: false, err: '',
+        users: d.users || [], mitglied: d.mitglied || [], adminUser: d.admin_user || ''}));
+    } catch(e) { setVerwaltung(v => ({...(v || {}), laedt: false, err: e.message})); }
+  };
+  const verwaltungOeffnen = () => {
+    setKontoDlg(null);
+    setVerwaltung({laedt: true, users: [], mitglied: [], err: '', neuName: '', gezeigt: null});
+    verwaltungLaden();
+  };
+  const kontoAnlegen = async () => {
+    const name = ((verwaltung && verwaltung.neuName) || '').trim();
+    if (name.length < 3) { setVerwaltung(v => ({...v, err: 'Der Name braucht mindestens drei Zeichen.'})); return; }
+    const pw = einmalPasswort();
+    try {
+      await apiKontoNeu(serverCreds().url, name, pw, false);
+      setVerwaltung(v => ({...v, neuName: '', err: '', gezeigt: {name, pw, was: 'angelegt'}}));
+      verwaltungLaden();
+    } catch(e) { setVerwaltung(v => ({...v, err: e.message})); }
+  };
+  const kontoZuruecksetzen = (u) => appConfirm(
+    'Für „' + u.name + '“ ein neues Einmalpasswort erzeugen? Das bisherige gilt dann nicht mehr, '
+    + 'und alle offenen Anmeldungen dieses Kontos enden.',
+    async () => {
+      const pw = einmalPasswort();
+      try {
+        await apiKontoReset(serverCreds().url, u.id, pw);
+        setVerwaltung(v => ({...v, err: '', gezeigt: {name: u.name, pw, was: 'zurückgesetzt'}}));
+        verwaltungLaden();
+      } catch(e) { setVerwaltung(v => ({...v, err: e.message})); }
+    }, 'Zurücksetzen');
+  const kontoEntfernen = (u) => appConfirm(
+    '„' + u.name + '“ endgültig löschen? Die Bögen dieses Kontos bleiben und gehören danach '
+    + 'niemandem; die Zeilen im Abenteuerlog bleiben stehen und verlieren nur die Kennung.',
+    async () => {
+      try { await apiKontoLoeschen(serverCreds().url, u.id); verwaltungLaden(); }
+      catch(e) { setVerwaltung(v => ({...v, err: e.message})); }
+    }, 'Löschen');
+  const rolleSetzen = async (u, rolle) => {
+    try {
+      await apiRolleSetzen(serverCreds().url, u.id, svCode, rolle);
+      verwaltungLaden();
+      // Die eigene Rolle kann sich mitgeaendert haben.
+      try { const m = await apiMe(serverCreds().url); setKonto(m.user || null); } catch {}
+    } catch(e) { setVerwaltung(v => ({...v, err: e.message})); }
   };
 
   const passwortAendern = async () => {
@@ -4093,6 +4156,96 @@ function App() {
       )}
 
 
+      {verwaltung && (
+        <div className="form-overlay" onClick={()=>setVerwaltung(null)}>
+          <div className="form-modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
+            <div className="form-title">🛠 Verwaltung · {svCode}</div>
+
+            {verwaltung.err && (
+              <div style={{background:"#3a1010",border:"1px solid var(--crimson)",borderRadius:4,
+                           padding:"8px 12px",fontSize:13,color:"#e87070",marginBottom:8}}>
+                ⚠️ {verwaltung.err}
+              </div>
+            )}
+
+            {/* Ein Einmalpasswort steht genau einmal da. Danach kennt es
+                nur noch der, dem es gegeben wurde. */}
+            {verwaltung.gezeigt && (
+              <div className="verw-passwort">
+                <div>
+                  <b>{verwaltung.gezeigt.name}</b> {verwaltung.gezeigt.was}. Einmalpasswort:
+                  <code className="verw-code">{verwaltung.gezeigt.pw}</code>
+                </div>
+                <i>Gib es weiter — es steht nur hier und nur jetzt. Beim ersten Anmelden
+                   muss ein eigenes gewählt werden.</i>
+                <button className="btn-icon"
+                  onClick={()=>setVerwaltung(v=>({...v, gezeigt:null}))}>Verstanden</button>
+              </div>
+            )}
+
+            <div style={{maxHeight:'56vh',overflowY:'auto',paddingRight:4}}>
+              <div className="einst-block">
+                <div className="einst-titel">👥 Konten</div>
+                <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                  Die Rolle gilt für diese Gruppe. „Spielleitung“ heißt noch nicht, welches
+                  Abenteuer — das steht in den Einstellungen des Abenteuers.
+                </div>
+                {verwaltung.laedt && <div className="einst-hinweis" style={{margin:0}}>Wird geholt…</div>}
+                {(verwaltung.users || []).map(u => {
+                  const m = (verwaltung.mitglied || []).find(x => +x.user_id === +u.id
+                                                                 && x.session_code === svCode);
+                  const selbst = konto && +konto.id === +u.id;
+                  const ausConfig = verwaltung.adminUser && u.name === verwaltung.adminUser;
+                  return (
+                    <div className="verw-zeile" key={u.id}>
+                      <span className="verw-name">
+                        {u.name}
+                        {(+u.ist_admin === 1 || ausConfig) && <i className="verw-marke admin">Verwaltung</i>}
+                        {+u.muss_wechseln === 1 && <i className="verw-marke">Einmalpasswort</i>}
+                        {+u.angemeldet > 0 && <i className="verw-marke an">angemeldet</i>}
+                      </span>
+                      <select className="form-select verw-rolle" aria-label={'Rolle von ' + u.name}
+                        value={(m && m.rolle) || ''}
+                        onChange={e=>rolleSetzen(u, e.target.value)}>
+                        <option value="">nicht in der Gruppe</option>
+                        <option value="spieler">Spieler</option>
+                        <option value="dm">Spielleitung</option>
+                      </select>
+                      <button className="btn-icon" title="Neues Einmalpasswort"
+                        onClick={()=>kontoZuruecksetzen(u)}>🔑</button>
+                      <button className="fx-del" title={selbst ? 'Das eigene Konto bleibt'
+                                                      : ausConfig ? 'Steht in der Konfiguration'
+                                                      : 'Konto löschen'}
+                        disabled={selbst || ausConfig}
+                        onClick={()=>kontoEntfernen(u)}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="einst-block">
+                <div className="einst-titel">✦ Neues Konto</div>
+                <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                  Das Passwort wird hier erzeugt und einmal angezeigt. Danach steht in der
+                  Datenbank nur noch sein Hash — auch die Verwaltung kann es nicht nachsehen.
+                </div>
+                <div className="einst-klasse">
+                  <input className="form-input" placeholder="Name des Kontos" maxLength={40}
+                    value={verwaltung.neuName || ''}
+                    onChange={e=>setVerwaltung(v=>({...v, neuName:e.target.value, err:''}))}
+                    onKeyDown={e=>e.key==='Enter'&&kontoAnlegen()} />
+                  <button className="btn-icon" onClick={kontoAnlegen}>Anlegen</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button className="btn-cancel" onClick={()=>setVerwaltung(null)}>Schließen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {kontoDlg && (
         <div className="form-overlay" onClick={()=>setKontoDlg(null)}>
           <div className="form-modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
@@ -4126,6 +4279,9 @@ function App() {
                                       setPasswortDlg({alt:'', neu:'', neu2:'', err:'', pflicht:false});}}>
                         Passwort ändern
                       </button>
+                      {d.konto.ist_admin && (
+                        <button className="btn-icon" onClick={verwaltungOeffnen}>🛠 Verwaltung</button>
+                      )}
                     </div>
                   </div>
 

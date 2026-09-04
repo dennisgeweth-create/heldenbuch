@@ -639,5 +639,54 @@ $r = ruf('log_frist_set', ['code' => $code, 'token' => $tAdmin, 'tage' => 0]);
 pruefe('null setzt auf die Vorgabe zurueck', (($r['body']['tage'] ?? 0) === 180), kurz($r));
 
 echo "\n" . str_repeat('─', 52) . "\n";
+// ════════════════════════════════════════════════════════════════
+//  Konto entfernen — Stufe 6
+// ════════════════════════════════════════════════════════════════
+
+abschnitt('Ein Konto entfernen');
+$weg = 'wegdamit' . rand(1000, 9999);
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => $weg, 'neu' => 'einmalpasswort']);
+$idWeg = (int)$r['body']['id'];
+ruf('member_set', ['token' => $tAdmin, 'user_id' => $idWeg, 'gruppe' => $code, 'rolle' => 'spieler']);
+$r = ruf('login', ['user' => $weg, 'password' => 'einmalpasswort']);
+$tWeg = (string)$r['body']['token'];
+ruf('save_char', ['code' => $code, 'token' => $tWeg, 'char_id' => 'w1', 'char' => [
+    'id' => 'w1', 'name' => 'Verwaister Bogen', 'charClass' => 'Barde', 'level' => 1,
+    'hp' => 8, 'maxHp' => 8, 'adventure' => 'eberron']]);
+ruf('save_log', ['code' => $code, 'token' => $tWeg, 'entry' =>
+    ['char_id' => 'w1', 'char_name' => 'Verwaister Bogen', 'tab' => 'notizen',
+     'action' => 'Zeile eines spaeter geloeschten Kontos', 'adv_id' => 'eberron']]);
+
+$r = ruf('user_delete', ['token' => $tSpieler, 'user_id' => $idWeg]);
+pruefe('ein Spieler loescht kein Konto (403)', $r['status'] === 403, kurz($r));
+$r = ruf('user_delete', ['token' => $tAdmin, 'user_id' => 999999]);
+pruefe('ein unbekanntes Konto wird gemeldet (404)', $r['status'] === 404, kurz($r));
+$r = ruf('user_list', ['token' => $tAdmin]);
+$eigene = 0;
+foreach ($r['body']['users'] as $x) if ($x['name'] === $admin) $eigene = (int)$x['id'];
+$r = ruf('user_delete', ['token' => $tAdmin, 'user_id' => $eigene]);
+pruefe('das eigene Konto bleibt (400)', $r['status'] === 400, kurz($r));
+
+$r = ruf('user_delete', ['token' => $tAdmin, 'user_id' => $idWeg]);
+pruefe('die Verwaltung loescht (200)', $r['status'] === 200, kurz($r));
+$r = ruf('me', ['token' => $tWeg]);
+pruefe('die Anmeldung ist damit weg (401)', $r['status'] === 401, kurz($r));
+$r = ruf('login', ['user' => $weg, 'password' => 'einmalpasswort']);
+pruefe('und anmelden geht nicht mehr (401)', $r['status'] === 401, kurz($r));
+
+$r = ruf('load', ['code' => $code, 'password' => $pass]);
+pruefe('der Bogen ist noch da',
+       in_array('Verwaister Bogen', array_column($r['body']['chars'], 'name'), true));
+pruefe('und gehoert jetzt niemandem', !isset($r['body']['owners']['w1']),
+       json_encode($r['body']['owners'] ?? null));
+$r = ruf('load_logs', ['code' => $code, 'password' => $pass, 'limit' => 100]);
+$zeile = null;
+foreach ($r['body']['logs'] as $l) if ($l['action'] === 'Zeile eines spaeter geloeschten Kontos') $zeile = $l;
+pruefe('die Logzeile steht noch', $zeile !== null);
+pruefe('ohne Kennung', $zeile !== null && $zeile['user_id'] === null,
+       json_encode($zeile['user_id'] ?? 'fehlt'));
+pruefe('mit ihrem Inhalt', $zeile !== null && $zeile['char_name'] === 'Verwaister Bogen');
+
+echo str_repeat('=', 52) . "\n";
 echo $rot === 0 ? "Alle $gruen Pruefungen bestanden.\n" : "$gruen bestanden, $rot fehlgeschlagen.\n";
 exit($rot === 0 ? 0 : 1);
