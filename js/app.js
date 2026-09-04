@@ -3428,7 +3428,7 @@ const AbenteuerEinstellungen = ({
     })
   }, "\u21BA Standardautomat")), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
-  }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), (mitglieder || []).some(m => m.rolle === 'dm') && /*#__PURE__*/React.createElement("div", {
+  }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), (mitglieder || []).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "einst-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "einst-titel"
@@ -3438,7 +3438,7 @@ const AbenteuerEinstellungen = ({
       marginTop: 0,
       marginBottom: 10
     }
-  }, (advDms || []).length === 0 ? 'Niemand eingetragen — dann leitet es jede Spielleitung der Gruppe. Wer hier steht, leitet es allein.' : 'Nur wer hier steht, kommt in diesem Abenteuer in den DM-Modus, an fremde Bögen und an die verdeckten Trefferpunkte.', !istAdmin && ' Ändern kann das nur die Verwaltung.'), (mitglieder || []).filter(m => m.rolle === 'dm').map(m => {
+  }, (advDms || []).length === 0 ? 'Niemand eingetragen — dann leitet es jede Spielleitung der Gruppe. Wer hier steht, leitet es allein.' : 'Nur wer hier steht, kommt in diesem Abenteuer in den DM-Modus, an fremde Bögen und an die verdeckten Trefferpunkte.', ' ', "Das gilt je Abenteuer: wer hier den Schirm h\xE4lt, kann nebenan mitspielen.", !istAdmin && ' Ändern kann das nur die Verwaltung.'), (mitglieder || []).map(m => {
     const drin = (advDms || []).includes(m.id);
     return /*#__PURE__*/React.createElement("label", {
       className: "einst-dm-zeile",
@@ -3448,7 +3448,7 @@ const AbenteuerEinstellungen = ({
       checked: drin,
       disabled: !istAdmin,
       onChange: () => onAdvDms(drin ? (advDms || []).filter(x => x !== m.id) : [...(advDms || []), m.id])
-    }), /*#__PURE__*/React.createElement("span", null, m.name));
+    }), /*#__PURE__*/React.createElement("span", null, m.name, m.rolle === 'dm' ? ' · Spielleitung der Gruppe' : ''));
   })), /*#__PURE__*/React.createElement("div", {
     className: "einst-block"
   }, /*#__PURE__*/React.createElement("div", {
@@ -8371,20 +8371,26 @@ function App() {
     return g && g.rolle || '';
   };
   const kontoIstDm = (k, code) => ['dm', 'admin'].includes(rolleIn(k, code));
-  // Leitet dieses Konto dieses Abenteuer? Ohne Konto gilt der alte Weg,
-  // und der leitet alles. Ist fuer ein Abenteuer niemand eingetragen,
-  // leitet es jede Spielleitung der Gruppe — dieselbe einseitige Regel
-  // wie beim Besitz: eintragen grenzt ein, nichts eintragen aendert nichts.
-  const leitetAbenteuer = (k, karte, advId) => {
-    if (!k) return true;
+  // Leitet dieses Konto dieses Abenteuer? Wer dafuer eingetragen ist,
+  // leitet es — gleich welche Rolle er sonst in der Gruppe hat. Wer
+  // Eberron leitet, kann in Strahd mitspielen.
+  //
+  // Ist fuer ein Abenteuer niemand eingetragen, gilt die Rolle in der
+  // Gruppe: dieselbe einseitige Regel wie beim Besitz. Eintragen grenzt
+  // ein, nichts eintragen aendert nichts.
+  const leitetAbenteuer = (k, karte, code, advId) => {
+    if (!k) return true; // der alte Weg leitet alles
     if (k.ist_admin) return true;
     const liste = (karte || {})[advId];
-    return !Array.isArray(liste) || liste.length === 0 || liste.includes(k.id);
+    if (Array.isArray(liste) && liste.length) return liste.includes(k.id);
+    return rolleIn(k, code) === 'dm';
   };
   // Die Spielleitung erreicht ihre Sachen entweder mit dem DM-Passwort
-  // oder als angemeldeter DM. Der Server prueft beides; hier steht nur,
-  // ob es sich lohnt zu fragen.
-  const dmBereit = () => !!dmPassRef.current || kontoIstDm(kontoRef.current, localStorage.getItem('sv_code') || '');
+  // oder ueber ihr Konto. Wer hier steht, ist ohnehin schon im DM-Modus —
+  // und ob er darf, hat der Server beim Betreten entschieden und
+  // entscheidet er bei jeder Anfrage erneut. Diese Zeile verhindert nur
+  // Anfragen, die gar keinen Absender haetten.
+  const dmBereit = () => !!dmPassRef.current || !!kontoRef.current;
 
   // Auto-sync every 5 seconds in background (silent)
   // Interval sync: push localStorage to server every 3 seconds if pending
@@ -10047,7 +10053,7 @@ function App() {
   // Strahd nicht sehen.
   useEffect(() => {
     if (!isDmMode || !konto) return;
-    if (leitetAbenteuer(konto, advDms, advId)) return;
+    if (leitetAbenteuer(konto, advDms, svCode, advId)) return;
     doDmLogout();
   }, [advId, advDms, konto, isDmMode]);
 
@@ -11658,7 +11664,7 @@ function App() {
     className: "btn-sync",
     title: "Daten neu vom Server laden",
     onClick: () => doSyncLoad(svUrl, svCode, svPass)
-  }, "\u21BA Laden"), kontoIstDm(konto, svCode) && leitetAbenteuer(konto, advDms, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, "\u21BA Laden"), konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-sync dm",
     title: "In den DM-Modus wechseln",
     onClick: dmMitKonto
@@ -16291,7 +16297,7 @@ function App() {
   }, "\uD83D\uDD2E Einloggen")))), showAutomat && /*#__PURE__*/React.createElement(AutomatSchirm, {
     cfg: advObj && advObj.automat,
     onSchliessen: () => setShowAutomat(false)
-  }), advEinstellung && isDmMode && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {
+  }), advEinstellung && (isDmMode || konto && konto.ist_admin) && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {
     adv: advEinstellung,
     helden: chars.filter(c => (c.adventure || (abenteuer[0] || {}).id) === advEinstellung.id),
     besitzer: besitzer,
@@ -16445,7 +16451,7 @@ function App() {
       }
     }), /*#__PURE__*/React.createElement("span", {
       className: "adv-zeile-zahl"
-    }, helden.length, " ", helden.length === 1 ? 'Held' : 'Helden'), isDmMode && /*#__PURE__*/React.createElement("button", {
+    }, helden.length, " ", helden.length === 1 ? 'Held' : 'Helden'), (isDmMode || konto && konto.ist_admin) && /*#__PURE__*/React.createElement("button", {
       className: "adv-zeile-einst",
       "aria-label": 'Einstellungen für ' + a.name,
       title: "Einstellungen",

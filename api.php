@@ -398,13 +398,25 @@ function advDmKarte(PDO $pdo, string $code): array {
 function istDmVon(PDO $pdo, array $z, string $code, string $advId): bool {
     if (!$z['user']) return true;                       // der alte Weg leitet alles
     if ($z['rolle'] === 'admin') return true;
-    if ($z['rolle'] !== 'dm') return false;
-    if ($advId === '') return true;                     // kein Abenteuer genannt
+    if ($advId === '') return $z['rolle'] === 'dm';     // kein Abenteuer genannt
     $st = $pdo->prepare("SELECT user_id FROM hb_adv_dm WHERE session_code=? AND adv_id=?");
     $st->execute([$code, $advId]);
     $ids = array_map('intval', array_column($st->fetchAll(), 'user_id'));
-    if (!$ids) return true;                             // niemand eingetragen
-    return in_array((int)$z['user']['id'], $ids, true);
+    // Wer fuer dieses Abenteuer eingetragen ist, leitet es — gleich welche
+    // Rolle er in der Gruppe hat. Wer Eberron leitet, kann in Strahd
+    // mitspielen; das ist am Tisch der Normalfall und nicht die Ausnahme.
+    if ($ids) return in_array((int)$z['user']['id'], $ids, true);
+    // Niemand eingetragen: dann gilt die Rolle in der Gruppe. Solange eine
+    // Runde nichts eintraegt, aendert sich fuer sie nichts.
+    return $z['rolle'] === 'dm';
+}
+// Leitet dieses Konto ueberhaupt irgendein Abenteuer dieser Gruppe? Die
+// Sachen der Spielleitung — Gegner, Chronik, ihre Bibliothek — liegen
+// gruppenweit; wer irgendwo den Schirm haelt, braucht sie.
+function fuehrtIrgendwas(PDO $pdo, string $code, int $userId): bool {
+    $st = $pdo->prepare("SELECT 1 FROM hb_adv_dm WHERE session_code=? AND user_id=? LIMIT 1");
+    $st->execute([$code, $userId]);
+    return (bool)$st->fetch();
 }
 
 // ── Wer darf welche Logzeilen sehen ─────────────────────────────
@@ -489,8 +501,9 @@ function zugangDm(PDO $pdo, string $code, string $pass, string $dmPass, array $b
         return ['row' => verifyDmSession($pdo, $code, $pass, $dmPass), 'user' => null, 'rolle' => 'gruppe'];
     }
     $z = zugang($pdo, $code, $pass, $body);
-    if ($z['rolle'] !== 'dm' && $z['rolle'] !== 'admin') respond(403, 'Das darf nur die Spielleitung.');
-    return $z;
+    if ($z['rolle'] === 'dm' || $z['rolle'] === 'admin') return $z;
+    if ($z['user'] && fuehrtIrgendwas($pdo, $code, (int)$z['user']['id'])) return $z;
+    respond(403, 'Das darf nur die Spielleitung.');
 }
 
 function validateCode(string $c): bool { $l=strlen($c); return $l>=3&&$l<=20&&preg_match('/^[A-Za-z0-9_\-]+$/',$c); }

@@ -174,23 +174,24 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
           </div>
 
           {/* ── Wer leitet dieses Abenteuer ── */}
-          {(mitglieder || []).some(m => m.rolle === 'dm') && (
+          {(mitglieder || []).length > 0 && (
             <div className="einst-block">
               <div className="einst-titel">🔮 Spielleitung dieses Abenteuers</div>
               <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
                 {(advDms || []).length === 0
                   ? 'Niemand eingetragen — dann leitet es jede Spielleitung der Gruppe. Wer hier steht, leitet es allein.'
                   : 'Nur wer hier steht, kommt in diesem Abenteuer in den DM-Modus, an fremde Bögen und an die verdeckten Trefferpunkte.'}
+                {' '}Das gilt je Abenteuer: wer hier den Schirm hält, kann nebenan mitspielen.
                 {!istAdmin && ' Ändern kann das nur die Verwaltung.'}
               </div>
-              {(mitglieder || []).filter(m => m.rolle === 'dm').map(m => {
+              {(mitglieder || []).map(m => {
                 const drin = (advDms || []).includes(m.id);
                 return (
                   <label className="einst-dm-zeile" key={m.id}>
                     <input type="checkbox" checked={drin} disabled={!istAdmin}
                       onChange={()=>onAdvDms(drin ? (advDms || []).filter(x => x !== m.id)
                                                   : [...(advDms || []), m.id])} />
-                    <span>{m.name}</span>
+                    <span>{m.name}{m.rolle === 'dm' ? ' · Spielleitung der Gruppe' : ''}</span>
                   </label>
                 );
               })}

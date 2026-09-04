@@ -687,6 +687,46 @@ pruefe('ohne Kennung', $zeile !== null && $zeile['user_id'] === null,
        json_encode($zeile['user_id'] ?? 'fehlt'));
 pruefe('mit ihrem Inhalt', $zeile !== null && $zeile['char_name'] === 'Verwaister Bogen');
 
+// ════════════════════════════════════════════════════════════════
+//  DM hier, Spieler nebenan
+// ════════════════════════════════════════════════════════════════
+
+abschnitt('Die Rolle haengt am Abenteuer, nicht an der Gruppe');
+// $zweiter ist Spieler der Gruppe. Er bekommt Eberron.
+$r = ruf('adv_dm_set', ['code' => $code, 'token' => $tAdmin,
+                        'adv_id' => 'eberron', 'user_ids' => [$idZweiter]]);
+pruefe('ein Spieler der Gruppe darf Spielleitung eines Abenteuers werden (200)',
+       $r['status'] === 200, kurz($r));
+
+// e1 gehoert ihm ohnehin; s1 gehoert $idSpieler und liegt in Strahd.
+$hE['hp'] = 6;
+$r = ruf('save_char', ['code' => $code, 'token' => $tZweiter, 'char_id' => 'e1', 'char' => $hE]);
+pruefe('in seinem Abenteuer darf er alles (200)', $r['status'] === 200, kurz($r));
+$r = ruf('dm_load', ['code' => $code, 'token' => $tZweiter]);
+pruefe('und kommt an die Sachen der Spielleitung (200)', $r['status'] === 200, kurz($r));
+$r = ruf('dm_load_enemies', ['code' => $code, 'token' => $tZweiter]);
+pruefe('auch an die Gegner (200)', $r['status'] === 200, kurz($r));
+
+$hS['hp'] = 3;
+$r = ruf('save_char', ['code' => $code, 'token' => $tZweiter, 'char_id' => 's1', 'char' => $hS]);
+pruefe('nebenan bleibt er Spieler und kommt an keinen fremden Bogen (403)',
+       $r['status'] === 403, kurz($r));
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tZweiter,
+                            'char_id' => 's1', 'owner' => $idZweiter]);
+pruefe('und ordnet dort auch nichts zu (403)', $r['status'] === 403, kurz($r));
+
+// Umgekehrt: die Spielleitung der Gruppe, die Eberron nicht mehr leitet.
+$hE['hp'] = 5;
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'e1', 'char' => $hE]);
+pruefe('die Gruppenspielleitung ist in Eberron jetzt aussen vor (403)',
+       $r['status'] === 403, kurz($r));
+
+$r = ruf('adv_dm_set', ['code' => $code, 'token' => $tAdmin, 'adv_id' => 'eberron', 'user_ids' => []]);
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'e1', 'char' => $hE]);
+pruefe('ausgetragen gilt wieder die Rolle in der Gruppe (200)', $r['status'] === 200, kurz($r));
+$r = ruf('dm_load', ['code' => $code, 'token' => $tZweiter]);
+pruefe('und der Spieler ist wieder nur Spieler (403)', $r['status'] === 403, kurz($r));
+
 echo str_repeat('=', 52) . "\n";
 echo $rot === 0 ? "Alle $gruen Pruefungen bestanden.\n" : "$gruen bestanden, $rot fehlgeschlagen.\n";
 exit($rot === 0 ? 0 : 1);
