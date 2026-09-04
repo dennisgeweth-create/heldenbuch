@@ -450,6 +450,21 @@ function App() {
     imFlug.current.delete(id);
     return false;
   };
+  // Ein voller Ladevorgang ersetzt alle Boegen auf einmal. Was gerade
+  // unterwegs ist oder noch in der Warteschlange steht, darf er nicht
+  // mit ersetzen: der Server hat unsere Zahl noch nicht, seine Antwort
+  // traegt die alte.
+  //
+  // Genau hier verschwand im Kampftracker eingetragener Schaden. Nicht
+  // am Abgleich der Trefferpunkte — der laedt nur die vier Werte und
+  // laesst die eigenen in Ruhe —, sondern am vollen Ladevorgang, den
+  // dieses Geraet erst dann macht, wenn ein anderes am Tisch etwas
+  // gespeichert hat. Am Spielabend ist das dauernd der Fall.
+  const mitEigenen = (vomServer) => (vomServer || []).map(sc => {
+    if (!fliegt(sc.id) && !pendingChars.current[sc.id]) return sc;
+    const eigen = charsRef.current.find(c => c.id === sc.id);
+    return eigen || sc;
+  });
 
   // Auto-sync every 5 seconds in background (silent)
   // Interval sync: push localStorage to server every 3 seconds if pending
@@ -610,8 +625,9 @@ function App() {
           revRef.current = d.rev;
           const data = await apiLoad(url, code, pass);
           if (!pendingRef.current) {
-            applyChars(data.chars || []);
-            spiegleChars(JSON.stringify(data.chars || []));
+            const eigene = mitEigenen(data.chars);
+            applyChars(eigene);
+            spiegleChars(JSON.stringify(eigene));
             if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
           }
           if (data.rev != null) revRef.current = data.rev;
