@@ -3,6 +3,11 @@
 // Suche und der Rechenkern des Effektsystems. Setzt js/data.js voraus
 // (EFFECT_LABELS).
 
+// Die vier Werte, die sich im Kampf im Sekundentakt aendern. Sie werden
+// getrennt behandelt: der Server fuehrt sie in einer eigenen Tabelle, und
+// ein Geraet schickt sie nur mit, wenn es sie selbst geaendert hat.
+const VITAL_FELDER = ['hp', 'tempHp', 'tempMaxHp', 'deathSaves'];
+
 const newEffect = () => ({id:Date.now().toString()+Math.random().toString(36).slice(2,6), target:"str", mode:"bonus", value:1});
 
 // ── Abenteuer ────────────────────────────────────────────────────

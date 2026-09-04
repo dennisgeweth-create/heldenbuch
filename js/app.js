@@ -8300,9 +8300,15 @@ function App() {
       pendingChars.current = {};
       (roh.chars || []).forEach(id => {
         const c = charsRef.current.find(x => x.id === id);
+        // Nach einem Neustart weiss niemand mehr, welche Werte diese
+        // Aenderung betraf. Dann gehen alle mit — die oertliche Kopie ist
+        // das Letzte, was jemand gesehen hat.
         if (c) pendingChars.current[id] = {
-          ...c,
-          inventory: []
+          c: {
+            ...c,
+            inventory: []
+          },
+          vitals: [...VITAL_FELDER]
         };
       });
       pendingItems.current = {};
@@ -8503,12 +8509,32 @@ function App() {
 
       // Jeder Auftrag einzeln, damit ein abgelehnter nicht die anderen
       // mitreisst — und damit erkennbar bleibt, welcher es war.
-      Object.values(toSave).forEach(c => flugAn(c.id));
-      const auftraege = [...Object.values(toSave).map(c => ({
+      Object.values(toSave).forEach(e => flugAn(e.c.id));
+      // Gesendet wird der Stand von jetzt, nicht der von damals. Zwischen
+      // Einreihen und Senden koennen Sekunden liegen, und in denen kann
+      // der Abgleich neuere Trefferpunkte gebracht haben — vom Kampf am
+      // Tisch. Ein alter Abzug schriebe sie wieder weg, und auf jedem
+      // anderen Geraet saehe es aus, als spraengen die Trefferpunkte
+      // zurueck. Genau so geschah es: nicht dieses Geraet las Altes,
+      // sondern ein anderes schrieb Altes.
+      const frisch = e => {
+        const jetzt = charsRef.current.find(x => x.id === e.c.id);
+        const bogen = {
+          ...(jetzt || e.c),
+          inventory: []
+        };
+        // Was dieses Geraet nicht geaendert hat, laesst es weg. Der Server
+        // behaelt dann, was dort steht.
+        VITAL_FELDER.forEach(f => {
+          if (!e.vitals.includes(f)) delete bogen[f];
+        });
+        return bogen;
+      };
+      const auftraege = [...Object.values(toSave).map(e => ({
         zurueck: () => {
-          pendingChars.current[c.id] = c;
+          pendingChars.current[e.c.id] = e;
         },
-        tun: () => apiSaveChar(url, code, pass, c.id, c)
+        tun: () => apiSaveChar(url, code, pass, e.c.id, frisch(e))
       })), ...Object.values(toSaveI).map(o => ({
         zurueck: () => {
           pendingItems.current[o.charId + '__' + o.itemId] = o;
@@ -8525,7 +8551,7 @@ function App() {
         };
       })];
       const ergebnisse = auftraege.length ? await Promise.allSettled(auftraege.map(a => a.tun())) : [];
-      Object.values(toSave).forEach(c => flugAus(c.id));
+      Object.values(toSave).forEach(e => flugAus(e.c.id));
       const staende = [];
       let abgelehnt = 0,
         letzterFehler = null;
@@ -9373,7 +9399,7 @@ function App() {
     save(charsRef.current.map(c => c.id === charId ? {
       ...c,
       ...patch
-    } : c));
+    } : c), true);
     // Ins Log kommen nur die beiden Augenblicke, die man spaeter
     // nachlesen will. Jeder einzelne Treffer waere eine Zeile, und nach
     // einem Kampf stuenden dreissig davon im Abenteuerlog.
@@ -9620,16 +9646,30 @@ function App() {
     if (!verbunden(serverCreds()) || !dmBereit()) return;
     apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).catch(() => {});
   };
-  const save = u => {
+
+  // vomNutzer sagt, ob dahinter ein Klick steht. Nur dann wird ein
+  // abgewiesener Bogen gemeldet: das Aufraeumen beim Laden geht ueber
+  // dieselbe Stelle, und dessen Abweisungen sind kein Ereignis.
+  const save = (u, vomNutzer) => {
     const prev = charsRef.current;
     applyChars(u);
+    let verweigert = 0;
     const prevMap = new Map(prev.map(c => [c.id, c]));
     const newMap = new Map(u.map(c => [c.id, c]));
     for (const [charId, c] of newMap) {
       const prevC = prevMap.get(charId);
       // Diff inventory separately
       // Was ohnehin abgelehnt wuerde, wird gar nicht erst eingereiht.
-      if (!darfSchreiben(c)) continue;
+      if (!darfSchreiben(c)) {
+        if (JSON.stringify({
+          ...c,
+          inventory: []
+        }) !== JSON.stringify(prevC ? {
+          ...prevC,
+          inventory: []
+        } : null)) verweigert++;
+        continue;
+      }
       const prevInv = new Map((prevC?.inventory || []).map(i => [i.id, i]));
       const newInv = new Map((c.inventory || []).map(i => [i.id, i]));
       for (const [itemId, item] of newInv) {
@@ -9658,7 +9698,18 @@ function App() {
         inventory: []
       } : null;
       if (JSON.stringify(cNoInv) !== JSON.stringify(prevNoInv)) {
-        pendingChars.current[charId] = cNoInv;
+        // Welche der vier Werte, die sich im Kampf im Sekundentakt
+        // aendern, hat dieses Geraet angefasst? Nur die gehen mit. Alles
+        // andere waere ein Echo: ein Stand von vor ein paar Sekunden, der
+        // die Zahl eines anderen ueberschreibt.
+        const vitalNeu = VITAL_FELDER.filter(f => JSON.stringify(c[f]) !== JSON.stringify(prevC ? prevC[f] : undefined));
+        const alt = pendingChars.current[charId];
+        pendingChars.current[charId] = {
+          c: cNoInv,
+          // Was schon wartete, bleibt gemerkt: sonst ginge eine Aenderung
+          // verloren, die vor dieser eingereiht wurde.
+          vitals: [...new Set([...(alt && alt.vitals || []), ...vitalNeu])]
+        };
         pendingDeletes.current.delete(charId);
       }
     }
@@ -9668,6 +9719,16 @@ function App() {
         pendingDeletes.current.add(id);
         delete pendingChars.current[id];
       }
+    }
+
+    // Ein Bogen, den der Server nicht annehmen wuerde, wird nicht
+    // eingereiht — aber stillschweigend faellt er nur beim Aufraeumen
+    // weg. Steht ein Klick dahinter, gehoert es gesagt: sonst sieht man
+    // "Gespeichert ✓" und die Aenderung ist trotzdem gleich wieder da.
+    if (verweigert && vomNutzer) {
+      setSyncStatus('err');
+      setSyncMsg(verweigert === 1 ? 'Nicht erlaubt — fremder Bogen' : verweigert + ' Änderungen nicht erlaubt');
+      return;
     }
     pendingRef.current = true;
     spiegleChars(JSON.stringify(u));
@@ -9684,7 +9745,7 @@ function App() {
   const patchCurrent = fn => save(charsRef.current.map(c => c.id === selRef.current ? {
     ...c,
     ...fn(c)
-  } : c));
+  } : c), true);
 
   // Logging helper — fire-and-forget, never blocks UI
   const addLog = (charId, charName, tab, action, details) => {

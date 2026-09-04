@@ -706,6 +706,19 @@ switch ($action) {
         $st->execute([$code, $charId]);
         $altRow  = $st->fetch();
         $altChar = $altRow ? (json_decode($altRow['char_json'], true) ?: []) : null;
+        // Ein Geraet, das die Trefferpunkte nicht angefasst hat, schickt sie
+        // nicht mehr mit. Was fehlt, kommt aus dem Bestand — sonst schriebe
+        // ein Spielergeraet mit einem paar Sekunden alten Stand die Zahlen
+        // zurueck, die die Spielleitung gerade im Kampf eingetragen hat.
+        // Genau daran sprangen die Trefferpunkte am Tisch zurueck.
+        if ($altChar) {
+            foreach (VITAL_FELDER as $vf) {
+                if (!array_key_exists($vf, $char) && array_key_exists($vf, $altChar)) {
+                    $char[$vf] = $altChar[$vf];
+                }
+            }
+            $json = json_encode($char, JSON_UNESCAPED_UNICODE);
+        }
         $inhaltNeu = json_encode(ohneVitals($char), JSON_UNESCAPED_UNICODE);
         $inhaltAlt = $altChar === null ? null : json_encode(ohneVitals($altChar), JSON_UNESCAPED_UNICODE);
 
