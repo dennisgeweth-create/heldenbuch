@@ -52,14 +52,26 @@
     };
 
     // API-Client
+    // Die Kennung der Anmeldung. Liegt sie im Speicher, traegt sie jede
+    // Anfrage — der Server zieht sie dem Gruppenpasswort vor und leitet
+    // die Rechte daraus ab. Sie wird hier zentral angehaengt, damit die
+    // 23 Huellen darunter unveraendert bleiben konnten.
+    //
+    // login bleibt aussen vor: eine alte Kennung hat bei einer neuen
+    // Anmeldung nichts verloren.
+    const authToken = () => { try { return localStorage.getItem('sv_token') || ''; } catch { return ''; } };
+
     async function apiRequest(serverUrl, action, payload) {
       const url = serverUrl.replace(/\/+$/, '') + '/api.php';
+      const koerper = { action, ...payload };
+      const tok = authToken();
+      if (tok && action !== 'login' && koerper.token === undefined) koerper.token = tok;
       let res;
       try {
         res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, ...payload }),
+          body: JSON.stringify(koerper),
         });
       } catch(e) {
         throw new Error('Server nicht erreichbar. Bitte URL prüfen.');
@@ -95,13 +107,29 @@
     const apiDmDeleteEncounter = (url, code, pass, dmPass, id)    => apiRequest(url, 'dm_delete_encounter', { code, password: pass, dm_password: dmPass, enc_id: id });
     const apiDmLoadChronik     = (url, code, pass, dmPass)       => apiRequest(url, 'dm_load_chronik',     { code, password: pass, dm_password: dmPass });
     const apiDmSaveChronik     = (url, code, pass, dmPass, ch)   => apiRequest(url, 'dm_save_chronik',     { code, password: pass, dm_password: dmPass, chronik: ch });
+    // ── Konten ──────────────────────────────────────────────────
+    // Alles hier traegt die Kennung von selbst, ausser login und dem
+    // allerersten Konto — da gibt es noch keine.
+    const apiLogin      = (url, user, pass)        => apiRequest(url, 'login',  { user, password: pass });
+    const apiLogout     = (url, token)             => apiRequest(url, 'logout', { token });
+    const apiMe         = (url)                    => apiRequest(url, 'me', {});
+    const apiPassAendern= (url, alt, neu)          => apiRequest(url, 'password_change', { alt, neu });
+    const apiKontoNeu   = (url, name, neu, admin)  => apiRequest(url, 'user_create',
+                                                       { name, neu, ist_admin: !!admin });
+    const apiKontoListe = (url)                    => apiRequest(url, 'user_list', {});
+    const apiKontoReset = (url, userId, neu)       => apiRequest(url, 'user_reset',
+                                                       { user_id: userId, neu });
+    const apiRolleSetzen= (url, userId, gruppe, r) => apiRequest(url, 'member_set',
+                                                       { user_id: userId, gruppe, rolle: r });
+
     // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
     // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils
     // dreizeilig — jede Umbenennung haette alle elf treffen muessen.
     const serverCreds = () => ({
-      url:  localStorage.getItem('sv_url')  || '',
-      code: localStorage.getItem('sv_code') || '',
-      pass: localStorage.getItem('sv_pass') || '',
+      url:   localStorage.getItem('sv_url')   || '',
+      code:  localStorage.getItem('sv_code')  || '',
+      pass:  localStorage.getItem('sv_pass')  || '',
+      token: localStorage.getItem('sv_token') || '',
     });
     const safeSetItem = (key, value) => {
       try {

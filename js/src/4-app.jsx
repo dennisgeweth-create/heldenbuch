@@ -154,6 +154,11 @@ function App() {
   const [dmPass,     setDmPass]     = useState('');
   const [dmLibrary,  setDmLibrary]  = useState({});
   const [hasDmMode,  setHasDmMode]  = useState(false);
+  // Das angemeldete Konto: {id, name, ist_admin, muss_wechseln, gruppen}.
+  // Null heisst "ueber das Gruppenpasswort verbunden" — der alte Weg, der
+  // weiterlaeuft, bis jeder ein Konto hat.
+  const [konto,      setKonto]      = useState(null);
+  const [passwortDlg, setPasswortDlg] = useState(null);   // {alt, neu, neu2, err, pflicht}
   const [showDmLogin,setShowDmLogin]= useState(false);
   const [dmLoginInput,setDmLoginInput]=useState('');
   const [dmLoginErr, setDmLoginErr] = useState('');
@@ -333,6 +338,7 @@ function App() {
   const dmLibRef = useRef({});
   const isDmRef = useRef(false);
   const dmPassRef = useRef('');
+  const kontoRef  = useRef(null);
 
   // charsRef muss synchron mitlaufen: save() difft gegen charsRef.current und
   // stellt jeden dort vorhandenen, in der neuen Liste fehlenden Charakter zur
@@ -346,6 +352,28 @@ function App() {
   useEffect(() => { dmLibRef.current = dmLibrary; }, [dmLibrary]);
   useEffect(() => { isDmRef.current = isDmMode; }, [isDmMode]);
   useEffect(() => { dmPassRef.current = dmPass; }, [dmPass]);
+  useEffect(() => { kontoRef.current = konto; }, [konto]);
+
+  // ── Wer darf was ────────────────────────────────────────────────
+  // Verbunden ist, wer eine Gruppe und einen Weg hinein hat: das
+  // Gruppenpasswort wie bisher oder eine Anmeldung. Vorher stand an sieben
+  // Stellen "!pass" — mit Konto gibt es kein Gruppenpasswort mehr, und
+  // jede dieser Stellen haette geschwiegen statt zu speichern.
+  const verbunden = (c) => !!c.url && !!c.code && (!!c.pass || !!c.token);
+  // Die Rolle des Kontos in einer Gruppe. Ohne Konto: leer — dann gilt der
+  // alte Weg, und der darf alles.
+  const rolleIn = (k, code) => {
+    if (!k) return '';
+    if (k.ist_admin) return 'admin';
+    const g = (k.gruppen || []).find(x => x.session_code === code);
+    return (g && g.rolle) || '';
+  };
+  const kontoIstDm = (k, code) => ['dm', 'admin'].includes(rolleIn(k, code));
+  // Die Spielleitung erreicht ihre Sachen entweder mit dem DM-Passwort
+  // oder als angemeldeter DM. Der Server prueft beides; hier steht nur,
+  // ob es sich lohnt zu fragen.
+  const dmBereit = () => !!dmPassRef.current
+    || kontoIstDm(kontoRef.current, localStorage.getItem('sv_code') || '');
 
 
   // Auto-sync every 5 seconds in background (silent)
@@ -353,8 +381,9 @@ function App() {
   useEffect(() => {
     const tick = async () => {
       if (!pendingRef.current) return;
-      const {url, code, pass} = serverCreds();
-      if (!url || !code || !pass) return;
+      const zug = serverCreds();
+      const {url, code, pass} = zug;
+      if (!verbunden(zug)) return;
 
       // Snapshot and optimistically reset
       const toSave    = {...pendingChars.current};
@@ -554,9 +583,21 @@ function App() {
   // tplData only loaded when template picker opens (openTpl)
 
   useEffect(() => {
-    const {url, code, pass} = serverCreds();
+    const zug = serverCreds();
+    const {url, code, pass, token} = zug;
     setSvUrl(url); setSvCode(code); setSvPass(pass);
-    if (url && code && pass) {
+    // Wer angemeldet ist, holt zuerst sein Konto: davon haengt ab, ob der
+    // Knopf fuer die Spielleitung ueberhaupt dasteht. Faellt es aus, ist
+    // die Kennung abgelaufen oder zurueckgesetzt worden — dann muss man
+    // sich neu anmelden, und der Speicher darf sie nicht behalten.
+    if (token) {
+      apiMe(url).then(d => setKonto(d.user || null)).catch(() => {
+        try { localStorage.removeItem('sv_token'); } catch {}
+        setKonto(null);
+        if (!pass) { setSetupMode('konto'); setShowSetup(true); }
+      });
+    }
+    if (verbunden(zug)) {
       // Load localStorage immediately for instant display while server loads
       try { const v=localStorage.getItem('dnd_chars'); if(v) applyChars(JSON.parse(v)); } catch {}
       try { const lib=localStorage.getItem('hb_library'); if(lib) { setUserLibrary(JSON.parse(lib)); setLibGeladen(true); } } catch {}
@@ -644,9 +685,9 @@ function App() {
     // stuenden verdeckte Trefferpunkte doch wieder offen da.
     setUserLibrary(lib);
     safeSetItem('hb_library', JSON.stringify(lib));
-    const {url, code, pass} = serverCreds();
-    if (!url || !code || !pass) return;
-    apiSaveLibrary(url, code, pass, lib).catch(() => {});
+    const zug = serverCreds();
+    if (!verbunden(zug)) return;
+    apiSaveLibrary(zug.url, zug.code, zug.pass, lib).catch(() => {});
   };
 
   const addToLibrary = (type, entry) => {
@@ -766,12 +807,12 @@ function App() {
     }
   };
 
-  const doDmLogin = async () => {
-    if (!dmLoginInput.trim()) { setDmLoginErr('Bitte DM-Passwort eingeben.'); return; }
-    setDmLoginErr('');
-    try {
+  // Der DM-Bereich, geoeffnet mit dem DM-Passwort oder — wer angemeldet
+  // ist und die Rolle hat — mit einer leeren Zeichenkette. Der Server
+  // entscheidet; hier steht nur, was mitgeschickt wird.
+  const dmLaden = async (dm) => {
+    {
       const {url, code, pass} = serverCreds();
-      const dm = dmLoginInput.trim();
       const data = await apiDmLoad(url, code, pass, dm);
       setDmLibrary(data.dm_library || {});
       setDmPass(dm);
@@ -811,9 +852,20 @@ function App() {
         const a = JSON.parse(localStorage.getItem(ANSICHT) || 'null');
         if (a && a.kampf && kampf) setShowKampf(true);
       } catch {}
-    } catch(e) {
-      setDmLoginErr(e.message || 'Falsches DM-Passwort.');
     }
+  };
+
+  const doDmLogin = async () => {
+    if (!dmLoginInput.trim()) { setDmLoginErr('Bitte DM-Passwort eingeben.'); return; }
+    setDmLoginErr('');
+    try { await dmLaden(dmLoginInput.trim()); }
+    catch(e) { setDmLoginErr(e.message || 'Falsches DM-Passwort.'); }
+  };
+
+  // Wer als Spielleitung angemeldet ist, braucht kein zweites Passwort.
+  const dmMitKonto = async () => {
+    try { await dmLaden(''); }
+    catch(e) { appAlert('Der DM-Bereich ließ sich nicht öffnen: ' + (e.message || '')); }
   };
 
   const doDmLogout = () => {
@@ -930,7 +982,7 @@ function App() {
     setChronik(ch);
     chronikMerkmaleAbgleichen(ch);
     const {url, code, pass} = serverCreds();
-    if (!url || !code || !pass || !dmPassRef.current) return;
+    if (!verbunden(serverCreds()) || !dmBereit()) return;
     apiDmSaveChronik(url, code, pass, dmPassRef.current, ch).catch(err =>
       appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
   };
@@ -1041,7 +1093,7 @@ function App() {
   const heldNotizSichern = () => {
     if (notizTimer.current) { clearTimeout(notizTimer.current); notizTimer.current = null; }
     const {url, code, pass} = serverCreds();
-    if (!url || !code || !pass || !dmPassRef.current) return;
+    if (!verbunden(serverCreds()) || !dmBereit()) return;
     apiDmSaveLibrary(url, code, pass, dmPassRef.current, dmLibRef.current).catch(()=>{});
   };
   const heldNotizSetzen = (charId, text) => {
@@ -1066,7 +1118,7 @@ function App() {
   const saveDmLibrary = (lib) => {
     setDmLibrary(lib);
     const {url, code, pass} = serverCreds();
-    if (!url || !code || !pass || !dmPassRef.current) return;
+    if (!verbunden(serverCreds()) || !dmBereit()) return;
     apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).catch(()=>{});
   };
 
@@ -1125,13 +1177,76 @@ function App() {
 
   // Logging helper — fire-and-forget, never blocks UI
   const addLog = (charId, charName, tab, action, details) => {
-    const {url, code, pass} = serverCreds();
-    if (!url || !code || !pass) return;
+    const {url, code, pass, token} = serverCreds();
+    if (!verbunden({url, code, pass, token})) return;
     const entry = { char_id: charId, char_name: charName, tab, action, details };
     apiSaveLog(url, code, pass, entry).catch(()=>{});
   };
 
+  // Anmelden mit einem Konto. Der Gruppencode kommt aus dem Konto selbst
+  // — es weiss, zu welchen Gruppen es gehoert. Angeben muss man ihn nur,
+  // wenn es mehrere sind oder wenn man die Verwaltung ist und in eine
+  // Gruppe will, in der man nicht Mitglied ist.
+  const applyKontoSetup = async () => {
+    const url  = (setupForm.url || '').trim();
+    const name = (setupForm.name || '').trim();
+    const pw   = setupForm.pass || '';
+    if (!url || !name || !pw) { setSetupErr('Bitte Server, Name und Passwort angeben.'); return; }
+    setSetupBusy(true); setSetupErr('');
+    try {
+      const an = await apiLogin(url, name, pw);
+      localStorage.setItem('sv_token', an.token || '');
+      const k = an.user || null;
+      const gruppen = (k && k.gruppen) || [];
+      const gewuenscht = (setupForm.code || '').trim().toUpperCase();
+      const gcode = (gewuenscht && (k.ist_admin || gruppen.some(g => g.session_code === gewuenscht)))
+        ? gewuenscht
+        : ((gruppen[0] && gruppen[0].session_code) || '');
+      if (!gcode) {
+        localStorage.removeItem('sv_token');
+        throw new Error(gewuenscht
+          ? 'Dein Konto gehört nicht zu der Gruppe ' + gewuenscht + '.'
+          : 'Dein Konto gehört zu keiner Gruppe. Die Verwaltung muss dich aufnehmen.');
+      }
+      // Das Gruppenpasswort gibt es hier nicht — die Kennung ersetzt es.
+      const data = await apiLoadChars(url, gcode, '');
+      pollToken.current = data.poll_token || null;
+      revRef.current    = data.rev != null ? data.rev : null;
+      localStorage.setItem('sv_url',  url);
+      localStorage.setItem('sv_code', gcode);
+      localStorage.removeItem('sv_pass');
+      setKonto(k);
+      setSvUrl(url); setSvCode(gcode); setSvPass('');
+      applyChars(data.chars || []);
+      pendingRef.current = false;
+      spiegleChars(JSON.stringify(data.chars || []));
+      if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
+      if (data.has_dm) setHasDmMode(true);
+      setSyncStatus('ok'); setSyncMsg('Angemeldet ✓');
+      setShowSetup(false);
+      // Ein Einmalpasswort gilt genau bis hierher.
+      if (k && k.muss_wechseln) setPasswortDlg({alt: pw, neu: '', neu2: '', err: '', pflicht: true});
+    } catch(e) {
+      localStorage.removeItem('sv_token');
+      setSetupErr(e.message);
+    }
+    setSetupBusy(false);
+  };
+
+  const passwortAendern = async () => {
+    const d = passwortDlg;
+    if (!d) return;
+    if ((d.neu || '').length < 6) { setPasswortDlg({...d, err: 'Mindestens 6 Zeichen.'}); return; }
+    if (d.neu !== d.neu2)         { setPasswortDlg({...d, err: 'Die beiden Eingaben sind nicht gleich.'}); return; }
+    try {
+      await apiPassAendern(serverCreds().url, d.alt, d.neu);
+      setKonto(k => k && ({...k, muss_wechseln: false}));
+      setPasswortDlg(null);
+    } catch(e) { setPasswortDlg({...d, err: e.message}); }
+  };
+
   const applySetup = async () => {
+    if (setupMode === 'konto') return applyKontoSetup();
     const { url, code, pass, dmPass: regDmPass } = setupForm;
     if (!url.trim()||!code.trim()||!pass.trim()) { setSetupErr('Bitte alle Felder ausfüllen.'); return; }
     if (pass.length < 6) { setSetupErr('Passwort mindestens 6 Zeichen.'); return; }
@@ -1168,7 +1283,16 @@ function App() {
       return;
     }
     appConfirm('Von der Gruppe abmelden? Die Charaktere bleiben auf dem Server.', () => {
-      ['sv_url','sv_code','sv_pass'].forEach(k=>localStorage.removeItem(k));
+      // Die Anmeldung endet auch auf dem Server: eine Kennung, die nur im
+      // Browser geloescht wird, bleibt dort gueltig liegen.
+      const alt = serverCreds();
+      if (alt.token) apiLogout(alt.url, alt.token).catch(()=>{});
+      setKonto(null);
+      // Alles der Spielleitung geht mit. Vorher blieb der DM-Modus samt
+      // Bibliothek, Gegnern und Chronik im Speicher stehen — wer sich
+      // danach als jemand anders anmeldete, sass in fremden Unterlagen.
+      doDmLogout();
+      ['sv_url','sv_code','sv_pass','sv_token'].forEach(k=>localStorage.removeItem(k));
       // Die lokale Kopie geht mit: sonst bliebe ein Stand liegen, der zu
       // keiner Gruppe mehr gehoert.
       localStorage.removeItem('dnd_chars');
@@ -1694,8 +1818,8 @@ function App() {
     const alSearchRef  = useRef('');
 
     const fetchPage = (offset, search, tabs, reset) => {
-      const {url, code, pass} = serverCreds();
-      if (!url||!code||!pass) return;
+      const {url, code, pass, token} = serverCreds();
+      if (!verbunden({url, code, pass, token})) return;
       setAlLoading(true);
       apiLoadLogs(url,code,pass,null,{limit:50,offset,search,tabFilter:tabs})
         .then(d => {
@@ -2024,6 +2148,13 @@ function App() {
                 <div className="sync-line">
                   <div className={"sync-dot "+(offeneAenderungen>0?"err":syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
                   <span className="sync-line-code">{svCode}</span>
+                  {konto && (
+                    <span className="sync-line-konto"
+                      title={'Angemeldet als ' + konto.name
+                             + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')}>
+                      👤 {konto.name}
+                    </span>
+                  )}
                   {/* Der Rueckstand steht vor der Statusmeldung: er ist die
                       wichtigere Aussage, wenn beides zutrifft. */}
                   <span className={"sync-line-msg"+(offeneAenderungen>0?" offen":"")}>
@@ -2038,7 +2169,17 @@ function App() {
                 </div>
                 <div className="sync-actions">
                   <button className="btn-sync" title="Daten neu vom Server laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺ Laden</button>
-                  {hasDmMode && !isDmMode && (
+                  {/* Wer als Spielleitung angemeldet ist, kommt ohne zweites
+                      Passwort hinein — die Rolle steht am Konto. */}
+                  {kontoIstDm(konto, svCode) && !isDmMode && (
+                    <button className="btn-sync dm" title="In den DM-Modus wechseln"
+                      onClick={dmMitKonto}>🔮 DM</button>
+                  )}
+                  {/* Ohne Konto der alte Weg ueber das DM-Passwort. Mit Konto
+                      entscheidet allein die Rolle — einem Spieler das
+                      Passwortfenster hinzustellen waere eine Tuer, die der
+                      Server ohnehin zuhaelt. */}
+                  {hasDmMode && !konto && !isDmMode && (
                     <button className="btn-sync dm" title="In den DM-Modus wechseln" onClick={()=>{setDmLoginInput('');setDmLoginErr('');setShowDmLogin(true);}}>🔮 DM</button>
                   )}
                   {isDmMode && (
@@ -3800,6 +3941,50 @@ function App() {
       )}
 
 
+      {passwortDlg && (
+        <div className="form-overlay">
+          <div className="form-modal" style={{maxWidth:400}}>
+            <div className="form-title">🔑 Passwort wählen</div>
+            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:16,lineHeight:1.55}}>
+              {passwortDlg.pflicht
+                ? 'Du bist mit einem Einmalpasswort angemeldet. Wähle jetzt dein eigenes — das alte gilt danach nicht mehr.'
+                : 'Das neue Passwort gilt sofort. Andere Geräte, auf denen du angemeldet bist, werden abgemeldet.'}
+            </div>
+            {!passwortDlg.pflicht && (
+              <div className="form-group">
+                <div className="form-label">Bisheriges Passwort</div>
+                <input className="form-input" type="password" value={passwortDlg.alt}
+                  onChange={e=>setPasswortDlg({...passwortDlg, alt:e.target.value, err:''})} />
+              </div>
+            )}
+            <div className="form-group">
+              <div className="form-label">Neues Passwort</div>
+              <input className="form-input" type="password" autoFocus placeholder="Mind. 6 Zeichen"
+                value={passwortDlg.neu}
+                onChange={e=>setPasswortDlg({...passwortDlg, neu:e.target.value, err:''})} />
+            </div>
+            <div className="form-group">
+              <div className="form-label">Noch einmal</div>
+              <input className="form-input" type="password" value={passwortDlg.neu2}
+                onChange={e=>setPasswortDlg({...passwortDlg, neu2:e.target.value, err:''})}
+                onKeyDown={e=>e.key==='Enter'&&passwortAendern()} />
+            </div>
+            {passwortDlg.err && (
+              <div style={{background:"#3a1010",border:"1px solid var(--crimson)",borderRadius:4,
+                           padding:"8px 12px",fontSize:13,color:"#e87070",marginBottom:8}}>
+                ⚠️ {passwortDlg.err}
+              </div>
+            )}
+            <div className="form-actions">
+              {!passwortDlg.pflicht && (
+                <button className="btn-cancel" onClick={()=>setPasswortDlg(null)}>Abbrechen</button>
+              )}
+              <button className="btn-save" onClick={passwortAendern}>Übernehmen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDmLogin && (
         <div className="form-overlay">
           <div className="form-modal" style={{maxWidth:380}}>
@@ -3987,12 +4172,18 @@ function App() {
           <div className="form-modal" style={{maxWidth:460}}>
             <div className="form-title">☁️ Server-Sync einrichten</div>
             <p style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.6,marginBottom:16}}>
-              Charaktere werden auf deinem eigenen Server gespeichert und sind auf jedem Gerät verfügbar.
-              Jede Gruppe hat einen eindeutigen <strong style={{color:"var(--text-secondary)"}}>Code</strong> und ein <strong style={{color:"var(--text-secondary)"}}>Passwort</strong>.
+              {setupMode === 'konto' ? (
+                <>Mit deinem eigenen Konto anmelden. Deine Gruppe und deine Rolle stehen
+                   am Konto — den Gruppencode musst du nur angeben, wenn du zu mehreren
+                   gehörst.</>
+              ) : (
+                <>Charaktere werden auf deinem eigenen Server gespeichert und sind auf jedem Gerät verfügbar.
+                   Jede Gruppe hat einen eindeutigen <strong style={{color:"var(--text-secondary)"}}>Code</strong> und ein <strong style={{color:"var(--text-secondary)"}}>Passwort</strong>.</>
+              )}
             </p>
             {/* Mode Toggle */}
             <div style={{display:"flex",gap:0,marginBottom:16,borderRadius:4,overflow:"hidden",border:"1px solid var(--border)"}}>
-              {[["login","🔑 Anmelden"],["register","✦ Neue Gruppe"]].map(([m,l])=>(
+              {[["konto","👤 Konto"],["login","🔑 Gruppe"],["register","✦ Neue Gruppe"]].map(([m,l])=>(
                 <button key={m} onClick={()=>{setSetupMode(m);setSetupErr('');}}
                   style={{flex:1,padding:"9px 4px",fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,letterSpacing:"0.08em",
                     cursor:"pointer",border:"none",
@@ -4009,13 +4200,30 @@ function App() {
                   onChange={e=>setSetupForm({...setupForm,url:e.target.value})} />
                 <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>URL deines Webhostings, wo api.php liegt</div>
               </div>
+              {setupMode === 'konto' && (
+                <div className="form-group">
+                  <div className="form-label">Name</div>
+                  <input className="form-input" placeholder="Dein Kontoname" maxLength={40}
+                    value={setupForm.name||''}
+                    onChange={e=>setSetupForm({...setupForm,name:e.target.value})} />
+                </div>
+              )}
               <div className="form-group">
-                <div className="form-label">Gruppen-Code</div>
+                <div className="form-label">
+                  Gruppen-Code
+                  {setupMode === 'konto' && (
+                    <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}> (nur wenn nötig)</span>
+                  )}
+                </div>
                 <input className="form-input" placeholder="z.B. ABENTEURER" maxLength={20}
                   value={setupForm.code}
                   onChange={e=>setSetupForm({...setupForm,code:e.target.value.toUpperCase()})}
                   style={{fontFamily:"'Roboto Condensed',sans-serif",letterSpacing:"0.1em"}} />
-                <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>Buchstaben, Zahlen, - und _ erlaubt</div>
+                <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>
+                  {setupMode === 'konto'
+                    ? 'Leer lassen — dein Konto weiß, wohin es gehört'
+                    : 'Buchstaben, Zahlen, - und _ erlaubt'}
+                </div>
               </div>
               <div className="form-group">
                 <div className="form-label">Passwort</div>
@@ -4040,7 +4248,10 @@ function App() {
             <div className="form-actions">
               {svCode && <button className="btn-cancel" onClick={()=>setShowSetup(false)}>Abbrechen</button>}
               <button className="btn-save" style={{flex:1,opacity:setupBusy?0.6:1}} onClick={applySetup} disabled={setupBusy}>
-                {setupBusy ? "Verbinde..." : setupMode==="register" ? "✦ Gruppe erstellen & verbinden" : "🔑 Anmelden"}
+                {setupBusy ? "Verbinde..."
+                  : setupMode==="register" ? "✦ Gruppe erstellen & verbinden"
+                  : setupMode==="konto"    ? "👤 Anmelden"
+                  : "🔑 Mit Gruppenpasswort anmelden"}
               </button>
             </div>
           </div>
