@@ -1976,6 +1976,8 @@
   .sheet-nur-lesen .such-feld,
   .sheet-nur-lesen .filter-feld { pointer-events:auto; opacity:1; }
 
+  .not-zeile { display:grid; grid-template-columns:1fr 1fr 0.8fr; gap:10px; }
+  .not-zeile .form-input { text-align:center; font-variant-numeric:tabular-nums; }
   .fremder-bogen { font-size:13px; opacity:0.45; padding:4px 8px; cursor:default;
     user-select:none; }
   .char-eigen { font-size:10px; color:#7ab8f5; }

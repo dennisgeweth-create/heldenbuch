@@ -42,6 +42,23 @@ const gegnerAusVorlage = (vorlage, name) => {
   };
 };
 
+// Ein Nothelfer: der Waechter, der im Abenteuerbuch mit einem Satz
+// abgehandelt ist, oder der Wolf, den sich jemand gerade ausgedacht hat.
+// Drei Angaben genuegen — alles Weitere steht im Kopf der Spielleitung
+// und braucht keinen Eintrag in der Sammlung.
+const nothelferAnlegen = (name, tp, ac) => {
+  const hp = Math.max(1, Math.round(+tp || 1));
+  return {
+    id: 'not-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6),
+    art: 'gegner', vorlageId: null, nothelfer: true,
+    name: (name || '').trim() || 'Gegner',
+    ac: Math.max(1, Math.round(+ac || 10)),
+    hpMax: hp, hp, tempHp: 0,
+    ini: w20(), dex: 10,
+    zustaende: [], erschoepfung: 0, notiz: '', bild: null,
+  };
+};
+
 // Die Gegner einer Begegnung, ausgewuerfelt und durchnummeriert. Steht
 // einzeln, weil eine Begegnung auch in einen schon laufenden Kampf
 // nachgeladen werden kann.
@@ -420,6 +437,62 @@ const BegegnungWahl = ({ encounters, enemies, advId, onLaden, onAbbrechen }) => 
   );
 };
 
+const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
+  const [name, setName] = React.useState('');
+  const [tp, setTp]     = React.useState('');
+  const [ac, setAc]     = React.useState('');
+  const [anzahl, setAnzahl] = React.useState(1);
+  const fertig = () => {
+    const n = Math.max(1, Math.min(20, +anzahl || 1));
+    onAnlegen(name, tp, ac, n);
+  };
+  const taste = (e) => { if (e.key === 'Enter') fertig(); };
+
+  return (
+    <div className="form-overlay" onClick={onAbbrechen}>
+      <div className="form-modal" style={{maxWidth:400}} onClick={e=>e.stopPropagation()}>
+        <div className="form-title">✚ Nothelfer</div>
+        <div className="einst-hinweis" style={{marginTop:0,marginBottom:14}}>
+          Für den Wächter, der im Abenteuerbuch mit einem Satz abgehandelt ist.
+          Er kommt sofort in die Initiative und wandert nicht in die Gegnersammlung.
+        </div>
+        <div className="form-grid" style={{gridTemplateColumns:"1fr"}}>
+          <div className="form-group">
+            <div className="form-label">Name</div>
+            <input className="form-input" autoFocus placeholder="z.B. Wächter am Tor"
+              value={name} onChange={e=>setName(e.target.value)} onKeyDown={taste} />
+          </div>
+          <div className="not-zeile">
+            <div className="form-group">
+              <div className="form-label">Trefferpunkte</div>
+              <input className="form-input" type="number" min={1} max={9999} placeholder="11"
+                value={tp} onChange={e=>setTp(e.target.value)} onKeyDown={taste} />
+            </div>
+            <div className="form-group">
+              <div className="form-label">Rüstungsklasse</div>
+              <input className="form-input" type="number" min={1} max={40} placeholder="13"
+                value={ac} onChange={e=>setAc(e.target.value)} onKeyDown={taste} />
+            </div>
+            <div className="form-group">
+              <div className="form-label">Anzahl</div>
+              <input className="form-input" type="number" min={1} max={20}
+                value={anzahl} onChange={e=>setAnzahl(e.target.value)} onKeyDown={taste} />
+            </div>
+          </div>
+        </div>
+        <div className="einst-hinweis" style={{marginTop:0}}>
+          Die Initiative wird gewürfelt. Leere Felder bedeuten 1 Trefferpunkt und
+          Rüstungsklasse 10.
+        </div>
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          <button className="btn-save" onClick={fertig}>In den Kampf</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SpontanWahl = ({ enemies, laufend, onStarten, onAbbrechen }) => {
   const [suche, setSuche] = React.useState('');
   const [gewaehlt, setGewaehlt] = React.useState([]);
@@ -596,6 +669,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [spontan, setSpontan] = React.useState(false);
   const [begegnungOffen, setBegegnungOffen] = React.useState(false);
+  const [nothelferOffen, setNothelferOffen] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
@@ -809,6 +883,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             title="Gegner nachträglich dazunehmen">⚡ Gegner</button>
           <button className="kampf-kopf-btn zusatz" onClick={()=>setBegegnungOffen(true)}
             title="Eine vorbereitete Begegnung dazuladen">📋 Begegnung</button>
+          <button className="kampf-kopf-btn zusatz" onClick={()=>setNothelferOffen(true)}
+            title="Gegner aus dem Stegreif: Name, Trefferpunkte, Rüstungsklasse">✚ Nothelfer</button>
           <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
           <button className="kampf-kopf-btn ende" onClick={onBeenden}>⏹ Kampf beenden</button>
           <button className="kampf-kopf-x" onClick={onSchliessen}
@@ -820,6 +896,20 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             {ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative'} —
             sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben würfeln lassen.
           </div>
+        )}
+
+        {nothelferOffen && (
+          <NothelferFenster
+            onAbbrechen={()=>setNothelferOffen(false)}
+            onAnlegen={(name, tp, ac, anzahl)=>{
+              setNothelferOffen(false);
+              const neue = [];
+              for (let i = 0; i < anzahl; i++) {
+                neue.push(nothelferAnlegen(
+                  anzahl > 1 ? ((name || '').trim() || 'Gegner') + ' ' + (i+1) : name, tp, ac));
+              }
+              dazu(neue);
+            }} />
         )}
 
         {begegnungOffen && (

@@ -1308,6 +1308,31 @@ const gegnerAusVorlage = (vorlage, name) => {
   };
 };
 
+// Ein Nothelfer: der Waechter, der im Abenteuerbuch mit einem Satz
+// abgehandelt ist, oder der Wolf, den sich jemand gerade ausgedacht hat.
+// Drei Angaben genuegen — alles Weitere steht im Kopf der Spielleitung
+// und braucht keinen Eintrag in der Sammlung.
+const nothelferAnlegen = (name, tp, ac) => {
+  const hp = Math.max(1, Math.round(+tp || 1));
+  return {
+    id: 'not-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+    art: 'gegner',
+    vorlageId: null,
+    nothelfer: true,
+    name: (name || '').trim() || 'Gegner',
+    ac: Math.max(1, Math.round(+ac || 10)),
+    hpMax: hp,
+    hp,
+    tempHp: 0,
+    ini: w20(),
+    dex: 10,
+    zustaende: [],
+    erschoepfung: 0,
+    notiz: '',
+    bild: null
+  };
+};
+
 // Die Gegner einer Begegnung, ausgewuerfelt und durchnummeriert. Steht
 // einzeln, weil eine Begegnung auch in einen schon laufenden Kampf
 // nachgeladen werden kann.
@@ -1836,6 +1861,109 @@ const BegegnungWahl = ({
     onClick: onAbbrechen
   }, "Abbrechen"))));
 };
+const NothelferFenster = ({
+  onAnlegen,
+  onAbbrechen
+}) => {
+  const [name, setName] = React.useState('');
+  const [tp, setTp] = React.useState('');
+  const [ac, setAc] = React.useState('');
+  const [anzahl, setAnzahl] = React.useState(1);
+  const fertig = () => {
+    const n = Math.max(1, Math.min(20, +anzahl || 1));
+    onAnlegen(name, tp, ac, n);
+  };
+  const taste = e => {
+    if (e.key === 'Enter') fertig();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: onAbbrechen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 400
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\u271A Nothelfer"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 14
+    }
+  }, "F\xFCr den W\xE4chter, der im Abenteuerbuch mit einem Satz abgehandelt ist. Er kommt sofort in die Initiative und wandert nicht in die Gegnersammlung."), /*#__PURE__*/React.createElement("div", {
+    className: "form-grid",
+    style: {
+      gridTemplateColumns: "1fr"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Name"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    autoFocus: true,
+    placeholder: "z.B. W\xE4chter am Tor",
+    value: name,
+    onChange: e => setName(e.target.value),
+    onKeyDown: taste
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "not-zeile"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Trefferpunkte"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 1,
+    max: 9999,
+    placeholder: "11",
+    value: tp,
+    onChange: e => setTp(e.target.value),
+    onKeyDown: taste
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "R\xFCstungsklasse"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 1,
+    max: 40,
+    placeholder: "13",
+    value: ac,
+    onChange: e => setAc(e.target.value),
+    onKeyDown: taste
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Anzahl"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 1,
+    max: 20,
+    value: anzahl,
+    onChange: e => setAnzahl(e.target.value),
+    onKeyDown: taste
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0
+    }
+  }, "Die Initiative wird gew\xFCrfelt. Leere Felder bedeuten 1 Trefferpunkt und R\xFCstungsklasse 10."), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: fertig
+  }, "In den Kampf"))));
+};
 const SpontanWahl = ({
   enemies,
   laufend,
@@ -2052,6 +2180,7 @@ const KampfAnsicht = ({
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [spontan, setSpontan] = React.useState(false);
   const [begegnungOffen, setBegegnungOffen] = React.useState(false);
+  const [nothelferOffen, setNothelferOffen] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
@@ -2367,6 +2496,10 @@ const KampfAnsicht = ({
     onClick: () => setBegegnungOffen(true),
     title: "Eine vorbereitete Begegnung dazuladen"
   }, "\uD83D\uDCCB Begegnung"), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-btn zusatz",
+    onClick: () => setNothelferOffen(true),
+    title: "Gegner aus dem Stegreif: Name, Trefferpunkte, R\xFCstungsklasse"
+  }, "\u271A Nothelfer"), /*#__PURE__*/React.createElement("button", {
     className: "kampf-weiter",
     onClick: naechster
   }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
@@ -2379,7 +2512,17 @@ const KampfAnsicht = ({
     "aria-label": "Kampftracker schlie\xDFen"
   }, "\u2715")), ohneIni > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
-  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), begegnungOffen && /*#__PURE__*/React.createElement(BegegnungWahl, {
+  }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), nothelferOffen && /*#__PURE__*/React.createElement(NothelferFenster, {
+    onAbbrechen: () => setNothelferOffen(false),
+    onAnlegen: (name, tp, ac, anzahl) => {
+      setNothelferOffen(false);
+      const neue = [];
+      for (let i = 0; i < anzahl; i++) {
+        neue.push(nothelferAnlegen(anzahl > 1 ? ((name || '').trim() || 'Gegner') + ' ' + (i + 1) : name, tp, ac));
+      }
+      dazu(neue);
+    }
+  }), begegnungOffen && /*#__PURE__*/React.createElement(BegegnungWahl, {
     encounters: encounters,
     enemies: enemies,
     advId: advId,
