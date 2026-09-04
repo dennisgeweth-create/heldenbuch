@@ -2,7 +2,15 @@
 // ════════════════════════════════════════════════════════════════
 //  Heldenbuch API  v3.1 — Granulare Speicherung
 // ════════════════════════════════════════════════════════════════
-require_once __DIR__ . '/config.php';
+// Die Konfiguration liegt neben dieser Datei und steht nicht im Repo.
+//
+// Fuer den oertlichen Testlauf darf sie ueber HB_CONFIG umgebogen werden —
+// aber nur, wenn PHP von der Kommandozeile oder aus dem eingebauten Server
+// laeuft. Unter dem Webserver wird die Variable nicht einmal gelesen: die
+// Konfiguration traegt die Zugangsdaten der Datenbank, und die soll nichts
+// von aussen umlenken koennen.
+$hbEigen = (PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server') ? (string)getenv('HB_CONFIG') : '';
+require_once ($hbEigen !== '' && is_file($hbEigen)) ? $hbEigen : __DIR__ . '/config.php';
 define('MAX_CHAR_BYTES',  500000);   // 500KB pro Char (ohne Items)
 define('MAX_ITEM_BYTES',  2000000);  // 2MB pro Item (Bild!)
 define('MAX_LIB_BYTES',   2000000);  // 2MB Bibliothek

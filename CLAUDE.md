@@ -26,6 +26,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `styles.css` | gesamte Oberfläche |
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
 | `api.php` | Server-Sync, braucht `config.php` (nicht im Repo) |
+| `dev/` | oertliche Serverseite zum Testen — wird nie ausgeliefert |
 
 ## Nach jeder Änderung in `js/src/`
 
@@ -48,6 +49,27 @@ python devserver.py
 
 Nicht `python -m http.server`: das sendet keine Cache-Vorgabe, und der Browser
 liefert dann alte Stände von `styles.css` und `js/*.js` aus.
+
+## Serverseite lokal testen
+
+`api.php` lief frueher erst auf dem Server zum ersten Mal. Seit XAMPP
+danebensteht, geht es vorher:
+
+```bash
+powershell -NoProfile -Command ".\dev\start.ps1 -Neu"
+C:/xampp/php/php.exe dev/test-api.php
+```
+
+`start.ps1` startet MariaDB und den eingebauten PHP-Server auf Port 8123.
+`-Neu` legt die Wegwerfdatenbank `heldenbuch_dev` frisch an, `-Stop`
+beendet beides. `dev/test-api.php` prueft die Schnittstelle ueber echte
+HTTP-Anfragen.
+
+**Achtung:** die `config.php` im Projektordner zeigt auf die Datenbank der
+Gruppe. Der Testlauf fasst sie nicht an — `api.php` nimmt `HB_CONFIG` nur
+an, wenn PHP von der Kommandozeile oder aus dem eingebauten Server laeuft,
+und `dev/db-neu.php` verweigert die Arbeit, wenn der Host nicht dieser
+Rechner ist oder die Datenbank nicht auf `_dev` endet.
 
 ## Deploy
 
