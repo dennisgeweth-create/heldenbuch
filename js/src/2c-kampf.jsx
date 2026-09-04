@@ -761,6 +761,35 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       t.art === 'held' ? {...t, notiz: ''} : t)}));
   }, []);
 
+  // Wer am Zug ist, gehoert ins Protokoll — und zwar gleich, wodurch er
+  // es wurde. Am Knopf "Naechster Zug" zu haengen liess genau die Faelle
+  // aus, in denen niemand ihn drueckt: die allererste Runde, das
+  // Wuerfeln der Initiative, ein Nachzuegler, der sich davorschiebt, eine
+  // Figur, die aus der Reihe genommen wird. Deshalb haengt der Eintrag am
+  // Zustand.
+  //
+  // Der Schluessel ist Runde und Figur zusammen: dieselbe Figur in der
+  // naechsten Runde ist ein neuer Zug, dieselbe Figur nach dem dritten
+  // Neuzeichnen nicht.
+  const dranRoh = (kampf && kampf.aktiv) ? kampf.teilnehmer[kampf.zug] : null;
+  const zugSchluessel = dranRoh ? kampf.runde + ':' + dranRoh.id : null;
+  const zuletztAmZug = React.useRef(undefined);
+  if (zuletztAmZug.current === undefined) {
+    // Beim Oeffnen eines laufenden Kampfes steht schon im Protokoll, wer
+    // dran ist. Ohne diese Zeile stuende es nach jedem Aufklappen erneut da.
+    const frueher = [...((kampf && kampf.log) || [])].reverse().find(e => e.art === 'zug');
+    zuletztAmZug.current = frueher ? frueher.r + ':' + frueher.id : null;
+  }
+  React.useEffect(() => {
+    if (!zugSchluessel || zuletztAmZug.current === zugSchluessel) return;
+    zuletztAmZug.current = zugSchluessel;
+    const c = dranRoh.art === 'held' ? helden.find(h => h.id === dranRoh.charId) : null;
+    const name  = c ? c.name : (dranRoh.name || '');
+    const unter = c ? ((c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level) : '';
+    protokollieren({art: 'zug', id: dranRoh.id,
+      wer: name + (unter ? ' (' + unter + ')' : '')});
+  }, [zugSchluessel]);
+
   // Ein Bild lang gibt es noch keinen Kampf — der Effekt oben stellt ihn
   // auf. Etwas anzuzeigen, das sofort wieder verschwindet, waere Flackern.
   if (!kampf || !kampf.aktiv) return null;
@@ -956,16 +985,9 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const naechster = () => setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
-    const nk = naechsterZug >= k.teilnehmer.length
+    return naechsterZug >= k.teilnehmer.length
       ? {...k, zug: 0, runde: k.runde + 1}
       : {...k, zug: naechsterZug};
-    // Wer jetzt dran ist, steht im neuen Kampf — nicht im alten.
-    const dran = nk.teilnehmer[nk.zug];
-    const name = dran ? (heldName(dran) || dran.name) : '';
-    const unter = dran && dran.art === 'held'
-      ? (liste.find(x => x.id === dran.id) || {}).unterzeile : null;
-    return {...nk, log: [...(nk.log || []), {art:'zug', r: nk.runde,
-      wer: name + (unter ? ' (' + unter + ')' : '')}]};
   });
 
   // Wuerfelt nur fuer die, bei denen noch nichts steht — eine angesagte
