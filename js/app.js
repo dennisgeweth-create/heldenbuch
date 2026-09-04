@@ -8371,13 +8371,15 @@ function App() {
   // Die Kopie ist eine Bequemlichkeit — sie zeigt den letzten Stand, bis
   // der Server antwortet. Ihr Fehlen darf nichts blockieren: die Daten
   // liegen auf dem Server, und die Warteschlange merkt sich Kennungen,
-  // keine Inhalte. Passt die Kopie nicht mehr, sagen wir das und arbeiten
-  // ohne sie weiter.
-  const [spiegelVoll, setSpiegelVoll] = useState(false);
+  // keine Inhalte.
+  //
+  // Passt sie nicht mehr in den Browserspeicher, wird ohne sie
+  // weitergearbeitet. Angezeigt wird das nicht mehr: es war eine Warnung
+  // ueber etwas, das niemanden betrifft — geladen wird ohnehin vom
+  // Server. Fuer die Fehlersuche steht es in der Konsole.
   const spiegleChars = json => {
     try {
       localStorage.setItem('dnd_chars', json);
-      setSpiegelVoll(false);
       return true;
     } catch (e) {
       // Platz schaffen: die Bibliothek laesst sich jederzeit neu laden.
@@ -8389,7 +8391,6 @@ function App() {
       } catch {}
       try {
         localStorage.setItem('dnd_chars', json);
-        setSpiegelVoll(false);
         return true;
       } catch {}
       // Ein unvollstaendiger Stand waere schlimmer als keiner: er saehe
@@ -8398,7 +8399,6 @@ function App() {
         localStorage.removeItem('dnd_chars');
       } catch {}
       console.warn('[Heldenbuch] Lokale Kopie passt nicht in den Browserspeicher:', e && e.message);
-      setSpiegelVoll(true);
       return false;
     }
   };
@@ -11931,24 +11931,25 @@ function App() {
     className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
   }), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-code"
-  }, svCode), konto && /*#__PURE__*/React.createElement("button", {
-    className: "sync-line-konto",
-    onClick: kontoOeffnen,
-    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '') + ' — was über dich gespeichert ist'
-  }, "\uD83D\uDC64 ", konto.name), /*#__PURE__*/React.createElement("span", {
+  }, svCode), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
   }, "\xB7 ", offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-ver"
-  }, "v4.2"), spiegelVoll && /*#__PURE__*/React.createElement("span", {
-    className: "sync-line-hint",
-    title: "Der Browserspeicher ist voll. Die Charaktere liegen weiter auf dem Server und werden bei jedem Start von dort geladen \u2014 nur die lokale Kopie f\xFCr den Offline-Fall entf\xE4llt."
-  }, "\u26A0 ohne lokale Kopie")), /*#__PURE__*/React.createElement("div", {
+  }, "v4.2")), /*#__PURE__*/React.createElement("div", {
     className: "sync-actions"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync",
-    title: "Daten neu vom Server laden",
-    onClick: () => doSyncLoad(svUrl, svCode, svPass)
-  }, "\u21BA Laden"), konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, konto ? /*#__PURE__*/React.createElement("button", {
+    className: "btn-konto",
+    onClick: kontoOeffnen,
+    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '') + ' — Passwort ändern, und was über dich gespeichert ist'
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "btn-konto-name"
+  }, "\uD83D\uDC64 ", konto.name), konto.ist_admin && /*#__PURE__*/React.createElement("i", {
+    className: "btn-konto-rolle"
+  }, "Verwaltung"), !konto.ist_admin && isDmMode && /*#__PURE__*/React.createElement("i", {
+    className: "btn-konto-rolle"
+  }, "Spielleitung")) : /*#__PURE__*/React.createElement("span", {
+    className: "btn-konto leer"
+  }, "Ohne Konto verbunden"), konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-sync dm",
     title: "In den DM-Modus wechseln",
     onClick: dmMitKonto
@@ -11956,11 +11957,17 @@ function App() {
     className: "btn-sync dm active",
     title: "DM-Modus verlassen",
     onClick: doDmLogout
-  }, "\uD83D\uDD2E DM aus"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync",
-    title: "Von der Gruppe abmelden",
+  }, "\uD83D\uDD2E aus"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync schmal",
+    title: "Daten neu vom Server laden",
+    "aria-label": "Neu laden",
+    onClick: () => doSyncLoad(svUrl, svCode, svPass)
+  }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync schmal",
+    title: "Abmelden",
+    "aria-label": "Abmelden",
     onClick: signOut
-  }, "\u238B Abmelden"))) : /*#__PURE__*/React.createElement("button", {
+  }, "\u238B"))) : /*#__PURE__*/React.createElement("button", {
     className: "btn-sync",
     onClick: () => {
       setSetupErr('');

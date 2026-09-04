@@ -262,24 +262,25 @@ function App() {
   // Die Kopie ist eine Bequemlichkeit — sie zeigt den letzten Stand, bis
   // der Server antwortet. Ihr Fehlen darf nichts blockieren: die Daten
   // liegen auf dem Server, und die Warteschlange merkt sich Kennungen,
-  // keine Inhalte. Passt die Kopie nicht mehr, sagen wir das und arbeiten
-  // ohne sie weiter.
-  const [spiegelVoll, setSpiegelVoll] = useState(false);
+  // keine Inhalte.
+  //
+  // Passt sie nicht mehr in den Browserspeicher, wird ohne sie
+  // weitergearbeitet. Angezeigt wird das nicht mehr: es war eine Warnung
+  // ueber etwas, das niemanden betrifft — geladen wird ohnehin vom
+  // Server. Fuer die Fehlersuche steht es in der Konsole.
   const spiegleChars = (json) => {
     try {
       localStorage.setItem('dnd_chars', json);
-      setSpiegelVoll(false);
       return true;
     } catch (e) {
       // Platz schaffen: die Bibliothek laesst sich jederzeit neu laden.
       try { localStorage.removeItem('hb_library'); } catch {}
       try { localStorage.removeItem('hb_dm_library'); } catch {}
-      try { localStorage.setItem('dnd_chars', json); setSpiegelVoll(false); return true; } catch {}
+      try { localStorage.setItem('dnd_chars', json); return true; } catch {}
       // Ein unvollstaendiger Stand waere schlimmer als keiner: er saehe
       // aus wie Datenverlust. Lieber gar keine Kopie.
       try { localStorage.removeItem('dnd_chars'); } catch {}
       console.warn('[Heldenbuch] Lokale Kopie passt nicht in den Browserspeicher:', e && e.message);
-      setSpiegelVoll(true);
       return false;
     }
   };
@@ -2518,46 +2519,44 @@ function App() {
             </div>
             {svCode ? (
               <>
+                {/* Eine Zeile fuer den Zustand, eine fuer die Handgriffe.
+                    Vorher standen hier drei gleich breite Knoepfe, von
+                    denen einer selten und folgenreich ist (Abmelden) und
+                    einer der haeufigste Weg zum eigenen Konto — jetzt hat
+                    jeder das Gewicht, das er verdient. */}
                 <div className="sync-line">
                   <div className={"sync-dot "+(offeneAenderungen>0?"err":syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
                   <span className="sync-line-code">{svCode}</span>
-                  {konto && (
-                    <button className="sync-line-konto" onClick={kontoOeffnen}
-                      title={'Angemeldet als ' + konto.name
-                             + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
-                             + ' — was über dich gespeichert ist'}>
-                      👤 {konto.name}
-                    </button>
-                  )}
-                  {/* Der Rueckstand steht vor der Statusmeldung: er ist die
-                      wichtigere Aussage, wenn beides zutrifft. */}
                   <span className={"sync-line-msg"+(offeneAenderungen>0?" offen":"")}>
                     · {offeneAenderungen>0 ? offeneAenderungen+" nicht gesichert" : (syncMsg||"Verbunden")}
                   </span>
                   <span className="sync-line-ver">v4.2</span>
-                  {spiegelVoll && (
-                    <span className="sync-line-hint" title="Der Browserspeicher ist voll. Die Charaktere liegen weiter auf dem Server und werden bei jedem Start von dort geladen — nur die lokale Kopie für den Offline-Fall entfällt.">
-                      ⚠ ohne lokale Kopie
-                    </span>
-                  )}
                 </div>
                 <div className="sync-actions">
-                  <button className="btn-sync" title="Daten neu vom Server laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺ Laden</button>
+                  {konto ? (
+                    <button className="btn-konto" onClick={kontoOeffnen}
+                      title={'Angemeldet als ' + konto.name
+                             + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
+                             + ' — Passwort ändern, und was über dich gespeichert ist'}>
+                      <span className="btn-konto-name">👤 {konto.name}</span>
+                      {konto.ist_admin && <i className="btn-konto-rolle">Verwaltung</i>}
+                      {!konto.ist_admin && isDmMode && <i className="btn-konto-rolle">Spielleitung</i>}
+                    </button>
+                  ) : <span className="btn-konto leer">Ohne Konto verbunden</span>}
                   {/* Wer als Spielleitung angemeldet ist, kommt ohne zweites
                       Passwort hinein — die Rolle steht am Konto. */}
                   {konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && (
-                    <button className="btn-sync dm"
-                      title="In den DM-Modus wechseln"
+                    <button className="btn-sync dm" title="In den DM-Modus wechseln"
                       onClick={dmMitKonto}>🔮 DM</button>
                   )}
                   {isDmMode && (
-                    <button className="btn-sync dm active" title="DM-Modus verlassen" onClick={doDmLogout}>🔮 DM aus</button>
+                    <button className="btn-sync dm active" title="DM-Modus verlassen"
+                      onClick={doDmLogout}>🔮 aus</button>
                   )}
-                  {/* Wer ueber den Gruppenzugang verbunden ist, kam an das
-                      Einrichtungsfenster nicht mehr heran — es steht nur da,
-                      solange man nicht verbunden ist. Damit war der Weg zum
-                      eigenen Konto verschlossen, ausser ueber Abmelden. */}
-                  <button className="btn-sync" title="Von der Gruppe abmelden" onClick={signOut}>⎋ Abmelden</button>
+                  <button className="btn-sync schmal" title="Daten neu vom Server laden"
+                    aria-label="Neu laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺</button>
+                  <button className="btn-sync schmal" title="Abmelden"
+                    aria-label="Abmelden" onClick={signOut}>⎋</button>
                 </div>
               </>
             ) : (
