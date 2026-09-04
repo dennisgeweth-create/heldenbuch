@@ -1,5 +1,63 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.1
+
+Eine Ausgabe für den Feierabend: In der Taverne des Glücks steht ein
+Spielautomat. Sonst hat sich nichts geändert.
+
+### 🎰 Dreifaches Glück
+
+Ein Spielautomat als Zeitvertreib: **Dreifaches Glück**, drei Walzen, fünf
+Linien, drei gleiche Symbole zahlen. Erreichbar über **🎰 Taverne** in der
+Leiste, für alle, nicht nur die Spielleitung.
+
+Die Taverne ist ein **Fenster, kein Vorhang**: sie liegt über dem Heldenbuch,
+nimmt aber keine Klicks weg. Du kannst nebenher deinen Bogen ansehen, den Helden
+wechseln, Reiter durchgehen — die Taverne bleibt offen und dort stehen, wo du
+sie hingeschoben hast. Verschoben wird sie am Kopf, und ihr Platz bleibt bis zum
+nächsten Mal gemerkt. Am Handy bleibt sie bildschirmfüllend; ein schwebendes
+Fenster ist dort keine gute Idee.
+
+Gespielt wird mit **Spielmarken, die im Gerät liegen** — nicht am Charakter,
+nicht am Server, ohne jede Verbindung zum Charakterbogen. Wer leer ist, bekommt
+vom Wirt 200 neue. Es geht um nichts.
+
+Die Auszahlungstabelle steht offen im Automaten, samt der **ausgerechneten
+Quote** — sie ergibt sich aus Häufigkeit und Auszahlung je Symbol und ist keine
+Schätzung. Zurzeit 89,2 %.
+
+Die Walzen laufen und halten von links nach rechts nacheinander an, der Gewinn
+zählt hoch, und bei mehreren Gewinnlinien leuchtet eine nach der anderen auf —
+sonst leuchtet das halbe Feld und man sieht nicht, woran es lag. Wer Bewegung im
+Betriebssystem abgeschaltet hat, bekommt das Ergebnis sofort.
+
+Neun gleiche Speisesymbole öffnen das **Rad der Fortuna**: vier Felder, drei
+grüne und eines rot. Jedes grüne zahlt den Vollbildgewinn noch einmal, das rote
+beendet es — höchstens dreimal. Daher der Name.
+
+Drei Glücksmünzen auf einer Linie bringen einen **Freidreh**.
+
+**Der Automat gehört der Spielleitung.** Unter **⚙ Einstellungen** des
+Abenteuers stehen Häufigkeit und Auszahlung je Symbol, dazu ein Höchsteinsatz.
+Daneben die Quote — sie rechnet sich beim Tippen mit. Ein Knopf regelt die
+Auszahlungen auf eine Zielquote ein und trifft sie auf ein Zehntelprozent genau;
+was danach dasteht, ist die erreichte Zahl, nicht die gewünschte.
+
+Wer einen zwielichtigen Automaten will, stellt 80 % ein und sagt nichts.
+
+**Nach jedem Gewinn kannst du ihn setzen statt einstecken** — ganz oder zur
+Hälfte:
+
+- **🪜 Leiter des Wagemuts** — ein Licht läuft über acht Felder, eines ist grün.
+  Wer im richtigen Augenblick hält, verdoppelt und steigt eine Sprosse; mit
+  jeder Sprosse läuft das Licht schneller. Danebengedrückt kostet alles.
+- **🂠 Rabe oder Rose** — schwarz oder rot raten. Richtig verdoppelt, falsch
+  kostet alles.
+
+Höchstens fünf Sprossen, dann wird ausgezahlt. Was im Spiel ist, liegt solange
+nicht in der Kasse: gesetzt wird sichtbar, damit nie ein Betrag herumsteht, über
+den noch gewürfelt wird.
+
 ## v4.0.1
 
 ### Neu: 🕰 Chronik — der Kalender der Spielleitung
@@ -156,59 +214,6 @@ kostet deshalb so gut wie nichts:
 
 Nachgemessen: eine reine Trefferpunktänderung kostet **eine** kleine Anfrage und
 keinen Ladevorgang.
-
-### Neu: 🎰 Taverne des Glücks
-
-Ein Spielautomat als Zeitvertreib: **Dreifaches Glück**, drei Walzen, fünf
-Linien, drei gleiche Symbole zahlen. Erreichbar über **🎰 Taverne** in der
-Leiste, für alle, nicht nur die Spielleitung.
-
-Die Taverne ist ein **Fenster, kein Vorhang**: sie liegt über dem Heldenbuch,
-nimmt aber keine Klicks weg. Du kannst nebenher deinen Bogen ansehen, den Helden
-wechseln, Reiter durchgehen — die Taverne bleibt offen und dort stehen, wo du
-sie hingeschoben hast. Verschoben wird sie am Kopf, und ihr Platz bleibt bis zum
-nächsten Mal gemerkt. Am Handy bleibt sie bildschirmfüllend; ein schwebendes
-Fenster ist dort keine gute Idee.
-
-Gespielt wird mit **Spielmarken, die im Gerät liegen** — nicht am Charakter,
-nicht am Server, ohne jede Verbindung zum Charakterbogen. Wer leer ist, bekommt
-vom Wirt 200 neue. Es geht um nichts.
-
-Die Auszahlungstabelle steht offen im Automaten, samt der **ausgerechneten
-Quote** — sie ergibt sich aus Häufigkeit und Auszahlung je Symbol und ist keine
-Schätzung. Zurzeit 89,2 %.
-
-Die Walzen laufen und halten von links nach rechts nacheinander an, der Gewinn
-zählt hoch, und bei mehreren Gewinnlinien leuchtet eine nach der anderen auf —
-sonst leuchtet das halbe Feld und man sieht nicht, woran es lag. Wer Bewegung im
-Betriebssystem abgeschaltet hat, bekommt das Ergebnis sofort.
-
-Neun gleiche Speisesymbole öffnen das **Rad der Fortuna**: vier Felder, drei
-grüne und eines rot. Jedes grüne zahlt den Vollbildgewinn noch einmal, das rote
-beendet es — höchstens dreimal. Daher der Name.
-
-Drei Glücksmünzen auf einer Linie bringen einen **Freidreh**.
-
-**Der Automat gehört der Spielleitung.** Unter **⚙ Einstellungen** des
-Abenteuers stehen Häufigkeit und Auszahlung je Symbol, dazu ein Höchsteinsatz.
-Daneben die Quote — sie rechnet sich beim Tippen mit. Ein Knopf regelt die
-Auszahlungen auf eine Zielquote ein und trifft sie auf ein Zehntelprozent genau;
-was danach dasteht, ist die erreichte Zahl, nicht die gewünschte.
-
-Wer einen zwielichtigen Automaten will, stellt 80 % ein und sagt nichts.
-
-**Nach jedem Gewinn kannst du ihn setzen statt einstecken** — ganz oder zur
-Hälfte:
-
-- **🪜 Leiter des Wagemuts** — ein Licht läuft über acht Felder, eines ist grün.
-  Wer im richtigen Augenblick hält, verdoppelt und steigt eine Sprosse; mit
-  jeder Sprosse läuft das Licht schneller. Danebengedrückt kostet alles.
-- **🂠 Rabe oder Rose** — schwarz oder rot raten. Richtig verdoppelt, falsch
-  kostet alles.
-
-Höchstens fünf Sprossen, dann wird ausgezahlt. Was im Spiel ist, liegt solange
-nicht in der Kasse: gesetzt wird sichtbar, damit nie ein Betrag herumsteht, über
-den noch gewürfelt wird.
 
 ### Schaden und Heilung ohne Umweg über einen Kampf
 
