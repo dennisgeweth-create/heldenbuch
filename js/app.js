@@ -3496,6 +3496,27 @@ const bandBauen = (feld, spalte) => {
   return [...vorlauf, feld[spalte], feld[3 + spalte], feld[6 + spalte]];
 };
 
+// ── Das Rad der Fortuna ──────────────────────────────────────────
+// Ein Vollbild aus Speisen oeffnet das Rad: vier Felder, drei gruene und
+// ein rotes. Jedes gruene zahlt den Vollbildgewinn noch einmal, das rote
+// beendet es, hoechstens dreimal. Daher der Name des Automaten.
+//
+// Feld 0 ist rot und liegt oben, 1 bis 3 sind gruen im Uhrzeigersinn.
+const RAD_FELDER = 4;
+const RAD_GRUEN = 3;
+const RAD_DAUER = 2200;
+
+// Wohin muss sich das Rad drehen, damit Feld k unter dem Zeiger steht?
+// Immer vorwaerts und ueber mehrere volle Umdrehungen — ein Rad, das den
+// kuerzesten Weg nimmt, sieht aus wie ein Zeiger, nicht wie ein Rad.
+const radZiel = (k, aktuell) => {
+  const soll = (360 - (k * (360 / RAD_FELDER) + 45)) % 360;
+  const rest = (aktuell % 360 + 360) % 360;
+  let plus = soll - rest;
+  if (plus < 0) plus += 360;
+  return aktuell + 360 * 4 + plus;
+};
+
 // ── Der Schirm ───────────────────────────────────────────────────
 const AutomatSchirm = ({
   onSchliessen
@@ -3512,7 +3533,9 @@ const AutomatSchirm = ({
   const [laeuft, setLaeuft] = React.useState(false);
   const [zeigeLinie, setZeigeLinie] = React.useState(-1); // -1 = alle
   const [zaehler, setZaehler] = React.useState(0);
+  const [rad, setRad] = React.useState(null); // {basis, runde, gewonnen, winkel, dreht, aus, letztes}
   const laufRef = React.useRef(null);
+  const radRef = React.useRef(null);
   const setMarken = n => {
     const m = Math.max(0, Math.round(n));
     waehrung.schreiben(m);
@@ -3562,7 +3585,7 @@ const AutomatSchirm = ({
     };
   }, [aufloesen]);
   const frei = freidrehe > 0;
-  const kannDrehen = !laeuft && (frei || marken >= einsatz);
+  const kannDrehen = !laeuft && !rad && (frei || marken >= einsatz);
   const drehen = () => {
     if (!kannDrehen) return;
     const zahlt = frei ? 0 : einsatz;
@@ -3591,6 +3614,57 @@ const AutomatSchirm = ({
     };
     setLaeuft(true);
     laufRef.current = setTimeout(aufloesen, dauer);
+  };
+
+  // Ein Vollbild oeffnet das Rad, sobald die Walzen stehen.
+  React.useEffect(() => {
+    if (ergebnis && ergebnis.vollbild && ergebnis.gewinn > 0) {
+      setRad({
+        basis: ergebnis.gewinn,
+        runde: 0,
+        gewonnen: 0,
+        winkel: 0,
+        dreht: false,
+        aus: false,
+        letztes: null
+      });
+    }
+  }, [ergebnis]);
+
+  // Auch hier: erst zahlen, dann drehen. Der Ausgang steht fest, sobald
+  // gezogen wurde — die Drehung zeigt ihn nur.
+  const radAufloesen = React.useCallback(() => {
+    if (!radRef.current) return;
+    radRef.current = null;
+    setRad(r => r && {
+      ...r,
+      dreht: false
+    });
+  }, []);
+  React.useEffect(() => {
+    const wach = () => {
+      if (radRef.current) radAufloesen();
+    };
+    document.addEventListener('visibilitychange', wach);
+    return () => document.removeEventListener('visibilitychange', wach);
+  }, [radAufloesen]);
+  const radDrehen = () => {
+    if (!rad || rad.dreht || rad.aus) return;
+    const gruen = Math.random() < RAD_GRUEN / RAD_FELDER;
+    const feld = gruen ? 1 + Math.floor(Math.random() * RAD_GRUEN) : 0;
+    const runde = rad.runde + 1;
+    if (gruen) setMarken(marken + rad.basis);
+    setRad({
+      ...rad,
+      winkel: radZiel(feld, rad.winkel),
+      runde,
+      dreht: true,
+      letztes: gruen ? 'gruen' : 'rot',
+      gewonnen: rad.gewonnen + (gruen ? rad.basis : 0),
+      aus: !gruen || runde >= RAD_GRUEN
+    });
+    radRef.current = true;
+    setTimeout(radAufloesen, RAD_DAUER + 40);
   };
 
   // Der Gewinn zaehlt hoch, statt dazustehen. Kurz genug, dass niemand
@@ -3648,7 +3722,53 @@ const AutomatSchirm = ({
     className: "automat-x",
     onClick: onSchliessen,
     "aria-label": "Schlie\xDFen"
-  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), rad && /*#__PURE__*/React.createElement("div", {
+    className: "rad-huelle"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rad-fenster"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rad-titel"
+  }, "Rad der Fortuna"), /*#__PURE__*/React.createElement("div", {
+    className: "rad-unter"
+  }, "Drei gr\xFCne Felder, eines rot. Jedes gr\xFCne zahlt die", /*#__PURE__*/React.createElement("b", null, " ", rad.basis, " "), " noch einmal \u2014 h\xF6chstens dreimal."), /*#__PURE__*/React.createElement("div", {
+    className: "rad-buehne"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rad-zeiger",
+    "aria-hidden": "true"
+  }, "\u25BC"), /*#__PURE__*/React.createElement("div", {
+    className: "rad-scheibe",
+    style: {
+      transform: 'rotate(' + rad.winkel + 'deg)',
+      transition: rad.dreht ? 'transform ' + RAD_DAUER + 'ms cubic-bezier(.16,.78,.24,1)' : 'none'
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "rad-stand"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "rad-runden"
+  }, [1, 2, 3].map(i => /*#__PURE__*/React.createElement("i", {
+    key: i,
+    className: 'rad-punkt' + (rad.runde >= i ? ' voll' : '')
+  }))), rad.dreht ? /*#__PURE__*/React.createElement("b", {
+    className: "leise"
+  }, "\u2026") : rad.letztes === 'gruen' ? /*#__PURE__*/React.createElement("b", {
+    className: "rad-gut"
+  }, "Noch einmal! +", rad.basis) : rad.letztes === 'rot' ? /*#__PURE__*/React.createElement("b", {
+    className: "rad-schlecht"
+  }, "Rot. Vorbei.") : /*#__PURE__*/React.createElement("b", {
+    className: "leise"
+  }, "Dreh am Rad.")), rad.gewonnen > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "rad-summe"
+  }, "Zus\xE4tzlich gewonnen: ", /*#__PURE__*/React.createElement("b", null, rad.gewonnen)), /*#__PURE__*/React.createElement("div", {
+    className: "rad-tasten"
+  }, !rad.aus ? /*#__PURE__*/React.createElement("button", {
+    className: "automat-hebel",
+    disabled: rad.dreht,
+    onClick: radDrehen
+  }, rad.dreht ? 'Dreht…' : rad.runde === 0 ? 'Rad drehen' : 'Nochmal') : /*#__PURE__*/React.createElement("button", {
+    className: "automat-hebel",
+    disabled: rad.dreht,
+    onClick: () => setRad(null)
+  }, "Weiter")))), /*#__PURE__*/React.createElement("div", {
     className: "automat-mitte"
   }, /*#__PURE__*/React.createElement("div", {
     className: "automat-kasten"
@@ -3706,7 +3826,7 @@ const AutomatSchirm = ({
     className: 'automat-hebel' + (frei ? ' frei' : ''),
     disabled: !kannDrehen,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), marken < AUTOMAT_EINSAETZE[0] && !frei && !laeuft && /*#__PURE__*/React.createElement("button", {
+  }, laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), marken < AUTOMAT_EINSAETZE[0] && !frei && !laeuft && /*#__PURE__*/React.createElement("button", {
     className: "automat-nachschub",
     onClick: () => setMarken(MARKEN_START)
   }, "Der Wirt legt ", MARKEN_START, " Marken nach")), /*#__PURE__*/React.createElement("div", {

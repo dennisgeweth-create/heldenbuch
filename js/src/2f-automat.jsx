@@ -142,6 +142,27 @@ const bandBauen = (feld, spalte) => {
   return [...vorlauf, feld[spalte], feld[3 + spalte], feld[6 + spalte]];
 };
 
+// ── Das Rad der Fortuna ──────────────────────────────────────────
+// Ein Vollbild aus Speisen oeffnet das Rad: vier Felder, drei gruene und
+// ein rotes. Jedes gruene zahlt den Vollbildgewinn noch einmal, das rote
+// beendet es, hoechstens dreimal. Daher der Name des Automaten.
+//
+// Feld 0 ist rot und liegt oben, 1 bis 3 sind gruen im Uhrzeigersinn.
+const RAD_FELDER = 4;
+const RAD_GRUEN  = 3;
+const RAD_DAUER  = 2200;
+
+// Wohin muss sich das Rad drehen, damit Feld k unter dem Zeiger steht?
+// Immer vorwaerts und ueber mehrere volle Umdrehungen — ein Rad, das den
+// kuerzesten Weg nimmt, sieht aus wie ein Zeiger, nicht wie ein Rad.
+const radZiel = (k, aktuell) => {
+  const soll = (360 - (k * (360 / RAD_FELDER) + 45)) % 360;
+  const rest = ((aktuell % 360) + 360) % 360;
+  let plus = soll - rest;
+  if (plus < 0) plus += 360;
+  return aktuell + 360 * 4 + plus;
+};
+
 // ── Der Schirm ───────────────────────────────────────────────────
 const AutomatSchirm = ({ onSchliessen }) => {
   const waehrung = WAEHRUNGEN.marken;
@@ -156,7 +177,9 @@ const AutomatSchirm = ({ onSchliessen }) => {
   const [laeuft, setLaeuft] = React.useState(false);
   const [zeigeLinie, setZeigeLinie] = React.useState(-1);  // -1 = alle
   const [zaehler, setZaehler] = React.useState(0);
+  const [rad, setRad] = React.useState(null);   // {basis, runde, gewonnen, winkel, dreht, aus, letztes}
   const laufRef = React.useRef(null);
+  const radRef  = React.useRef(null);
 
   const setMarken = (n) => { const m = Math.max(0, Math.round(n)); waehrung.schreiben(m); setMarkenRoh(m); };
   const quote = React.useMemo(() => automatQuote(AUTOMAT_SYMBOLE), []);
@@ -199,7 +222,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
   }, [aufloesen]);
 
   const frei = freidrehe > 0;
-  const kannDrehen = !laeuft && (frei || marken >= einsatz);
+  const kannDrehen = !laeuft && !rad && (frei || marken >= einsatz);
 
   const drehen = () => {
     if (!kannDrehen) return;
@@ -223,6 +246,44 @@ const AutomatSchirm = ({ onSchliessen }) => {
     schwebendRef.current = {e, faellig: Date.now() + dauer};
     setLaeuft(true);
     laufRef.current = setTimeout(aufloesen, dauer);
+  };
+
+  // Ein Vollbild oeffnet das Rad, sobald die Walzen stehen.
+  React.useEffect(() => {
+    if (ergebnis && ergebnis.vollbild && ergebnis.gewinn > 0) {
+      setRad({basis: ergebnis.gewinn, runde: 0, gewonnen: 0, winkel: 0,
+              dreht: false, aus: false, letztes: null});
+    }
+  }, [ergebnis]);
+
+  // Auch hier: erst zahlen, dann drehen. Der Ausgang steht fest, sobald
+  // gezogen wurde — die Drehung zeigt ihn nur.
+  const radAufloesen = React.useCallback(() => {
+    if (!radRef.current) return;
+    radRef.current = null;
+    setRad(r => r && {...r, dreht: false});
+  }, []);
+
+  React.useEffect(() => {
+    const wach = () => { if (radRef.current) radAufloesen(); };
+    document.addEventListener('visibilitychange', wach);
+    return () => document.removeEventListener('visibilitychange', wach);
+  }, [radAufloesen]);
+
+  const radDrehen = () => {
+    if (!rad || rad.dreht || rad.aus) return;
+    const gruen = Math.random() < RAD_GRUEN / RAD_FELDER;
+    const feld = gruen ? 1 + Math.floor(Math.random() * RAD_GRUEN) : 0;
+    const runde = rad.runde + 1;
+    if (gruen) setMarken(marken + rad.basis);
+    setRad({...rad,
+      winkel: radZiel(feld, rad.winkel),
+      runde, dreht: true, letztes: gruen ? 'gruen' : 'rot',
+      gewonnen: rad.gewonnen + (gruen ? rad.basis : 0),
+      aus: !gruen || runde >= RAD_GRUEN,
+    });
+    radRef.current = true;
+    setTimeout(radAufloesen, RAD_DAUER + 40);
   };
 
   // Der Gewinn zaehlt hoch, statt dazustehen. Kurz genug, dass niemand
@@ -268,6 +329,52 @@ const AutomatSchirm = ({ onSchliessen }) => {
         </div>
         <button className="automat-x" onClick={onSchliessen} aria-label="Schließen">✕</button>
       </div>
+
+      {rad && (
+        <div className="rad-huelle">
+          <div className="rad-fenster">
+            <div className="rad-titel">Rad der Fortuna</div>
+            <div className="rad-unter">
+              Drei grüne Felder, eines rot. Jedes grüne zahlt die
+              <b> {rad.basis} </b> noch einmal — höchstens dreimal.
+            </div>
+
+            <div className="rad-buehne">
+              <div className="rad-zeiger" aria-hidden="true">▼</div>
+              <div className="rad-scheibe" style={{
+                transform: 'rotate(' + rad.winkel + 'deg)',
+                transition: rad.dreht ? 'transform ' + RAD_DAUER + 'ms cubic-bezier(.16,.78,.24,1)' : 'none',
+              }} />
+            </div>
+
+            <div className="rad-stand">
+              <span className="rad-runden">
+                {[1,2,3].map(i => (
+                  <i key={i} className={'rad-punkt' + (rad.runde >= i ? ' voll' : '')} />
+                ))}
+              </span>
+              {rad.dreht ? <b className="leise">…</b>
+                : rad.letztes === 'gruen' ? <b className="rad-gut">Noch einmal! +{rad.basis}</b>
+                : rad.letztes === 'rot'   ? <b className="rad-schlecht">Rot. Vorbei.</b>
+                : <b className="leise">Dreh am Rad.</b>}
+            </div>
+            {rad.gewonnen > 0 && (
+              <div className="rad-summe">Zusätzlich gewonnen: <b>{rad.gewonnen}</b></div>
+            )}
+
+            <div className="rad-tasten">
+              {!rad.aus ? (
+                <button className="automat-hebel" disabled={rad.dreht} onClick={radDrehen}>
+                  {rad.dreht ? 'Dreht…' : rad.runde === 0 ? 'Rad drehen' : 'Nochmal'}
+                </button>
+              ) : (
+                <button className="automat-hebel" disabled={rad.dreht}
+                  onClick={()=>setRad(null)}>Weiter</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="automat-mitte">
         <div className="automat-kasten">
@@ -328,7 +435,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
 
           <button className={'automat-hebel' + (frei ? ' frei' : '')}
             disabled={!kannDrehen} onClick={drehen}>
-            {laeuft ? 'Läuft…' : frei ? '🪙 Freidreh'
+            {laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh'
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'}
           </button>
 

@@ -176,8 +176,14 @@ zählt hoch, und bei mehreren Gewinnlinien leuchtet eine nach der anderen auf �
 sonst leuchtet das halbe Feld und man sieht nicht, woran es lag. Wer Bewegung im
 Betriebssystem abgeschaltet hat, bekommt das Ergebnis sofort.
 
-Es fehlen noch: das Rad der Fortuna beim Vollbild, die beiden Risikospiele und
-die Stellschrauben für die Spielleitung.
+Neun gleiche Speisesymbole öffnen das **Rad der Fortuna**: vier Felder, drei
+grüne und eines rot. Jedes grüne zahlt den Vollbildgewinn noch einmal, das rote
+beendet es — höchstens dreimal. Daher der Name.
+
+Drei Glücksmünzen auf einer Linie bringen einen **Freidreh**.
+
+Es fehlen noch: die beiden Risikospiele und die Stellschrauben für die
+Spielleitung.
 
 ### Schaden und Heilung ohne Umweg über einen Kampf
 
