@@ -128,8 +128,8 @@ const EffectEditor = ({ effects, onChange, hint }) => {
                 <option value="bonus">Bonus (+/−)</option>
                 <option value="set">Fester Wert</option>
               </select>
-              <input className="form-input fx-value" type="number" value={e.value}
-                onChange={ev=>set(e.id,{value:ev.target.value===''?0:+ev.target.value})} />
+              <ZahlFeld className="form-input fx-value" wert={e.value}
+                onWert={v =>set(e.id,{value:v})} />
             </>
           )}
           <button type="button" className="fx-del" title="Effekt entfernen"

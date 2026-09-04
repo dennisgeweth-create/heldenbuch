@@ -254,9 +254,15 @@ const WertDialog = ({ modus, name, start, onAnwenden, onAbbrechen }) => {
 
         <div className="wert-stepper">
           <button type="button" onClick={()=>stufe(-1)} aria-label="Eins weniger">−</button>
-          <input type="number" value={wert} aria-label={cfg.titel}
-            onChange={e=>setWert(e.target.value === '' ? 0 : +e.target.value)}
-            onKeyDown={e=>{ if (e.key === 'Enter' && wert) onAnwenden(Math.abs(wert) * (wert < 0 ? -1 : 1)); }} />
+          {/* Enter liest die Zahl aus dem Feld und nicht aus dem Zustand:
+              wer tippt und sofort Enter drueckt, hat sie dort noch gar
+              nicht stehen. */}
+          <ZahlFeld wert={wert} aria-label={cfg.titel} leerWert={0} onWert={setWert}
+            onKeyDown={e=>{
+              if (e.key !== 'Enter') return;
+              const n = Number(e.currentTarget.value);
+              if (n) onAnwenden(Math.abs(n) * (n < 0 ? -1 : 1));
+            }} />
           <button type="button" onClick={()=>stufe(1)} aria-label="Eins mehr">+</button>
           <button type="button" className="wert-reset" onClick={()=>setWert(0)} aria-label="Zurücksetzen">↺</button>
         </div>
@@ -590,9 +596,9 @@ const SpontanWahl = ({ enemies, laufend, onStarten, onAbbrechen }) => {
                     {x.name}
                     {g && <i>HG {g.cr} · RK {g.ac} · {g.hpMax} TP</i>}
                   </span>
-                  <input className="form-input spontan-zahl" type="number" min={1} max={30}
-                    value={x.count} aria-label={'Anzahl ' + x.name}
-                    onChange={e=>anzahlSetzen(x.enemyId, +e.target.value)} />
+                  <ZahlFeld className="form-input spontan-zahl" min={1} max={30}
+                    wert={x.count} aria-label={'Anzahl ' + x.name}
+                    onWert={v =>anzahlSetzen(x.enemyId, v)} />
                   <button type="button" className="fx-del" title="Entfernen"
                     onClick={()=>entfernen(x.enemyId)}>✕</button>
                 </div>

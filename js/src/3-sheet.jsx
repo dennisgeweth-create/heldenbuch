@@ -279,19 +279,19 @@ const Sheet = () => {
               ) : statsEdit ? (
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Akt.</label>
-                  <input type="number" value={cur.hp} onChange={e=>patchChar({hp:Number(e.target.value)})}
+                  <ZahlFeld wert={cur.hp} onWert={v=>patchChar({hp:v})}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid var(--crimson-bright)",borderRadius:3,color:"var(--crimson-bright)",fontSize:13,textAlign:"center"}}/>
                   <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Max</label>
-                  <input type="number" value={cur.maxHp} onChange={e=>patchChar({maxHp:Number(e.target.value)})}
+                  <ZahlFeld wert={cur.maxHp} onWert={v=>patchChar({maxHp:v})} min={1}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:3,color:"var(--parchment)",fontSize:13,textAlign:"center"}}/>
                   <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>Temp</label>
-                  <input type="number" value={cur.tempHp||0} onChange={e=>patchChar({tempHp:Number(e.target.value)})}
+                  <ZahlFeld wert={cur.tempHp||0} onWert={v=>patchChar({tempHp:v})} min={0} leerWert={0}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid #4a90d9",borderRadius:3,color:"#7ab8f5",fontSize:13,textAlign:"center"}}/>
                   {/* Temporaeres Maximum: kommt meist aus dem Kampftracker und
                       muss nach der langen Rast wieder weg. Unsichtbar waere es
                       ein Bonus, den niemand mehr findet. */}
                   <label style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif"}}>T.Max</label>
-                  <input type="number" value={cur.tempMaxHp||0} onChange={e=>patchChar({tempMaxHp:Math.max(0,Number(e.target.value))})}
+                  <ZahlFeld wert={cur.tempMaxHp||0} onWert={v=>patchChar({tempMaxHp:v})} min={0} leerWert={0}
                     style={{width:52,padding:"2px 4px",background:"var(--bg-card)",border:"1px solid #7a4a68",borderRadius:3,color:"#d4a6c8",fontSize:13,textAlign:"center"}}/>
                 </div>
               ) : (
@@ -373,8 +373,8 @@ const Sheet = () => {
                 <div className="combat-label">{b.i} {b.l}</div>
                 <div className="combat-label-short">{b.s}</div>
                 {b.feld ? (
-                  <input type="number" value={cur[b.feld]} aria-label={b.l}
-                    onChange={e=>patchChar({[b.feld]:Number(e.target.value)})}
+                  <ZahlFeld wert={cur[b.feld]} aria-label={b.l}
+                    onWert={v=>patchChar({[b.feld]:v})}
                     style={{width:56,padding:"3px 4px",background:"var(--bg-card)",border:"1px solid var(--border-bright)",borderRadius:3,color:"var(--gold)",fontSize:18,textAlign:"center",display:"block",margin:"4px auto 0",fontFamily:"'Roboto Condensed',sans-serif"}}/>
                 ) : (
                   <div className="combat-value" style={{fontSize:14,color:"var(--text-muted)"}}>{b.v}</div>
@@ -565,9 +565,9 @@ const Sheet = () => {
                         {statsEdit ? (
                           /* Bearbeitet wird der eigene Wert, nicht der von
                              Gegenstaenden veraenderte. */
-                          <input className="attr-input" type="number" min={1} max={30} value={cur[k]}
+                          <ZahlFeld className="attr-input" min={1} max={30} wert={cur[k]}
                             aria-label={l}
-                            onChange={e=>patchChar({[k]:Math.max(1,Math.min(30,Number(e.target.value)))})} />
+                            onWert={v=>patchChar({[k]:v})} />
                         ) : (
                           <div className={"attr-score"+(fxOn(k)?" fx-touched":"")}>
                             {effCur[k]}{fxOn(k) && <span className="fx-mark">✦</span>}

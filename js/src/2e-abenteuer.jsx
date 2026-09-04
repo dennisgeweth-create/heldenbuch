@@ -84,9 +84,9 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
             <div className="einst-quote">
               <span className="einst-quote-label">Auszahlungsquote</span>
               <b>{(rechnung.quote * 100).toFixed(1).replace('.', ',')} %</b>
-              <input className="form-input einst-ziel" type="number" min={10} max={200}
-                aria-label="Zielquote in Prozent" value={ziel}
-                onChange={e=>setZiel(Math.max(10, Math.min(200, +e.target.value || 0)))} />
+              <ZahlFeld className="form-input einst-ziel" min={10} max={200}
+                aria-label="Zielquote in Prozent" wert={ziel}
+                onWert={v =>setZiel(v)} />
               <button type="button" className="btn-icon"
                 onClick={()=>autoSetzen(automatEinregeln(autoSym, ziel / 100, autoVollP))}>
                 auf {ziel} % einregeln
@@ -133,16 +133,16 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                       <td className="zeichen">{sym.z}</td>
                       <td className="name">{sym.name}</td>
                       <td>
-                        <input className="form-input" type="number" min={0} max={999}
-                          aria-label={'Häufigkeit ' + sym.name} value={sym.gewicht}
-                          onChange={e=>autoSetzen(autoSym.map((x,j) =>
-                            j===i ? {...x, gewicht: Math.max(0, +e.target.value || 0)} : x))} />
+                        <ZahlFeld className="form-input" min={0} max={999}
+                          aria-label={'Häufigkeit ' + sym.name} wert={sym.gewicht}
+                          onWert={v =>autoSetzen(autoSym.map((x,j) =>
+                            j===i ? {...x, gewicht: v} : x))} />
                       </td>
                       <td>
-                        <input className="form-input" type="number" min={0} max={99999} step="0.05"
-                          aria-label={'Auszahlung ' + sym.name} value={sym.zahlt}
-                          onChange={e=>autoSetzen(autoSym.map((x,j) =>
-                            j===i ? {...x, zahlt: Math.max(0, +e.target.value || 0)} : x))} />
+                        <ZahlFeld className="form-input" min={0} max={99999} step="0.05"
+                          aria-label={'Auszahlung ' + sym.name} wert={sym.zahlt}
+                          onWert={v =>autoSetzen(autoSym.map((x,j) =>
+                            j===i ? {...x, zahlt: v} : x))} />
                       </td>
                     </tr>
                   ))}

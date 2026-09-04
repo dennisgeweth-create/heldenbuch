@@ -2714,8 +2714,8 @@ function App() {
                     Oeffnen still auf eine andere Klasse. */}
                 {klassenWahl(ec.charClass).map(c=><option key={c}>{c}</option>)}
               </select>
-              <input className="form-input" type="number" min="1" max="20" value={ec.level}
-                onChange={e=>setEc({...ec,level:Math.max(1,Math.min(20,+e.target.value))})}
+              <ZahlFeld className="form-input" min="1" max="20" wert={ec.level}
+                onWert={v =>setEc({...ec,level:v})}
                 style={{maxWidth:64,textAlign:"center"}} placeholder="Stufe"/>
               <div style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif",whiteSpace:"nowrap",alignSelf:"center"}}>Hauptklasse</div>
             </div>
@@ -2725,8 +2725,8 @@ function App() {
                   onChange={e=>setEc({...ec,multiclasses:ec.multiclasses.map((m,j)=>j===i?{...m,charClass:e.target.value}:m)})}>
                   {klassenWahl(mc.charClass).map(c=><option key={c}>{c}</option>)}
                 </select>
-                <input className="form-input" type="number" min="1" max="20" value={mc.level}
-                  onChange={e=>setEc({...ec,multiclasses:ec.multiclasses.map((m,j)=>j===i?{...m,level:Math.max(1,+e.target.value)}:m)})}
+                <ZahlFeld className="form-input" min="1" max="20" wert={mc.level}
+                  onWert={v =>setEc({...ec,multiclasses:ec.multiclasses.map((m,j)=>j===i?{...m,level:v}:m)})}
                   style={{maxWidth:64,textAlign:"center"}} placeholder="Stufe"/>
                 <button className="btn-sm-del"
                   onClick={()=>setEc({...ec,multiclasses:ec.multiclasses.filter((_,j)=>j!==i)})}>&#x2715;</button>
@@ -2781,7 +2781,7 @@ function App() {
               </div>
               <div className="form-group">
                 <div className="form-label">Angriffsbonus (+/−)</div>
-                <input className="form-input" type="number" placeholder="0" value={wf.attackBonus||0} onChange={e=>setWf({...wf,attackBonus:parseInt(e.target.value)||0})} />
+                <ZahlFeld className="form-input" placeholder="0" wert={wf.attackBonus||0} onWert={v =>setWf({...wf,attackBonus:v})} />
               </div>
               <div className="form-group" style={{justifyContent:"flex-end"}}>
                 <div className="form-label">Optionen</div>
@@ -3133,7 +3133,7 @@ function App() {
               </div>
               <div className="form-group">
                 <div className="form-label">Menge</div>
-                <input className="form-input" type="number" min="1" value={itf.qty} onChange={e=>setItf({...itf,qty:Math.max(1,+e.target.value)})} />
+                <ZahlFeld className="form-input" min="1" wert={itf.qty} onWert={v =>setItf({...itf,qty:v})} />
               </div>
               <div className="form-group">
                 <div className="form-label">Gewicht (kg, optional)</div>
@@ -3168,15 +3168,15 @@ function App() {
               {(itf.gearKind==='ruestung'||itf.gearKind==='schild') && (
                 <div className="form-group">
                   <div className="form-label">{itf.gearKind==='schild'?'Bonus zur RK':'Basis-RK'}</div>
-                  <input className="form-input" type="number" min="0" max="25" value={itf.baseAC||0}
-                    onChange={e=>setItf({...itf,baseAC:+e.target.value})} />
+                  <ZahlFeld className="form-input" min="0" max="25" wert={itf.baseAC||0}
+                    onWert={v =>setItf({...itf,baseAC:v})} />
                 </div>
               )}
               {itf.gearKind && (
                 <div className="form-group">
                   <div className="form-label">Magischer RK-Bonus</div>
-                  <input className="form-input" type="number" min="-5" max="10" value={itf.acBonus||0}
-                    placeholder="z.B. +1" onChange={e=>setItf({...itf,acBonus:+e.target.value})} />
+                  <ZahlFeld className="form-input" min="-5" max="10" wert={itf.acBonus||0}
+                    placeholder="z.B. +1" onWert={v =>setItf({...itf,acBonus:v})} />
                 </div>
               )}
               {itf.gearKind && (
@@ -3829,9 +3829,9 @@ function App() {
                           <div key={i} style={{border:'1px solid var(--border)',borderRadius:6,padding:'10px 12px',marginBottom:8,background:'var(--bg-card)'}}>
                             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                               <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)',letterSpacing:'0.08em',textTransform:'uppercase'}}>Ab</span>
-                              <input className="form-input" type="number" min={1} max={15} style={{width:64,padding:'5px 8px',textAlign:'center'}}
-                                value={st.teile} aria-label="Anzahl Teile"
-                                onChange={e=>setDbForm(f=>({...f,stufen:(f.stufen||[]).map((x,j)=>j===i?{...x,teile:Math.max(1,+e.target.value)}:x)}))}/>
+                              <ZahlFeld className="form-input" min={1} max={15} style={{width:64,padding:'5px 8px',textAlign:'center'}}
+                                wert={st.teile} aria-label="Anzahl Teile"
+                                onWert={v =>setDbForm(f=>({...f,stufen:(f.stufen||[]).map((x,j)=>j===i?{...x,teile:v}:x)}))}/>
                               <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-muted)'}}>Teilen</span>
                               <button style={{marginLeft:'auto',background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:14,padding:'2px 6px'}}
                                 title="Stufe entfernen" aria-label={'Stufe ab '+st.teile+' Teilen entfernen'}
@@ -3875,11 +3875,11 @@ function App() {
                       </div>
                       <div className="form-group">
                         <div className="form-label">RK</div>
-                        <input className="form-input" type="number" value={dbForm.ac} onChange={e=>setDbForm(f=>({...f,ac:+e.target.value}))}/>
+                        <ZahlFeld className="form-input" wert={dbForm.ac} onWert={v =>setDbForm(f=>({...f,ac:v}))}/>
                       </div>
                       <div className="form-group">
                         <div className="form-label">TP</div>
-                        <input className="form-input" type="number" value={dbForm.hp} onChange={e=>setDbForm(f=>({...f,hp:+e.target.value}))}/>
+                        <ZahlFeld className="form-input" wert={dbForm.hp} onWert={v =>setDbForm(f=>({...f,hp:v}))}/>
                       </div>
                       <div className="form-group">
                         <div className="form-label">Bewegung</div>
@@ -3895,7 +3895,7 @@ function App() {
                           {[['str','STR'],['dex','GES'],['con','KON'],['int','INT'],['wis','WEI'],['cha','CHA']].map(([k,l])=>(
                             <div key={k}>
                               <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textAlign:'center',marginBottom:3,letterSpacing:'0.1em'}}>{l}</div>
-                              <input className="form-input" type="number" min={1} max={30} style={{textAlign:'center',padding:'6px 4px'}} value={dbForm[k]} onChange={e=>setDbForm(f=>({...f,[k]:+e.target.value}))}/>
+                              <ZahlFeld className="form-input" min={1} max={30} style={{textAlign:'center',padding:'6px 4px'}} wert={dbForm[k]} onWert={v =>setDbForm(f=>({...f,[k]:v}))}/>
                             </div>
                           ))}
                         </div>
@@ -3968,7 +3968,7 @@ function App() {
                         </select>
                       </div>
                       <div><label className="form-label">Gewicht (kg)</label><input className="form-input" value={dbForm.weight||''} onChange={e=>setDbForm(f=>({...f,weight:e.target.value}))} placeholder="0.5"/></div>
-                      <div><label className="form-label">Menge (Standard)</label><input className="form-input" type="number" min={1} value={dbForm.qty||1} onChange={e=>setDbForm(f=>({...f,qty:+e.target.value}))}/></div>
+                      <div><label className="form-label">Menge (Standard)</label><ZahlFeld className="form-input" min={1} wert={dbForm.qty||1} onWert={v =>setDbForm(f=>({...f,qty:v}))}/></div>
                       <div className="form-group form-full"><label className="form-label">Tags <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>(kommagetrennt)</span></label>
                         <input className="form-input" value={(dbForm.tags||[]).join(', ')} onChange={e=>setDbForm(f=>({...f,tags:e.target.value.split(',').map(t=>t.trim()).filter(Boolean)}))} placeholder="z.B. Verbrauchsgut, Magie"/>
                       </div>
@@ -4036,15 +4036,15 @@ function App() {
                       {(dbForm.gearKind==='ruestung'||dbForm.gearKind==='schild') && (
                         <div className="form-group">
                           <label className="form-label">{dbForm.gearKind==='schild'?'Bonus zur RK':'Basis-RK'}</label>
-                          <input className="form-input" type="number" min={0} max={25} value={dbForm.baseAC||0}
-                            onChange={e=>setDbForm(f=>({...f,baseAC:+e.target.value}))}/>
+                          <ZahlFeld className="form-input" min={0} max={25} wert={dbForm.baseAC||0}
+                            onWert={v =>setDbForm(f=>({...f,baseAC:v}))}/>
                         </div>
                       )}
                       {dbForm.gearKind && (
                         <div className="form-group">
                           <label className="form-label">Magischer RK-Bonus</label>
-                          <input className="form-input" type="number" min={-5} max={10} value={dbForm.acBonus||0}
-                            onChange={e=>setDbForm(f=>({...f,acBonus:+e.target.value}))} placeholder="z.B. +1"/>
+                          <ZahlFeld className="form-input" min={-5} max={10} wert={dbForm.acBonus||0}
+                            onWert={v =>setDbForm(f=>({...f,acBonus:v}))} placeholder="z.B. +1"/>
                         </div>
                       )}
                       {/* Set-Zugehoerigkeit: hier steht nur, wozu das Stueck

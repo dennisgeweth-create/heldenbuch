@@ -155,11 +155,11 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
           </div>
           <div className="form-group">
             <label className="form-label">Rüstungsklasse</label>
-            <input className="form-input" type="number" value={f.ac} onChange={e=>setzen({ac:+e.target.value})} />
+            <ZahlFeld className="form-input" wert={f.ac} onWert={v =>setzen({ac:v})} />
           </div>
           <div className="form-group">
             <label className="form-label">Trefferpunkte</label>
-            <input className="form-input" type="number" value={f.hpMax} onChange={e=>setzen({hpMax:+e.target.value})} />
+            <ZahlFeld className="form-input" wert={f.hpMax} onWert={v =>setzen({hpMax:v})} />
           </div>
           <div className="form-group">
             <label className="form-label">Würfel</label>
@@ -167,7 +167,7 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
           </div>
           <div className="form-group">
             <label className="form-label">Bewegung (m)</label>
-            <input className="form-input" type="number" value={f.speed} onChange={e=>setzen({speed:+e.target.value})} />
+            <ZahlFeld className="form-input" wert={f.speed} onWert={v =>setzen({speed:v})} />
           </div>
 
           <div className="form-group form-full">
@@ -176,8 +176,8 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
               {[['str','STR'],['dex','GES'],['con','KON'],['int','INT'],['wis','WEI'],['cha','CHA']].map(([k,l])=>(
                 <div key={k}>
                   <span>{l}</span>
-                  <input className="form-input" type="number" min={1} max={30} value={f[k]}
-                    aria-label={l} onChange={e=>setzen({[k]:+e.target.value})} />
+                  <ZahlFeld className="form-input" min={1} max={30} wert={f[k]}
+                    aria-label={l} onWert={v =>setzen({[k]:v})} />
                 </div>
               ))}
             </div>
@@ -231,8 +231,8 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
                 <div className="gegner-aktion-zeile" key={i}>
                   <input className="form-input" value={a.name||''} placeholder="Name"
                     aria-label="Name" onChange={e=>setListe(l.key, liste(l.key).map((x,j)=>j===i?{...x,name:e.target.value}:x))} />
-                  <input className="form-input" type="number" value={a.bonus||0} title="Bonus zum Treffen"
-                    aria-label="Bonus" onChange={e=>setListe(l.key, liste(l.key).map((x,j)=>j===i?{...x,bonus:+e.target.value}:x))} />
+                  <ZahlFeld className="form-input" wert={a.bonus||0} title="Bonus zum Treffen"
+                    aria-label="Bonus" onWert={v =>setListe(l.key, liste(l.key).map((x,j)=>j===i?{...x,bonus:v}:x))} />
                   <input className="form-input" value={a.damage||''} placeholder="1d6+2"
                     aria-label="Schaden" onChange={e=>setListe(l.key, liste(l.key).map((x,j)=>j===i?{...x,damage:e.target.value}:x))} />
                   <input className="form-input" value={a.type||''} placeholder="Hieb"
@@ -417,9 +417,9 @@ const BegegnungFormular = ({ form, setForm, enemies, abenteuer, onSpeichern, onA
                     {g ? <i> HG {g.cr} · RK {g.ac} · {g.hpMax} TP</i>
                        : <i className="beg-fehlt">nicht mehr in der Sammlung</i>}
                   </span>
-                  <input className="form-input beg-teil-zahl" type="number" min={1} max={99}
-                    value={t.count||1} aria-label={'Anzahl ' + (t.name||'')}
-                    onChange={e=>setzen({enemies: teile.map((x,j)=>j===i?{...x,count:Math.max(1,+e.target.value)}:x)})} />
+                  <ZahlFeld className="form-input beg-teil-zahl" min={1} max={99}
+                    wert={t.count||1} aria-label={'Anzahl ' + (t.name||'')}
+                    onWert={v =>setzen({enemies: teile.map((x,j)=>j===i?{...x,count:v}:x)})} />
                   <button type="button" className="fx-del" title="Entfernen"
                     onClick={()=>setzen({enemies: teile.filter((_,j)=>j!==i)})}>✕</button>
                 </div>

@@ -292,13 +292,13 @@ const EreignisFormular = ({ ereignis, chronik, advId, abenteuer, chars, neu,
               {e.art === 'reise' ? 'Reisezeit' : e.art === 'termin' ? 'Noch bis dahin' : 'Restzeit'}
             </label>
             <div className="chr-frist">
-              <input className="form-input" type="number" min={0} max={999} disabled={ohneFrist}
-                value={restTage} aria-label="Tage"
-                onChange={ev=>fristSetzen(+ev.target.value, restStd)} />
+              <ZahlFeld className="form-input" min={0} max={999} disabled={ohneFrist}
+                wert={restTage} aria-label="Tage"
+                onWert={v =>fristSetzen(v, restStd)} />
               <span>Tage</span>
-              <input className="form-input" type="number" min={0} max={23} disabled={ohneFrist}
-                value={restStd} aria-label="Stunden"
-                onChange={ev=>fristSetzen(restTage, +ev.target.value)} />
+              <ZahlFeld className="form-input" min={0} max={23} disabled={ohneFrist}
+                wert={restStd} aria-label="Stunden"
+                onWert={v =>fristSetzen(restTage, v)} />
               <span>Std</span>
             </div>
             <label className="chr-check">
@@ -314,9 +314,9 @@ const EreignisFormular = ({ ereignis, chronik, advId, abenteuer, chars, neu,
           <div className="form-group">
             <label className="form-label">Wiederholt sich alle</label>
             <div className="chr-frist">
-              <input className="form-input" type="number" min={0} max={365}
-                value={Math.round((e.wiederholung||0) / STD_TAG)} aria-label="Wiederholung in Tagen"
-                onChange={ev=>setzen({wiederholung: Math.max(0, +ev.target.value) * STD_TAG})} />
+              <ZahlFeld className="form-input" min={0} max={365}
+                wert={Math.round((e.wiederholung||0) / STD_TAG)} aria-label="Wiederholung in Tagen"
+                onWert={v =>setzen({wiederholung: v * STD_TAG})} />
               <span>Tage</span>
             </div>
             <div className="chr-hinweis">0 = einmalig</div>
@@ -508,11 +508,11 @@ const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrech
           </div>
 
           <div className="chr-frist" style={{marginTop:10}}>
-            <input className="form-input" type="number" min={0} max={999} value={tage}
-              aria-label="Tage" onChange={e=>setTage(Math.max(0,+e.target.value))} />
+            <ZahlFeld className="form-input" min={0} max={999} wert={tage}
+              aria-label="Tage" onWert={v =>setTage(v)} />
             <span>Tage</span>
-            <input className="form-input" type="number" min={0} max={23} value={std}
-              aria-label="Stunden" onChange={e=>setStd(Math.max(0,+e.target.value))} />
+            <ZahlFeld className="form-input" min={0} max={23} wert={std}
+              aria-label="Stunden" onWert={v =>setStd(v)} />
             <span>Std</span>
           </div>
 
@@ -581,10 +581,10 @@ const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrech
             <div className="zeit-stellen">
               <div className="chr-frist">
                 <span>Tag</span>
-                <input className="form-input" type="number" min={1} max={9999} value={zielTag}
-                  aria-label="Tag" onChange={e=>setZielTag(Math.max(1,+e.target.value))} />
-                <input className="form-input" type="number" min={0} max={23} value={zielStd}
-                  aria-label="Stunde" onChange={e=>setZielStd(Math.max(0,+e.target.value))} />
+                <ZahlFeld className="form-input" min={1} max={9999} wert={zielTag}
+                  aria-label="Tag" onWert={v =>setZielTag(v)} />
+                <ZahlFeld className="form-input" min={0} max={23} wert={zielStd}
+                  aria-label="Stunde" onWert={v =>setZielStd(v)} />
                 <span>Uhr</span>
                 <button type="button" className="btn-icon"
                   onClick={()=>{ onUhrStellen((zielTag-1)*STD_TAG + zielStd); onAbbrechen(); }}>Setzen</button>

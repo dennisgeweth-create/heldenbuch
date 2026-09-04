@@ -20,6 +20,67 @@ const {
 const apiLoad = apiLoadChars;
 const apiSave = apiSaveChars;
 
+// ── Ein Zahlenfeld, das man leeren darf ──────────────────────────
+// Die Felder im Heldenbuch schrieben ihren Wert bei jedem Tastendruck
+// zurueck: Number('') ist 0, und mit Math.max(1, …) wurde daraus eine 1.
+// Wer eine 12 eintragen wollte, musste sie ueber die stehengebliebene
+// Ziffer schreiben — loeschen ging nicht, das Feld fuellte sich sofort
+// wieder. Genau das machte das Eintragen von Mengen umstaendlich.
+//
+// Hier gilt, solange jemand im Feld steht, was er getippt hat — auch
+// nichts. Erst beim Verlassen wird daraus eine Zahl: Enter uebernimmt,
+// Escape verwirft, ein leeres Feld faellt auf leerWert zurueck oder,
+// wenn es keinen gibt, auf den alten Wert.
+//
+// Nebenbei spart es Schreibvorgaenge: aus "123" wurden bisher drei
+// Speicherlaeufe, jetzt ist es einer.
+const ZahlFeld = ({
+  wert,
+  onWert,
+  min,
+  max,
+  leerWert,
+  onKeyDown,
+  ...rest
+}) => {
+  const [roh, setRoh] = useState(null); // null = zeig, was von aussen kommt
+  const zeigen = roh !== null ? roh : wert === undefined || wert === null || wert === '' ? '' : String(wert);
+  const festhalten = () => {
+    if (roh === null) return;
+    const t = String(roh).trim();
+    let n;
+    if (t === '') n = leerWert !== undefined ? leerWert : wert;else {
+      n = Number(t.replace(',', '.'));
+      if (!Number.isFinite(n)) n = wert;
+    }
+    if (typeof n === 'number') {
+      if (min !== undefined) n = Math.max(min, n);
+      if (max !== undefined) n = Math.min(max, n);
+    }
+    setRoh(null);
+    if (n !== wert) onWert(n);
+  };
+  return /*#__PURE__*/React.createElement("input", _extends({
+    type: "number"
+  }, rest, {
+    min: min,
+    max: max,
+    value: zeigen,
+    onChange: e => setRoh(e.target.value),
+    onBlur: festhalten,
+    onKeyDown: e => {
+      if (e.key === 'Enter') {
+        festhalten();
+      }
+      if (e.key === 'Escape') {
+        setRoh(null);
+        e.currentTarget.blur();
+      }
+      if (onKeyDown) onKeyDown(e);
+    }
+  }));
+};
+
 // ==== js/src/1-editors.jsx ====
 // Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
 // Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
@@ -221,12 +282,11 @@ const EffectEditor = ({
       value: "bonus"
     }, "Bonus (+/\u2212)"), /*#__PURE__*/React.createElement("option", {
       value: "set"
-    }, "Fester Wert")), /*#__PURE__*/React.createElement("input", {
+    }, "Fester Wert")), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input fx-value",
-      type: "number",
-      value: e.value,
-      onChange: ev => set(e.id, {
-        value: ev.target.value === '' ? 0 : +ev.target.value
+      wert: e.value,
+      onWert: v => set(e.id, {
+        value: v
       })
     })), /*#__PURE__*/React.createElement("button", {
       type: "button",
@@ -673,23 +733,21 @@ const GegnerFormular = ({
     className: "form-group"
   }, /*#__PURE__*/React.createElement("label", {
     className: "form-label"
-  }, "R\xFCstungsklasse"), /*#__PURE__*/React.createElement("input", {
+  }, "R\xFCstungsklasse"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
-    value: f.ac,
-    onChange: e => setzen({
-      ac: +e.target.value
+    wert: f.ac,
+    onWert: v => setzen({
+      ac: v
     })
   })), /*#__PURE__*/React.createElement("div", {
     className: "form-group"
   }, /*#__PURE__*/React.createElement("label", {
     className: "form-label"
-  }, "Trefferpunkte"), /*#__PURE__*/React.createElement("input", {
+  }, "Trefferpunkte"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
-    value: f.hpMax,
-    onChange: e => setzen({
-      hpMax: +e.target.value
+    wert: f.hpMax,
+    onWert: v => setzen({
+      hpMax: v
     })
   })), /*#__PURE__*/React.createElement("div", {
     className: "form-group"
@@ -706,12 +764,11 @@ const GegnerFormular = ({
     className: "form-group"
   }, /*#__PURE__*/React.createElement("label", {
     className: "form-label"
-  }, "Bewegung (m)"), /*#__PURE__*/React.createElement("input", {
+  }, "Bewegung (m)"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
-    value: f.speed,
-    onChange: e => setzen({
-      speed: +e.target.value
+    wert: f.speed,
+    onWert: v => setzen({
+      speed: v
     })
   })), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
@@ -721,15 +778,14 @@ const GegnerFormular = ({
     className: "gegner-attr-eingabe"
   }, [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']].map(([k, l]) => /*#__PURE__*/React.createElement("div", {
     key: k
-  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 1,
     max: 30,
-    value: f[k],
+    wert: f[k],
     "aria-label": l,
-    onChange: e => setzen({
-      [k]: +e.target.value
+    onWert: v => setzen({
+      [k]: v
     })
   }))))), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
@@ -864,15 +920,14 @@ const GegnerFormular = ({
       ...x,
       name: e.target.value
     } : x))
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
-    value: a.bonus || 0,
+    wert: a.bonus || 0,
     title: "Bonus zum Treffen",
     "aria-label": "Bonus",
-    onChange: e => setListe(l.key, liste(l.key).map((x, j) => j === i ? {
+    onWert: v => setListe(l.key, liste(l.key).map((x, j) => j === i ? {
       ...x,
-      bonus: +e.target.value
+      bonus: v
     } : x))
   }), /*#__PURE__*/React.createElement("input", {
     className: "form-input",
@@ -1153,17 +1208,16 @@ const BegegnungFormular = ({
       className: "beg-teil-name"
     }, t.name || g && g.name || 'Unbekannt', g ? /*#__PURE__*/React.createElement("i", null, " HG ", g.cr, " \xB7 RK ", g.ac, " \xB7 ", g.hpMax, " TP") : /*#__PURE__*/React.createElement("i", {
       className: "beg-fehlt"
-    }, "nicht mehr in der Sammlung")), /*#__PURE__*/React.createElement("input", {
+    }, "nicht mehr in der Sammlung")), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input beg-teil-zahl",
-      type: "number",
       min: 1,
       max: 99,
-      value: t.count || 1,
+      wert: t.count || 1,
       "aria-label": 'Anzahl ' + (t.name || ''),
-      onChange: e => setzen({
+      onWert: v => setzen({
         enemies: teile.map((x, j) => j === i ? {
           ...x,
-          count: Math.max(1, +e.target.value)
+          count: v
         } : x)
       })
     }), /*#__PURE__*/React.createElement("button", {
@@ -1615,13 +1669,15 @@ const WertDialog = ({
     type: "button",
     onClick: () => stufe(-1),
     "aria-label": "Eins weniger"
-  }, "\u2212"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: wert,
+  }, "\u2212"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    wert: wert,
     "aria-label": cfg.titel,
-    onChange: e => setWert(e.target.value === '' ? 0 : +e.target.value),
+    leerWert: 0,
+    onWert: setWert,
     onKeyDown: e => {
-      if (e.key === 'Enter' && wert) onAnwenden(Math.abs(wert) * (wert < 0 ? -1 : 1));
+      if (e.key !== 'Enter') return;
+      const n = Number(e.currentTarget.value);
+      if (n) onAnwenden(Math.abs(n) * (n < 0 ? -1 : 1));
     }
   }), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2086,14 +2142,13 @@ const SpontanWahl = ({
       key: x.enemyId
     }, /*#__PURE__*/React.createElement("span", {
       className: "spontan-teil-name"
-    }, x.name, g && /*#__PURE__*/React.createElement("i", null, "HG ", g.cr, " \xB7 RK ", g.ac, " \xB7 ", g.hpMax, " TP")), /*#__PURE__*/React.createElement("input", {
+    }, x.name, g && /*#__PURE__*/React.createElement("i", null, "HG ", g.cr, " \xB7 RK ", g.ac, " \xB7 ", g.hpMax, " TP")), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input spontan-zahl",
-      type: "number",
       min: 1,
       max: 30,
-      value: x.count,
+      wert: x.count,
       "aria-label": 'Anzahl ' + x.name,
-      onChange: e => anzahlSetzen(x.enemyId, +e.target.value)
+      onWert: v => anzahlSetzen(x.enemyId, v)
     }), /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "fx-del",
@@ -3234,24 +3289,22 @@ const EreignisFormular = ({
     className: "form-label"
   }, e.art === 'reise' ? 'Reisezeit' : e.art === 'termin' ? 'Noch bis dahin' : 'Restzeit'), /*#__PURE__*/React.createElement("div", {
     className: "chr-frist"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 999,
     disabled: ohneFrist,
-    value: restTage,
+    wert: restTage,
     "aria-label": "Tage",
-    onChange: ev => fristSetzen(+ev.target.value, restStd)
-  }), /*#__PURE__*/React.createElement("span", null, "Tage"), /*#__PURE__*/React.createElement("input", {
+    onWert: v => fristSetzen(v, restStd)
+  }), /*#__PURE__*/React.createElement("span", null, "Tage"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 23,
     disabled: ohneFrist,
-    value: restStd,
+    wert: restStd,
     "aria-label": "Stunden",
-    onChange: ev => fristSetzen(restTage, +ev.target.value)
+    onWert: v => fristSetzen(restTage, v)
   }), /*#__PURE__*/React.createElement("span", null, "Std")), /*#__PURE__*/React.createElement("label", {
     className: "chr-check"
   }, /*#__PURE__*/React.createElement("input", {
@@ -3268,15 +3321,14 @@ const EreignisFormular = ({
     className: "form-label"
   }, "Wiederholt sich alle"), /*#__PURE__*/React.createElement("div", {
     className: "chr-frist"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 365,
-    value: Math.round((e.wiederholung || 0) / STD_TAG),
+    wert: Math.round((e.wiederholung || 0) / STD_TAG),
     "aria-label": "Wiederholung in Tagen",
-    onChange: ev => setzen({
-      wiederholung: Math.max(0, +ev.target.value) * STD_TAG
+    onWert: v => setzen({
+      wiederholung: v * STD_TAG
     })
   }), /*#__PURE__*/React.createElement("span", null, "Tage")), /*#__PURE__*/React.createElement("div", {
     className: "chr-hinweis"
@@ -3537,22 +3589,20 @@ const ZeitDialog = ({
     style: {
       marginTop: 10
     }
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 999,
-    value: tage,
+    wert: tage,
     "aria-label": "Tage",
-    onChange: e => setTage(Math.max(0, +e.target.value))
-  }), /*#__PURE__*/React.createElement("span", null, "Tage"), /*#__PURE__*/React.createElement("input", {
+    onWert: v => setTage(v)
+  }), /*#__PURE__*/React.createElement("span", null, "Tage"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 23,
-    value: std,
+    wert: std,
     "aria-label": "Stunden",
-    onChange: e => setStd(Math.max(0, +e.target.value))
+    onWert: v => setStd(v)
   }), /*#__PURE__*/React.createElement("span", null, "Std")), /*#__PURE__*/React.createElement("div", {
     className: "zeit-nachher"
   }, "Danach: ", /*#__PURE__*/React.createElement("b", null, "Tag ", uhrTag(nachher), ", ", uhrStunde(nachher), " Uhr")), delta > 0 && /*#__PURE__*/React.createElement("div", {
@@ -3598,22 +3648,20 @@ const ZeitDialog = ({
     className: "zeit-stellen"
   }, /*#__PURE__*/React.createElement("div", {
     className: "chr-frist"
-  }, /*#__PURE__*/React.createElement("span", null, "Tag"), /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("span", null, "Tag"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 1,
     max: 9999,
-    value: zielTag,
+    wert: zielTag,
     "aria-label": "Tag",
-    onChange: e => setZielTag(Math.max(1, +e.target.value))
-  }), /*#__PURE__*/React.createElement("input", {
+    onWert: v => setZielTag(v)
+  }), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 23,
-    value: zielStd,
+    wert: zielStd,
     "aria-label": "Stunde",
-    onChange: e => setZielStd(Math.max(0, +e.target.value))
+    onWert: v => setZielStd(v)
   }), /*#__PURE__*/React.createElement("span", null, "Uhr"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn-icon",
@@ -3768,14 +3816,13 @@ const AbenteuerEinstellungen = ({
     className: "einst-quote"
   }, /*#__PURE__*/React.createElement("span", {
     className: "einst-quote-label"
-  }, "Auszahlungsquote"), /*#__PURE__*/React.createElement("b", null, (rechnung.quote * 100).toFixed(1).replace('.', ','), " %"), /*#__PURE__*/React.createElement("input", {
+  }, "Auszahlungsquote"), /*#__PURE__*/React.createElement("b", null, (rechnung.quote * 100).toFixed(1).replace('.', ','), " %"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input einst-ziel",
-    type: "number",
     min: 10,
     max: 200,
     "aria-label": "Zielquote in Prozent",
-    value: ziel,
-    onChange: e => setZiel(Math.max(10, Math.min(200, +e.target.value || 0)))
+    wert: ziel,
+    onWert: v => setZiel(v)
   }), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn-icon",
@@ -3816,28 +3863,26 @@ const AbenteuerEinstellungen = ({
     className: "zeichen"
   }, sym.z), /*#__PURE__*/React.createElement("td", {
     className: "name"
-  }, sym.name), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+  }, sym.name), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 999,
     "aria-label": 'Häufigkeit ' + sym.name,
-    value: sym.gewicht,
-    onChange: e => autoSetzen(autoSym.map((x, j) => j === i ? {
+    wert: sym.gewicht,
+    onWert: v => autoSetzen(autoSym.map((x, j) => j === i ? {
       ...x,
-      gewicht: Math.max(0, +e.target.value || 0)
+      gewicht: v
     } : x))
-  })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+  })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: 0,
     max: 99999,
     step: "0.05",
     "aria-label": 'Auszahlung ' + sym.name,
-    value: sym.zahlt,
-    onChange: e => autoSetzen(autoSym.map((x, j) => j === i ? {
+    wert: sym.zahlt,
+    onWert: v => autoSetzen(autoSym.map((x, j) => j === i ? {
       ...x,
-      zahlt: Math.max(0, +e.target.value || 0)
+      zahlt: v
     } : x))
   }))))))), /*#__PURE__*/React.createElement("div", {
     className: "einst-klassen-fuss"
@@ -5535,11 +5580,10 @@ const Sheet = () => {
       color: "var(--text-muted)",
       fontFamily: "'Roboto Condensed',sans-serif"
     }
-  }, "Akt."), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: cur.hp,
-    onChange: e => patchChar({
-      hp: Number(e.target.value)
+  }, "Akt."), /*#__PURE__*/React.createElement(ZahlFeld, {
+    wert: cur.hp,
+    onWert: v => patchChar({
+      hp: v
     }),
     style: {
       width: 52,
@@ -5557,12 +5601,12 @@ const Sheet = () => {
       color: "var(--text-muted)",
       fontFamily: "'Roboto Condensed',sans-serif"
     }
-  }, "Max"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: cur.maxHp,
-    onChange: e => patchChar({
-      maxHp: Number(e.target.value)
+  }, "Max"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    wert: cur.maxHp,
+    onWert: v => patchChar({
+      maxHp: v
     }),
+    min: 1,
     style: {
       width: 52,
       padding: "2px 4px",
@@ -5579,12 +5623,13 @@ const Sheet = () => {
       color: "var(--text-muted)",
       fontFamily: "'Roboto Condensed',sans-serif"
     }
-  }, "Temp"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: cur.tempHp || 0,
-    onChange: e => patchChar({
-      tempHp: Number(e.target.value)
+  }, "Temp"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    wert: cur.tempHp || 0,
+    onWert: v => patchChar({
+      tempHp: v
     }),
+    min: 0,
+    leerWert: 0,
     style: {
       width: 52,
       padding: "2px 4px",
@@ -5601,12 +5646,13 @@ const Sheet = () => {
       color: "var(--text-muted)",
       fontFamily: "'Roboto Condensed',sans-serif"
     }
-  }, "T.Max"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: cur.tempMaxHp || 0,
-    onChange: e => patchChar({
-      tempMaxHp: Math.max(0, Number(e.target.value))
+  }, "T.Max"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    wert: cur.tempMaxHp || 0,
+    onWert: v => patchChar({
+      tempMaxHp: v
     }),
+    min: 0,
+    leerWert: 0,
     style: {
       width: 52,
       padding: "2px 4px",
@@ -5736,12 +5782,11 @@ const Sheet = () => {
     className: "combat-label"
   }, b.i, " ", b.l), /*#__PURE__*/React.createElement("div", {
     className: "combat-label-short"
-  }, b.s), b.feld ? /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: cur[b.feld],
+  }, b.s), b.feld ? /*#__PURE__*/React.createElement(ZahlFeld, {
+    wert: cur[b.feld],
     "aria-label": b.l,
-    onChange: e => patchChar({
-      [b.feld]: Number(e.target.value)
+    onWert: v => patchChar({
+      [b.feld]: v
     }),
     style: {
       width: 56,
@@ -5991,15 +6036,14 @@ const Sheet = () => {
   /*#__PURE__*/
   /* Bearbeitet wird der eigene Wert, nicht der von
      Gegenstaenden veraenderte. */
-  React.createElement("input", {
+  React.createElement(ZahlFeld, {
     className: "attr-input",
-    type: "number",
     min: 1,
     max: 30,
-    value: cur[k],
+    wert: cur[k],
     "aria-label": l,
-    onChange: e => patchChar({
-      [k]: Math.max(1, Math.min(30, Number(e.target.value)))
+    onWert: v => patchChar({
+      [k]: v
     })
   }) : /*#__PURE__*/React.createElement("div", {
     className: "attr-score" + (fxOn(k) ? " fx-touched" : "")
@@ -12559,15 +12603,14 @@ function App() {
     })
   }, klassenWahl(ec.charClass).map(c => /*#__PURE__*/React.createElement("option", {
     key: c
-  }, c))), /*#__PURE__*/React.createElement("input", {
+  }, c))), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: "1",
     max: "20",
-    value: ec.level,
-    onChange: e => setEc({
+    wert: ec.level,
+    onWert: v => setEc({
       ...ec,
-      level: Math.max(1, Math.min(20, +e.target.value))
+      level: v
     }),
     style: {
       maxWidth: 64,
@@ -12603,17 +12646,16 @@ function App() {
     })
   }, klassenWahl(mc.charClass).map(c => /*#__PURE__*/React.createElement("option", {
     key: c
-  }, c))), /*#__PURE__*/React.createElement("input", {
+  }, c))), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: "1",
     max: "20",
-    value: mc.level,
-    onChange: e => setEc({
+    wert: mc.level,
+    onWert: v => setEc({
       ...ec,
       multiclasses: ec.multiclasses.map((m, j) => j === i ? {
         ...m,
-        level: Math.max(1, +e.target.value)
+        level: v
       } : m)
     }),
     style: {
@@ -12753,14 +12795,13 @@ function App() {
     className: "form-group"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, "Angriffsbonus (+/\u2212)"), /*#__PURE__*/React.createElement("input", {
+  }, "Angriffsbonus (+/\u2212)"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     placeholder: "0",
-    value: wf.attackBonus || 0,
-    onChange: e => setWf({
+    wert: wf.attackBonus || 0,
+    onWert: v => setWf({
       ...wf,
-      attackBonus: parseInt(e.target.value) || 0
+      attackBonus: v
     })
   })), /*#__PURE__*/React.createElement("div", {
     className: "form-group",
@@ -13654,14 +13695,13 @@ function App() {
     className: "form-group"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, "Menge"), /*#__PURE__*/React.createElement("input", {
+  }, "Menge"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: "1",
-    value: itf.qty,
-    onChange: e => setItf({
+    wert: itf.qty,
+    onWert: v => setItf({
       ...itf,
-      qty: Math.max(1, +e.target.value)
+      qty: v
     })
   })), /*#__PURE__*/React.createElement("div", {
     className: "form-group"
@@ -13721,30 +13761,28 @@ function App() {
     className: "form-group"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, itf.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), /*#__PURE__*/React.createElement("input", {
+  }, itf.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: "0",
     max: "25",
-    value: itf.baseAC || 0,
-    onChange: e => setItf({
+    wert: itf.baseAC || 0,
+    onWert: v => setItf({
       ...itf,
-      baseAC: +e.target.value
+      baseAC: v
     })
   })), itf.gearKind && /*#__PURE__*/React.createElement("div", {
     className: "form-group"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, "Magischer RK-Bonus"), /*#__PURE__*/React.createElement("input", {
+  }, "Magischer RK-Bonus"), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
-    type: "number",
     min: "-5",
     max: "10",
-    value: itf.acBonus || 0,
+    wert: itf.acBonus || 0,
     placeholder: "z.B. +1",
-    onChange: e => setItf({
+    onWert: v => setItf({
       ...itf,
-      acBonus: +e.target.value
+      acBonus: v
     })
   })), itf.gearKind && /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
@@ -15387,9 +15425,8 @@ function App() {
         letterSpacing: '0.08em',
         textTransform: 'uppercase'
       }
-    }, "Ab"), /*#__PURE__*/React.createElement("input", {
+    }, "Ab"), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input",
-      type: "number",
       min: 1,
       max: 15,
       style: {
@@ -15397,13 +15434,13 @@ function App() {
         padding: '5px 8px',
         textAlign: 'center'
       },
-      value: st.teile,
+      wert: st.teile,
       "aria-label": "Anzahl Teile",
-      onChange: e => setDbForm(f => ({
+      onWert: v => setDbForm(f => ({
         ...f,
         stufen: (f.stufen || []).map((x, j) => j === i ? {
           ...x,
-          teile: Math.max(1, +e.target.value)
+          teile: v
         } : x)
       }))
     }), /*#__PURE__*/React.createElement("span", {
@@ -15510,25 +15547,23 @@ function App() {
       className: "form-group"
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-label"
-    }, "RK"), /*#__PURE__*/React.createElement("input", {
+    }, "RK"), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input",
-      type: "number",
-      value: dbForm.ac,
-      onChange: e => setDbForm(f => ({
+      wert: dbForm.ac,
+      onWert: v => setDbForm(f => ({
         ...f,
-        ac: +e.target.value
+        ac: v
       }))
     })), /*#__PURE__*/React.createElement("div", {
       className: "form-group"
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-label"
-    }, "TP"), /*#__PURE__*/React.createElement("input", {
+    }, "TP"), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input",
-      type: "number",
-      value: dbForm.hp,
-      onChange: e => setDbForm(f => ({
+      wert: dbForm.hp,
+      onWert: v => setDbForm(f => ({
         ...f,
-        hp: +e.target.value
+        hp: v
       }))
     })), /*#__PURE__*/React.createElement("div", {
       className: "form-group"
@@ -15576,19 +15611,18 @@ function App() {
         marginBottom: 3,
         letterSpacing: '0.1em'
       }
-    }, l), /*#__PURE__*/React.createElement("input", {
+    }, l), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input",
-      type: "number",
       min: 1,
       max: 30,
       style: {
         textAlign: 'center',
         padding: '6px 4px'
       },
-      value: dbForm[k],
-      onChange: e => setDbForm(f => ({
+      wert: dbForm[k],
+      onWert: v => setDbForm(f => ({
         ...f,
-        [k]: +e.target.value
+        [k]: v
       }))
     }))))), /*#__PURE__*/React.createElement("div", {
       className: "form-group"
@@ -15831,14 +15865,13 @@ function App() {
       placeholder: "0.5"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       className: "form-label"
-    }, "Menge (Standard)"), /*#__PURE__*/React.createElement("input", {
+    }, "Menge (Standard)"), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input",
-      type: "number",
       min: 1,
-      value: dbForm.qty || 1,
-      onChange: e => setDbForm(f => ({
+      wert: dbForm.qty || 1,
+      onWert: v => setDbForm(f => ({
         ...f,
-        qty: +e.target.value
+        qty: v
       }))
     })), /*#__PURE__*/React.createElement("div", {
       className: "form-group form-full"
@@ -16015,29 +16048,27 @@ function App() {
       className: "form-group"
     }, /*#__PURE__*/React.createElement("label", {
       className: "form-label"
-    }, dbForm.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), /*#__PURE__*/React.createElement("input", {
+    }, dbForm.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input",
-      type: "number",
       min: 0,
       max: 25,
-      value: dbForm.baseAC || 0,
-      onChange: e => setDbForm(f => ({
+      wert: dbForm.baseAC || 0,
+      onWert: v => setDbForm(f => ({
         ...f,
-        baseAC: +e.target.value
+        baseAC: v
       }))
     })), dbForm.gearKind && /*#__PURE__*/React.createElement("div", {
       className: "form-group"
     }, /*#__PURE__*/React.createElement("label", {
       className: "form-label"
-    }, "Magischer RK-Bonus"), /*#__PURE__*/React.createElement("input", {
+    }, "Magischer RK-Bonus"), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input",
-      type: "number",
       min: -5,
       max: 10,
-      value: dbForm.acBonus || 0,
-      onChange: e => setDbForm(f => ({
+      wert: dbForm.acBonus || 0,
+      onWert: v => setDbForm(f => ({
         ...f,
-        acBonus: +e.target.value
+        acBonus: v
       })),
       placeholder: "z.B. +1"
     })), /*#__PURE__*/React.createElement("div", {
