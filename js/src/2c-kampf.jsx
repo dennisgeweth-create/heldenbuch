@@ -96,6 +96,7 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
   return {
     aktiv: true, name: begegnung.name || 'Kampf', runde: 1, zug: 0,
     teilnehmer: sortiereNachIni(teilnehmer),
+    log: [{art: 'start', r: 1, wer: begegnung.name || 'Kampf'}],
   };
 };
 
@@ -105,6 +106,64 @@ const sortiereNachIni = (liste) => [...liste].sort((a,b) => {
   const av = a.ini === null ? -999 : a.ini, bv = b.ini === null ? -999 : b.ini;
   return bv - av || mod(b.dex||10) - mod(a.dex||10) || (a.name||'').localeCompare(b.name||'','de');
 });
+
+// ── Das Protokoll ────────────────────────────────────────────────
+// Es liegt im Kampf selbst und endet mit ihm — wie die Initiative. Kein
+// Server, keine Tabelle: was hier steht, ist die Mitschrift dieses einen
+// Abends und gehoert niemand anderem.
+//
+// Gespeichert wird, was passiert ist, nicht der fertige Satz. Erst beim
+// Anzeigen wird daraus Text — und nur so laesst sich derselbe Verlauf
+// einmal mit und einmal ohne Trefferpunktstaende ausgeben.
+//
+// Was die Anwendung nicht weiss, steht auch nicht drin: wer den Schaden
+// ausgeteilt hat. Sie kennt nur, wer ihn bekommt und wer gerade am Zug
+// ist. Die Verbindung stellt der Leser her, so wie am Tisch auch.
+const protokollZeile = (e, mitZahlen) => {
+  const stand = (mitZahlen && e.von !== undefined && e.auf !== undefined)
+    ? ' · ' + e.von + ' → ' + e.auf : '';
+  switch (e.art) {
+    case 'start':    return '⚔ ' + e.wer + ' beginnt';
+    case 'runde':    return '';                       // wird als Ueberschrift gesetzt
+    case 'zug':      return '▸ ' + e.wer + ' ist am Zug';
+    case 'schaden':  return '   ' + e.wer + ' nimmt ' + e.wert + ' Schaden' + stand;
+    case 'heilung':  return '   ' + e.wer + ' wird um ' + e.wert + ' geheilt' + stand;
+    case 'temp':     return '   ' + e.wer + ': ' + (e.wert >= 0 ? '+' : '') + e.wert + ' temporäre Trefferpunkte';
+    case 'maxtemp':  return '   ' + e.wer + ': ' + (e.wert >= 0 ? '+' : '') + e.wert + ' temporäres Maximum';
+    case 'maxhp':    return '   ' + e.wer + ': Maximum ' + (e.wert >= 0 ? '+' : '') + e.wert;
+    case 'nieder':   return '   ' + e.wer + ' ist kampfunfähig';
+    case 'auf':      return '   ' + e.wer + ' ist wieder auf den Beinen' + (mitZahlen ? ' · ' + e.auf : '');
+    case 'zustand':  return '   ' + e.wer + (e.an ? ' ist ' : ' ist nicht mehr ') + e.was;
+    case 'marke':    return '   ' + e.wer + (e.an ? ' hat ' + e.was
+                                                    : ' hat keinen ' + e.was + ' mehr');
+    case 'ersch':    return '   ' + e.wer + ': Erschöpfung ' + e.wert;
+    case 'todes':    return '   ' + e.wer + ': Todesrettungswürfe ' + e.erfolge + '✓ ' + e.fehler + '✗'
+                            + (e.lage === 'stabil' ? ' — stabilisiert' : e.lage === 'tot' ? ' — tot' : '');
+    case 'dazu':     return '   + ' + e.wer + (mitZahlen && e.hp !== undefined ? ' (' + e.hp + ' TP, RK ' + e.ac + ')' : '');
+    case 'weg':      return '   − ' + e.wer + ' verlässt den Kampf';
+    default:         return '   ' + (e.wer || '');
+  }
+};
+
+// Der ganze Verlauf als Text, wie er in die Zwischenablage geht.
+const protokollText = (kampf, mitZahlen) => {
+  const zeilen = [];
+  zeilen.push('⚔ ' + (kampf.name || 'Kampf'));
+  zeilen.push(new Date().toLocaleString('de-DE'));
+  zeilen.push('');
+  let runde = null;
+  (kampf.log || []).forEach(e => {
+    if (e.r !== runde) {
+      runde = e.r;
+      if (zeilen.length > 3) zeilen.push('');
+      zeilen.push('── Runde ' + runde + ' ──────────────────────');
+    }
+    const z = protokollZeile(e, mitZahlen);
+    if (z) zeilen.push(z);
+  });
+  if ((kampf.log || []).length === 0) zeilen.push('(noch nichts geschehen)');
+  return zeilen.join('\n');
+};
 
 // ── Todesrettungswuerfe ──────────────────────────────────────────
 // Bei 0 Trefferpunkten wird gewuerfelt: drei Erfolge stabilisieren, drei
@@ -670,6 +729,9 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [spontan, setSpontan] = React.useState(false);
   const [begegnungOffen, setBegegnungOffen] = React.useState(false);
   const [nothelferOffen, setNothelferOffen] = React.useState(false);
+  const [protokollOffen, setProtokollOffen] = React.useState(false);
+  const [mitZahlen, setMitZahlen] = React.useState(true);
+  const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
@@ -731,11 +793,32 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const aendernKampf = (id, fn) =>
     setKampf(k => ({...k, teilnehmer: k.teilnehmer.map(t => t.id===id ? fn(t) : t)}));
 
+  // Eine Zeile ins Protokoll. Die Runde kommt aus dem Kampf selbst, nicht
+  // aus dem Aufrufer — sonst stuende ein Eintrag in der falschen Runde,
+  // wenn er im selben Atemzug mit dem Zugwechsel kommt.
+  const protokollieren = (eintrag) => setKampf(k => k && ({...k,
+    log: [...(k.log || []), {...eintrag, r: k.runde}]}));
+
   // Was zum Helden gehoert, geht in den Bogen — sofort, nicht am Ende.
-  const aendernWerte = (id, fn) => {
+  const aendernWerte = (id, fn, eintrag) => {
     const t = liste.find(x => x.id === id);
     if (!t || t.fehlt) return;
     const neu = fn(t);
+
+    // Erst notieren, was geschehen ist — mit dem Stand davor und danach.
+    if (eintrag) {
+      if (eintrag.art === 'todes') {
+        const d = neu.deathSaves || TODES_LEER;
+        protokollieren({art: 'todes', wer: t.name, erfolge: d.erfolge || 0, fehler: d.fehler || 0,
+               lage: todesStand(d)});
+      } else {
+        protokollieren({...eintrag, wer: t.name, von: (t.hp || 0), auf: (neu.hp || 0)});
+      }
+    }
+    // Und die beiden Augenblicke, die man spaeter nachliest.
+    if ((t.hp || 0) > 0 && (neu.hp || 0) <= 0) protokollieren({art: 'nieder', wer: t.name});
+    if ((t.hp || 0) <= 0 && (neu.hp || 0) > 0) protokollieren({art: 'auf', wer: t.name, auf: neu.hp});
+
     if (t.art === 'held') {
       const p = {hp: neu.hp, tempHp: neu.tempHp};
       if (neu.tempMaxHp  !== undefined) p.tempMaxHp  = neu.tempMaxHp;
@@ -758,29 +841,49 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
 
   // Auf der Karte: die kleinen Schritte ohne Fenster.
   const wertDirekt = (id, modus, n) => {
-    if (modus === 'schaden') aendernWerte(id, t => schaden(t, n));
-    if (modus === 'heilung') aendernWerte(id, t => heilen(t, n));
+    if (modus === 'schaden') aendernWerte(id, t => schaden(t, n), {art:'schaden', wert:n});
+    if (modus === 'heilung') aendernWerte(id, t => heilen(t, n),  {art:'heilung', wert:n});
   };
 
   const fensterAnwenden = (n) => {
     const {id, modus} = wertDlg;
     setWertDlg(null);
     if (!n) return;
-    if (modus === 'schaden') aendernWerte(id, t => n > 0 ? schaden(t, n) : heilen(t, -n));
-    if (modus === 'heilung') aendernWerte(id, t => n > 0 ? heilen(t, n) : schaden(t, -n));
-    if (modus === 'temp')    aendernWerte(id, t => temp(t, n));
-    if (modus === 'maxtemp') aendernWerte(id, t => ({...t, tempMaxHp: Math.max(0, (t.tempMaxHp||0) + n)}));
+    if (modus === 'schaden') aendernWerte(id, t => n > 0 ? schaden(t, n) : heilen(t, -n),
+                                          n > 0 ? {art:'schaden', wert:n} : {art:'heilung', wert:-n});
+    if (modus === 'heilung') aendernWerte(id, t => n > 0 ? heilen(t, n) : schaden(t, -n),
+                                          n > 0 ? {art:'heilung', wert:n} : {art:'schaden', wert:-n});
+    if (modus === 'temp')    aendernWerte(id, t => temp(t, n), {art:'temp', wert:n});
+    if (modus === 'maxtemp') aendernWerte(id, t => ({...t, tempMaxHp: Math.max(0, (t.tempMaxHp||0) + n)}),
+                                          {art:'maxtemp', wert:n});
     // Sinkt die Obergrenze unter den aktuellen Stand, sinkt der Stand mit.
-    if (modus === 'maxhp')   aendernKampf(id, t => {
-      const m = Math.max(1, (t.hpMax||1) + n);
-      return {...t, hpMax: m, hp: Math.min(t.hp, m)};
-    });
+    if (modus === 'maxhp') {
+      const ziel = liste.find(x => x.id === id);
+      if (ziel) protokollieren({art:'maxhp', wer: ziel.name, wert: n});
+      aendernKampf(id, t => {
+        const m = Math.max(1, (t.hpMax||1) + n);
+        return {...t, hpMax: m, hp: Math.min(t.hp, m)};
+      });
+    }
   };
 
-  const zustand = (id, z) => aendernKampf(id, t => ({...t,
-    zustaende: (t.zustaende||[]).includes(z) ? (t.zustaende||[]).filter(x=>x!==z) : [...(t.zustaende||[]), z]}));
-  const marke = (id, k) => aendernKampf(id, t => ({...t, [k]: !t[k]}));
-  const erschoepfung = (id, stufe) => aendernKampf(id, t => ({...t, erschoepfung: Math.max(0, Math.min(6, stufe))}));
+  const zustand = (id, z) => {
+    const t = liste.find(x => x.id === id);
+    if (t) protokollieren({art:'zustand', wer: t.name, was: z, an: !(t.zustaende||[]).includes(z)});
+    aendernKampf(id, t2 => ({...t2,
+      zustaende: (t2.zustaende||[]).includes(z) ? (t2.zustaende||[]).filter(x=>x!==z) : [...(t2.zustaende||[]), z]}));
+  };
+  const marke = (id, k) => {
+    const t = liste.find(x => x.id === id);
+    if (t) protokollieren({art:'marke', wer: t.name, was: k === 'vorteil' ? 'Vorteil' : 'Nachteil', an: !t[k]});
+    aendernKampf(id, t2 => ({...t2, [k]: !t2[k]}));
+  };
+  const erschoepfung = (id, stufe) => {
+    const t = liste.find(x => x.id === id);
+    const neu = Math.max(0, Math.min(6, stufe));
+    if (t && (t.erschoepfung||0) !== neu) protokollieren({art:'ersch', wer: t.name, wert: neu});
+    aendernKampf(id, t2 => ({...t2, erschoepfung: neu}));
+  };
   // Die Notiz zu einem Helden gehoert zu ihm, nicht zu diesem Kampf —
   // deshalb denselben Weg wie die Trefferpunkte: hinaus aus dem Kampf.
   const notiz = (id, v) => {
@@ -820,13 +923,20 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   });
 
   const entfernen = (id) => setKampf(k => {
+    const raus = k.teilnehmer.find(t => t.id === id);
     const idx = k.teilnehmer.findIndex(t => t.id === id);
     const teilnehmer = k.teilnehmer.filter(t => t.id !== id);
     const zug = idx < k.zug ? Math.max(0, k.zug-1) : Math.min(k.zug, Math.max(0, teilnehmer.length-1));
-    return {...k, teilnehmer, zug};
+    return {...k, teilnehmer, zug,
+      log: [...(k.log||[]), {art:'weg', r: k.runde,
+                             wer: (raus && (heldName(raus) || raus.name)) || 'Jemand'}]};
   });
 
-  const dazu = (neue) => setKampf(k => neuOrdnen(k, [...k.teilnehmer, ...neue]));
+  const dazu = (neue) => setKampf(k => {
+    const nk = neuOrdnen(k, [...k.teilnehmer, ...neue]);
+    return {...nk, log: [...(k.log||[]), ...neue.map(t => ({
+      art:'dazu', r: k.runde, wer: heldName(t) || t.name, hp: t.hpMax, ac: t.ac}))]};
+  });
 
   // Eine vorbereitete Begegnung in den laufenden Kampf. Steht noch kein
   // Gegner drin und heisst der Kampf noch wie der leere, uebernimmt er den
@@ -846,15 +956,43 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const naechster = () => setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
-    return naechsterZug >= k.teilnehmer.length
+    const nk = naechsterZug >= k.teilnehmer.length
       ? {...k, zug: 0, runde: k.runde + 1}
       : {...k, zug: naechsterZug};
+    // Wer jetzt dran ist, steht im neuen Kampf — nicht im alten.
+    const dran = nk.teilnehmer[nk.zug];
+    const name = dran ? (heldName(dran) || dran.name) : '';
+    const unter = dran && dran.art === 'held'
+      ? (liste.find(x => x.id === dran.id) || {}).unterzeile : null;
+    return {...nk, log: [...(nk.log || []), {art:'zug', r: nk.runde,
+      wer: name + (unter ? ' (' + unter + ')' : '')}]};
   });
 
   // Wuerfelt nur fuer die, bei denen noch nichts steht — eine angesagte
   // Zahl wird nicht ueberschrieben.
   const alleIni = () => setKampf(k => neuOrdnen(k, k.teilnehmer.map(t =>
     t.ini !== null ? t : {...t, ini: w20() + mod(heldDex(t))})));
+
+  // In die Zwischenablage. Wo die neue Schnittstelle fehlt — altes
+  // Android, unsichere Verbindung —, hilft der Umweg ueber ein Feld,
+  // das kurz da ist und gleich wieder verschwindet.
+  const protokollKopieren = async () => {
+    const text = protokollText(kampf, mitZahlen);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      try {
+        const f = document.createElement('textarea');
+        f.value = text;
+        f.style.position = 'fixed'; f.style.opacity = '0';
+        document.body.appendChild(f); f.select();
+        document.execCommand('copy');
+        document.body.removeChild(f);
+      } catch { return; }
+    }
+    setKopiert(true);
+    setTimeout(() => setKopiert(false), 2000);
+  };
 
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
@@ -885,11 +1023,54 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             title="Eine vorbereitete Begegnung dazuladen">📋 Begegnung</button>
           <button className="kampf-kopf-btn zusatz" onClick={()=>setNothelferOffen(true)}
             title="Gegner aus dem Stegreif: Name, Trefferpunkte, Rüstungsklasse">✚ Nothelfer</button>
+          <button className={"kampf-kopf-btn zusatz" + (protokollOffen ? " an" : "")}
+            onClick={()=>setProtokollOffen(o=>!o)}
+            title="Was in diesem Kampf geschehen ist">
+            📜 Protokoll{(kampf.log||[]).length > 1 ? ' · ' + (kampf.log||[]).length : ''}
+          </button>
           <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
           <button className="kampf-kopf-btn ende" onClick={onBeenden}>⏹ Kampf beenden</button>
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
         </div>
+
+        {protokollOffen && (
+          <div className="kampf-protokoll">
+            <div className="kampf-protokoll-kopf">
+              <span>📜 Protokoll dieses Kampfes</span>
+              <label className="kampf-protokoll-schalter" title="Ohne Häkchen stehen nur die Beträge da, nicht die Trefferpunktstände">
+                <input type="checkbox" checked={mitZahlen}
+                  onChange={e=>setMitZahlen(e.target.checked)} />
+                Trefferpunkte
+              </label>
+              <button className="btn-icon" onClick={protokollKopieren}>
+                {kopiert ? '✓ Kopiert' : '📋 Kopieren'}
+              </button>
+            </div>
+            <div className="kampf-protokoll-text">
+              {(kampf.log || []).length <= 1 ? (
+                <i>Noch nichts geschehen. Was du einträgst, steht hier.</i>
+              ) : (
+                (() => {
+                  const zeilen = [];
+                  let runde = null;
+                  (kampf.log || []).forEach((e, i) => {
+                    if (e.r !== runde) {
+                      runde = e.r;
+                      zeilen.push(<div className="pr-runde" key={'r'+i}>── Runde {runde} ──</div>);
+                    }
+                    const z = protokollZeile(e, mitZahlen);
+                    if (z) zeilen.push(
+                      <div className={'pr-zeile' + (e.art === 'zug' ? ' zug' : '')
+                                      + (e.art === 'nieder' || (e.art === 'todes' && e.lage === 'tot') ? ' schwer' : '')}
+                        key={i}>{z}</div>);
+                  });
+                  return zeilen;
+                })()
+              )}
+            </div>
+          </div>
+        )}
 
         {ohneIni > 0 && (
           <div className="kampf-hinweis">
@@ -949,7 +1130,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               onNotizFertig={t.art === 'held' ? onHeldNotizSichern : undefined}
               onZustand={z=>zustand(t.id,z)} onMarke={k=>marke(t.id,k)}
               onErschoepfung={st=>erschoepfung(t.id,st)}
-              onTodes={(d)=>aendernWerte(t.id, alt => ({...alt, deathSaves:d}))}
+              onTodes={(d)=>aendernWerte(t.id, alt => ({...alt, deathSaves:d}), {art:'todes'})}
               onEntfernen={()=>entfernen(t.id)} onBlatt={onGegnerBlatt} />
           ))}
         </div>
