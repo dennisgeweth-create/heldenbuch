@@ -9038,6 +9038,27 @@ function App() {
     }
   };
 
+  // Wer in der Gruppe ist. Gebraucht wird das an zwei Stellen: beim
+  // Betreten des DM-Bereichs und in den Einstellungen eines Abenteuers.
+  // Die Verwaltung kommt in die Einstellungen, ohne vorher in den
+  // DM-Modus zu wechseln — dann war die Liste leer, und das Fenster
+  // behauptete, in der Gruppe habe niemand ein Konto.
+  const mitgliederLaden = async dm => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      const m = await apiMitglieder(url, code, pass, dm !== undefined ? dm : dmPassRef.current);
+      setMitglieder(Array.isArray(m.mitglieder) ? m.mitglieder : []);
+      return true;
+    } catch (e) {
+      setMitglieder([]);
+      return false;
+    }
+  };
+
   // Der DM-Bereich, geoeffnet mit dem DM-Passwort oder — wer angemeldet
   // ist und die Rolle hat — mit einer leeren Zeichenkette. Der Server
   // entscheidet; hier steht nur, was mitgeschickt wird.
@@ -9068,15 +9089,7 @@ function App() {
         setEnemiesGeladen(false);
         console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
       }
-      // Wer in der Gruppe ist — fuer das Zuordnen der Boegen. Gibt es
-      // noch keine Konten, kommt eine leere Liste zurueck, und die
-      // Einstellungen sagen das dann auch.
-      try {
-        const m = await apiMitglieder(url, code, pass, dm);
-        setMitglieder(Array.isArray(m.mitglieder) ? m.mitglieder : []);
-      } catch (e) {
-        setMitglieder([]);
-      }
+      await mitgliederLaden(dm);
       // Eigener Versuch: faellt die Chronik aus, bleibt die Gegnerliste
       // trotzdem geladen. Sie haengen sachlich nicht zusammen.
       try {
@@ -10045,6 +10058,12 @@ function App() {
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
   const advObj = abenteuer.find(a => a.id === advId) || null;
   advIdRef.current = advId;
+  const einstellungFuer = advEinstellung ? advEinstellung.id : null;
+  useEffect(() => {
+    if (!einstellungFuer) return;
+    if (!kontoRef.current && !dmPassRef.current) return;
+    mitgliederLaden();
+  }, [einstellungFuer]);
 
   // Wechselt die Spielleitung in ein Abenteuer, das sie nicht leitet, ist
   // sie dort ein Spieler — also raus aus dem DM-Modus. Das ist kein
@@ -11590,7 +11609,7 @@ function App() {
     }, a.name), /*#__PURE__*/React.createElement("span", {
       className: "adv-menu-zahl"
     }, n));
-  }), isDmMode && /*#__PURE__*/React.createElement("button", {
+  }), (isDmMode || konto && konto.ist_admin) && /*#__PURE__*/React.createElement("button", {
     className: "adv-menu-verwalten",
     onClick: () => {
       setAdvMenuOffen(false);
@@ -15972,7 +15991,7 @@ function App() {
       marginTop: 0,
       marginBottom: 10
     }
-  }, "Die Rolle gilt f\xFCr diese Gruppe. \u201ESpielleitung\u201C hei\xDFt noch nicht, welches Abenteuer \u2014 das steht in den Einstellungen des Abenteuers."), verwaltung.laedt && /*#__PURE__*/React.createElement("div", {
+  }, "Diese Rolle gilt f\xFCr die ganze Gruppe und nur dort, wo f\xFCr ein Abenteuer niemand eingetragen ist. Wer welches Abenteuer leitet, steht in den Einstellungen des Abenteuers \u2014 und daf\xFCr kommt jedes Konto in Frage, auch ein Spieler. Wer Eberron leitet, kann in Strahd mitspielen."), verwaltung.laedt && /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       margin: 0
