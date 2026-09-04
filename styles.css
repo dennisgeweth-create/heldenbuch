@@ -1893,6 +1893,10 @@
   .sync-line-konto { font-family:'Roboto Condensed',sans-serif; font-size:10.5px;
     letter-spacing:0.06em; color:var(--text-muted); padding:1px 6px; border-radius:3px;
     background:var(--bg-panel); border:1px solid var(--border); white-space:nowrap; }
+  .einst-besitz-name { flex:1; font-family:'Roboto Condensed',sans-serif; font-size:13px;
+    color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .einst-klasse .form-select { max-width:200px; text-transform:none; letter-spacing:0; }
+  .char-eigen { font-size:10px; color:#7ab8f5; }
   .einst-vollwahl { flex:1; min-width:180px; text-transform:none; letter-spacing:0;
     font-size:12.5px; }
   .einst-warnung { color:var(--gold-bright); }

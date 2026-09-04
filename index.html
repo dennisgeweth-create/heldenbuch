@@ -77,7 +77,13 @@
         throw new Error('Server nicht erreichbar. Bitte URL prüfen.');
       }
       const data = await res.json();
-      if (!data.ok) throw new Error(data.message || 'Serverfehler ' + res.status);
+      if (!data.ok) {
+        // Der Statuscode geht mit: 403 heisst "wird nie gehen" und darf
+        // nicht endlos wiederholt werden, 500 heisst "gleich nochmal".
+        const fehler = new Error(data.message || 'Serverfehler ' + res.status);
+        fehler.status = res.status;
+        throw fehler;
+      }
       return data;
     }
     const registerGroup    = (url, code, pass, dmPass)  => apiRequest(url, 'register',        { code, password: pass, dm_password: dmPass||undefined });
@@ -121,6 +127,13 @@
                                                        { user_id: userId, neu });
     const apiRolleSetzen= (url, userId, gruppe, r) => apiRequest(url, 'member_set',
                                                        { user_id: userId, gruppe, rolle: r });
+
+    // Wem ein Bogen gehoert, und wer ueberhaupt in der Gruppe ist.
+    const apiBesitzerSetzen = (url, code, pass, dmPass, charId, owner) =>
+      apiRequest(url, 'char_owner_set', { code, password: pass, dm_password: dmPass,
+                                          char_id: charId, owner });
+    const apiMitglieder = (url, code, pass, dmPass) =>
+      apiRequest(url, 'member_list', { code, password: pass, dm_password: dmPass });
 
     // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
     // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils

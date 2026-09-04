@@ -331,6 +331,25 @@ function nutzerAntwort(PDO $pdo, array $u): array {
     ];
 }
 
+// ── Besitz eines Bogens ─────────────────────────────────────────
+// Die Regel ist mit Absicht einseitig: ein Bogen ohne Besitzer darf von
+// jedem in der Gruppe geaendert werden — genau wie bisher. Erst die
+// Zuordnung schuetzt ihn. So aendert die Umstellung fuer eine Runde, die
+// noch nichts zugeordnet hat, ueberhaupt nichts, und jede Zuordnung
+// macht es strenger statt kaputt.
+//
+// Der alte Weg ueber das Gruppenpasswort kennt keinen Besitz: wer es hat,
+// ist die Gruppe. Das bleibt so, bis er abgeschaltet wird.
+function besitzPruefen(PDO $pdo, array $z, string $code, string $charId): void {
+    if (!$z['user']) return;
+    if ($z['rolle'] === 'dm' || $z['rolle'] === 'admin') return;
+    $st = $pdo->prepare("SELECT owner FROM hb_chars WHERE session_code=? AND char_id=?");
+    $st->execute([$code, $charId]);
+    $r = $st->fetch();
+    if (!$r || $r['owner'] === null) return;
+    if ((int)$r['owner'] !== (int)$z['user']['id']) respond(403, 'Dieser Bogen gehört jemand anderem.');
+}
+
 // ── Zugang zu einer Gruppe ──────────────────────────────────────
 // Zwei Wege, und beide fuehren hierher: das Gruppenpasswort wie bisher,
 // oder ein angemeldetes Konto. Solange die Anwendung noch das Passwort
@@ -412,7 +431,7 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
     }
 
     // 2. Lade Chars
-    $stmt = $pdo->prepare("SELECT char_id, char_json, updated_at FROM hb_chars WHERE session_code=? ORDER BY id ASC");
+    $stmt = $pdo->prepare("SELECT char_id, char_json, owner, updated_at FROM hb_chars WHERE session_code=? ORDER BY id ASC");
     $stmt->execute([$code]);
     $charRows = $stmt->fetchAll();
 
@@ -427,16 +446,22 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
 
     // 4. Zusammensetzen
     $chars = [];
+    $besitz = [];
     $latestTs = 0;
     foreach ($charRows as $r) {
         $c = json_decode($r['char_json'], true);
         if (!$c) continue;
         $c['inventory'] = $itemsByChar[$c['id']] ?? [];
         $chars[] = $c;
+        // Der Besitzer steht in einer eigenen Spalte und geht auch so
+        // zurueck. Im Charakter selbst haette er nichts verloren: der wird
+        // von der Anwendung geschrieben, und was sie schreibt, darf nicht
+        // ueber Rechte entscheiden.
+        if ($r['owner'] !== null) $besitz[(string)$r['char_id']] = (int)$r['owner'];
         $ts = strtotime($r['updated_at']) * 1000;
         if ($ts > $latestTs) $latestTs = $ts;
     }
-    return ['chars' => $chars, 'updated_at' => $latestTs];
+    return ['chars' => $chars, 'owners' => $besitz, 'updated_at' => $latestTs];
 }
 
 // ── Actions ─────────────────────────────────────────────────────
@@ -475,6 +500,7 @@ switch ($action) {
 
         respond(200, 'OK', [
             'chars'      => $result['chars'],
+            'owners'     => (object)$result['owners'],
             'library'    => json_decode($row['library_json']??'{}', true) ?? [],
             'has_dm'     => !empty($row['dm_pass_hash']),
             'updated_at' => $result['updated_at'],
@@ -523,7 +549,8 @@ switch ($action) {
         unset($char['inventory']); // Items kommen über save_item
         $json = json_encode($char, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_CHAR_BYTES) respond(413, 'Charakter zu groß.');
-        zugang($pdo, $code, $pass, $body);
+        $z = zugang($pdo, $code, $pass, $body);
+        besitzPruefen($pdo, $z, $code, (string)$charId);
 
         // Vorher lesen, um zu wissen, ob sich mehr geaendert hat als die
         // Trefferpunkte. Das kostet einen Lesevorgang je Speichern —
@@ -536,9 +563,16 @@ switch ($action) {
         $inhaltNeu = json_encode(ohneVitals($char), JSON_UNESCAPED_UNICODE);
         $inhaltAlt = $altChar === null ? null : json_encode(ohneVitals($altChar), JSON_UNESCAPED_UNICODE);
 
-        $pdo->prepare("INSERT INTO hb_chars (session_code,char_id,char_json) VALUES(?,?,?)
+        // Ein neuer Bogen gehoert dem, der ihn anlegt — sofern er
+        // angemeldet ist. Beim Aktualisieren steht owner nicht in der
+        // Zuweisungsliste und bleibt deshalb, wie es ist: ein Speichern
+        // soll niemandem den Besitz nehmen oder geben.
+        // fetch() liefert false, nicht null, wenn es die Zeile nicht gibt —
+        // deshalb hier auf falsy pruefen und nicht auf null.
+        $neuerBesitzer = (!$altRow && $z['user']) ? (int)$z['user']['id'] : null;
+        $pdo->prepare("INSERT INTO hb_chars (session_code,char_id,char_json,owner) VALUES(?,?,?,?)
                        ON DUPLICATE KEY UPDATE char_json=VALUES(char_json), updated_at=NOW()")
-            ->execute([$code, $charId, $json]);
+            ->execute([$code, $charId, $json, $neuerBesitzer]);
 
         $vitals = json_encode(vitalsAus($char), JSON_UNESCAPED_UNICODE);
         if (strlen($vitals) <= 255) {
@@ -554,7 +588,8 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $charId = $body['char_id'] ?? null;
         if (!$charId) respond(400, 'Fehlende char_id.');
-        zugang($pdo, $code, $pass, $body);
+        $z = zugang($pdo, $code, $pass, $body);
+        besitzPruefen($pdo, $z, $code, (string)$charId);
         $pdo->prepare("DELETE FROM hb_chars WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
         $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
         $pdo->prepare("DELETE FROM hb_vitals WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
@@ -570,7 +605,9 @@ switch ($action) {
         if (!$charId || !$itemId || !$item) respond(400, 'Fehlende Daten.');
         $json = json_encode($item, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_ITEM_BYTES) respond(413, 'Item zu groß (max 2 MB).');
-        zugang($pdo, $code, $pass, $body);
+        // Das Inventar gehoert zum Bogen. Ohne diese Zeile waere der
+        // Besitz mit einem Gegenstand zu umgehen.
+        besitzPruefen($pdo, zugang($pdo, $code, $pass, $body), $code, (string)$charId);
         $pdo->prepare("INSERT INTO hb_items (session_code,char_id,item_id,item_json) VALUES(?,?,?,?)
                        ON DUPLICATE KEY UPDATE item_json=VALUES(item_json), updated_at=NOW()")
             ->execute([$code, $charId, $itemId, $json]);
@@ -583,7 +620,7 @@ switch ($action) {
         $charId = $body['char_id'] ?? null;
         $itemId = $body['item_id'] ?? null;
         if (!$charId || !$itemId) respond(400, 'Fehlende Daten.');
-        zugang($pdo, $code, $pass, $body);
+        besitzPruefen($pdo, zugang($pdo, $code, $pass, $body), $code, (string)$charId);
         $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=? AND item_id=?")
             ->execute([$code, $charId, $itemId]);
         revHoch($pdo, $code);
@@ -944,6 +981,48 @@ switch ($action) {
                        ON DUPLICATE KEY UPDATE rolle=VALUES(rolle)")
             ->execute([$ziel, $gcode, $rolle]);
         respond(200, 'Rolle gesetzt.');
+    }
+
+    // Wem ein Bogen gehoert, bestimmt die Spielleitung. Ein Spieler kann
+    // sich keinen nehmen — sonst waere der Besitz nur eine Anzeige.
+    case 'char_owner_set': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugangDm($pdo, $code, $pass, $dmPass, $body);
+        $charId = (string)($body['char_id'] ?? '');
+        if ($charId === '') respond(400, 'Fehlende char_id.');
+        $owner = $body['owner'] ?? null;
+        if ($owner === null || $owner === '' || (int)$owner === 0) {
+            $pdo->prepare("UPDATE hb_chars SET owner=NULL WHERE session_code=? AND char_id=?")
+                ->execute([$code, $charId]);
+            respond(200, 'Zuordnung aufgehoben.');
+        }
+        // Nur an jemanden, der auch in der Gruppe ist — ein Bogen, der
+        // einem Fremden gehoert, waere fuer alle gesperrt.
+        $st = $pdo->prepare("SELECT rolle FROM hb_mitglied WHERE user_id=? AND session_code=?");
+        $st->execute([(int)$owner, $code]);
+        if (!$st->fetch()) respond(404, 'Dieses Konto gehört nicht zu der Gruppe.');
+        $up = $pdo->prepare("UPDATE hb_chars SET owner=? WHERE session_code=? AND char_id=?");
+        $up->execute([(int)$owner, $code, $charId]);
+        if ($up->rowCount() === 0) {
+            // rowCount ist auch 0, wenn derselbe Besitzer schon dastand.
+            $pr = $pdo->prepare("SELECT owner FROM hb_chars WHERE session_code=? AND char_id=?");
+            $pr->execute([$code, $charId]);
+            $vor = $pr->fetch();
+            if (!$vor) respond(404, 'Bogen nicht gefunden.');
+        }
+        respond(200, 'Zugeordnet.');
+    }
+
+    // Wer gehoert zu dieser Gruppe. Die Spielleitung braucht das zum
+    // Zuordnen; die ganze Kontenliste bleibt der Verwaltung vorbehalten.
+    case 'member_list': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
+        $st = $pdo->prepare("SELECT u.id, u.name, m.rolle FROM hb_mitglied m
+                             JOIN hb_users u ON u.id = m.user_id
+                             WHERE m.session_code=? ORDER BY u.name");
+        $st->execute([$code]);
+        respond(200, 'OK', ['mitglieder' => $st->fetchAll()]);
     }
 
     default:

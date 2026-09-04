@@ -2,7 +2,8 @@
 // Was hier steht, gilt fuer alle in der Gruppe — es liegt in derselben
 // geteilten Datenbank wie die Abenteuerliste selbst. Deshalb sind es
 // bewusst wenige, klar benannte Schalter und keine Sammelkiste.
-const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrechen }) => {
+const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrechen,
+                                  besitzer, mitglieder, onBesitzer }) => {
   const klassen = advKlassen(adv);
   const eigene  = Array.isArray(adv.klassen) && adv.klassen.length > 0;
   const setzen  = (p) => onAendern({...adv, ...p});
@@ -169,6 +170,41 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               nichts davon berührt einen Charakterbogen. Wer einen zwielichtigen
               Automaten will, regelt ihn auf 80 % ein und sagt nichts.
             </div>
+          </div>
+
+          {/* ── Wem gehoert welcher Held ── */}
+          <div className="einst-block">
+            <div className="einst-titel">🧑 Helden und ihre Konten</div>
+            <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+              Ein zugeordneter Bogen lässt sich nur noch von seinem Konto ändern —
+              und von dir. Was hier niemandem gehört, bleibt für alle offen; die
+              Zuordnung macht es strenger, nie kaputt. Der Server hält sich daran,
+              nicht die Anzeige.
+            </div>
+            {!(mitglieder || []).length ? (
+              <div className="einst-hinweis" style={{margin:0}}>
+                In dieser Gruppe hat noch niemand ein Konto. Solange das so ist,
+                gehört kein Bogen jemandem — genau wie bisher.
+              </div>
+            ) : (helden || []).length === 0 ? (
+              <div className="einst-hinweis" style={{margin:0}}>Kein Held in diesem Abenteuer.</div>
+            ) : (
+              (helden || []).map(h => (
+                <div className="einst-klasse" key={h.id}>
+                  <span className="einst-besitz-name">{h.name || 'Namenlos'}</span>
+                  <select className="form-select" aria-label={'Konto für ' + (h.name || 'Held')}
+                    value={(besitzer && besitzer[h.id]) || ''}
+                    onChange={e=>onBesitzer(h.id, e.target.value)}>
+                    <option value="">— niemandem —</option>
+                    {(mitglieder || []).map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}{m.rolle === 'dm' ? ' (DM)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))
+            )}
           </div>
 
           {/* ── Klassen ── */}

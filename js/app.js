@@ -3205,7 +3205,10 @@ const AbenteuerEinstellungen = ({
   helden,
   onAendern,
   onSpeichern,
-  onAbbrechen
+  onAbbrechen,
+  besitzer,
+  mitglieder,
+  onBesitzer
 }) => {
   const klassen = advKlassen(adv);
   const eigene = Array.isArray(adv.klassen) && adv.klassen.length > 0;
@@ -3423,6 +3426,41 @@ const AbenteuerEinstellungen = ({
   }, "\u21BA Standardautomat")), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
   }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), /*#__PURE__*/React.createElement("div", {
+    className: "einst-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel"
+  }, "\uD83E\uDDD1 Helden und ihre Konten"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "Ein zugeordneter Bogen l\xE4sst sich nur noch von seinem Konto \xE4ndern \u2014 und von dir. Was hier niemandem geh\xF6rt, bleibt f\xFCr alle offen; die Zuordnung macht es strenger, nie kaputt. Der Server h\xE4lt sich daran, nicht die Anzeige."), !(mitglieder || []).length ? /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      margin: 0
+    }
+  }, "In dieser Gruppe hat noch niemand ein Konto. Solange das so ist, geh\xF6rt kein Bogen jemandem \u2014 genau wie bisher.") : (helden || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      margin: 0
+    }
+  }, "Kein Held in diesem Abenteuer.") : (helden || []).map(h => /*#__PURE__*/React.createElement("div", {
+    className: "einst-klasse",
+    key: h.id
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "einst-besitz-name"
+  }, h.name || 'Namenlos'), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    "aria-label": 'Konto für ' + (h.name || 'Held'),
+    value: besitzer && besitzer[h.id] || '',
+    onChange: e => onBesitzer(h.id, e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 niemandem \u2014"), (mitglieder || []).map(m => /*#__PURE__*/React.createElement("option", {
+    key: m.id,
+    value: m.id
+  }, m.name, m.rolle === 'dm' ? ' (DM)' : '')))))), /*#__PURE__*/React.createElement("div", {
     className: "einst-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "einst-titel"
@@ -8021,6 +8059,11 @@ function App() {
   // weiterlaeuft, bis jeder ein Konto hat.
   const [konto, setKonto] = useState(null);
   const [passwortDlg, setPasswortDlg] = useState(null); // {alt, neu, neu2, err, pflicht}
+  // Wem welcher Bogen gehoert: {charId: userId}. Kommt aus einer eigenen
+  // Spalte und wird nie in den Charakter geschrieben — was die Anwendung
+  // schreibt, darf nicht ueber Rechte entscheiden.
+  const [besitzer, setBesitzer] = useState({});
+  const [mitglieder, setMitglieder] = useState([]);
   const [showDmLogin, setShowDmLogin] = useState(false);
   const [dmLoginInput, setDmLoginInput] = useState('');
   const [dmLoginErr, setDmLoginErr] = useState('');
@@ -8334,36 +8377,72 @@ function App() {
       // schadet nicht: save_char und save_item ueberschreiben denselben
       // Datensatz, und Loeschungen sind ohnehin wiederholbar.
 
-      try {
-        const ops = [...Object.values(toSave).map(c => apiSaveChar(url, code, pass, c.id, c)), ...Object.values(toSaveI).map(({
-          charId,
-          itemId,
-          item
-        }) => apiSaveItem(url, code, pass, charId, itemId, item)), ...[...toDelete].map(id => apiDeleteChar(url, code, pass, id)), ...[...toDeleteI].map(k => {
-          const [charId, itemId] = k.split('__');
-          return apiDeleteItem(url, code, pass, charId, itemId);
-        })];
-        const antworten = ops.length > 0 ? await Promise.all(ops) : [];
-        // Jede Antwort traegt den Stand nach dem Schreiben. Ihn hier zu
-        // uebernehmen heisst: der naechste Abgleich erkennt die eigene
-        // Aenderung und laedt sie nicht noch einmal herunter.
-        const staende = antworten.map(a => a && a.rev).filter(r => typeof r === 'number');
-        if (staende.length) revRef.current = Math.max(revRef.current || 0, ...staende);
-        // Waehrend des Wartens kann schon wieder etwas dazugekommen sein —
-        // deshalb den aktuellen Stand sichern, nicht blind leeren.
-        merkeWarteschlange();
+      // Jeder Auftrag einzeln, damit ein abgelehnter nicht die anderen
+      // mitreisst — und damit erkennbar bleibt, welcher es war.
+      const auftraege = [...Object.values(toSave).map(c => ({
+        zurueck: () => {
+          pendingChars.current[c.id] = c;
+        },
+        tun: () => apiSaveChar(url, code, pass, c.id, c)
+      })), ...Object.values(toSaveI).map(o => ({
+        zurueck: () => {
+          pendingItems.current[o.charId + '__' + o.itemId] = o;
+        },
+        tun: () => apiSaveItem(url, code, pass, o.charId, o.itemId, o.item)
+      })), ...[...toDelete].map(id => ({
+        zurueck: () => pendingDeletes.current.add(id),
+        tun: () => apiDeleteChar(url, code, pass, id)
+      })), ...[...toDeleteI].map(k => {
+        const [cid, iid] = k.split('__');
+        return {
+          zurueck: () => pendingItemDel.current.add(k),
+          tun: () => apiDeleteItem(url, code, pass, cid, iid)
+        };
+      })];
+      const ergebnisse = auftraege.length ? await Promise.allSettled(auftraege.map(a => a.tun())) : [];
+      const staende = [];
+      let abgelehnt = 0,
+        letzterFehler = null;
+      ergebnisse.forEach((e, i) => {
+        if (e.status === 'fulfilled') {
+          if (e.value && typeof e.value.rev === 'number') staende.push(e.value.rev);
+          return;
+        }
+        const grund = e.reason || {};
+        // 403 heisst: der Server wird das nie annehmen — ein fremder Bogen.
+        // Wieder einzureihen hiesse, es jede Sekunde erneut zu versuchen
+        // und die Anzeige dauerhaft auf "nicht gesichert" zu stellen. Die
+        // oertliche Aenderung faellt beim naechsten Abgleich ohnehin weg.
+        if (grund.status === 403) {
+          abgelehnt++;
+          return;
+        }
+        letzterFehler = grund;
+        auftraege[i].zurueck();
+      });
+      // Jede Antwort traegt den Stand nach dem Schreiben. Ihn hier zu
+      // uebernehmen heisst: der naechste Abgleich erkennt die eigene
+      // Aenderung und laedt sie nicht noch einmal herunter.
+      if (staende.length) revRef.current = Math.max(revRef.current || 0, ...staende);
+      if (letzterFehler) pendingRef.current = true;
+      // Waehrend des Wartens kann schon wieder etwas dazugekommen sein —
+      // deshalb den aktuellen Stand sichern, nicht blind leeren.
+      merkeWarteschlange();
+      if (letzterFehler) {
+        setSyncStatus('err');
+        setSyncMsg(letzterFehler.message || 'Fehler');
+      } else if (abgelehnt) {
+        // Was der Server nicht angenommen hat, darf oertlich nicht stehen
+        // bleiben — sonst sieht der Spieler eine Aenderung, die es
+        // nirgends gibt, und haelt sie fuer gespeichert. Ein Stand, den
+        // der Server nie vergeben kann, laesst den naechsten Abgleich den
+        // echten Bogen holen.
+        revRef.current = -1;
+        setSyncStatus('err');
+        setSyncMsg(abgelehnt === 1 ? 'Änderung abgelehnt — fremder Bogen' : abgelehnt + ' Änderungen abgelehnt — fremde Bögen');
+      } else {
         setSyncStatus('ok');
         setSyncMsg('Gespeichert ✓');
-      } catch (e) {
-        // Re-queue on failure
-        Object.assign(pendingChars.current, toSave);
-        Object.assign(pendingItems.current, toSaveI);
-        for (const id of toDelete) pendingDeletes.current.add(id);
-        for (const k of toDeleteI) pendingItemDel.current.add(k);
-        pendingRef.current = true;
-        merkeWarteschlange();
-        setSyncStatus('err');
-        setSyncMsg(e.message);
       }
     };
     const id = setInterval(tick, 1000);
@@ -8587,6 +8666,7 @@ function App() {
         pollToken.current = d.poll_token || null;
         revRef.current = d.rev != null ? d.rev : null;
         if (d.has_dm) setHasDmMode(true);
+        setBesitzer(d.owners || {});
         if (d.library) {
           setUserLibrary(d.library);
           setLibGeladen(true);
@@ -8896,6 +8976,7 @@ function App() {
         safeSetItem('hb_library', JSON.stringify(data.library));
       }
       if (data.has_dm) setHasDmMode(true);
+      setBesitzer(data.owners || {});
       setSyncStatus('ok');
       setSyncMsg('Geladen ✓');
     } catch (e) {
@@ -8933,6 +9014,15 @@ function App() {
         setEncounters([]);
         setEnemiesGeladen(false);
         console.error('[Heldenbuch] Gegner konnten nicht geladen werden:', e);
+      }
+      // Wer in der Gruppe ist — fuer das Zuordnen der Boegen. Gibt es
+      // noch keine Konten, kommt eine leere Liste zurueck, und die
+      // Einstellungen sagen das dann auch.
+      try {
+        const m = await apiMitglieder(url, code, pass, dm);
+        setMitglieder(Array.isArray(m.mitglieder) ? m.mitglieder : []);
+      } catch (e) {
+        setMitglieder([]);
       }
       // Eigener Versuch: faellt die Chronik aus, bleibt die Gegnerliste
       // trotzdem geladen. Sie haengen sachlich nicht zusammen.
@@ -8982,6 +9072,28 @@ function App() {
       appAlert('Der DM-Bereich ließ sich nicht öffnen: ' + (e.message || ''));
     }
   };
+
+  // Einen Bogen einem Konto zuordnen — oder die Zuordnung aufheben.
+  // Danach steht der Besitz auch oertlich richtig, ohne alles neu zu laden.
+  const besitzerSetzen = async (charId, userId) => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiBesitzerSetzen(url, code, pass, dmPassRef.current, charId, userId || null);
+      setBesitzer(b => {
+        const n = {
+          ...b
+        };
+        if (userId) n[charId] = +userId;else delete n[charId];
+        return n;
+      });
+    } catch (e) {
+      appAlert('Die Zuordnung ging nicht: ' + (e.message || ''));
+    }
+  };
   const doDmLogout = () => {
     setIsDmMode(false);
     setDmPass('');
@@ -8991,6 +9103,7 @@ function App() {
     setEnemies([]);
     setEncounters([]);
     setEnemiesGeladen(false);
+    setMitglieder([]);
     setChronik({
       zeit: {},
       ereignisse: []
@@ -9488,6 +9601,7 @@ function App() {
         safeSetItem('hb_library', JSON.stringify(data.library));
       }
       if (data.has_dm) setHasDmMode(true);
+      setBesitzer(data.owners || {});
       setSyncStatus('ok');
       setSyncMsg('Angemeldet ✓');
       setShowSetup(false);
@@ -9574,6 +9688,7 @@ function App() {
         safeSetItem('hb_library', JSON.stringify(data.library));
       }
       if (data.has_dm) setHasDmMode(true);
+      setBesitzer(data.owners || {});
       setSyncStatus('ok');
       setSyncMsg('Verbunden ✓');
       setShowSetup(false);
@@ -10899,7 +11014,10 @@ function App() {
         fontSize: 10,
         color: '#c060a0'
       }
-    }, "\uD83D\uDD2E"), c.name), /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDD2E"), konto && besitzer[c.id] === konto.id && /*#__PURE__*/React.createElement("span", {
+      className: "char-eigen",
+      title: "Dein Held"
+    }, "\uD83D\uDC64"), c.name), /*#__PURE__*/React.createElement("div", {
       className: "char-item-sub"
     }, c.race, " \xB7 ", c.charClass, (c.multiclasses || []).length > 0 ? ' / ' + c.multiclasses.map(m => m.charClass).join(' / ') : '')), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -15617,6 +15735,9 @@ function App() {
   }), advEinstellung && isDmMode && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {
     adv: advEinstellung,
     helden: chars.filter(c => (c.adventure || (abenteuer[0] || {}).id) === advEinstellung.id),
+    besitzer: besitzer,
+    mitglieder: mitglieder,
+    onBesitzer: besitzerSetzen,
     onAendern: setAdvEinstellung,
     onAbbrechen: () => setAdvEinstellung(null),
     onSpeichern: () => {

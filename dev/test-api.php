@@ -371,6 +371,102 @@ pruefe('das Gruppenpasswort laedt weiterhin (200)', $r['status'] === 200, kurz($
 $r = ruf('dm_load', ['code' => $code, 'password' => $pass, 'dm_password' => $dmp]);
 pruefe('das DM-Passwort gilt weiterhin (200)', $r['status'] === 200, kurz($r));
 
+// ════════════════════════════════════════════════════════════════
+//  Besitz der Boegen — Stufe 3
+// ════════════════════════════════════════════════════════════════
+
+abschnitt('Ein Bogen ohne Besitzer');
+// Die Anmeldungen von oben sind teils abgelaufen — hier frisch holen.
+$r = ruf('login', ['user' => $dm, 'password' => 'neuesnotpasswort']);
+$tDm = (string)$r['body']['token'];
+$r = ruf('login', ['user' => $spieler, 'password' => 'meineigenes']);
+$tSpieler = (string)$r['body']['token'];
+// Ein zweiter Spieler in derselben Gruppe.
+$zweiter = 'zweiter' . rand(1000, 9999);
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => $zweiter, 'neu' => 'einmalpasswort']);
+$idZweiter = (int)$r['body']['id'];
+ruf('member_set', ['token' => $tAdmin, 'user_id' => $idZweiter, 'gruppe' => $code, 'rolle' => 'spieler']);
+$r = ruf('login', ['user' => $zweiter, 'password' => 'einmalpasswort']);
+$tZweiter = (string)$r['body']['token'];
+
+// Ein Bogen ueber den alten Weg: der hat keinen Besitzer, wie alle, die
+// es heute schon gibt.
+$alt = ['id' => 'a1', 'name' => 'Herrenlos', 'charClass' => 'Schurke', 'level' => 1, 'hp' => 8, 'maxHp' => 8];
+$r = ruf('save_char', ['code' => $code, 'password' => $pass, 'char_id' => 'a1', 'char' => $alt]);
+pruefe('der alte Weg legt an (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'password' => $pass]);
+pruefe('load nennt die Besitzer', array_key_exists('owners', $r['body']));
+pruefe('dieser Bogen hat keinen', !isset($r['body']['owners']['a1']),
+       json_encode($r['body']['owners'] ?? null));
+$alt['hp'] = 5;
+$r = ruf('save_char', ['code' => $code, 'token' => $tSpieler, 'char_id' => 'a1', 'char' => $alt]);
+pruefe('ein herrenloser Bogen bleibt fuer jeden aenderbar (200)', $r['status'] === 200, kurz($r));
+
+abschnitt('Ein Bogen mit Besitzer');
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tSpieler,
+                            'char_id' => 'a1', 'owner' => $idSpieler]);
+pruefe('ein Spieler nimmt sich keinen Bogen (403)', $r['status'] === 403, kurz($r));
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tDm,
+                            'char_id' => 'a1', 'owner' => $idFremd]);
+pruefe('nicht an jemanden ausserhalb der Gruppe (404)', $r['status'] === 404, kurz($r));
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tDm,
+                            'char_id' => 'a1', 'owner' => $idSpieler]);
+pruefe('die Spielleitung ordnet zu (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+pruefe('load nennt den Besitzer', (($r['body']['owners']['a1'] ?? 0) === $idSpieler),
+       json_encode($r['body']['owners'] ?? null));
+
+$alt['hp'] = 4;
+$r = ruf('save_char', ['code' => $code, 'token' => $tSpieler, 'char_id' => 'a1', 'char' => $alt]);
+pruefe('der Besitzer darf speichern (200)', $r['status'] === 200, kurz($r));
+$alt['hp'] = 99;
+$r = ruf('save_char', ['code' => $code, 'token' => $tZweiter, 'char_id' => 'a1', 'char' => $alt]);
+pruefe('ein anderer Spieler nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+$a1 = null;
+foreach ($r['body']['chars'] as $c) if ($c['id'] === 'a1') $a1 = $c;
+pruefe('und es steht auch nichts Fremdes drin', ($a1['hp'] ?? null) === 4, json_encode($a1['hp'] ?? null));
+
+$r = ruf('save_item', ['code' => $code, 'token' => $tZweiter, 'char_id' => 'a1',
+                       'item_id' => 'x1', 'item' => ['id' => 'x1', 'name' => 'Untergeschoben']]);
+pruefe('auch kein Gegenstand im fremden Inventar (403)', $r['status'] === 403, kurz($r));
+$r = ruf('delete_char', ['code' => $code, 'token' => $tZweiter, 'char_id' => 'a1']);
+pruefe('und geloescht wird er auch nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'a1', 'char' => $alt]);
+pruefe('die Spielleitung darf trotzdem (200)', $r['status'] === 200, kurz($r));
+$r = ruf('save_char', ['code' => $code, 'password' => $pass, 'char_id' => 'a1', 'char' => $alt]);
+pruefe('und der alte Weg auch (200)', $r['status'] === 200, kurz($r));
+
+abschnitt('Wer anlegt, besitzt');
+$neu = ['id' => 'n1', 'name' => 'Eigener', 'charClass' => 'Magier', 'level' => 1, 'hp' => 6, 'maxHp' => 6];
+$r = ruf('save_char', ['code' => $code, 'token' => $tZweiter, 'char_id' => 'n1', 'char' => $neu]);
+pruefe('ein neuer Bogen wird angelegt (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tZweiter]);
+pruefe('und gehoert dem, der ihn angelegt hat',
+       (($r['body']['owners']['n1'] ?? 0) === $idZweiter), json_encode($r['body']['owners'] ?? null));
+$neu['hp'] = 3;
+$r = ruf('save_char', ['code' => $code, 'token' => $tSpieler, 'char_id' => 'n1', 'char' => $neu]);
+pruefe('ein anderer kommt nicht daran (403)', $r['status'] === 403, kurz($r));
+
+abschnitt('Zuordnung aufheben');
+$r = ruf('char_owner_set', ['code' => $code, 'token' => $tDm, 'char_id' => 'n1', 'owner' => null]);
+pruefe('die Spielleitung hebt sie auf (200)', $r['status'] === 200, kurz($r));
+$r = ruf('save_char', ['code' => $code, 'token' => $tSpieler, 'char_id' => 'n1', 'char' => $neu]);
+pruefe('danach darf wieder jeder (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+pruefe('und niemand steht mehr daneben', !isset($r['body']['owners']['n1']));
+
+abschnitt('Die Mitgliederliste');
+$r = ruf('member_list', ['code' => $code, 'token' => $tSpieler]);
+pruefe('ein Spieler bekommt sie nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('member_list', ['code' => $code, 'token' => $tDm]);
+pruefe('die Spielleitung schon (200)', $r['status'] === 200, kurz($r));
+$namenM = array_column($r['body']['mitglieder'] ?? [], 'name');
+pruefe('sie enthaelt die drei der Gruppe', count($namenM) === 3, implode(', ', $namenM));
+pruefe('und niemanden von ausserhalb', !in_array($fremdName, $namenM, true), implode(', ', $namenM));
+$r = ruf('member_list', ['code' => $code, 'password' => $pass, 'dm_password' => $dmp]);
+pruefe('ueber das DM-Passwort geht sie auch (200)', $r['status'] === 200, kurz($r));
+
 echo "\n" . str_repeat('─', 52) . "\n";
 echo $rot === 0 ? "Alle $gruen Pruefungen bestanden.\n" : "$gruen bestanden, $rot fehlgeschlagen.\n";
 exit($rot === 0 ? 0 : 1);
