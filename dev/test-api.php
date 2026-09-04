@@ -14,6 +14,14 @@
 
 $BASIS = getenv('HB_TEST_URL') ?: 'http://127.0.0.1:8123/api.php';
 
+// Mit --neu wird die Testdatenbank vorher geleert. Die Kontenpruefungen
+// weiter unten brauchen das: das erste Konto laesst sich nur anlegen,
+// solange es keines gibt, und genau das soll geprueft werden.
+if (in_array('--neu', $argv ?? [], true)) {
+    passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/db-neu.php'), $rc);
+    if ($rc !== 0) exit($rc);
+}
+
 $gruen = 0; $rot = 0; $abschnitt = '';
 
 function abschnitt(string $t): void { global $abschnitt; $abschnitt = $t; echo "\n── $t\n"; }
@@ -200,6 +208,168 @@ $r = ruf('save_char', ['code' => $code, 'password' => 'falsch', 'char_id' => 'h9
 pruefe('ohne Passwort wird nicht gespeichert (401)', $r['status'] === 401, kurz($r));
 $r = ruf('load', ['code' => $code, 'password' => $pass]);
 pruefe('und es steht auch nichts drin', ($r['body']['chars'] ?? null) === []);
+
+// ════════════════════════════════════════════════════════════════
+//  Konten — Stufe 1
+// ════════════════════════════════════════════════════════════════
+
+$admin     = 'dennis';                 // muss zu ADMIN_USER passen
+$adminPass = 'adminpasswort';
+$spieler   = 'spieler' . rand(1000, 9999);
+$dm        = 'dm' . rand(1000, 9999);
+
+abschnitt('Das erste Konto');
+$r = ruf('user_create', ['name' => 'irgendwer', 'neu' => 'egalegal']);
+$frisch = $r['status'] === 403;
+pruefe('ein fremder Name wird als erstes Konto abgelehnt (403)', $frisch,
+       kurz($r) . ($r['status'] === 401 ? '  — Datenbank nicht leer, mit --neu starten' : ''));
+if (!$frisch) { echo "\nAbbruch: die Kontenpruefungen brauchen eine leere Datenbank.\n"
+                   . "  php dev/test-api.php --neu\n"; exit(1); }
+$r = ruf('user_create', ['name' => $admin, 'neu' => $adminPass]);
+pruefe('der Name aus der Konfiguration wird angelegt (201)', $r['status'] === 201, kurz($r));
+$r = ruf('user_create', ['name' => 'nochwer', 'neu' => 'egalegal']);
+pruefe('danach geht es nicht mehr ohne Anmeldung (401)', $r['status'] === 401, kurz($r));
+
+abschnitt('Anmelden');
+$r = ruf('login', ['user' => $admin, 'password' => 'falsch']);
+pruefe('falsches Passwort wird abgelehnt (401)', $r['status'] === 401, kurz($r));
+$r = ruf('login', ['user' => 'gibtsnicht', 'password' => $adminPass]);
+pruefe('unbekannter Name wird abgelehnt (401)', $r['status'] === 401, kurz($r));
+pruefe('und die Antwort verraet nicht, welches von beidem falsch war',
+       ($r['body']['message'] ?? '') === 'Name oder Passwort falsch.');
+$r = ruf('login', ['user' => $admin, 'password' => $adminPass]);
+pruefe('richtiges Passwort meldet an (200)', $r['status'] === 200, kurz($r));
+$tAdmin = (string)($r['body']['token'] ?? '');
+pruefe('die Kennung ist 64 Zeichen lang', strlen($tAdmin) === 64, (string)strlen($tAdmin));
+pruefe('das erste Konto ist die Verwaltung', ($r['body']['user']['ist_admin'] ?? false) === true);
+$r = ruf('me', ['token' => $tAdmin]);
+pruefe('me kennt das Konto', ($r['body']['user']['name'] ?? '') === $admin);
+$r = ruf('me', ['token' => str_repeat('a', 64)]);
+pruefe('eine erfundene Kennung wird abgelehnt (401)', $r['status'] === 401, kurz($r));
+$r = ruf('me', ['token' => 'zu-kurz']);
+pruefe('eine zu kurze Kennung wird abgelehnt (401)', $r['status'] === 401, kurz($r));
+
+abschnitt('Konten anlegen und Rollen vergeben');
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => $spieler, 'neu' => 'einmalpasswort']);
+pruefe('die Verwaltung legt ein Konto an (201)', $r['status'] === 201, kurz($r));
+$idSpieler = (int)($r['body']['id'] ?? 0);
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => $dm, 'neu' => 'einmalpasswort']);
+$idDm = (int)($r['body']['id'] ?? 0);
+pruefe('und noch eines', $r['status'] === 201, kurz($r));
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => $spieler, 'neu' => 'einmalpasswort']);
+pruefe('derselbe Name wird abgelehnt (409)', $r['status'] === 409, kurz($r));
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => 'ab', 'neu' => 'einmalpasswort']);
+pruefe('ein zu kurzer Name wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+
+$r = ruf('login', ['user' => $spieler, 'password' => 'einmalpasswort']);
+$tSpieler = (string)($r['body']['token'] ?? '');
+pruefe('das neue Konto kann sich anmelden (200)', $r['status'] === 200, kurz($r));
+pruefe('und muss das Einmalpasswort wechseln',
+       ($r['body']['user']['muss_wechseln'] ?? false) === true);
+pruefe('es ist nicht die Verwaltung', ($r['body']['user']['ist_admin'] ?? true) === false);
+
+$r = ruf('user_list', ['token' => $tSpieler]);
+pruefe('ein Spieler sieht die Kontenliste nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('user_create', ['token' => $tSpieler, 'name' => 'schmuggel', 'neu' => 'einmalpasswort']);
+pruefe('ein Spieler legt keine Konten an (403)', $r['status'] === 403, kurz($r));
+$r = ruf('user_list', ['token' => $tAdmin]);
+pruefe('die Verwaltung sieht die Kontenliste (200)', $r['status'] === 200, kurz($r));
+pruefe('sie enthaelt drei Konten', count($r['body']['users'] ?? []) === 3,
+       (string)count($r['body']['users'] ?? []));
+pruefe('Passwort-Hashes stehen nicht darin',
+       !array_key_exists('pass_hash', ($r['body']['users'][0] ?? ['pass_hash' => 1])));
+
+abschnitt('Passwort wechseln');
+$r = ruf('password_change', ['token' => $tSpieler, 'alt' => 'falsch', 'neu' => 'meineigenes']);
+pruefe('mit falschem alten Passwort geht nichts (401)', $r['status'] === 401, kurz($r));
+$r = ruf('password_change', ['token' => $tSpieler, 'alt' => 'einmalpasswort', 'neu' => 'kurz']);
+pruefe('ein zu kurzes neues Passwort wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+$r = ruf('password_change', ['token' => $tSpieler, 'alt' => 'einmalpasswort', 'neu' => 'meineigenes']);
+pruefe('mit dem richtigen alten geht es (200)', $r['status'] === 200, kurz($r));
+$r = ruf('login', ['user' => $spieler, 'password' => 'meineigenes']);
+pruefe('das neue Passwort gilt (200)', $r['status'] === 200, kurz($r));
+pruefe('der Wechselzwang ist weg', ($r['body']['user']['muss_wechseln'] ?? true) === false);
+$tSpieler = (string)$r['body']['token'];
+$r = ruf('login', ['user' => $spieler, 'password' => 'einmalpasswort']);
+pruefe('das alte Passwort gilt nicht mehr (401)', $r['status'] === 401, kurz($r));
+
+abschnitt('Mitgliedschaft');
+$r = ruf('member_set', ['token' => $tSpieler, 'user_id' => $idSpieler, 'gruppe' => $code, 'rolle' => 'dm']);
+pruefe('ein Spieler vergibt keine Rollen (403)', $r['status'] === 403, kurz($r));
+$r = ruf('member_set', ['token' => $tAdmin, 'user_id' => $idSpieler, 'gruppe' => 'GIBTSNICHT', 'rolle' => 'spieler']);
+pruefe('eine unbekannte Gruppe wird abgelehnt (404)', $r['status'] === 404, kurz($r));
+$r = ruf('member_set', ['token' => $tAdmin, 'user_id' => $idSpieler, 'gruppe' => $code, 'rolle' => 'koenig']);
+pruefe('eine erfundene Rolle wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+$r = ruf('member_set', ['token' => $tAdmin, 'user_id' => $idSpieler, 'gruppe' => $code, 'rolle' => 'spieler']);
+pruefe('die Verwaltung setzt die Rolle (200)', $r['status'] === 200, kurz($r));
+$r = ruf('member_set', ['token' => $tAdmin, 'user_id' => $idDm, 'gruppe' => $code, 'rolle' => 'dm']);
+pruefe('und macht den anderen zum DM (200)', $r['status'] === 200, kurz($r));
+$r = ruf('me', ['token' => $tSpieler]);
+pruefe('me nennt die Gruppe und die Rolle',
+       (($r['body']['user']['gruppen'][0]['rolle'] ?? '') === 'spieler'),
+       json_encode($r['body']['user']['gruppen'] ?? null));
+
+abschnitt('Zugang ueber die Anmeldung statt ueber das Gruppenpasswort');
+$r = ruf('login', ['user' => $dm, 'password' => 'einmalpasswort']);
+$tDm = (string)($r['body']['token'] ?? '');
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+pruefe('ein Mitglied laedt ohne Gruppenpasswort (200)', $r['status'] === 200, kurz($r));
+pruefe('und bekommt dieselben Daten', array_key_exists('library', $r['body']));
+$r = ruf('load', ['code' => $code, 'token' => $tAdmin]);
+pruefe('die Verwaltung kommt ueberall hinein (200)', $r['status'] === 200, kurz($r));
+
+$r = ruf('user_create', ['token' => $tAdmin, 'name' => 'fremder' . rand(100, 999), 'neu' => 'einmalpasswort']);
+$idFremd = (int)$r['body']['id'];
+$r = ruf('login', ['user' => ($fremdName = ''), 'password' => '']);   // Platzhalter, gleich richtig
+$r = ruf('user_list', ['token' => $tAdmin]);
+$fremdName = '';
+foreach ($r['body']['users'] as $x) if ((int)$x['id'] === $idFremd) $fremdName = $x['name'];
+$r = ruf('login', ['user' => $fremdName, 'password' => 'einmalpasswort']);
+$tFremd = (string)($r['body']['token'] ?? '');
+$r = ruf('load', ['code' => $code, 'token' => $tFremd]);
+pruefe('wer nicht in der Gruppe ist, kommt nicht hinein (403)', $r['status'] === 403, kurz($r));
+
+abschnitt('Die Spielleitung ueber die Anmeldung');
+$r = ruf('dm_load', ['code' => $code, 'token' => $tSpieler]);
+pruefe('ein Spieler bekommt die DM-Bibliothek nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('dm_load', ['code' => $code, 'token' => $tDm]);
+pruefe('der DM der Gruppe schon (200)', $r['status'] === 200, kurz($r));
+$r = ruf('dm_load', ['code' => $code, 'token' => $tAdmin]);
+pruefe('die Verwaltung auch (200)', $r['status'] === 200, kurz($r));
+$r = ruf('dm_save_enemy', ['code' => $code, 'token' => $tSpieler,
+                           'enemy_id' => 'g9', 'enemy' => ['id' => 'g9', 'name' => 'Schmuggelgegner']]);
+pruefe('ein Spieler speichert keinen Gegner (403)', $r['status'] === 403, kurz($r));
+$r = ruf('dm_load_enemies', ['code' => $code, 'token' => $tDm]);
+$namen = array_column($r['body']['enemies'] ?? [], 'name');
+pruefe('und es steht auch keiner drin', !in_array('Schmuggelgegner', $namen, true),
+       implode(', ', $namen));
+
+abschnitt('Abmelden');
+$r = ruf('logout', ['token' => $tFremd]);
+pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));
+$r = ruf('me', ['token' => $tFremd]);
+pruefe('danach gilt die Kennung nicht mehr (401)', $r['status'] === 401, kurz($r));
+$r = ruf('logout', []);
+pruefe('logout ohne Kennung ist kein Fehler (200)', $r['status'] === 200, kurz($r));
+
+abschnitt('Passwort zuruecksetzen');
+$r = ruf('user_reset', ['token' => $tSpieler, 'user_id' => $idDm, 'neu' => 'neuesnotpasswort']);
+pruefe('ein Spieler setzt nichts zurueck (403)', $r['status'] === 403, kurz($r));
+$r = ruf('user_reset', ['token' => $tAdmin, 'user_id' => 999999, 'neu' => 'neuesnotpasswort']);
+pruefe('ein unbekanntes Konto wird gemeldet (404)', $r['status'] === 404, kurz($r));
+$r = ruf('user_reset', ['token' => $tAdmin, 'user_id' => $idDm, 'neu' => 'neuesnotpasswort']);
+pruefe('die Verwaltung setzt zurueck (200)', $r['status'] === 200, kurz($r));
+$r = ruf('me', ['token' => $tDm]);
+pruefe('die offene Anmeldung des Kontos endet dabei (401)', $r['status'] === 401, kurz($r));
+$r = ruf('login', ['user' => $dm, 'password' => 'neuesnotpasswort']);
+pruefe('das neue Passwort gilt (200)', $r['status'] === 200, kurz($r));
+pruefe('und muss gewechselt werden', ($r['body']['user']['muss_wechseln'] ?? false) === true);
+
+abschnitt('Der alte Weg lebt weiter');
+$r = ruf('load', ['code' => $code, 'password' => $pass]);
+pruefe('das Gruppenpasswort laedt weiterhin (200)', $r['status'] === 200, kurz($r));
+$r = ruf('dm_load', ['code' => $code, 'password' => $pass, 'dm_password' => $dmp]);
+pruefe('das DM-Passwort gilt weiterhin (200)', $r['status'] === 200, kurz($r));
 
 echo "\n" . str_repeat('─', 52) . "\n";
 echo $rot === 0 ? "Alle $gruen Pruefungen bestanden.\n" : "$gruen bestanden, $rot fehlgeschlagen.\n";

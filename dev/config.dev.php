@@ -16,3 +16,9 @@ define('DB_PASS', '');            // XAMPP legt root ohne Passwort an
 
 // Der oertliche Entwicklungsserver des Heldenbuchs.
 define('ALLOWED_ORIGIN', 'http://localhost:8777');
+
+// Wer die Verwaltung ist. Steht mit Absicht hier und nicht in der
+// Anwendung: wer den Namen aendern will, braucht Zugriff auf die Datei
+// mit den Datenbank-Zugangsdaten. Ohne diesen Eintrag laesst sich kein
+// erstes Konto anlegen.
+define('ADMIN_USER', 'dennis');

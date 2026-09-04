@@ -142,6 +142,47 @@ $pdo->exec("
         CONSTRAINT fk_hbr_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    -- ── Konten ──────────────────────────────────────────────
+    -- Nutzer sind global, die Gruppe bleibt der Mandant: session_code
+    -- steht weiter in jeder Tabelle und in jeder Abfrage. Die
+    -- Mitgliedschaft verbindet beides. Das ist Weg C aus dem Konzept —
+    -- ein Admin ueber alles, ohne 51 Abfragen umzuschreiben.
+    CREATE TABLE IF NOT EXISTS hb_users (
+        id            INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name          VARCHAR(40)  NOT NULL,
+        pass_hash     VARCHAR(255) NOT NULL,
+        ist_admin     TINYINT(1)   NOT NULL DEFAULT 0,
+        muss_wechseln TINYINT(1)   NOT NULL DEFAULT 0,
+        angelegt_am   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_name (name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- Die Anmeldung als Zufallskennung. Abmelden heisst: Zeile loeschen.
+    -- Sie ersetzt das Passwort in jeder Anfrage — geprueft wird ein
+    -- Schluesselvergleich statt eines bcrypt-Durchlaufs.
+    CREATE TABLE IF NOT EXISTS hb_logins (
+        token       CHAR(64) NOT NULL PRIMARY KEY,
+        user_id     INT      NOT NULL,
+        angelegt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        zuletzt     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_login_user (user_id),
+        CONSTRAINT fk_hblg_user FOREIGN KEY (user_id) REFERENCES hb_users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- Wer gehoert zu welcher Gruppe, und als was. Dieselbe Kollation wie
+    -- hb_sessions.code, sonst lehnt MySQL den Fremdschluessel ab und der
+    -- Schema-Aufbau bricht bei jeder Anfrage.
+    CREATE TABLE IF NOT EXISTS hb_mitglied (
+        user_id      INT         NOT NULL,
+        session_code VARCHAR(20) NOT NULL,
+        rolle        VARCHAR(10) NOT NULL DEFAULT 'spieler',
+        seit         DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, session_code),
+        KEY idx_mitglied_code (session_code),
+        CONSTRAINT fk_hbm_user    FOREIGN KEY (user_id)      REFERENCES hb_users(id)     ON DELETE CASCADE,
+        CONSTRAINT fk_hbm_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_rate_limits (
         ip           VARCHAR(45) NOT NULL PRIMARY KEY,
         attempts     SMALLINT    NOT NULL DEFAULT 1,
@@ -172,6 +213,12 @@ $pdo->exec("
 
 // Legacy-Migration: alte chars_json Spalte hinzufügen falls nicht da
 try { $pdo->exec("ALTER TABLE hb_sessions ADD COLUMN chars_json LONGTEXT"); } catch (PDOException $e) {}
+
+// Wem ein Bogen gehoert. Nullbar, weil die vorhandenen Helden erst
+// zugeordnet werden muessen — und weil ein leeres Feld nichts kostet.
+// Durchgesetzt wird der Besitz erst in Stufe 3; hier steht nur die Spalte,
+// damit es bei einer Schemaaenderung bleibt statt zweier.
+try { $pdo->exec("ALTER TABLE hb_chars ADD COLUMN owner INT NULL"); } catch (PDOException $e) {}
 
 // ── Hilfsfunktionen ─────────────────────────────────────────────
 function checkRateLimit(PDO $pdo): void {
@@ -224,6 +271,96 @@ function revStand(PDO $pdo, string $code): int {
 // bcrypt ist mit Absicht langsam.
 function pollToken(string $code, string $hash): string {
     return hash('sha256', $code . '|' . $hash);
+}
+
+// ── Konten ──────────────────────────────────────────────────────
+// Der Admin steht in der config.php, nicht in der Anwendung. Damit gibt
+// es kein Henne-Ei-Problem beim ersten Start und keine Luecke, durch die
+// sich jemand selbst zum Admin macht: wer den Namen aendern will, braucht
+// Zugriff auf die Datei mit den Datenbank-Zugangsdaten.
+function adminName(): string {
+    return defined('ADMIN_USER') ? trim((string)ADMIN_USER) : '';
+}
+function istAdmin(?array $u): bool {
+    if (!$u) return false;
+    if ((int)($u['ist_admin'] ?? 0) === 1) return true;
+    $a = adminName();
+    return $a !== '' && (string)$u['name'] === $a;
+}
+function validateName(string $n): bool {
+    return preg_match('/^[\p{L}\p{N} _\-.]{3,40}$/u', $n) === 1;
+}
+
+function nutzerAusToken(PDO $pdo, string $token): array {
+    if (strlen($token) !== 64 || !ctype_xdigit($token)) respond(401, 'Nicht angemeldet.');
+    $st = $pdo->prepare("SELECT u.id, u.name, u.ist_admin, u.muss_wechseln
+                         FROM hb_logins l JOIN hb_users u ON u.id = l.user_id
+                         WHERE l.token = ?");
+    $st->execute([$token]);
+    $u = $st->fetch();
+    if (!$u) respond(401, 'Nicht angemeldet.');
+    // Nur einmal je Minute schreiben: die Kennung wird bei jedem Abgleich
+    // mitgeschickt, und ein Schreibvorgang je Anfrage waere teurer als die
+    // Anfrage selbst.
+    $pdo->prepare("UPDATE hb_logins SET zuletzt=NOW()
+                   WHERE token=? AND zuletzt < (NOW() - INTERVAL 1 MINUTE)")->execute([$token]);
+    return $u;
+}
+function mitgliedsRolle(PDO $pdo, int $userId, string $code): string {
+    $st = $pdo->prepare("SELECT rolle FROM hb_mitglied WHERE user_id=? AND session_code=?");
+    $st->execute([$userId, $code]);
+    return (string)($st->fetch()['rolle'] ?? '');
+}
+function sitzungsZeile(PDO $pdo, string $code): array {
+    $st = $pdo->prepare("SELECT password_hash, library_json, dm_pass_hash, dm_library_json, chars_json
+                         FROM hb_sessions WHERE code=?");
+    $st->execute([$code]);
+    $row = $st->fetch();
+    if (!$row) respond(404, 'Gruppe nicht gefunden.');
+    return $row;
+}
+function nutzerAntwort(PDO $pdo, array $u): array {
+    $st = $pdo->prepare("SELECT session_code, rolle FROM hb_mitglied WHERE user_id=? ORDER BY seit ASC");
+    $st->execute([(int)$u['id']]);
+    return [
+        'id'            => (int)$u['id'],
+        'name'          => $u['name'],
+        'ist_admin'     => istAdmin($u),
+        'muss_wechseln' => (int)($u['muss_wechseln'] ?? 0) === 1,
+        'gruppen'       => $st->fetchAll(),
+    ];
+}
+
+// ── Zugang zu einer Gruppe ──────────────────────────────────────
+// Zwei Wege, und beide fuehren hierher: das Gruppenpasswort wie bisher,
+// oder ein angemeldetes Konto. Solange die Anwendung noch das Passwort
+// schickt, aendert sich fuer sie nichts — deshalb steht der alte Weg
+// zuerst und ohne jede Bedingung.
+//
+// rolle ist 'gruppe' (der alte Weg, darf alles), 'spieler', 'dm' oder
+// 'admin'. Ausgewertet wird sie ab Stufe 3; hier steht sie schon in der
+// Antwort, damit die Anwendung sie kennt, bevor etwas davon abhaengt.
+function zugang(PDO $pdo, string $code, string $pass, array $body): array {
+    $token = (string)($body['token'] ?? '');
+    if ($token === '') {
+        return ['row' => verifySession($pdo, $code, $pass), 'user' => null, 'rolle' => 'gruppe'];
+    }
+    $u    = nutzerAusToken($pdo, $token);
+    $row  = sitzungsZeile($pdo, $code);
+    $adm  = istAdmin($u);
+    $rolle = $adm ? 'admin' : mitgliedsRolle($pdo, (int)$u['id'], $code);
+    if ($rolle === '') respond(403, 'Kein Zugang zu dieser Gruppe.');
+    return ['row' => $row, 'user' => $u, 'rolle' => $rolle];
+}
+// Dasselbe fuer alles, was der Spielleitung gehoert.
+function zugangDm(PDO $pdo, string $code, string $pass, string $dmPass, array $body): array {
+    $token = (string)($body['token'] ?? '');
+    if ($token === '') {
+        return ['row' => verifyDmSession($pdo, $code, $pass, $dmPass), 'user' => null, 'rolle' => 'gruppe'];
+    }
+    $z = zugang($pdo, $code, $pass, $body);
+    if ($z['rolle'] !== 'dm' && $z['rolle'] !== 'admin') respond(403, 'Das darf nur die Spielleitung.');
+    return $z;
 }
 
 function validateCode(string $c): bool { $l=strlen($c); return $l>=3&&$l<=20&&preg_match('/^[A-Za-z0-9_\-]+$/',$c); }
@@ -321,7 +458,7 @@ switch ($action) {
     case 'load':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        $row    = verifySession($pdo, $code, $pass);
+        $row    = zugang($pdo, $code, $pass, $body)['row'];
         $result = loadAll($pdo, $code, $row);
 
         // hb_vitals einmalig fuellen, damit der Abgleich auch fuer
@@ -386,7 +523,7 @@ switch ($action) {
         unset($char['inventory']); // Items kommen über save_item
         $json = json_encode($char, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_CHAR_BYTES) respond(413, 'Charakter zu groß.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
 
         // Vorher lesen, um zu wissen, ob sich mehr geaendert hat als die
         // Trefferpunkte. Das kostet einen Lesevorgang je Speichern —
@@ -417,7 +554,7 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $charId = $body['char_id'] ?? null;
         if (!$charId) respond(400, 'Fehlende char_id.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $pdo->prepare("DELETE FROM hb_chars WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
         $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
         $pdo->prepare("DELETE FROM hb_vitals WHERE session_code=? AND char_id=?")->execute([$code, $charId]);
@@ -433,7 +570,7 @@ switch ($action) {
         if (!$charId || !$itemId || !$item) respond(400, 'Fehlende Daten.');
         $json = json_encode($item, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_ITEM_BYTES) respond(413, 'Item zu groß (max 2 MB).');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $pdo->prepare("INSERT INTO hb_items (session_code,char_id,item_id,item_json) VALUES(?,?,?,?)
                        ON DUPLICATE KEY UPDATE item_json=VALUES(item_json), updated_at=NOW()")
             ->execute([$code, $charId, $itemId, $json]);
@@ -446,7 +583,7 @@ switch ($action) {
         $charId = $body['char_id'] ?? null;
         $itemId = $body['item_id'] ?? null;
         if (!$charId || !$itemId) respond(400, 'Fehlende Daten.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=? AND item_id=?")
             ->execute([$code, $charId, $itemId]);
         revHoch($pdo, $code);
@@ -458,7 +595,7 @@ switch ($action) {
         if ($library === null) respond(400, 'Fehlende Daten.');
         $libJson = json_encode($library, JSON_UNESCAPED_UNICODE);
         if (strlen($libJson) > MAX_LIB_BYTES) respond(413, 'Bibliothek zu groß.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$libJson, $code]);
         revHoch($pdo, $code);
         respond(200, 'Bibliothek gespeichert.', ['rev' => revStand($pdo, $code)]);
@@ -466,7 +603,7 @@ switch ($action) {
     case 'dm_load':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        $row = verifyDmSession($pdo, $code, $pass, $dmPass);
+        $row = zugangDm($pdo, $code, $pass, $dmPass, $body)['row'];
         respond(200, 'OK', ['dm_library' => json_decode($row['dm_library_json']??'{}', true) ?? []]);
 
     case 'dm_save_library':
@@ -475,7 +612,7 @@ switch ($action) {
         if ($dmLibrary === null) respond(400, 'Fehlende Daten.');
         $json = json_encode($dmLibrary, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_LIB_BYTES) respond(413, 'DM-Bibliothek zu groß.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $pdo->prepare("UPDATE hb_sessions SET dm_library_json=? WHERE code=?")->execute([$json, $code]);
         respond(200, 'DM-Bibliothek gespeichert.');
 
@@ -486,7 +623,7 @@ switch ($action) {
     case 'dm_load_enemies':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $stmt = $pdo->prepare("SELECT enemy_json FROM hb_enemies WHERE session_code=? ORDER BY id ASC");
         $stmt->execute([$code]);
         $enemies = [];
@@ -504,7 +641,7 @@ switch ($action) {
         if (strlen($enemyId) > 50) respond(400, 'Gegner-Kennung zu lang.');
         $json = json_encode($enemy, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_ENEMY_BYTES) respond(413, 'Gegner zu groß (max 2 MB).');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $pdo->prepare("INSERT INTO hb_enemies (session_code,enemy_id,enemy_json) VALUES(?,?,?)
                        ON DUPLICATE KEY UPDATE enemy_json=VALUES(enemy_json)")
             ->execute([$code, $enemyId, $json]);
@@ -514,7 +651,7 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $enemyId = (string)($body['enemy_id'] ?? '');
         if ($enemyId === '') respond(400, 'Fehlende Kennung.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $pdo->prepare("DELETE FROM hb_enemies WHERE session_code=? AND enemy_id=?")
             ->execute([$code, $enemyId]);
         respond(200, 'Gegner gelöscht.');
@@ -529,7 +666,7 @@ switch ($action) {
         $liste = $body['enemies'] ?? null;
         if (!is_array($liste)) respond(400, 'Fehlende Daten.');
         if (count($liste) > 2000) respond(413, 'Zu viele Gegner auf einmal (max. 2000).');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $stmt = $pdo->prepare("INSERT INTO hb_enemies (session_code,enemy_id,enemy_json) VALUES(?,?,?)
                                ON DUPLICATE KEY UPDATE enemy_json=VALUES(enemy_json)");
         $pdo->beginTransaction();
@@ -557,7 +694,7 @@ switch ($action) {
     case 'dm_load_encounters':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $stmt = $pdo->prepare("SELECT enc_json FROM hb_encounters WHERE session_code=? ORDER BY id ASC");
         $stmt->execute([$code]);
         $encs = [];
@@ -575,7 +712,7 @@ switch ($action) {
         if (strlen($encId) > 50) respond(400, 'Kennung zu lang.');
         $json = json_encode($enc, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_CHAR_BYTES) respond(413, 'Begegnung zu groß.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $pdo->prepare("INSERT INTO hb_encounters (session_code,enc_id,enc_json) VALUES(?,?,?)
                        ON DUPLICATE KEY UPDATE enc_json=VALUES(enc_json)")
             ->execute([$code, $encId, $json]);
@@ -585,7 +722,7 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $encId = (string)($body['enc_id'] ?? '');
         if ($encId === '') respond(400, 'Fehlende Kennung.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $pdo->prepare("DELETE FROM hb_encounters WHERE session_code=? AND enc_id=?")
             ->execute([$code, $encId]);
         respond(200, 'Begegnung gelöscht.');
@@ -598,7 +735,7 @@ switch ($action) {
     case 'dm_load_chronik':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $stmt = $pdo->prepare("SELECT chronik_json FROM hb_chronik WHERE session_code=?");
         $stmt->execute([$code]);
         $row = $stmt->fetch();
@@ -611,7 +748,7 @@ switch ($action) {
         if (!is_array($ch)) respond(400, 'Fehlende Daten.');
         $json = json_encode($ch, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_LIB_BYTES) respond(413, 'Chronik zu groß.');
-        verifyDmSession($pdo, $code, $pass, $dmPass);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $pdo->prepare("INSERT INTO hb_chronik (session_code,chronik_json) VALUES(?,?)
                        ON DUPLICATE KEY UPDATE chronik_json=VALUES(chronik_json)")
             ->execute([$code, $json]);
@@ -621,7 +758,7 @@ switch ($action) {
         checkRateLimit($pdo);
         if (!validateCode($code))       respond(400, 'Ungültiger Code.');
         if (!validatePassword($dmPass)) respond(400, 'DM-Passwort zu kurz.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $pdo->prepare("UPDATE hb_sessions SET dm_pass_hash=? WHERE code=?")
             ->execute([password_hash($dmPass, PASSWORD_BCRYPT, ['cost'=>11]), $code]);
         respond(200, 'DM-Passwort gesetzt.');
@@ -631,7 +768,7 @@ switch ($action) {
         $newPass = $body['new_password'] ?? '';
         if (!validateCode($code))        respond(400, 'Ungültiger Code.');
         if (!validatePassword($newPass)) respond(400, 'Neues Passwort zu kurz.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $pdo->prepare("UPDATE hb_sessions SET password_hash=? WHERE code=?")
             ->execute([password_hash($newPass, PASSWORD_BCRYPT, ['cost'=>11]), $code]);
         respond(200, 'Passwort geändert.');
@@ -640,7 +777,7 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $entry = $body['entry'] ?? null;
         if (!$entry || empty($entry['action'])) respond(400, 'Fehlende Log-Daten.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $pdo->prepare("INSERT INTO hb_logs (session_code, char_id, char_name, tab, action, details) VALUES (?,?,?,?,?,?)")
             ->execute([
                 $code,
@@ -655,7 +792,7 @@ switch ($action) {
     case 'load_logs':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        verifySession($pdo, $code, $pass);
+        zugang($pdo, $code, $pass, $body);
         $charId  = $body['char_id']    ?? null;
         $limit   = min((int)($body['limit']  ?? 50), 100);
         $offset  = max((int)($body['offset'] ?? 0), 0);
@@ -683,6 +820,131 @@ switch ($action) {
             if ($l['details']) $l['details'] = json_decode($l['details'], true);
         }
         respond(200, 'OK', ['logs' => $logs, 'has_more' => count($logs) >= $limit, 'offset' => $offset]);
+
+    // ── Konten ──────────────────────────────────────────────────
+    // Ab hier gilt nicht mehr "wer das Gruppenpasswort hat, ist die
+    // Gruppe", sondern "wer angemeldet ist, ist jemand".
+
+    case 'login':
+        checkRateLimit($pdo);
+        $name = trim((string)($body['user'] ?? ''));
+        if ($name === '' || $pass === '') respond(400, 'Name und Passwort fehlen.');
+        $st = $pdo->prepare("SELECT id, name, pass_hash, ist_admin, muss_wechseln FROM hb_users WHERE name=?");
+        $st->execute([$name]);
+        $u = $st->fetch();
+        // Auch ohne Treffer wird gerechnet: sonst verraet die Antwortzeit,
+        // welche Namen es gibt.
+        $hash = $u['pass_hash'] ?? '$2y$11$ungueltigerhashzumrechnen000000000000000000000000000';
+        if (!password_verify($pass, $hash) || !$u) respond(401, 'Name oder Passwort falsch.');
+        $token = bin2hex(random_bytes(32));
+        $pdo->prepare("INSERT INTO hb_logins (token,user_id) VALUES(?,?)")->execute([$token, (int)$u['id']]);
+        respond(200, 'Angemeldet.', ['token' => $token, 'user' => nutzerAntwort($pdo, $u)]);
+
+    case 'logout':
+        // Ohne Anmeldung nichts zu tun, und das ist kein Fehler.
+        $t = (string)($body['token'] ?? '');
+        if ($t !== '') $pdo->prepare("DELETE FROM hb_logins WHERE token=?")->execute([$t]);
+        respond(200, 'Abgemeldet.');
+
+    case 'me':
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        respond(200, 'OK', ['user' => nutzerAntwort($pdo, $u)]);
+
+    case 'password_change':
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        $alt = (string)($body['alt'] ?? '');
+        $neu = (string)($body['neu'] ?? '');
+        if (!validatePassword($neu)) respond(400, 'Neues Passwort zu kurz (mind. 6 Zeichen).');
+        $st = $pdo->prepare("SELECT pass_hash FROM hb_users WHERE id=?");
+        $st->execute([(int)$u['id']]);
+        if (!password_verify($alt, (string)($st->fetch()['pass_hash'] ?? ''))) {
+            respond(401, 'Altes Passwort falsch.');
+        }
+        $pdo->prepare("UPDATE hb_users SET pass_hash=?, muss_wechseln=0 WHERE id=?")
+            ->execute([password_hash($neu, PASSWORD_BCRYPT, ['cost' => 11]), (int)$u['id']]);
+        // Alle anderen Anmeldungen dieses Kontos enden — ein
+        // Passwortwechsel, der fremde Sitzungen stehen laesst, ist keiner.
+        $pdo->prepare("DELETE FROM hb_logins WHERE user_id=? AND token<>?")
+            ->execute([(int)$u['id'], (string)$body['token']]);
+        respond(200, 'Passwort geändert.');
+
+    case 'user_create': {
+        $name = trim((string)($body['name'] ?? ''));
+        $neu  = (string)($body['neu'] ?? $pass);
+        if (!validateName($name))     respond(400, 'Name ungültig (3–40 Zeichen).');
+        if (!validatePassword($neu))  respond(400, 'Passwort zu kurz (mind. 6 Zeichen).');
+
+        // Das erste Konto legt niemand an, der schon angemeldet ist — es
+        // gibt ja noch keinen. Erlaubt ist genau ein Fall: die Tabelle ist
+        // leer und der Name ist der, der in der config.php steht.
+        $anzahl = (int)$pdo->query("SELECT COUNT(*) AS n FROM hb_users")->fetch()['n'];
+        $token  = (string)($body['token'] ?? '');
+        $alsAdmin = false;
+        if ($anzahl === 0 && $token === '') {
+            if (adminName() === '')      respond(403, 'Kein ADMIN_USER in der Konfiguration.');
+            if ($name !== adminName())   respond(403, 'Das erste Konto muss ' . adminName() . ' heißen.');
+            $alsAdmin = true;
+        } else {
+            $u = nutzerAusToken($pdo, $token);
+            if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+            $alsAdmin = !empty($body['ist_admin']);
+        }
+        $st = $pdo->prepare("SELECT id FROM hb_users WHERE name=?");
+        $st->execute([$name]);
+        if ($st->fetch()) respond(409, 'Name bereits vergeben.');
+        $pdo->prepare("INSERT INTO hb_users (name,pass_hash,ist_admin,muss_wechseln) VALUES(?,?,?,?)")
+            ->execute([$name, password_hash($neu, PASSWORD_BCRYPT, ['cost' => 11]),
+                       $alsAdmin ? 1 : 0, $alsAdmin ? 0 : 1]);
+        respond(201, 'Konto angelegt.', ['id' => (int)$pdo->lastInsertId()]);
+    }
+
+    case 'user_list': {
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+        $rows = $pdo->query("SELECT u.id, u.name, u.ist_admin, u.muss_wechseln, u.angelegt_am,
+                                    (SELECT COUNT(*) FROM hb_logins l WHERE l.user_id=u.id) AS angemeldet
+                             FROM hb_users u ORDER BY u.name")->fetchAll();
+        $m = $pdo->query("SELECT user_id, session_code, rolle FROM hb_mitglied")->fetchAll();
+        respond(200, 'OK', ['users' => $rows, 'mitglied' => $m, 'admin_user' => adminName()]);
+    }
+
+    case 'user_reset': {
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+        $ziel = (int)($body['user_id'] ?? 0);
+        $neu  = (string)($body['neu'] ?? '');
+        if (!$ziel) respond(400, 'Kein Konto angegeben.');
+        if (!validatePassword($neu)) respond(400, 'Passwort zu kurz (mind. 6 Zeichen).');
+        $st = $pdo->prepare("UPDATE hb_users SET pass_hash=?, muss_wechseln=1 WHERE id=?");
+        $st->execute([password_hash($neu, PASSWORD_BCRYPT, ['cost' => 11]), $ziel]);
+        if ($st->rowCount() === 0) respond(404, 'Konto nicht gefunden.');
+        // Ein zurueckgesetztes Passwort beendet die offenen Anmeldungen.
+        $pdo->prepare("DELETE FROM hb_logins WHERE user_id=?")->execute([$ziel]);
+        respond(200, 'Passwort zurückgesetzt. Es muss beim ersten Anmelden geändert werden.');
+    }
+
+    case 'member_set': {
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+        $ziel  = (int)($body['user_id'] ?? 0);
+        $gcode = trim((string)($body['gruppe'] ?? ''));
+        $rolle = (string)($body['rolle'] ?? '');
+        if (!$ziel || !validateCode($gcode)) respond(400, 'Konto oder Gruppe fehlt.');
+        if ($rolle === '') {
+            $pdo->prepare("DELETE FROM hb_mitglied WHERE user_id=? AND session_code=?")
+                ->execute([$ziel, $gcode]);
+            respond(200, 'Aus der Gruppe genommen.');
+        }
+        if ($rolle !== 'spieler' && $rolle !== 'dm') respond(400, 'Unbekannte Rolle.');
+        sitzungsZeile($pdo, $gcode);                       // 404, wenn es die Gruppe nicht gibt
+        $st = $pdo->prepare("SELECT id FROM hb_users WHERE id=?");
+        $st->execute([$ziel]);
+        if (!$st->fetch()) respond(404, 'Konto nicht gefunden.');
+        $pdo->prepare("INSERT INTO hb_mitglied (user_id,session_code,rolle) VALUES(?,?,?)
+                       ON DUPLICATE KEY UPDATE rolle=VALUES(rolle)")
+            ->execute([$ziel, $gcode, $rolle]);
+        respond(200, 'Rolle gesetzt.');
+    }
 
     default:
         respond(400, 'Unbekannte Aktion.');
