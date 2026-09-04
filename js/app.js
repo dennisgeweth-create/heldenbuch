@@ -8120,7 +8120,6 @@ function App() {
   const [dbGradeFilter, setDbGradeFilter] = useState('');
   const [setupMode, setSetupMode] = useState('login'); // login|register
   const [setupForm, setSetupForm] = useState({
-    url: '',
     code: '',
     pass: ''
   });
@@ -9623,11 +9622,15 @@ function App() {
   // wenn es mehrere sind oder wenn man die Verwaltung ist und in eine
   // Gruppe will, in der man nicht Mitglied ist.
   const applyKontoSetup = async () => {
-    const url = (setupForm.url || '').trim();
+    const url = serverCreds().url;
     const name = (setupForm.name || '').trim();
     const pw = setupForm.pass || '';
-    if (!url || !name || !pw) {
-      setSetupErr('Bitte Server, Name und Passwort angeben.');
+    if (!url) {
+      setSetupErr('Die Adresse des Servers lässt sich hier nicht ermitteln.');
+      return;
+    }
+    if (!name || !pw) {
+      setSetupErr('Bitte Name und Passwort angeben.');
       return;
     }
     setSetupBusy(true);
@@ -9650,7 +9653,6 @@ function App() {
       const data = await apiLoadChars(url, gcode, '');
       pollToken.current = data.poll_token || null;
       revRef.current = data.rev != null ? data.rev : null;
-      localStorage.setItem('sv_url', url);
       localStorage.setItem('sv_code', gcode);
       localStorage.removeItem('sv_pass');
       setKonto(k);
@@ -9900,12 +9902,16 @@ function App() {
   const applySetup = async () => {
     if (setupMode === 'konto') return applyKontoSetup();
     const {
-      url,
       code,
       pass,
       dmPass: regDmPass
     } = setupForm;
-    if (!url.trim() || !code.trim() || !pass.trim()) {
+    const url = serverCreds().url;
+    if (!url) {
+      setSetupErr('Die Adresse des Servers lässt sich hier nicht ermitteln.');
+      return;
+    }
+    if (!code.trim() || !pass.trim()) {
       setSetupErr('Bitte alle Felder ausfüllen.');
       return;
     }
@@ -9920,7 +9926,6 @@ function App() {
       const data = await apiLoad(url, code.toUpperCase(), pass);
       pollToken.current = data.poll_token || null;
       revRef.current = data.rev != null ? data.rev : null;
-      localStorage.setItem('sv_url', url);
       localStorage.setItem('sv_code', code.toUpperCase());
       localStorage.setItem('sv_pass', pass);
       setSvUrl(url);
@@ -9979,7 +9984,6 @@ function App() {
       setSyncMsg('');
       setOffeneAenderungen(0);
       setSetupForm({
-        url: '',
         code: '',
         pass: ''
       });
@@ -16463,7 +16467,7 @@ function App() {
       lineHeight: 1.6,
       marginBottom: 16
     }
-  }, setupMode === 'konto' ? /*#__PURE__*/React.createElement(React.Fragment, null, "Mit deinem eigenen Konto anmelden. Deine Gruppe und deine Rolle stehen am Konto \u2014 den Gruppencode musst du nur angeben, wenn du zu mehreren geh\xF6rst.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Charaktere werden auf deinem eigenen Server gespeichert und sind auf jedem Ger\xE4t verf\xFCgbar. Jede Gruppe hat einen eindeutigen ", /*#__PURE__*/React.createElement("strong", {
+  }, setupMode === 'konto' ? /*#__PURE__*/React.createElement(React.Fragment, null, "Mit deinem eigenen Konto anmelden. Deine Gruppe und deine Rolle stehen am Konto \u2014 den Gruppencode musst du nur angeben, wenn du zu mehreren geh\xF6rst.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Charaktere werden auf dem Server gespeichert, von dem diese Seite kommt, und sind auf jedem Ger\xE4t verf\xFCgbar. Jede Gruppe hat einen eindeutigen ", /*#__PURE__*/React.createElement("strong", {
     style: {
       color: "var(--text-secondary)"
     }
@@ -16502,25 +16506,7 @@ function App() {
     style: {
       gridTemplateColumns: "1fr"
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Server URL"), /*#__PURE__*/React.createElement("input", {
-    className: "form-input",
-    placeholder: "https://deine-domain.de",
-    value: setupForm.url,
-    onChange: e => setSetupForm({
-      ...setupForm,
-      url: e.target.value
-    })
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "var(--text-muted)",
-      marginTop: 3
-    }
-  }, "URL deines Webhostings, wo api.php liegt")), setupMode === 'konto' && /*#__PURE__*/React.createElement("div", {
+  }, setupMode === 'konto' && /*#__PURE__*/React.createElement("div", {
     className: "form-group"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"

@@ -187,7 +187,7 @@ function App() {
   const [dbExpandedEntry, setDbExpandedEntry] = useState(null);
   const [dbGradeFilter, setDbGradeFilter] = useState('');
   const [setupMode,  setSetupMode]  = useState('login'); // login|register
-  const [setupForm,  setSetupForm]  = useState({url:'',code:'',pass:''});
+  const [setupForm,  setSetupForm]  = useState({code:'',pass:''});
   const [setupErr,   setSetupErr]   = useState('');
   const [setupBusy,  setSetupBusy]  = useState(false);
   const [gearReady,  setGearReady]  = useState(false);   // Serverstand da, Umstellung darf laufen
@@ -1280,10 +1280,11 @@ function App() {
   // wenn es mehrere sind oder wenn man die Verwaltung ist und in eine
   // Gruppe will, in der man nicht Mitglied ist.
   const applyKontoSetup = async () => {
-    const url  = (setupForm.url || '').trim();
+    const url  = serverCreds().url;
     const name = (setupForm.name || '').trim();
     const pw   = setupForm.pass || '';
-    if (!url || !name || !pw) { setSetupErr('Bitte Server, Name und Passwort angeben.'); return; }
+    if (!url) { setSetupErr('Die Adresse des Servers lässt sich hier nicht ermitteln.'); return; }
+    if (!name || !pw) { setSetupErr('Bitte Name und Passwort angeben.'); return; }
     setSetupBusy(true); setSetupErr('');
     try {
       const an = await apiLogin(url, name, pw);
@@ -1309,7 +1310,6 @@ function App() {
       const data = await apiLoadChars(url, gcode, '');
       pollToken.current = data.poll_token || null;
       revRef.current    = data.rev != null ? data.rev : null;
-      localStorage.setItem('sv_url',  url);
       localStorage.setItem('sv_code', gcode);
       localStorage.removeItem('sv_pass');
       setKonto(k);
@@ -1439,8 +1439,10 @@ function App() {
 
   const applySetup = async () => {
     if (setupMode === 'konto') return applyKontoSetup();
-    const { url, code, pass, dmPass: regDmPass } = setupForm;
-    if (!url.trim()||!code.trim()||!pass.trim()) { setSetupErr('Bitte alle Felder ausfüllen.'); return; }
+    const { code, pass, dmPass: regDmPass } = setupForm;
+    const url = serverCreds().url;
+    if (!url) { setSetupErr('Die Adresse des Servers lässt sich hier nicht ermitteln.'); return; }
+    if (!code.trim()||!pass.trim()) { setSetupErr('Bitte alle Felder ausfüllen.'); return; }
     if (pass.length < 6) { setSetupErr('Passwort mindestens 6 Zeichen.'); return; }
     setSetupBusy(true); setSetupErr('');
     try {
@@ -1448,7 +1450,6 @@ function App() {
       const data = await apiLoad(url, code.toUpperCase(), pass);
       pollToken.current = data.poll_token || null;
       revRef.current    = data.rev != null ? data.rev : null;
-      localStorage.setItem('sv_url',  url);
       localStorage.setItem('sv_code', code.toUpperCase());
       localStorage.setItem('sv_pass', pass);
       setSvUrl(url); setSvCode(code.toUpperCase()); setSvPass(pass);
@@ -1496,7 +1497,7 @@ function App() {
       applyChars([]);
       setSvUrl(''); setSvCode(''); setSvPass('');
       setSyncStatus('idle'); setSyncMsg(''); setOffeneAenderungen(0);
-      setSetupForm({url:'',code:'',pass:''});
+      setSetupForm({code:'',pass:''});
       setShowSetup(true);
     }, 'Abmelden');
   };
@@ -4592,8 +4593,8 @@ function App() {
                    am Konto — den Gruppencode musst du nur angeben, wenn du zu mehreren
                    gehörst.</>
               ) : (
-                <>Charaktere werden auf deinem eigenen Server gespeichert und sind auf jedem Gerät verfügbar.
-                   Jede Gruppe hat einen eindeutigen <strong style={{color:"var(--text-secondary)"}}>Code</strong> und ein <strong style={{color:"var(--text-secondary)"}}>Passwort</strong>.</>
+                <>Charaktere werden auf dem Server gespeichert, von dem diese Seite kommt, und sind
+                   auf jedem Gerät verfügbar. Jede Gruppe hat einen eindeutigen <strong style={{color:"var(--text-secondary)"}}>Code</strong> und ein <strong style={{color:"var(--text-secondary)"}}>Passwort</strong>.</>
               )}
             </p>
             {/* Mode Toggle */}
@@ -4609,12 +4610,6 @@ function App() {
               ))}
             </div>
             <div className="form-grid" style={{gridTemplateColumns:"1fr"}}>
-              <div className="form-group">
-                <div className="form-label">Server URL</div>
-                <input className="form-input" placeholder="https://deine-domain.de" value={setupForm.url}
-                  onChange={e=>setSetupForm({...setupForm,url:e.target.value})} />
-                <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>URL deines Webhostings, wo api.php liegt</div>
-              </div>
               {setupMode === 'konto' && (
                 <div className="form-group">
                   <div className="form-label">Name</div>

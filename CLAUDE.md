@@ -91,6 +91,14 @@ C:/xampp/php/php.exe dev/test-api.php
 beendet beides. `dev/test-api.php` prueft die Schnittstelle ueber echte
 HTTP-Anfragen.
 
+Die Anwendung sucht `api.php` neben sich — zum Ausprobieren mit Server
+deshalb **http://127.0.0.1:8123/index.html** aufrufen und nicht den
+Devserver auf 8777. Wer beides trennen will, setzt `sv_url` von Hand:
+
+```js
+localStorage.setItem('sv_url', 'http://127.0.0.1:8123')
+```
+
 **Achtung:** die `config.php` im Projektordner zeigt auf die Datenbank der
 Gruppe. Der Testlauf fasst sie nicht an — `api.php` nimmt `HB_CONFIG` nur
 an, wenn PHP von der Kommandozeile oder aus dem eingebauten Server laeuft,

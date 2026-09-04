@@ -145,8 +145,23 @@
     // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
     // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils
     // dreizeilig — jede Umbenennung haette alle elf treffen muessen.
+    // Der Server, von dem diese Seite kommt: api.php liegt daneben. Das
+    // war frueher ein Eingabefeld — eines, das jeder falsch ausfuellen
+    // konnte und niemand brauchte, weil die Antwort in der Adresszeile
+    // steht.
+    //
+    // sv_url bleibt als Ausweg bestehen: fuer den oertlichen Testlauf,
+    // wenn Anwendung und Schnittstelle auf verschiedenen Haefen liegen.
+    // Steht dort nichts, wird gerechnet.
+    const standardServer = () => {
+      try {
+        if (!/^https?:$/.test(location.protocol)) return '';
+        return location.origin + location.pathname.replace(/\/[^\/]*$/, '');
+      } catch { return ''; }
+    };
+
     const serverCreds = () => ({
-      url:   localStorage.getItem('sv_url')   || '',
+      url:   localStorage.getItem('sv_url')   || standardServer(),
       code:  localStorage.getItem('sv_code')  || '',
       pass:  localStorage.getItem('sv_pass')  || '',
       token: localStorage.getItem('sv_token') || '',
