@@ -209,6 +209,117 @@ const radZiel = (k, aktuell) => {
   return aktuell + 360 * 4 + plus;
 };
 
+// ── Die Risikospiele ─────────────────────────────────────────────
+// Nach einem Gewinn kann man ihn setzen statt einzustecken. Zwei Wege,
+// beide verdoppeln und beide koennen alles kosten:
+//
+//   Die Leiter des Wagemuts — ein Licht laeuft ueber acht Felder, eines
+//   ist gruen. Wer im richtigen Augenblick haelt, steigt eine Sprosse.
+//   Mit jeder Sprosse laeuft das Licht schneller.
+//
+//   Rabe oder Rose — schwarz oder rot raten, mehr nicht.
+//
+// Hoechstens fuenf Sprossen; danach wird ausgezahlt. Ein Spiel, das
+// endlos weiterlaufen kann, hat keinen Reiz mehr, sondern nur noch Zeit.
+const LEITER_FELDER = 8;
+const RISIKO_STUFEN = 5;
+const leiterTempo = (stufe) => Math.max(70, 170 - stufe * 22);
+
+const RisikoFenster = ({ risiko, setRisiko, onNehmen, onSchliessen }) => {
+  const {art, betrag, stufe, aus, letztes} = risiko;
+  const takt = React.useRef(null);
+
+  // Das Licht laeuft, solange die Leiter offen und nicht entschieden ist.
+  React.useEffect(() => {
+    if (art !== 'leiter' || aus || !risiko.laeuft) return;
+    const t = setInterval(() => {
+      setRisiko(r => r && r.laeuft ? {...r, pos: (r.pos + 1) % LEITER_FELDER} : r);
+    }, leiterTempo(stufe));
+    takt.current = t;
+    return () => clearInterval(t);
+  }, [art, aus, risiko.laeuft, stufe, setRisiko]);
+
+  const weiter = (gewonnen) => setRisiko(r => ({
+    ...r, laeuft: false,
+    letztes: gewonnen ? 'gut' : 'schlecht',
+    betrag: gewonnen ? r.betrag * 2 : 0,
+    stufe: gewonnen ? r.stufe + 1 : r.stufe,
+    aus: !gewonnen || r.stufe + 1 >= RISIKO_STUFEN,
+  }));
+
+  const halt = () => { if (risiko.laeuft) weiter(risiko.pos === risiko.ziel); };
+  const raten = (farbe) => {
+    if (risiko.laeuft || aus) return;
+    const gezogen = Math.random() < 0.5 ? 'rabe' : 'rose';
+    setRisiko(r => ({...r, gezogen}));
+    weiter(gezogen === farbe);
+  };
+  const nochmal = () => setRisiko(r => ({...r, laeuft: art === 'leiter',
+    pos: 0, ziel: Math.floor(Math.random() * LEITER_FELDER), letztes: null, gezogen: null}));
+
+  return (
+    <div className="rad-huelle">
+      <div className="rad-fenster risiko">
+        <div className="rad-titel">{art === 'leiter' ? 'Leiter des Wagemuts' : 'Rabe oder Rose'}</div>
+        <div className="rad-unter">
+          {art === 'leiter'
+            ? 'Halt im richtigen Augenblick — das grüne Feld verdoppelt, jedes andere kostet alles.'
+            : 'Schwarz oder rot. Richtig geraten verdoppelt, falsch kostet alles.'}
+        </div>
+
+        <div className="risiko-betrag">
+          <span>Im Spiel</span>
+          <b className={betrag > 0 ? '' : 'weg'}>{betrag}</b>
+          <i>Sprosse {stufe} von {RISIKO_STUFEN}</i>
+        </div>
+
+        {art === 'leiter' ? (
+          <div className="leiter-felder" role="group" aria-label="Leiter">
+            {Array.from({length: LEITER_FELDER}, (_, i) => (
+              // Das Ziel ist immer zu sehen — auf ein Feld zielen, das man
+              // nicht kennt, waere kein Wagemut, sondern Raten.
+              <span key={i} className={'leiter-feld'
+                + (risiko.pos === i ? ' licht' : '')
+                + (risiko.ziel === i ? ' ziel' : '')} />
+            ))}
+          </div>
+        ) : (
+          <div className="karte-wahl">
+            <button type="button" className="karte-knopf rabe" disabled={aus || !!letztes}
+              onClick={()=>raten('rabe')}>🐦‍⬛<span>Rabe</span></button>
+            <button type="button" className="karte-knopf rose" disabled={aus || !!letztes}
+              onClick={()=>raten('rose')}>🌹<span>Rose</span></button>
+          </div>
+        )}
+
+        <div className="rad-stand">
+          {letztes === 'gut' ? <b className="rad-gut">Getroffen — verdoppelt!</b>
+            : letztes === 'schlecht' ? <b className="rad-schlecht">Daneben. Alles weg.</b>
+            : art === 'leiter' ? <b className="leise">Halt drücken, wenn das Licht grün steht.</b>
+            : <b className="leise">Wähle.</b>}
+        </div>
+
+        <div className="rad-tasten risiko-tasten">
+          {art === 'leiter' && risiko.laeuft && (
+            <button className="automat-hebel" onClick={halt}>Halt!</button>
+          )}
+          {!risiko.laeuft && !aus && letztes === 'gut' && (
+            <button className="automat-hebel" onClick={nochmal}>Nochmal wagen</button>
+          )}
+          {!risiko.laeuft && betrag > 0 && (
+            <button className="automat-nachschub nehmen" onClick={()=>onNehmen(betrag)}>
+              {betrag} nehmen
+            </button>
+          )}
+          {betrag <= 0 && (
+            <button className="automat-hebel" onClick={onSchliessen}>Weiter</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Der Schirm ───────────────────────────────────────────────────
 const AutomatSchirm = ({ cfg, onSchliessen }) => {
   const waehrung = WAEHRUNGEN.marken;
@@ -227,6 +338,10 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
   const [zeigeLinie, setZeigeLinie] = React.useState(-1);  // -1 = alle
   const [zaehler, setZaehler] = React.useState(0);
   const [rad, setRad] = React.useState(null);   // {basis, runde, gewonnen, winkel, dreht, aus, letztes}
+  // Was gerade auf dem Tisch liegt und gesetzt werden darf: der Gewinn
+  // dieses Drehs samt allem, was das Rad nachgelegt hat.
+  const [riskierbar, setRiskierbar] = React.useState(0);
+  const [risiko, setRisiko] = React.useState(null);
   const laufRef = React.useRef(null);
   const radRef  = React.useRef(null);
 
@@ -277,7 +392,7 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
   }, [einsaetze]);
 
   const frei = freidrehe > 0;
-  const kannDrehen = !laeuft && !rad && (frei || marken >= einsatz);
+  const kannDrehen = !laeuft && !rad && !risiko && (frei || marken >= einsatz);
 
   const drehen = () => {
     if (!kannDrehen) return;
@@ -288,6 +403,7 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
     setFeld(neuesFeld);
     setBaender([0,1,2].map(sp => bandBauen(neuesFeld, sp, symbole)));
     setErgebnis(null); setZeigeLinie(-1); setZaehler(0);
+    setRiskierbar(0); setRisiko(null);
     setDreh(d => d + 1);
 
     // Einsatz und Gewinn in einem Schritt und sofort: das Ergebnis steht
@@ -302,6 +418,11 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
     setLaeuft(true);
     laufRef.current = setTimeout(aufloesen, dauer);
   };
+
+  // Was dieser Dreh eingebracht hat, darf gesetzt werden.
+  React.useEffect(() => {
+    setRiskierbar(ergebnis ? ergebnis.gewinn : 0);
+  }, [ergebnis]);
 
   // Ein Vollbild oeffnet das Rad, sobald die Walzen stehen.
   React.useEffect(() => {
@@ -330,7 +451,7 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
     const gruen = Math.random() < RAD_GRUEN / RAD_FELDER;
     const feld = gruen ? 1 + Math.floor(Math.random() * RAD_GRUEN) : 0;
     const runde = rad.runde + 1;
-    if (gruen) setMarken(marken + rad.basis);
+    if (gruen) { setMarken(marken + rad.basis); setRiskierbar(w => w + rad.basis); }
     setRad({...rad,
       winkel: radZiel(feld, rad.winkel),
       runde, dreht: true, letztes: gruen ? 'gruen' : 'rot',
@@ -339,6 +460,22 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
     });
     radRef.current = true;
     setTimeout(radAufloesen, RAD_DAUER + 40);
+  };
+
+  // Setzen heisst: der Gewinn geht von der Kasse zurueck auf den Tisch.
+  // Danach entscheidet das Spiel, ob er verdoppelt zurueckkommt oder gar
+  // nicht — so steht in der Kasse nie ein Betrag, ueber den noch
+  // gewuerfelt wird.
+  const risikoStarten = (art, halb) => {
+    const gesamt = riskierbar;
+    if (gesamt <= 0 || risiko) return;
+    const einsatzRisiko = halb ? Math.floor(gesamt / 2) : gesamt;
+    if (einsatzRisiko <= 0) return;
+    setMarken(marken - einsatzRisiko);
+    setRiskierbar(0);
+    setRisiko({art, betrag: einsatzRisiko, stufe: 0, aus: false, letztes: null,
+               laeuft: art === 'leiter', pos: 0,
+               ziel: Math.floor(Math.random() * LEITER_FELDER), gezogen: null});
   };
 
   // Der Gewinn zaehlt hoch, statt dazustehen. Kurz genug, dass niemand
@@ -384,6 +521,12 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
         </div>
         <button className="automat-x" onClick={onSchliessen} aria-label="Schließen">✕</button>
       </div>
+
+      {risiko && (
+        <RisikoFenster risiko={risiko} setRisiko={setRisiko}
+          onNehmen={(b)=>{ setMarken(marken + b); setRisiko(null); }}
+          onSchliessen={()=>setRisiko(null)} />
+      )}
 
       {rad && (
         <div className="rad-huelle">
@@ -493,6 +636,19 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
             {laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh'
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'}
           </button>
+
+          {/* Setzen statt einstecken. Steht nur da, wenn etwas dasteht. */}
+          {riskierbar > 0 && !laeuft && !rad && !risiko && (
+            <div className="risiko-angebot">
+              <span className="risiko-angebot-text">{riskierbar} setzen?</span>
+              <button className="risiko-knopf" onClick={()=>risikoStarten('leiter', false)}>🪜 Leiter</button>
+              <button className="risiko-knopf" onClick={()=>risikoStarten('karte', false)}>🂠 Rabe oder Rose</button>
+              {riskierbar >= 2 && (
+                <button className="risiko-knopf halb" title="Nur die Hälfte setzen, den Rest behalten"
+                  onClick={()=>risikoStarten('leiter', true)}>½ Leiter</button>
+              )}
+            </div>
+          )}
 
           {marken < einsaetze[0] && !frei && !laeuft && (
             <button className="automat-nachschub" onClick={()=>setMarken(MARKEN_START)}>

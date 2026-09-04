@@ -157,7 +157,7 @@ kostet deshalb so gut wie nichts:
 Nachgemessen: eine reine Trefferpunktänderung kostet **eine** kleine Anfrage und
 keinen Ladevorgang.
 
-### Neu: 🎰 Taverne des Glücks — noch im Bau
+### Neu: 🎰 Taverne des Glücks
 
 Ein Spielautomat als Zeitvertreib: **Dreifaches Glück**, drei Walzen, fünf
 Linien, drei gleiche Symbole zahlen. Erreichbar über **🎰 Taverne** in der
@@ -190,7 +190,18 @@ was danach dasteht, ist die erreichte Zahl, nicht die gewünschte.
 
 Wer einen zwielichtigen Automaten will, stellt 80 % ein und sagt nichts.
 
-Es fehlen noch die beiden Risikospiele.
+**Nach jedem Gewinn kannst du ihn setzen statt einstecken** — ganz oder zur
+Hälfte:
+
+- **🪜 Leiter des Wagemuts** — ein Licht läuft über acht Felder, eines ist grün.
+  Wer im richtigen Augenblick hält, verdoppelt und steigt eine Sprosse; mit
+  jeder Sprosse läuft das Licht schneller. Danebengedrückt kostet alles.
+- **🂠 Rabe oder Rose** — schwarz oder rot raten. Richtig verdoppelt, falsch
+  kostet alles.
+
+Höchstens fünf Sprossen, dann wird ausgezahlt. Was im Spiel ist, liegt solange
+nicht in der Kasse: gesetzt wird sichtbar, damit nie ein Betrag herumsteht, über
+den noch gewürfelt wird.
 
 ### Schaden und Heilung ohne Umweg über einen Kampf
 
