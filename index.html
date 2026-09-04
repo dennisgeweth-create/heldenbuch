@@ -86,7 +86,10 @@
       }
       return data;
     }
-    const registerGroup    = (url, code, pass, dmPass)  => apiRequest(url, 'register',        { code, password: pass, dm_password: dmPass||undefined });
+    // Eine Gruppe legt nur noch die Verwaltung an. Das Gruppenpasswort ist
+    // kein Zugang mehr — es ankert nur die Kennung des Abgleichs — und wird
+    // deshalb gewuerfelt statt abgefragt.
+    const apiGruppeNeu     = (url, code, pass)          => apiRequest(url, 'register',        { code, password: pass });
     const apiLoadChars     = (url, code, pass)           => apiRequest(url, 'load',            { code, password: pass });
     const apiSaveChars     = (url, code, pass, chars)    => apiRequest(url, 'save',            { code, password: pass, chars });
     const apiSaveChar      = (url, code, pass, charId, char) => apiRequest(url, 'save_char',   { code, password: pass, char_id: charId, char });
@@ -163,7 +166,9 @@
     const serverCreds = () => ({
       url:   localStorage.getItem('sv_url')   || standardServer(),
       code:  localStorage.getItem('sv_code')  || '',
-      pass:  localStorage.getItem('sv_pass')  || '',
+      // sv_pass wird seit Stufe 7 nicht mehr geschrieben und nicht mehr
+      // gelesen. Ein alter Eintrag soll nicht bei jeder Anfrage mitgehen.
+      pass:  '',
       token: localStorage.getItem('sv_token') || '',
     });
     const safeSetItem = (key, value) => {

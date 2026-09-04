@@ -1,5 +1,107 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.2
+
+Von jetzt an meldet sich jeder mit **seinem eigenen Konto** an. Der
+gemeinsame Gruppencode und das DM-Passwort sind Geschichte — mit ihnen
+das „wer den Zettel hat, darf alles“.
+
+### 👤 Anmelden
+
+Zwei Felder: **Name und Passwort.** Kein Gruppencode, keine Server-URL.
+Deine Gruppe, deine Rolle und deine Helden hängen am Konto; wo die
+Anwendung liegt, weiß sie selbst.
+
+Dein Konto legt die Spielleitung an und gibt dir ein **Einmalpasswort**.
+Beim ersten Anmelden wählst du dein eigenes — danach kennt es niemand
+mehr, auch nicht die Verwaltung: auf dem Server steht nur sein Hash.
+
+Über deinen Namen unten in der Leiste kommst du zu **Mein Konto**: dein
+Passwort ändern, und nachlesen, was über dich gespeichert ist.
+
+### 🧑 Bögen gehören jemandem
+
+Ein Bogen kann einem Konto zugeordnet sein. Dann ändert ihn nur noch
+sein Besitzer — und die Spielleitung des Abenteuers. Alle anderen kommen
+nicht mehr daran, auch nicht mit einem Klick zu viel im falschen Bogen.
+
+Das gilt **auf dem Server**, nicht nur in der Anzeige. Ein fremder Bogen
+wird abgewiesen, egal von wo die Anfrage kommt. Dasselbe für das
+Inventar: ein Gegenstand ist Teil des Bogens.
+
+Wer einen neuen Helden anlegt, besitzt ihn. Und was niemandem gehört,
+bleibt für alle offen — die Zuordnung macht es strenger, nie kaputt.
+
+Dein eigener Held trägt ein **👤** in der Liste.
+
+### 🔮 Die Spielleitung gilt je Abenteuer
+
+Wer Eberron leitet, kann in Strahd mitspielen. Beides zugleich, mit
+einem Konto.
+
+In den Einstellungen eines Abenteuers steht, wer es leitet. Nur wer dort
+eingetragen ist, kommt in diesem Abenteuer in den DM-Modus, an fremde
+Bögen und an die verdeckten Trefferpunkte. Wechselst du in ein
+Abenteuer, das jemand anders leitet, fällst du dort aus dem DM-Modus —
+und siehst die Trefferpunkte der anderen wieder als „Verwundet“ statt
+als Zahl.
+
+Steht für ein Abenteuer niemand da, leitet es wie bisher jede
+Spielleitung der Gruppe.
+
+Der DM-Modus braucht kein zweites Passwort mehr. Ein Klick auf **🔮 DM**,
+und du bist drin.
+
+### 📋 Das Abenteuerlog
+
+Seit es Konten gibt, steht in jeder Zeile auch, **wer** sie geschrieben
+hat. Aus der Chronik der Figuren wird damit eine der Menschen — und
+deshalb wird sie auch so behandelt:
+
+- Gespeichert wird eine **Kennung, nicht dein Name.** Wird dein Konto
+  gelöscht, bleibt die Zeile stehen und verliert die Kennung. Die
+  Kampagnenhistorie gehört der Runde.
+- **Nach 180 Tagen ist Schluss** — die Verwaltung kann die Frist ändern.
+  Vorher gab es keine; jede Zeile seit dem ersten Tag lag noch da.
+- **Wer was sieht, entscheidet der Server.** Bisher kam alles im Browser
+  an, und die Anwendung ließ die DM-Helden weg — wer sich die Antwort
+  ansah, sah sie trotzdem. Jetzt bekommt ein Spieler die Zeilen zu
+  DM-Helden gar nicht erst, und eine Spielleitung nicht, was in einem
+  fremden Abenteuer passiert.
+- Unter **Mein Konto** steht, was über dich gespeichert ist, mit einem
+  Knopf, der alles als Datei ausgibt.
+
+Nebenbei: die **IP-Adressen** der Anfragebremse liegen nur noch als Hash
+da und werden aufgeräumt. Sie standen im Klartext und für immer — ein
+Personenbezug, den niemand wollte.
+
+### 🛠 Verwaltung
+
+Für die Verwaltung, erreichbar über **Mein Konto**: Konten anlegen,
+Rollen vergeben, Passwörter zurücksetzen, Konten löschen, Gruppen
+anlegen und die Aufbewahrung des Logs stellen.
+
+Ein gelöschtes Konto reißt keine Löcher: seine Bögen bleiben und gehören
+danach niemandem, seine Logzeilen bleiben und verlieren die Kennung.
+
+### Was das für den ersten Abend bedeutet
+
+Beim nächsten Öffnen steht die Anmeldemaske da. Name und Passwort
+bekommst du von der Spielleitung. Danach ist alles, wo es war.
+
+Solange niemand einen Bogen zuordnet und niemand für ein Abenteuer
+eingetragen wird, ändert sich am Spiel **nichts** — beide Regeln
+greifen erst, wenn jemand etwas einträgt.
+
+### Unter der Haube
+
+Die Serverseite läuft seit dieser Ausgabe auch auf dem Rechner der
+Entwicklung, mit einer eigenen Wegwerfdatenbank und **129 Prüfungen**,
+die bei jeder Änderung durchlaufen. Vorher wurde sie zum ersten Mal auf
+dem Server ausgeführt — für Speicherlogik ging das gut, für Anmeldecode
+wäre es fahrlässig gewesen. Ein halbes Dutzend Fehler ist dabei
+hängengeblieben, bevor irgendjemand sie zu sehen bekam.
+
 ## v4.1
 
 Eine Ausgabe für den Feierabend: In der Taverne des Glücks steht ein

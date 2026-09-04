@@ -52,16 +52,17 @@ liefert dann alte Stände von `styles.css` und `js/*.js` aus.
 
 ## Konten, Rollen, Rechte
 
-Zwei Wege in eine Gruppe, beide gelten:
+Ein Weg hinein: `login` gibt eine Kennung, die jede Anfrage traegt
+(`sv_token`, angehaengt in `apiRequest`). Der Gruppencode und das
+DM-Passwort sind seit v4.2 abgeschaltet — `zugang()` weist eine Anfrage
+ohne Kennung ab. `hb_sessions.password_hash` bleibt trotzdem: aus ihm
+leitet sich der `poll_token` des Hintergrundabgleichs ab.
 
-- **alt** — Gruppencode + Passwort, dazu ein DM-Passwort. Kennt keinen
-  Besitz und keine Rollen: wer es hat, darf alles.
-- **Konto** — `login` gibt eine Kennung, die jede Anfrage traegt
-  (`sv_token`, angehaengt in `apiRequest`). Die Rechte stehen am Konto.
-
-Rollen je Gruppe (`hb_mitglied`): `spieler`, `dm`. Die Verwaltung steht
-als `ADMIN_USER` in der `config.php` — nicht in der Datenbank, damit sich
-niemand selbst dazu macht.
+Rollen je Gruppe (`hb_mitglied`): `spieler`, `dm` — sie gelten nur dort,
+wo fuer ein Abenteuer niemand eingetragen ist. Wer welches Abenteuer
+leitet, steht in `hb_adv_dm`, und dafuer kommt jedes Mitglied in Frage.
+Die Verwaltung steht als `ADMIN_USER` in der `config.php` — nicht in der
+Datenbank, damit sich niemand selbst dazu macht.
 
 Zwei Regeln, beide einseitig — nichts eintragen aendert nichts, jeder
 Eintrag grenzt ein:
@@ -70,7 +71,13 @@ Eintrag grenzt ein:
   in der Gruppe aenderbar. Geprueft in `besitzPruefen()` vor `save_char`,
   `delete_char`, `save_item`, `delete_item`.
 - **Spielleitung je Abenteuer** (`hb_adv_dm`): ist fuer ein Abenteuer
-  niemand eingetragen, leitet es jede Spielleitung der Gruppe.
+  niemand eingetragen, leitet es jede Spielleitung der Gruppe. Wer
+  eingetragen ist, leitet es — auch ein Spieler der Gruppe.
+
+`darfSchreiben()` im Client haelt sich an dieselben Regeln, bevor etwas
+in die Warteschlange geht. Nicht als Sicherung — die steht auf dem
+Server — sondern damit das Aufraeumen beim Laden nicht bei jedem Start
+an fremden Boegen abprallt.
 
 Was die Anwendung schreibt, entscheidet nie ueber Rechte — deshalb liegen
 Besitz und Spielleitung in eigenen Spalten und Tabellen und nicht in

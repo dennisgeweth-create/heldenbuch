@@ -153,7 +153,6 @@ function App() {
   const [isDmMode,   setIsDmMode]   = useState(false);
   const [dmPass,     setDmPass]     = useState('');
   const [dmLibrary,  setDmLibrary]  = useState({});
-  const [hasDmMode,  setHasDmMode]  = useState(false);
   // Das angemeldete Konto: {id, name, ist_admin, muss_wechseln, gruppen}.
   // Null heisst "ueber das Gruppenpasswort verbunden" — der alte Weg, der
   // weiterlaeuft, bis jeder ein Konto hat.
@@ -170,9 +169,6 @@ function App() {
   const [kontoDlg,   setKontoDlg]   = useState(null);   // {daten, laedt, err}
   const [verwaltung, setVerwaltung] = useState(null);   // {laedt, users, mitglied, err, …}
   const [mitglieder, setMitglieder] = useState([]);
-  const [showDmLogin,setShowDmLogin]= useState(false);
-  const [dmLoginInput,setDmLoginInput]=useState('');
-  const [dmLoginErr, setDmLoginErr] = useState('');
   const [showSetup,  setShowSetup]  = useState(false);
   const [showDB,     setShowDB]     = useState(false);
   const [confirmDlg, setConfirmDlg] = useState(null); // {msg, onOk}
@@ -186,7 +182,6 @@ function App() {
   const [dbListTick,  setDbListTick]  = useState(0);
   const [dbExpandedEntry, setDbExpandedEntry] = useState(null);
   const [dbGradeFilter, setDbGradeFilter] = useState('');
-  const [setupMode,  setSetupMode]  = useState('login'); // login|register
   const [setupForm,  setSetupForm]  = useState({code:'',pass:''});
   const [setupErr,   setSetupErr]   = useState('');
   const [setupBusy,  setSetupBusy]  = useState(false);
@@ -349,7 +344,9 @@ function App() {
   const dmLibRef = useRef({});
   const isDmRef = useRef(false);
   const dmPassRef = useRef('');
-  const kontoRef  = useRef(null);
+  const kontoRef    = useRef(null);
+  const besitzerRef = useRef({});
+  const advDmsRef   = useRef({});
   // Welches Abenteuer gerade offen ist. Als Referenz, weil addLog weiter
   // oben steht als advId — und weil die Logzeile sonst nicht sagen
   // koennte, wohin sie gehoert.
@@ -368,13 +365,14 @@ function App() {
   useEffect(() => { isDmRef.current = isDmMode; }, [isDmMode]);
   useEffect(() => { dmPassRef.current = dmPass; }, [dmPass]);
   useEffect(() => { kontoRef.current = konto; }, [konto]);
+  useEffect(() => { besitzerRef.current = besitzer; }, [besitzer]);
+  useEffect(() => { advDmsRef.current = advDms; }, [advDms]);
 
   // ── Wer darf was ────────────────────────────────────────────────
-  // Verbunden ist, wer eine Gruppe und einen Weg hinein hat: das
-  // Gruppenpasswort wie bisher oder eine Anmeldung. Vorher stand an sieben
-  // Stellen "!pass" — mit Konto gibt es kein Gruppenpasswort mehr, und
-  // jede dieser Stellen haette geschwiegen statt zu speichern.
-  const verbunden = (c) => !!c.url && !!c.code && (!!c.pass || !!c.token);
+  // Verbunden ist, wer angemeldet ist und weiss, zu welcher Gruppe. Seit
+  // Stufe 7 gibt es keinen zweiten Weg mehr — das Gruppenpasswort ist
+  // abgeschaltet, und der Server nimmt es auch nicht mehr an.
+  const verbunden = (c) => !!c.url && !!c.code && !!c.token;
   // Die Rolle des Kontos in einer Gruppe. Ohne Konto: leer — dann gilt der
   // alte Weg, und der darf alles.
   const rolleIn = (k, code) => {
@@ -384,6 +382,23 @@ function App() {
     return (g && g.rolle) || '';
   };
   const kontoIstDm = (k, code) => ['dm', 'admin'].includes(rolleIn(k, code));
+  // Darf dieser Bogen ueberhaupt zum Server? Der Server entscheidet das
+  // ohnehin — hier steht es nur, damit gar nicht erst gefragt wird.
+  //
+  // Das ist kein Schoenheitsfehler: die Anwendung raeumt beim Laden in
+  // jedem Bogen auf (fehlende Felder, alte Ausruestungsformate). Ohne
+  // diese Zeile ginge dieses Aufraeumen auch an fremde Boegen, kaeme
+  // jedes Mal als Ablehnung zurueck, und der Spieler saehe bei jedem
+  // Laden "Aenderung abgelehnt" — endlos, weil die Aenderung nie ankommt.
+  const darfSchreiben = (c) => {
+    const k = kontoRef.current;
+    if (!k) return true;
+    if (k.ist_admin) return true;
+    const code = localStorage.getItem('sv_code') || '';
+    if (leitetAbenteuer(k, advDmsRef.current, code, (c && c.adventure) || '')) return true;
+    const b = (besitzerRef.current || {})[c && c.id];
+    return !b || b === k.id;
+  };
   // Leitet dieses Konto dieses Abenteuer? Wer dafuer eingetragen ist,
   // leitet es — gleich welche Rolle er sonst in der Gruppe hat. Wer
   // Eberron leitet, kann in Strahd mitspielen.
@@ -643,6 +658,10 @@ function App() {
     const zug = serverCreds();
     const {url, code, pass, token} = zug;
     setSvUrl(url); setSvCode(code); setSvPass(pass);
+    // Was vom alten Zugang noch im Speicher liegt, wird hier still
+    // entsorgt — gebraucht wird es nicht mehr, und liegenlassen hiesse,
+    // ein Passwort aufzubewahren, das niemandem mehr etwas nuetzt.
+    try { localStorage.removeItem('sv_pass'); } catch {}
     // Wer angemeldet ist, holt zuerst sein Konto: davon haengt ab, ob der
     // Knopf fuer die Spielleitung ueberhaupt dasteht. Faellt es aus, ist
     // die Kennung abgelaufen oder zurueckgesetzt worden — dann muss man
@@ -651,8 +670,12 @@ function App() {
       apiMe(url).then(d => setKonto(d.user || null)).catch(() => {
         try { localStorage.removeItem('sv_token'); } catch {}
         setKonto(null);
-        if (!pass) { setSetupMode('konto'); setShowSetup(true); }
+        setShowSetup(true);
       });
+    } else {
+      // Keine Kennung, kein Zugang: die Maske gleich aufmachen, statt den
+      // Bogen leer dastehen zu lassen.
+      setShowSetup(true);
     }
     if (verbunden(zug)) {
       // Load localStorage immediately for instant display while server loads
@@ -667,7 +690,6 @@ function App() {
       apiLoadChars(url, code, pass).then(d => {
         pollToken.current = d.poll_token || null;
         revRef.current    = d.rev != null ? d.rev : null;
-        if (d.has_dm) setHasDmMode(true);
         setBesitzer(d.owners || {});
         setAdvDms(d.adv_dms || {});
         if (d.log_tage) setLogTage(d.log_tage);
@@ -860,7 +882,6 @@ function App() {
       applyChars(data.chars || []);
       spiegleChars(JSON.stringify(data.chars || []));
       if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
-      if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
       if (data.log_tage) setLogTage(data.log_tage);
@@ -931,13 +952,6 @@ function App() {
         if (a && a.kampf && kampf) setShowKampf(true);
       } catch {}
     }
-  };
-
-  const doDmLogin = async () => {
-    if (!dmLoginInput.trim()) { setDmLoginErr('Bitte DM-Passwort eingeben.'); return; }
-    setDmLoginErr('');
-    try { await dmLaden(dmLoginInput.trim()); }
-    catch(e) { setDmLoginErr(e.message || 'Falsches DM-Passwort.'); }
   };
 
   // Wer als Spielleitung angemeldet ist, braucht kein zweites Passwort.
@@ -1236,6 +1250,8 @@ function App() {
     for (const [charId, c] of newMap) {
       const prevC = prevMap.get(charId);
       // Diff inventory separately
+      // Was ohnehin abgelehnt wuerde, wird gar nicht erst eingereiht.
+      if (!darfSchreiben(c)) continue;
       const prevInv = new Map((prevC?.inventory||[]).map(i => [i.id, i]));
       const newInv  = new Map((c.inventory||[]).map(i => [i.id, i]));
       for (const [itemId, item] of newInv) {
@@ -1258,8 +1274,9 @@ function App() {
         pendingDeletes.current.delete(charId);
       }
     }
-    for (const [id] of prevMap) {
+    for (const [id, alt] of prevMap) {
       if (!newMap.has(id)) {
+        if (!darfSchreiben(alt)) continue;
         pendingDeletes.current.add(id);
         delete pendingChars.current[id];
       }
@@ -1340,21 +1357,20 @@ function App() {
       const an = await apiLogin(url, name, pw);
       localStorage.setItem('sv_token', an.token || '');
       const k = an.user || null;
-      const gruppen = (k && k.gruppen) || [];
-      const gewuenscht = (setupForm.code || '').trim().toUpperCase();
-      const gcode = (gewuenscht && (k.ist_admin || gruppen.some(g => g.session_code === gewuenscht)))
-        ? gewuenscht
-        : ((gruppen[0] && gruppen[0].session_code) || '');
+      // Welche Gruppe. Sie steht am Konto und wird nicht mehr abgefragt:
+      // die zuletzt benutzte, wenn sie noch dazugehoert, sonst die erste.
+      // Die Verwaltung gehoert zu keiner und darf in jede — fuer sie
+      // zaehlt die Liste aller Gruppen, die der Server mitschickt.
+      const meine = ((k && k.gruppen) || []).map(g => g.session_code);
+      const offen = (k && k.ist_admin) ? (k.alle_gruppen || []) : [];
+      const moeglich = meine.length ? meine : offen;
+      const zuletzt = (localStorage.getItem('sv_code') || '').toUpperCase();
+      const gcode = (zuletzt && moeglich.includes(zuletzt)) ? zuletzt : (moeglich[0] || '');
       if (!gcode) {
         localStorage.removeItem('sv_token');
-        // Die Verwaltung ist in keiner Gruppe Mitglied und darf trotzdem in
-        // jede. Ihr zu sagen, sie solle sich von der Verwaltung aufnehmen
-        // lassen, waere ein Kreis.
-        throw new Error(gewuenscht
-          ? 'Dein Konto gehört nicht zu der Gruppe ' + gewuenscht + '.'
-          : (k && k.ist_admin
-              ? 'Gib den Gruppencode an — als Verwaltung gehörst du zu keiner Gruppe und kommst in jede.'
-              : 'Dein Konto gehört zu keiner Gruppe. Die Verwaltung muss dich aufnehmen.'));
+        throw new Error(k && k.ist_admin
+          ? 'Es gibt noch keine Gruppe. Leg unter 🛠 Verwaltung eine an.'
+          : 'Dein Konto gehört zu keiner Gruppe. Die Verwaltung muss dich aufnehmen.');
       }
       // Das Gruppenpasswort gibt es hier nicht — die Kennung ersetzt es.
       const data = await apiLoadChars(url, gcode, '');
@@ -1368,7 +1384,6 @@ function App() {
       pendingRef.current = false;
       spiegleChars(JSON.stringify(data.chars || []));
       if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
-      if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
       if (data.log_tage) setLogTage(data.log_tage);
@@ -1438,6 +1453,23 @@ function App() {
     setVerwaltung({laedt: true, users: [], mitglied: [], err: '', neuName: '', gezeigt: null});
     verwaltungLaden();
   };
+  const gruppeAnlegen = async () => {
+    const name = ((verwaltung && verwaltung.neueGruppe) || '').trim().toUpperCase();
+    if (!/^[A-Za-z0-9_\-]{3,20}$/.test(name)) {
+      setVerwaltung(v => ({...v, err: 'Der Code braucht 3 bis 20 Zeichen: Buchstaben, Zahlen, - und _.'}));
+      return;
+    }
+    try {
+      // Das Gruppenpasswort ist kein Zugang mehr. Es ankert nur die
+      // Kennung des Hintergrundabgleichs — also wuerfeln und vergessen.
+      await apiGruppeNeu(serverCreds().url, name, einmalPasswort() + einmalPasswort());
+      setVerwaltung(v => ({...v, neueGruppe: '', err: '',
+                           gezeigt: {name, pw: '—', was: 'als Gruppe angelegt'}}));
+      const m = await apiMe(serverCreds().url);
+      setKonto(m.user || null);
+    } catch(e) { setVerwaltung(v => ({...v, err: e.message})); }
+  };
+
   const kontoAnlegen = async () => {
     const name = ((verwaltung && verwaltung.neuName) || '').trim();
     if (name.length < 3) { setVerwaltung(v => ({...v, err: 'Der Name braucht mindestens drei Zeichen.'})); return; }
@@ -1485,36 +1517,6 @@ function App() {
       setKonto(k => k && ({...k, muss_wechseln: false}));
       setPasswortDlg(null);
     } catch(e) { setPasswortDlg({...d, err: e.message}); }
-  };
-
-  const applySetup = async () => {
-    if (setupMode === 'konto') return applyKontoSetup();
-    const { code, pass, dmPass: regDmPass } = setupForm;
-    const url = serverCreds().url;
-    if (!url) { setSetupErr('Die Adresse des Servers lässt sich hier nicht ermitteln.'); return; }
-    if (!code.trim()||!pass.trim()) { setSetupErr('Bitte alle Felder ausfüllen.'); return; }
-    if (pass.length < 6) { setSetupErr('Passwort mindestens 6 Zeichen.'); return; }
-    setSetupBusy(true); setSetupErr('');
-    try {
-      if (setupMode === 'register') await registerGroup(url, code.toUpperCase(), pass, regDmPass||'');
-      const data = await apiLoad(url, code.toUpperCase(), pass);
-      pollToken.current = data.poll_token || null;
-      revRef.current    = data.rev != null ? data.rev : null;
-      localStorage.setItem('sv_code', code.toUpperCase());
-      localStorage.setItem('sv_pass', pass);
-      setSvUrl(url); setSvCode(code.toUpperCase()); setSvPass(pass);
-      applyChars(data.chars || []);
-      pendingRef.current = false;
-      spiegleChars(JSON.stringify(data.chars || []));
-      if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
-      if (data.has_dm) setHasDmMode(true);
-      setBesitzer(data.owners || {});
-      setAdvDms(data.adv_dms || {});
-      if (data.log_tage) setLogTage(data.log_tage);
-      setSyncStatus('ok'); setSyncMsg('Verbunden ✓');
-      setShowSetup(false);
-    } catch(e) { setSetupErr(e.message); }
-    setSetupBusy(false);
   };
 
   const signOut = () => {
@@ -2432,7 +2434,7 @@ function App() {
                   <span className={"sync-line-msg"+(offeneAenderungen>0?" offen":"")}>
                     · {offeneAenderungen>0 ? offeneAenderungen+" nicht gesichert" : (syncMsg||"Verbunden")}
                   </span>
-                  <span className="sync-line-ver">v4.1</span>
+                  <span className="sync-line-ver">v4.2</span>
                   {spiegelVoll && (
                     <span className="sync-line-hint" title="Der Browserspeicher ist voll. Die Charaktere liegen weiter auf dem Server und werden bei jedem Start von dort geladen — nur die lokale Kopie für den Offline-Fall entfällt.">
                       ⚠ ohne lokale Kopie
@@ -2448,13 +2450,6 @@ function App() {
                       title="In den DM-Modus wechseln"
                       onClick={dmMitKonto}>🔮 DM</button>
                   )}
-                  {/* Ohne Konto der alte Weg ueber das DM-Passwort. Mit Konto
-                      entscheidet allein die Rolle — einem Spieler das
-                      Passwortfenster hinzustellen waere eine Tuer, die der
-                      Server ohnehin zuhaelt. */}
-                  {hasDmMode && !konto && !isDmMode && (
-                    <button className="btn-sync dm" title="In den DM-Modus wechseln" onClick={()=>{setDmLoginInput('');setDmLoginErr('');setShowDmLogin(true);}}>🔮 DM</button>
-                  )}
                   {isDmMode && (
                     <button className="btn-sync dm active" title="DM-Modus verlassen" onClick={doDmLogout}>🔮 DM aus</button>
                   )}
@@ -2462,18 +2457,12 @@ function App() {
                       Einrichtungsfenster nicht mehr heran — es steht nur da,
                       solange man nicht verbunden ist. Damit war der Weg zum
                       eigenen Konto verschlossen, ausser ueber Abmelden. */}
-                  {!konto && (
-                    <button className="btn-sync" title="Mit dem eigenen Konto anmelden"
-                      onClick={()=>{setSetupMode('konto'); setSetupErr('');
-                                    setSetupForm(f=>({...f, pass:''})); setShowSetup(true);}}>
-                      👤 Konto
-                    </button>
-                  )}
                   <button className="btn-sync" title="Von der Gruppe abmelden" onClick={signOut}>⎋ Abmelden</button>
                 </div>
               </>
             ) : (
-              <button className="btn-sync" onClick={()=>setShowSetup(true)}>⚙️ Server verbinden</button>
+              <button className="btn-sync" onClick={()=>{setSetupErr('');
+                setSetupForm(f=>({...f, pass:''})); setShowSetup(true);}}>👤 Anmelden</button>
             )}
           </div>
         </div>
@@ -4242,11 +4231,17 @@ function App() {
             {verwaltung.gezeigt && (
               <div className="verw-passwort">
                 <div>
-                  <b>{verwaltung.gezeigt.name}</b> {verwaltung.gezeigt.was}. Einmalpasswort:
-                  <code className="verw-code">{verwaltung.gezeigt.pw}</code>
+                  <b>{verwaltung.gezeigt.name}</b> {verwaltung.gezeigt.was}.
+                  {verwaltung.gezeigt.pw !== '—' && <>
+                    {' '}Einmalpasswort:
+                    <code className="verw-code">{verwaltung.gezeigt.pw}</code>
+                  </>}
                 </div>
-                <i>Gib es weiter — es steht nur hier und nur jetzt. Beim ersten Anmelden
-                   muss ein eigenes gewählt werden.</i>
+                <i>
+                  {verwaltung.gezeigt.pw !== '—'
+                    ? 'Gib es weiter — es steht nur hier und nur jetzt. Beim ersten Anmelden muss ein eigenes gewählt werden.'
+                    : 'Wer dazugehört, bestimmst du oben über die Rolle. Ohne Mitglied ist eine Gruppe leer.'}
+                </i>
                 <button className="btn-icon"
                   onClick={()=>setVerwaltung(v=>({...v, gezeigt:null}))}>Verstanden</button>
               </div>
@@ -4292,6 +4287,21 @@ function App() {
                     </div>
                   );
                 })}
+              </div>
+
+              <div className="einst-block">
+                <div className="einst-titel">🗺 Neue Gruppe</div>
+                <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                  Eine Gruppe ist ein eigener Satz Helden, Abenteuer und Gegner. Wer dazu
+                  gehört, bestimmst du oben.
+                </div>
+                <div className="einst-klasse">
+                  <input className="form-input" placeholder="Code, z.B. STRAHD" maxLength={20}
+                    value={verwaltung.neueGruppe || ''}
+                    onChange={e=>setVerwaltung(v=>({...v, neueGruppe:e.target.value.toUpperCase(), err:''}))}
+                    onKeyDown={e=>e.key==='Enter'&&gruppeAnlegen()} />
+                  <button className="btn-icon" onClick={gruppeAnlegen}>Anlegen</button>
+                </div>
               </div>
 
               <div className="einst-block">
@@ -4468,35 +4478,6 @@ function App() {
         </div>
       )}
 
-      {showDmLogin && (
-        <div className="form-overlay">
-          <div className="form-modal" style={{maxWidth:380}}>
-            <div className="form-title" style={{color:'#c060a0'}}>🔮 DM-Modus betreten</div>
-            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:16,fontFamily:"'Roboto',sans-serif"}}>
-              Gib das DM-Passwort ein um Zugriff auf den Dungeon Master Bereich zu erhalten.
-            </div>
-            <div className="form-group">
-              <div className="form-label">DM-Passwort</div>
-              <input className="form-input" type="password" autoFocus
-                value={dmLoginInput}
-                onChange={e=>setDmLoginInput(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&doDmLogin()}
-                placeholder="DM-Passwort eingeben..." />
-            </div>
-            {dmLoginErr && (
-              <div style={{background:"#3a1010",border:"1px solid var(--crimson)",borderRadius:4,padding:"8px 12px",fontSize:13,color:"#e87070",marginBottom:8}}>
-                ⚠️ {dmLoginErr}
-              </div>
-            )}
-            <div className="form-actions">
-              <button className="btn-cancel" onClick={()=>setShowDmLogin(false)}>Abbrechen</button>
-              <button className="btn-save" style={{background:'linear-gradient(135deg,#6030a0,#402070)',borderColor:'#c060a0'}} onClick={doDmLogin}>
-                🔮 Einloggen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showAutomat && (
         <AutomatSchirm cfg={advObj && advObj.automat}
@@ -4653,98 +4634,54 @@ function App() {
         </div>
       )}
 
+      {/* Anmelden. Seit Stufe 7 gibt es nur noch einen Weg hinein, und der
+          braucht zwei Angaben: wer du bist und dein Passwort. Die Gruppe
+          steht am Konto, die Adresse des Servers in der Adresszeile. */}
       {showSetup && (
         <div className="form-overlay">
-          <div className="form-modal" style={{maxWidth:460}}>
-            <div className="form-title">☁️ Server-Sync einrichten</div>
+          <div className="form-modal" style={{maxWidth:420}}>
+            <div className="form-title">👤 Anmelden</div>
             <p style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.6,marginBottom:16}}>
-              {setupMode === 'konto' ? (
-                <>Mit deinem eigenen Konto anmelden. Deine Gruppe und deine Rolle stehen
-                   am Konto — den Gruppencode musst du nur angeben, wenn du zu mehreren
-                   gehörst.</>
-              ) : (
-                <>Charaktere werden auf dem Server gespeichert, von dem diese Seite kommt, und sind
-                   auf jedem Gerät verfügbar. Jede Gruppe hat einen eindeutigen <strong style={{color:"var(--text-secondary)"}}>Code</strong> und ein <strong style={{color:"var(--text-secondary)"}}>Passwort</strong>.</>
-              )}
+              Melde dich mit deinem Konto an. Deine Gruppe, deine Rolle und deine Helden
+              hängen daran — mehr musst du nicht wissen.
             </p>
-            {/* Mode Toggle */}
-            <div style={{display:"flex",gap:0,marginBottom:16,borderRadius:4,overflow:"hidden",border:"1px solid var(--border)"}}>
-              {[["konto","👤 Konto"],["login","🔑 Gruppe"],["register","✦ Neue Gruppe"]].map(([m,l])=>(
-                <button key={m} onClick={()=>{setSetupMode(m);setSetupErr('');}}
-                  style={{flex:1,padding:"9px 4px",fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,letterSpacing:"0.08em",
-                    cursor:"pointer",border:"none",
-                    background:setupMode===m?"var(--gold-dim)":"var(--bg-card)",
-                    color:setupMode===m?"var(--gold-bright)":"var(--text-muted)"}}>
-                  {l}
-                </button>
-              ))}
-            </div>
             <div className="form-grid" style={{gridTemplateColumns:"1fr"}}>
-              {setupMode === 'konto' && (
-                <div className="form-group">
-                  <div className="form-label">Name</div>
-                  <input className="form-input" placeholder="Dein Kontoname" maxLength={40}
-                    value={setupForm.name||''}
-                    onChange={e=>setSetupForm({...setupForm,name:e.target.value})} />
-                </div>
-              )}
               <div className="form-group">
-                <div className="form-label">
-                  Gruppen-Code
-                  {setupMode === 'konto' && (
-                    <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}> (nur wenn nötig)</span>
-                  )}
-                </div>
-                <input className="form-input" placeholder="z.B. ABENTEURER" maxLength={20}
-                  value={setupForm.code}
-                  onChange={e=>setSetupForm({...setupForm,code:e.target.value.toUpperCase()})}
-                  style={{fontFamily:"'Roboto Condensed',sans-serif",letterSpacing:"0.1em"}} />
-                <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>
-                  {setupMode === 'konto'
-                    ? 'Leer lassen — dein Konto weiß, wohin es gehört'
-                    : 'Buchstaben, Zahlen, - und _ erlaubt'}
-                </div>
+                <div className="form-label">Name</div>
+                <input className="form-input" placeholder="Dein Kontoname" maxLength={40}
+                  autoFocus value={setupForm.name||''}
+                  onChange={e=>setSetupForm({...setupForm,name:e.target.value})}
+                  onKeyDown={e=>e.key==='Enter'&&applyKontoSetup()} />
               </div>
               <div className="form-group">
                 <div className="form-label">Passwort</div>
-                <input className="form-input" type="password" placeholder="Mind. 6 Zeichen"
-                  value={setupForm.pass}
-                  onChange={e=>setSetupForm({...setupForm,pass:e.target.value})} />
+                <input className="form-input" type="password" placeholder="Dein Passwort"
+                  value={setupForm.pass||''}
+                  onChange={e=>setSetupForm({...setupForm,pass:e.target.value})}
+                  onKeyDown={e=>e.key==='Enter'&&applyKontoSetup()} />
               </div>
-              {setupMode==='register' && (
-                <div className="form-group form-full">
-                  <div className="form-label">🔮 DM-Passwort <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>(optional — für Dungeon Master Bereich)</span></div>
-                  <input className="form-input" type="password" placeholder="DM-Passwort (optional)"
-                    value={setupForm.dmPass||''}
-                    onChange={e=>setSetupForm({...setupForm,dmPass:e.target.value})} />
-                </div>
-              )}
             </div>
             {setupErr && (
               <div style={{background:"#3a1010",border:"1px solid var(--crimson)",borderRadius:4,padding:"8px 12px",fontSize:13,color:"#e87070",marginBottom:8}}>
                 ⚠️ {setupErr}
               </div>
             )}
-            {/* Nur fuer den allerersten Start eines eigenen Servers. Wo es
-                schon Konten gibt, sagt der Server das auch so. */}
-            {setupMode === 'konto' && (
-              <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
-                Noch kein Konto? Das <b>allererste</b> legt sich hier selbst an — unter dem
-                Namen, der als <code>ADMIN_USER</code> in der <code>config.php</code> steht.
-                Alle weiteren macht danach die Verwaltung.
-                <button type="button" className="btn-icon" style={{marginLeft:8}}
-                  disabled={setupBusy} onClick={erstesKontoAnlegen}>
-                  Erstes Konto anlegen
-                </button>
-              </div>
-            )}
             <div className="form-actions">
               {svCode && <button className="btn-cancel" onClick={()=>setShowSetup(false)}>Abbrechen</button>}
-              <button className="btn-save" style={{flex:1,opacity:setupBusy?0.6:1}} onClick={applySetup} disabled={setupBusy}>
-                {setupBusy ? "Verbinde..."
-                  : setupMode==="register" ? "✦ Gruppe erstellen & verbinden"
-                  : setupMode==="konto"    ? "👤 Anmelden"
-                  : "🔑 Mit Gruppenpasswort anmelden"}
+              <button className="btn-save" style={{flex:1,opacity:setupBusy?0.6:1}}
+                onClick={applyKontoSetup} disabled={setupBusy}>
+                {setupBusy ? "Verbinde..." : "👤 Anmelden"}
+              </button>
+            </div>
+            {/* Nur beim allerersten Start eines eigenen Servers. Wo es schon
+                Konten gibt, sagt der Server das auch so. */}
+            <div className="einst-hinweis" style={{marginTop:14,marginBottom:0}}>
+              Ganz frischer Server? Das <b>allererste</b> Konto legt sich hier selbst an —
+              unter dem Namen, der als <code>ADMIN_USER</code> in der <code>config.php</code>
+              steht. Alle weiteren macht danach die Verwaltung.
+              <button type="button" className="btn-icon" style={{marginLeft:8}}
+                disabled={setupBusy} onClick={erstesKontoAnlegen}>
+                Erstes Konto anlegen
               </button>
             </div>
           </div>

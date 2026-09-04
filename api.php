@@ -373,13 +373,21 @@ function sitzungsZeile(PDO $pdo, string $code): array {
 function nutzerAntwort(PDO $pdo, array $u): array {
     $st = $pdo->prepare("SELECT session_code, rolle FROM hb_mitglied WHERE user_id=? ORDER BY seit ASC");
     $st->execute([(int)$u['id']]);
-    return [
+    $antwort = [
         'id'            => (int)$u['id'],
         'name'          => $u['name'],
         'ist_admin'     => istAdmin($u),
         'muss_wechseln' => (int)($u['muss_wechseln'] ?? 0) === 1,
         'gruppen'       => $st->fetchAll(),
     ];
+    // Die Verwaltung gehoert zu keiner Gruppe und darf in jede. Seit die
+    // Anmeldemaske keinen Gruppencode mehr hat, muss sie erfahren, welche
+    // es gibt — sonst haette sie nirgendwohin.
+    if ($antwort['ist_admin']) {
+        $antwort['alle_gruppen'] = array_column(
+            $pdo->query("SELECT code FROM hb_sessions ORDER BY created_at ASC")->fetchAll(), 'code');
+    }
+    return $antwort;
 }
 
 // ── Wer leitet welches Abenteuer ────────────────────────────────
@@ -485,7 +493,11 @@ function besitzPruefen(PDO $pdo, array $z, string $code, string $charId): void {
 function zugang(PDO $pdo, string $code, string $pass, array $body): array {
     $token = (string)($body['token'] ?? '');
     if ($token === '') {
-        return ['row' => verifySession($pdo, $code, $pass), 'user' => null, 'rolle' => 'gruppe'];
+        // Stufe 7: der Weg ueber Gruppencode und Gruppenpasswort ist zu.
+        // Er hat die Umstellung getragen, damit niemand mitten in einer
+        // Sitzung vor einer fremden Maske stand — jetzt kennt der Server
+        // nur noch Konten.
+        respond(403, 'Der Zugang über den Gruppencode ist abgeschaltet. Bitte mit dem eigenen Konto anmelden.');
     }
     $u    = nutzerAusToken($pdo, $token);
     $row  = sitzungsZeile($pdo, $code);
@@ -496,10 +508,6 @@ function zugang(PDO $pdo, string $code, string $pass, array $body): array {
 }
 // Dasselbe fuer alles, was der Spielleitung gehoert.
 function zugangDm(PDO $pdo, string $code, string $pass, string $dmPass, array $body): array {
-    $token = (string)($body['token'] ?? '');
-    if ($token === '') {
-        return ['row' => verifyDmSession($pdo, $code, $pass, $dmPass), 'user' => null, 'rolle' => 'gruppe'];
-    }
     $z = zugang($pdo, $code, $pass, $body);
     if ($z['rolle'] === 'dm' || $z['rolle'] === 'admin') return $z;
     if ($z['user'] && fuehrtIrgendwas($pdo, $code, (int)$z['user']['id'])) return $z;
@@ -513,20 +521,10 @@ function respond(int $status, string $message, array $extra=[]): never {
     echo json_encode(array_merge(['ok'=>$status<400,'message'=>$message],$extra), JSON_UNESCAPED_UNICODE);
     exit;
 }
-function verifySession(PDO $pdo, string $code, string $pass): array {
-    $stmt = $pdo->prepare("SELECT password_hash, library_json, dm_pass_hash, dm_library_json, chars_json, log_tage FROM hb_sessions WHERE code=?");
-    $stmt->execute([$code]);
-    $row  = $stmt->fetch();
-    $hash = $row['password_hash'] ?? '$2y$10$invalidhashpadding000000000000000000000000000000000000';
-    if (!$row || !password_verify($pass, $hash)) respond(401, 'Code oder Passwort falsch.');
-    return $row;
-}
-function verifyDmSession(PDO $pdo, string $code, string $pass, string $dmPass): array {
-    $row = verifySession($pdo, $code, $pass);
-    if (!($row['dm_pass_hash']??null)) respond(403, 'Kein DM-Passwort gesetzt.');
-    if (!password_verify($dmPass, $row['dm_pass_hash'])) respond(401, 'DM-Passwort falsch.');
-    return $row;
-}
+// Die beiden Pruefungen des alten Zugangs sind mit Stufe 7 entfallen.
+// hb_sessions.password_hash bleibt: aus ihm leitet sich die Kennung des
+// Hintergrundabgleichs ab, und die traegt jede Anfrage des Abgleichs
+// statt eines Passworts.
 
 // Lädt alle Chars + Items, migriert Legacy-Daten einmalig
 function loadAll(PDO $pdo, string $code, array $sessionRow): array {
@@ -605,8 +603,14 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
 // ── Actions ─────────────────────────────────────────────────────
 switch ($action) {
 
+    // Eine Gruppe legt die Verwaltung an. Das Gruppenpasswort ist seit
+    // Stufe 7 kein Zugang mehr, sondern nur noch der Anker, aus dem die
+    // Kennung des Hintergrundabgleichs abgeleitet wird — die Anwendung
+    // wuerfelt es und zeigt es niemandem.
     case 'register':
         checkRateLimit($pdo);
+        $regU = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($regU))         respond(403, 'Das darf nur die Verwaltung.');
         if (!validateCode($code))     respond(400, 'Code ungültig.');
         if (!validatePassword($pass)) respond(400, 'Passwort zu kurz (mind. 6 Zeichen).');
         $stmt = $pdo->prepare("SELECT code FROM hb_sessions WHERE code=?");
