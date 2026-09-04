@@ -254,10 +254,15 @@ const WertDialog = ({ modus, name, start, onAnwenden, onAbbrechen }) => {
 
         <div className="wert-stepper">
           <button type="button" onClick={()=>stufe(-1)} aria-label="Eins weniger">−</button>
-          {/* Enter liest die Zahl aus dem Feld und nicht aus dem Zustand:
-              wer tippt und sofort Enter drueckt, hat sie dort noch gar
-              nicht stehen. */}
-          <ZahlFeld wert={wert} aria-label={cfg.titel} leerWert={0} onWert={setWert}
+          {/* "sofort", weil an der Zahl mehr haengt als das Feld: die
+              Schaltflaeche "Anwenden" ist ausgegraut, solange nichts
+              dasteht — und eine ausgegraute Schaltflaeche nimmt keinen
+              Klick an. Ohne das blieb sie grau, obwohl die 7 im Feld stand.
+              Die leere 0 wird ausserdem gar nicht erst angezeigt: man
+              tippt in ein leeres Feld, statt eine Null zu ueberschreiben.
+              Enter liest die Zahl trotzdem aus dem Feld — der Zustand
+              hinkt beim allerersten Tastendruck noch ein Bild hinterher. */}
+          <ZahlFeld wert={wert || ''} sofort aria-label={cfg.titel} leerWert={0} onWert={setWert}
             onKeyDown={e=>{
               if (e.key !== 'Enter') return;
               const n = Number(e.currentTarget.value);

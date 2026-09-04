@@ -34,29 +34,42 @@ const apiSave = apiSaveChars;
 //
 // Nebenbei spart es Schreibvorgaenge: aus "123" wurden bisher drei
 // Speicherlaeufe, jetzt ist es einer.
+//
+// Mit "sofort" wandert die Zahl schon beim Tippen nach aussen, waehrend
+// im Feld weiter der Rohtext steht. Das brauchen Fenster, die noch etwas
+// anderes an der Zahl haengen haben — die Schaltflaeche "Anwenden" im
+// Schadensfenster war ausgegraut, solange die getippte Zahl nur im Feld
+// stand, und eine ausgegraute Schaltflaeche nimmt keinen Klick an: sie
+// loeste nicht einmal das Verlassen des Feldes aus. Wer 7 eintippte und
+// klickte, sah gar nichts geschehen.
 const ZahlFeld = ({
   wert,
   onWert,
   min,
   max,
   leerWert,
+  sofort,
   onKeyDown,
   ...rest
 }) => {
   const [roh, setRoh] = useState(null); // null = zeig, was von aussen kommt
   const zeigen = roh !== null ? roh : wert === undefined || wert === null || wert === '' ? '' : String(wert);
+
+  // Aus dem, was im Feld steht, eine Zahl machen — oder undefined, wenn
+  // daraus (noch) keine wird, etwa bei "-" oder "1e".
+  const alsZahl = t => {
+    t = String(t).trim();
+    if (t === '') return leerWert !== undefined ? leerWert : wert;
+    let n = Number(t.replace(',', '.'));
+    if (!Number.isFinite(n)) return undefined;
+    if (min !== undefined) n = Math.max(min, n);
+    if (max !== undefined) n = Math.min(max, n);
+    return n;
+  };
   const festhalten = () => {
     if (roh === null) return;
-    const t = String(roh).trim();
-    let n;
-    if (t === '') n = leerWert !== undefined ? leerWert : wert;else {
-      n = Number(t.replace(',', '.'));
-      if (!Number.isFinite(n)) n = wert;
-    }
-    if (typeof n === 'number') {
-      if (min !== undefined) n = Math.max(min, n);
-      if (max !== undefined) n = Math.min(max, n);
-    }
+    let n = alsZahl(roh);
+    if (n === undefined) n = wert;
     setRoh(null);
     if (n !== wert) onWert(n);
   };
@@ -66,7 +79,12 @@ const ZahlFeld = ({
     min: min,
     max: max,
     value: zeigen,
-    onChange: e => setRoh(e.target.value),
+    onChange: e => {
+      setRoh(e.target.value);
+      if (!sofort) return;
+      const n = alsZahl(e.target.value);
+      if (n !== undefined && n !== wert) onWert(n);
+    },
     onBlur: festhalten,
     onKeyDown: e => {
       if (e.key === 'Enter') {
@@ -1670,7 +1688,8 @@ const WertDialog = ({
     onClick: () => stufe(-1),
     "aria-label": "Eins weniger"
   }, "\u2212"), /*#__PURE__*/React.createElement(ZahlFeld, {
-    wert: wert,
+    wert: wert || '',
+    sofort: true,
     "aria-label": cfg.titel,
     leerWert: 0,
     onWert: setWert,
