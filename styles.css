@@ -1872,3 +1872,26 @@
   .rad-tasten { margin-top:16px; }
   .rad-tasten .automat-hebel { margin-top:0; }
   @media (prefers-reduced-motion: reduce) { .rad-scheibe { transition:none !important; } }
+
+  /* Stellschrauben des Automaten im Einstellungsfenster */
+  .einst-quote { display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:12px;
+    padding:11px 13px; border-radius:5px; background:var(--bg-card); border:1px solid var(--border); }
+  .einst-quote-label { font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--text-muted); }
+  .einst-quote b { font-family:'Roboto Condensed',sans-serif; font-size:20px; font-weight:400;
+    color:var(--gold); font-variant-numeric:tabular-nums; margin-right:auto; }
+  .einst-ziel { width:62px; text-align:center; font-variant-numeric:tabular-nums; }
+  .einst-automat { width:100%; border-collapse:collapse; font-size:13px; }
+  .einst-automat th { font-family:'Roboto Condensed',sans-serif; font-weight:400; font-size:9.5px;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--text-muted);
+    text-align:left; padding:0 8px 7px 0; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .einst-automat td { padding:4px 8px 4px 0; border-bottom:1px solid var(--bg-panel); }
+  .einst-automat tr:last-child td { border-bottom:none; }
+  .einst-automat .zeichen { width:1%; font-size:17px; padding-right:8px; }
+  .einst-automat .name { font-family:'Roboto Condensed',sans-serif; color:var(--text-secondary);
+    white-space:nowrap; }
+  .einst-automat .form-input { width:74px; text-align:center; padding:5px 6px;
+    font-variant-numeric:tabular-nums; }
+  .einst-max { display:flex; align-items:center; gap:8px; font-family:'Roboto Condensed',sans-serif;
+    font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); }
+  .einst-max .form-select { text-transform:none; letter-spacing:0; font-size:12.5px; }

@@ -3146,6 +3146,22 @@ const AbenteuerEinstellungen = ({
   const klassenSetzen = liste => setzen({
     klassen: liste
   });
+
+  // Der Automat: nur Haeufigkeit und Auszahlung sind einstellbar. Name und
+  // Zeichen bleiben, sonst waere die Auszahlungstafel im Automaten eine
+  // andere als die hier.
+  const [ziel, setZiel] = React.useState(90);
+  const autoSym = automatSymbole(adv.automat);
+  const autoSetzen = liste => setzen({
+    automat: {
+      ...(adv.automat || {}),
+      symbole: liste.map(x => ({
+        k: x.k,
+        gewicht: x.gewicht,
+        zahlt: x.zahlt
+      }))
+    }
+  });
   const aendern = (i, p) => klassenSetzen(klassen.map((k, j) => j === i ? {
     ...k,
     ...p
@@ -3205,6 +3221,96 @@ const AbenteuerEinstellungen = ({
   }, /*#__PURE__*/React.createElement("b", null, "Verdeckt"), /*#__PURE__*/React.createElement("i", null, "Spieler sehen nur ihren Zustand \u2014 \u201EVerwundet\u201C statt \u201E14 / 38\u201C. Zahlen und Eingabefelder bleiben der Spielleitung."))), adv.hpVerdeckt && /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
   }, "Die Trefferpunkte werden dann im DM-Modus gepflegt \u2014 im Bogen oder \xFCber den Kampftracker. Maximum und tempor\xE4re Trefferpunkte sind mit verdeckt, sonst lie\xDFe sich die Zahl zur\xFCckrechnen.")), /*#__PURE__*/React.createElement("div", {
+    className: "einst-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel"
+  }, "\uD83C\uDFB0 Automat der Taverne"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "H\xE4ufigkeit sagt, wie oft ein Symbol f\xE4llt; Auszahlung, was drei davon auf einer Linie bringen \u2014 als Vielfaches des Einsatzes. Beides zusammen ergibt die Quote, und die steht daneben: sie wird gerechnet, nicht gesch\xE4tzt."), /*#__PURE__*/React.createElement("div", {
+    className: "einst-quote"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "einst-quote-label"
+  }, "Auszahlungsquote"), /*#__PURE__*/React.createElement("b", null, (automatQuote(autoSym) * 100).toFixed(1).replace('.', ','), " %"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input einst-ziel",
+    type: "number",
+    min: 10,
+    max: 200,
+    "aria-label": "Zielquote in Prozent",
+    value: ziel,
+    onChange: e => setZiel(Math.max(10, Math.min(200, +e.target.value || 0)))
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => autoSetzen(automatEinregeln(autoSym, ziel / 100))
+  }, "auf ", ziel, " % einregeln")), /*#__PURE__*/React.createElement("div", {
+    className: "tabellenhuelle"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "einst-automat"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+    colSpan: 2
+  }, "Symbol"), /*#__PURE__*/React.createElement("th", null, "H\xE4ufigkeit"), /*#__PURE__*/React.createElement("th", null, "Auszahlung"))), /*#__PURE__*/React.createElement("tbody", null, autoSym.map((sym, i) => /*#__PURE__*/React.createElement("tr", {
+    key: sym.k
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "zeichen"
+  }, sym.z), /*#__PURE__*/React.createElement("td", {
+    className: "name"
+  }, sym.name), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 999,
+    "aria-label": 'Häufigkeit ' + sym.name,
+    value: sym.gewicht,
+    onChange: e => autoSetzen(autoSym.map((x, j) => j === i ? {
+      ...x,
+      gewicht: Math.max(0, +e.target.value || 0)
+    } : x))
+  })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 0,
+    max: 99999,
+    step: "0.05",
+    "aria-label": 'Auszahlung ' + sym.name,
+    value: sym.zahlt,
+    onChange: e => autoSetzen(autoSym.map((x, j) => j === i ? {
+      ...x,
+      zahlt: Math.max(0, +e.target.value || 0)
+    } : x))
+  }))))))), /*#__PURE__*/React.createElement("div", {
+    className: "einst-klassen-fuss"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "einst-max"
+  }, "H\xF6chsteinsatz", /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: adv.automat && adv.automat.maxEinsatz || 0,
+    onChange: e => setzen({
+      automat: {
+        ...(adv.automat || {}),
+        maxEinsatz: +e.target.value || 0
+      }
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: 0
+  }, "ohne Grenze"), AUTOMAT_EINSAETZE.map(n2 => /*#__PURE__*/React.createElement("option", {
+    key: n2,
+    value: n2
+  }, n2, " Marken")))), adv.automat && adv.automat.symbole && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => setzen({
+      automat: {
+        ...(adv.automat || {}),
+        symbole: undefined
+      }
+    })
+  }, "\u21BA Standardautomat")), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis"
+  }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), /*#__PURE__*/React.createElement("div", {
     className: "einst-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "einst-titel"
@@ -3291,7 +3397,7 @@ const MARKEN_START = 200;
 // Gewicht steuert, wie oft ein Symbol faellt; zahlt ist das Vielfache des
 // Einsatzes bei drei gleichen auf einer Linie. Beides zusammen ergibt die
 // Quote, und die rechnet automatQuote() aus — geraten wird hier nichts.
-const AUTOMAT_SYMBOLE = [{
+const AUTOMAT_STANDARD = [{
   k: 'ratte',
   z: '🐀',
   name: 'Ratte',
@@ -3370,7 +3476,30 @@ const AUTOMAT_LINIEN = [{
   felder: [6, 4, 2]
 }];
 const AUTOMAT_EINSAETZE = [5, 10, 20, 50];
-const symbolVon = k => AUTOMAT_SYMBOLE.find(s => s.k === k) || AUTOMAT_SYMBOLE[0];
+
+// Name und Zeichen stehen fest, Haeufigkeit und Auszahlung nicht: die
+// Spielleitung stellt sie je Abenteuer. Was sie nicht angefasst hat,
+// bleibt beim Standard.
+const automatSymbole = cfg => {
+  const eig = cfg && Array.isArray(cfg.symbole) ? cfg.symbole : null;
+  if (!eig) return AUTOMAT_STANDARD;
+  const liste = AUTOMAT_STANDARD.map(s => {
+    const o = eig.find(x => x && x.k === s.k);
+    return o ? {
+      ...s,
+      gewicht: Math.max(0, +o.gewicht || 0),
+      zahlt: Math.max(0, +o.zahlt || 0)
+    } : s;
+  });
+  // Eine Walze, auf der nichts liegen kann, waere kein Automat mehr.
+  return liste.some(x => x.gewicht > 0) ? liste : AUTOMAT_STANDARD;
+};
+const automatEinsaetze = cfg => {
+  const max = cfg && +cfg.maxEinsatz;
+  const gefiltert = max ? AUTOMAT_EINSAETZE.filter(n => n <= max) : AUTOMAT_EINSAETZE;
+  return gefiltert.length ? gefiltert : [AUTOMAT_EINSAETZE[0]];
+};
+const symbolVon = (k, liste) => (liste || AUTOMAT_STANDARD).find(s => s.k === k) || AUTOMAT_STANDARD.find(s => s.k === k) || AUTOMAT_STANDARD[0];
 
 // ── Die Quote, ausgerechnet statt geschaetzt ─────────────────────
 // Bei fuenf festen Linien und neun unabhaengig gezogenen Symbolen ist der
@@ -3381,7 +3510,7 @@ const symbolVon = k => AUTOMAT_SYMBOLE.find(s => s.k === k) || AUTOMAT_SYMBOLE[0
 // wert. Also steht die Quote auf beiden Seiten und loest sich zu einer
 // Division auf.
 const automatQuote = symbole => {
-  const liste = symbole || AUTOMAT_SYMBOLE;
+  const liste = symbole || AUTOMAT_STANDARD;
   const summe = liste.reduce((s, x) => s + (+x.gewicht || 0), 0);
   if (!summe) return 0;
   let linien = 0,
@@ -3407,6 +3536,31 @@ const automatQuote = symbole => {
   return (linien + vollbild) / (1 - pFrei);
 };
 
+// Die Quote ist in den Auszahlungen linear — alle mit demselben Faktor
+// zu strecken trifft das Ziel also genau. Nur das Runden auf ganze Zahlen
+// verschiebt es wieder ein wenig, und deshalb steht danach die erreichte
+// Zahl da und nicht die gewuenschte.
+// Fein genug runden, damit die Zahl am Ende stimmt. Ganze Zahlen waren zu
+// grob: die Ratte faellt so oft, dass ihre Auszahlung ein Drittel der
+// ganzen Quote traegt — eine halbe Stelle mehr oder weniger verschob das
+// Ziel um mehrere Prozentpunkte. Deshalb feiner, wo es haeufig ist, und
+// glatt, wo die Zahlen ohnehin gross sind.
+const zahlRunden = x => x < 10 ? Math.max(0.05, Math.round(x * 100) / 100) : x < 50 ? Math.round(x * 10) / 10 : Math.round(x);
+// Auszahlungen als Text: ohne unnoetige Nullen und mit Komma.
+const zahlText = z => {
+  const n = +z || 0;
+  return (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')).replace('.', ',');
+};
+const automatEinregeln = (symbole, ziel) => {
+  const jetzt = automatQuote(symbole);
+  if (!jetzt || !ziel) return symbole;
+  const f = ziel / jetzt;
+  return symbole.map(s => ({
+    ...s,
+    zahlt: zahlRunden((+s.zahlt || 0) * f)
+  }));
+};
+
 // ── Ein Dreh ─────────────────────────────────────────────────────
 const ziehSymbol = (liste, summe) => {
   let w = Math.random() * summe;
@@ -3417,20 +3571,20 @@ const ziehSymbol = (liste, summe) => {
   return liste[liste.length - 1].k;
 };
 const zieheWalzen = symbole => {
-  const liste = symbole || AUTOMAT_SYMBOLE;
+  const liste = symbole || AUTOMAT_STANDARD;
   const summe = liste.reduce((s, x) => s + (+x.gewicht || 0), 0);
   return Array.from({
     length: 9
   }, () => ziehSymbol(liste, summe));
 };
-const werteAus = (feld, einsatz) => {
+const werteAus = (feld, einsatz, liste) => {
   const treffer = [];
   let gewinn = 0,
     freidreh = false;
   AUTOMAT_LINIEN.forEach((linie, i) => {
     const [a, b, c] = linie.felder;
     if (feld[a] !== feld[b] || feld[b] !== feld[c]) return;
-    const sym = symbolVon(feld[a]);
+    const sym = symbolVon(feld[a], liste);
     const betrag = Math.round(sym.zahlt * einsatz);
     gewinn += betrag;
     if (sym.freidreh) freidreh = true;
@@ -3444,7 +3598,7 @@ const werteAus = (feld, einsatz) => {
   });
   // Ein Vollbild aus Speisen — das Rad dazu kommt in Stufe 4.
   const erstes = feld[0];
-  const vollbild = feld.every(x => x === erstes) && !!symbolVon(erstes).speise;
+  const vollbild = feld.every(x => x === erstes) && !!symbolVon(erstes, liste).speise;
   return {
     gewinn,
     treffer,
@@ -3489,10 +3643,11 @@ const WAEHRUNGEN = {
 const WALZEN_BAND = 16; // Zellen je Band
 const WALZEN_DAUER = [900, 1150, 1400]; // Millisekunden je Spalte
 
-const bandBauen = (feld, spalte) => {
+const bandBauen = (feld, spalte, liste) => {
+  const l = liste || AUTOMAT_STANDARD;
   const vorlauf = Array.from({
     length: WALZEN_BAND - 3
-  }, () => AUTOMAT_SYMBOLE[Math.floor(Math.random() * AUTOMAT_SYMBOLE.length)].k);
+  }, () => l[Math.floor(Math.random() * l.length)].k);
   return [...vorlauf, feld[spalte], feld[3 + spalte], feld[6 + spalte]];
 };
 
@@ -3519,9 +3674,13 @@ const radZiel = (k, aktuell) => {
 
 // ── Der Schirm ───────────────────────────────────────────────────
 const AutomatSchirm = ({
+  cfg,
   onSchliessen
 }) => {
   const waehrung = WAEHRUNGEN.marken;
+  // Was die Spielleitung fuer dieses Abenteuer eingestellt hat.
+  const symbole = React.useMemo(() => automatSymbole(cfg), [cfg]);
+  const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
   const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen());
   const [einsatz, setEinsatz] = React.useState(10);
   const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
@@ -3541,7 +3700,7 @@ const AutomatSchirm = ({
     waehrung.schreiben(m);
     setMarkenRoh(m);
   };
-  const quote = React.useMemo(() => automatQuote(AUTOMAT_SYMBOLE), []);
+  const quote = React.useMemo(() => automatQuote(symbole), [symbole]);
 
   // Wer Bewegung im Betriebssystem abgeschaltet hat, bekommt das Ergebnis
   // sofort. Ein Automat ist kein Grund, sich darueber hinwegzusetzen.
@@ -3584,15 +3743,21 @@ const AutomatSchirm = ({
       if (laufRef.current) clearTimeout(laufRef.current);
     };
   }, [aufloesen]);
+
+  // Senkt die Spielleitung den Hoechsteinsatz, darf kein Betrag stehen
+  // bleiben, den es nicht mehr gibt.
+  React.useEffect(() => {
+    if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
+  }, [einsaetze]);
   const frei = freidrehe > 0;
   const kannDrehen = !laeuft && !rad && (frei || marken >= einsatz);
   const drehen = () => {
     if (!kannDrehen) return;
     const zahlt = frei ? 0 : einsatz;
-    const neuesFeld = zieheWalzen(AUTOMAT_SYMBOLE);
-    const e = werteAus(neuesFeld, einsatz);
+    const neuesFeld = zieheWalzen(symbole);
+    const e = werteAus(neuesFeld, einsatz, symbole);
     setFeld(neuesFeld);
-    setBaender([0, 1, 2].map(sp => bandBauen(neuesFeld, sp)));
+    setBaender([0, 1, 2].map(sp => bandBauen(neuesFeld, sp, symbole)));
     setErgebnis(null);
     setZeigeLinie(-1);
     setZaehler(0);
@@ -3795,7 +3960,7 @@ const AutomatSchirm = ({
     return /*#__PURE__*/React.createElement("div", {
       className: 'automat-zelle' + (leuchtet.has(feldNr) ? ' treffer' : ''),
       key: i
-    }, /*#__PURE__*/React.createElement("span", null, symbolVon(k).z));
+    }, /*#__PURE__*/React.createElement("span", null, symbolVon(k, symbole).z));
   }))))), /*#__PURE__*/React.createElement("div", {
     className: "automat-meldung",
     "aria-live": "polite"
@@ -3817,7 +3982,7 @@ const AutomatSchirm = ({
     className: "automat-einsatz"
   }, /*#__PURE__*/React.createElement("span", {
     className: "automat-label"
-  }, "Einsatz"), AUTOMAT_EINSAETZE.map(n => /*#__PURE__*/React.createElement("button", {
+  }, "Einsatz"), einsaetze.map(n => /*#__PURE__*/React.createElement("button", {
     key: n,
     className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
     disabled: frei,
@@ -3826,7 +3991,7 @@ const AutomatSchirm = ({
     className: 'automat-hebel' + (frei ? ' frei' : ''),
     disabled: !kannDrehen,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), marken < AUTOMAT_EINSAETZE[0] && !frei && !laeuft && /*#__PURE__*/React.createElement("button", {
+  }, laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), marken < einsaetze[0] && !frei && !laeuft && /*#__PURE__*/React.createElement("button", {
     className: "automat-nachschub",
     onClick: () => setMarken(MARKEN_START)
   }, "Der Wirt legt ", MARKEN_START, " Marken nach")), /*#__PURE__*/React.createElement("div", {
@@ -3837,7 +4002,7 @@ const AutomatSchirm = ({
     "aria-expanded": tafelOffen
   }, /*#__PURE__*/React.createElement("span", null, tafelOffen ? '▾' : '▸', " Auszahlungen"), /*#__PURE__*/React.createElement("i", null, "Quote ", (quote * 100).toFixed(1).replace('.', ','), " %")), tafelOffen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
     className: "automat-tabelle"
-  }, /*#__PURE__*/React.createElement("tbody", null, [...AUTOMAT_SYMBOLE].reverse().map(s => /*#__PURE__*/React.createElement("tr", {
+  }, /*#__PURE__*/React.createElement("tbody", null, [...symbole].reverse().map(s => /*#__PURE__*/React.createElement("tr", {
     key: s.k
   }, /*#__PURE__*/React.createElement("td", {
     className: "sym"
@@ -3845,7 +4010,7 @@ const AutomatSchirm = ({
     className: "nam"
   }, s.name, s.freidreh && /*#__PURE__*/React.createElement("i", null, "bringt einen Freidreh"), s.speise && /*#__PURE__*/React.createElement("i", null, "Vollbild m\xF6glich")), /*#__PURE__*/React.createElement("td", {
     className: "zahl"
-  }, s.zahlt, " \xD7"))))), /*#__PURE__*/React.createElement("p", {
+  }, zahlText(s.zahlt), " \xD7"))))), /*#__PURE__*/React.createElement("p", {
     className: "automat-fussnote"
   }, "F\xFCnf Linien: die drei Reihen und die beiden Diagonalen. Drei gleiche Symbole auf einer Linie zahlen das Vielfache des Einsatzes. Die Quote ist aus H\xE4ufigkeit und Auszahlung gerechnet, nicht gesch\xE4tzt.")))));
 };
@@ -14686,6 +14851,7 @@ function App() {
     },
     onClick: doDmLogin
   }, "\uD83D\uDD2E Einloggen")))), showAutomat && /*#__PURE__*/React.createElement(AutomatSchirm, {
+    cfg: advObj && advObj.automat,
     onSchliessen: () => setShowAutomat(false)
   }), advEinstellung && isDmMode && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {
     adv: advEinstellung,

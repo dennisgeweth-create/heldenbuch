@@ -182,8 +182,15 @@ beendet es — höchstens dreimal. Daher der Name.
 
 Drei Glücksmünzen auf einer Linie bringen einen **Freidreh**.
 
-Es fehlen noch: die beiden Risikospiele und die Stellschrauben für die
-Spielleitung.
+**Der Automat gehört der Spielleitung.** Unter **⚙ Einstellungen** des
+Abenteuers stehen Häufigkeit und Auszahlung je Symbol, dazu ein Höchsteinsatz.
+Daneben die Quote — sie rechnet sich beim Tippen mit. Ein Knopf regelt die
+Auszahlungen auf eine Zielquote ein und trifft sie auf ein Zehntelprozent genau;
+was danach dasteht, ist die erreichte Zahl, nicht die gewünschte.
+
+Wer einen zwielichtigen Automaten will, stellt 80 % ein und sagt nichts.
+
+Es fehlen noch die beiden Risikospiele.
 
 ### Schaden und Heilung ohne Umweg über einen Kampf
 

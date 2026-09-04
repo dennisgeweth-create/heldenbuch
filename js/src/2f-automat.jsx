@@ -17,7 +17,7 @@ const MARKEN_START = 200;
 // Gewicht steuert, wie oft ein Symbol faellt; zahlt ist das Vielfache des
 // Einsatzes bei drei gleichen auf einer Linie. Beides zusammen ergibt die
 // Quote, und die rechnet automatQuote() aus — geraten wird hier nichts.
-const AUTOMAT_SYMBOLE = [
+const AUTOMAT_STANDARD = [
   {k:'ratte',  z:'🐀', name:'Ratte',        gewicht:40, zahlt:2},
   {k:'krug',   z:'🍺', name:'Krug',         gewicht:30, zahlt:4,   speise:true},
   {k:'kaese',  z:'🧀', name:'Käse',         gewicht:22, zahlt:7,   speise:true},
@@ -40,7 +40,26 @@ const AUTOMAT_LINIEN = [
 
 const AUTOMAT_EINSAETZE = [5, 10, 20, 50];
 
-const symbolVon = (k) => AUTOMAT_SYMBOLE.find(s => s.k === k) || AUTOMAT_SYMBOLE[0];
+// Name und Zeichen stehen fest, Haeufigkeit und Auszahlung nicht: die
+// Spielleitung stellt sie je Abenteuer. Was sie nicht angefasst hat,
+// bleibt beim Standard.
+const automatSymbole = (cfg) => {
+  const eig = cfg && Array.isArray(cfg.symbole) ? cfg.symbole : null;
+  if (!eig) return AUTOMAT_STANDARD;
+  const liste = AUTOMAT_STANDARD.map(s => {
+    const o = eig.find(x => x && x.k === s.k);
+    return o ? {...s, gewicht: Math.max(0, +o.gewicht || 0), zahlt: Math.max(0, +o.zahlt || 0)} : s;
+  });
+  // Eine Walze, auf der nichts liegen kann, waere kein Automat mehr.
+  return liste.some(x => x.gewicht > 0) ? liste : AUTOMAT_STANDARD;
+};
+const automatEinsaetze = (cfg) => {
+  const max = cfg && +cfg.maxEinsatz;
+  const gefiltert = max ? AUTOMAT_EINSAETZE.filter(n => n <= max) : AUTOMAT_EINSAETZE;
+  return gefiltert.length ? gefiltert : [AUTOMAT_EINSAETZE[0]];
+};
+const symbolVon = (k, liste) => (liste || AUTOMAT_STANDARD).find(s => s.k === k)
+  || AUTOMAT_STANDARD.find(s => s.k === k) || AUTOMAT_STANDARD[0];
 
 // ── Die Quote, ausgerechnet statt geschaetzt ─────────────────────
 // Bei fuenf festen Linien und neun unabhaengig gezogenen Symbolen ist der
@@ -51,7 +70,7 @@ const symbolVon = (k) => AUTOMAT_SYMBOLE.find(s => s.k === k) || AUTOMAT_SYMBOLE
 // wert. Also steht die Quote auf beiden Seiten und loest sich zu einer
 // Division auf.
 const automatQuote = (symbole) => {
-  const liste = symbole || AUTOMAT_SYMBOLE;
+  const liste = symbole || AUTOMAT_STANDARD;
   const summe = liste.reduce((s, x) => s + (+x.gewicht || 0), 0);
   if (!summe) return 0;
   let linien = 0, freidrehP = 0;
@@ -76,6 +95,32 @@ const automatQuote = (symbole) => {
   return (linien + vollbild) / (1 - pFrei);
 };
 
+// Die Quote ist in den Auszahlungen linear — alle mit demselben Faktor
+// zu strecken trifft das Ziel also genau. Nur das Runden auf ganze Zahlen
+// verschiebt es wieder ein wenig, und deshalb steht danach die erreichte
+// Zahl da und nicht die gewuenschte.
+// Fein genug runden, damit die Zahl am Ende stimmt. Ganze Zahlen waren zu
+// grob: die Ratte faellt so oft, dass ihre Auszahlung ein Drittel der
+// ganzen Quote traegt — eine halbe Stelle mehr oder weniger verschob das
+// Ziel um mehrere Prozentpunkte. Deshalb feiner, wo es haeufig ist, und
+// glatt, wo die Zahlen ohnehin gross sind.
+const zahlRunden = (x) => x < 10 ? Math.max(0.05, Math.round(x * 100) / 100)
+                        : x < 50 ? Math.round(x * 10) / 10
+                        : Math.round(x);
+// Auszahlungen als Text: ohne unnoetige Nullen und mit Komma.
+const zahlText = (z) => {
+  const n = +z || 0;
+  return (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''))
+    .replace('.', ',');
+};
+
+const automatEinregeln = (symbole, ziel) => {
+  const jetzt = automatQuote(symbole);
+  if (!jetzt || !ziel) return symbole;
+  const f = ziel / jetzt;
+  return symbole.map(s => ({...s, zahlt: zahlRunden((+s.zahlt || 0) * f)}));
+};
+
 // ── Ein Dreh ─────────────────────────────────────────────────────
 const ziehSymbol = (liste, summe) => {
   let w = Math.random() * summe;
@@ -83,18 +128,18 @@ const ziehSymbol = (liste, summe) => {
   return liste[liste.length - 1].k;
 };
 const zieheWalzen = (symbole) => {
-  const liste = symbole || AUTOMAT_SYMBOLE;
+  const liste = symbole || AUTOMAT_STANDARD;
   const summe = liste.reduce((s, x) => s + (+x.gewicht || 0), 0);
   return Array.from({length: 9}, () => ziehSymbol(liste, summe));
 };
 
-const werteAus = (feld, einsatz) => {
+const werteAus = (feld, einsatz, liste) => {
   const treffer = [];
   let gewinn = 0, freidreh = false;
   AUTOMAT_LINIEN.forEach((linie, i) => {
     const [a, b, c] = linie.felder;
     if (feld[a] !== feld[b] || feld[b] !== feld[c]) return;
-    const sym = symbolVon(feld[a]);
+    const sym = symbolVon(feld[a], liste);
     const betrag = Math.round(sym.zahlt * einsatz);
     gewinn += betrag;
     if (sym.freidreh) freidreh = true;
@@ -102,7 +147,7 @@ const werteAus = (feld, einsatz) => {
   });
   // Ein Vollbild aus Speisen — das Rad dazu kommt in Stufe 4.
   const erstes = feld[0];
-  const vollbild = feld.every(x => x === erstes) && !!symbolVon(erstes).speise;
+  const vollbild = feld.every(x => x === erstes) && !!symbolVon(erstes, liste).speise;
   return {gewinn, treffer, freidreh, vollbild};
 };
 
@@ -136,9 +181,10 @@ const WAEHRUNGEN = {
 const WALZEN_BAND  = 16;                  // Zellen je Band
 const WALZEN_DAUER = [900, 1150, 1400];   // Millisekunden je Spalte
 
-const bandBauen = (feld, spalte) => {
+const bandBauen = (feld, spalte, liste) => {
+  const l = liste || AUTOMAT_STANDARD;
   const vorlauf = Array.from({length: WALZEN_BAND - 3},
-    () => AUTOMAT_SYMBOLE[Math.floor(Math.random() * AUTOMAT_SYMBOLE.length)].k);
+    () => l[Math.floor(Math.random() * l.length)].k);
   return [...vorlauf, feld[spalte], feld[3 + spalte], feld[6 + spalte]];
 };
 
@@ -164,8 +210,11 @@ const radZiel = (k, aktuell) => {
 };
 
 // ── Der Schirm ───────────────────────────────────────────────────
-const AutomatSchirm = ({ onSchliessen }) => {
+const AutomatSchirm = ({ cfg, onSchliessen }) => {
   const waehrung = WAEHRUNGEN.marken;
+  // Was die Spielleitung fuer dieses Abenteuer eingestellt hat.
+  const symbole   = React.useMemo(() => automatSymbole(cfg), [cfg]);
+  const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
   const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen());
   const [einsatz, setEinsatz] = React.useState(10);
   const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
@@ -182,7 +231,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
   const radRef  = React.useRef(null);
 
   const setMarken = (n) => { const m = Math.max(0, Math.round(n)); waehrung.schreiben(m); setMarkenRoh(m); };
-  const quote = React.useMemo(() => automatQuote(AUTOMAT_SYMBOLE), []);
+  const quote = React.useMemo(() => automatQuote(symbole), [symbole]);
 
   // Wer Bewegung im Betriebssystem abgeschaltet hat, bekommt das Ergebnis
   // sofort. Ein Automat ist kein Grund, sich darueber hinwegzusetzen.
@@ -221,17 +270,23 @@ const AutomatSchirm = ({ onSchliessen }) => {
     };
   }, [aufloesen]);
 
+  // Senkt die Spielleitung den Hoechsteinsatz, darf kein Betrag stehen
+  // bleiben, den es nicht mehr gibt.
+  React.useEffect(() => {
+    if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
+  }, [einsaetze]);
+
   const frei = freidrehe > 0;
   const kannDrehen = !laeuft && !rad && (frei || marken >= einsatz);
 
   const drehen = () => {
     if (!kannDrehen) return;
     const zahlt = frei ? 0 : einsatz;
-    const neuesFeld = zieheWalzen(AUTOMAT_SYMBOLE);
-    const e = werteAus(neuesFeld, einsatz);
+    const neuesFeld = zieheWalzen(symbole);
+    const e = werteAus(neuesFeld, einsatz, symbole);
 
     setFeld(neuesFeld);
-    setBaender([0,1,2].map(sp => bandBauen(neuesFeld, sp)));
+    setBaender([0,1,2].map(sp => bandBauen(neuesFeld, sp, symbole)));
     setErgebnis(null); setZeigeLinie(-1); setZaehler(0);
     setDreh(d => d + 1);
 
@@ -393,7 +448,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
                     const feldNr = reihe >= 0 ? reihe * 3 + spalte : -1;
                     return (
                       <div className={'automat-zelle' + (leuchtet.has(feldNr) ? ' treffer' : '')} key={i}>
-                        <span>{symbolVon(k).z}</span>
+                        <span>{symbolVon(k, symbole).z}</span>
                       </div>
                     );
                   })}
@@ -427,7 +482,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
 
           <div className="automat-einsatz">
             <span className="automat-label">Einsatz</span>
-            {AUTOMAT_EINSAETZE.map(n => (
+            {einsaetze.map(n => (
               <button key={n} className={'automat-chip' + (einsatz === n ? ' aktiv' : '')}
                 disabled={frei} onClick={()=>setEinsatz(n)}>{n}</button>
             ))}
@@ -439,7 +494,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'}
           </button>
 
-          {marken < AUTOMAT_EINSAETZE[0] && !frei && !laeuft && (
+          {marken < einsaetze[0] && !frei && !laeuft && (
             <button className="automat-nachschub" onClick={()=>setMarken(MARKEN_START)}>
               Der Wirt legt {MARKEN_START} Marken nach
             </button>
@@ -456,7 +511,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
             <>
               <table className="automat-tabelle">
                 <tbody>
-                  {[...AUTOMAT_SYMBOLE].reverse().map(s => (
+                  {[...symbole].reverse().map(s => (
                     <tr key={s.k}>
                       <td className="sym">{s.z}{s.z}{s.z}</td>
                       <td className="nam">
@@ -464,7 +519,7 @@ const AutomatSchirm = ({ onSchliessen }) => {
                         {s.freidreh && <i>bringt einen Freidreh</i>}
                         {s.speise && <i>Vollbild möglich</i>}
                       </td>
-                      <td className="zahl">{s.zahlt} ×</td>
+                      <td className="zahl">{zahlText(s.zahlt)} ×</td>
                     </tr>
                   ))}
                 </tbody>

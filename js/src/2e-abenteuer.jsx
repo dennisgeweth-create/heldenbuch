@@ -16,6 +16,14 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
   });
 
   const klassenSetzen = (liste) => setzen({klassen: liste});
+
+  // Der Automat: nur Haeufigkeit und Auszahlung sind einstellbar. Name und
+  // Zeichen bleiben, sonst waere die Auszahlungstafel im Automaten eine
+  // andere als die hier.
+  const [ziel, setZiel] = React.useState(90);
+  const autoSym = automatSymbole(adv.automat);
+  const autoSetzen = (liste) => setzen({automat: {...(adv.automat||{}),
+    symbole: liste.map(x => ({k:x.k, gewicht:x.gewicht, zahlt:x.zahlt}))}});
   const aendern = (i, p) => klassenSetzen(klassen.map((k,j) => j===i ? {...k, ...p} : k));
   const entfernen = (i) => klassenSetzen(klassen.filter((_,j) => j!==i));
   const hinzu = () => klassenSetzen([...klassen, {name:'', color:'#8b9198'}]);
@@ -55,6 +63,79 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                 mit verdeckt, sonst ließe sich die Zahl zurückrechnen.
               </div>
             )}
+          </div>
+
+          {/* ── Der Automat ── */}
+          <div className="einst-block">
+            <div className="einst-titel">🎰 Automat der Taverne</div>
+            <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+              Häufigkeit sagt, wie oft ein Symbol fällt; Auszahlung, was drei
+              davon auf einer Linie bringen — als Vielfaches des Einsatzes.
+              Beides zusammen ergibt die Quote, und die steht daneben: sie wird
+              gerechnet, nicht geschätzt.
+            </div>
+
+            <div className="einst-quote">
+              <span className="einst-quote-label">Auszahlungsquote</span>
+              <b>{(automatQuote(autoSym) * 100).toFixed(1).replace('.', ',')} %</b>
+              <input className="form-input einst-ziel" type="number" min={10} max={200}
+                aria-label="Zielquote in Prozent" value={ziel}
+                onChange={e=>setZiel(Math.max(10, Math.min(200, +e.target.value || 0)))} />
+              <button type="button" className="btn-icon"
+                onClick={()=>autoSetzen(automatEinregeln(autoSym, ziel / 100))}>
+                auf {ziel} % einregeln
+              </button>
+            </div>
+
+            <div className="tabellenhuelle">
+              <table className="einst-automat">
+                <thead>
+                  <tr><th colSpan={2}>Symbol</th><th>Häufigkeit</th><th>Auszahlung</th></tr>
+                </thead>
+                <tbody>
+                  {autoSym.map((sym, i) => (
+                    <tr key={sym.k}>
+                      <td className="zeichen">{sym.z}</td>
+                      <td className="name">{sym.name}</td>
+                      <td>
+                        <input className="form-input" type="number" min={0} max={999}
+                          aria-label={'Häufigkeit ' + sym.name} value={sym.gewicht}
+                          onChange={e=>autoSetzen(autoSym.map((x,j) =>
+                            j===i ? {...x, gewicht: Math.max(0, +e.target.value || 0)} : x))} />
+                      </td>
+                      <td>
+                        <input className="form-input" type="number" min={0} max={99999} step="0.05"
+                          aria-label={'Auszahlung ' + sym.name} value={sym.zahlt}
+                          onChange={e=>autoSetzen(autoSym.map((x,j) =>
+                            j===i ? {...x, zahlt: Math.max(0, +e.target.value || 0)} : x))} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="einst-klassen-fuss">
+              <label className="einst-max">
+                Höchsteinsatz
+                <select className="form-select" value={(adv.automat && adv.automat.maxEinsatz) || 0}
+                  onChange={e=>setzen({automat: {...(adv.automat||{}), maxEinsatz: +e.target.value || 0}})}>
+                  <option value={0}>ohne Grenze</option>
+                  {AUTOMAT_EINSAETZE.map(n2 => <option key={n2} value={n2}>{n2} Marken</option>)}
+                </select>
+              </label>
+              {adv.automat && adv.automat.symbole && (
+                <button type="button" className="btn-icon"
+                  onClick={()=>setzen({automat: {...(adv.automat||{}), symbole: undefined}})}>
+                  ↺ Standardautomat
+                </button>
+              )}
+            </div>
+            <div className="einst-hinweis">
+              Gespielt wird mit Spielmarken, die im Gerät jedes Einzelnen liegen —
+              nichts davon berührt einen Charakterbogen. Wer einen zwielichtigen
+              Automaten will, regelt ihn auf 80 % ein und sagt nichts.
+            </div>
           </div>
 
           {/* ── Klassen ── */}

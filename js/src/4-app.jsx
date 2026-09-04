@@ -3792,7 +3792,10 @@ function App() {
         </div>
       )}
 
-      {showAutomat && <AutomatSchirm onSchliessen={()=>setShowAutomat(false)} />}
+      {showAutomat && (
+        <AutomatSchirm cfg={advObj && advObj.automat}
+          onSchliessen={()=>setShowAutomat(false)} />
+      )}
 
       {advEinstellung && isDmMode && (
         <AbenteuerEinstellungen
