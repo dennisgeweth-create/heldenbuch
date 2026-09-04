@@ -4558,6 +4558,7 @@ const Sheet = () => {
     collapsedLevels,
     computedAC,
     cur,
+    darfBearbeiten,
     delArmorProf,
     deleteChar,
     delFeature,
@@ -4960,7 +4961,7 @@ const Sheet = () => {
     }, mc.charClass, " ", mc.level);
   })), /*#__PURE__*/React.createElement("div", {
     className: "header-actions"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     title: "Bearbeiten",
     onClick: openEdit,
     style: {
@@ -5049,7 +5050,10 @@ const Sheet = () => {
       e.currentTarget.style.color = "var(--text-muted)";
       e.currentTarget.style.borderColor = "transparent";
     }
-  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")) : /*#__PURE__*/React.createElement("span", {
+    className: "fremder-bogen",
+    title: "Dieser Bogen geh\xF6rt jemand anderem \u2014 \xE4ndern darf ihn sein Konto und die Spielleitung"
+  }, "\uD83D\uDD12")))), /*#__PURE__*/React.createElement("div", {
     className: "hp-bar-container"
   }, /*#__PURE__*/React.createElement("div", {
     className: "hp-bar-label"
@@ -8381,15 +8385,17 @@ function App() {
   // diese Zeile ginge dieses Aufraeumen auch an fremde Boegen, kaeme
   // jedes Mal als Ablehnung zurueck, und der Spieler saehe bei jedem
   // Laden "Aenderung abgelehnt" — endlos, weil die Aenderung nie ankommt.
-  const darfSchreiben = c => {
-    const k = kontoRef.current;
+  const darfBogen = (c, k, karte, bes, code) => {
+    if (!c) return false;
     if (!k) return true;
     if (k.ist_admin) return true;
-    const code = localStorage.getItem('sv_code') || '';
-    if (leitetAbenteuer(k, advDmsRef.current, code, c && c.adventure || '')) return true;
-    const b = (besitzerRef.current || {})[c && c.id];
+    if (leitetAbenteuer(k, karte, code, c.adventure || '')) return true;
+    const b = (bes || {})[c.id];
     return !b || b === k.id;
   };
+  // Beim Speichern zaehlt der Stand von jetzt, und der steht in den
+  // Referenzen — der Zustand hinkt dort um einen Durchlauf hinterher.
+  const darfSchreiben = c => darfBogen(c, kontoRef.current, advDmsRef.current, besitzerRef.current, localStorage.getItem('sv_code') || '');
   // Leitet dieses Konto dieses Abenteuer? Wer dafuer eingetragen ist,
   // leitet es — gleich welche Rolle er sonst in der Gruppe hat. Wer
   // Eberron leitet, kann in Strahd mitspielen.
@@ -10076,6 +10082,9 @@ function App() {
   const klassen = advKlassen(advObj);
   // Ob dieser Bogen seine Trefferpunkte als Zahl zeigen darf.
   const tpOffen = tpSichtbar(advObj, isDmMode, libGeladen);
+  // Beim Rendern zaehlt der Zustand: sonst stuenden die Knoepfe einen
+  // Durchlauf zu lange da.
+  const darfBearbeiten = darfBogen(cur, konto, advDms, besitzer, svCode);
   // Steht am Chronik-Knopf, damit die Leiste zugeklappt bleiben darf, ohne
   // dass eine abgelaufene Frist unbemerkt liegen bleibt.
   const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId).filter(e => !e.erledigt && e.faellig != null && e.faellig <= zeitDerUhr(chronik, advId)).length;
@@ -11440,6 +11449,7 @@ function App() {
     nhGesperrt,
     notesList,
     noteTagFilter,
+    darfBearbeiten,
     openEdit,
     openNew,
     openTpl,
@@ -11804,7 +11814,7 @@ function App() {
     className: "mobile-topbar-title"
   }, cur && cur.name || "—"), /*#__PURE__*/React.createElement("div", {
     className: "mobile-topbar-actions"
-  }, cur && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+  }, cur && (darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "btn-icon",
     style: {
       padding: "5px 8px",
@@ -11835,7 +11845,10 @@ function App() {
       fontSize: 11
     },
     onClick: deleteChar
-  }, "\u2715")))), /*#__PURE__*/React.createElement(Sheet, null)), !isTouchLayout && /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")) : /*#__PURE__*/React.createElement("span", {
+    className: "fremder-bogen",
+    title: "Dieser Bogen geh\xF6rt jemand anderem"
+  }, "\uD83D\uDD12")))), /*#__PURE__*/React.createElement(Sheet, null)), !isTouchLayout && /*#__PURE__*/React.createElement("div", {
     className: "desktop-sheet"
   }, /*#__PURE__*/React.createElement(Sheet, null))), isDmMode && showChronik && /*#__PURE__*/React.createElement(ChronikLeiste, {
     chronik: chronik,

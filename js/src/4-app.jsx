@@ -390,15 +390,18 @@ function App() {
   // diese Zeile ginge dieses Aufraeumen auch an fremde Boegen, kaeme
   // jedes Mal als Ablehnung zurueck, und der Spieler saehe bei jedem
   // Laden "Aenderung abgelehnt" — endlos, weil die Aenderung nie ankommt.
-  const darfSchreiben = (c) => {
-    const k = kontoRef.current;
+  const darfBogen = (c, k, karte, bes, code) => {
+    if (!c) return false;
     if (!k) return true;
     if (k.ist_admin) return true;
-    const code = localStorage.getItem('sv_code') || '';
-    if (leitetAbenteuer(k, advDmsRef.current, code, (c && c.adventure) || '')) return true;
-    const b = (besitzerRef.current || {})[c && c.id];
+    if (leitetAbenteuer(k, karte, code, c.adventure || '')) return true;
+    const b = (bes || {})[c.id];
     return !b || b === k.id;
   };
+  // Beim Speichern zaehlt der Stand von jetzt, und der steht in den
+  // Referenzen — der Zustand hinkt dort um einen Durchlauf hinterher.
+  const darfSchreiben = (c) => darfBogen(c, kontoRef.current, advDmsRef.current,
+    besitzerRef.current, localStorage.getItem('sv_code') || '');
   // Leitet dieses Konto dieses Abenteuer? Wer dafuer eingetragen ist,
   // leitet es — gleich welche Rolle er sonst in der Gruppe hat. Wer
   // Eberron leitet, kann in Strahd mitspielen.
@@ -1585,6 +1588,9 @@ function App() {
   const klassen = advKlassen(advObj);
   // Ob dieser Bogen seine Trefferpunkte als Zahl zeigen darf.
   const tpOffen = tpSichtbar(advObj, isDmMode, libGeladen);
+  // Beim Rendern zaehlt der Zustand: sonst stuenden die Knoepfe einen
+  // Durchlauf zu lange da.
+  const darfBearbeiten = darfBogen(cur, konto, advDms, besitzer, svCode);
   // Steht am Chronik-Knopf, damit die Leiste zugeklappt bleiben darf, ohne
   // dass eine abgelaufene Frist unbemerkt liegen bleibt.
   const chronikFaellig = !isDmMode ? 0 : ereignisseDerUhr(chronik, advId)
@@ -2298,6 +2304,7 @@ function App() {
     gearArmor, gearAusVorlage, gearPick, gearSetList, gearShield,
     gearWornList, initTotal, insp, inspMax, invRarity, invTagFilter,
     isDmMode, itemFx, klassen, languages, nhGesperrt, notesList, noteTagFilter,
+    darfBearbeiten,
     openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
     setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
@@ -2524,14 +2531,16 @@ function App() {
                 <button className="mobile-back" onClick={()=>setMv("list")}>← Helden</button>
                 <div className="mobile-topbar-title">{cur && cur.name||"—"}</div>
                 <div className="mobile-topbar-actions">
-                  {cur && <>
+                  {cur && (darfBearbeiten ? <>
                     <button className="btn-icon" style={{padding:"5px 8px",fontSize:11}} onClick={openEdit}>✎</button>
                     {cur.archived
                       ? <button className="btn-icon" style={{padding:"5px 8px",fontSize:11,borderColor:"var(--gold-dim)",color:"var(--gold-dim)"}} onClick={()=>unarchiveChar(cur.id)}>↩</button>
                       : <button className="btn-icon" style={{padding:"5px 8px",fontSize:11,color:"var(--text-muted)"}} onClick={()=>appConfirm("Charakter archivieren?", archiveChar, "Archivieren")}>📦</button>
                     }
                     <button className="btn-icon btn-delete" style={{padding:"5px 8px",fontSize:11}} onClick={deleteChar}>✕</button>
-                  </>}
+                  </> : (
+                    <span className="fremder-bogen" title="Dieser Bogen gehört jemand anderem">🔒</span>
+                  ))}
                 </div>
               </div>
               <Sheet />

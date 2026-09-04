@@ -16,7 +16,7 @@ const Sheet = () => {
   const {
     addArmorProf, addLanguage, addLog, addResource, addToolProf,
     addWeaponProf, appAlert, appConfirm, archiveChar, armorProfs, cc,
-    charMenuOpen, chars, chgMax, collapsedLevels, computedAC, cur,
+    charMenuOpen, chars, chgMax, collapsedLevels, computedAC, cur, darfBearbeiten,
     delArmorProf, deleteChar, delFeature, delItem, delLanguage, delNote,
     delResource, delSpell, delToolProf, delWeaponProf, displayAC,
     effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
@@ -203,42 +203,49 @@ const Sheet = () => {
                 return <div key={i} className="class-badge" style={{backgroundColor:mcc.bg,borderColor:mcc.border,color:mcc.text}}>{mc.charClass} {mc.level}</div>;
               })}
             </div>
+            {/* Wer den Bogen nicht aendern darf, bekommt die Knoepfe nicht
+                hingestellt. Der Server weist es ohnehin ab; eine Tuer
+                anzubieten, die zu ist, waere nur aergerlich. */}
             <div className="header-actions">
-              <button title="Bearbeiten"
-                onClick={openEdit}
-                style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
-                  color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.55,transition:"opacity 0.15s,border-color 0.15s"}}
-                onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border-bright)";}}
-                onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.borderColor="transparent";}}>
-                ✎
-              </button>
-              {cur.archived ? (
-                <button title="Reaktivieren"
-                  onClick={()=>unarchiveChar(cur.id)}
-                  style={{padding:"4px 10px",background:"none",border:"1px solid var(--gold-dim)",borderRadius:3,
-                    color:"var(--gold-dim)",fontSize:12,fontFamily:"'Roboto Condensed',sans-serif",cursor:"pointer",opacity:0.8,letterSpacing:"0.05em"}}
-                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";}}
-                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.8";}}>
-                  ↩ aktiv
-                </button>
-              ) : (
-                <button title="Archivieren"
-                  onClick={()=>appConfirm("Charakter \""+cur.name+"\" archivieren?", archiveChar, "Archivieren")}
+              {darfBearbeiten ? <>
+                <button title="Bearbeiten"
+                  onClick={openEdit}
                   style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
-                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border)"}}
-                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.borderColor="transparent"}}>
-                  📦
+                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.55,transition:"opacity 0.15s,border-color 0.15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border-bright)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.borderColor="transparent";}}>
+                  ✎
                 </button>
+                {cur.archived ? (
+                  <button title="Reaktivieren"
+                    onClick={()=>unarchiveChar(cur.id)}
+                    style={{padding:"4px 10px",background:"none",border:"1px solid var(--gold-dim)",borderRadius:3,
+                      color:"var(--gold-dim)",fontSize:12,fontFamily:"'Roboto Condensed',sans-serif",cursor:"pointer",opacity:0.8,letterSpacing:"0.05em"}}
+                    onMouseEnter={e=>{e.currentTarget.style.opacity="1";}}
+                    onMouseLeave={e=>{e.currentTarget.style.opacity="0.8";}}>
+                    ↩ aktiv
+                  </button>
+                ) : (
+                  <button title="Archivieren"
+                    onClick={()=>appConfirm("Charakter \""+cur.name+"\" archivieren?", archiveChar, "Archivieren")}
+                    style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
+                      color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border)"}}
+                    onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.borderColor="transparent"}}>
+                    📦
+                  </button>
+                )}
+                <button title="Löschen"
+                  onClick={deleteChar}
+                  style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
+                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s,color 0.15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.color="var(--crimson-bright)";e.currentTarget.style.borderColor="var(--crimson)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.color="var(--text-muted)";e.currentTarget.style.borderColor="transparent";}}>
+                  ✕
+                </button>
+              </> : (
+                <span className="fremder-bogen" title="Dieser Bogen gehört jemand anderem — ändern darf ihn sein Konto und die Spielleitung">🔒</span>
               )}
-              <button title="Löschen"
-                onClick={deleteChar}
-                style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
-                  color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s,color 0.15s"}}
-                onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.color="var(--crimson-bright)";e.currentTarget.style.borderColor="var(--crimson)";}}
-                onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.color="var(--text-muted)";e.currentTarget.style.borderColor="transparent";}}>
-                ✕
-              </button>
             </div>
           </div>
         </div>

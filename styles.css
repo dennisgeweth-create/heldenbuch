@@ -1930,6 +1930,8 @@
     cursor:pointer; }
   .einst-dm-zeile input { width:15px; height:15px; accent-color:#c060a0; cursor:pointer; }
   .einst-dm-zeile input:disabled { cursor:default; }
+  .fremder-bogen { font-size:13px; opacity:0.45; padding:4px 8px; cursor:default;
+    user-select:none; }
   .char-eigen { font-size:10px; color:#7ab8f5; }
   .einst-vollwahl { flex:1; min-width:180px; text-transform:none; letter-spacing:0;
     font-size:12.5px; }
