@@ -9097,8 +9097,6 @@ function App() {
       setDmLibrary(data.dm_library || {});
       setDmPass(dm);
       setIsDmMode(true);
-      setShowDmLogin(false);
-      setDmLoginInput('');
       // Gegner kommen aus einer eigenen Tabelle und nur fuer die
       // Spielleitung. Faellt der Abruf aus, bleibt der DM-Modus trotzdem
       // nutzbar — die Gegnerliste sagt dann, dass sie nicht geladen ist.
