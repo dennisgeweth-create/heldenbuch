@@ -18,15 +18,15 @@ const MARKEN_START = 200;
 // Einsatzes bei drei gleichen auf einer Linie. Beides zusammen ergibt die
 // Quote, und die rechnet automatQuote() aus — geraten wird hier nichts.
 const AUTOMAT_STANDARD = [
-  {k:'ratte',  z:'🐀', name:'Ratte',        gewicht:40, zahlt:2},
-  {k:'krug',   z:'🍺', name:'Krug',         gewicht:30, zahlt:4,   speise:true},
-  {k:'kaese',  z:'🧀', name:'Käse',         gewicht:22, zahlt:7,   speise:true},
-  {k:'keule',  z:'🍗', name:'Keule',        gewicht:14, zahlt:14,  speise:true},
-  {k:'apfel',  z:'🍎', name:'Apfel',        gewicht:9,  zahlt:30,  speise:true},
-  {k:'muenze', z:'🪙', name:'Glücksmünze',  gewicht:6,  zahlt:40,  freidreh:true},
-  {k:'kelch',  z:'🏺', name:'Kelch',        gewicht:4,  zahlt:80},
-  {k:'rubin',  z:'💠', name:'Rubin',        gewicht:3,  zahlt:150},
-  {k:'drache', z:'🐉', name:'Drachenauge',  gewicht:2,  zahlt:400},
+  {k:'ratte',  z:'🐀', name:'Ratte',        gewicht:40, zahlt:1},
+  {k:'krug',   z:'🍺', name:'Krug',         gewicht:30, zahlt:2.5, speise:true},
+  {k:'kaese',  z:'🧀', name:'Käse',         gewicht:22, zahlt:4,   speise:true},
+  {k:'keule',  z:'🍗', name:'Keule',        gewicht:14, zahlt:8,   speise:true},
+  {k:'apfel',  z:'🍎', name:'Apfel',        gewicht:9,  zahlt:17,  speise:true},
+  {k:'muenze', z:'🪙', name:'Glücksmünze',  gewicht:6,  zahlt:22,  freidreh:true},
+  {k:'kelch',  z:'🏺', name:'Kelch',        gewicht:4,  zahlt:45},
+  {k:'rubin',  z:'💠', name:'Rubin',        gewicht:3,  zahlt:85},
+  {k:'drache', z:'🐉', name:'Drachenauge',  gewicht:2,  zahlt:225},
 ];
 
 // Die fuenf Linien auf dem Feld 0..8 (oben links nach unten rechts).
@@ -58,42 +58,78 @@ const automatEinsaetze = (cfg) => {
   const gefiltert = max ? AUTOMAT_EINSAETZE.filter(n => n <= max) : AUTOMAT_EINSAETZE;
   return gefiltert.length ? gefiltert : [AUTOMAT_EINSAETZE[0]];
 };
+// ── Das Vollbild ─────────────────────────────────────────────────
+// Neun gleiche Speisen — das Bonusspiel des Automaten. Von allein faellt
+// das so gut wie nie (die Wahrscheinlichkeit hoch neun: beim Krug einmal
+// in zweihundertfuenfzigtausend Drehungen), und ein Bonus, den niemand je
+// zu sehen bekommt, ist keiner. Deshalb wird es gezogen: mit einer
+// eingestellten Haeufigkeit legt der Automat statt neun einzelner Symbole
+// ein volles Bild. Welche Speise, entscheidet ihre Haeufigkeit — der Krug
+// oft, der Apfel selten.
+//
+// Was das kostet, steht in der Quote und wird dort auch verrechnet: ein
+// haeufigeres Vollbild heisst kleinere Linien.
+const VOLLBILD_STANDARD = 200;                 // eine von zweihundert Drehungen
+const VOLLBILD_STUFEN = [50, 100, 150, 200, 300, 500, 1000];
+
+const automatVollbildEins = (cfg) => {
+  const roh = cfg && cfg.vollbild;
+  if (roh === undefined || roh === null || roh === '') return VOLLBILD_STANDARD;
+  const n = Math.round(+roh || 0);
+  return n > 0 ? Math.max(20, Math.min(5000, n)) : 0;
+};
+const automatVollbildP = (cfg) => { const n = automatVollbildEins(cfg); return n ? 1 / n : 0; };
+
 const symbolVon = (k, liste) => (liste || AUTOMAT_STANDARD).find(s => s.k === k)
   || AUTOMAT_STANDARD.find(s => s.k === k) || AUTOMAT_STANDARD[0];
 
-// ── Die Quote, ausgerechnet statt geschaetzt ─────────────────────
+// ── Die Quote, ausgerechnet statt geschaetzt ─────────────────
 // Bei fuenf festen Linien und neun unabhaengig gezogenen Symbolen ist der
 // Erwartungswert eine geschlossene Formel: je Symbol die Wahrscheinlichkeit
 // hoch drei mal seine Auszahlung, mal fuenf Linien.
 //
-// Der Freidreh macht sie rekursiv — er ist selbst wieder eine ganze Quote
-// wert. Also steht die Quote auf beiden Seiten und loest sich zu einer
-// Division auf.
-const automatQuote = (symbole) => {
+// Zwei Dinge machen sie rekursiv: der Freidreh und das gezogene Vollbild
+// sind selbst wieder eine ganze Quote wert. Also steht die Quote auf
+// beiden Seiten der Gleichung und loest sich zu einer Division auf.
+//
+// Was das Rad im Mittel nachlegt: drei von vier Feldern sind gruen,
+// hoechstens dreimal hintereinander.
+const RAD_ERWARTUNG = 0.75 + 0.5625 + 0.421875;
+
+const automatRechnung = (symbole, vollbildP) => {
   const liste = symbole || AUTOMAT_STANDARD;
   const summe = liste.reduce((s, x) => s + (+x.gewicht || 0), 0);
-  if (!summe) return 0;
-  let linien = 0, freidrehP = 0;
+  if (!summe) return {quote: 0, bonus: 0};
+
+  let linien = 0, freidrehP = 0, natur = 0;
   liste.forEach(x => {
     const p = (+x.gewicht || 0) / summe;
     const p3 = p * p * p;
     linien += p3 * (+x.zahlt || 0);
     if (x.freidreh) freidrehP += p3;
+    // Das Vollbild, das von allein faellt — verschwindend, aber nicht null.
+    if (x.speise) natur += Math.pow(p, 9) * 5 * (+x.zahlt || 0) * RAD_ERWARTUNG;
   });
   linien *= AUTOMAT_LINIEN.length;
-  // Ein Vollbild zahlt alle fuenf Linien und danach das Rad — drei Felder
-  // von vier sind gruen, hoechstens dreimal. Kommt erst mit Stufe 4, steht
-  // aber schon in der Rechnung, damit die Zahl spaeter nicht springt.
-  const rad = 0.75 + 0.5625 + 0.421875;
-  let vollbild = 0;
-  liste.filter(x => x.speise).forEach(x => {
-    const p = (+x.gewicht || 0) / summe;
-    vollbild += Math.pow(p, 9) * 5 * (+x.zahlt || 0) * rad;
+
+  // Das gezogene Vollbild: fuenf Linien und danach das Rad.
+  const speisen = liste.filter(x => x.speise && (+x.gewicht || 0) > 0);
+  const gs = speisen.reduce((s, x) => s + (+x.gewicht || 0), 0);
+  let voll = 0, vollFrei = 0;
+  speisen.forEach(x => {
+    const q = (+x.gewicht || 0) / gs;
+    voll += q * 5 * (+x.zahlt || 0) * (1 + RAD_ERWARTUNG);
+    if (x.freidreh) vollFrei += q;
   });
-  // Wahrscheinlichkeit, dass irgendeine Linie einen Freidreh bringt.
+  // Ohne Speisen auf den Walzen gibt es nichts zu ziehen.
+  const v = gs ? Math.max(0, Math.min(1, +vollbildP || 0)) : 0;
+
   const pFrei = Math.min(0.5, AUTOMAT_LINIEN.length * freidrehP);
-  return (linien + vollbild) / (1 - pFrei);
+  const nenner = 1 - (v * vollFrei + (1 - v) * pFrei);
+  const quote = (v * voll + (1 - v) * (linien + natur)) / (nenner > 0 ? nenner : 1);
+  return {quote, bonus: quote > 0 ? (v * voll) / quote : 0};
 };
+const automatQuote = (symbole, vollbildP) => automatRechnung(symbole, vollbildP).quote;
 
 // Die Quote ist in den Auszahlungen linear — alle mit demselben Faktor
 // zu strecken trifft das Ziel also genau. Nur das Runden auf ganze Zahlen
@@ -114,8 +150,8 @@ const zahlText = (z) => {
     .replace('.', ',');
 };
 
-const automatEinregeln = (symbole, ziel) => {
-  const jetzt = automatQuote(symbole);
+const automatEinregeln = (symbole, ziel, vollbildP) => {
+  const jetzt = automatQuote(symbole, vollbildP);
   if (!jetzt || !ziel) return symbole;
   const f = ziel / jetzt;
   return symbole.map(s => ({...s, zahlt: zahlRunden((+s.zahlt || 0) * f)}));
@@ -127,9 +163,17 @@ const ziehSymbol = (liste, summe) => {
   for (const s of liste) { w -= (+s.gewicht || 0); if (w <= 0) return s.k; }
   return liste[liste.length - 1].k;
 };
-const zieheWalzen = (symbole) => {
+const zieheWalzen = (symbole, vollbildP) => {
   const liste = symbole || AUTOMAT_STANDARD;
   const summe = liste.reduce((s, x) => s + (+x.gewicht || 0), 0);
+  // Erst die Frage, ob es ein Vollbild wird — danach neun einzelne Symbole.
+  // Andersherum (neun ziehen und bei Bedarf ueberschreiben) waere dasselbe,
+  // sagte aber nicht, dass hier zwei verschiedene Ziehungen stattfinden.
+  const speisen = liste.filter(x => x.speise && (+x.gewicht || 0) > 0);
+  const gs = speisen.reduce((s, x) => s + (+x.gewicht || 0), 0);
+  if (gs && Math.random() < (+vollbildP || 0)) {
+    return Array(9).fill(ziehSymbol(speisen, gs));
+  }
   return Array.from({length: 9}, () => ziehSymbol(liste, summe));
 };
 
@@ -352,6 +396,8 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
   // Was die Spielleitung fuer dieses Abenteuer eingestellt hat.
   const symbole   = React.useMemo(() => automatSymbole(cfg), [cfg]);
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  const vollbildP    = React.useMemo(() => automatVollbildP(cfg), [cfg]);
+  const vollbildEins = React.useMemo(() => automatVollbildEins(cfg), [cfg]);
   const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen());
   const [einsatz, setEinsatz] = React.useState(10);
   const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
@@ -375,7 +421,7 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
   const zug = React.useRef(null);   // {dx, dy} waehrend des Schiebens
 
   const setMarken = (n) => { const m = Math.max(0, Math.round(n)); waehrung.schreiben(m); setMarkenRoh(m); };
-  const quote = React.useMemo(() => automatQuote(symbole), [symbole]);
+  const quote = React.useMemo(() => automatQuote(symbole, vollbildP), [symbole, vollbildP]);
 
   // Wer Bewegung im Betriebssystem abgeschaltet hat, bekommt das Ergebnis
   // sofort. Ein Automat ist kein Grund, sich darueber hinwegzusetzen.
@@ -452,7 +498,7 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
   const drehen = () => {
     if (!kannDrehen) return;
     const zahlt = frei ? 0 : einsatz;
-    const neuesFeld = zieheWalzen(symbole);
+    const neuesFeld = zieheWalzen(symbole, vollbildP);
     const e = werteAus(neuesFeld, einsatz, symbole);
 
     setFeld(neuesFeld);
@@ -732,7 +778,7 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
                       <td className="nam">
                         {s.name}
                         {s.freidreh && <i>bringt einen Freidreh</i>}
-                        {s.speise && <i>Vollbild möglich</i>}
+                        {s.speise && <i>zählt fürs Vollbild</i>}
                       </td>
                       <td className="zahl">{zahlText(s.zahlt)} ×</td>
                     </tr>
@@ -744,6 +790,13 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
                 gleiche Symbole auf einer Linie zahlen das Vielfache des
                 Einsatzes. Die Quote ist aus Häufigkeit und Auszahlung
                 gerechnet, nicht geschätzt.
+              </p>
+              <p className="automat-fussnote">
+                <b>Vollbild</b> — alle neun Felder dieselbe Speise: fünf Linien
+                auf einmal und danach das Rad der Fortuna.{' '}
+                {vollbildEins
+                  ? 'Etwa jede ' + vollbildEins + '. Drehung.'
+                  : 'Nur, wenn es von allein fällt — und das tut es so gut wie nie.'}
               </p>
             </>
           )}

@@ -23,17 +23,35 @@ nicht am Server, ohne jede Verbindung zum Charakterbogen. Wer leer ist, bekommt
 vom Wirt 200 neue. Es geht um nichts.
 
 Die Auszahlungstabelle steht offen im Automaten, samt der **ausgerechneten
-Quote** — sie ergibt sich aus Häufigkeit und Auszahlung je Symbol und ist keine
-Schätzung. Zurzeit 89,2 %.
+Quote** — sie ergibt sich aus Häufigkeit, Auszahlung und Vollbild und ist keine
+Schätzung. Zurzeit 88,9 %.
 
 Die Walzen laufen und halten von links nach rechts nacheinander an, der Gewinn
 zählt hoch, und bei mehreren Gewinnlinien leuchtet eine nach der anderen auf —
 sonst leuchtet das halbe Feld und man sieht nicht, woran es lag. Wer Bewegung im
 Betriebssystem abgeschaltet hat, bekommt das Ergebnis sofort.
 
-Neun gleiche Speisesymbole öffnen das **Rad der Fortuna**: vier Felder, drei
-grüne und eines rot. Jedes grüne zahlt den Vollbildgewinn noch einmal, das rote
-beendet es — höchstens dreimal. Daher der Name.
+### Das Vollbild — das Bonusspiel
+
+Neun gleiche Speisesymbole auf dem ganzen Feld: fünf Linien auf einmal und
+danach das **Rad der Fortuna** — vier Felder, drei grüne und eines rot. Jedes
+grüne zahlt den Vollbildgewinn noch einmal, das rote beendet es, höchstens
+dreimal. Daher der Name.
+
+Von allein fällt so ein Bild praktisch nie — beim Krug einmal in
+zweihundertfünfzigtausend Drehungen, und ein Bonusspiel, das niemand je zu sehen
+bekommt, ist keines. Deshalb **wird es gezogen**: etwa **jede 200. Drehung**
+legt der Automat statt neun einzelner Symbole ein volles Bild. Welche Speise es
+wird, entscheidet ihre Häufigkeit — der Krug oft, der Apfel selten.
+
+Die Spielleitung stellt das ein: **aus** oder von 1 auf 1000 bis 1 auf 50
+Drehungen. Es geht dabei nichts geschenkt — das Bonusspiel zieht seinen Anteil
+aus derselben Quote, und der steht daneben (bei 1 auf 200: **44 %**). Häufiger
+heißt kleinere Linien, seltener heißt größere. Nach dem Umstellen einmal
+einregeln, dann stimmen die Auszahlungen wieder dazu.
+
+Weil das Vollbild jetzt vorkommt, sind die **Auszahlungen der Linien kleiner**
+als vorher — die Quote bleibt, wo sie war.
 
 Drei Glücksmünzen auf einer Linie bringen einen **Freidreh**.
 

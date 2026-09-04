@@ -21,9 +21,13 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
   // Zeichen bleiben, sonst waere die Auszahlungstafel im Automaten eine
   // andere als die hier.
   const [ziel, setZiel] = React.useState(90);
-  const autoSym = automatSymbole(adv.automat);
+  const autoSym  = automatSymbole(adv.automat);
+  const autoVoll = automatVollbildEins(adv.automat);
+  const autoVollP = automatVollbildP(adv.automat);
+  const rechnung = automatRechnung(autoSym, autoVollP);
   const autoSetzen = (liste) => setzen({automat: {...(adv.automat||{}),
     symbole: liste.map(x => ({k:x.k, gewicht:x.gewicht, zahlt:x.zahlt}))}});
+  const autoFeld = (p) => setzen({automat: {...(adv.automat||{}), ...p}});
   const aendern = (i, p) => klassenSetzen(klassen.map((k,j) => j===i ? {...k, ...p} : k));
   const entfernen = (i) => klassenSetzen(klassen.filter((_,j) => j!==i));
   const hinzu = () => klassenSetzen([...klassen, {name:'', color:'#8b9198'}]);
@@ -71,20 +75,49 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
             <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
               Häufigkeit sagt, wie oft ein Symbol fällt; Auszahlung, was drei
               davon auf einer Linie bringen — als Vielfaches des Einsatzes.
-              Beides zusammen ergibt die Quote, und die steht daneben: sie wird
-              gerechnet, nicht geschätzt.
+              Beides zusammen mit dem Vollbild ergibt die Quote, und die steht
+              daneben: sie wird gerechnet, nicht geschätzt.
             </div>
 
             <div className="einst-quote">
               <span className="einst-quote-label">Auszahlungsquote</span>
-              <b>{(automatQuote(autoSym) * 100).toFixed(1).replace('.', ',')} %</b>
+              <b>{(rechnung.quote * 100).toFixed(1).replace('.', ',')} %</b>
               <input className="form-input einst-ziel" type="number" min={10} max={200}
                 aria-label="Zielquote in Prozent" value={ziel}
                 onChange={e=>setZiel(Math.max(10, Math.min(200, +e.target.value || 0)))} />
               <button type="button" className="btn-icon"
-                onClick={()=>autoSetzen(automatEinregeln(autoSym, ziel / 100))}>
+                onClick={()=>autoSetzen(automatEinregeln(autoSym, ziel / 100, autoVollP))}>
                 auf {ziel} % einregeln
               </button>
+            </div>
+
+            {/* Das Bonusspiel. Es zieht seinen Anteil aus derselben Quote —
+                haeufiger heisst kleinere Linien, und genau das steht da. */}
+            <div className="einst-quote">
+              <span className="einst-quote-label">Vollbild</span>
+              <select className="form-select einst-vollwahl" value={autoVoll}
+                aria-label="Häufigkeit des Vollbilds"
+                onChange={e=>autoFeld({vollbild: +e.target.value})}>
+                <option value={0}>aus — nur, wenn es von allein fällt</option>
+                {VOLLBILD_STUFEN.map(n => (
+                  <option key={n} value={n}>1 auf {n} Drehungen</option>
+                ))}
+              </select>
+            </div>
+            <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+              Neun gleiche Speisen: fünf Linien auf einmal und danach das Rad
+              der Fortuna — das Bonusspiel des Automaten. Von allein fällt das
+              praktisch nie, deshalb wird es gezogen.{' '}
+              {autoVoll ? (
+                <b>Davon kommen {(rechnung.bonus * 100).toFixed(0)} % der Quote.</b>
+              ) : (
+                <b>Ohne Vollbild liegt die ganze Quote auf den Linien.</b>
+              )}{' '}
+              Häufiger heißt kleinere Linien: nach dem Umstellen wieder
+              einregeln, dann stimmen die Auszahlungen dazu.
+              {rechnung.quote > 1.05 && (
+                <b className="einst-warnung"> Über 100 % — auf Dauer zahlt das Haus drauf.</b>
+              )}
             </div>
 
             <div className="tabellenhuelle">
