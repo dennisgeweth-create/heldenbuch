@@ -564,6 +564,80 @@ $r = ruf('char_owner_set', ['code' => $code, 'password' => $pass, 'dm_password' 
                             'char_id' => 's1', 'owner' => $idSpieler]);
 pruefe('und das DM-Passwort ordnet weiter zu (200)', $r['status'] === 200, kurz($r));
 
+// ════════════════════════════════════════════════════════════════
+//  Das Abenteuerlog — Stufe 5
+// ════════════════════════════════════════════════════════════════
+
+abschnitt('Wer geschrieben hat, steht als Kennung darin');
+// Ein DM-Held in Strahd, damit es etwas zu verbergen gibt.
+ruf('save_char', ['code' => $code, 'password' => $pass, 'char_id' => 'd1', 'char' => [
+    'id' => 'd1', 'name' => 'Strahd selbst', 'charClass' => 'Magier', 'level' => 9,
+    'hp' => 60, 'maxHp' => 60, 'adventure' => 'strahd', 'dmOnly' => true]]);
+
+ruf('save_log', ['code' => $code, 'token' => $tSpieler, 'entry' =>
+    ['char_id' => 's1', 'char_name' => 'Strahdheld', 'tab' => 'attribute',
+     'action' => 'Vom Spieler geschrieben', 'adv_id' => 'strahd']]);
+ruf('save_log', ['code' => $code, 'token' => $tDm, 'entry' =>
+    ['char_id' => 'd1', 'char_name' => 'Strahd selbst', 'tab' => 'notizen',
+     'action' => 'Geheime Zeile zum DM-Helden', 'adv_id' => 'strahd']]);
+ruf('save_log', ['code' => $code, 'token' => $tDm2, 'entry' =>
+    ['char_id' => 'e1', 'char_name' => 'Eberronheld', 'tab' => 'waffen',
+     'action' => 'Zeile aus Eberron', 'adv_id' => 'eberron']]);
+
+$r = ruf('my_data', ['token' => $tSpieler]);
+pruefe('my_data antwortet (200)', $r['status'] === 200, kurz($r));
+pruefe('es kennt das eigene Konto', (($r['body']['konto']['name'] ?? '') === $spieler));
+pruefe('es nennt die Gruppen', (($r['body']['gruppen'][0]['session_code'] ?? '') === $code));
+$eigene = array_column($r['body']['log'] ?? [], 'action');
+pruefe('die eigene Zeile steht darin', in_array('Vom Spieler geschrieben', $eigene, true),
+       implode(' | ', $eigene));
+pruefe('fremde Zeilen nicht', !in_array('Zeile aus Eberron', $eigene, true), implode(' | ', $eigene));
+pruefe('es nennt auch die offenen Anmeldungen', count($r['body']['anmeldungen'] ?? []) >= 1);
+$r = ruf('my_data', []);
+pruefe('ohne Anmeldung gibt es keine Auskunft (401)', $r['status'] === 401, kurz($r));
+
+abschnitt('Wer welche Zeilen zu sehen bekommt');
+$holen = function ($daten) {
+    $r = ruf('load_logs', array_merge(['code' => $GLOBALS['code'], 'limit' => 100], $daten));
+    return array_column($r['body']['logs'] ?? [], 'action');
+};
+$alsSpieler = $holen(['token' => $tSpieler]);
+pruefe('ein Spieler sieht die Zeile zum DM-Helden nicht',
+       !in_array('Geheime Zeile zum DM-Helden', $alsSpieler, true), implode(' | ', $alsSpieler));
+pruefe('seine eigene schon', in_array('Vom Spieler geschrieben', $alsSpieler, true));
+pruefe('und nichts aus dem fremden Abenteuer',
+       !in_array('Zeile aus Eberron', $alsSpieler, true), implode(' | ', $alsSpieler));
+
+$alsDm = $holen(['token' => $tDm]);
+pruefe('die Spielleitung von Strahd sieht ihren DM-Helden',
+       in_array('Geheime Zeile zum DM-Helden', $alsDm, true), implode(' | ', $alsDm));
+$alsDm2 = $holen(['token' => $tDm2]);
+pruefe('die Spielleitung von Eberron sieht Strahd nicht',
+       !in_array('Geheime Zeile zum DM-Helden', $alsDm2, true), implode(' | ', $alsDm2));
+pruefe('ihr eigenes Abenteuer schon', in_array('Zeile aus Eberron', $alsDm2, true));
+
+$alsAdmin = $holen(['token' => $tAdmin]);
+pruefe('die Verwaltung sieht beides',
+       in_array('Geheime Zeile zum DM-Helden', $alsAdmin, true)
+       && in_array('Zeile aus Eberron', $alsAdmin, true), implode(' | ', $alsAdmin));
+$altWeg = $holen(['password' => $pass]);
+pruefe('und der alte Weg auch',
+       in_array('Geheime Zeile zum DM-Helden', $altWeg, true), implode(' | ', $altWeg));
+
+abschnitt('Aufbewahrung');
+$r = ruf('load', ['code' => $code, 'token' => $tAdmin]);
+pruefe('load nennt die Frist', (($r['body']['log_tage'] ?? 0) === 180), json_encode($r['body']['log_tage'] ?? null));
+$r = ruf('log_frist_set', ['code' => $code, 'token' => $tSpieler, 'tage' => 30]);
+pruefe('ein Spieler stellt sie nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('log_frist_set', ['code' => $code, 'token' => $tAdmin, 'tage' => 3]);
+pruefe('unter sieben Tagen wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+$r = ruf('log_frist_set', ['code' => $code, 'token' => $tAdmin, 'tage' => 30]);
+pruefe('die Verwaltung stellt sie (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tAdmin]);
+pruefe('und load nennt die neue', (($r['body']['log_tage'] ?? 0) === 30), json_encode($r['body']['log_tage'] ?? null));
+$r = ruf('log_frist_set', ['code' => $code, 'token' => $tAdmin, 'tage' => 0]);
+pruefe('null setzt auf die Vorgabe zurueck', (($r['body']['tage'] ?? 0) === 180), kurz($r));
+
 echo "\n" . str_repeat('─', 52) . "\n";
 echo $rot === 0 ? "Alle $gruen Pruefungen bestanden.\n" : "$gruen bestanden, $rot fehlgeschlagen.\n";
 exit($rot === 0 ? 0 : 1);

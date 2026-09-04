@@ -16,6 +16,7 @@ define('MAX_ITEM_BYTES',  2000000);  // 2MB pro Item (Bild!)
 define('MAX_LIB_BYTES',   2000000);  // 2MB Bibliothek
 define('MAX_ENEMY_BYTES', 2000000);  // 2MB pro Gegner (Bild!)
 define('RATE_LIMIT_ATTEMPTS',   1000);
+define('LOG_TAGE_STANDARD',     180);   // Aufbewahrung des Abenteuerlogs
 define('RATE_LIMIT_WINDOW_SEC', 300);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -234,9 +235,36 @@ try { $pdo->exec("ALTER TABLE hb_sessions ADD COLUMN chars_json LONGTEXT"); } ca
 // damit es bei einer Schemaaenderung bleibt statt zweier.
 try { $pdo->exec("ALTER TABLE hb_chars ADD COLUMN owner INT NULL"); } catch (PDOException $e) {}
 
+// Zwei Angaben aus dem Bogen, die der Server oft braucht und die er sonst
+// jedes Mal aus dem JSON holen muesste — mitsamt Portraet und Inventar.
+// Sie werden beim Speichern aus dem Bogen abgeleitet, nie von aussen
+// gesetzt: die Wahrheit steht weiter in char_json.
+try { $pdo->exec("ALTER TABLE hb_chars ADD COLUMN adv_id VARCHAR(50) NULL"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE hb_chars ADD COLUMN dm_only TINYINT(1) NOT NULL DEFAULT 0"); } catch (PDOException $e) {}
+
+// Das Abenteuerlog traegt jetzt, wer eine Zeile geschrieben hat, und zu
+// welchem Abenteuer sie gehoert. Die Kennung und nicht der Name: eine
+// Kennung laesst sich spaeter anonymisieren, ein in tausend Zeilen
+// eingebrannter Name nicht.
+try { $pdo->exec("ALTER TABLE hb_logs ADD COLUMN user_id INT NULL"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE hb_logs ADD COLUMN adv_id VARCHAR(50) NULL"); } catch (PDOException $e) {}
+// Beim Loeschen eines Kontos bleibt die Zeile stehen und verliert nur die
+// Kennung. Die Kampagnenhistorie gehoert der Runde, nicht dem Einzelnen.
+try { $pdo->exec("ALTER TABLE hb_logs ADD CONSTRAINT fk_hbl_user
+                  FOREIGN KEY (user_id) REFERENCES hb_users(id) ON DELETE SET NULL"); } catch (PDOException $e) {}
+// Wie lange das Log stehen bleibt, in Tagen. NULL heisst: die Vorgabe.
+try { $pdo->exec("ALTER TABLE hb_sessions ADD COLUMN log_tage INT NULL"); } catch (PDOException $e) {}
+
 // ── Hilfsfunktionen ─────────────────────────────────────────────
 function checkRateLimit(PDO $pdo): void {
-    $ip   = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    // Die Adresse selbst wird nicht gespeichert. Die Bremse muss sie nie
+    // lesen, nur wiedererkennen — und eine IP-Adresse im Klartext, die
+    // niemals wieder verschwindet, war ein Personenbezug, den niemand
+    // wollte. Der Hash ist auf denselben 45 Zeichen zu Hause.
+    // 40 Zeichen, weil die Spalte 45 fasst — ein voller SHA-256 waere
+    // stillschweigend abgeschnitten worden, und dann findet die Abfrage
+    // ihre eigene Zeile nicht wieder.
+    $ip   = substr(hash('sha256', (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0')), 0, 40);
     $stmt = $pdo->prepare("SELECT attempts, window_start FROM hb_rate_limits WHERE ip = ?");
     $stmt->execute([$ip]);
     $row = $stmt->fetch();
@@ -250,6 +278,15 @@ function checkRateLimit(PDO $pdo): void {
             $pdo->prepare("UPDATE hb_rate_limits SET attempts=attempts+1 WHERE ip=?")->execute([$ip]);
     } else {
         $pdo->prepare("INSERT INTO hb_rate_limits (ip) VALUES (?)")->execute([$ip]);
+    }
+    // Was aelter ist als das Zeitfenster, wird nicht mehr gebraucht. Nur
+    // hin und wieder, damit nicht jede Anfrage einen Aufraeumlauf zahlt.
+    if (random_int(1, 50) === 1) {
+        $pdo->prepare("DELETE FROM hb_rate_limits WHERE window_start < (NOW() - INTERVAL ? SECOND)")
+            ->execute([RATE_LIMIT_WINDOW_SEC * 4]);
+        // Und die Zeilen aus der Zeit, als hier noch die Adresse selbst
+        // stand. Sie sind an ihrer Laenge zu erkennen.
+        $pdo->exec("DELETE FROM hb_rate_limits WHERE CHAR_LENGTH(ip) <> 40");
     }
 }
 // ── Hintergrundabgleich ─────────────────────────────────────────
@@ -326,7 +363,7 @@ function mitgliedsRolle(PDO $pdo, int $userId, string $code): string {
     return (string)($st->fetch()['rolle'] ?? '');
 }
 function sitzungsZeile(PDO $pdo, string $code): array {
-    $st = $pdo->prepare("SELECT password_hash, library_json, dm_pass_hash, dm_library_json, chars_json
+    $st = $pdo->prepare("SELECT password_hash, library_json, dm_pass_hash, dm_library_json, chars_json, log_tage
                          FROM hb_sessions WHERE code=?");
     $st->execute([$code]);
     $row = $st->fetch();
@@ -370,6 +407,26 @@ function istDmVon(PDO $pdo, array $z, string $code, string $advId): bool {
     return in_array((int)$z['user']['id'], $ids, true);
 }
 
+// ── Wer darf welche Logzeilen sehen ─────────────────────────────
+// Bisher hat der Browser gefiltert: die Antwort trug alles, und die
+// Anwendung liess die Zeilen der DM-Helden weg. Wer sich die Antwort
+// ansah, sah sie trotzdem. Jetzt entscheidet der Server.
+function logFrist(?array $row): int {
+    $t = (int)($row['log_tage'] ?? 0);
+    return $t > 0 ? $t : LOG_TAGE_STANDARD;
+}
+function dmOnlyIds(PDO $pdo, string $code): array {
+    $st = $pdo->prepare("SELECT char_id FROM hb_chars WHERE session_code=? AND dm_only=1");
+    $st->execute([$code]);
+    return array_column($st->fetchAll(), 'char_id');
+}
+function spielerAbenteuer(PDO $pdo, string $code, int $userId): array {
+    $st = $pdo->prepare("SELECT DISTINCT adv_id FROM hb_chars
+                         WHERE session_code=? AND owner=? AND adv_id IS NOT NULL");
+    $st->execute([$code, $userId]);
+    return array_column($st->fetchAll(), 'adv_id');
+}
+
 // ── Besitz eines Bogens ─────────────────────────────────────────
 // Die Regel ist mit Absicht einseitig: ein Bogen ohne Besitzer darf von
 // jedem in der Gruppe geaendert werden — genau wie bisher. Erst die
@@ -382,7 +439,9 @@ function istDmVon(PDO $pdo, array $z, string $code, string $advId): bool {
 function besitzPruefen(PDO $pdo, array $z, string $code, string $charId): void {
     if (!$z['user']) return;
     if ($z['rolle'] === 'admin') return;
-    $st = $pdo->prepare("SELECT owner, char_json FROM hb_chars WHERE session_code=? AND char_id=?");
+    // adv_id statt char_json: der Bogen kann ein Portraet tragen, und den
+    // fuer eine Rechtefrage zu entpacken waere Verschwendung.
+    $st = $pdo->prepare("SELECT owner, adv_id FROM hb_chars WHERE session_code=? AND char_id=?");
     $st->execute([$code, $charId]);
     $r = $st->fetch();
     if (!$r) return;                                    // gibt es noch nicht
@@ -391,8 +450,7 @@ function besitzPruefen(PDO $pdo, array $z, string $code, string $charId): void {
     // verloren, und ohne diese Zeile haette er es.
     $eigener = $r['owner'] !== null && (int)$r['owner'] === (int)$z['user']['id'];
     if ($z['rolle'] === 'dm') {
-        $c = json_decode((string)$r['char_json'], true) ?: [];
-        if (istDmVon($pdo, $z, $code, (string)($c['adventure'] ?? ''))) return;
+        if (istDmVon($pdo, $z, $code, (string)($r['adv_id'] ?? ''))) return;
         // Leitet sie dieses Abenteuer nicht, ist sie darin ein Spieler wie
         // jeder andere — und bekommt den Grund gesagt, der wirklich
         // zutrifft, statt "gehoert jemand anderem".
@@ -443,7 +501,7 @@ function respond(int $status, string $message, array $extra=[]): never {
     exit;
 }
 function verifySession(PDO $pdo, string $code, string $pass): array {
-    $stmt = $pdo->prepare("SELECT password_hash, library_json, dm_pass_hash, dm_library_json, chars_json FROM hb_sessions WHERE code=?");
+    $stmt = $pdo->prepare("SELECT password_hash, library_json, dm_pass_hash, dm_library_json, chars_json, log_tage FROM hb_sessions WHERE code=?");
     $stmt->execute([$code]);
     $row  = $stmt->fetch();
     $hash = $row['password_hash'] ?? '$2y$10$invalidhashpadding000000000000000000000000000000000000';
@@ -484,7 +542,8 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
     }
 
     // 2. Lade Chars
-    $stmt = $pdo->prepare("SELECT char_id, char_json, owner, updated_at FROM hb_chars WHERE session_code=? ORDER BY id ASC");
+    $stmt = $pdo->prepare("SELECT char_id, char_json, owner, adv_id, dm_only, updated_at
+                           FROM hb_chars WHERE session_code=? ORDER BY id ASC");
     $stmt->execute([$code]);
     $charRows = $stmt->fetchAll();
 
@@ -500,6 +559,7 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
     // 4. Zusammensetzen
     $chars = [];
     $besitz = [];
+    $nach = [];
     $latestTs = 0;
     foreach ($charRows as $r) {
         $c = json_decode($r['char_json'], true);
@@ -511,8 +571,20 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
         // von der Anwendung geschrieben, und was sie schreibt, darf nicht
         // ueber Rechte entscheiden.
         if ($r['owner'] !== null) $besitz[(string)$r['char_id']] = (int)$r['owner'];
+        // Boegen, die vor der Umstellung gespeichert wurden, tragen die
+        // abgeleiteten Angaben noch nicht. Sie werden hier einmal
+        // nachgezogen — beim Laden ist der Bogen ohnehin schon entpackt.
+        $sollAdv = (string)($c['adventure'] ?? '');
+        $sollDm  = !empty($c['dmOnly']) ? 1 : 0;
+        if ((string)($r['adv_id'] ?? '') !== $sollAdv || (int)$r['dm_only'] !== $sollDm) {
+            $nach[] = [$sollAdv !== '' ? $sollAdv : null, $sollDm, $code, (string)$r['char_id']];
+        }
         $ts = strtotime($r['updated_at']) * 1000;
         if ($ts > $latestTs) $latestTs = $ts;
+    }
+    if ($nach) {
+        $up = $pdo->prepare("UPDATE hb_chars SET adv_id=?, dm_only=? WHERE session_code=? AND char_id=?");
+        foreach ($nach as $z2) $up->execute($z2);
     }
     return ['chars' => $chars, 'owners' => $besitz, 'updated_at' => $latestTs];
 }
@@ -557,6 +629,7 @@ switch ($action) {
             // Wer welches Abenteuer leitet. Kein Geheimnis — die Runde
             // weiss ohnehin, wer am Schirm sitzt.
             'adv_dms'    => (object)advDmKarte($pdo, $code),
+            'log_tage'   => logFrist($row),
             'library'    => json_decode($row['library_json']??'{}', true) ?? [],
             'has_dm'     => !empty($row['dm_pass_hash']),
             'updated_at' => $result['updated_at'],
@@ -626,9 +699,13 @@ switch ($action) {
         // fetch() liefert false, nicht null, wenn es die Zeile nicht gibt —
         // deshalb hier auf falsy pruefen und nicht auf null.
         $neuerBesitzer = (!$altRow && $z['user']) ? (int)$z['user']['id'] : null;
-        $pdo->prepare("INSERT INTO hb_chars (session_code,char_id,char_json,owner) VALUES(?,?,?,?)
-                       ON DUPLICATE KEY UPDATE char_json=VALUES(char_json), updated_at=NOW()")
-            ->execute([$code, $charId, $json, $neuerBesitzer]);
+        $advId  = (string)($char['adventure'] ?? '');
+        $nurDm  = !empty($char['dmOnly']) ? 1 : 0;
+        $pdo->prepare("INSERT INTO hb_chars (session_code,char_id,char_json,owner,adv_id,dm_only)
+                       VALUES(?,?,?,?,?,?)
+                       ON DUPLICATE KEY UPDATE char_json=VALUES(char_json), adv_id=VALUES(adv_id),
+                                              dm_only=VALUES(dm_only), updated_at=NOW()")
+            ->execute([$code, $charId, $json, $neuerBesitzer, $advId !== '' ? $advId : null, $nurDm]);
 
         $vitals = json_encode(vitalsAus($char), JSON_UNESCAPED_UNICODE);
         if (strlen($vitals) <= 255) {
@@ -870,8 +947,9 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $entry = $body['entry'] ?? null;
         if (!$entry || empty($entry['action'])) respond(400, 'Fehlende Log-Daten.');
-        zugang($pdo, $code, $pass, $body);
-        $pdo->prepare("INSERT INTO hb_logs (session_code, char_id, char_name, tab, action, details) VALUES (?,?,?,?,?,?)")
+        $z = zugang($pdo, $code, $pass, $body);
+        $pdo->prepare("INSERT INTO hb_logs (session_code, char_id, char_name, tab, action, details, user_id, adv_id)
+                       VALUES (?,?,?,?,?,?,?,?)")
             ->execute([
                 $code,
                 $entry['char_id']   ?? null,
@@ -879,13 +957,23 @@ switch ($action) {
                 mb_substr($entry['tab']       ?? '', 0, 30),
                 mb_substr($entry['action']    ?? '', 0, 255),
                 isset($entry['details']) ? json_encode($entry['details'], JSON_UNESCAPED_UNICODE) : null,
+                // Die Kennung, nicht der Name. Ohne Konto bleibt sie leer —
+                // der alte Weg weiss nicht, wer geschrieben hat.
+                $z['user'] ? (int)$z['user']['id'] : null,
+                mb_substr((string)($entry['adv_id'] ?? ''), 0, 50) ?: null,
             ]);
+        // Aufraeumen, aber nicht bei jeder Zeile: einmal in zwanzig
+        // Schreibvorgaengen reicht voellig, und der Rest kostet nichts.
+        if (random_int(1, 20) === 1) {
+            $pdo->prepare("DELETE FROM hb_logs WHERE session_code=? AND created_at < (NOW() - INTERVAL ? DAY)")
+                ->execute([$code, logFrist($z['row'])]);
+        }
         respond(200, 'Geloggt.');
 
     case 'load_logs':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        zugang($pdo, $code, $pass, $body);
+        $z = zugang($pdo, $code, $pass, $body);
         $charId  = $body['char_id']    ?? null;
         $limit   = min((int)($body['limit']  ?? 50), 100);
         $offset  = max((int)($body['offset'] ?? 0), 0);
@@ -902,7 +990,42 @@ switch ($action) {
             $where[] = "tab IN ($ph)";
             $params = array_merge($params, $tabFilter);
         }
-        $sql = 'SELECT id, char_id, char_name, tab, action, details, created_at FROM hb_logs WHERE '.implode(' AND ', $where).' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        // ── Sichtbarkeit ──
+        // Der alte Weg und die Verwaltung sehen alles. Eine Spielleitung
+        // sieht nicht, was in einem Abenteuer passiert, das jemand anders
+        // leitet. Ein Spieler sieht keine Zeilen zu DM-Helden — und, wenn
+        // ihm ueberhaupt ein Held gehoert, nur die Abenteuer, in denen er
+        // mitspielt. Gehoert ihm keiner, aendert sich nichts: dieselbe
+        // einseitige Regel wie beim Besitz.
+        $ich = $z['user'];
+        if ($ich && $z['rolle'] !== 'admin') {
+            if ($z['rolle'] === 'dm') {
+                $fremd = [];
+                foreach (advDmKarte($pdo, $code) as $adv => $ids) {
+                    if (!in_array((int)$ich['id'], $ids, true)) $fremd[] = $adv;
+                }
+                if ($fremd) {
+                    $ph = implode(',', array_fill(0, count($fremd), '?'));
+                    $where[] = "(adv_id IS NULL OR adv_id NOT IN ($ph))";
+                    $params  = array_merge($params, $fremd);
+                }
+            } else {
+                $verdeckt = dmOnlyIds($pdo, $code);
+                if ($verdeckt) {
+                    $ph = implode(',', array_fill(0, count($verdeckt), '?'));
+                    $where[] = "(char_id IS NULL OR char_id NOT IN ($ph))";
+                    $params  = array_merge($params, $verdeckt);
+                }
+                $meine = spielerAbenteuer($pdo, $code, (int)$ich['id']);
+                if ($meine) {
+                    $ph = implode(',', array_fill(0, count($meine), '?'));
+                    $where[] = "(adv_id IS NULL OR adv_id IN ($ph))";
+                    $params  = array_merge($params, $meine);
+                }
+            }
+        }
+
+        $sql = 'SELECT id, char_id, char_name, tab, action, details, created_at, user_id, adv_id FROM hb_logs WHERE '.implode(' AND ', $where).' ORDER BY created_at DESC LIMIT ? OFFSET ?';
         $params[] = $limit;
         $params[] = $offset;
 
@@ -1047,12 +1170,11 @@ switch ($action) {
         $charId = (string)($body['char_id'] ?? '');
         if ($charId === '') respond(400, 'Fehlende char_id.');
         // Zuordnen darf nur, wer das Abenteuer dieses Helden leitet.
-        $cs = $pdo->prepare("SELECT char_json FROM hb_chars WHERE session_code=? AND char_id=?");
+        $cs = $pdo->prepare("SELECT adv_id FROM hb_chars WHERE session_code=? AND char_id=?");
         $cs->execute([$code, $charId]);
         $cr = $cs->fetch();
         if (!$cr) respond(404, 'Bogen nicht gefunden.');
-        $cj = json_decode((string)$cr['char_json'], true) ?: [];
-        if (!istDmVon($pdo, $z, $code, (string)($cj['adventure'] ?? ''))) {
+        if (!istDmVon($pdo, $z, $code, (string)($cr['adv_id'] ?? ''))) {
             respond(403, 'Dieses Abenteuer leitet jemand anderes.');
         }
         $owner = $body['owner'] ?? null;
@@ -1076,6 +1198,50 @@ switch ($action) {
             if (!$vor) respond(404, 'Bogen nicht gefunden.');
         }
         respond(200, 'Zugeordnet.');
+    }
+
+    // Was ueber mich gespeichert ist. Beantwortet die Frage, bevor sie
+    // gestellt wird — und ist, wenn der Adminbereich einmal steht, dort
+    // ohnehin fast fertig.
+    case 'my_data': {
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        $st = $pdo->prepare("SELECT session_code, rolle, seit FROM hb_mitglied WHERE user_id=?");
+        $st->execute([(int)$u['id']]);
+        $gruppen = $st->fetchAll();
+        $st = $pdo->prepare("SELECT session_code, char_id, adv_id FROM hb_chars WHERE owner=?");
+        $st->execute([(int)$u['id']]);
+        $boegen = $st->fetchAll();
+        $st = $pdo->prepare("SELECT id, session_code, char_name, tab, action, adv_id, created_at
+                             FROM hb_logs WHERE user_id=? ORDER BY created_at DESC LIMIT 2000");
+        $st->execute([(int)$u['id']]);
+        $zeilen = $st->fetchAll();
+        $st = $pdo->prepare("SELECT angelegt_am, zuletzt FROM hb_logins WHERE user_id=? ORDER BY zuletzt DESC");
+        $st->execute([(int)$u['id']]);
+        respond(200, 'OK', [
+            'konto'      => ['id' => (int)$u['id'], 'name' => $u['name'], 'ist_admin' => istAdmin($u)],
+            'gruppen'    => $gruppen,
+            'boegen'     => $boegen,
+            'anmeldungen'=> $st->fetchAll(),
+            'log'        => $zeilen,
+            'log_zeilen' => count($zeilen),
+        ]);
+    }
+
+    // Wie lange das Log stehen bleibt. Null oder nichts heisst: Vorgabe.
+    case 'log_frist_set': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+        $tage = (int)($body['tage'] ?? 0);
+        if ($tage !== 0 && ($tage < 7 || $tage > 3650)) respond(400, 'Zwischen 7 und 3650 Tagen.');
+        sitzungsZeile($pdo, $code);
+        $pdo->prepare("UPDATE hb_sessions SET log_tage=? WHERE code=?")
+            ->execute([$tage ?: null, $code]);
+        if ($tage) {
+            $pdo->prepare("DELETE FROM hb_logs WHERE session_code=? AND created_at < (NOW() - INTERVAL ? DAY)")
+                ->execute([$code, $tage]);
+        }
+        respond(200, 'Aufbewahrung gesetzt.', ['tage' => $tage ?: LOG_TAGE_STANDARD]);
     }
 
     // Wer ein Abenteuer leitet, bestimmt die Verwaltung. Eine leere Liste

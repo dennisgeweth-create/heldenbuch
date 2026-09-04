@@ -166,6 +166,8 @@ function App() {
   // Wer welches Abenteuer leitet: {advId: [userId]}. Leer heisst "niemand
   // eingetragen" und damit: jede Spielleitung der Gruppe.
   const [advDms,     setAdvDms]     = useState({});
+  const [logTage,    setLogTage]    = useState(180);
+  const [kontoDlg,   setKontoDlg]   = useState(null);   // {daten, laedt, err}
   const [mitglieder, setMitglieder] = useState([]);
   const [showDmLogin,setShowDmLogin]= useState(false);
   const [dmLoginInput,setDmLoginInput]=useState('');
@@ -347,6 +349,10 @@ function App() {
   const isDmRef = useRef(false);
   const dmPassRef = useRef('');
   const kontoRef  = useRef(null);
+  // Welches Abenteuer gerade offen ist. Als Referenz, weil addLog weiter
+  // oben steht als advId — und weil die Logzeile sonst nicht sagen
+  // koennte, wohin sie gehoert.
+  const advIdRef  = useRef('');
 
   // charsRef muss synchron mitlaufen: save() difft gegen charsRef.current und
   // stellt jeden dort vorhandenen, in der neuen Liste fehlenden Charakter zur
@@ -658,6 +664,7 @@ function App() {
         if (d.has_dm) setHasDmMode(true);
         setBesitzer(d.owners || {});
         setAdvDms(d.adv_dms || {});
+        if (d.log_tage) setLogTage(d.log_tage);
         if (d.library) { setUserLibrary(d.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(d.library)); }
         if (!pendingRef.current) {
           // No unsaved local changes — server is authoritative
@@ -850,6 +857,7 @@ function App() {
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
+      if (data.log_tage) setLogTage(data.log_tage);
       setSyncStatus('ok'); setSyncMsg('Geladen ✓');
     } catch(e) {
       setSyncStatus('err'); setSyncMsg(e.message);
@@ -1261,7 +1269,8 @@ function App() {
   const addLog = (charId, charName, tab, action, details) => {
     const {url, code, pass, token} = serverCreds();
     if (!verbunden({url, code, pass, token})) return;
-    const entry = { char_id: charId, char_name: charName, tab, action, details };
+    const entry = { char_id: charId, char_name: charName, tab, action, details,
+                    adv_id: advIdRef.current || undefined };
     apiSaveLog(url, code, pass, entry).catch(()=>{});
   };
 
@@ -1311,6 +1320,7 @@ function App() {
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
+      if (data.log_tage) setLogTage(data.log_tage);
       setSyncStatus('ok'); setSyncMsg('Angemeldet ✓');
       setShowSetup(false);
       // Ein Einmalpasswort gilt genau bis hierher.
@@ -1320,6 +1330,36 @@ function App() {
       setSetupErr(e.message);
     }
     setSetupBusy(false);
+  };
+
+  // Was ueber mich gespeichert ist — und die Moeglichkeit, es
+  // mitzunehmen. Das Unangenehme an einem Protokoll ist selten das
+  // Protokoll; es ist, ueberrascht davon zu erfahren.
+  const kontoOeffnen = async () => {
+    setKontoDlg({daten: null, laedt: true, err: ''});
+    try {
+      const d = await apiMeineDaten(serverCreds().url);
+      setKontoDlg({daten: d, laedt: false, err: ''});
+    } catch(e) { setKontoDlg({daten: null, laedt: false, err: e.message}); }
+  };
+  const meineDatenSichern = () => {
+    if (!kontoDlg || !kontoDlg.daten) return;
+    try {
+      const blob = new Blob([JSON.stringify(kontoDlg.daten, null, 2)], {type: 'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'heldenbuch-meine-daten.json';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch(e) { appAlert('Das Speichern ging nicht: ' + (e.message || '')); }
+  };
+  const logFristSetzen = async (tage) => {
+    const {url, code} = serverCreds();
+    try {
+      const a = await apiLogFrist(url, code, tage);
+      setLogTage(a.tage || 180);
+    } catch(e) { appAlert('Das ging nicht: ' + (e.message || '')); }
   };
 
   const passwortAendern = async () => {
@@ -1356,6 +1396,7 @@ function App() {
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
+      if (data.log_tage) setLogTage(data.log_tage);
       setSyncStatus('ok'); setSyncMsg('Verbunden ✓');
       setShowSetup(false);
     } catch(e) { setSetupErr(e.message); }
@@ -1405,6 +1446,7 @@ function App() {
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
   const advObj  = abenteuer.find(a => a.id === advId) || null;
+  advIdRef.current = advId;
 
   // Wechselt die Spielleitung in ein Abenteuer, das sie nicht leitet, ist
   // sie dort ein Spieler — also raus aus dem DM-Modus. Das ist kein
@@ -2257,11 +2299,12 @@ function App() {
                   <div className={"sync-dot "+(offeneAenderungen>0?"err":syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
                   <span className="sync-line-code">{svCode}</span>
                   {konto && (
-                    <span className="sync-line-konto"
+                    <button className="sync-line-konto" onClick={kontoOeffnen}
                       title={'Angemeldet als ' + konto.name
-                             + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')}>
+                             + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
+                             + ' — was über dich gespeichert ist'}>
                       👤 {konto.name}
-                    </span>
+                    </button>
                   )}
                   {/* Der Rueckstand steht vor der Statusmeldung: er ist die
                       wichtigere Aussage, wenn beides zutrifft. */}
@@ -4049,6 +4092,110 @@ function App() {
         </div>
       )}
 
+
+      {kontoDlg && (
+        <div className="form-overlay" onClick={()=>setKontoDlg(null)}>
+          <div className="form-modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
+            <div className="form-title">👤 Mein Konto</div>
+
+            {kontoDlg.laedt && <p className="einst-hinweis">Wird geholt…</p>}
+            {kontoDlg.err && (
+              <div style={{background:"#3a1010",border:"1px solid var(--crimson)",borderRadius:4,
+                           padding:"8px 12px",fontSize:13,color:"#e87070",marginBottom:8}}>
+                ⚠️ {kontoDlg.err}
+              </div>
+            )}
+
+            {kontoDlg.daten && (() => {
+              const d = kontoDlg.daten;
+              return (
+                <div style={{maxHeight:'62vh',overflowY:'auto',paddingRight:4}}>
+                  <div className="einst-block">
+                    <div className="einst-titel">🔑 Zugang</div>
+                    <div className="konto-zeile"><span>Name</span><b>{d.konto.name}</b></div>
+                    <div className="konto-zeile"><span>Rolle</span>
+                      <b>{d.konto.ist_admin ? 'Verwaltung'
+                          : (rolleIn(konto, svCode) === 'dm' ? 'Spielleitung' : 'Spieler')}</b></div>
+                    <div className="konto-zeile"><span>Gruppen</span>
+                      <b>{(d.gruppen||[]).map(g => g.session_code + ' (' + g.rolle + ')').join(', ') || '—'}</b></div>
+                    <div className="konto-zeile"><span>Offene Anmeldungen</span>
+                      <b>{(d.anmeldungen||[]).length}</b></div>
+                    <div className="einst-klassen-fuss">
+                      <button className="btn-icon"
+                        onClick={()=>{setKontoDlg(null);
+                                      setPasswortDlg({alt:'', neu:'', neu2:'', err:'', pflicht:false});}}>
+                        Passwort ändern
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="einst-block">
+                    <div className="einst-titel">📋 Was über dich gespeichert ist</div>
+                    <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                      Das Abenteuerlog schreibt mit, was an einem Bogen geändert wird — seit es
+                      Konten gibt auch, <b>wer</b> es war. Gespeichert wird dafür deine Kennung,
+                      nicht dein Name; wird dein Konto einmal gelöscht, bleibt die Zeile stehen
+                      und verliert die Kennung. Deine Spielleitung sieht das Log ihres
+                      Abenteuers, die Verwaltung alles.
+                    </div>
+                    <div className="konto-zeile"><span>Dir gehörende Bögen</span>
+                      <b>{(d.boegen||[]).length}</b></div>
+                    <div className="konto-zeile"><span>Logzeilen von dir</span>
+                      <b>{d.log_zeilen}</b></div>
+                    <div className="konto-zeile"><span>Aufbewahrung</span>
+                      <b>{logTage} Tage</b></div>
+                    {(d.log||[]).length > 0 && (
+                      <div className="tabellenhuelle" style={{marginTop:10,maxHeight:180,overflowY:'auto'}}>
+                        <table className="einst-automat">
+                          <tbody>
+                            {(d.log||[]).slice(0,25).map(z => (
+                              <tr key={z.id}>
+                                <td className="name">{(z.created_at||'').slice(0,16).replace('T',' ')}</td>
+                                <td className="name">{z.char_name || '—'}</td>
+                                <td>{z.action}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    <div className="einst-klassen-fuss">
+                      <button className="btn-icon" onClick={meineDatenSichern}>
+                        ⬇ Alles als Datei
+                      </button>
+                    </div>
+                  </div>
+
+                  {konto && konto.ist_admin && (
+                    <div className="einst-block">
+                      <div className="einst-titel">🗄 Aufbewahrung des Logs</div>
+                      <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                        Ältere Zeilen werden gelöscht. Gilt für die ganze Gruppe, und nur die
+                        Verwaltung stellt es.
+                      </div>
+                      <label className="einst-max">
+                        Aufbewahren
+                        <select className="form-select" value={logTage}
+                          onChange={e=>logFristSetzen(+e.target.value)}>
+                          {[30, 90, 180, 365, 3650].map(t => (
+                            <option key={t} value={t}>
+                              {t === 365 ? '1 Jahr' : t > 365 ? (t/365) + ' Jahre' : t + ' Tage'}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="form-actions">
+              <button className="btn-cancel" onClick={()=>setKontoDlg(null)}>Schließen</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {passwortDlg && (
         <div className="form-overlay">

@@ -1892,7 +1892,15 @@
   .einst-ziel { width:62px; text-align:center; font-variant-numeric:tabular-nums; }
   .sync-line-konto { font-family:'Roboto Condensed',sans-serif; font-size:10.5px;
     letter-spacing:0.06em; color:var(--text-muted); padding:1px 6px; border-radius:3px;
-    background:var(--bg-panel); border:1px solid var(--border); white-space:nowrap; }
+    background:var(--bg-panel); border:1px solid var(--border); white-space:nowrap;
+    cursor:pointer; }
+  .sync-line-konto:hover { color:var(--text-secondary); border-color:var(--border-bright); }
+  .konto-zeile { display:flex; align-items:baseline; gap:10px; padding:4px 0;
+    border-bottom:1px solid var(--bg-panel); font-size:13px; }
+  .konto-zeile:last-of-type { border-bottom:none; }
+  .konto-zeile span { flex:1; font-family:'Roboto Condensed',sans-serif; font-size:11px;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); }
+  .konto-zeile b { color:var(--text-secondary); font-weight:400; text-align:right; }
   .einst-besitz-name { flex:1; font-family:'Roboto Condensed',sans-serif; font-size:13px;
     color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .einst-klasse .form-select { max-width:200px; text-transform:none; letter-spacing:0; }

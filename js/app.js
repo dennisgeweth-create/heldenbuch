@@ -8090,6 +8090,8 @@ function App() {
   // Wer welches Abenteuer leitet: {advId: [userId]}. Leer heisst "niemand
   // eingetragen" und damit: jede Spielleitung der Gruppe.
   const [advDms, setAdvDms] = useState({});
+  const [logTage, setLogTage] = useState(180);
+  const [kontoDlg, setKontoDlg] = useState(null); // {daten, laedt, err}
   const [mitglieder, setMitglieder] = useState([]);
   const [showDmLogin, setShowDmLogin] = useState(false);
   const [dmLoginInput, setDmLoginInput] = useState('');
@@ -8322,6 +8324,10 @@ function App() {
   const isDmRef = useRef(false);
   const dmPassRef = useRef('');
   const kontoRef = useRef(null);
+  // Welches Abenteuer gerade offen ist. Als Referenz, weil addLog weiter
+  // oben steht als advId — und weil die Logzeile sonst nicht sagen
+  // koennte, wohin sie gehoert.
+  const advIdRef = useRef('');
 
   // charsRef muss synchron mitlaufen: save() difft gegen charsRef.current und
   // stellt jeden dort vorhandenen, in der neuen Liste fehlenden Charakter zur
@@ -8705,6 +8711,7 @@ function App() {
         if (d.has_dm) setHasDmMode(true);
         setBesitzer(d.owners || {});
         setAdvDms(d.adv_dms || {});
+        if (d.log_tage) setLogTage(d.log_tage);
         if (d.library) {
           setUserLibrary(d.library);
           setLibGeladen(true);
@@ -9016,6 +9023,7 @@ function App() {
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
+      if (data.log_tage) setLogTage(data.log_tage);
       setSyncStatus('ok');
       setSyncMsg('Geladen ✓');
     } catch (e) {
@@ -9603,7 +9611,8 @@ function App() {
       char_name: charName,
       tab,
       action,
-      details
+      details,
+      adv_id: advIdRef.current || undefined
     };
     apiSaveLog(url, code, pass, entry).catch(() => {});
   };
@@ -9658,6 +9667,7 @@ function App() {
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
+      if (data.log_tage) setLogTage(data.log_tage);
       setSyncStatus('ok');
       setSyncMsg('Angemeldet ✓');
       setShowSetup(false);
@@ -9674,6 +9684,60 @@ function App() {
       setSetupErr(e.message);
     }
     setSetupBusy(false);
+  };
+
+  // Was ueber mich gespeichert ist — und die Moeglichkeit, es
+  // mitzunehmen. Das Unangenehme an einem Protokoll ist selten das
+  // Protokoll; es ist, ueberrascht davon zu erfahren.
+  const kontoOeffnen = async () => {
+    setKontoDlg({
+      daten: null,
+      laedt: true,
+      err: ''
+    });
+    try {
+      const d = await apiMeineDaten(serverCreds().url);
+      setKontoDlg({
+        daten: d,
+        laedt: false,
+        err: ''
+      });
+    } catch (e) {
+      setKontoDlg({
+        daten: null,
+        laedt: false,
+        err: e.message
+      });
+    }
+  };
+  const meineDatenSichern = () => {
+    if (!kontoDlg || !kontoDlg.daten) return;
+    try {
+      const blob = new Blob([JSON.stringify(kontoDlg.daten, null, 2)], {
+        type: 'application/json'
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'heldenbuch-meine-daten.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch (e) {
+      appAlert('Das Speichern ging nicht: ' + (e.message || ''));
+    }
+  };
+  const logFristSetzen = async tage => {
+    const {
+      url,
+      code
+    } = serverCreds();
+    try {
+      const a = await apiLogFrist(url, code, tage);
+      setLogTage(a.tage || 180);
+    } catch (e) {
+      appAlert('Das ging nicht: ' + (e.message || ''));
+    }
   };
   const passwortAendern = async () => {
     const d = passwortDlg;
@@ -9746,6 +9810,7 @@ function App() {
       if (data.has_dm) setHasDmMode(true);
       setBesitzer(data.owners || {});
       setAdvDms(data.adv_dms || {});
+      if (data.log_tage) setLogTage(data.log_tage);
       setSyncStatus('ok');
       setSyncMsg('Verbunden ✓');
       setShowSetup(false);
@@ -9802,6 +9867,7 @@ function App() {
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
   const advObj = abenteuer.find(a => a.id === advId) || null;
+  advIdRef.current = advId;
 
   // Wechselt die Spielleitung in ein Abenteuer, das sie nicht leitet, ist
   // sie dort ein Spieler — also raus aus dem DM-Modus. Das ist kein
@@ -11404,9 +11470,10 @@ function App() {
     className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
   }), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-code"
-  }, svCode), konto && /*#__PURE__*/React.createElement("span", {
+  }, svCode), konto && /*#__PURE__*/React.createElement("button", {
     className: "sync-line-konto",
-    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
+    onClick: kontoOeffnen,
+    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '') + ' — was über dich gespeichert ist'
   }, "\uD83D\uDC64 ", konto.name), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
   }, "\xB7 ", offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
@@ -15669,7 +15736,125 @@ function App() {
       if (confirmDlg.onOk) confirmDlg.onOk();
       setConfirmDlg(null);
     }
-  }, confirmDlg.okLabel || 'Bestätigen')))), passwortDlg && /*#__PURE__*/React.createElement("div", {
+  }, confirmDlg.okLabel || 'Bestätigen')))), kontoDlg && /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: () => setKontoDlg(null)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 560
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDC64 Mein Konto"), kontoDlg.laedt && /*#__PURE__*/React.createElement("p", {
+    className: "einst-hinweis"
+  }, "Wird geholt\u2026"), kontoDlg.err && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#3a1010",
+      border: "1px solid var(--crimson)",
+      borderRadius: 4,
+      padding: "8px 12px",
+      fontSize: 13,
+      color: "#e87070",
+      marginBottom: 8
+    }
+  }, "\u26A0\uFE0F ", kontoDlg.err), kontoDlg.daten && (() => {
+    const d = kontoDlg.daten;
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxHeight: '62vh',
+        overflowY: 'auto',
+        paddingRight: 4
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "einst-block"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "einst-titel"
+    }, "\uD83D\uDD11 Zugang"), /*#__PURE__*/React.createElement("div", {
+      className: "konto-zeile"
+    }, /*#__PURE__*/React.createElement("span", null, "Name"), /*#__PURE__*/React.createElement("b", null, d.konto.name)), /*#__PURE__*/React.createElement("div", {
+      className: "konto-zeile"
+    }, /*#__PURE__*/React.createElement("span", null, "Rolle"), /*#__PURE__*/React.createElement("b", null, d.konto.ist_admin ? 'Verwaltung' : rolleIn(konto, svCode) === 'dm' ? 'Spielleitung' : 'Spieler')), /*#__PURE__*/React.createElement("div", {
+      className: "konto-zeile"
+    }, /*#__PURE__*/React.createElement("span", null, "Gruppen"), /*#__PURE__*/React.createElement("b", null, (d.gruppen || []).map(g => g.session_code + ' (' + g.rolle + ')').join(', ') || '—')), /*#__PURE__*/React.createElement("div", {
+      className: "konto-zeile"
+    }, /*#__PURE__*/React.createElement("span", null, "Offene Anmeldungen"), /*#__PURE__*/React.createElement("b", null, (d.anmeldungen || []).length)), /*#__PURE__*/React.createElement("div", {
+      className: "einst-klassen-fuss"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn-icon",
+      onClick: () => {
+        setKontoDlg(null);
+        setPasswortDlg({
+          alt: '',
+          neu: '',
+          neu2: '',
+          err: '',
+          pflicht: false
+        });
+      }
+    }, "Passwort \xE4ndern"))), /*#__PURE__*/React.createElement("div", {
+      className: "einst-block"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "einst-titel"
+    }, "\uD83D\uDCCB Was \xFCber dich gespeichert ist"), /*#__PURE__*/React.createElement("div", {
+      className: "einst-hinweis",
+      style: {
+        marginTop: 0,
+        marginBottom: 10
+      }
+    }, "Das Abenteuerlog schreibt mit, was an einem Bogen ge\xE4ndert wird \u2014 seit es Konten gibt auch, ", /*#__PURE__*/React.createElement("b", null, "wer"), " es war. Gespeichert wird daf\xFCr deine Kennung, nicht dein Name; wird dein Konto einmal gel\xF6scht, bleibt die Zeile stehen und verliert die Kennung. Deine Spielleitung sieht das Log ihres Abenteuers, die Verwaltung alles."), /*#__PURE__*/React.createElement("div", {
+      className: "konto-zeile"
+    }, /*#__PURE__*/React.createElement("span", null, "Dir geh\xF6rende B\xF6gen"), /*#__PURE__*/React.createElement("b", null, (d.boegen || []).length)), /*#__PURE__*/React.createElement("div", {
+      className: "konto-zeile"
+    }, /*#__PURE__*/React.createElement("span", null, "Logzeilen von dir"), /*#__PURE__*/React.createElement("b", null, d.log_zeilen)), /*#__PURE__*/React.createElement("div", {
+      className: "konto-zeile"
+    }, /*#__PURE__*/React.createElement("span", null, "Aufbewahrung"), /*#__PURE__*/React.createElement("b", null, logTage, " Tage")), (d.log || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "tabellenhuelle",
+      style: {
+        marginTop: 10,
+        maxHeight: 180,
+        overflowY: 'auto'
+      }
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "einst-automat"
+    }, /*#__PURE__*/React.createElement("tbody", null, (d.log || []).slice(0, 25).map(z => /*#__PURE__*/React.createElement("tr", {
+      key: z.id
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "name"
+    }, (z.created_at || '').slice(0, 16).replace('T', ' ')), /*#__PURE__*/React.createElement("td", {
+      className: "name"
+    }, z.char_name || '—'), /*#__PURE__*/React.createElement("td", null, z.action)))))), /*#__PURE__*/React.createElement("div", {
+      className: "einst-klassen-fuss"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn-icon",
+      onClick: meineDatenSichern
+    }, "\u2B07 Alles als Datei"))), konto && konto.ist_admin && /*#__PURE__*/React.createElement("div", {
+      className: "einst-block"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "einst-titel"
+    }, "\uD83D\uDDC4 Aufbewahrung des Logs"), /*#__PURE__*/React.createElement("div", {
+      className: "einst-hinweis",
+      style: {
+        marginTop: 0,
+        marginBottom: 10
+      }
+    }, "\xC4ltere Zeilen werden gel\xF6scht. Gilt f\xFCr die ganze Gruppe, und nur die Verwaltung stellt es."), /*#__PURE__*/React.createElement("label", {
+      className: "einst-max"
+    }, "Aufbewahren", /*#__PURE__*/React.createElement("select", {
+      className: "form-select",
+      value: logTage,
+      onChange: e => logFristSetzen(+e.target.value)
+    }, [30, 90, 180, 365, 3650].map(t => /*#__PURE__*/React.createElement("option", {
+      key: t,
+      value: t
+    }, t === 365 ? '1 Jahr' : t > 365 ? t / 365 + ' Jahre' : t + ' Tage'))))));
+  })(), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setKontoDlg(null)
+  }, "Schlie\xDFen")))), passwortDlg && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
