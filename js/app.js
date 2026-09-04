@@ -3481,6 +3481,21 @@ const WAEHRUNGEN = {
   }
 };
 
+// ── Der Lauf der Walzen ──────────────────────────────────────────
+// Jede Walze ist ein Band aus Zufallssymbolen, an dessen Ende die drei
+// Symbole stehen, die stehenbleiben sollen. Das Band faehrt von oben nach
+// unten durch und haelt auf den letzten dreien — mit unterschiedlichen
+// Laufzeiten je Spalte, damit sie nacheinander stehen, wie es sich gehoert.
+const WALZEN_BAND = 16; // Zellen je Band
+const WALZEN_DAUER = [900, 1150, 1400]; // Millisekunden je Spalte
+
+const bandBauen = (feld, spalte) => {
+  const vorlauf = Array.from({
+    length: WALZEN_BAND - 3
+  }, () => AUTOMAT_SYMBOLE[Math.floor(Math.random() * AUTOMAT_SYMBOLE.length)].k);
+  return [...vorlauf, feld[spalte], feld[3 + spalte], feld[6 + spalte]];
+};
+
 // ── Der Schirm ───────────────────────────────────────────────────
 const AutomatSchirm = ({
   onSchliessen
@@ -3492,31 +3507,133 @@ const AutomatSchirm = ({
   const [ergebnis, setErgebnis] = React.useState(null); // {gewinn, treffer, …}
   const [freidrehe, setFreidrehe] = React.useState(0);
   const [tafelOffen, setTafelOffen] = React.useState(false);
+  const [baender, setBaender] = React.useState(() => [0, 1, 2].map(() => Array(WALZEN_BAND).fill('ratte')));
+  const [dreh, setDreh] = React.useState(0); // erzwingt den Neustart der Animation
+  const [laeuft, setLaeuft] = React.useState(false);
+  const [zeigeLinie, setZeigeLinie] = React.useState(-1); // -1 = alle
+  const [zaehler, setZaehler] = React.useState(0);
+  const laufRef = React.useRef(null);
   const setMarken = n => {
     const m = Math.max(0, Math.round(n));
     waehrung.schreiben(m);
     setMarkenRoh(m);
   };
   const quote = React.useMemo(() => automatQuote(AUTOMAT_SYMBOLE), []);
+
+  // Wer Bewegung im Betriebssystem abgeschaltet hat, bekommt das Ergebnis
+  // sofort. Ein Automat ist kein Grund, sich darueber hinwegzusetzen.
+  const reduziert = React.useMemo(() => {
+    try {
+      return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Der Lauf ist Anzeige, nicht Buchhaltung. Gebucht wird sofort — sonst
+  // haenge der Ausgang eines Spiels an einem Zeitgeber, den der Browser
+  // im Hintergrund beliebig lange aufschieben darf. Hier stand der
+  // Automat dann auf "Läuft…" und die Taste blieb gesperrt.
+  //
+  // Deshalb loest jeder Weg das Ergebnis auf: der Zeitgeber, das
+  // Zurueckkommen zum Fenster, und das Verlassen der Seite.
+  const schwebendRef = React.useRef(null); // {e, faellig}
+  const aufloesen = React.useCallback(() => {
+    const sch = schwebendRef.current;
+    if (!sch) return;
+    schwebendRef.current = null;
+    if (laufRef.current) {
+      clearTimeout(laufRef.current);
+      laufRef.current = null;
+    }
+    setLaeuft(false);
+    setErgebnis(sch.e);
+  }, []);
+  React.useEffect(() => {
+    const wach = () => {
+      // Im Hintergrund gibt es nichts zu sehen; sichtbar werden heisst,
+      // dass der Lauf laengst haette enden sollen.
+      if (schwebendRef.current && (document.hidden || Date.now() >= schwebendRef.current.faellig)) aufloesen();
+    };
+    document.addEventListener('visibilitychange', wach);
+    return () => {
+      document.removeEventListener('visibilitychange', wach);
+      if (laufRef.current) clearTimeout(laufRef.current);
+    };
+  }, [aufloesen]);
   const frei = freidrehe > 0;
-  const kannDrehen = frei || marken >= einsatz;
+  const kannDrehen = !laeuft && (frei || marken >= einsatz);
   const drehen = () => {
     if (!kannDrehen) return;
-    // Einsatz und Gewinn in einem Schritt: wer mitten im Lauf das Fenster
-    // schliesst, soll den Einsatz weder doppelt verlieren noch geschenkt
-    // bekommen.
     const zahlt = frei ? 0 : einsatz;
     const neuesFeld = zieheWalzen(AUTOMAT_SYMBOLE);
     const e = werteAus(neuesFeld, einsatz);
     setFeld(neuesFeld);
-    setErgebnis(e);
+    setBaender([0, 1, 2].map(sp => bandBauen(neuesFeld, sp)));
+    setErgebnis(null);
+    setZeigeLinie(-1);
+    setZaehler(0);
+    setDreh(d => d + 1);
+
+    // Einsatz und Gewinn in einem Schritt und sofort: das Ergebnis steht
+    // in dem Augenblick fest, in dem gezogen wird. Der Lauf zeigt es
+    // nur noch.
     setMarken(marken - zahlt + e.gewinn);
     setFreidrehe(f => Math.max(0, f - (frei ? 1 : 0)) + (e.freidreh ? 1 : 0));
+    if (reduziert) {
+      setErgebnis(e);
+      return;
+    }
+    const dauer = Math.max(...WALZEN_DAUER) + 60;
+    schwebendRef.current = {
+      e,
+      faellig: Date.now() + dauer
+    };
+    setLaeuft(true);
+    laufRef.current = setTimeout(aufloesen, dauer);
   };
 
-  // Welche Felder gerade Teil eines Gewinns sind — fuer die Hervorhebung.
+  // Der Gewinn zaehlt hoch, statt dazustehen. Kurz genug, dass niemand
+  // wartet, lang genug, dass man es merkt.
+  React.useEffect(() => {
+    if (!ergebnis || ergebnis.gewinn <= 0) {
+      setZaehler(0);
+      return;
+    }
+    const ziel = ergebnis.gewinn,
+      start = Date.now(),
+      dauer = 520;
+    const tick = setInterval(() => {
+      const t = Math.min(1, (Date.now() - start) / dauer);
+      setZaehler(Math.round(ziel * (1 - Math.pow(1 - t, 3))));
+      if (t >= 1) clearInterval(tick);
+    }, 40);
+    return () => clearInterval(tick);
+  }, [ergebnis]);
+
+  // Mehrere Gewinnlinien werden nacheinander gezeigt, sonst leuchtet das
+  // halbe Feld und man sieht nicht, woran es lag.
+  React.useEffect(() => {
+    if (!ergebnis || ergebnis.treffer.length < 2) {
+      setZeigeLinie(-1);
+      return;
+    }
+    let i = 0;
+    setZeigeLinie(0);
+    const tick = setInterval(() => {
+      i = (i + 1) % ergebnis.treffer.length;
+      setZeigeLinie(i);
+    }, 900);
+    return () => clearInterval(tick);
+  }, [ergebnis]);
+
+  // Welche Felder gerade leuchten. Ohne Ergebnis keins, bei einer Linie
+  // deren drei, bei mehreren die gerade gezeigte.
   const leuchtet = new Set();
-  (ergebnis ? ergebnis.treffer : []).forEach(t => t.felder.forEach(f => leuchtet.add(f)));
+  if (ergebnis && !laeuft) {
+    const gezeigt = ergebnis.treffer.length > 1 && zeigeLinie >= 0 ? [ergebnis.treffer[zeigeLinie]] : ergebnis.treffer;
+    gezeigt.forEach(t => t.felder.forEach(f => leuchtet.add(f)));
+  }
   return /*#__PURE__*/React.createElement("div", {
     className: "automat-schirm"
   }, /*#__PURE__*/React.createElement("div", {
@@ -3536,22 +3653,41 @@ const AutomatSchirm = ({
   }, /*#__PURE__*/React.createElement("div", {
     className: "automat-kasten"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "automat-feld",
+    className: 'automat-feld' + (laeuft ? ' laeuft' : ''),
     role: "group",
     "aria-label": "Walzen"
-  }, feld.map((k, i) => /*#__PURE__*/React.createElement("div", {
-    className: 'automat-zelle' + (leuchtet.has(i) ? ' treffer' : ''),
-    key: i
-  }, /*#__PURE__*/React.createElement("span", null, symbolVon(k).z)))), /*#__PURE__*/React.createElement("div", {
+  }, [0, 1, 2].map(spalte => /*#__PURE__*/React.createElement("div", {
+    className: "automat-walze",
+    key: spalte
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "automat-band",
+    key: dreh,
+    style: laeuft ? {
+      animationDuration: WALZEN_DAUER[spalte] + 'ms'
+    } : {
+      transform: 'translateY(-81.25%)'
+    }
+  }, baender[spalte].map((k, i) => {
+    // Nur die letzten drei Zellen sind das Ergebnis; sie
+    // tragen die Hervorhebung, sobald die Walze steht.
+    const reihe = i - (WALZEN_BAND - 3);
+    const feldNr = reihe >= 0 ? reihe * 3 + spalte : -1;
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'automat-zelle' + (leuchtet.has(feldNr) ? ' treffer' : ''),
+      key: i
+    }, /*#__PURE__*/React.createElement("span", null, symbolVon(k).z));
+  }))))), /*#__PURE__*/React.createElement("div", {
     className: "automat-meldung",
     "aria-live": "polite"
-  }, !ergebnis ? /*#__PURE__*/React.createElement("span", {
+  }, laeuft ? /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, "\u2026") : !ergebnis ? /*#__PURE__*/React.createElement("span", {
     className: "leise"
   }, "Einsatz w\xE4hlen und drehen.") : ergebnis.gewinn > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", {
     className: "gewinn"
-  }, "+", ergebnis.gewinn), /*#__PURE__*/React.createElement("span", {
+  }, "+", zaehler), /*#__PURE__*/React.createElement("span", {
     className: "leise"
-  }, ergebnis.treffer.map(t => t.name + ' · ' + t.sym.name).join('   '))) : /*#__PURE__*/React.createElement("span", {
+  }, ergebnis.treffer.length > 1 && zeigeLinie >= 0 ? ergebnis.treffer[zeigeLinie].name + ' · ' + ergebnis.treffer[zeigeLinie].sym.name + '  ·  +' + ergebnis.treffer[zeigeLinie].betrag + '   (' + (zeigeLinie + 1) + ' von ' + ergebnis.treffer.length + ')' : ergebnis.treffer.map(t => t.name + ' · ' + t.sym.name).join('   '))) : /*#__PURE__*/React.createElement("span", {
     className: "leise"
   }, "Nichts. Nochmal."), ergebnis && ergebnis.vollbild && /*#__PURE__*/React.createElement("span", {
     className: "vollbild"
@@ -3570,7 +3706,7 @@ const AutomatSchirm = ({
     className: 'automat-hebel' + (frei ? ' frei' : ''),
     disabled: !kannDrehen,
     onClick: drehen
-  }, frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), marken < AUTOMAT_EINSAETZE[0] && !frei && /*#__PURE__*/React.createElement("button", {
+  }, laeuft ? 'Läuft…' : frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), marken < AUTOMAT_EINSAETZE[0] && !frei && !laeuft && /*#__PURE__*/React.createElement("button", {
     className: "automat-nachschub",
     onClick: () => setMarken(MARKEN_START)
   }, "Der Wirt legt ", MARKEN_START, " Marken nach")), /*#__PURE__*/React.createElement("div", {

@@ -1760,12 +1760,33 @@
   .automat-kasten { width:100%; max-width:430px; padding:20px; border-radius:10px;
     background:#1d1913; border:1px solid #4d4234;
     box-shadow:0 0 0 3px #14110d, 0 0 34px rgba(217,164,65,0.09); }
+  /* Drei Walzen mit je einem Fenster von drei Zellen Hoehe. Das Band
+     darin ist 16 Zellen lang und faehrt auf die letzten drei — deshalb
+     -81,25 % (13 von 16). */
   .automat-feld { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .automat-walze { aspect-ratio:1 / 3; overflow:hidden; border-radius:7px;
+    background:#14110d; border:1px solid #362e23; }
+  .automat-band { display:flex; flex-direction:column; transform:translateY(-81.25%); }
+  .automat-feld.laeuft .automat-band {
+    animation-name:automat-lauf; animation-fill-mode:forwards;
+    animation-timing-function:cubic-bezier(.14,.72,.28,1.02);
+  }
+  @keyframes automat-lauf {
+    from { transform:translateY(0); }
+    to   { transform:translateY(-81.25%); }
+  }
   .automat-zelle { aspect-ratio:1; display:flex; align-items:center; justify-content:center;
-    border-radius:7px; background:#14110d; border:1px solid #362e23;
-    font-size:clamp(26px,9vw,40px); line-height:1; transition:border-color .18s, background .18s; }
-  .automat-zelle.treffer { border-color:#d9a441; background:rgba(217,164,65,0.14);
-    box-shadow:0 0 14px rgba(217,164,65,0.28) inset; }
+    font-size:clamp(26px,9vw,40px); line-height:1; flex-shrink:0;
+    box-shadow:inset 0 -1px 0 #262019; transition:background .18s, box-shadow .18s; }
+  .automat-zelle.treffer { background:rgba(217,164,65,0.16);
+    box-shadow:inset 0 0 0 2px #d9a441, inset 0 0 16px rgba(217,164,65,0.3); }
+  /* Waehrend des Laufs wird nichts hervorgehoben und leicht verwischt —
+     scharfe Symbole in voller Fahrt sehen aus wie ein Ruckeln. */
+  .automat-feld.laeuft .automat-zelle { filter:blur(0.6px); opacity:0.92; }
+  @media (prefers-reduced-motion: reduce) {
+    .automat-feld.laeuft .automat-band { animation:none; transform:translateY(-81.25%); }
+    .automat-feld.laeuft .automat-zelle { filter:none; opacity:1; }
+  }
 
   .automat-meldung { min-height:44px; margin-top:14px; display:flex; flex-wrap:wrap;
     align-items:baseline; gap:5px 12px; }

@@ -171,8 +171,13 @@ Die Auszahlungstabelle steht offen im Automaten, samt der **ausgerechneten
 Quote** — sie ergibt sich aus Häufigkeit und Auszahlung je Symbol und ist keine
 Schätzung. Zurzeit 89,2 %.
 
-Es fehlen noch: laufende Walzen, das Rad der Fortuna beim Vollbild, die beiden
-Risikospiele und die Stellschrauben für die Spielleitung.
+Die Walzen laufen und halten von links nach rechts nacheinander an, der Gewinn
+zählt hoch, und bei mehreren Gewinnlinien leuchtet eine nach der anderen auf —
+sonst leuchtet das halbe Feld und man sieht nicht, woran es lag. Wer Bewegung im
+Betriebssystem abgeschaltet hat, bekommt das Ergebnis sofort.
+
+Es fehlen noch: das Rad der Fortuna beim Vollbild, die beiden Risikospiele und
+die Stellschrauben für die Spielleitung.
 
 ### Schaden und Heilung ohne Umweg über einen Kampf
 
