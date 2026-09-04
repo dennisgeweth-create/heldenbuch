@@ -424,6 +424,33 @@ function App() {
   const dmBereit = () => !!dmPassRef.current || !!kontoRef.current;
 
 
+  // ── Was gerade unterwegs ist ────────────────────────────────────
+  // Der Speicherlauf gibt die Warteschlange frei, sobald er sie
+  // abgeschickt hat — nicht erst, wenn die Antwort da ist. In genau
+  // diesem Augenblick darf der Hintergrundabgleich laufen, und er
+  // bekommt vom Server noch die alten Trefferpunkte: die neuen sind ja
+  // noch unterwegs. Er schrieb sie dann ueber die frisch eingetragenen.
+  //
+  // Das war der Grund, warum im Kampftracker eingetragener Schaden nach
+  // kurzer Zeit wieder verschwand.
+  //
+  // Deshalb merkt sich diese Karte, wessen Trefferpunkte gerade fliegen.
+  // Fuer sie laesst der Abgleich die Finger von den Werten. Die
+  // Nachfrist faengt den anderen Fall: eine Abgleich-Anfrage, die schon
+  // unterwegs war, bevor wir geschrieben haben, und deren Antwort erst
+  // danach eintrifft.
+  const imFlug = useRef(new Map());          // charId -> geschuetzt bis
+  const FLUG_NACHFRIST = 2000;
+  const flugAn  = (id) => imFlug.current.set(id, Infinity);
+  const flugAus = (id) => imFlug.current.set(id, Date.now() + FLUG_NACHFRIST);
+  const fliegt  = (id) => {
+    const bis = imFlug.current.get(id);
+    if (bis === undefined) return false;
+    if (Date.now() < bis) return true;
+    imFlug.current.delete(id);
+    return false;
+  };
+
   // Auto-sync every 5 seconds in background (silent)
   // Interval sync: push localStorage to server every 3 seconds if pending
   useEffect(() => {
@@ -452,6 +479,7 @@ function App() {
 
       // Jeder Auftrag einzeln, damit ein abgelehnter nicht die anderen
       // mitreisst — und damit erkennbar bleibt, welcher es war.
+      Object.values(toSave).forEach(c => flugAn(c.id));
       const auftraege = [
         ...Object.values(toSave).map(c =>
           ({zurueck: () => { pendingChars.current[c.id] = c; },
@@ -467,6 +495,7 @@ function App() {
                   tun: () => apiDeleteItem(url, code, pass, cid, iid)}; }),
       ];
       const ergebnisse = auftraege.length ? await Promise.allSettled(auftraege.map(a => a.tun())) : [];
+      Object.values(toSave).forEach(c => flugAus(c.id));
 
       const staende = [];
       let abgelehnt = 0, letzterFehler = null;
@@ -539,6 +568,9 @@ function App() {
     const neu = charsRef.current.map(c => {
       const v = vitals[c.id];
       if (!v) return c;
+      // Unsere eigene Aenderung ist noch unterwegs oder wartet noch: dann
+      // ist die Zahl vom Server aelter als unsere, nicht neuer.
+      if (fliegt(c.id) || pendingChars.current[c.id]) return c;
       const p = {};
       ['hp','tempHp','tempMaxHp'].forEach(k => {
         if (v[k] !== undefined && (+v[k]||0) !== (+c[k]||0)) p[k] = +v[k]||0;
