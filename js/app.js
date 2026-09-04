@@ -4873,9 +4873,17 @@ const Sheet = () => {
       stickyFields: drin ? stickyWahl.filter(x => x !== k) : [...stickyWahl, k]
     });
   };
+
+  // Ein fremder Bogen ist zum Ansehen da. Alles, was schreibt —
+  // Hinzufuegen, Bearbeiten, Loeschen, die Umschalter der Reiter — wird
+  // ueber die Klasse sheet-nur-lesen ausgeblendet. Der Server weist es
+  // ohnehin ab; hier steht es, damit niemand etwas anklickt, das nichts
+  // tun kann.
   return /*#__PURE__*/React.createElement("div", {
-    className: "sheet"
-  }, /*#__PURE__*/React.createElement("div", {
+    className: "sheet" + (darfBearbeiten ? "" : " sheet-nur-lesen")
+  }, !darfBearbeiten && /*#__PURE__*/React.createElement("div", {
+    className: "nur-lesen-band"
+  }, "\uD83D\uDD12 Fremder Bogen \u2014 nur zum Ansehen.", /*#__PURE__*/React.createElement("i", null, "\xC4ndern darf ihn sein Konto und die Spielleitung des Abenteuers.")), /*#__PURE__*/React.createElement("div", {
     className: "sheet-header"
   }, /*#__PURE__*/React.createElement("div", {
     style: {

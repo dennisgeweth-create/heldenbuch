@@ -152,8 +152,19 @@ const Sheet = () => {
       patchChar({stickyFields: drin ? stickyWahl.filter(x=>x!==k) : [...stickyWahl, k]});
     };
 
+    // Ein fremder Bogen ist zum Ansehen da. Alles, was schreibt —
+    // Hinzufuegen, Bearbeiten, Loeschen, die Umschalter der Reiter — wird
+    // ueber die Klasse sheet-nur-lesen ausgeblendet. Der Server weist es
+    // ohnehin ab; hier steht es, damit niemand etwas anklickt, das nichts
+    // tun kann.
     return (
-      <div className="sheet">
+      <div className={"sheet" + (darfBearbeiten ? "" : " sheet-nur-lesen")}>
+        {!darfBearbeiten && (
+          <div className="nur-lesen-band">
+            🔒 Fremder Bogen — nur zum Ansehen.
+            <i>Ändern darf ihn sein Konto und die Spielleitung des Abenteuers.</i>
+          </div>
+        )}
         <div className="sheet-header">
           <div style={{minWidth:0,flex:1}}>
             {switchList.length < 2 ? (
