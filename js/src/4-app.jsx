@@ -2439,7 +2439,11 @@ function App() {
 
         <div className={"sidebar"+(sidebarCollapsed?" collapsed":"")}>
           <div className="sidebar-header">
-            <div className="sidebar-title">⚔ Heldenbuch ⚔</div>
+            <div className="sidebar-title">
+              <HeldenbuchLogo size={30} />
+              <span className="sidebar-wort">Heldenbuch</span>
+              <span className="app-version">{HB_VERSION}</span>
+            </div>
             <div className="sidebar-subtitle">Dungeons &amp; Dragons · 🐉</div>
           </div>
           <div className="char-list">
@@ -2525,14 +2529,18 @@ function App() {
                     denen einer selten und folgenreich ist (Abmelden) und
                     einer der haeufigste Weg zum eigenen Konto — jetzt hat
                     jeder das Gewicht, das er verdient. */}
-                <div className="sync-line">
-                  <div className={"sync-dot "+(offeneAenderungen>0?"err":syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
-                  <span className="sync-line-code">{svCode}</span>
-                  <span className={"sync-line-msg"+(offeneAenderungen>0?" offen":"")}>
-                    · {offeneAenderungen>0 ? offeneAenderungen+" nicht gesichert" : (syncMsg||"Verbunden")}
-                  </span>
-                  <span className="sync-line-ver">v4.3</span>
-                </div>
+                {/* Nur noch, wenn es etwas zu sagen gibt. Dass man verbunden
+                    ist, ist seit den Konten selbstverstaendlich — wer nicht
+                    angemeldet ist, sieht ohnehin die Anmeldemaske. Was bleibt,
+                    ist die Warnung: nicht gesichert, oder der Server schweigt. */}
+                {(offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && (
+                  <div className="sync-line">
+                    <div className={"sync-dot "+(offeneAenderungen>0?"err":syncStatus==="busy"?"busy":"err")}/>
+                    <span className={"sync-line-msg"+(offeneAenderungen>0?" offen":"")}>
+                      {offeneAenderungen>0 ? offeneAenderungen+" nicht gesichert" : (syncMsg||"…")}
+                    </span>
+                  </div>
+                )}
                 <div className="sync-actions">
                   {konto ? (
                     <button className="btn-konto" onClick={kontoOeffnen}
@@ -2571,14 +2579,18 @@ function App() {
           {isTouchLayout && mv==="list" && (
             <div className="mobile-list-screen">
               <div style={{padding:"16px 12px 12px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
-                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:16,color:"var(--gold)"}}>⚔ Heldenbuch ⚔</div>
+                <div className="sidebar-title" style={{fontSize:16}}>
+                  <HeldenbuchLogo size={26} />
+                  <span className="sidebar-wort">Heldenbuch</span>
+                  <span className="app-version">{HB_VERSION}</span>
+                </div>
                 <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:"var(--text-muted)",letterSpacing:"0.15em",textTransform:"uppercase",marginTop:4}}>Dungeons &amp; Dragons · 🐉</div>
                 {/* Sync status on mobile list */}
-                {svCode && (
+                {svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && (
                   <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:6}}>
-                    <div className={"sync-dot "+(offeneAenderungen>0?"err":syncStatus==="busy"?"busy":syncStatus==="err"?"err":"ok")}/>
+                    <div className={"sync-dot "+(offeneAenderungen>0?"err":syncStatus==="busy"?"busy":"err")}/>
                     <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',letterSpacing:'0.08em'}}>
-                      {svCode} · {offeneAenderungen>0 ? offeneAenderungen+' nicht gesichert' : (syncMsg||'Verbunden')}
+                      {offeneAenderungen>0 ? offeneAenderungen+' nicht gesichert' : (syncMsg||'…')}
                     </span>
                   </div>
                 )}
@@ -4350,9 +4362,10 @@ function App() {
               </div>
             )}
 
-            <div style={{maxHeight:'56vh',overflowY:'auto',paddingRight:4}}>
-              <div className="einst-block">
-                <div className="einst-titel">👥 Konten</div>
+            <div className="einst-roll">
+              <EinstBlock titel="👥 Konten"
+                kurz={(verwaltung.users || []).length
+                  + ((verwaltung.users || []).length === 1 ? ' Konto' : ' Konten')}>
                 <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
                   Diese Rolle gilt für die ganze Gruppe und nur dort, wo für ein Abenteuer
                   niemand eingetragen ist. Wer welches Abenteuer leitet, steht in den
@@ -4390,10 +4403,9 @@ function App() {
                     </div>
                   );
                 })}
-              </div>
+              </EinstBlock>
 
-              <div className="einst-block">
-                <div className="einst-titel">🗺 Neue Gruppe</div>
+              <EinstBlock titel="🗺 Neue Gruppe" kurz="anlegen">
                 <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
                   Eine Gruppe ist ein eigener Satz Helden, Abenteuer und Gegner. Wer dazu
                   gehört, bestimmst du oben.
@@ -4405,10 +4417,9 @@ function App() {
                     onKeyDown={e=>e.key==='Enter'&&gruppeAnlegen()} />
                   <button className="btn-icon" onClick={gruppeAnlegen}>Anlegen</button>
                 </div>
-              </div>
+              </EinstBlock>
 
-              <div className="einst-block">
-                <div className="einst-titel">✦ Neues Konto</div>
+              <EinstBlock titel="✦ Neues Konto" kurz="anlegen">
                 <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
                   Das Passwort wird hier erzeugt und einmal angezeigt. Danach steht in der
                   Datenbank nur noch sein Hash — auch die Verwaltung kann es nicht nachsehen.
@@ -4420,7 +4431,7 @@ function App() {
                     onKeyDown={e=>e.key==='Enter'&&kontoAnlegen()} />
                   <button className="btn-icon" onClick={kontoAnlegen}>Anlegen</button>
                 </div>
-              </div>
+              </EinstBlock>
             </div>
 
             <div className="form-actions">
@@ -4602,7 +4613,8 @@ function App() {
             const geputzt = {...advEinstellung};
             if (Array.isArray(geputzt.klassen)) {
               geputzt.klassen = geputzt.klassen.filter(k => (k.name||'').trim())
-                .map(k => ({name:k.name.trim(), color:k.color||'#8b9198'}));
+                .map(k => ({name:k.name.trim(), color:k.color||'#8b9198',
+                            attr: k.attr !== undefined ? k.attr : (SPELL_ATTR[k.name.trim()] || '')}));
               if (!geputzt.klassen.length) delete geputzt.klassen;
             }
             advSpeichern(abenteuer.map(a => a.id===geputzt.id ? geputzt : a));

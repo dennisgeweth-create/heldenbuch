@@ -27,12 +27,31 @@ const advListe = (lib) => {
 // Liste wird ohnehin schon mit allen geteilt, und ein zweiter Ort waere
 // ein zweiter Ort, an dem etwas auseinanderlaufen kann.
 //
-// Die Klassenliste ist bewusst nur eine Liste von Namen mit Farbe. Das
-// Regelwerk der Klasse (Trefferwuerfel, Zauberattribut) steht weiter im
-// Bogen des Helden — eine Hausklasse soll ohne Regelarbeit eintragbar sein.
-const KLASSEN_STANDARD = Object.keys(CC).map(n => ({name: n, color: CC[n].text}));
+// Eine Klasse ist ein Name, eine Farbe und das Attribut, mit dem sie
+// zaubert. Mehr braucht sie nicht: der Trefferwuerfel steht im Bogen des
+// Helden, eine Hausklasse soll ohne Regelarbeit eintragbar sein. Das
+// Attribut steht hier, weil daran zwei Zahlen im Bogen haengen — der
+// Zauber-SG und der Zauberangriff —, die einer Hausklasse sonst fuer
+// immer fehlten.
+const KLASSEN_STANDARD = Object.keys(CC).map(n =>
+  ({name: n, color: CC[n].text, attr: SPELL_ATTR[n] || ''}));
 const advKlassen = (adv) =>
   (adv && Array.isArray(adv.klassen) && adv.klassen.length) ? adv.klassen : KLASSEN_STANDARD;
+// Womit diese Klasse zaubert. Was in der Liste des Abenteuers steht,
+// gilt — auch ein leeres Feld, das heisst dann "zaubert nicht". Eine
+// Klasse, die noch aus der Zeit vor dem Feld stammt, faellt auf die
+// Tafel des Regelwerks zurueck.
+// Die sechs Attribute mit ausgeschriebenem Namen — fuer Auswahlfelder.
+const ATTR_WAHL = [
+  {k:'str', l:'Stärke'},       {k:'dex', l:'Geschicklichkeit'},
+  {k:'con', l:'Konstitution'}, {k:'int', l:'Intelligenz'},
+  {k:'wis', l:'Weisheit'},     {k:'cha', l:'Charisma'},
+];
+const klassenAttr = (name, klassen) => {
+  const k = (klassen || []).find(x => x.name === name);
+  if (k && k.attr !== undefined) return k.attr || null;
+  return SPELL_ATTR[name] || null;
+};
 // Farben einer Klasse: die zwoelf des Regelwerks behalten ihr eigenes
 // Dreigespann, eine Hausklasse leitet ihres aus einer Farbe ab.
 const klassenStil = (name, klassen) => {

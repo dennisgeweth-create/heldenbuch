@@ -99,6 +99,176 @@ const ZahlFeld = ({
   }));
 };
 
+// ── Die Ausgabe ─────────────────────────────────────────────────
+// Steht an einer Stelle und wird an zweien gezeigt: im Logo der
+// Heldenleiste und in der schmalen Ansicht.
+const HB_VERSION = 'v4.3';
+
+// ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
+// Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
+// Spielleitung, Konten, Klassen, und in der Verwaltung noch einmal
+// dasselbe. Zugeklappt sieht man auf einen Blick, was es gibt;
+// aufgeklappt nur das, was man gerade sucht. Deshalb geht alles
+// zugeklappt auf.
+//
+// "kurz" ist die Zeile, die zugeklappt rechts steht: was gerade gilt,
+// ohne dass man aufklappen muss.
+const EinstBlock = ({
+  titel,
+  kurz,
+  offenStart,
+  children
+}) => {
+  const [offen, setOffen] = useState(!!offenStart);
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'einst-block' + (offen ? ' offen' : '')
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "einst-kopf",
+    "aria-expanded": offen,
+    onClick: () => setOffen(o => !o)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "einst-pfeil"
+  }, offen ? '▾' : '▸'), /*#__PURE__*/React.createElement("span", {
+    className: "einst-titel"
+  }, titel), kurz ? /*#__PURE__*/React.createElement("i", {
+    className: "einst-kurz"
+  }, kurz) : null), offen && /*#__PURE__*/React.createElement("div", {
+    className: "einst-inhalt"
+  }, children));
+};
+
+// ── Das Zeichen des Heldenbuchs ─────────────────────────────────
+// Ein aufgeschlagenes Buch, ein Schwert mit der Spitze im Bund, das
+// Lesezeichen der Spielleitung. Es steht inline im Markup und nicht als
+// Datei: so faerbt es mit, laedt nicht nach und ist auch dann da, wenn
+// gerade nichts vom Server kommt. Dieselbe Zeichnung liegt als logo.svg
+// daneben — daraus entstehen favicon.png und apple-touch-icon.png.
+const HeldenbuchLogo = ({
+  size
+}) => /*#__PURE__*/React.createElement("svg", {
+  className: "hb-logo",
+  width: size || 28,
+  height: size || 28,
+  viewBox: "0 0 64 64",
+  role: "img",
+  "aria-label": "Heldenbuch"
+}, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
+  id: "hb-klinge",
+  x1: "0",
+  y1: "0",
+  x2: "1",
+  y2: "0"
+}, /*#__PURE__*/React.createElement("stop", {
+  offset: "0",
+  stopColor: "#8a6a1f"
+}), /*#__PURE__*/React.createElement("stop", {
+  offset: "0.42",
+  stopColor: "#f2d98a"
+}), /*#__PURE__*/React.createElement("stop", {
+  offset: "0.58",
+  stopColor: "#e8b84b"
+}), /*#__PURE__*/React.createElement("stop", {
+  offset: "1",
+  stopColor: "#8a6a1f"
+})), /*#__PURE__*/React.createElement("linearGradient", {
+  id: "hb-gold",
+  x1: "0",
+  y1: "0",
+  x2: "0",
+  y2: "1"
+}, /*#__PURE__*/React.createElement("stop", {
+  offset: "0",
+  stopColor: "#f2d98a"
+}), /*#__PURE__*/React.createElement("stop", {
+  offset: "1",
+  stopColor: "#b8860b"
+})), /*#__PURE__*/React.createElement("linearGradient", {
+  id: "hb-seite-l",
+  x1: "0",
+  y1: "0",
+  x2: "1",
+  y2: "0"
+}, /*#__PURE__*/React.createElement("stop", {
+  offset: "0",
+  stopColor: "#cbbd94"
+}), /*#__PURE__*/React.createElement("stop", {
+  offset: "1",
+  stopColor: "#eee3c6"
+})), /*#__PURE__*/React.createElement("linearGradient", {
+  id: "hb-seite-r",
+  x1: "0",
+  y1: "0",
+  x2: "1",
+  y2: "0"
+}, /*#__PURE__*/React.createElement("stop", {
+  offset: "0",
+  stopColor: "#eee3c6"
+}), /*#__PURE__*/React.createElement("stop", {
+  offset: "1",
+  stopColor: "#cbbd94"
+}))), /*#__PURE__*/React.createElement("path", {
+  d: "M6 42.5 C13.5 38.6 23.5 38.9 31 42.6 L31 55.4 C23.5 51.7 13.5 51.4 6 55.3 Z",
+  fill: "url(#hb-seite-l)",
+  stroke: "#8a6a1f",
+  strokeWidth: "1.4",
+  strokeLinejoin: "round"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M58 42.5 C50.5 38.6 40.5 38.9 33 42.6 L33 55.4 C40.5 51.7 50.5 51.4 58 55.3 Z",
+  fill: "url(#hb-seite-r)",
+  stroke: "#8a6a1f",
+  strokeWidth: "1.4",
+  strokeLinejoin: "round"
+}), /*#__PURE__*/React.createElement("g", {
+  stroke: "#a89670",
+  strokeWidth: "1",
+  strokeLinecap: "round",
+  opacity: "0.75"
+}, /*#__PURE__*/React.createElement("path", {
+  d: "M11 45.4 C16.5 43.6 22 43.8 27 45.6"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M11 49.2 C16.5 47.4 22 47.6 27 49.4"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M53 45.4 C47.5 43.6 42 43.8 37 45.6"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M53 49.2 C47.5 47.4 42 47.6 37 49.4"
+})), /*#__PURE__*/React.createElement("path", {
+  d: "M32 41.8 L32 55.6",
+  stroke: "#8a6a1f",
+  strokeWidth: "2.2",
+  strokeLinecap: "round"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M28.9 21 L35.1 21 L35.1 41 L32 48.5 L28.9 41 Z",
+  fill: "url(#hb-klinge)"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M32 21 L32 47",
+  stroke: "#fbf1cf",
+  strokeWidth: "0.9",
+  opacity: "0.65"
+}), /*#__PURE__*/React.createElement("rect", {
+  x: "20.5",
+  y: "16.8",
+  width: "23",
+  height: "4.4",
+  rx: "2.2",
+  fill: "url(#hb-gold)"
+}), /*#__PURE__*/React.createElement("rect", {
+  x: "30.1",
+  y: "9.6",
+  width: "3.8",
+  height: "7.6",
+  rx: "1.6",
+  fill: "#8a6a1f"
+}), /*#__PURE__*/React.createElement("circle", {
+  cx: "32",
+  cy: "7.6",
+  r: "3.4",
+  fill: "url(#hb-gold)"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M45.5 39.4 L45.5 51 L42.6 48.2 L39.7 51 L39.7 41.2 Z",
+  fill: "#c0392b"
+}));
+
 // ==== js/src/1-editors.jsx ====
 // Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
 // Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
@@ -3943,6 +4113,9 @@ const AbenteuerEinstellungen = ({
     klassen: liste
   });
 
+  // Fuer die Zeile, die zugeklappt neben dem Titel steht.
+  const zugeordnet = (helden || []).filter(h => (besitzer || {})[h.id]).length;
+
   // Der Automat: nur Haeufigkeit und Auszahlung sind einstellbar. Name und
   // Zeichen bleiben, sonst waere die Auszahlungstafel im Automaten eine
   // andere als die hier.
@@ -3986,11 +4159,7 @@ const AbenteuerEinstellungen = ({
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
   }, "\u2699 Einstellungen \xB7 ", adv.name || 'Abenteuer'), /*#__PURE__*/React.createElement("div", {
-    style: {
-      maxHeight: '64vh',
-      overflowY: 'auto',
-      paddingRight: 4
-    }
+    className: "einst-roll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full",
     style: {
@@ -4005,11 +4174,10 @@ const AbenteuerEinstellungen = ({
       name: e.target.value
     }),
     placeholder: "z.B. Strahd"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
+  })), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\u2764 Trefferpunkte",
+    kurz: adv.hpVerdeckt ? 'Verdeckt' : 'Offen'
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\u2764 Trefferpunkte"), /*#__PURE__*/React.createElement("div", {
     className: "einst-wahl"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -4025,11 +4193,10 @@ const AbenteuerEinstellungen = ({
     })
   }, /*#__PURE__*/React.createElement("b", null, "Verdeckt"), /*#__PURE__*/React.createElement("i", null, "Spieler sehen nur ihren Zustand \u2014 \u201EVerwundet\u201C statt \u201E14 / 38\u201C. Zahlen und Eingabefelder bleiben der Spielleitung."))), adv.hpVerdeckt && /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
-  }, "Die Trefferpunkte werden dann im DM-Modus gepflegt \u2014 im Bogen oder \xFCber den Kampftracker. Maximum und tempor\xE4re Trefferpunkte sind mit verdeckt, sonst lie\xDFe sich die Zahl zur\xFCckrechnen.")), /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
+  }, "Die Trefferpunkte werden dann im DM-Modus gepflegt \u2014 im Bogen oder \xFCber den Kampftracker. Maximum und tempor\xE4re Trefferpunkte sind mit verdeckt, sonst lie\xDFe sich die Zahl zur\xFCckrechnen.")), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83C\uDFB0 Automat der Taverne",
+    kurz: (rechnung.quote * 100).toFixed(0) + ' % · Vollbild ' + (autoVoll ? '1 auf ' + autoVoll : 'aus')
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\uD83C\uDFB0 Automat der Taverne"), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 0,
@@ -4136,11 +4303,10 @@ const AbenteuerEinstellungen = ({
     })
   }, "\u21BA Standardautomat")), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
-  }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), (mitglieder || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
+  }, "Gespielt wird mit Spielmarken, die im Ger\xE4t jedes Einzelnen liegen \u2014 nichts davon ber\xFChrt einen Charakterbogen. Wer einen zwielichtigen Automaten will, regelt ihn auf 80 % ein und sagt nichts.")), (mitglieder || []).length > 0 && /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83D\uDD2E Spielleitung dieses Abenteuers",
+    kurz: (advDms || []).length ? (advDms || []).length + ((advDms || []).length === 1 ? ' Konto' : ' Konten') : 'jede Spielleitung'
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\uD83D\uDD2E Spielleitung dieses Abenteuers"), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 0,
@@ -4157,11 +4323,10 @@ const AbenteuerEinstellungen = ({
       disabled: !istAdmin,
       onChange: () => onAdvDms(drin ? (advDms || []).filter(x => x !== m.id) : [...(advDms || []), m.id])
     }), /*#__PURE__*/React.createElement("span", null, m.name, m.rolle === 'dm' ? ' · Spielleitung der Gruppe' : ''));
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
+  })), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83E\uDDD1 Helden und ihre Konten",
+    kurz: zugeordnet + ' von ' + (helden || []).length + ' zugeordnet'
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\uD83E\uDDD1 Helden und ihre Konten"), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 0,
@@ -4192,17 +4357,16 @@ const AbenteuerEinstellungen = ({
   }, "\u2014 niemandem \u2014"), (mitglieder || []).map(m => /*#__PURE__*/React.createElement("option", {
     key: m.id,
     value: m.id
-  }, m.name, m.rolle === 'dm' ? ' (DM)' : '')))))), /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
+  }, m.name, m.rolle === 'dm' ? ' (DM)' : '')))))), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83C\uDF93 Klassen",
+    kurz: klassen.length + (klassen.length === 1 ? ' Klasse' : ' Klassen') + (eigene ? '' : ' · Regelwerk')
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\uD83C\uDF93 Klassen"), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 0,
       marginBottom: 10
     }
-  }, "Was hier steht, steht im Charakterbogen zur Wahl. Eine Hausklasse braucht nur Namen und Farbe \u2014 Trefferw\xFCrfel und Zauberattribut stehen ohnehin im Bogen des Helden."), klassen.map((k, i) => {
+  }, "Was hier steht, steht im Charakterbogen zur Wahl. Name und Farbe gen\xFCgen; das Attribut sagt, womit die Klasse zaubert \u2014 daran h\xE4ngen im Bogen der Zauber-SG und der Zauberangriff. \u201EZaubert nicht\u201C l\xE4sst beide weg. Der Trefferw\xFCrfel steht weiter im Bogen des Helden."), klassen.map((k, i) => {
     const genutzt = inBenutzung[k.name] || 0;
     return /*#__PURE__*/React.createElement("div", {
       className: "einst-klasse",
@@ -4223,7 +4387,20 @@ const AbenteuerEinstellungen = ({
       onChange: e => aendern(i, {
         name: e.target.value
       })
-    }), /*#__PURE__*/React.createElement("span", {
+    }), /*#__PURE__*/React.createElement("select", {
+      className: "form-select einst-attr",
+      "aria-label": 'Zauberattribut von ' + (k.name || 'Klasse'),
+      title: "Womit diese Klasse zaubert",
+      value: k.attr !== undefined ? k.attr || '' : SPELL_ATTR[k.name] || '',
+      onChange: e => aendern(i, {
+        attr: e.target.value
+      })
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "zaubert nicht"), ATTR_WAHL.map(a => /*#__PURE__*/React.createElement("option", {
+      key: a.k,
+      value: a.k
+    }, a.l))), /*#__PURE__*/React.createElement("span", {
       className: "einst-genutzt"
     }, genutzt ? genutzt + (genutzt === 1 ? ' Held' : ' Helden') : ''), /*#__PURE__*/React.createElement("button", {
       type: "button",
@@ -5438,7 +5615,9 @@ const Sheet = () => {
   // Held ausgewaehlt hat. feld: bei Werten, die im Bearbeiten-Modus direkt
   // eingegeben werden. t: betroffenes Effektziel, faerbt den Wert und
   // erklaert ihn im Tooltip.
-  const spAttrL = SPELL_ATTR[cur.charClass];
+  // Womit gezaubert wird, steht seit v4.3 in der Klassenliste des
+  // Abenteuers — auch fuer eine Hausklasse, die im Regelwerk nicht steht.
+  const spAttrL = klassenAttr(cur.charClass, klassen);
   const spSGL = spAttrL ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttrL])) : null;
   const spAtkL = spAttrL ? fx('spellAttack', effCur.profBonus + mod(effCur[spAttrL])) : null;
   const wahrSkill = SKILLS.find(x => x.key === 'aufmerksamkeit');
@@ -12382,7 +12561,13 @@ function App() {
     className: "sidebar-header"
   }, /*#__PURE__*/React.createElement("div", {
     className: "sidebar-title"
-  }, "\u2694 Heldenbuch \u2694"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(HeldenbuchLogo, {
+    size: 30
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "sidebar-wort"
+  }, "Heldenbuch"), /*#__PURE__*/React.createElement("span", {
+    className: "app-version"
+  }, HB_VERSION)), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-subtitle"
   }, "Dungeons & Dragons \xB7 \uD83D\uDC09")), /*#__PURE__*/React.createElement("div", {
     className: "char-list"
@@ -12489,17 +12674,13 @@ function App() {
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showAutomat ? " an" : ""),
     onClick: () => setShowAutomat(o => !o)
-  }, "\uD83C\uDFB0 Taverne")), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\uD83C\uDFB0 Taverne")), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     className: "sync-line"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
+    className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : "err")
   }), /*#__PURE__*/React.createElement("span", {
-    className: "sync-line-code"
-  }, svCode), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
-  }, "\xB7 ", offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
-    className: "sync-line-ver"
-  }, "v4.3")), /*#__PURE__*/React.createElement("div", {
+  }, offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "…")), /*#__PURE__*/React.createElement("div", {
     className: "sync-actions"
   }, konto ? /*#__PURE__*/React.createElement("button", {
     className: "btn-konto",
@@ -12552,12 +12733,17 @@ function App() {
       textAlign: "center"
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-title",
     style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 16,
-      color: "var(--gold)"
+      fontSize: 16
     }
-  }, "\u2694 Heldenbuch \u2694"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(HeldenbuchLogo, {
+    size: 26
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "sidebar-wort"
+  }, "Heldenbuch"), /*#__PURE__*/React.createElement("span", {
+    className: "app-version"
+  }, HB_VERSION)), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: "'Roboto Condensed',sans-serif",
       fontSize: 9,
@@ -12566,7 +12752,7 @@ function App() {
       textTransform: "uppercase",
       marginTop: 4
     }
-  }, "Dungeons & Dragons \xB7 \uD83D\uDC09"), svCode && /*#__PURE__*/React.createElement("div", {
+  }, "Dungeons & Dragons \xB7 \uD83D\uDC09"), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -12575,7 +12761,7 @@ function App() {
       marginTop: 6
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : syncStatus === "err" ? "err" : "ok")
+    className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : "err")
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "'Roboto Condensed',sans-serif",
@@ -12583,7 +12769,7 @@ function App() {
       color: 'var(--text-muted)',
       letterSpacing: '0.08em'
     }
-  }, svCode, " \xB7 ", offeneAenderungen > 0 ? offeneAenderungen + ' nicht gesichert' : syncMsg || 'Verbunden')), /*#__PURE__*/React.createElement("div", {
+  }, offeneAenderungen > 0 ? offeneAenderungen + ' nicht gesichert' : syncMsg || '…')), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-tools",
     style: {
       marginTop: 10
@@ -16789,16 +16975,11 @@ function App() {
       gezeigt: null
     }))
   }, "Verstanden")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      maxHeight: '56vh',
-      overflowY: 'auto',
-      paddingRight: 4
-    }
+    className: "einst-roll"
+  }, /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83D\uDC65 Konten",
+    kurz: (verwaltung.users || []).length + ((verwaltung.users || []).length === 1 ? ' Konto' : ' Konten')
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\uD83D\uDC65 Konten"), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 0,
@@ -16845,11 +17026,10 @@ function App() {
       disabled: selbst || ausConfig,
       onClick: () => kontoEntfernen(u)
     }, "\u2715"));
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
+  })), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83D\uDDFA Neue Gruppe",
+    kurz: "anlegen"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\uD83D\uDDFA Neue Gruppe"), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 0,
@@ -16871,11 +17051,10 @@ function App() {
   }), /*#__PURE__*/React.createElement("button", {
     className: "btn-icon",
     onClick: gruppeAnlegen
-  }, "Anlegen"))), /*#__PURE__*/React.createElement("div", {
-    className: "einst-block"
+  }, "Anlegen"))), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\u2726 Neues Konto",
+    kurz: "anlegen"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "einst-titel"
-  }, "\u2726 Neues Konto"), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 0,
@@ -17122,7 +17301,8 @@ function App() {
       if (Array.isArray(geputzt.klassen)) {
         geputzt.klassen = geputzt.klassen.filter(k => (k.name || '').trim()).map(k => ({
           name: k.name.trim(),
-          color: k.color || '#8b9198'
+          color: k.color || '#8b9198',
+          attr: k.attr !== undefined ? k.attr : SPELL_ATTR[k.name.trim()] || ''
         }));
         if (!geputzt.klassen.length) delete geputzt.klassen;
       }

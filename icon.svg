@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Heldenbuch">
+  <title>Heldenbuch</title>
+  <!-- Das Zeichen aus logo.svg auf dunklem Grund, mit Luft am Rand: so
+       wird es zum Lesezeichen-Bild und zum Symbol auf dem Startbildschirm.
+       Daraus entstehen favicon.png und apple-touch-icon.png. -->
+  <defs>
+    <linearGradient id="hb-klinge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"    stop-color="#8a6a1f"/>
+      <stop offset="0.42" stop-color="#f2d98a"/>
+      <stop offset="0.58" stop-color="#e8b84b"/>
+      <stop offset="1"    stop-color="#8a6a1f"/>
+    </linearGradient>
+    <linearGradient id="hb-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2d98a"/>
+      <stop offset="1" stop-color="#b8860b"/>
+    </linearGradient>
+    <linearGradient id="hb-seite-l" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#cbbd94"/>
+      <stop offset="1" stop-color="#eee3c6"/>
+    </linearGradient>
+    <linearGradient id="hb-seite-r" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#eee3c6"/>
+      <stop offset="1" stop-color="#cbbd94"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#12161d"/>
+  <rect x="1.25" y="1.25" width="61.5" height="61.5" rx="12.9" fill="none"
+        stroke="#8a6a1f" stroke-width="2.5"/>
+  <g transform="translate(32 33.5) scale(0.76) translate(-32 -32)">
+<!-- Das aufgeschlagene Buch: zwei Seiten, die sich zur Mitte senken. -->
+  <g>
+    <path d="M6 42.5 C13.5 38.6 23.5 38.9 31 42.6 L31 55.4 C23.5 51.7 13.5 51.4 6 55.3 Z"
+          fill="url(#hb-seite-l)" stroke="#8a6a1f" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M58 42.5 C50.5 38.6 40.5 38.9 33 42.6 L33 55.4 C40.5 51.7 50.5 51.4 58 55.3 Z"
+          fill="url(#hb-seite-r)" stroke="#8a6a1f" stroke-width="1.4" stroke-linejoin="round"/>
+    <!-- Zeilen, nur angedeutet: bei 16 Pixeln verschwinden sie ohnehin. -->
+    <g stroke="#a89670" stroke-width="1" stroke-linecap="round" opacity="0.75">
+      <path d="M11 45.4 C16.5 43.6 22 43.8 27 45.6"/>
+      <path d="M11 49.2 C16.5 47.4 22 47.6 27 49.4"/>
+      <path d="M53 45.4 C47.5 43.6 42 43.8 37 45.6"/>
+      <path d="M53 49.2 C47.5 47.4 42 47.6 37 49.4"/>
+    </g>
+    <!-- Der Bund in der Mitte. -->
+    <path d="M32 41.8 L32 55.6" stroke="#8a6a1f" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Das Schwert, mit der Spitze im Bund. -->
+  <g>
+    <path d="M28.9 21 L35.1 21 L35.1 41 L32 48.5 L28.9 41 Z" fill="url(#hb-klinge)"/>
+    <path d="M32 21 L32 47" stroke="#fbf1cf" stroke-width="0.9" opacity="0.65"/>
+    <rect x="20.5" y="16.8" width="23" height="4.4" rx="2.2" fill="url(#hb-gold)"/>
+    <rect x="30.1" y="9.6" width="3.8" height="7.6" rx="1.6" fill="#8a6a1f"/>
+    <circle cx="32" cy="7.6" r="3.4" fill="url(#hb-gold)"/>
+  </g>
+
+  <!-- Das Lesezeichen der Spielleitung. -->
+  <path d="M45.5 39.4 L45.5 51 L42.6 48.2 L39.7 51 L39.7 41.2 Z" fill="#c0392b"/>
+  </g>
+</svg>

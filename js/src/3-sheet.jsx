@@ -80,7 +80,9 @@ const Sheet = () => {
     // Held ausgewaehlt hat. feld: bei Werten, die im Bearbeiten-Modus direkt
     // eingegeben werden. t: betroffenes Effektziel, faerbt den Wert und
     // erklaert ihn im Tooltip.
-    const spAttrL   = SPELL_ATTR[cur.charClass];
+    // Womit gezaubert wird, steht seit v4.3 in der Klassenliste des
+    // Abenteuers — auch fuer eine Hausklasse, die im Regelwerk nicht steht.
+    const spAttrL   = klassenAttr(cur.charClass, klassen);
     const spSGL     = spAttrL ? fx('spellDc', 8 + effCur.profBonus + mod(effCur[spAttrL])) : null;
     const spAtkL    = spAttrL ? fx('spellAttack', effCur.profBonus + mod(effCur[spAttrL])) : null;
     const wahrSkill = SKILLS.find(x=>x.key==='aufmerksamkeit');

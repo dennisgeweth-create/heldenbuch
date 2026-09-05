@@ -19,6 +19,9 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
 
   const klassenSetzen = (liste) => setzen({klassen: liste});
 
+  // Fuer die Zeile, die zugeklappt neben dem Titel steht.
+  const zugeordnet = (helden || []).filter(h => (besitzer || {})[h.id]).length;
+
   // Der Automat: nur Haeufigkeit und Auszahlung sind einstellbar. Name und
   // Zeichen bleiben, sonst waere die Auszahlungstafel im Automaten eine
   // andere als die hier.
@@ -39,7 +42,7 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
       <div className="form-modal" style={{maxWidth:560}}>
         <div className="form-title">⚙ Einstellungen · {adv.name || 'Abenteuer'}</div>
 
-        <div style={{maxHeight:'64vh',overflowY:'auto',paddingRight:4}}>
+        <div className="einst-roll">
           <div className="form-group form-full" style={{marginBottom:18}}>
             <label className="form-label">Name des Abenteuers</label>
             <input className="form-input" value={adv.name||''}
@@ -47,8 +50,7 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
           </div>
 
           {/* ── Trefferpunkte ── */}
-          <div className="einst-block">
-            <div className="einst-titel">❤ Trefferpunkte</div>
+          <EinstBlock titel="❤ Trefferpunkte" kurz={adv.hpVerdeckt ? 'Verdeckt' : 'Offen'}>
             <div className="einst-wahl">
               <button type="button" className={'einst-option' + (!adv.hpVerdeckt ? ' aktiv' : '')}
                 onClick={()=>setzen({hpVerdeckt:false})}>
@@ -69,11 +71,12 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                 mit verdeckt, sonst ließe sich die Zahl zurückrechnen.
               </div>
             )}
-          </div>
+          </EinstBlock>
 
           {/* ── Der Automat ── */}
-          <div className="einst-block">
-            <div className="einst-titel">🎰 Automat der Taverne</div>
+          <EinstBlock titel="🎰 Automat der Taverne"
+            kurz={(rechnung.quote * 100).toFixed(0) + ' % · Vollbild '
+                  + (autoVoll ? '1 auf ' + autoVoll : 'aus')}>
             <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
               Häufigkeit sagt, wie oft ein Symbol fällt; Auszahlung, was drei
               davon auf einer Linie bringen — als Vielfaches des Einsatzes.
@@ -171,12 +174,14 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               nichts davon berührt einen Charakterbogen. Wer einen zwielichtigen
               Automaten will, regelt ihn auf 80 % ein und sagt nichts.
             </div>
-          </div>
+          </EinstBlock>
 
           {/* ── Wer leitet dieses Abenteuer ── */}
           {(mitglieder || []).length > 0 && (
-            <div className="einst-block">
-              <div className="einst-titel">🔮 Spielleitung dieses Abenteuers</div>
+            <EinstBlock titel="🔮 Spielleitung dieses Abenteuers"
+              kurz={(advDms || []).length
+                ? (advDms || []).length + (((advDms || []).length === 1) ? ' Konto' : ' Konten')
+                : 'jede Spielleitung'}>
               <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
                 {(advDms || []).length === 0
                   ? 'Niemand eingetragen — dann leitet es jede Spielleitung der Gruppe. Wer hier steht, leitet es allein.'
@@ -195,12 +200,12 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                   </label>
                 );
               })}
-            </div>
+            </EinstBlock>
           )}
 
           {/* ── Wem gehoert welcher Held ── */}
-          <div className="einst-block">
-            <div className="einst-titel">🧑 Helden und ihre Konten</div>
+          <EinstBlock titel="🧑 Helden und ihre Konten"
+            kurz={zugeordnet + ' von ' + (helden || []).length + ' zugeordnet'}>
             <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
               Ein zugeordneter Bogen lässt sich nur noch von seinem Konto ändern —
               und von dir. Was hier niemandem gehört, bleibt für alle offen; die
@@ -231,15 +236,17 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                 </div>
               ))
             )}
-          </div>
+          </EinstBlock>
 
           {/* ── Klassen ── */}
-          <div className="einst-block">
-            <div className="einst-titel">🎓 Klassen</div>
+          <EinstBlock titel="🎓 Klassen"
+            kurz={klassen.length + (klassen.length === 1 ? ' Klasse' : ' Klassen')
+                  + (eigene ? '' : ' · Regelwerk')}>
             <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
-              Was hier steht, steht im Charakterbogen zur Wahl. Eine Hausklasse
-              braucht nur Namen und Farbe — Trefferwürfel und Zauberattribut
-              stehen ohnehin im Bogen des Helden.
+              Was hier steht, steht im Charakterbogen zur Wahl. Name und Farbe
+              genügen; das Attribut sagt, womit die Klasse zaubert — daran hängen
+              im Bogen der Zauber-SG und der Zauberangriff. „Zaubert nicht“ lässt
+              beide weg. Der Trefferwürfel steht weiter im Bogen des Helden.
             </div>
 
             {klassen.map((k,i) => {
@@ -252,6 +259,14 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                   <input className="form-input" value={k.name}
                     aria-label="Klassenname" placeholder="Name der Klasse"
                     onChange={e=>aendern(i, {name:e.target.value})} />
+                  <select className="form-select einst-attr"
+                    aria-label={'Zauberattribut von ' + (k.name || 'Klasse')}
+                    title="Womit diese Klasse zaubert"
+                    value={k.attr !== undefined ? (k.attr || '') : (SPELL_ATTR[k.name] || '')}
+                    onChange={e=>aendern(i, {attr: e.target.value})}>
+                    <option value="">zaubert nicht</option>
+                    {ATTR_WAHL.map(a => <option key={a.k} value={a.k}>{a.l}</option>)}
+                  </select>
                   <span className="einst-genutzt">
                     {genutzt ? genutzt + (genutzt===1 ? ' Held' : ' Helden') : ''}
                   </span>
@@ -277,7 +292,7 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                 </span>
               )}
             </div>
-          </div>
+          </EinstBlock>
         </div>
 
         <div className="form-actions">
