@@ -2506,7 +2506,8 @@ function App() {
               }}>📖 Abenteuerlog</button>
               {isDmMode && (
                 <button className="btn-tool" onClick={()=>setShowKampf(true)}>
-                  ⚔ Kampf{kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''}
+                  ⚔ Kampf{!kampf || !kampf.aktiv ? ''
+                    : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
                 </button>
               )}
               {isDmMode && (
@@ -2593,7 +2594,8 @@ function App() {
                   </button>
                   {isDmMode && (
                     <button className="btn-tool" onClick={()=>setShowKampf(true)}>
-                      ⚔ Kampf{kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''}
+                      ⚔ Kampf{!kampf || !kampf.aktiv ? ''
+                        : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
                     </button>
                   )}
                   {isDmMode && (
@@ -4637,9 +4639,7 @@ function App() {
           heldNotizen={dmLibrary.heldNotizen}
           onHeldNotiz={heldNotizSetzen}
           onHeldNotizSichern={heldNotizSichern}
-          onBeenden={()=>appConfirm(
-            'Kampf beenden? Die Trefferpunkte stehen schon in den Bögen — es geht nichts verloren.',
-            ()=>{ setKampf(null); setShowKampf(false); }, 'Beenden')} />
+          onFrage={appConfirm} />
       )}
 
       {encForm && (

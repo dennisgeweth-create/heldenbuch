@@ -1426,6 +1426,12 @@ const gegnerAusBegegnung = (begegnung, enemies) => {
 };
 
 // ── Kampf aufstellen ─────────────────────────────────────────────
+// Aufgestellt wird zuerst nur: die Helden stehen da, Gegner kommen dazu,
+// Initiativen werden angesagt. Das ist die Vorbereitung — die Runde
+// laeuft noch nicht, und das Protokoll bleibt leer, bis jemand "Kampf
+// starten" drueckt. Vorher ist noch nichts geschehen, was der Rede wert
+// waere, und ein Kampf, der schon in Runde 1 steht, waehrend die Gruppe
+// noch ueberlegt, macht die Runden falsch.
 const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
   const teilnehmer = gegnerAusBegegnung(begegnung, enemies);
 
@@ -1448,17 +1454,20 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
   });
   return {
     aktiv: true,
+    phase: 'vorbereitung',
     name: begegnung.name || 'Kampf',
     runde: 1,
     zug: 0,
     teilnehmer: sortiereNachIni(teilnehmer),
-    log: [{
-      art: 'start',
-      r: 1,
-      wer: begegnung.name || 'Kampf'
-    }]
+    log: []
   };
 };
+
+// Ein Kampf aus einer aelteren Fassung kennt keine Phase. Der lief, als
+// er gespeichert wurde, und wird nicht nachtraeglich in die Vorbereitung
+// zurueckgeschoben — mitten im Kampf neu zu laden ist genau der Fall,
+// fuer den der Stand ueberhaupt im Geraet liegt.
+const inVorbereitung = k => !!k && k.phase === 'vorbereitung';
 
 // Ohne Initiative ganz nach unten: solange die Spieler ihre Zahl nicht
 // angesagt haben, steht die Reihenfolge noch nicht fest.
@@ -1522,10 +1531,10 @@ const protokollZeile = (e, mitZahlen) => {
 };
 
 // Der ganze Verlauf als Text, wie er in die Zwischenablage geht.
-const protokollText = (kampf, mitZahlen) => {
+const protokollText = (kampf, mitZahlen, zeit) => {
   const zeilen = [];
   zeilen.push('⚔ ' + (kampf.name || 'Kampf'));
-  zeilen.push(new Date().toLocaleString('de-DE'));
+  zeilen.push(new Date(zeit || Date.now()).toLocaleString('de-DE'));
   zeilen.push('');
   let runde = null;
   (kampf.log || []).forEach(e => {
@@ -1539,6 +1548,161 @@ const protokollText = (kampf, mitZahlen) => {
   });
   if ((kampf.log || []).length === 0) zeilen.push('(noch nichts geschehen)');
   return zeilen.join('\n');
+};
+
+// Derselbe Verlauf auf dem Schirm. Steht einzeln, weil ihn zwei
+// Stellen zeichnen: der laufende Kampf und jeder alte aus dem Archiv.
+const ProtokollZeilen = ({
+  log,
+  mitZahlen
+}) => {
+  const zeilen = [];
+  let runde = null;
+  (log || []).forEach((e, i) => {
+    if (e.r !== runde) {
+      runde = e.r;
+      zeilen.push( /*#__PURE__*/React.createElement("div", {
+        className: "pr-runde",
+        key: 'r' + i
+      }, "\u2500\u2500 Runde ", runde, " \u2500\u2500"));
+    }
+    const z = protokollZeile(e, mitZahlen);
+    if (z) zeilen.push( /*#__PURE__*/React.createElement("div", {
+      className: 'pr-zeile' + (e.art === 'zug' ? ' zug' : '') + (e.art === 'nieder' || e.art === 'todes' && e.lage === 'tot' ? ' schwer' : ''),
+      key: i
+    }, z));
+  });
+  return zeilen;
+};
+
+// In die Zwischenablage. Wo die neue Schnittstelle fehlt — altes
+// Android, unsichere Verbindung —, hilft der Umweg ueber ein Feld, das
+// kurz da ist und gleich wieder verschwindet.
+const inZwischenablage = async text => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const f = document.createElement('textarea');
+      f.value = text;
+      f.style.position = 'fixed';
+      f.style.opacity = '0';
+      document.body.appendChild(f);
+      f.select();
+      document.execCommand('copy');
+      document.body.removeChild(f);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// ── Das Gesamtprotokoll ──────────────────────────────────────────
+// Jeder beendete Kampf wandert hierher: Name, Zeit, Verlauf. Es liegt
+// wie der laufende Kampf im Geraet der Spielleitung — es ist ihre
+// Mitschrift, nicht Teil der Boegen, und hat auf dem Server nichts
+// verloren. Der aelteste faellt heraus, wenn es zu viele werden; sechzig
+// Kaempfe sind ein gutes halbes Jahr Spielabende.
+const ARCHIV_SCHLUESSEL = 'hb_kampf_archiv';
+const ARCHIV_MAX = 60;
+const archivLesen = () => {
+  try {
+    const a = JSON.parse(localStorage.getItem(ARCHIV_SCHLUESSEL) || '[]');
+    // Der juengste zuerst — auch wenn zwischendurch die Uhr des Geraets
+    // verstellt wurde und die Reihenfolge im Speicher nicht mehr stimmt.
+    return Array.isArray(a) ? [...a].sort((x, y) => (y.zeit || 0) - (x.zeit || 0)) : [];
+  } catch {
+    return [];
+  }
+};
+const archivLegen = eintrag => {
+  const liste = [eintrag, ...archivLesen()].slice(0, ARCHIV_MAX);
+  try {
+    localStorage.setItem(ARCHIV_SCHLUESSEL, JSON.stringify(liste));
+  } catch {}
+  return liste;
+};
+
+// Der Tag als Schluessel, in der Zeit des Geraets: ein Kampf um halb eins
+// nachts gehoert zu dem Abend, an dem er stattfand, nicht zum Datum in
+// London.
+const tagVon = zeit => {
+  const d = new Date(zeit);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+};
+const tagName = tag => {
+  if (tag === tagVon(Date.now())) return 'Heute';
+  if (tag === tagVon(Date.now() - 86400000)) return 'Gestern';
+  const [j, m, t] = tag.split('-').map(Number);
+  return new Date(j, m - 1, t).toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit'
+  });
+};
+const uhrzeitVon = zeit => new Date(zeit).toLocaleTimeString('de-DE', {
+  hour: '2-digit',
+  minute: '2-digit'
+});
+const KampfArchiv = ({
+  mitZahlen
+}) => {
+  const [liste] = React.useState(archivLesen);
+  const tage = [...new Set(liste.map(e => tagVon(e.zeit)))];
+  const [tag, setTag] = React.useState(tage[0] || '');
+  const [offen, setOffen] = React.useState(liste.length ? liste[0].id : null);
+  const [kopiert, setKopiert] = React.useState(null);
+  if (!liste.length) return /*#__PURE__*/React.createElement("div", {
+    className: "kampf-protokoll-text"
+  }, /*#__PURE__*/React.createElement("i", null, "Noch kein beendeter Kampf. Was du beendest, findest du hier wieder."));
+  const desTages = liste.filter(e => tagVon(e.zeit) === tag);
+  const kopieren = async e => {
+    if (!(await inZwischenablage(protokollText(e, mitZahlen, e.zeit)))) return;
+    setKopiert(e.id);
+    setTimeout(() => setKopiert(null), 2000);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "kampf-archiv"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-archiv-tage"
+  }, tage.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    type: "button",
+    className: 'kampf-archiv-tag' + (t === tag ? ' an' : ''),
+    onClick: () => {
+      setTag(t);
+      setOffen(null);
+    }
+  }, tagName(t), /*#__PURE__*/React.createElement("i", null, liste.filter(e => tagVon(e.zeit) === t).length)))), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-archiv-liste"
+  }, desTages.map(e => /*#__PURE__*/React.createElement("div", {
+    className: "kampf-archiv-kampf",
+    key: e.id
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "kampf-archiv-kopf",
+    onClick: () => setOffen(o => o === e.id ? null : e.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "ka-pfeil"
+  }, offen === e.id ? '▾' : '▸'), /*#__PURE__*/React.createElement("span", {
+    className: "ka-zeit"
+  }, uhrzeitVon(e.zeit)), /*#__PURE__*/React.createElement("b", {
+    className: "ka-name"
+  }, e.name), /*#__PURE__*/React.createElement("i", {
+    className: "ka-info"
+  }, e.runden, " ", e.runden === 1 ? 'Runde' : 'Runden', " \xB7 ", (e.log || []).length, " Eintr\xE4ge", e.abenteuer ? ' · ' + e.abenteuer : '')), offen === e.id && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-protokoll-text"
+  }, /*#__PURE__*/React.createElement(ProtokollZeilen, {
+    log: e.log,
+    mitZahlen: mitZahlen
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-archiv-fuss"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    onClick: () => kopieren(e)
+  }, kopiert === e.id ? '✓ Kopiert' : '📋 Kopieren')))))));
 };
 
 // ── Todesrettungswuerfe ──────────────────────────────────────────
@@ -2322,7 +2486,7 @@ const KampfAnsicht = ({
   advId,
   onSchliessen,
   onGegnerBlatt,
-  onBeenden,
+  onFrage,
   onHeldAendern,
   heldNotizen,
   onHeldNotiz,
@@ -2334,17 +2498,22 @@ const KampfAnsicht = ({
   const [begegnungOffen, setBegegnungOffen] = React.useState(false);
   const [nothelferOffen, setNothelferOffen] = React.useState(false);
   const [protokollOffen, setProtokollOffen] = React.useState(false);
+  const [protokollTab, setProtokollTab] = React.useState('jetzt');
+  // Zaehlt jeden beendeten Kampf mit. Er steht am Archiv als Schluessel,
+  // damit es nach einem Ende neu aus dem Speicher liest.
+  const [archivStand, setArchivStand] = React.useState(0);
   const [mitZahlen, setMitZahlen] = React.useState(true);
   const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
 
-  // Der Tracker faengt sofort an. Frueher stand hier eine Startseite mit
-  // der Begegnungsliste — die war im Weg, weil der haeufigste Fall keiner
-  // Begegnung entspricht: die Gruppe laeuft in etwas hinein, und die Gegner
-  // kommen einzeln dazu. Wer eine vorbereitete Begegnung will, laedt sie
-  // oben nach; der Kampf steht dann schon.
+  // Der Tracker geht in der Vorbereitung auf: die Helden stehen schon da,
+  // Gegner und Initiativen kommen dazu. Frueher stand hier eine Startseite
+  // mit der Begegnungsliste — die war im Weg, weil der haeufigste Fall
+  // keiner Begegnung entspricht: die Gruppe laeuft in etwas hinein, und
+  // die Gegner kommen einzeln dazu. Wer eine vorbereitete Begegnung will,
+  // laedt sie hier nach; aufgestellt ist dann alles.
   React.useEffect(() => {
     if (!kampf || !kampf.aktiv) {
       setKampf(kampfAufstellen({
@@ -2382,7 +2551,7 @@ const KampfAnsicht = ({
   // Der Schluessel ist Runde und Figur zusammen: dieselbe Figur in der
   // naechsten Runde ist ein neuer Zug, dieselbe Figur nach dem dritten
   // Neuzeichnen nicht.
-  const dranRoh = kampf && kampf.aktiv ? kampf.teilnehmer[kampf.zug] : null;
+  const dranRoh = kampf && kampf.aktiv && !inVorbereitung(kampf) ? kampf.teilnehmer[kampf.zug] : null;
   const zugSchluessel = dranRoh ? kampf.runde + ':' + dranRoh.id : null;
   const zuletztAmZug = React.useRef(undefined);
   if (zuletztAmZug.current === undefined) {
@@ -2455,13 +2624,22 @@ const KampfAnsicht = ({
   // Eine Zeile ins Protokoll. Die Runde kommt aus dem Kampf selbst, nicht
   // aus dem Aufrufer — sonst stuende ein Eintrag in der falschen Runde,
   // wenn er im selben Atemzug mit dem Zugwechsel kommt.
-  const protokollieren = eintrag => setKampf(k => k && {
+  // In der Vorbereitung schreibt sie nichts: was dort geschieht — Gegner
+  // aufstellen, Initiativen eintragen, einem Helden die Trefferpunkte
+  // richtigstellen — ist kein Teil des Kampfes und stuende sonst schon
+  // in Runde 1, bevor der Kampf begonnen hat.
+  const protokollieren = eintrag => setKampf(k => !k || inVorbereitung(k) ? k : {
     ...k,
     log: [...(k.log || []), {
       ...eintrag,
       r: k.runde
     }]
   });
+  // Dasselbe fuer die beiden Stellen, die gleich mehrere Zeilen schreiben.
+  const mitLog = (k, eintraege) => inVorbereitung(k) ? k : {
+    ...k,
+    log: [...(k.log || []), ...eintraege]
+  };
 
   // Was zum Helden gehoert, geht in den Bogen — sofort, nicht am Ende.
   const aendernWerte = (id, fn, eintrag) => {
@@ -2685,30 +2863,23 @@ const KampfAnsicht = ({
     const idx = k.teilnehmer.findIndex(t => t.id === id);
     const teilnehmer = k.teilnehmer.filter(t => t.id !== id);
     const zug = idx < k.zug ? Math.max(0, k.zug - 1) : Math.min(k.zug, Math.max(0, teilnehmer.length - 1));
-    return {
+    return mitLog({
       ...k,
       teilnehmer,
-      zug,
-      log: [...(k.log || []), {
-        art: 'weg',
-        r: k.runde,
-        wer: raus && (heldName(raus) || raus.name) || 'Jemand'
-      }]
-    };
+      zug
+    }, [{
+      art: 'weg',
+      r: k.runde,
+      wer: raus && (heldName(raus) || raus.name) || 'Jemand'
+    }]);
   });
-  const dazu = neue => setKampf(k => {
-    const nk = neuOrdnen(k, [...k.teilnehmer, ...neue]);
-    return {
-      ...nk,
-      log: [...(k.log || []), ...neue.map(t => ({
-        art: 'dazu',
-        r: k.runde,
-        wer: heldName(t) || t.name,
-        hp: t.hpMax,
-        ac: t.ac
-      }))]
-    };
-  });
+  const dazu = neue => setKampf(k => mitLog(neuOrdnen(k, [...k.teilnehmer, ...neue]), neue.map(t => ({
+    art: 'dazu',
+    r: k.runde,
+    wer: heldName(t) || t.name,
+    hp: t.hpMax,
+    ac: t.ac
+  }))));
 
   // Eine vorbereitete Begegnung in den laufenden Kampf. Steht noch kein
   // Gegner drin und heisst der Kampf noch wie der leere, uebernimmt er den
@@ -2726,6 +2897,49 @@ const KampfAnsicht = ({
       }, [...k.teilnehmer, ...neue]);
     });
   };
+
+  // ── Vorbereitung → Kampf → Vorbereitung ────────────────────────
+  // Der Start macht aus der Aufstellung Runde 1. Von hier an zaehlt die
+  // Runde, und das Protokoll faengt an mitzuschreiben.
+  const starten = () => {
+    zuletztAmZug.current = null; // der erste am Zug gehoert hinein
+    setKampf(k => ({
+      ...k,
+      phase: 'kampf',
+      runde: 1,
+      zug: 0,
+      teilnehmer: sortiereRoh(k.teilnehmer),
+      log: [{
+        art: 'start',
+        r: 1,
+        wer: k.name || 'Kampf'
+      }]
+    }));
+  };
+
+  // Das Ende fuehrt nicht hinaus, sondern zurueck an den Anfang: der
+  // Verlauf wandert ins Gesamtprotokoll, die Gegner sind erledigt, die
+  // Helden stehen wieder bereit. Am Tisch folgt auf einen Kampf meistens
+  // der naechste, nicht das Heldenbuch.
+  const beenden = () => onFrage('Kampf beenden? Der Verlauf wandert ins Gesamtprotokoll, die Trefferpunkte ' + 'stehen schon in den Bögen. Danach steht wieder die Vorbereitung da — ' + 'ohne Gegner, ohne Initiativen.', () => {
+    const eigen = (kampf.log || []).filter(e => e.art !== 'start');
+    if (eigen.length) {
+      archivLegen({
+        id: 'kl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+        name: kampf.name || 'Kampf',
+        zeit: Date.now(),
+        runden: kampf.runde,
+        abenteuer: ((abenteuer || []).find(a => a.id === advId) || {}).name || '',
+        log: kampf.log || []
+      });
+      setArchivStand(n => n + 1);
+    }
+    zuletztAmZug.current = null;
+    setKampf(kampfAufstellen({
+      name: 'Kampf',
+      enemies: []
+    }, enemies, helden, setDefs));
+  }, 'Beenden');
   const naechster = () => setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
@@ -2745,35 +2959,18 @@ const KampfAnsicht = ({
     ...t,
     ini: w20() + mod(heldDex(t))
   })));
-
-  // In die Zwischenablage. Wo die neue Schnittstelle fehlt — altes
-  // Android, unsichere Verbindung —, hilft der Umweg ueber ein Feld,
-  // das kurz da ist und gleich wieder verschwindet.
   const protokollKopieren = async () => {
-    const text = protokollText(kampf, mitZahlen);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      try {
-        const f = document.createElement('textarea');
-        f.value = text;
-        f.style.position = 'fixed';
-        f.style.opacity = '0';
-        document.body.appendChild(f);
-        f.select();
-        document.execCommand('copy');
-        document.body.removeChild(f);
-      } catch {
-        return;
-      }
-    }
+    if (!(await inZwischenablage(protokollText(kampf, mitZahlen)))) return;
     setKopiert(true);
     setTimeout(() => setKopiert(false), 2000);
   };
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
+  const vorbereitung = inVorbereitung(kampf);
+  const zahlHelden = liste.filter(t => t.art === 'held').length;
+  const zahlGegner = liste.length - zahlHelden;
   return /*#__PURE__*/React.createElement("div", {
-    className: 'kampf-schirm' + (seiteOffen ? ' seite-offen' : '')
+    className: 'kampf-schirm' + (seiteOffen ? ' seite-offen' : '') + (vorbereitung ? ' vorbereitung' : '')
   }, /*#__PURE__*/React.createElement(KampfSeite, {
     helden: helden,
     setDefs: setDefs,
@@ -2810,11 +3007,13 @@ const KampfAnsicht = ({
     "aria-label": "Helden und Gegner"
   }, "\u2630"), /*#__PURE__*/React.createElement("div", {
     className: "kampf-titel"
-  }, "\u2694 ", kampf.name), /*#__PURE__*/React.createElement("div", {
+  }, "\u2694 ", kampf.name), vorbereitung ? /*#__PURE__*/React.createElement("div", {
+    className: "kampf-phase"
+  }, "Vorbereitung") : /*#__PURE__*/React.createElement("div", {
     className: "kampf-runde"
   }, /*#__PURE__*/React.createElement("span", null, "Runde"), /*#__PURE__*/React.createElement("b", null, kampf.runde)), /*#__PURE__*/React.createElement("div", {
     className: "kampf-dran"
-  }, amZug ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, amZug.name)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
+  }, vorbereitung ? /*#__PURE__*/React.createElement(React.Fragment, null, "Aufgestellt: ", /*#__PURE__*/React.createElement("b", null, zahlHelden), " ", zahlHelden === 1 ? 'Held' : 'Helden', ",", ' ', /*#__PURE__*/React.createElement("b", null, zahlGegner), " ", zahlGegner === 1 ? 'Gegner' : 'Gegner') : amZug ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, amZug.name)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn",
     onClick: alleIni,
     title: "F\xFCr alle ohne Zahl w\xFCrfeln"
@@ -2834,13 +3033,18 @@ const KampfAnsicht = ({
     className: "kampf-kopf-btn zusatz" + (protokollOffen ? " an" : ""),
     onClick: () => setProtokollOffen(o => !o),
     title: "Was in diesem Kampf geschehen ist"
-  }, "\uD83D\uDCDC Protokoll", (kampf.log || []).length > 1 ? ' · ' + (kampf.log || []).length : ''), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCDC Protokoll", !vorbereitung && (kampf.log || []).length > 1 ? ' · ' + (kampf.log || []).length : ''), vorbereitung ? /*#__PURE__*/React.createElement("button", {
+    className: "kampf-weiter start",
+    onClick: starten,
+    disabled: !liste.length,
+    title: liste.length ? 'Runde 1 beginnt — ab hier schreibt das Protokoll mit' : 'Erst jemanden aufstellen'
+  }, "\u25B6 Kampf starten") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "kampf-weiter",
     onClick: naechster
   }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn ende",
-    onClick: onBeenden
-  }, "\u23F9 Kampf beenden"), /*#__PURE__*/React.createElement("button", {
+    onClick: beenden
+  }, "\u23F9 Kampf beenden")), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter",
@@ -2849,37 +3053,37 @@ const KampfAnsicht = ({
     className: "kampf-protokoll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCDC Protokoll dieses Kampfes"), /*#__PURE__*/React.createElement("label", {
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-protokoll-reiter"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: protokollTab === 'jetzt' ? 'an' : '',
+    onClick: () => setProtokollTab('jetzt')
+  }, "\uD83D\uDCDC Dieser Kampf"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: protokollTab === 'archiv' ? 'an' : '',
+    onClick: () => setProtokollTab('archiv')
+  }, "\uD83D\uDDC4 Fr\xFChere")), /*#__PURE__*/React.createElement("label", {
     className: "kampf-protokoll-schalter",
     title: "Ohne H\xE4kchen stehen nur die Betr\xE4ge da, nicht die Trefferpunktst\xE4nde"
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox",
     checked: mitZahlen,
     onChange: e => setMitZahlen(e.target.checked)
-  }), "Trefferpunkte"), /*#__PURE__*/React.createElement("button", {
+  }), "Trefferpunkte"), protokollTab === 'jetzt' && /*#__PURE__*/React.createElement("button", {
     className: "btn-icon",
     onClick: protokollKopieren
-  }, kopiert ? '✓ Kopiert' : '📋 Kopieren')), /*#__PURE__*/React.createElement("div", {
+  }, kopiert ? '✓ Kopiert' : '📋 Kopieren')), protokollTab === 'jetzt' ? /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll-text"
-  }, (kampf.log || []).length <= 1 ? /*#__PURE__*/React.createElement("i", null, "Noch nichts geschehen. Was du eintr\xE4gst, steht hier.") : (() => {
-    const zeilen = [];
-    let runde = null;
-    (kampf.log || []).forEach((e, i) => {
-      if (e.r !== runde) {
-        runde = e.r;
-        zeilen.push( /*#__PURE__*/React.createElement("div", {
-          className: "pr-runde",
-          key: 'r' + i
-        }, "\u2500\u2500 Runde ", runde, " \u2500\u2500"));
-      }
-      const z = protokollZeile(e, mitZahlen);
-      if (z) zeilen.push( /*#__PURE__*/React.createElement("div", {
-        className: 'pr-zeile' + (e.art === 'zug' ? ' zug' : '') + (e.art === 'nieder' || e.art === 'todes' && e.lage === 'tot' ? ' schwer' : ''),
-        key: i
-      }, z));
-    });
-    return zeilen;
-  })())), ohneIni > 0 && /*#__PURE__*/React.createElement("div", {
+  }, vorbereitung ? /*#__PURE__*/React.createElement("i", null, "Der Kampf l\xE4uft noch nicht. Ab \u201EKampf starten\u201C steht hier, was geschieht \u2014 und beim Beenden wandert es unter \u201EFr\xFChere\u201C.") : (kampf.log || []).length <= 1 ? /*#__PURE__*/React.createElement("i", null, "Noch nichts geschehen. Was du eintr\xE4gst, steht hier.") : /*#__PURE__*/React.createElement(ProtokollZeilen, {
+    log: kampf.log,
+    mitZahlen: mitZahlen
+  })) : /*#__PURE__*/React.createElement(KampfArchiv, {
+    key: archivStand,
+    mitZahlen: mitZahlen
+  })), vorbereitung && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-vorband"
+  }, /*#__PURE__*/React.createElement("b", null, "Vorbereitung."), " Gegner dazustellen, Initiativen eintragen, Helden ein- und ausladen. Die Runde l\xE4uft noch nicht \u2014 ins Protokoll kommt erst etwas, wenn der Kampf gestartet ist."), ohneIni > 0 && !vorbereitung && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
   }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), nothelferOffen && /*#__PURE__*/React.createElement(NothelferFenster, {
     onAbbrechen: () => setNothelferOffen(false),
@@ -12279,7 +12483,7 @@ function App() {
   }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setShowKampf(true)
-  }, "\u2694 Kampf", kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''), isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
@@ -12401,7 +12605,7 @@ function App() {
   }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setShowKampf(true)
-  }, "\u2694 Kampf", kampf && kampf.aktiv ? ' · Runde ' + kampf.runde : ''), isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
@@ -16963,10 +17167,7 @@ function App() {
     heldNotizen: dmLibrary.heldNotizen,
     onHeldNotiz: heldNotizSetzen,
     onHeldNotizSichern: heldNotizSichern,
-    onBeenden: () => appConfirm('Kampf beenden? Die Trefferpunkte stehen schon in den Bögen — es geht nichts verloren.', () => {
-      setKampf(null);
-      setShowKampf(false);
-    }, 'Beenden')
+    onFrage: appConfirm
   }), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
     form: encForm,
     setForm: setEncForm,
