@@ -139,6 +139,13 @@ const protokollZeile = (e, mitZahlen) => {
     case 'start':    return '⚔ ' + e.wer + ' beginnt';
     case 'runde':    return '';                       // wird als Ueberschrift gesetzt
     case 'zug':      return '▸ ' + e.wer + ' ist am Zug';
+    // Die drei aus dem Zugfenster. Sie stehen zwischen dem Zug und seinen
+    // Folgen: erst was jemand tut, dann was daraus wird.
+    case 'frei':     return '   „' + e.text + '“';
+    case 'aktion':   return '   ' + (e.modus === 'zauber' ? 'Zauber' : 'Angriff') + ': ' + e.was;
+    case 'wurf':     return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': '
+                            + (e.treffer ? 'Treffer' : 'daneben')
+                            + (e.wurf !== '' && e.wurf != null ? ' (' + e.wurf + ' gegen RK ' + e.ac + ')' : '');
     case 'schaden':  return '   ' + e.wer + ' nimmt ' + e.wert + ' Schaden' + stand;
     case 'heilung':  return '   ' + e.wer + ' wird um ' + e.wert + ' geheilt' + stand;
     case 'temp':     return '   ' + e.wer + ': ' + (e.wert >= 0 ? '+' : '') + e.wert + ' temporäre Trefferpunkte';
@@ -437,6 +444,245 @@ const WertDialog = ({ modus, name, start, onAnwenden, onAbbrechen }) => {
   );
 };
 
+// ── Das Zugfenster ───────────────────────────────────────────────
+// Bis hierher trug die Spielleitung den Schaden ein und schrieb daneben
+// auf, was eigentlich geschehen ist. Das Fenster dreht die Reihenfolge um:
+// sie sagt, WAS geschieht — Waffe oder Zauber, auf wen, wie viel —, und die
+// Trefferpunkte fallen als Nebenprodukt ab. Derselbe Schaden wird nicht
+// mehr zweimal getippt.
+//
+// Drei Entscheidungen stecken darin:
+//   Es geht nur auf Knopfdruck auf. Ein Tracker, der bei jedem Zugwechsel
+//   eine Eingabe verlangt, wird nach drei Runden abgeschaltet.
+//   Es wuerfelt nicht. Gewuerfelt wird am Tisch; getroffen oder daneben ist
+//   ein Schalter, und der Wurf darf danebenstehen, muss aber nicht.
+//   Beim Gegner gibt es keine Auswahl. Er hat im Heldenbuch keine
+//   Waffenliste, nur seinen Bogen aus der Sammlung — also nur Ziele, Werte
+//   und die Beschreibung.
+const ZugFenster = ({ t, liste, helden, runde, onAbbrechen, onAnwenden }) => {
+  const held   = t.art === 'held' ? (helden || []).find(h => h.id === t.charId) : null;
+  const waffen = (held && held.weapons) || [];
+  const sprueche = [...((held && held.spells) || [])]
+    .sort((a,b) => (a.level||0) - (b.level||0) || (a.name||'').localeCompare(b.name||'','de'));
+
+  const [art, setArt]           = React.useState(waffen.length ? 'angriff'
+                                                 : (sprueche.length ? 'zauber' : 'frei'));
+  const [gewaehlt, setGewaehlt] = React.useState(null);
+  const [richtung, setRichtung] = React.useState('schaden');
+  const [ziele, setZiele]       = React.useState({});
+  const [text, setText]         = React.useState('');
+
+  // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
+  const nurWerte = t.art !== 'held';
+  const quelle = nurWerte ? [] : (art === 'zauber' ? sprueche : art === 'angriff' ? waffen : []);
+  const gegenstand = gewaehlt === null ? null : (quelle[gewaehlt] || null);
+  const mitSchalter = !nurWerte && art !== 'frei' && richtung === 'schaden';
+
+  const zielSetzen = (id, p) => setZiele(z => ({...z, [id]: {...z[id], ...p}}));
+  const zielUm = (id) => setZiele(z => {
+    if (z[id]) { const k = {...z}; delete k[id]; return k; }
+    return {...z, [id]: {treffer: true, wurf: '', wert: 0}};
+  });
+
+  // Einmal gebaut, zweimal genutzt: als Vorschau und als das, was beim
+  // Uebernehmen wirklich geschrieben wird. So kann die Vorschau nicht von
+  // dem abweichen, was danach im Protokoll steht.
+  const bauen = () => {
+    const eintraege = [], treffer = [];
+    if (text.trim()) eintraege.push({art: 'frei', wer: t.name, text: text.trim()});
+    if (gegenstand) eintraege.push({art: 'aktion', wer: t.name, was: gegenstand.name, modus: art});
+    Object.keys(ziele).forEach(id => {
+      const ziel = liste.find(x => x.id === id);
+      if (!ziel) return;
+      const z = ziele[id];
+      if (mitSchalter) {
+        eintraege.push({art: 'wurf', was: gegenstand ? gegenstand.name : '',
+          ziel: ziel.name, wurf: z.wurf, ac: ziel.ac, treffer: !!z.treffer});
+      }
+      if (mitSchalter && !z.treffer) return;
+      const n = Math.max(0, Math.round(+z.wert || 0));
+      if (n) treffer.push({id, modus: richtung, n, ziel});
+    });
+    return {eintraege, treffer};
+  };
+
+  const {eintraege, treffer} = bauen();
+  const summe = treffer.reduce((s, x) => s + x.n, 0);
+
+  // Die Vorschau zeigt dieselben Zeilen, die gleich im Protokoll stehen —
+  // samt der Trefferpunkte davor und danach.
+  const vorschau = [{art: 'zug', r: runde, wer: t.name},
+                    ...eintraege.map(e => ({...e, r: runde}))];
+  treffer.forEach(({modus, n, ziel}) => {
+    const von = ziel.hp || 0;
+    const auf = modus === 'heilung' ? Math.min(ziel.hpMax, von + n) : Math.max(0, von - n);
+    vorschau.push({art: modus, r: runde, wer: ziel.name, wert: n, von, auf});
+    if (von > 0 && auf <= 0) vorschau.push({art: 'nieder', r: runde, wer: ziel.name});
+  });
+
+  const knopf = summe
+    ? (richtung === 'heilung' ? '✓ Übernehmen — heilt ' + summe + ' TP'
+                              : '✓ Übernehmen — trägt ' + summe + ' TP ab')
+    : '✓ Übernehmen';
+
+  const ArtTaste = ({k, kind, aus}) => (
+    <button type="button" className={'zug-taste' + (art === k ? ' an' : '')} disabled={aus}
+      onClick={()=>{ setArt(k); setGewaehlt(null); }}>{kind}</button>
+  );
+
+  return (
+    <div className="form-overlay" onClick={onAbbrechen}>
+      <div className="zug-fenster" onClick={e=>e.stopPropagation()}>
+
+        <div className="zug-kopf">
+          <span className="zug-titel">✍ {t.name}</span>
+          <span className="zug-wer">Runde {runde}{t.unterzeile ? ' · ' + t.unterzeile : ''}</span>
+          <span className="zug-tp"><b>{t.hp}</b> / {t.hpMax} TP</span>
+        </div>
+
+        <div className="zug-leib">
+          {!nurWerte && (
+            <div className="zug-block">
+              <div className="zug-label">Was tut {t.name}</div>
+              <div className="zug-reihe">
+                <ArtTaste k="angriff" kind="⚔ Angriff" aus={!waffen.length} />
+                <ArtTaste k="zauber"  kind="✨ Zauber" aus={!sprueche.length} />
+                <ArtTaste k="frei"    kind="✍ Nur beschreiben" />
+              </div>
+            </div>
+          )}
+
+          {!nurWerte && art !== 'frei' && (
+            <div className="zug-block">
+              <div className="zug-label">
+                {art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'}
+              </div>
+              {quelle.length === 0 ? (
+                <div className="zug-leer">
+                  {art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.'}
+                </div>
+              ) : (
+                <div className="zug-liste">
+                  {quelle.map((g, i) => (
+                    <button type="button" key={g.id || i}
+                      className={'zug-zeile' + (i === gewaehlt ? ' an' : '')
+                                 + (art === 'zauber' ? ' arkan' : '')}
+                      onClick={()=>setGewaehlt(i === gewaehlt ? null : i)}>
+                      <span className="zug-sym">{art === 'zauber' ? '✨' : '⚔'}</span>
+                      <span className="zug-text">
+                        <b>{g.name || 'Ohne Namen'}</b>
+                        <i>{art === 'zauber'
+                          ? ((g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad')
+                             + (g.school ? ' · ' + g.school : '')
+                             + (g.range ? ' · ' + g.range : ''))
+                          : ((g.damageType ? g.damageType + ' · ' : '')
+                             + (g.range || ''))}</i>
+                      </span>
+                      <span className="zug-wirkt">{art === 'zauber' ? '' : (g.damage || '')}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="zug-block">
+            <div className="zug-label">Auf wen</div>
+            <div className="zug-ziele">
+              {liste.map(z => {
+                const anteil = Math.max(0, Math.min(1, (z.hp||0) / Math.max(1, z.hpMax||1)));
+                const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a';
+                return (
+                  <button type="button" key={z.id}
+                    className={'zug-ziel' + (ziele[z.id] ? ' an' : '') + (z.art === 'held' ? ' held' : '')}
+                    onClick={()=>zielUm(z.id)}>
+                    <span className="zug-ziel-kopf"><b>{z.name}</b><i>RK {z.ac}</i></span>
+                    <span className="zug-balken"><i style={{width:(anteil*100)+'%', background:farbe}} /></span>
+                    <span className="zug-ziel-tp">{z.hp} / {z.hpMax} TP</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="zug-block">
+            <div className="zug-label">
+              Was ankommt
+              <span className="zug-richtung">
+                <button type="button" className={richtung === 'schaden' ? 'an dmg' : ''}
+                  onClick={()=>setRichtung('schaden')}>− Schaden</button>
+                <button type="button" className={richtung === 'heilung' ? 'an heal' : ''}
+                  onClick={()=>setRichtung('heilung')}>+ Heilung</button>
+              </span>
+            </div>
+            {Object.keys(ziele).length === 0 ? (
+              <div className="zug-leer">Noch kein Ziel gewählt.</div>
+            ) : (
+              <div className="zug-wirkung">
+                {Object.keys(ziele).map(id => {
+                  const z = ziele[id];
+                  const ziel = liste.find(x => x.id === id);
+                  if (!ziel) return null;
+                  return (
+                    <div className="zug-w-zeile" key={id}>
+                      <span className="zug-w-name">{ziel.name}</span>
+                      {mitSchalter && (
+                        <span className="zug-schalter">
+                          <button type="button" className={'ja' + (z.treffer ? ' an' : '')}
+                            onClick={()=>zielSetzen(id, {treffer:true})}>Treffer</button>
+                          <button type="button" className={'nein' + (z.treffer ? '' : ' an')}
+                            onClick={()=>zielSetzen(id, {treffer:false})}>daneben</button>
+                        </span>
+                      )}
+                      {mitSchalter && (
+                        <span className="zug-feld">
+                          <span>Wurf</span>
+                          <ZahlFeld className="zug-zahl" sofort wert={z.wurf} leerWert=""
+                            placeholder="—" aria-label={'Gewürfelt gegen ' + ziel.name}
+                            onWert={v=>zielSetzen(id, {wurf: v})} />
+                        </span>
+                      )}
+                      {(!mitSchalter || z.treffer) && (
+                        <span className="zug-feld">
+                          <span>{richtung === 'heilung' ? 'Heilt' : 'Schaden'}</span>
+                          <ZahlFeld className="zug-zahl" sofort min={0} wert={z.wert} leerWert={0}
+                            aria-label={(richtung === 'heilung' ? 'Heilung' : 'Schaden') + ' an ' + ziel.name}
+                            onWert={v=>zielSetzen(id, {wert: v})} />
+                        </span>
+                      )}
+                      <span className="zug-w-notiz">RK {ziel.ac} · {ziel.hp}/{ziel.hpMax}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="zug-block">
+            <div className="zug-label">Beschreibung — freiwillig</div>
+            <textarea className="zug-frei" value={text} onChange={e=>setText(e.target.value)}
+              placeholder="Was geschieht in diesem Zug?" aria-label="Beschreibung des Zuges" />
+          </div>
+
+          <div className="zug-block">
+            <div className="zug-label">Kommt so ins Protokoll</div>
+            <div className="zug-vorschau">
+              <ProtokollZeilen log={vorschau} mitZahlen={true} />
+            </div>
+          </div>
+        </div>
+
+        <div className="zug-fuss">
+          <span className="zug-hinweis">Was hier steht, geht sofort in die Bögen.</span>
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          <button className="btn-save" onClick={()=>onAnwenden(bauen())}
+            disabled={!eintraege.length && !treffer.length}>{knopf}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Zustandsfenster ──────────────────────────────────────────────
 const ZustandWahl = ({ t, onZustand, onErschoepfung, onMarke, onSchliessen }) => (
   <div className="kampf-zust-panel" onClick={e=>e.stopPropagation()}>
@@ -470,7 +716,7 @@ const ZustandWahl = ({ t, onZustand, onErschoepfung, onMarke, onSchliessen }) =>
 );
 
 // ── Eine Karte ───────────────────────────────────────────────────
-const KampfZeile = ({ t, dran, onWert, onFenster, onIni, onNotiz, onNotizFertig, onZustand, onMarke,
+const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotizFertig, onZustand, onMarke,
                       onErschoepfung, onEntfernen, onBlatt, onTodes,
                       zustandOffen, setZustandOffen, detailOffen, setDetailOffen }) => {
   const gesamtMax = Math.max(1, t.hpMax || 1);
@@ -518,6 +764,15 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onIni, onNotiz, onNotizFertig,
           ))}
           {(t.flags||[]).map(f => <span key={f} className="kampf-flag">{f}</span>)}
         </div>
+        {/* Nur bei dem, der dran ist, und nur auf Knopfdruck: ein Fenster,
+            das bei jedem Zugwechsel von allein aufginge, waere nach drei
+            Runden abgeschaltet. */}
+        {dran && onZug && (
+          <button className="kampf-zug-knopf" onClick={onZug}
+            title="Angriff, Zauber oder Beschreibung eintragen — die Trefferpunkte rechnet es mit">
+            ✍ Zug eintragen
+          </button>
+        )}
       </div>
 
       {/* Die Notiz der Spielleitung, nicht die des Spielers zu seinem Helden.
@@ -904,6 +1159,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [mitZahlen, setMitZahlen] = React.useState(true);
   const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
+  const [zugFenster, setZugFenster] = React.useState(null);   // id der Figur
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
 
@@ -1053,6 +1309,15 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const wertDirekt = (id, modus, n) => {
     if (modus === 'schaden') aendernWerte(id, t => schaden(t, n), {art:'schaden', wert:n});
     if (modus === 'heilung') aendernWerte(id, t => heilen(t, n),  {art:'heilung', wert:n});
+  };
+
+  // Was im Zugfenster steht, geht denselben Weg wie alles andere: erst die
+  // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
+  // Kein zweiter Rechenweg, der auseinanderlaufen kann.
+  const zugAnwenden = ({eintraege, treffer}) => {
+    setZugFenster(null);
+    (eintraege || []).forEach(e => protokollieren(e));
+    (treffer || []).forEach(({id, modus, n}) => wertDirekt(id, modus, n));
   };
 
   const fensterAnwenden = (n) => {
@@ -1214,7 +1479,12 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
 
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
+  const zugZiel = zugFenster && liste.find(t => t.id === zugFenster);
   const vorbereitung = inVorbereitung(kampf);
+  // Der Knopf laesst sich je Abenteuer abschalten — fuer Runden, die ohne
+  // Mitschrift spielen. Ohne Eintrag ist er da.
+  const advObj = (abenteuer || []).find(a => a.id === advId) || null;
+  const zugfensterAn = !advObj || advObj.zugfenster !== false;
   const zahlHelden = liste.filter(t => t.art === 'held').length;
   const zahlGegner = liste.length - zahlHelden;
 
@@ -1362,6 +1632,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             onAbbrechen={()=>setWertDlg(null)} onAnwenden={fensterAnwenden} />
         )}
 
+        {zugZiel && (
+          <ZugFenster t={zugZiel} liste={liste} helden={helden} runde={kampf.runde}
+            onAbbrechen={()=>setZugFenster(null)} onAnwenden={zugAnwenden} />
+        )}
+
         <div className="kampf-liste">
           {liste.map(t => (
             <KampfZeile key={t.id} t={t} dran={amZug && amZug.id === t.id}
@@ -1369,6 +1644,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               detailOffen={detailOffen} setDetailOffen={setDetailOffen}
               onWert={(modus,n)=>wertDirekt(t.id, modus, n)}
               onFenster={(modus)=>setWertDlg({id:t.id, modus})}
+              onZug={zugfensterAn ? ()=>setZugFenster(t.id) : undefined}
               onIni={v=>ini(t.id,v)} onNotiz={v=>notiz(t.id,v)}
               onNotizFertig={t.art === 'held' ? onHeldNotizSichern : undefined}
               onZustand={z=>zustand(t.id,z)} onMarke={k=>marke(t.id,k)}

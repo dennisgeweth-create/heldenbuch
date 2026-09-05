@@ -73,6 +73,22 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
             )}
           </EinstBlock>
 
+          {/* ── Der Kampf ── */}
+          <EinstBlock titel="⚔ Kampftracker"
+            kurz={adv.zugfenster === false ? 'ohne Zugfenster' : 'mit Zugfenster'}>
+            <label className="einst-dm-zeile">
+              <input type="checkbox" checked={adv.zugfenster !== false}
+                onChange={e=>setzen({zugfenster: e.target.checked})} />
+              <span>Zugfenster anbieten</span>
+            </label>
+            <div className="einst-hinweis">
+              Auf der Karte dessen, der am Zug ist, steht dann <b>✍ Zug eintragen</b>. Darin
+              wählt die Spielleitung Waffe oder Zauber, tippt Ziele an und trägt ein, was
+              ankommt — die Trefferpunkte rechnet das Fenster mit und schreibt den Zug ins
+              Protokoll. Ohne Häkchen bleibt der Tracker, wie er war.
+            </div>
+          </EinstBlock>
+
           {/* ── Der Automat ── */}
           <EinstBlock titel="🎰 Automat der Taverne"
             kurz={(rechnung.quote * 100).toFixed(0) + ' % · Vollbild '
