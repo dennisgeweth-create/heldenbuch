@@ -1,5 +1,111 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.4
+
+Die Ausgabe, in der die Spielleitung den Schaden nicht mehr zweimal
+einträgt. Dazu ein Wappen, aufgeräumte Einstellungen und Zauber, die
+wissen, was sie tun.
+
+### ✍ Das Zugfenster
+
+Bisher hast du den Schaden über *Schaden…* eingetragen und daneben
+aufgeschrieben, was eigentlich passiert ist — zweimal dieselbe Sache.
+Das Zugfenster dreht die Reihenfolge um: du sagst, **was** geschieht,
+und die Trefferpunkte fallen als Nebenprodukt ab.
+
+Auf der Karte dessen, der am Zug ist, steht **✍ Zug eintragen**. Nur
+dort, nur auf Knopfdruck: ein Fenster, das bei jedem Zugwechsel von
+allein aufgeht, ist nach drei Runden abgeschaltet.
+
+Darin, von oben nach unten:
+
+- **Was tut er** — Angriff, Zauber oder nur beschreiben. Was der Bogen
+  nicht hergibt, ist ausgegraut.
+- **Womit** — seine Waffen mit ihrem Schadenswürfel, oder sein
+  Zauberbuch nach Grad sortiert. Ab sechs Einträgen steht ein Suchfeld
+  darüber: es sucht über Namen, Schule, Schadensart und Grad.
+- **Auf wen** — die Initiativliste als Kacheln mit Rüstungsklasse und
+  Trefferpunktbalken. Mehrere gehen, für den Feuerball.
+- **Was ankommt** — je Ziel *Treffer* oder *daneben* und der Wert.
+  Gewürfelt wird am Tisch; den gewürfelten Wert kannst du daneben
+  eintragen, dann steht er im Protokoll, musst du aber nicht.
+- **Beschreibung** — freiwillig, ein Satz zum Zug.
+- **Und darunter steht schon da, was gleich im Protokoll stehen wird** —
+  samt Trefferpunkten davor und danach. Der Knopf sagt selbst, was er
+  tut: „✓ Übernehmen — trägt 7 TP ab".
+
+**Zusätzlicher Schaden.** Eine brennende Klinge macht zweierlei: neben
+dem Schadensfeld sitzt **＋ Art**, jede weitere Zeile hat ihre eigene
+Art und ihren Wert. Im Protokoll steht dann
+*„Wolf 1 nimmt 9 Schaden (6 Hieb + 3 Feuer) · 11 → 2"*.
+
+**Mehrere Aktionen im selben Zug.** **+ und weiter** trägt ein und lässt
+das Fenster offen; Waffe, Zauber und Grad bleiben stehen, weil der
+zweite Hieb meistens derselbe ist. Was im Zug schon eingetragen wurde,
+steht in der Vorschau darüber — du hast den ganzen Zug vor dir.
+
+**Bei Gegnern** gibt es keine Auswahl: nur wem wie viel Schaden oder
+Heilung, plus Beschreibung. Ein Gegner hat im Heldenbuch keine
+Waffenliste, seine Angriffe stehen im Text seines Bogens.
+
+Ein Schalter in den Einstellungen des Abenteuers blendet den Knopf ganz
+aus, für Runden, die ohne Mitschrift spielen.
+
+### ✨ Zauber wissen jetzt, was sie tun
+
+Am Zauber stand bisher, was er **ist** — Grad, Schule, Reichweite,
+Dauer. Nicht, was er **tut**. Dafür gibt es jetzt ein Feld: Art,
+Würfel, Steigerung je Grad, Rettungswurf und ob Bestehen halbiert.
+
+Eintippen musst du das meistens nicht. Im Zauberreiter des Bogens steht
+**↧ Würfel nachtragen** — ein Druck liest es aus den Beschreibungen und
+trägt es bei allen Zaubern des Helden ein. Er fasst nur an, wo noch
+nichts steht, rührt nichts an, wo die Beschreibung keinen Würfel
+hergibt, und sagt danach, wie viele es waren. Im Zauberformular gibt es
+denselben Knopf für einen einzelnen.
+
+Damit kann das Zugfenster rechnen:
+
+- **Der Gradwähler** zeigt deine Zauberplätze mit ihrem Rest, rechnet
+  den Wurf hoch — Feuerball auf dem 4. Grad ist 9W6 — und **hakt den
+  Platz im Bogen ab**. Die dritte Buchführung fällt weg.
+- **Beim Rettungswurf** steht statt *Treffer/daneben* ein
+  *misslungen/bestanden*, der Zauber-SG steht daneben, und Bestehen
+  halbiert den eingetragenen Schaden von selbst.
+
+### 🎓 Klassen haben ein Zauberattribut
+
+In einer festen Tafel im Code stand, womit die zwölf des Regelwerks
+zaubern. Eine Hausklasse hatte deshalb **nie** einen Zauber-SG und nie
+einen Zauberangriff. Jetzt steht das Attribut in der Klassenliste des
+Abenteuers, wahlweise „zaubert nicht", und die zwölf bringen ihren Wert
+aus dem Regelwerk mit.
+
+### ⚙ Einstellungen, aufgeräumt
+
+Die Einstellungen des Abenteuers und die Verwaltung bestehen jetzt aus
+Abschnitten, die zugeklappt aufgehen. Neben dem Titel steht, was gerade
+gilt — „Offen", „89 % · Vollbild 1 auf 200", „3 von 3 zugeordnet",
+„12 Klassen", „5 Konten". Zugeklappt sieht man damit mehr als vorher im
+Aufgeklappten. Der lange Teil hat außerdem eine eigene schmale
+Rollleiste bekommen statt der grauen des Systems.
+
+### 🛡 Ein Wappen
+
+Das Heldenbuch hat ein Zeichen: zwei Drachen über einem aufgeschlagenen
+Bogen, ein W20 in der Mitte, das Band mit dem Namen darunter. Es steht
+im Kopf der Heldenleiste und ist zugleich das Symbol im Browser-Tab und
+auf dem Startbildschirm. Der Schriftzug darunter ist weg — der Name
+steht im Wappen.
+
+### 🔕 Die Leiste ist still geworden
+
+Unten stand „STRAHD · Verbunden". Verbunden zu sein ist
+selbstverständlich, seit sich jeder anmeldet, und die Gruppe steht am
+Konto. Die Zeile erscheint nur noch, wenn sie etwas zu sagen hat: nicht
+gesichert, oder der Server schweigt. Die Ausgabe steht dafür oben am
+Wappen.
+
 ## v4.3
 
 Eine Ausgabe für den Kampftisch. Der Tracker bekommt eine Vorbereitung,
