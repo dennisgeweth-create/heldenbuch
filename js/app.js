@@ -138,137 +138,6 @@ const EinstBlock = ({
   }, children));
 };
 
-// ── Das Zeichen des Heldenbuchs ─────────────────────────────────
-// Ein aufgeschlagenes Buch, ein Schwert mit der Spitze im Bund, das
-// Lesezeichen der Spielleitung. Es steht inline im Markup und nicht als
-// Datei: so faerbt es mit, laedt nicht nach und ist auch dann da, wenn
-// gerade nichts vom Server kommt. Dieselbe Zeichnung liegt als logo.svg
-// daneben — daraus entstehen favicon.png und apple-touch-icon.png.
-const HeldenbuchLogo = ({
-  size
-}) => /*#__PURE__*/React.createElement("svg", {
-  className: "hb-logo",
-  width: size || 28,
-  height: size || 28,
-  viewBox: "0 0 64 64",
-  role: "img",
-  "aria-label": "Heldenbuch"
-}, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
-  id: "hb-klinge",
-  x1: "0",
-  y1: "0",
-  x2: "1",
-  y2: "0"
-}, /*#__PURE__*/React.createElement("stop", {
-  offset: "0",
-  stopColor: "#8a6a1f"
-}), /*#__PURE__*/React.createElement("stop", {
-  offset: "0.42",
-  stopColor: "#f2d98a"
-}), /*#__PURE__*/React.createElement("stop", {
-  offset: "0.58",
-  stopColor: "#e8b84b"
-}), /*#__PURE__*/React.createElement("stop", {
-  offset: "1",
-  stopColor: "#8a6a1f"
-})), /*#__PURE__*/React.createElement("linearGradient", {
-  id: "hb-gold",
-  x1: "0",
-  y1: "0",
-  x2: "0",
-  y2: "1"
-}, /*#__PURE__*/React.createElement("stop", {
-  offset: "0",
-  stopColor: "#f2d98a"
-}), /*#__PURE__*/React.createElement("stop", {
-  offset: "1",
-  stopColor: "#b8860b"
-})), /*#__PURE__*/React.createElement("linearGradient", {
-  id: "hb-seite-l",
-  x1: "0",
-  y1: "0",
-  x2: "1",
-  y2: "0"
-}, /*#__PURE__*/React.createElement("stop", {
-  offset: "0",
-  stopColor: "#cbbd94"
-}), /*#__PURE__*/React.createElement("stop", {
-  offset: "1",
-  stopColor: "#eee3c6"
-})), /*#__PURE__*/React.createElement("linearGradient", {
-  id: "hb-seite-r",
-  x1: "0",
-  y1: "0",
-  x2: "1",
-  y2: "0"
-}, /*#__PURE__*/React.createElement("stop", {
-  offset: "0",
-  stopColor: "#eee3c6"
-}), /*#__PURE__*/React.createElement("stop", {
-  offset: "1",
-  stopColor: "#cbbd94"
-}))), /*#__PURE__*/React.createElement("path", {
-  d: "M6 42.5 C13.5 38.6 23.5 38.9 31 42.6 L31 55.4 C23.5 51.7 13.5 51.4 6 55.3 Z",
-  fill: "url(#hb-seite-l)",
-  stroke: "#8a6a1f",
-  strokeWidth: "1.4",
-  strokeLinejoin: "round"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M58 42.5 C50.5 38.6 40.5 38.9 33 42.6 L33 55.4 C40.5 51.7 50.5 51.4 58 55.3 Z",
-  fill: "url(#hb-seite-r)",
-  stroke: "#8a6a1f",
-  strokeWidth: "1.4",
-  strokeLinejoin: "round"
-}), /*#__PURE__*/React.createElement("g", {
-  stroke: "#a89670",
-  strokeWidth: "1",
-  strokeLinecap: "round",
-  opacity: "0.75"
-}, /*#__PURE__*/React.createElement("path", {
-  d: "M11 45.4 C16.5 43.6 22 43.8 27 45.6"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M11 49.2 C16.5 47.4 22 47.6 27 49.4"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M53 45.4 C47.5 43.6 42 43.8 37 45.6"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M53 49.2 C47.5 47.4 42 47.6 37 49.4"
-})), /*#__PURE__*/React.createElement("path", {
-  d: "M32 41.8 L32 55.6",
-  stroke: "#8a6a1f",
-  strokeWidth: "2.2",
-  strokeLinecap: "round"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M28.9 21 L35.1 21 L35.1 41 L32 48.5 L28.9 41 Z",
-  fill: "url(#hb-klinge)"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M32 21 L32 47",
-  stroke: "#fbf1cf",
-  strokeWidth: "0.9",
-  opacity: "0.65"
-}), /*#__PURE__*/React.createElement("rect", {
-  x: "20.5",
-  y: "16.8",
-  width: "23",
-  height: "4.4",
-  rx: "2.2",
-  fill: "url(#hb-gold)"
-}), /*#__PURE__*/React.createElement("rect", {
-  x: "30.1",
-  y: "9.6",
-  width: "3.8",
-  height: "7.6",
-  rx: "1.6",
-  fill: "#8a6a1f"
-}), /*#__PURE__*/React.createElement("circle", {
-  cx: "32",
-  cy: "7.6",
-  r: "3.4",
-  fill: "url(#hb-gold)"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M45.5 39.4 L45.5 51 L42.6 48.2 L39.7 51 L39.7 41.2 Z",
-  fill: "#c0392b"
-}));
-
 // ==== js/src/1-editors.jsx ====
 // Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
 // Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
@@ -12559,17 +12428,17 @@ function App() {
     className: "sidebar" + (sidebarCollapsed ? " collapsed" : "")
   }, /*#__PURE__*/React.createElement("div", {
     className: "sidebar-header"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "sidebar-title"
-  }, /*#__PURE__*/React.createElement(HeldenbuchLogo, {
-    size: 30
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "sidebar-wort"
-  }, "Heldenbuch"), /*#__PURE__*/React.createElement("span", {
-    className: "app-version"
-  }, HB_VERSION)), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("img", {
+    className: "hb-logo",
+    src: "logo.png",
+    alt: "Heldenbuch",
+    width: 304,
+    height: 349
+  }), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-subtitle"
-  }, "Dungeons & Dragons \xB7 \uD83D\uDC09")), /*#__PURE__*/React.createElement("div", {
+  }, "Dungeons & Dragons \xB7 \uD83D\uDC09", /*#__PURE__*/React.createElement("span", {
+    className: "app-version"
+  }, HB_VERSION))), /*#__PURE__*/React.createElement("div", {
     className: "char-list"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -12732,27 +12601,17 @@ function App() {
       borderBottom: "1px solid var(--border)",
       textAlign: "center"
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "sidebar-title",
-    style: {
-      fontSize: 16
-    }
-  }, /*#__PURE__*/React.createElement(HeldenbuchLogo, {
-    size: 26
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "sidebar-wort"
-  }, "Heldenbuch"), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("img", {
+    className: "hb-logo schmal",
+    src: "logo.png",
+    alt: "Heldenbuch",
+    width: 304,
+    height: 349
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-subtitle"
+  }, "Dungeons & Dragons \xB7 \uD83D\uDC09", /*#__PURE__*/React.createElement("span", {
     className: "app-version"
-  }, HB_VERSION)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 9,
-      color: "var(--text-muted)",
-      letterSpacing: "0.15em",
-      textTransform: "uppercase",
-      marginTop: 4
-    }
-  }, "Dungeons & Dragons \xB7 \uD83D\uDC09"), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
+  }, HB_VERSION)), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',

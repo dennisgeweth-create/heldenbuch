@@ -2439,12 +2439,14 @@ function App() {
 
         <div className={"sidebar"+(sidebarCollapsed?" collapsed":"")}>
           <div className="sidebar-header">
-            <div className="sidebar-title">
-              <HeldenbuchLogo size={30} />
-              <span className="sidebar-wort">Heldenbuch</span>
+            {/* Der Name steht im Zeichen selbst — ein zweiter darunter waere
+                derselbe Name zweimal. */}
+            <img className="hb-logo" src="logo.png" alt="Heldenbuch"
+              width={304} height={349} />
+            <div className="sidebar-subtitle">
+              Dungeons &amp; Dragons · 🐉
               <span className="app-version">{HB_VERSION}</span>
             </div>
-            <div className="sidebar-subtitle">Dungeons &amp; Dragons · 🐉</div>
           </div>
           <div className="char-list">
             <div style={{padding:'6px 8px 0'}}>
@@ -2579,12 +2581,12 @@ function App() {
           {isTouchLayout && mv==="list" && (
             <div className="mobile-list-screen">
               <div style={{padding:"16px 12px 12px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
-                <div className="sidebar-title" style={{fontSize:16}}>
-                  <HeldenbuchLogo size={26} />
-                  <span className="sidebar-wort">Heldenbuch</span>
+                <img className="hb-logo schmal" src="logo.png" alt="Heldenbuch"
+                  width={304} height={349} />
+                <div className="sidebar-subtitle">
+                  Dungeons &amp; Dragons · 🐉
                   <span className="app-version">{HB_VERSION}</span>
                 </div>
-                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:"var(--text-muted)",letterSpacing:"0.15em",textTransform:"uppercase",marginTop:4}}>Dungeons &amp; Dragons · 🐉</div>
                 {/* Sync status on mobile list */}
                 {svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && (
                   <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:6}}>

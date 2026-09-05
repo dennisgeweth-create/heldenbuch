@@ -30,7 +30,7 @@ jobs:
       - name: Prepare deploy files
         run: |
           mkdir -p deploy/js deploy/vendor
-          cp .htaccess api.php apple-touch-icon.png favicon.png icon.svg index.html styles.css deploy/
+          cp .htaccess api.php apple-touch-icon.png favicon.png logo.png index.html styles.css deploy/
           cp data-spells.json data-weapons.json data-wildshapes.json deploy/
           cp js/data.js js/util.js js/app.js deploy/js/
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
