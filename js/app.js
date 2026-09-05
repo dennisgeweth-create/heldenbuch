@@ -12434,11 +12434,9 @@ function App() {
     alt: "Heldenbuch",
     width: 304,
     height: 349
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "sidebar-subtitle"
-  }, "Dungeons & Dragons \xB7 \uD83D\uDC09", /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("span", {
     className: "app-version"
-  }, HB_VERSION))), /*#__PURE__*/React.createElement("div", {
+  }, HB_VERSION)), /*#__PURE__*/React.createElement("div", {
     className: "char-list"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -12607,11 +12605,9 @@ function App() {
     alt: "Heldenbuch",
     width: 304,
     height: 349
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "sidebar-subtitle"
-  }, "Dungeons & Dragons \xB7 \uD83D\uDC09", /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("span", {
     className: "app-version"
-  }, HB_VERSION)), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
+  }, HB_VERSION), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
