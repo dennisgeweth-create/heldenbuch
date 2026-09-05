@@ -1975,11 +1975,17 @@ const ZugFenster = ({
   const [richtung, setRichtung] = React.useState('schaden');
   const [ziele, setZiele] = React.useState({});
   const [text, setText] = React.useState('');
+  const [suche, setSuche] = React.useState('');
 
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
   const quelle = nurWerte ? [] : art === 'zauber' ? sprueche : art === 'angriff' ? waffen : [];
   const gegenstand = gewaehlt === null ? null : quelle[gewaehlt] || null;
+  // Ein Magier auf Stufe 9 hat drei Dutzend Zauber. Gesucht wird ueber
+  // Namen, Schule und Grad; die Auswahl bleibt dabei stehen, weil sie am
+  // Eintrag haengt und nicht an der Zeile.
+  const suchWort = suche.trim().toLowerCase();
+  const gezeigt = !suchWort ? quelle : quelle.filter(g => (g.name || '').toLowerCase().includes(suchWort) || (g.school || '').toLowerCase().includes(suchWort) || (g.damageType || '').toLowerCase().includes(suchWort) || art === 'zauber' && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort));
 
   // Was der Zauber tut, steht am Zauber — wenn es jemand eingetragen hat.
   const wirkung = art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung) ? gegenstand.wirkung : null;
@@ -2219,6 +2225,7 @@ const ZugFenster = ({
     onClick: () => {
       setArt(k);
       setGewaehlt(null);
+      setSuche('');
     }
   }, kind);
   return /*#__PURE__*/React.createElement("div", {
@@ -2258,22 +2265,33 @@ const ZugFenster = ({
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-label"
-  }, art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'), quelle.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'), quelle.length > 5 && /*#__PURE__*/React.createElement("input", {
+    className: "zug-suche",
+    value: suche,
+    placeholder: "\uD83D\uDD0D Suchen\u2026",
+    "aria-label": art === 'zauber' ? 'Zauber suchen' : 'Waffe suchen',
+    onChange: e => setSuche(e.target.value)
+  }), quelle.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "zug-leer"
-  }, art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.') : /*#__PURE__*/React.createElement("div", {
+  }, art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.') : gezeigt.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "zug-leer"
+  }, "Nichts gefunden zu \u201E", suche.trim(), "\u201C.") : /*#__PURE__*/React.createElement("div", {
     className: "zug-liste"
-  }, quelle.map((g, i) => /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    key: g.id || i,
-    className: 'zug-zeile' + (i === gewaehlt ? ' an' : '') + (art === 'zauber' ? ' arkan' : ''),
-    onClick: () => zauberWaehlen(i)
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "zug-sym"
-  }, art === 'zauber' ? '✨' : '⚔'), /*#__PURE__*/React.createElement("span", {
-    className: "zug-text"
-  }, /*#__PURE__*/React.createElement("b", null, g.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("i", null, art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : (g.damageType ? g.damageType + ' · ' : '') + (g.range || ''))), /*#__PURE__*/React.createElement("span", {
-    className: "zug-wirkt"
-  }, art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : g.damage || ''))))), !nurWerte && art === 'zauber' && gegenstand && grundGrad > 0 && /*#__PURE__*/React.createElement("div", {
+  }, gezeigt.map(g => {
+    const i = quelle.indexOf(g);
+    return /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      key: g.id || i,
+      className: 'zug-zeile' + (i === gewaehlt ? ' an' : '') + (art === 'zauber' ? ' arkan' : ''),
+      onClick: () => zauberWaehlen(i)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "zug-sym"
+    }, art === 'zauber' ? '✨' : '⚔'), /*#__PURE__*/React.createElement("span", {
+      className: "zug-text"
+    }, /*#__PURE__*/React.createElement("b", null, g.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("i", null, art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : (g.damageType ? g.damageType + ' · ' : '') + (g.range || ''))), /*#__PURE__*/React.createElement("span", {
+      className: "zug-wirkt"
+    }, art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : g.damage || ''));
+  }))), !nurWerte && art === 'zauber' && gegenstand && grundGrad > 0 && /*#__PURE__*/React.createElement("div", {
     className: "zug-grad"
   }, /*#__PURE__*/React.createElement("span", {
     className: "zug-grad-label"
@@ -6077,6 +6095,7 @@ const Sheet = () => {
   // dasselbe Fenster wie im Kampftracker — wer beides bedient, soll nicht
   // zwei Bedienungen lernen muessen.
   const [tpDlg, setTpDlg] = useState(null); // 'schaden' | 'heilung' | 'temp' | 'maxtemp'
+  const [nachgetragen, setNachgetragen] = useState(null); // Rueckmeldung des Einlesers
   const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
   const invSucheRef = useRef(null);
@@ -7868,7 +7887,44 @@ const Sheet = () => {
       color: "var(--arcane-bright)"
     },
     onClick: () => openTpl('spell')
-  }, "\uD83D\uDCD6 Von Vorlage (SRD)")), cur.spells.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCD6 Von Vorlage (SRD)")), darfBearbeiten && cur.spells.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      flexWrap: "wrap",
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-add",
+    style: {
+      borderColor: "var(--inspiration)",
+      color: "var(--inspiration)"
+    },
+    title: "W\xFCrfel, Rettungswurf und Steigerung aus den Beschreibungen \xFCbernehmen \u2014 f\xFCr alle Zauber, bei denen noch nichts eingetragen ist",
+    onClick: () => {
+      let n = 0;
+      const neu = (cur.spells || []).map(sp => {
+        if (hatWirkung(sp.wirkung) || !String(sp.description || '').trim()) return sp;
+        const w = wirkungAusText(sp.description, sp.damageTags);
+        if (!hatWirkung(w)) return sp;
+        n++;
+        return {
+          ...sp,
+          wirkung: w
+        };
+      });
+      if (n) patchChar({
+        spells: neu
+      });
+      setNachgetragen(n);
+    }
+  }, "\u21A7 W\xFCrfel nachtragen"), nachgetragen !== null && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12.5,
+      color: nachgetragen ? "var(--inspiration)" : "var(--text-muted)"
+    }
+  }, nachgetragen ? nachgetragen + (nachgetragen === 1 ? ' Zauber ergänzt' : ' Zauber ergänzt') + ' — im Zugfenster steht der Würfel jetzt dabei.' : 'Nichts zu ergänzen: entweder steht die Wirkung schon da, oder in der Beschreibung steht kein Würfel.')), cur.spells.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       color: "var(--text-muted)",
       fontStyle: "italic",

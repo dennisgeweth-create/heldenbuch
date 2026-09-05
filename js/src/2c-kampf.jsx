@@ -490,11 +490,21 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
   const [richtung, setRichtung] = React.useState('schaden');
   const [ziele, setZiele]       = React.useState({});
   const [text, setText]         = React.useState('');
+  const [suche, setSuche]       = React.useState('');
 
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
   const quelle = nurWerte ? [] : (art === 'zauber' ? sprueche : art === 'angriff' ? waffen : []);
   const gegenstand = gewaehlt === null ? null : (quelle[gewaehlt] || null);
+  // Ein Magier auf Stufe 9 hat drei Dutzend Zauber. Gesucht wird ueber
+  // Namen, Schule und Grad; die Auswahl bleibt dabei stehen, weil sie am
+  // Eintrag haengt und nicht an der Zeile.
+  const suchWort = suche.trim().toLowerCase();
+  const gezeigt = !suchWort ? quelle : quelle.filter(g =>
+    (g.name || '').toLowerCase().includes(suchWort)
+    || (g.school || '').toLowerCase().includes(suchWort)
+    || (g.damageType || '').toLowerCase().includes(suchWort)
+    || (art === 'zauber' && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort)));
 
   // Was der Zauber tut, steht am Zauber — wenn es jemand eingetragen hat.
   const wirkung   = (art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung))
@@ -624,7 +634,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
 
   const ArtTaste = ({k, kind, aus}) => (
     <button type="button" className={'zug-taste' + (art === k ? ' an' : '')} disabled={aus}
-      onClick={()=>{ setArt(k); setGewaehlt(null); }}>{kind}</button>
+      onClick={()=>{ setArt(k); setGewaehlt(null); setSuche(''); }}>{kind}</button>
   );
 
   return (
@@ -654,13 +664,22 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
               <div className="zug-label">
                 {art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'}
               </div>
+              {quelle.length > 5 && (
+                <input className="zug-suche" value={suche} placeholder="🔍 Suchen…"
+                  aria-label={art === 'zauber' ? 'Zauber suchen' : 'Waffe suchen'}
+                  onChange={e=>setSuche(e.target.value)} />
+              )}
               {quelle.length === 0 ? (
                 <div className="zug-leer">
                   {art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.'}
                 </div>
+              ) : gezeigt.length === 0 ? (
+                <div className="zug-leer">Nichts gefunden zu „{suche.trim()}“.</div>
               ) : (
                 <div className="zug-liste">
-                  {quelle.map((g, i) => (
+                  {gezeigt.map((g) => {
+                    const i = quelle.indexOf(g);
+                    return (
                     <button type="button" key={g.id || i}
                       className={'zug-zeile' + (i === gewaehlt ? ' an' : '')
                                  + (art === 'zauber' ? ' arkan' : '')}
@@ -679,7 +698,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
                         ? (hatWirkung(g.wirkung) ? (g.wirkung.wuerfel || '') : '')
                         : (g.damage || '')}</span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -47,6 +47,7 @@ const Sheet = () => {
   // dasselbe Fenster wie im Kampftracker — wer beides bedient, soll nicht
   // zwei Bedienungen lernen muessen.
   const [tpDlg, setTpDlg] = useState(null);   // 'schaden' | 'heilung' | 'temp' | 'maxtemp'
+  const [nachgetragen, setNachgetragen] = useState(null);   // Rueckmeldung des Einlesers
   const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
   const invSucheRef = useRef(null);
@@ -1093,6 +1094,35 @@ const Sheet = () => {
               <button className="btn-add" style={{flex:1}} onClick={()=>{setSf(newSpell());setSfEditId(null);setShowSF(true);}}>+ Zauber (Grad 1–9)</button>
               <button className="btn-add" style={{flex:1,borderColor:"var(--arcane-bright)",color:"var(--arcane-bright)"}} onClick={()=>openTpl('spell')}>📖 Von Vorlage (SRD)</button>
             </div>
+            {/* Der Einleser fuer alle auf einmal. Er fasst nur an, was noch
+                keine Wirkung hat — was von Hand eingetragen wurde, bleibt.
+                Ohne ihn muesste jeder Zauber einzeln aufgemacht werden. */}
+            {darfBearbeiten && cur.spells.length > 0 && (
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+                <button className="btn-add" style={{borderColor:"var(--inspiration)",color:"var(--inspiration)"}}
+                  title="Würfel, Rettungswurf und Steigerung aus den Beschreibungen übernehmen — für alle Zauber, bei denen noch nichts eingetragen ist"
+                  onClick={()=>{
+                    let n = 0;
+                    const neu = (cur.spells || []).map(sp => {
+                      if (hatWirkung(sp.wirkung) || !String(sp.description || '').trim()) return sp;
+                      const w = wirkungAusText(sp.description, sp.damageTags);
+                      if (!hatWirkung(w)) return sp;
+                      n++;
+                      return {...sp, wirkung: w};
+                    });
+                    if (n) patchChar({spells: neu});
+                    setNachgetragen(n);
+                  }}>↧ Würfel nachtragen</button>
+                {nachgetragen !== null && (
+                  <span style={{fontSize:12.5,color:nachgetragen?"var(--inspiration)":"var(--text-muted)"}}>
+                    {nachgetragen
+                      ? nachgetragen + (nachgetragen === 1 ? ' Zauber ergänzt' : ' Zauber ergänzt')
+                        + ' — im Zugfenster steht der Würfel jetzt dabei.'
+                      : 'Nichts zu ergänzen: entweder steht die Wirkung schon da, oder in der Beschreibung steht kein Würfel.'}
+                  </span>
+                )}
+              </div>
+            )}
             {cur.spells.length===0
               ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Noch keine Zauber eingetragen.</div>
               : [0,...sls.filter(l=>l!==0)].filter(l=>sbl[l]).map(l => {
