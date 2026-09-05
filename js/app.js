@@ -12499,7 +12499,7 @@ function App() {
     className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
   }, "\xB7 ", offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "Verbunden"), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-ver"
-  }, "v4.2")), /*#__PURE__*/React.createElement("div", {
+  }, "v4.3")), /*#__PURE__*/React.createElement("div", {
     className: "sync-actions"
   }, konto ? /*#__PURE__*/React.createElement("button", {
     className: "btn-konto",

@@ -1,5 +1,99 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.3
+
+Eine Ausgabe für den Kampftisch. Der Tracker bekommt eine Vorbereitung,
+das Protokoll schreibt von allein mit und wirft nichts mehr weg.
+
+### ⚔ Erst aufstellen, dann kämpfen
+
+Der Tracker geht nicht mehr mitten in Runde 1 auf, sondern in der
+**Vorbereitung**: Gegner dazustellen, Initiativen ansagen, Helden ein-
+und ausladen. Erst **▶ Kampf starten** macht daraus Runde 1.
+
+Man sieht es an der Farbe. Der Kampf ist rot und golden, die
+Vorbereitung blau — Kopfzeile, das Abzeichen „Vorbereitung“, der
+Startknopf und ein Band über der Liste. Statt „Am Zug“ steht dort, wer
+aufgestellt ist.
+
+Was in der Vorbereitung geschieht, kommt nicht ins Protokoll. Einen
+Gegner hinstellen und einem Helden die Trefferpunkte richtigstellen ist
+kein Teil des Kampfes und stünde sonst schon in Runde 1, bevor der
+Kampf begonnen hat.
+
+### ⏹ Beenden führt zurück, nicht hinaus
+
+**Kampf beenden** stellt wieder die Vorbereitung hin: Gegner erledigt,
+Initiativen leer, Helden bereit. Am Tisch folgt auf einen Kampf
+meistens der nächste, nicht das Heldenbuch.
+
+### 📜 Das Protokoll schreibt mit
+
+Im Kampf läuft im Hintergrund eine Mitschrift: wer am Zug ist, wer
+Schaden nimmt, wer geheilt wird, wer einen Zustand bekommt oder
+loswird, wer fällt, wer wieder aufsteht, wer würfelt. Ein Knopfdruck
+legt den ganzen Verlauf in die Zwischenablage — wahlweise mit den
+Trefferpunktständen oder nur mit den Beträgen, wenn die Runde nicht
+lesen soll, wie dünn es beim Gegner steht.
+
+Aufgeschrieben wird, was geschehen ist, nicht der fertige Satz. Wer den
+Schaden ausgeteilt hat, steht nicht da — das weiß die Anwendung nicht,
+das stellt der Leser her wie am Tisch auch.
+
+### 🗄 Frühere Kämpfe
+
+Beim Beenden wandert der Verlauf ins **Gesamtprotokoll**: Reiter
+„Frühere“ im Protokollfenster, links die Tage — Heute, Gestern, dann
+Wochentag und Datum —, darunter die Kämpfe des Tages mit Uhrzeit, Name,
+Runden und Abenteuer. Aufklappen zeigt den ganzen Verlauf, kopieren
+geht auch dort. Sechzig Kämpfe hebt es auf.
+
+Es liegt wie der laufende Kampf **im Gerät der Spielleitung**. Es ist
+ihre Mitschrift, kein Teil der Bögen — auf dem Server wäre es ein
+Fremdkörper zwischen den Charakterblättern. Auf einem zweiten Gerät ist
+es also nicht da.
+
+### ✚ Nothelfer
+
+Der Wächter, der im Abenteuerbuch mit einem Satz abgehandelt ist, oder
+der Wolf, den sich gerade jemand ausgedacht hat: **Name,
+Trefferpunkte, Rüstungsklasse** — mehr braucht er nicht, und in die
+Gegnersammlung muss er dafür nicht.
+
+### 🩹 Behoben
+
+**Die Trefferpunkte sprangen zurück.** Wer im Tracker Schaden eintrug,
+sah ihn ein paar Sekunden später wieder verschwinden. Die Ursache war
+kein Fehler im Tracker, sondern ein Echo: ein zweites Gerät schickte
+seinen älteren Stand desselben Bogens hinterher und überschrieb den
+frischen. Jetzt schickt jedes Gerät nur noch die Werte, die es selbst
+geändert hat, und der Server setzt daraus zusammen.
+
+**Mengen ließen sich nicht eintippen.** In den Zahlenfeldern stand
+immer schon eine 1 oder 0, die sich nicht löschen ließ — kaum war das
+Feld leer, füllte es sich wieder. Jetzt gilt, solange man im Feld
+steht, was man getippt hat, auch nichts; erst beim Verlassen wird eine
+Zahl daraus. Enter übernimmt, Escape verwirft.
+
+**Das Schadensfenster nahm die getippte Zahl nicht an.** „Anwenden“
+blieb ausgegraut, solange die Zahl nur im Feld stand. Nebenbei: die 0
+steht beim Öffnen nicht mehr da, man tippt in ein leeres Feld.
+
+**Notizen an Helden** im Tracker wurden nicht gespeichert. Sie gehören
+zum Helden, nicht zum Kampf, und bleiben jetzt auch nach ihm stehen.
+
+**Fremde Bögen** zeigen keine Bearbeiten-, Hinzufügen- und
+Tab-Knöpfe mehr — Nachtrag zur Besitzregel aus v4.2. Wer einen Bogen
+nur ansehen darf, sieht auch nur, was zum Ansehen da ist.
+
+**Der Fuß der Heldenliste** ist aufgeräumt; die Warnung über die
+fehlende lokale Kopie ist weg.
+
+**Das Vollbild in der Taverne** lässt sich in den Einstellungen des
+Abenteuers regeln — es ist das Bonusspiel des Automaten, also
+darf es häufiger kommen; die Auszahlungen sind entsprechend
+zurückgenommen.
+
 ## v4.2
 
 Von jetzt an meldet sich jeder mit **seinem eigenen Konto** an. Der

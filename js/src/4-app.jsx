@@ -2531,7 +2531,7 @@ function App() {
                   <span className={"sync-line-msg"+(offeneAenderungen>0?" offen":"")}>
                     · {offeneAenderungen>0 ? offeneAenderungen+" nicht gesichert" : (syncMsg||"Verbunden")}
                   </span>
-                  <span className="sync-line-ver">v4.2</span>
+                  <span className="sync-line-ver">v4.3</span>
                 </div>
                 <div className="sync-actions">
                   {konto ? (
