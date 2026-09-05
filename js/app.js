@@ -1543,11 +1543,15 @@ const protokollZeile = (e, mitZahlen) => {
     case 'frei':
       return '   „' + e.text + '“';
     case 'aktion':
-      return '   ' + (e.modus === 'zauber' ? 'Zauber' : 'Angriff') + ': ' + e.was;
+      return '   ' + (e.modus === 'zauber' ? 'Zauber' : 'Angriff') + ': ' + e.was + (e.grad ? ' · ' + e.grad + '. Grad' : '') + (e.wurf ? ' (' + e.wurf + ')' : '');
+    case 'rettung':
+      return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': Rettungswurf ' + (e.rw ? e.rw + ' ' : '') + (e.bestanden ? 'bestanden' : 'misslungen') + (e.wurf !== '' && e.wurf != null && e.sg ? ' (' + e.wurf + ' gegen SG ' + e.sg + ')' : '');
+    case 'platz':
+      return '   Zauberplatz ' + e.grad + '. Grad abgehakt';
     case 'wurf':
       return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': ' + (e.treffer ? 'Treffer' : 'daneben') + (e.wurf !== '' && e.wurf != null ? ' (' + e.wurf + ' gegen RK ' + e.ac + ')' : '');
     case 'schaden':
-      return '   ' + e.wer + ' nimmt ' + e.wert + ' Schaden' + stand;
+      return '   ' + e.wer + ' nimmt ' + e.wert + ' Schaden' + (e.teile && e.teile.length > 1 ? ' (' + e.teile.map(x => x.wert + (x.art ? ' ' + x.art : '')).join(' + ') + ')' : '') + stand;
     case 'heilung':
       return '   ' + e.wer + ' wird um ' + e.wert + ' geheilt' + stand;
     case 'temp':
@@ -1949,15 +1953,25 @@ const ZugFenster = ({
   t,
   liste,
   helden,
+  setDefs,
+  klassen,
   runde,
+  bisher,
   onAbbrechen,
   onAnwenden
 }) => {
   const held = t.art === 'held' ? (helden || []).find(h => h.id === t.charId) : null;
   const waffen = held && held.weapons || [];
   const sprueche = [...(held && held.spells || [])].sort((a, b) => (a.level || 0) - (b.level || 0) || (a.name || '').localeCompare(b.name || '', 'de'));
+
+  // Der Zauber-SG steht im Bogen — daran haengt, ob ein Rettungswurf
+  // gelingt. Er wird hier nur gezeigt; entschieden wird am Tisch.
+  const werte = held ? charWerte(held, setDefs) : null;
+  const zAttr = held ? klassenAttr(held.charClass, klassen) : null;
+  const zauberSG = werte && zAttr ? 8 + (+werte.eff.profBonus || 0) + mod(werte.eff[zAttr]) : null;
   const [art, setArt] = React.useState(waffen.length ? 'angriff' : sprueche.length ? 'zauber' : 'frei');
   const [gewaehlt, setGewaehlt] = React.useState(null);
+  const [grad, setGrad] = React.useState(0);
   const [richtung, setRichtung] = React.useState('schaden');
   const [ziele, setZiele] = React.useState({});
   const [text, setText] = React.useState('');
@@ -1966,12 +1980,61 @@ const ZugFenster = ({
   const nurWerte = t.art !== 'held';
   const quelle = nurWerte ? [] : art === 'zauber' ? sprueche : art === 'angriff' ? waffen : [];
   const gegenstand = gewaehlt === null ? null : quelle[gewaehlt] || null;
-  const mitSchalter = !nurWerte && art !== 'frei' && richtung === 'schaden';
+
+  // Was der Zauber tut, steht am Zauber — wenn es jemand eingetragen hat.
+  const wirkung = art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung) ? gegenstand.wirkung : null;
+  const grundGrad = gegenstand ? +gegenstand.level || 0 : 0;
+  const mitRettung = !!(wirkung && wirkung.rettung);
+  const mitSchalter = !nurWerte && art !== 'frei' && richtung === 'schaden' && !mitRettung;
+  const wurfJetzt = wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad || grundGrad) : '';
+
+  // Die Plaetze des Helden: nur Grade, fuer die er ueberhaupt welche hat —
+  // und der eigene Grad des Zaubers, damit immer etwas dasteht.
+  const plaetze = held && held.spellSlots || {};
+  const grade = [];
+  for (let l = Math.max(1, grundGrad); l <= 9; l++) {
+    const p = plaetze[l] || plaetze[String(l)];
+    if (l === grundGrad || p && (+p.max || 0) > 0) grade.push(l);
+  }
+  const platzRest = l => {
+    const p = plaetze[l] || plaetze[String(l)];
+    return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
+  };
   const zielSetzen = (id, p) => setZiele(z => ({
     ...z,
     [id]: {
       ...z[id],
       ...p
+    }
+  }));
+  // Eine brennende Klinge macht zweierlei Schaden. Der Grundschaden
+  // steht im Feld, alles Weitere kommt als eigene Zeile mit eigener Art
+  // dazu — im Protokoll steht dann "10 Schaden (7 Hieb + 3 Feuer)".
+  const zusatzDazu = id => setZiele(z => ({
+    ...z,
+    [id]: {
+      ...z[id],
+      zusatz: [...((z[id] || {}).zusatz || []), {
+        art: '',
+        wert: 0
+      }]
+    }
+  }));
+  const zusatzSetzen = (id, i, p) => setZiele(z => ({
+    ...z,
+    [id]: {
+      ...z[id],
+      zusatz: ((z[id] || {}).zusatz || []).map((x, j) => j === i ? {
+        ...x,
+        ...p
+      } : x)
+    }
+  }));
+  const zusatzWeg = (id, i) => setZiele(z => ({
+    ...z,
+    [id]: {
+      ...z[id],
+      zusatz: ((z[id] || {}).zusatz || []).filter((_, j) => j !== i)
     }
   }));
   const zielUm = id => setZiele(z => {
@@ -1986,11 +2049,18 @@ const ZugFenster = ({
       ...z,
       [id]: {
         treffer: true,
+        bestanden: false,
         wurf: '',
         wert: 0
       }
     };
   });
+  const zauberWaehlen = i => {
+    const neu = i === gewaehlt ? null : i;
+    setGewaehlt(neu);
+    const g = neu === null ? null : quelle[neu];
+    if (g && art === 'zauber') setGrad(+g.level || 0);
+  };
 
   // Einmal gebaut, zweimal genutzt: als Vorschau und als das, was beim
   // Uebernehmen wirklich geschrieben wird. So kann die Vorschau nicht von
@@ -2003,17 +2073,61 @@ const ZugFenster = ({
       wer: t.name,
       text: text.trim()
     });
-    if (gegenstand) eintraege.push({
-      art: 'aktion',
-      wer: t.name,
-      was: gegenstand.name,
-      modus: art
-    });
+    let platz = null;
+    // Die Waffe bleibt nach "und weiter" stehen — ohne Ziel und ohne Text
+    // waere "Angriff: Langschwert" allein aber eine leere Zeile.
+    if (gegenstand && (Object.keys(ziele).length || text.trim())) {
+      eintraege.push({
+        art: 'aktion',
+        wer: t.name,
+        was: gegenstand.name,
+        modus: art,
+        grad: art === 'zauber' && grad > grundGrad ? grad : 0,
+        wurf: wurfJetzt || ''
+      });
+      // Der Zauberplatz gehoert zum Wirken und steht deshalb gleich
+      // darunter, nicht hinter den Rettungswuerfen.
+      if (held && art === 'zauber' && grundGrad > 0 && platzRest(grad) > 0) {
+        platz = {
+          charId: held.id,
+          grad
+        };
+        eintraege.push({
+          art: 'platz',
+          wer: t.name,
+          grad
+        });
+      }
+    }
     Object.keys(ziele).forEach(id => {
       const ziel = liste.find(x => x.id === id);
       if (!ziel) return;
       const z = ziele[id];
-      if (mitSchalter) {
+      const basis = Math.max(0, Math.round(+z.wert || 0));
+      const extra = (z.zusatz || []).map(x => ({
+        wert: Math.max(0, Math.round(+x.wert || 0)),
+        art: (x.art || '').trim()
+      })).filter(x => x.wert > 0);
+      const voll = basis + extra.reduce((sum, x) => sum + x.wert, 0);
+      // Die Teile stehen nur dann im Protokoll, wenn es mehr als einen gibt.
+      const grundArt = art === 'zauber' ? wirkung && wirkung.schadensart || '' : gegenstand && gegenstand.damageType || '';
+      const teile = extra.length ? [{
+        wert: basis,
+        art: grundArt
+      }, ...extra] : null;
+      let n = voll;
+      if (mitRettung) {
+        eintraege.push({
+          art: 'rettung',
+          was: gegenstand ? gegenstand.name : '',
+          ziel: ziel.name,
+          rw: RETTUNG_KURZ[wirkung.rettung] || '',
+          wurf: z.wurf,
+          sg: zauberSG,
+          bestanden: !!z.bestanden
+        });
+        if (z.bestanden) n = wirkung.halb ? Math.floor(voll / 2) : 0;
+      } else if (mitSchalter) {
         eintraege.push({
           art: 'wurf',
           was: gegenstand ? gegenstand.name : '',
@@ -2022,41 +2136,59 @@ const ZugFenster = ({
           ac: ziel.ac,
           treffer: !!z.treffer
         });
+        if (!z.treffer) n = 0;
       }
-      if (mitSchalter && !z.treffer) return;
-      const n = Math.max(0, Math.round(+z.wert || 0));
-      if (n) treffer.push({
+      // Halbiert der Rettungswurf, stimmen die Teile nicht mehr — dann
+      // steht nur die Zahl da statt einer falschen Aufteilung.
+      if (n > 0) treffer.push({
         id,
         modus: richtung,
         n,
-        ziel
+        ziel,
+        teile: n === voll && richtung === 'schaden' ? teile : null
       });
     });
     return {
       eintraege,
-      treffer
+      treffer,
+      platz
     };
   };
   const {
     eintraege,
-    treffer
+    treffer,
+    platz
   } = bauen();
   const summe = treffer.reduce((s, x) => s + x.n, 0);
 
+  // Ein Zug ist selten eine Sache: Angriff und Bonusaktion, zwei Hiebe
+  // des Kaempfers, Zauber und Trank. "Und weiter" traegt ein und raeumt
+  // das Fenster fuer die naechste Aktion ab — Waffe, Zauber und Grad
+  // bleiben stehen, weil der zweite Hieb meistens derselbe ist.
+  const uebernehmen = weiter => {
+    onAnwenden(bauen(), weiter);
+    if (weiter) {
+      setZiele({});
+      setText('');
+    }
+  };
+
   // Die Vorschau zeigt dieselben Zeilen, die gleich im Protokoll stehen —
-  // samt der Trefferpunkte davor und danach.
+  // samt der Trefferpunkte davor und danach. Was in diesem Zug schon
+  // eingetragen wurde, steht mit darueber: so sieht man den ganzen Zug.
   const vorschau = [{
     art: 'zug',
     r: runde,
     wer: t.name
-  }, ...eintraege.map(e => ({
+  }, ...(bisher || []), ...eintraege.map(e => ({
     ...e,
     r: runde
   }))];
   treffer.forEach(({
     modus,
     n,
-    ziel
+    ziel,
+    teile
   }) => {
     const von = ziel.hp || 0;
     const auf = modus === 'heilung' ? Math.min(ziel.hpMax, von + n) : Math.max(0, von - n);
@@ -2066,7 +2198,8 @@ const ZugFenster = ({
       wer: ziel.name,
       wert: n,
       von,
-      auf
+      auf,
+      teile
     });
     if (von > 0 && auf <= 0) vorschau.push({
       art: 'nieder',
@@ -2133,14 +2266,28 @@ const ZugFenster = ({
     type: "button",
     key: g.id || i,
     className: 'zug-zeile' + (i === gewaehlt ? ' an' : '') + (art === 'zauber' ? ' arkan' : ''),
-    onClick: () => setGewaehlt(i === gewaehlt ? null : i)
+    onClick: () => zauberWaehlen(i)
   }, /*#__PURE__*/React.createElement("span", {
     className: "zug-sym"
   }, art === 'zauber' ? '✨' : '⚔'), /*#__PURE__*/React.createElement("span", {
     className: "zug-text"
   }, /*#__PURE__*/React.createElement("b", null, g.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("i", null, art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : (g.damageType ? g.damageType + ' · ' : '') + (g.range || ''))), /*#__PURE__*/React.createElement("span", {
     className: "zug-wirkt"
-  }, art === 'zauber' ? '' : g.damage || ''))))), /*#__PURE__*/React.createElement("div", {
+  }, art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : g.damage || ''))))), !nurWerte && art === 'zauber' && gegenstand && grundGrad > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "zug-grad"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "zug-grad-label"
+  }, "Zauberplatz"), /*#__PURE__*/React.createElement("span", {
+    className: "zug-reihe"
+  }, grade.map(l => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: l,
+    className: 'zug-grad-taste' + (l === grad ? ' an' : ''),
+    title: platzRest(l) + ' von ' + ((plaetze[l] || plaetze[String(l)] || {}).max || 0) + ' frei',
+    onClick: () => setGrad(l)
+  }, l, /*#__PURE__*/React.createElement("i", null, platzRest(l))))), /*#__PURE__*/React.createElement("span", {
+    className: "zug-grad-erg"
+  }, wurfJetzt ? /*#__PURE__*/React.createElement("b", null, wurfJetzt) : /*#__PURE__*/React.createElement("i", null, "kein W\xFCrfel am Zauber"), grad > grundGrad && /*#__PURE__*/React.createElement("span", null, " \xB7 ", grad - grundGrad, " Grad h\xF6her"), platzRest(grad) > 0 ? /*#__PURE__*/React.createElement("span", null, " \xB7 Platz ", grad, ". Grad wird abgehakt") : /*#__PURE__*/React.createElement("span", null, " \xB7 kein Platz mehr frei"))), /*#__PURE__*/React.createElement("div", {
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-label"
@@ -2170,7 +2317,9 @@ const ZugFenster = ({
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-label"
-  }, "Was ankommt", /*#__PURE__*/React.createElement("span", {
+  }, "Was ankommt", mitRettung && zauberSG != null && /*#__PURE__*/React.createElement("span", {
+    className: "zug-sg"
+  }, "Rettungswurf ", RETTUNG_KURZ[wirkung.rettung], " gegen SG ", zauberSG), /*#__PURE__*/React.createElement("span", {
     className: "zug-richtung"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2188,12 +2337,28 @@ const ZugFenster = ({
     const z = ziele[id];
     const ziel = liste.find(x => x.id === id);
     if (!ziel) return null;
+    const gesamt = Math.max(0, Math.round(+z.wert || 0)) + (z.zusatz || []).reduce((sum, x) => sum + Math.max(0, Math.round(+x.wert || 0)), 0);
+    const halbiert = mitRettung && z.bestanden && wirkung.halb;
     return /*#__PURE__*/React.createElement("div", {
       className: "zug-w-zeile",
       key: id
     }, /*#__PURE__*/React.createElement("span", {
       className: "zug-w-name"
-    }, ziel.name), mitSchalter && /*#__PURE__*/React.createElement("span", {
+    }, ziel.name), mitRettung && /*#__PURE__*/React.createElement("span", {
+      className: "zug-schalter"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: 'nein' + (z.bestanden ? '' : ' an'),
+      onClick: () => zielSetzen(id, {
+        bestanden: false
+      })
+    }, "misslungen"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: 'ja' + (z.bestanden ? ' an' : ''),
+      onClick: () => zielSetzen(id, {
+        bestanden: true
+      })
+    }, "bestanden")), mitSchalter && /*#__PURE__*/React.createElement("span", {
       className: "zug-schalter"
     }, /*#__PURE__*/React.createElement("button", {
       type: "button",
@@ -2207,7 +2372,7 @@ const ZugFenster = ({
       onClick: () => zielSetzen(id, {
         treffer: false
       })
-    }, "daneben")), mitSchalter && /*#__PURE__*/React.createElement("span", {
+    }, "daneben")), (mitSchalter || mitRettung) && /*#__PURE__*/React.createElement("span", {
       className: "zug-feld"
     }, /*#__PURE__*/React.createElement("span", null, "Wurf"), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "zug-zahl",
@@ -2215,11 +2380,11 @@ const ZugFenster = ({
       wert: z.wurf,
       leerWert: "",
       placeholder: "\u2014",
-      "aria-label": 'Gewürfelt gegen ' + ziel.name,
+      "aria-label": 'Gewürfelt für ' + ziel.name,
       onWert: v => zielSetzen(id, {
         wurf: v
       })
-    })), (!mitSchalter || z.treffer) && /*#__PURE__*/React.createElement("span", {
+    })), (mitRettung || !mitSchalter || z.treffer) && /*#__PURE__*/React.createElement("span", {
       className: "zug-feld"
     }, /*#__PURE__*/React.createElement("span", null, richtung === 'heilung' ? 'Heilt' : 'Schaden'), /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "zug-zahl",
@@ -2231,9 +2396,45 @@ const ZugFenster = ({
       onWert: v => zielSetzen(id, {
         wert: v
       })
-    })), /*#__PURE__*/React.createElement("span", {
+    }), halbiert && /*#__PURE__*/React.createElement("i", {
+      className: "zug-halb"
+    }, "\u2192 ", Math.floor(gesamt / 2)), mitRettung && z.bestanden && !wirkung.halb && /*#__PURE__*/React.createElement("i", {
+      className: "zug-halb"
+    }, "\u2192 0")), richtung === 'schaden' && (mitRettung || !mitSchalter || z.treffer) && /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "zug-plus",
+      title: "Zus\xE4tzlicher Schaden anderer Art \u2014 eine brennende Klinge, geweihtes \xD6l",
+      onClick: () => zusatzDazu(id)
+    }, "\uFF0B Art"), /*#__PURE__*/React.createElement("span", {
       className: "zug-w-notiz"
-    }, "RK ", ziel.ac, " \xB7 ", ziel.hp, "/", ziel.hpMax));
+    }, "RK ", ziel.ac, " \xB7 ", ziel.hp, "/", ziel.hpMax), richtung === 'schaden' && (z.zusatz || []).map((x, i) => /*#__PURE__*/React.createElement("span", {
+      className: "zug-zusatz",
+      key: i
+    }, /*#__PURE__*/React.createElement("span", null, "zus\xE4tzlich"), /*#__PURE__*/React.createElement("input", {
+      className: "zug-art",
+      list: "hb-schadensarten",
+      value: x.art || '',
+      placeholder: "Feuer",
+      "aria-label": 'Schadensart ' + (i + 1) + ' an ' + ziel.name,
+      onChange: e => zusatzSetzen(id, i, {
+        art: e.target.value
+      })
+    }), /*#__PURE__*/React.createElement(ZahlFeld, {
+      className: "zug-zahl",
+      sofort: true,
+      min: 0,
+      wert: x.wert,
+      leerWert: 0,
+      "aria-label": 'Zusatzschaden ' + (i + 1) + ' an ' + ziel.name,
+      onWert: v => zusatzSetzen(id, i, {
+        wert: v
+      })
+    }), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fx-del",
+      title: "Weg",
+      onClick: () => zusatzWeg(id, i)
+    }, "\u2715"))));
   }))), /*#__PURE__*/React.createElement("div", {
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2253,16 +2454,26 @@ const ZugFenster = ({
   }, /*#__PURE__*/React.createElement(ProtokollZeilen, {
     log: vorschau,
     mitZahlen: true
-  })))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("datalist", {
+    id: "hb-schadensarten"
+  }, SCHADENSARTEN.map(a2 => /*#__PURE__*/React.createElement("option", {
+    key: a2,
+    value: a2
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "zug-fuss"
   }, /*#__PURE__*/React.createElement("span", {
     className: "zug-hinweis"
   }, "Was hier steht, geht sofort in die B\xF6gen."), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: onAbbrechen
-  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+  }, "Schlie\xDFen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    onClick: () => uebernehmen(true),
+    title: "Eintragen und das Fenster f\xFCr die n\xE4chste Aktion dieses Zuges offen lassen",
+    disabled: !eintraege.length && !treffer.length
+  }, "+ und weiter"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
-    onClick: () => onAnwenden(bauen()),
+    onClick: () => uebernehmen(false),
     disabled: !eintraege.length && !treffer.length
   }, knopf))));
 };
@@ -3100,14 +3311,18 @@ const KampfAnsicht = ({
   });
 
   // Auf der Karte: die kleinen Schritte ohne Fenster.
-  const wertDirekt = (id, modus, n) => {
+  // "extra" traegt mit, was aus dem Zugfenster kommt und in die Zeile
+  // gehoert — heute die Aufteilung des Schadens nach Arten.
+  const wertDirekt = (id, modus, n, extra) => {
     if (modus === 'schaden') aendernWerte(id, t => schaden(t, n), {
       art: 'schaden',
-      wert: n
+      wert: n,
+      ...(extra || {})
     });
     if (modus === 'heilung') aendernWerte(id, t => heilen(t, n), {
       art: 'heilung',
-      wert: n
+      wert: n,
+      ...(extra || {})
     });
   };
 
@@ -3116,15 +3331,38 @@ const KampfAnsicht = ({
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
   const zugAnwenden = ({
     eintraege,
-    treffer
-  }) => {
-    setZugFenster(null);
+    treffer,
+    platz
+  }, weiter) => {
+    if (!weiter) setZugFenster(null);
     (eintraege || []).forEach(e => protokollieren(e));
     (treffer || []).forEach(({
       id,
       modus,
-      n
-    }) => wertDirekt(id, modus, n));
+      n,
+      teile
+    }) => wertDirekt(id, modus, n, teile ? {
+      teile
+    } : null));
+    // Der Zauberplatz gehoert in den Bogen, nicht in den Kampf.
+    if (platz) {
+      const c = helden.find(h => h.id === platz.charId);
+      if (c) {
+        const alt = (c.spellSlots || {})[platz.grad] || {
+          max: 0,
+          used: 0
+        };
+        onHeldAendern(platz.charId, {
+          spellSlots: {
+            ...(c.spellSlots || {}),
+            [platz.grad]: {
+              ...alt,
+              used: Math.min(+alt.max || 0, (+alt.used || 0) + 1)
+            }
+          }
+        }, c.name);
+      }
+    }
   };
   const fensterAnwenden = n => {
     const {
@@ -3373,6 +3611,14 @@ const KampfAnsicht = ({
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
   const zugZiel = zugFenster && liste.find(t => t.id === zugFenster);
+  // Alles, was seit dem letzten Zugwechsel im Protokoll steht — das
+  // Fenster zeigt es an, damit man den ganzen Zug vor sich hat.
+  const bisherImZug = (() => {
+    const log = kampf.log || [];
+    let i = log.length - 1;
+    while (i >= 0 && log[i].art !== 'zug') i--;
+    return i < 0 ? [] : log.slice(i + 1);
+  })();
   const vorbereitung = inVorbereitung(kampf);
   // Der Knopf laesst sich je Abenteuer abschalten — fuer Runden, die ohne
   // Mitschrift spielen. Ohne Eintrag ist er da.
@@ -3540,7 +3786,10 @@ const KampfAnsicht = ({
     t: zugZiel,
     liste: liste,
     helden: helden,
+    setDefs: setDefs,
+    klassen: advKlassen(advObj),
     runde: kampf.runde,
+    bisher: bisherImZug,
     onAbbrechen: () => setZugFenster(null),
     onAnwenden: zugAnwenden
   }), /*#__PURE__*/React.createElement("div", {
@@ -13854,6 +14103,124 @@ function App() {
     placeholder: "Wirkung des Zaubers...",
     rows: 4
   })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label zauber-wirkung-kopf"
+  }, "Wirkung im Kampf", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    title: "W\xFCrfel, Rettungswurf und Steigerung aus der Beschreibung \xFCbernehmen",
+    onClick: () => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        ...wirkungAusText(f.description, f.damageTags)
+      }
+    }))
+  }, "\u21A7 Aus der Beschreibung lesen")), /*#__PURE__*/React.createElement("div", {
+    className: "zauber-wirkung"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Art"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: (sf.wirkung || {}).art || '',
+    onChange: e => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        art: e.target.value
+      }
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keine \u2014"), /*#__PURE__*/React.createElement("option", {
+    value: "schaden"
+  }, "Schaden"), /*#__PURE__*/React.createElement("option", {
+    value: "heilung"
+  }, "Heilung"), /*#__PURE__*/React.createElement("option", {
+    value: "temp"
+  }, "Tempor\xE4re TP"))), /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "W\xFCrfel"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    placeholder: "8W6",
+    value: (sf.wirkung || {}).wuerfel || '',
+    onChange: e => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        wuerfel: e.target.value
+      }
+    }))
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Je Grad dar\xFCber"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    placeholder: "1W6",
+    value: (sf.wirkung || {}).proGrad || '',
+    onChange: e => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        proGrad: e.target.value
+      }
+    }))
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Rettungswurf"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: (sf.wirkung || {}).rettung || '',
+    onChange: e => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        rettung: e.target.value
+      }
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keiner, Angriffswurf \u2014"), RETTUNGEN.map(r => /*#__PURE__*/React.createElement("option", {
+    key: r.k,
+    value: r.k
+  }, r.l)))), /*#__PURE__*/React.createElement("label", {
+    className: "zw-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!(sf.wirkung || {}).halb,
+    onChange: e => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        halb: e.target.checked
+      }
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, "Bestanden = halber Schaden")), /*#__PURE__*/React.createElement("label", {
+    className: "zw-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!(sf.wirkung || {}).attribut,
+    onChange: e => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        attribut: e.target.checked
+      }
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, "+ Zauberattribut")), /*#__PURE__*/React.createElement("label", {
+    className: "zw-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: ((sf.wirkung || {}).zieleProGrad || 0) > 0,
+    onChange: e => setSf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        zieleProGrad: e.target.checked ? 1 : 0
+      }
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, "Ein Ziel mehr je Grad"))), hatWirkung(sf.wirkung) && /*#__PURE__*/React.createElement("div", {
+    className: "zw-probe"
+  }, "Auf Grad ", Math.max(1, sf.level || 1), ": ", /*#__PURE__*/React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'), (sf.wirkung || {}).proGrad && (sf.level || 0) < 9 && /*#__PURE__*/React.createElement(React.Fragment, null, ' · ', "auf Grad ", Math.min(9, (sf.level || 1) + 1), ":", ' ', /*#__PURE__*/React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, Math.min(9, (sf.level || 1) + 1)))), (sf.wirkung || {}).rettung && /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 ", RETTUNG_KURZ[(sf.wirkung || {}).rettung], (sf.wirkung || {}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'))), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"

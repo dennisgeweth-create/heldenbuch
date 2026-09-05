@@ -451,6 +451,84 @@ const newChar   = () => ({
   spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
 });
 const newWeapon = () => ({id:Date.now().toString(),name:"",attrKey:"str",proficient:true,range:"1,5m",attackBonus:0,damage:"1W6",damageType:"Hieb",description:"",properties:[],equipped:false,imageData:"",effects:[]});
+// ── Die Wirkung eines Zaubers ────────────────────────────────────
+// Am Zauber steht sonst nur, was er ist — nicht, was er tut. Fuer das
+// Zugfenster fehlte damit genau die Zahl, um die es im Kampf geht. Sie
+// steht als Feld am Zauber:
+//
+//   wirkung: {art, wuerfel, attribut, rettung, halb, proGrad, zieleProGrad}
+//
+// Alles freiwillig. Ohne Wirkung bleibt der Zauber, was er war, und die
+// Spielleitung tippt die Zahl wie bisher.
+const RETTUNGEN = [
+  {k:'str', l:'Stärke'},       {k:'dex', l:'Geschicklichkeit'},
+  {k:'con', l:'Konstitution'}, {k:'int', l:'Intelligenz'},
+  {k:'wis', l:'Weisheit'},     {k:'cha', l:'Charisma'},
+];
+// Die Schadensarten, die im Regelwerk vorkommen — fuer Vorschlagslisten.
+const SCHADENSARTEN = ['Hieb','Stich','Wucht','Feuer','Kälte','Blitz','Säure','Gift',
+                       'Nekrotisch','Gleißend','Psychisch','Energie','Schall'];
+const RETTUNG_KURZ = {str:'STR', dex:'GES', con:'KON', int:'INT', wis:'WEI', cha:'CHA'};
+
+// Der Wurf auf einem hoeheren Grad. Stimmen die Wuerfelseiten ueberein —
+// 8W6 und "je Grad 1W6" —, wird zusammengezaehlt; sonst bleibt beides
+// nebeneinander stehen, statt eine falsche Zahl zu erfinden.
+const wuerfelAufGrad = (wirkung, grundGrad, grad) => {
+  const w = wirkung || {};
+  if (!w.wuerfel) return '';
+  const drueber = Math.max(0, (+grad || +grundGrad || 0) - (+grundGrad || 0));
+  if (!drueber || !w.proGrad) return w.wuerfel;
+  const m = /^\s*(\d+)\s*[wWdD]\s*(\d+)\s*(.*)$/.exec(w.wuerfel);
+  const p = /^\s*\+?\s*(\d+)\s*[wWdD]\s*(\d+)\s*$/.exec(w.proGrad);
+  if (!m || !p || +p[2] !== +m[2]) {
+    return w.wuerfel + ' + ' + drueber + '×' + w.proGrad;
+  }
+  return (+m[1] + (+p[1]) * drueber) + 'W' + m[2] + (m[3] ? ' ' + m[3].trim() : '');
+};
+
+// Aus der Beschreibung lesen, was im Text ohnehin steht. Die Vorlagen der
+// SRD sind darin erstaunlich regelmaessig: "erleidet 8W6 Feuerschaden",
+// "muss einen Geschicklichkeitsrettungswurf ausfuehren", "anderenfalls die
+// Haelfte", "steigt der Schaden fuer jeden Grad darueber um 1W6". Was
+// hier herauskommt, ist ein Vorschlag — korrigieren kostet einen Klick,
+// alles von Hand einzutragen kostet einen Abend.
+const wirkungAusText = (text, damageTags) => {
+  const roh = String(text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+  const stelle = roh.search(/Auf h(ö|oe)heren Graden/i);
+  const haupt   = stelle < 0 ? roh : roh.slice(0, stelle);
+  const schwanz = stelle < 0 ? ''  : roh.slice(stelle);
+
+  const w = {art:'', wuerfel:'', attribut:false, rettung:'', halb:false,
+             proGrad:'', zieleProGrad:0, schadensart:''};
+
+  const wuerfel = /(\d+)\s*[wW]\s*(\d+)\s*(\+\s*(\d+))?/.exec(haupt);
+  if (wuerfel) w.wuerfel = wuerfel[1] + 'W' + wuerfel[2] + (wuerfel[4] ? '+' + wuerfel[4] : '');
+
+  const heilt = /(Trefferpunkte[^.]{0,80}zur(ü|ue)ck|gewinnt Trefferpunkte|wird geheilt)/i.test(haupt);
+  const temp  = /tempor(ä|ae)re Trefferpunkte/i.test(haupt);
+  w.art = temp ? 'temp' : heilt ? 'heilung' : (w.wuerfel ? 'schaden' : '');
+
+  w.attribut = /Attributsmodifikator|Zauberwirken-Attribut/i.test(haupt);
+
+  const rett = /(St(ä|ae)rke|Geschicklichkeit|Konstitution|Intelligenz|Weisheit|Charisma)s?rettungswurf/i.exec(haupt);
+  if (rett) {
+    const name = rett[1].toLowerCase().replace('ae','ä');
+    w.rettung = {'stärke':'str','geschicklichkeit':'dex','konstitution':'con',
+                 'intelligenz':'int','weisheit':'wis','charisma':'cha'}[name] || '';
+  }
+  w.halb = /anderenfalls die H(ä|ae)lfte|die H(ä|ae)lfte dieses Schadens|halben Schaden/i.test(haupt);
+
+  const steig = /um (\d+)\s*[wW]\s*(\d+)/.exec(schwanz);
+  if (steig) w.proGrad = steig[1] + 'W' + steig[2];
+  if (/ein weiterer? \w+|ein weiteres \w+|eine weitere \w+/i.test(schwanz)) w.zieleProGrad = 1;
+
+  if (Array.isArray(damageTags) && damageTags.length) w.schadensart = damageTags[0];
+  return w;
+};
+
+// Hat der Zauber ueberhaupt etwas eingetragen?
+const hatWirkung = (w) => !!(w && (w.wuerfel || w.art || w.rettung));
+
 const newSpell  = () => ({id:Date.now().toString(),name:"",level:1,school:"Hervorrufung",castingTime:"1 Aktion",range:"9 m",duration:"Sofort",components:"V, S",description:"",prepared:true});
 // gearKind: in welchen Ausruestungsplatz das Stueck passt (leer = keiner).
 // armorType/baseAC/acBonus nur bei Ruestungen und Schilden gefuellt.

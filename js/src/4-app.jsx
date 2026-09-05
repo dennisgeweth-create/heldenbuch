@@ -2943,6 +2943,77 @@ function App() {
                 <div className="form-label">Beschreibung</div>
                 <RichEditor value={sf.description} onChange={v=>setSf({...sf,description:v})} placeholder="Wirkung des Zaubers..." rows={4} />
               </div>
+              {/* Was der Zauber im Kampf tut. Alles freiwillig — ohne diese
+                  Angaben bleibt der Zauber, was er war, und im Zugfenster
+                  wird die Zahl getippt. Mit ihnen steht dort der Wurf, der
+                  Gradwähler rechnet ihn hoch und der Rettungswurf halbiert. */}
+              <div className="form-group form-full">
+                <div className="form-label zauber-wirkung-kopf">
+                  Wirkung im Kampf
+                  <button type="button" className="btn-icon"
+                    title="Würfel, Rettungswurf und Steigerung aus der Beschreibung übernehmen"
+                    onClick={()=>setSf(f=>({...f, wirkung: {...(f.wirkung||{}),
+                      ...wirkungAusText(f.description, f.damageTags)}}))}>
+                    ↧ Aus der Beschreibung lesen
+                  </button>
+                </div>
+                <div className="zauber-wirkung">
+                  <label className="zw-feld">
+                    <span>Art</span>
+                    <select className="form-select" value={(sf.wirkung||{}).art || ''}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), art:e.target.value}}))}>
+                      <option value="">— keine —</option>
+                      <option value="schaden">Schaden</option>
+                      <option value="heilung">Heilung</option>
+                      <option value="temp">Temporäre TP</option>
+                    </select>
+                  </label>
+                  <label className="zw-feld">
+                    <span>Würfel</span>
+                    <input className="form-input" placeholder="8W6" value={(sf.wirkung||{}).wuerfel || ''}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), wuerfel:e.target.value}}))} />
+                  </label>
+                  <label className="zw-feld">
+                    <span>Je Grad darüber</span>
+                    <input className="form-input" placeholder="1W6" value={(sf.wirkung||{}).proGrad || ''}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), proGrad:e.target.value}}))} />
+                  </label>
+                  <label className="zw-feld">
+                    <span>Rettungswurf</span>
+                    <select className="form-select" value={(sf.wirkung||{}).rettung || ''}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), rettung:e.target.value}}))}>
+                      <option value="">— keiner, Angriffswurf —</option>
+                      {RETTUNGEN.map(r => <option key={r.k} value={r.k}>{r.l}</option>)}
+                    </select>
+                  </label>
+                  <label className="zw-schalter">
+                    <input type="checkbox" checked={!!(sf.wirkung||{}).halb}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), halb:e.target.checked}}))} />
+                    <span>Bestanden = halber Schaden</span>
+                  </label>
+                  <label className="zw-schalter">
+                    <input type="checkbox" checked={!!(sf.wirkung||{}).attribut}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), attribut:e.target.checked}}))} />
+                    <span>+ Zauberattribut</span>
+                  </label>
+                  <label className="zw-schalter">
+                    <input type="checkbox" checked={((sf.wirkung||{}).zieleProGrad || 0) > 0}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), zieleProGrad: e.target.checked ? 1 : 0}}))} />
+                    <span>Ein Ziel mehr je Grad</span>
+                  </label>
+                </div>
+                {hatWirkung(sf.wirkung) && (
+                  <div className="zw-probe">
+                    Auf Grad {Math.max(1, sf.level || 1)}: <b>{wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'}</b>
+                    {(sf.wirkung||{}).proGrad && (sf.level || 0) < 9 && <>
+                      {' · '}auf Grad {Math.min(9, (sf.level||1) + 1)}:{' '}
+                      <b>{wuerfelAufGrad(sf.wirkung, sf.level, Math.min(9, (sf.level||1) + 1))}</b>
+                    </>}
+                    {(sf.wirkung||{}).rettung && <> · {RETTUNG_KURZ[(sf.wirkung||{}).rettung]}
+                      {(sf.wirkung||{}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'}</>}
+                  </div>
+                )}
+              </div>
               <div className="form-group form-full">
                 <div className="form-label">Klassen</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
