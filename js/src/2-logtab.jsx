@@ -43,7 +43,7 @@ const LogTab = ({charId, isDmMode}) => {
         <input className="form-input" style={{flex:1,padding:'5px 10px',fontSize:12}}
           placeholder="Suchen..." value={search} onChange={e=>setSearch(e.target.value)} />
       </div>
-      <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:10}}>
+      <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:10}}>
         {LOG_TABS.map(t=>{
           const inc = tabFilter.includes(t);
           const exc = tabExclude.includes(t);

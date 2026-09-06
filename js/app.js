@@ -446,6 +446,7 @@ const LogTab = ({
     value: search,
     onChange: e => setSearch(e.target.value)
   })), /*#__PURE__*/React.createElement("div", {
+    className: "marken-reihe",
     style: {
       display: 'flex',
       flexWrap: 'wrap',
@@ -8433,6 +8434,7 @@ const Sheet = () => {
     const hasFilters = allSpellClasses.length > 0 || allSpellDmg.length > 0;
     const filterActive = spellTagFilter.classes.length > 0 || spellTagFilter.dmg.length > 0;
     return hasFilters && /*#__PURE__*/React.createElement("div", {
+      className: "marken-reihe",
       style: {
         display: 'flex',
         flexWrap: 'wrap',
@@ -13544,6 +13546,7 @@ function App() {
       value: alSearchInput,
       onChange: e => handleSearch(e.target.value)
     }), /*#__PURE__*/React.createElement("div", {
+      className: "marken-reihe",
       style: {
         display: 'flex',
         flexWrap: 'wrap',
@@ -15178,6 +15181,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
   }, "Klassen"), /*#__PURE__*/React.createElement("div", {
+    className: "marken-reihe",
     style: {
       display: 'flex',
       flexWrap: 'wrap',
@@ -15225,6 +15229,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
   }, "Schadenstypen"), /*#__PURE__*/React.createElement("div", {
+    className: "marken-reihe",
     style: {
       display: 'flex',
       flexWrap: 'wrap',
@@ -16983,6 +16988,7 @@ function App() {
         setDbGradeFilter('');
         setDbExpandedEntry(null);
       },
+      className: "db-reiter",
       style: {
         flex: '1 0 auto',
         whiteSpace: 'nowrap',
@@ -17145,6 +17151,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-label"
     }, "Klassen"), /*#__PURE__*/React.createElement("div", {
+      className: "marken-reihe",
       style: {
         display: 'flex',
         flexWrap: 'wrap',
@@ -17192,6 +17199,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-label"
     }, "Schadenstypen"), /*#__PURE__*/React.createElement("div", {
+      className: "marken-reihe",
       style: {
         display: 'flex',
         flexWrap: 'wrap',

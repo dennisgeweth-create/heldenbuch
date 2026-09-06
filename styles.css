@@ -795,6 +795,31 @@
 
     .spell-actions button,
     .feature-actions button { min-width:40px; min-height:40px; }
+    /* Nachgemessen bei 375 Punkten: das hier blieb unter der
+       Fingergroesse und ist im Bogen taeglich im Weg. */
+    .btn-add { min-height:42px; font-size:12px; }
+    .char-name-btn { min-height:38px; }
+    .slot-restore-btn { min-height:38px; }
+    .note-del { min-width:36px; min-height:36px; font-size:14px; opacity:0.8; }
+    .gear-slot-info { min-width:38px; min-height:38px; font-size:15px; }
+    /* Die Marken zum Filtern — Schadensarten im Zauberbuch, Arten im Log.
+       Sie stehen dicht, deshalb Hoehe und Abstand zusammen. */
+    .marken-reihe button { min-height:34px; padding-left:12px; padding-right:12px;
+      font-size:11px; }
+    .marken-reihe { gap:7px !important; }
+    .tag-filter-btn { min-height:34px; }
+    .rte-btn { min-height:36px; padding-left:11px; padding-right:11px; }
+    .rte-toolbar { gap:5px; }
+    /* Die beiden Knoepfe, mit denen jedes Fenster endet. */
+    .btn-cancel, .btn-save { min-height:44px; }
+    /* Die Kopfzeile eines Einstellungsblocks ist der Griff zum Auf- und
+       Zuklappen — mit 16 Punkten Hoehe trifft man sie nicht. */
+    .einst-kopf { min-height:42px; }
+    .fx-del { min-width:36px; min-height:36px; font-size:13px; }
+    .db-reiter { min-height:40px; }
+    /* Der Name in der Kampfzeile oeffnet die Werte — auch das ist ein
+       Tippziel und war eine Textzeile hoch. */
+    .kampf-name-knopf { min-height:36px; }
     .weapon-equip-btn { width:40px; height:40px; font-size:17px; }
     /* Der Effekt-Editor drueckt seine Felder sonst unter die Tippgroesse. */
     .fx-row .form-select, .fx-row .form-input { min-height:44px; font-size:14px; }
@@ -2153,6 +2178,7 @@
     /* Was man mit dem Daumen trifft, braucht Flaeche. Auf der Maus
        reichen 23 Pixel, auf dem Telefon nicht. */
     .kampf-raus { width:34px; min-height:34px; font-size:13px; }
+    .kampf-zug-knopf { min-height:40px; }
     .zug-richtung button, .zug-schalter button, .zug-mind button { min-height:36px;
       padding-left:12px; padding-right:12px; }
     .zug-fuss .btn-cancel, .zug-fuss .btn-save, .zug-fuss .btn-icon { min-height:42px; }

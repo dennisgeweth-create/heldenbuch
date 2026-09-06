@@ -1066,7 +1066,7 @@ const Sheet = () => {
               const hasFilters = allSpellClasses.length>0 || allSpellDmg.length>0;
               const filterActive = spellTagFilter.classes.length>0 || spellTagFilter.dmg.length>0;
               return hasFilters && (
-                <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12,alignItems:'center'}}>
+                <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12,alignItems:'center'}}>
                   {allSpellClasses.map(c=>{const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=spellTagFilter.classes.includes(c);
                     return <button key={c} onClick={()=>setSpellTagFilter(f=>({...f,classes:on?f.classes.filter(x=>x!==c):[...f.classes,c]}))}
                       style={{padding:'2px 8px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',letterSpacing:'0.06em',

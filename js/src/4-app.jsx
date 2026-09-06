@@ -2426,7 +2426,7 @@ function App() {
             </div>
             <input className="form-input" style={{marginBottom:8,padding:'6px 10px',fontSize:12}}
               placeholder="Suchen..." value={alSearchInput} onChange={e=>handleSearch(e.target.value)} />
-            <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+            <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:4}}>
               {TABS2.map(t=>{
                 const inc = alTabs.includes(t);
                 const exc = alExclude.includes(t);
@@ -3209,7 +3209,7 @@ function App() {
               </div>
               <div className="form-group form-full">
                 <div className="form-label">Klassen</div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
+                <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
                   {['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c=>{
                     const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=(sf.classes||[]).includes(c);
                     return <button key={c} type="button" onClick={()=>setSf(f=>({...f,classes:on?(f.classes||[]).filter(x=>x!==c):[...(f.classes||[]),c]}))}
@@ -3219,7 +3219,7 @@ function App() {
               </div>
               <div className="form-group form-full">
                 <div className="form-label">Schadenstypen</div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
+                <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
                   {['Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekrotisch', 'Gleißend', 'Psychisch', 'Energie', 'Schall', 'Hieb', 'Stich', 'Wucht'].map(d=>{
                     const on=(sf.damageTags||[]).includes(d);
                     const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'}[d]||'#aaa';
@@ -3941,6 +3941,7 @@ function App() {
               <div className="db-reiter">
                 {types.map(t=>(
                   <button key={t.k} onClick={()=>{setDbTab(t.k);setDbForm(null);setDbFormId(null);setDbGradeFilter('');setDbExpandedEntry(null);}}
+                    className="db-reiter"
                     style={{flex:'1 0 auto',whiteSpace:'nowrap',padding:'7px 9px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,cursor:'pointer',border:'1px solid',borderRadius:4,
                       borderColor:dbTab===t.k?'var(--gold)':'var(--border)',
                       background:dbTab===t.k?'var(--bg-panel)':'var(--bg-card)',
@@ -4016,7 +4017,7 @@ function App() {
                       </div>
                       <div className="form-group form-full">
                         <div className="form-label">Klassen</div>
-                        <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
+                        <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
                           {['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c=>{
                             const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=(dbForm.classes||[]).includes(c);
                             return <button key={c} type="button" onClick={()=>setDbForm(f=>({...f,classes:on?(f.classes||[]).filter(x=>x!==c):[...(f.classes||[]),c]}))}
@@ -4026,7 +4027,7 @@ function App() {
                       </div>
                       <div className="form-group form-full">
                         <div className="form-label">Schadenstypen</div>
-                        <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
+                        <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
                           {['Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekrotisch', 'Gleißend', 'Psychisch', 'Energie', 'Schall', 'Hieb', 'Stich', 'Wucht'].map(d=>{
                             const on=(dbForm.damageTags||[]).includes(d);
                             const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'}[d]||'#aaa';
