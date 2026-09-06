@@ -3184,6 +3184,11 @@ function App() {
                     <span>+ Zauberattribut</span>
                   </label>
                   <label className="zw-schalter">
+                    <input type="checkbox" checked={!!(sf.wirkung||{}).flaeche}
+                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), flaeche:e.target.checked}}))} />
+                    <span>Fläche — eine Zahl für alle</span>
+                  </label>
+                  <label className="zw-schalter">
                     <input type="checkbox" checked={((sf.wirkung||{}).zieleProGrad || 0) > 0}
                       onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), zieleProGrad: e.target.checked ? 1 : 0}}))} />
                     <span>Ein Ziel mehr je Grad</span>
@@ -3198,6 +3203,7 @@ function App() {
                     </>}
                     {(sf.wirkung||{}).rettung && <> · {RETTUNG_KURZ[(sf.wirkung||{}).rettung]}
                       {(sf.wirkung||{}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'}</>}
+                    {(sf.wirkung||{}).flaeche && <> · <b>Fläche</b>: eine Zahl für alle Ziele</>}
                   </div>
                 )}
               </div>

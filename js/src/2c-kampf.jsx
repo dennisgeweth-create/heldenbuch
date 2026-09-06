@@ -156,7 +156,9 @@ const protokollZeile = (e, mitZahlen) => {
     case 'schaden':  return '   ' + e.wer + ' nimmt ' + e.wert + ' Schaden'
                             + (e.teile && e.teile.length > 1
                                ? ' (' + e.teile.map(x => x.wert + (x.art ? ' ' + x.art : '')).join(' + ') + ')'
-                               : '') + stand;
+                               : '') + stand
+                            + (e.minderung === 'res' ? ' — Resistenz' : '');
+    case 'immun':    return '   ' + e.wer + ' ist immun' + (e.was ? ' gegen ' + e.was : '');
     case 'heilung':  return '   ' + e.wer + ' wird um ' + e.wert + ' geheilt' + stand;
     case 'temp':     return '   ' + e.wer + ': ' + (e.wert >= 0 ? '+' : '') + e.wert + ' temporäre Trefferpunkte';
     case 'maxtemp':  return '   ' + e.wer + ': ' + (e.wert >= 0 ? '+' : '') + e.wert + ' temporäres Maximum';
@@ -685,10 +687,28 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:''}
              : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
+  // Flaechenzauber: ein Wurf fuer alle. Der Schaden steht dann einmal
+  // oben, und bei jedem Ziel nur noch, ob der Rettungswurf gelang.
+  const flaeche = !!(wirkung && wirkung.flaeche);
+  const [gemeinsam, setGemeinsam] = React.useState(0);
+  const [gemeinsamZusatz, setGemeinsamZusatz] = React.useState([]);
   const mitSchalter = !nurWerte && art !== 'frei' && richtung === 'schaden' && !mitRettung;
   const platzRest = (l) => {
     const p = ((held && held.spellSlots) || {})[l] || ((held && held.spellSlots) || {})[String(l)];
     return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
+  };
+
+  // Was der Bogen schon weiss: eine Resistenz gegen genau diese
+  // Schadensart steht als Merkmal am Helden. Sie ist damit vorgewaehlt —
+  // aendern kann die Spielleitung sie trotzdem, denn eine Resistenz
+  // haengt oft am Umstand und nicht nur am Bogen.
+  const schadensArt = () => (art === 'zauber'
+    ? ((wirkung && wirkung.schadensart) || '')
+    : ((gegenstand && gegenstand.damageType) || ''));
+  const vorgemindert = (ziel) => {
+    const a = schadensArt();
+    if (!a || !ziel) return '';
+    return (ziel.flags || []).some(f => f === 'Resistenz: ' + a) ? 'res' : '';
   };
 
   const zielSetzen = (id, p) => setZiele(z => ({...z, [id]: {...z[id], ...p}}));
@@ -704,7 +724,9 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
 
   const zielUm = (id) => setZiele(z => {
     if (z[id]) { const k = {...z}; delete k[id]; return k; }
-    return {...z, [id]: {treffer: true, bestanden: false, wurf: '', wert: 0}};
+    const t2 = (liste || []).find(x => x.id === id);
+    return {...z, [id]: {treffer: true, bestanden: false, wurf: '', wert: 0,
+                         minderung: vorgemindert(t2)}};
   });
   // Einmal gebaut, zweimal genutzt: als Vorschau und als das, was beim
   // Uebernehmen wirklich geschrieben wird. So kann die Vorschau nicht von
@@ -730,8 +752,9 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
       const ziel = liste.find(x => x.id === id);
       if (!ziel) return;
       const z = ziele[id];
-      const basis = Math.max(0, Math.round(+z.wert || 0));
-      const extra = ((z.zusatz || [])
+      const basis = flaeche ? Math.max(0, Math.round(+gemeinsam || 0))
+                            : Math.max(0, Math.round(+z.wert || 0));
+      const extra = ((flaeche ? gemeinsamZusatz : (z.zusatz || []))
         .map(x => ({wert: Math.max(0, Math.round(+x.wert || 0)), art: (x.art || '').trim()}))
         .filter(x => x.wert > 0));
       const voll = basis + extra.reduce((sum, x) => sum + x.wert, 0);
@@ -751,9 +774,21 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
           ziel: ziel.name, wurf: z.wurf, ac: ziel.ac, treffer: !!z.treffer});
         if (!z.treffer) n = 0;
       }
-      // Halbiert der Rettungswurf, stimmen die Teile nicht mehr — dann
-      // steht nur die Zahl da statt einer falschen Aufteilung.
+      // Und zuletzt, was am Ziel selbst haengt: Resistenz halbiert, was
+      // uebrig ist, Immunitaet nimmt alles. Diese Reihenfolge steht so im
+      // Regelwerk — erst der Rettungswurf, dann die Minderung.
+      const mind = richtung === 'schaden' ? (z.minderung || '') : '';
+      if (mind === 'immun') {
+        eintraege.push({art: 'immun', wer: ziel.name, was: schadensArt()});
+        n = 0;
+      } else if (mind === 'res') {
+        n = Math.floor(n / 2);
+      }
+      // Halbiert der Rettungswurf oder eine Resistenz, stimmen die Teile
+      // nicht mehr — dann steht nur die Zahl da statt einer falschen
+      // Aufteilung.
       if (n > 0) treffer.push({id, modus: richtung, n, ziel,
+        minderung: mind,
         teile: (n === voll && richtung === 'schaden') ? teile : null});
     });
     return {eintraege, treffer, platz};
@@ -768,7 +803,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   // bleiben stehen, weil der zweite Hieb meistens derselbe ist.
   const uebernehmen = (weiter) => {
     onAnwenden(bauen(), weiter, genommen);
-    if (weiter) { setZiele({}); setText(''); setGenommen(null); }
+    if (weiter) { setZiele({}); setText(''); setGenommen(null);
+                  setGemeinsam(0); setGemeinsamZusatz([]); }
   };
 
   // Die Vorschau zeigt dieselben Zeilen, die gleich im Protokoll stehen —
@@ -777,10 +813,10 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   const vorschau = [{art: 'zug', r: runde, wer: t.name},
                     ...(bisher || []),
                     ...eintraege.map(e => ({...e, r: runde}))];
-  treffer.forEach(({modus, n, ziel, teile}) => {
+  treffer.forEach(({modus, n, ziel, teile, minderung}) => {
     const von = ziel.hp || 0;
     const auf = modus === 'heilung' ? Math.min(ziel.hpMax, von + n) : Math.max(0, von - n);
-    vorschau.push({art: modus, r: runde, wer: ziel.name, wert: n, von, auf, teile});
+    vorschau.push({art: modus, r: runde, wer: ziel.name, wert: n, von, auf, teile, minderung});
     if (von > 0 && auf <= 0) vorschau.push({art: 'nieder', r: runde, wer: ziel.name});
   });
 
@@ -869,6 +905,37 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                   onClick={()=>setRichtung('heilung')}>+ Heilung</button>
               </span>
             </div>
+            {flaeche && Object.keys(ziele).length > 0 && (
+              <div className="zug-flaeche">
+                <span className="zug-flaeche-label">Für alle</span>
+                <span className="zug-feld">
+                  <span>{richtung === 'heilung' ? 'Heilt' : 'Schaden'}</span>
+                  <ZahlFeld className="zug-zahl" sofort min={0} wert={gemeinsam} leerWert={0}
+                    aria-label="Schaden für alle Ziele" onWert={v=>setGemeinsam(v)} />
+                </span>
+                {richtung === 'schaden' && gemeinsamZusatz.map((x, i) => (
+                  <span className="zug-zusatz" key={i} style={{width:'auto', paddingLeft:8}}>
+                    <input className="zug-art" list="hb-schadensarten" value={x.art || ''}
+                      placeholder="Feuer" aria-label={'Schadensart ' + (i+1) + ' für alle'}
+                      onChange={e=>setGemeinsamZusatz(l => l.map((y,j) => j===i ? {...y, art:e.target.value} : y))} />
+                    <ZahlFeld className="zug-zahl" sofort min={0} wert={x.wert} leerWert={0}
+                      aria-label={'Zusatzschaden ' + (i+1) + ' für alle'}
+                      onWert={v=>setGemeinsamZusatz(l => l.map((y,j) => j===i ? {...y, wert:v} : y))} />
+                    <button type="button" className="fx-del" title="Weg"
+                      onClick={()=>setGemeinsamZusatz(l => l.filter((_,j) => j!==i))}>✕</button>
+                  </span>
+                ))}
+                {richtung === 'schaden' && (
+                  <button type="button" className="zug-plus" title="Zusätzlicher Schaden anderer Art"
+                    onClick={()=>setGemeinsamZusatz(l => [...l, {art:'', wert:0}])}>＋ Art</button>
+                )}
+                <span className="zug-flaeche-hinweis">
+                  {Object.keys(ziele).length} {Object.keys(ziele).length === 1 ? 'Ziel' : 'Ziele'}
+                  {mitRettung ? (wirkung.halb ? ' · wer besteht, nimmt die Hälfte'
+                                              : ' · wer besteht, nimmt nichts') : ''}
+                </span>
+              </div>
+            )}
             {Object.keys(ziele).length === 0 ? (
               <div className="zug-leer">Noch kein Ziel gewählt.</div>
             ) : (
@@ -877,8 +944,11 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                   const z = ziele[id];
                   const ziel = liste.find(x => x.id === id);
                   if (!ziel) return null;
-                  const gesamt = Math.max(0, Math.round(+z.wert || 0))
-                    + ((z.zusatz || []).reduce((sum, x) => sum + Math.max(0, Math.round(+x.wert || 0)), 0));
+                  const gesamt = flaeche
+                    ? Math.max(0, Math.round(+gemeinsam || 0))
+                      + gemeinsamZusatz.reduce((sum, x) => sum + Math.max(0, Math.round(+x.wert || 0)), 0)
+                    : Math.max(0, Math.round(+z.wert || 0))
+                      + ((z.zusatz || []).reduce((sum, x) => sum + Math.max(0, Math.round(+x.wert || 0)), 0));
                   const halbiert = mitRettung && z.bestanden && wirkung.halb;
                   return (
                     <div className="zug-w-zeile" key={id}>
@@ -907,19 +977,45 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                             onWert={v=>zielSetzen(id, {wurf: v})} />
                         </span>
                       )}
-                      {(mitRettung || !mitSchalter || z.treffer) && (
+                      {flaeche ? (
                         <span className="zug-feld">
                           <span>{richtung === 'heilung' ? 'Heilt' : 'Schaden'}</span>
-                          <ZahlFeld className="zug-zahl" sofort min={0} wert={z.wert} leerWert={0}
-                            aria-label={(richtung === 'heilung' ? 'Heilung' : 'Schaden') + ' an ' + ziel.name}
-                            onWert={v=>zielSetzen(id, {wert: v})} />
-                          {halbiert && <i className="zug-halb">→ {Math.floor(gesamt/2)}</i>}
-                          {mitRettung && z.bestanden && !wirkung.halb && <i className="zug-halb">→ 0</i>}
+                          <b className="zug-ergebnis">{(() => {
+                            let n = (mitRettung && z.bestanden)
+                              ? (wirkung.halb ? Math.floor(gesamt / 2) : 0) : gesamt;
+                            if (z.minderung === 'immun') n = 0;
+                            else if (z.minderung === 'res') n = Math.floor(n / 2);
+                            return n;
+                          })()}</b>
                         </span>
+                      ) : (
+                        <>
+                          {(mitRettung || !mitSchalter || z.treffer) && (
+                            <span className="zug-feld">
+                              <span>{richtung === 'heilung' ? 'Heilt' : 'Schaden'}</span>
+                              <ZahlFeld className="zug-zahl" sofort min={0} wert={z.wert} leerWert={0}
+                                aria-label={(richtung === 'heilung' ? 'Heilung' : 'Schaden') + ' an ' + ziel.name}
+                                onWert={v=>zielSetzen(id, {wert: v})} />
+                              {halbiert && <i className="zug-halb">→ {Math.floor(gesamt/2)}</i>}
+                              {mitRettung && z.bestanden && !wirkung.halb && <i className="zug-halb">→ 0</i>}
+                            </span>
+                          )}
+                          {richtung === 'schaden' && (mitRettung || !mitSchalter || z.treffer) && (
+                            <button type="button" className="zug-plus"
+                              title="Zusätzlicher Schaden anderer Art — eine brennende Klinge, geweihtes Öl"
+                              onClick={()=>zusatzDazu(id)}>＋ Art</button>
+                          )}
+                        </>
                       )}
-                      {richtung === 'schaden' && (mitRettung || !mitSchalter || z.treffer) && (
-                        <button type="button" className="zug-plus" title="Zusätzlicher Schaden anderer Art — eine brennende Klinge, geweihtes Öl"
-                          onClick={()=>zusatzDazu(id)}>＋ Art</button>
+                      {richtung === 'schaden' && (
+                        <span className="zug-mind" title="Resistenz halbiert, Immunität nimmt alles">
+                          <button type="button" className={(z.minderung ? '' : 'an')}
+                            onClick={()=>zielSetzen(id, {minderung: ''})}>voll</button>
+                          <button type="button" className={(z.minderung === 'res' ? 'an res' : '')}
+                            onClick={()=>zielSetzen(id, {minderung: 'res'})}>½ Res.</button>
+                          <button type="button" className={(z.minderung === 'immun' ? 'an immun' : '')}
+                            onClick={()=>zielSetzen(id, {minderung: 'immun'})}>immun</button>
+                        </span>
                       )}
                       <span className="zug-w-notiz">RK {ziel.ac} · {ziel.hp}/{ziel.hpMax}</span>
 
@@ -1615,8 +1711,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     if (!weiter) setZugFenster(null);
     else setZugFenster(z => z && ({id: z.id}));
     (eintraege || []).forEach(e => protokollieren(e));
-    (treffer || []).forEach(({id, modus, n, teile}) =>
-      wertDirekt(id, modus, n, teile ? {teile} : null));
+    (treffer || []).forEach(({id, modus, n, teile, minderung}) =>
+      wertDirekt(id, modus, n, (teile || minderung) ? {teile, minderung} : null));
     // Der Zauberplatz gehoert in den Bogen, nicht in den Kampf.
     if (platz) {
       const c = helden.find(h => h.id === platz.charId);

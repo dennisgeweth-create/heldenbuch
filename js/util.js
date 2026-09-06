@@ -508,7 +508,7 @@ const wirkungAusText = (text, damageTags) => {
   const schwanz = stelle < 0 ? ''  : roh.slice(stelle);
 
   const w = {art:'', wuerfel:'', attribut:false, rettung:'', halb:false,
-             proGrad:'', zieleProGrad:0, schadensart:''};
+             proGrad:'', zieleProGrad:0, schadensart:'', flaeche:false};
 
   const wuerfel = /(\d+)\s*[wW]\s*(\d+)\s*(\+\s*(\d+))?/.exec(haupt);
   if (wuerfel) w.wuerfel = wuerfel[1] + 'W' + wuerfel[2] + (wuerfel[4] ? '+' + wuerfel[4] : '');
@@ -526,6 +526,12 @@ const wirkungAusText = (text, damageTags) => {
                  'intelligenz':'int','weisheit':'wis','charisma':'cha'}[name] || '';
   }
   w.halb = /anderenfalls die H(ä|ae)lfte|die H(ä|ae)lfte dieses Schadens|halben Schaden/i.test(haupt);
+
+  // Flaeche: ein Wurf fuer alle. "Jede Kreatur in einer Sphaere ..." ist
+  // die uebliche Formulierung; wo ein Rettungswurf und eine Form
+  // zusammenkommen, ist es fast immer eine.
+  const form = /(Radius|Kegel|Sph(ä|ae)re|Zylinder|W(ü|ue)rfel|Linie)/i.test(haupt);
+  w.flaeche = /[Jj]ede Kreatur/.test(haupt) || (!!w.rettung && form);
 
   const steig = /um (\d+)\s*[wW]\s*(\d+)/.exec(schwanz);
   if (steig) w.proGrad = steig[1] + 'W' + steig[2];
