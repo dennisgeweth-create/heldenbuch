@@ -14073,11 +14073,13 @@ function App() {
     className: "hb-logo",
     src: "logo.png",
     alt: "Heldenbuch",
-    width: 360,
-    height: 275
-  }), /*#__PURE__*/React.createElement("span", {
+    width: 280,
+    height: 280
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-wort"
+  }, "Heldenbuch", /*#__PURE__*/React.createElement("span", {
     className: "app-version"
-  }, HB_VERSION)), /*#__PURE__*/React.createElement("div", {
+  }, HB_VERSION))), /*#__PURE__*/React.createElement("div", {
     className: "char-list"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -14247,11 +14249,13 @@ function App() {
     className: "hb-logo schmal",
     src: "logo.png",
     alt: "Heldenbuch",
-    width: 360,
-    height: 275
-  }), /*#__PURE__*/React.createElement("span", {
+    width: 280,
+    height: 280
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-wort"
+  }, "Heldenbuch", /*#__PURE__*/React.createElement("span", {
     className: "app-version"
-  }, HB_VERSION), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
+  }, HB_VERSION)), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',

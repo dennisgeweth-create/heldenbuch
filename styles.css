@@ -41,9 +41,15 @@
   .sidebar-header { padding:14px 16px 12px; border-bottom:1px solid var(--border); text-align:center; }
   /* Das Zeichen traegt den Namen selbst, deshalb steht darunter kein
      zweiter. Die Hoehe ist gesetzt, damit beim Laden nichts springt. */
-  .hb-logo { display:block; margin:0 auto; width:186px; height:auto;
-    max-width:100%; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
-  .hb-logo.schmal { width:158px; }
+  .hb-logo { display:block; margin:0 auto; width:120px; height:auto;
+    max-width:100%; border-radius:14px;
+    filter:drop-shadow(0 4px 12px rgba(0,0,0,0.6)); }
+  .hb-logo.schmal { width:104px; }
+  /* Das Wappen traegt keinen Schriftzug — der Name steht darunter, die
+     Ausgabe als kleines Schild daneben. */
+  .sidebar-wort { display:flex; align-items:center; justify-content:center; gap:8px;
+    margin-top:9px; font-family:'Roboto Condensed',sans-serif; font-size:15px;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--gold); }
   /* Die Ausgabe steht am Zeichen, nicht mehr unten in der Leiste: dort
      stand sie neben Dingen, die eine Antwort verlangen. */
   .app-version { display:inline-block; margin-top:7px; font-size:9px;

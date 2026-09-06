@@ -2613,11 +2613,12 @@ function App() {
 
         <div className={"sidebar"+(sidebarCollapsed?" collapsed":"")}>
           <div className="sidebar-header">
-            {/* Der Name steht im Zeichen selbst — ein zweiter darunter waere
-                derselbe Name zweimal. */}
+            {/* Das Zeichen ist ein Wappen ohne Schrift — der Name steht
+                deshalb darunter, mit der Ausgabe daneben. */}
             <img className="hb-logo" src="logo.png" alt="Heldenbuch"
-              width={360} height={275} />
-            <span className="app-version">{HB_VERSION}</span>
+              width={280} height={280} />
+            <div className="sidebar-wort">Heldenbuch
+              <span className="app-version">{HB_VERSION}</span></div>
           </div>
           <div className="char-list">
             <div style={{padding:'6px 8px 0'}}>
@@ -2761,8 +2762,9 @@ function App() {
             <div className="mobile-list-screen">
               <div style={{padding:"16px 12px 12px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
                 <img className="hb-logo schmal" src="logo.png" alt="Heldenbuch"
-                  width={360} height={275} />
-                <span className="app-version">{HB_VERSION}</span>
+                  width={280} height={280} />
+                <div className="sidebar-wort">Heldenbuch
+                  <span className="app-version">{HB_VERSION}</span></div>
                 {/* Sync status on mobile list */}
                 {svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && (
                   <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:6}}>
