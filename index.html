@@ -116,6 +116,12 @@
     const apiDmDeleteEncounter = (url, code, pass, dmPass, id)    => apiRequest(url, 'dm_delete_encounter', { code, password: pass, dm_password: dmPass, enc_id: id });
     const apiDmLoadChronik     = (url, code, pass, dmPass)       => apiRequest(url, 'dm_load_chronik',     { code, password: pass, dm_password: dmPass });
     const apiDmSaveChronik     = (url, code, pass, dmPass, ch)   => apiRequest(url, 'dm_save_chronik',     { code, password: pass, dm_password: dmPass, chronik: ch });
+    // Der laufende Kampf liegt je Abenteuer auf dem Server: die
+    // Spielleitung schreibt ihn, alle anderen lesen die Fassung, aus der
+    // die Zahlen der Gegner heraus sind. "seit" spart die Antwort, wenn
+    // sich seit dem letzten Blick nichts getan hat.
+    const apiKampfSetzen = (url, code, advId, kampf)      => apiRequest(url, 'kampf_setzen', { code, adv_id: advId, kampf });
+    const apiKampfStand  = (url, code, advId, seit)       => apiRequest(url, 'kampf_stand',  { code, adv_id: advId, seit });
     // ── Konten ──────────────────────────────────────────────────
     // Alles hier traegt die Kennung von selbst, ausser login und dem
     // allerersten Konto — da gibt es noch keine.

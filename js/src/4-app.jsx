@@ -1661,6 +1661,51 @@ function App() {
   const advObj  = abenteuer.find(a => a.id === advId) || null;
   advIdRef.current = advId;
 
+  // ── Der Kampf geht mit auf den Server ──────────────────────────
+  // Bis v4.4 lag er allein hier im Geraet. Damit die Runde mitsehen kann,
+  // schreibt die Spielleitung ihn mit — aber nur, solange er laeuft:
+  // die Aufstellung davor verriete, was gleich um die Ecke kommt, und
+  // nach dem Ende gibt es nichts mehr zu sehen.
+  //
+  // Gespiegelt wird ohne Bilder. Der Kampf wird waehrend eines Gefechts
+  // im Sekundentakt geschrieben, und ein Gegnerbild ist ein halbes
+  // Megabyte — das gehoert in die Gegnersammlung, nicht in jede Anfrage.
+  //
+  // Der Server ist dabei Zuhoerer, nicht Quelle: was hier steht, gilt.
+  // Zwei Spielleitungen an zwei Geraeten waeren ein eigener Schritt, und
+  // der faengt nicht mit dem Schreiben an, sondern mit dem Zusammenfuehren.
+  const kampfGespiegelt = useRef(null);
+  useEffect(() => {
+    const creds = serverCreds();
+    if (!verbunden(creds)) return;
+    const darf = isDmMode && konto && leitetAbenteuer(konto, advDms, svCode, advId);
+    const laeuft = !!kampf && kampf.aktiv !== false && kampf.phase !== 'vorbereitung';
+    const schlank = (darf && laeuft) ? {
+      name: kampf.name, phase: kampf.phase || 'kampf', aktiv: true,
+      runde: kampf.runde, zug: kampf.zug,
+      teilnehmer: (kampf.teilnehmer || []).map(t => {
+        const {bild, ...rest} = t;
+        return rest;
+      }),
+      log: kampf.log || [],
+    } : null;
+    // Nichts zu spiegeln und nichts gespiegelt: dann auch keine Anfrage.
+    const text = JSON.stringify(schlank);
+    if (text === kampfGespiegelt.current) return;
+    if (schlank === null && kampfGespiegelt.current === null) return;
+    if (!darf) return;                    // wer nicht leitet, raeumt auch nicht ab
+    const uhr = setTimeout(() => {
+      kampfGespiegelt.current = text;
+      apiKampfSetzen(creds.url, creds.code, advId, schlank)
+        .catch(() => { kampfGespiegelt.current = null; });   // beim naechsten Mal erneut
+    }, 1200);
+    return () => clearTimeout(uhr);
+  }, [kampf, isDmMode, konto, advId, svCode, advDms]);
+
+  // Beim Wechsel des Abenteuers faengt das Spiegeln von vorn an — sonst
+  // hielte der Merker den Stand des vorigen Abenteuers fuer den eigenen.
+  useEffect(() => { kampfGespiegelt.current = null; }, [advId]);
+
   const einstellungFuer = advEinstellung ? advEinstellung.id : null;
   useEffect(() => {
     if (!einstellungFuer) return;

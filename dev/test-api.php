@@ -470,6 +470,119 @@ pruefe('die Logzeile steht noch', $zeile !== null);
 pruefe('ohne Kennung', $zeile !== null && $zeile['user_id'] === null);
 pruefe('mit ihrem Inhalt', $zeile !== null && $zeile['char_name'] === 'Verwaister Bogen');
 
+// ════════════════════════════════════════════════════════════════
+//  Der Kampf auf dem Server
+// ════════════════════════════════════════════════════════════════
+// Die Frage, um die es hier geht, ist nicht "kommt er an" — sondern
+// "was sieht ein Spieler davon". Ein Kampf, der die Trefferpunkte der
+// Gegner ausliefert, nimmt der Runde das Herausfinden.
+abschnitt('Der Kampf auf dem Server');
+
+// $dm leitet Strahd (weiter oben eingetragen), $spieler nicht.
+$kampf = [
+    'aktiv' => true, 'phase' => 'kampf', 'name' => 'Am Tor', 'runde' => 2, 'zug' => 1,
+    'teilnehmer' => [
+        ['id' => 'held-h1', 'art' => 'held', 'charId' => 'h1', 'ini' => 17,
+         'zustaende' => ['Gepackt'], 'erschoepfung' => 1, 'vorteil' => true, 'nachteil' => false],
+        ['id' => 'g1', 'art' => 'gegner', 'name' => 'Wolf 1', 'ac' => 13,
+         'hp' => 4, 'hpMax' => 11, 'tempHp' => 0, 'ini' => 12,
+         'zustaende' => [], 'erschoepfung' => 0, 'notiz' => 'greift zuerst den Magier an'],
+    ],
+    'log' => [
+        ['art' => 'start', 'r' => 1, 'wer' => 'Am Tor'],
+        ['art' => 'schaden', 'r' => 2, 'wer' => 'Wolf 1', 'wert' => 7, 'von' => 11, 'auf' => 4],
+    ],
+];
+
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'kampf' => $kampf]);
+pruefe('ein Spieler schreibt keinen Kampf (403)', $r['status'] === 403, kurz($r));
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
+pruefe('die Spielleitung des Abenteuers schreibt ihn (200)', $r['status'] === 200, kurz($r));
+pruefe('und bekommt einen Stand zurueck', (int)($r['body']['stand'] ?? 0) >= 1);
+$standEins = (int)($r['body']['stand'] ?? 0);
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
+pruefe('jede Aenderung zaehlt den Stand hoch', (int)($r['body']['stand'] ?? 0) === $standEins + 1);
+$stand = (int)($r['body']['stand'] ?? 0);
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => 'kein Objekt']);
+pruefe('ein Kampf im falschen Format wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'kampf' => $kampf]);
+pruefe('ohne Abenteuer geht es nicht (400)', $r['status'] === 400, kurz($r));
+
+abschnitt('Die Spielleitung sieht alles');
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$k = $r['body']['kampf'] ?? [];
+$gegner = null;
+foreach ((array)($k['teilnehmer'] ?? []) as $t) if (($t['art'] ?? '') === 'gegner') $gegner = $t;
+pruefe('sie liest den Kampf (200)', $r['status'] === 200, kurz($r));
+pruefe('und wird als Spielleitung gefuehrt', ($r['body']['dm'] ?? false) === true);
+pruefe('die Trefferpunkte des Gegners stehen da', ($gegner['hp'] ?? null) === 4);
+pruefe('die Ruestungsklasse auch', ($gegner['ac'] ?? null) === 13);
+pruefe('ihre Notiz ebenso', ($gegner['notiz'] ?? '') !== '');
+pruefe('und das Protokoll ist mit dabei', count((array)($k['log'] ?? [])) === 2);
+
+abschnitt('Der Spieler sieht den Zustand, nicht die Zahl');
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$k = $r['body']['kampf'] ?? [];
+$gegner = null; $held = null;
+foreach ((array)($k['teilnehmer'] ?? []) as $t) {
+    if (($t['art'] ?? '') === 'gegner') $gegner = $t; else $held = $t;
+}
+pruefe('er liest den Kampf (200)', $r['status'] === 200, kurz($r));
+pruefe('aber nicht als Spielleitung', ($r['body']['dm'] ?? true) === false);
+pruefe('Runde und Zug stehen da', ($k['runde'] ?? 0) === 2 && ($k['zug'] ?? -1) === 1);
+pruefe('der Gegner steht mit Namen da', ($gegner['name'] ?? '') === 'Wolf 1');
+pruefe('seine Trefferpunkte nicht', !array_key_exists('hp', (array)$gegner));
+pruefe('sein Maximum auch nicht', !array_key_exists('hpMax', (array)$gegner));
+pruefe('seine Ruestungsklasse ebenso wenig', !array_key_exists('ac', (array)$gegner));
+pruefe('die Notiz der Spielleitung erst recht nicht', !array_key_exists('notiz', (array)$gegner));
+pruefe('stattdessen steht sein Zustand da', ($gegner['zustand'] ?? '') === 'Schwer verwundet',
+       json_encode($gegner, JSON_UNESCAPED_UNICODE));
+pruefe('mit einem groben Balken', ($gegner['balken'] ?? -1) === 0.37);
+pruefe('das Protokoll bleibt draussen', !array_key_exists('log', (array)$k));
+pruefe('der Held steht mit seiner Kennung da', ($held['charId'] ?? '') === 'h1');
+pruefe('seine Zustaende sind sichtbar', ($held['zustaende'][0] ?? '') === 'Gepackt');
+pruefe('die Initiative auch', ($held['ini'] ?? 0) === 17);
+pruefe('und das Abenteuer sagt, ob Zahlen offen sind', ($k['hpOffen'] ?? null) === true);
+
+abschnitt('Verdeckte Trefferpunkte gelten auch hier');
+$lib = ruf('load', ['code' => $code, 'token' => $tDm])['body']['library'] ?? [];
+$advs = $lib['_adventures'] ?? [];
+foreach ($advs as $i => $a) if (($a['id'] ?? '') === 'strahd') $advs[$i]['hpVerdeckt'] = true;
+$lib['_adventures'] = $advs;
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $lib]);
+pruefe('das Abenteuer wird auf verdeckt gestellt (200)', $r['status'] === 200, kurz($r));
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('der Spieler erfaehrt es', (($r['body']['kampf']['hpOffen'] ?? true) === false));
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung sieht weiter die Zahlen',
+       ($r['body']['kampf']['teilnehmer'][1]['hp'] ?? null) === 4);
+
+abschnitt('Der Stand spart die Antwort');
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'seit' => $stand]);
+pruefe('wer schon den neuesten Stand hat, bekommt nur die Zahl',
+       ($r['body']['stand'] ?? 0) === $stand && !array_key_exists('kampf', $r['body']));
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'seit' => $stand - 1]);
+pruefe('wer hinterher ist, bekommt den Kampf', isset($r['body']['kampf']));
+
+abschnitt('Nebenan und danach');
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'eberron']);
+pruefe('ein Abenteuer ohne Kampf antwortet mit Stand 0',
+       ($r['body']['stand'] ?? -1) === 0
+       && array_key_exists('kampf', $r['body']) && $r['body']['kampf'] === null);
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => null]);
+pruefe('die Spielleitung raeumt den Kampf ab (200)', $r['status'] === 200, kurz($r));
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('danach ist nichts mehr zu sehen',
+       array_key_exists('kampf', $r['body']) && $r['body']['kampf'] === null);
+$r = ruf('kampf_stand', ['code' => $code, 'adv_id' => 'strahd']);
+pruefe('ohne Kennung geht gar nichts (403)', $r['status'] === 403, kurz($r));
+
+// Das Abenteuer wieder offen stellen, damit die folgenden Pruefungen
+// dieselbe Ausgangslage haben wie bisher.
+foreach ($advs as $i => $a) if (($a['id'] ?? '') === 'strahd') $advs[$i]['hpVerdeckt'] = false;
+$lib['_adventures'] = $advs;
+ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $lib]);
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

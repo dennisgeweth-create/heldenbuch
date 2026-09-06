@@ -15,6 +15,7 @@ define('MAX_CHAR_BYTES',  500000);   // 500KB pro Char (ohne Items)
 define('MAX_ITEM_BYTES',  2000000);  // 2MB pro Item (Bild!)
 define('MAX_LIB_BYTES',   2000000);  // 2MB Bibliothek
 define('MAX_ENEMY_BYTES', 2000000);  // 2MB pro Gegner (Bild!)
+define('MAX_KAMPF_BYTES',  300000);   // 300KB je Kampf — er wird oft geschrieben
 define('RATE_LIMIT_ATTEMPTS',   1000);
 define('LOG_TAGE_STANDARD',     180);   // Aufbewahrung des Abenteuerlogs
 define('RATE_LIMIT_WINDOW_SEC', 300);
@@ -126,6 +127,20 @@ $pdo->exec("
         chronik_json LONGTEXT    NOT NULL,
         updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_hbch_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- Ein laufender Kampf je Abenteuer. Mehr braucht kein Tisch, und die
+    -- Beschraenkung macht die Frage nach dem richtigen Kampf ueberfluessig.
+    -- stand zaehlt jede Aenderung mit: ein Geraet fragt nur die Zahl und
+    -- holt den Rest erst, wenn sie sich bewegt hat.
+    CREATE TABLE IF NOT EXISTS hb_kampf (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        kampf_json   LONGTEXT    NOT NULL,
+        stand        BIGINT      NOT NULL DEFAULT 1,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_code, adv_id),
+        CONSTRAINT fk_hbk_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
     CREATE TABLE IF NOT EXISTS hb_vitals (
@@ -425,6 +440,100 @@ function fuehrtIrgendwas(PDO $pdo, string $code, int $userId): bool {
     $st = $pdo->prepare("SELECT 1 FROM hb_adv_dm WHERE session_code=? AND user_id=? LIMIT 1");
     $st->execute([$code, $userId]);
     return (bool)$st->fetch();
+}
+
+// ── Der Kampf und was ein Spieler davon sehen darf ──────────────
+// Dieselbe Leiter wie im Bogen (js/util.js, TP_ZUSTAENDE). Sie steht
+// hier ein zweites Mal, und das ist Absicht: verschleiern im Browser
+// waere keine Verschleierung. Wer die Antwort des Servers ansieht, saehe
+// die Zahl trotzdem. Also faellt sie hier heraus, bevor sie das Haus
+// verlaesst.
+function tpZustandServer(int $hp, int $max): array {
+    $anteil = $max > 0 ? max(0, $hp) / $max : 0.0;
+    $stufen = [
+        [1.0,  1.0,  'Unverletzt'],
+        [0.75, 0.85, 'Leicht verletzt'],
+        [0.5,  0.62, 'Verwundet'],
+        [0.25, 0.37, 'Schwer verwundet'],
+        [0.01, 0.12, 'Am Ende'],
+        [0.0,  0.0,  'Kampfunfähig'],
+    ];
+    foreach ($stufen as $s) {
+        if ($anteil >= $s[0]) return ['zustand' => $s[2], 'balken' => $s[1]];
+    }
+    return ['zustand' => 'Kampfunfähig', 'balken' => 0.0];
+}
+
+// Zeigt dieses Abenteuer die Trefferpunkte offen? Die Einstellung liegt
+// in der Bibliothek unter _adventures, dort wo auch die Abenteuerliste
+// steht. Ist nichts eingetragen, sind sie offen — so war es immer.
+function tpOffenImAbenteuer(PDO $pdo, string $code, string $advId): bool {
+    $st = $pdo->prepare("SELECT library_json FROM hb_sessions WHERE code=?");
+    $st->execute([$code]);
+    $lib = json_decode((string)($st->fetchColumn() ?: '{}'), true);
+    $advs = (is_array($lib) && isset($lib['_adventures']) && is_array($lib['_adventures']))
+        ? $lib['_adventures'] : [];
+    foreach ($advs as $a) {
+        if (is_array($a) && (string)($a['id'] ?? '') === $advId) {
+            return empty($a['hpVerdeckt']);
+        }
+    }
+    return true;
+}
+
+// Die Fassung fuer alle, die das Abenteuer nicht leiten.
+//
+// Beim Gegner fallen die Zahlen immer heraus — seine Trefferpunkte sind
+// das, was die Runde im Kampf herausfinden soll, und seine
+// Ruestungsklasse ebenso. Uebrig bleibt, was am Tisch ohnehin jeder
+// sieht: dass er dasteht, wie es ihm geht, und was ihn plagt.
+//
+// Beim Helden traegt der Kampf gar keine Trefferpunkte — die stehen im
+// Bogen und gehen ihren eigenen Weg. Hier faellt nur weg, was die
+// Spielleitung fuer sich notiert hat.
+//
+// Das Protokoll bleibt ganz draussen: darin stehen die Zahlen der Gegner
+// im Klartext.
+function kampfFuerSpieler(array $k, bool $hpOffen): array {
+    $raus = [
+        'name'   => (string)($k['name'] ?? 'Kampf'),
+        'phase'  => (string)($k['phase'] ?? 'kampf'),
+        'aktiv'  => !empty($k['aktiv']),
+        'runde'  => (int)($k['runde'] ?? 1),
+        'zug'    => (int)($k['zug'] ?? 0),
+    ];
+    $teil = [];
+    foreach ((array)($k['teilnehmer'] ?? []) as $t) {
+        if (!is_array($t)) continue;
+        $held = (string)($t['art'] ?? '') === 'held';
+        $e = [
+            'id'           => (string)($t['id'] ?? ''),
+            'art'          => $held ? 'held' : 'gegner',
+            'ini'          => isset($t['ini']) && $t['ini'] !== null ? (int)$t['ini'] : null,
+            'zustaende'    => array_values((array)($t['zustaende'] ?? [])),
+            'erschoepfung' => (int)($t['erschoepfung'] ?? 0),
+            'vorteil'      => !empty($t['vorteil']),
+            'nachteil'     => !empty($t['nachteil']),
+        ];
+        if ($held) {
+            // Der Held wird ueber seinen Bogen gefunden; dort gelten die
+            // Regeln, die es schon gibt.
+            $e['charId'] = (string)($t['charId'] ?? '');
+        } else {
+            $e['name'] = (string)($t['name'] ?? 'Gegner');
+            $hp  = (int)($t['hp'] ?? 0);
+            $max = max(1, (int)($t['hpMax'] ?? 1));
+            $e = array_merge($e, tpZustandServer($hp, $max));
+            $e['tot'] = $hp <= 0;
+        }
+        $teil[] = $e;
+    }
+    $raus['teilnehmer'] = $teil;
+    // Ob die Helden ihre Zahlen sehen duerfen, entscheidet weiter der
+    // Bogen. Der Kampf sagt nur, was fuer dieses Abenteuer gilt, damit
+    // ein Spielergeraet nicht raten muss.
+    $raus['hpOffen'] = $hpOffen;
+    return $raus;
 }
 
 // ── Wer darf welche Logzeilen sehen ─────────────────────────────
@@ -1337,6 +1446,75 @@ switch ($action) {
                              WHERE m.session_code=? ORDER BY u.name");
         $st->execute([$code]);
         respond(200, 'OK', ['mitglieder' => $st->fetchAll()]);
+    }
+
+    // -- Der Kampf auf dem Server -----------------------------------
+    // Bis v4.4 lag der Kampf allein im Geraet der Spielleitung. Das war
+    // richtig, solange ihn niemand sonst brauchte. Damit die Runde
+    // mitsehen kann, muss er dorthin, wo alle hinsehen koennen — und
+    // genau da beginnt die Arbeit: was die Spielleitung sieht, ist nicht
+    // das, was ein Spieler sehen darf.
+    //
+    // Deshalb kennt der Server zwei Fassungen. Die ganze bekommt, wer das
+    // Abenteuer leitet. Alle anderen bekommen eine, aus der die Zahlen
+    // heraus sind: bei Gegnern immer, bei den Helden richtet es sich nach
+    // derselben Regel wie im Bogen. Gefiltert wird hier und nicht im
+    // Browser — was einmal ausgeliefert ist, ist heraussen.
+    case 'kampf_setzen': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $advId = (string)($body['adv_id'] ?? '');
+        if ($advId === '') respond(400, 'Fehlendes Abenteuer.');
+        $z = zugang($pdo, $code, $pass, $body);
+        if (!istDmVon($pdo, $z, $code, $advId)) {
+            respond(403, 'Dieses Abenteuer leitet jemand anderes.');
+        }
+        $k = $body['kampf'] ?? null;
+        // null raeumt ab: der Kampf ist vorbei, es gibt nichts mehr zu sehen.
+        if ($k === null) {
+            $pdo->prepare("DELETE FROM hb_kampf WHERE session_code=? AND adv_id=?")
+                ->execute([$code, $advId]);
+            respond(200, 'Kampf beendet.', ['stand' => 0]);
+        }
+        if (!is_array($k)) respond(400, 'Kampf hat das falsche Format.');
+        $json = json_encode($k, JSON_UNESCAPED_UNICODE);
+        // Bilder gehoeren nicht in den Kampf: er wird waehrend eines
+        // Gefechts im Sekundentakt geschrieben. Der Tracker laesst sie
+        // deshalb weg, und diese Grenze haelt es auch dann klein, wenn
+        // eine aeltere Fassung es nicht tut.
+        if (strlen($json) > MAX_KAMPF_BYTES) respond(413, 'Kampf zu groß.');
+        $pdo->prepare("INSERT INTO hb_kampf (session_code,adv_id,kampf_json,stand)
+                       VALUES(?,?,?,1)
+                       ON DUPLICATE KEY UPDATE kampf_json=VALUES(kampf_json), stand=stand+1")
+            ->execute([$code, $advId, $json]);
+        $st = $pdo->prepare("SELECT stand FROM hb_kampf WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        respond(200, 'Kampf gespeichert.', ['stand' => (int)($st->fetchColumn() ?: 1)]);
+    }
+
+    // Was ein Geraet alle paar Sekunden fragt. Die Antwort ist klein: der
+    // Stand ist eine Zahl, und nur wenn sie sich geaendert hat, lohnt der
+    // Blick auf den Rest. Wer "seit" mitschickt und schon den neuesten
+    // Stand hat, bekommt nur die Zahl zurueck.
+    case 'kampf_stand': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $advId = (string)($body['adv_id'] ?? '');
+        if ($advId === '') respond(400, 'Fehlendes Abenteuer.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $st = $pdo->prepare("SELECT kampf_json, stand FROM hb_kampf WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(200, 'OK', ['stand' => 0, 'kampf' => null, 'dm' => false]);
+        $stand = (int)$row['stand'];
+        $seit  = isset($body['seit']) ? (int)$body['seit'] : -1;
+        $dm    = istDmVon($pdo, $z, $code, $advId);
+        if ($seit === $stand) respond(200, 'OK', ['stand' => $stand, 'dm' => $dm]);
+        $k = json_decode($row['kampf_json'], true);
+        if (!is_array($k)) respond(200, 'OK', ['stand' => $stand, 'kampf' => null, 'dm' => $dm]);
+        if (!$dm) {
+            $offen = tpOffenImAbenteuer($pdo, $code, $advId);
+            $k = kampfFuerSpieler($k, $offen);
+        }
+        respond(200, 'OK', ['stand' => $stand, 'kampf' => $k, 'dm' => $dm]);
     }
 
     default:
