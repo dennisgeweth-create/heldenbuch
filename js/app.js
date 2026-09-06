@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2g-kampfsicht.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -3642,6 +3642,10 @@ const KampfAnsicht = ({
   // Mitschrift spielen. Ohne Eintrag ist er da.
   const advObj = (abenteuer || []).find(a => a.id === advId) || null;
   const zugfensterAn = !advObj || advObj.zugfenster !== false;
+  // Zeigt das Abenteuer den Kampf erst auf Ansage, braucht die
+  // Spielleitung einen Knopf dafuer. Bei "von allein" und "gar nicht"
+  // gibt es nichts zu druecken.
+  const sichtAnsage = !!advObj && advObj.kampfSicht === 'ansage';
   const zahlHelden = liste.filter(t => t.art === 'held').length;
   const zahlGegner = liste.length - zahlHelden;
   return /*#__PURE__*/React.createElement("div", {
@@ -3704,7 +3708,14 @@ const KampfAnsicht = ({
     className: "kampf-kopf-btn zusatz",
     onClick: () => setNothelferOffen(true),
     title: "Gegner aus dem Stegreif: Name, Trefferpunkte, R\xFCstungsklasse"
-  }, "\u271A Nothelfer"), /*#__PURE__*/React.createElement("button", {
+  }, "\u271A Nothelfer"), sichtAnsage && !vorbereitung && /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-btn sicht" + (kampf.gezeigt ? " an" : ""),
+    onClick: () => setKampf(k => k && {
+      ...k,
+      gezeigt: !k.gezeigt
+    }),
+    title: kampf.gezeigt ? 'Die Runde sieht die Initiativliste und wie es den Figuren geht — nie die Zahlen der Gegner' : 'Der Runde zeigen: Reihenfolge, wer am Zug ist, wie es den Figuren geht'
+  }, kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn zusatz" + (protokollOffen ? " an" : ""),
     onClick: () => setProtokollOffen(o => !o),
     title: "Was in diesem Kampf geschehen ist"
@@ -4628,6 +4639,7 @@ const AbenteuerEinstellungen = ({
   const klassenSetzen = liste => setzen({
     klassen: liste
   });
+  const kampfSicht = KAMPF_SICHT.some(x => x.k === adv.kampfSicht) ? adv.kampfSicht : 'auto';
 
   // Fuer die Zeile, die zugeklappt neben dem Titel steht.
   const zugeordnet = (helden || []).filter(h => (besitzer || {})[h.id]).length;
@@ -4711,7 +4723,7 @@ const AbenteuerEinstellungen = ({
     className: "einst-hinweis"
   }, "Die Trefferpunkte werden dann im DM-Modus gepflegt \u2014 im Bogen oder \xFCber den Kampftracker. Maximum und tempor\xE4re Trefferpunkte sind mit verdeckt, sonst lie\xDFe sich die Zahl zur\xFCckrechnen.")), /*#__PURE__*/React.createElement(EinstBlock, {
     titel: "\u2694 Kampftracker",
-    kurz: adv.zugfenster === false ? 'ohne Zugfenster' : 'mit Zugfenster'
+    kurz: (adv.zugfenster === false ? 'ohne Zugfenster' : 'mit Zugfenster') + ' · Runde ' + (KAMPF_SICHT.find(x => x.k === kampfSicht) || {}).kurz
   }, /*#__PURE__*/React.createElement("label", {
     className: "einst-dm-zeile"
   }, /*#__PURE__*/React.createElement("input", {
@@ -4722,7 +4734,23 @@ const AbenteuerEinstellungen = ({
     })
   }), /*#__PURE__*/React.createElement("span", null, "Zugfenster anbieten")), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
-  }, "Auf der Karte dessen, der am Zug ist, steht dann ", /*#__PURE__*/React.createElement("b", null, "\u270D Zug eintragen"), ". Darin w\xE4hlt die Spielleitung Waffe oder Zauber, tippt Ziele an und tr\xE4gt ein, was ankommt \u2014 die Trefferpunkte rechnet das Fenster mit und schreibt den Zug ins Protokoll. Ohne H\xE4kchen bleibt der Tracker, wie er war.")), /*#__PURE__*/React.createElement(EinstBlock, {
+  }, "Auf der Karte dessen, der am Zug ist, steht dann ", /*#__PURE__*/React.createElement("b", null, "\u270D Zug eintragen"), ". Darin w\xE4hlt die Spielleitung Waffe oder Zauber, tippt Ziele an und tr\xE4gt ein, was ankommt \u2014 die Trefferpunkte rechnet das Fenster mit und schreibt den Zug ins Protokoll. Ohne H\xE4kchen bleibt der Tracker, wie er war."), /*#__PURE__*/React.createElement("div", {
+    className: "einst-titel",
+    style: {
+      marginTop: 16
+    }
+  }, "\uD83D\uDC41 Was die Runde sieht"), /*#__PURE__*/React.createElement("div", {
+    className: "einst-wahl drei"
+  }, KAMPF_SICHT.map(w => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: w.k,
+    className: 'einst-option' + (kampfSicht === w.k ? ' aktiv' : ''),
+    onClick: () => setzen({
+      kampfSicht: w.k
+    })
+  }, /*#__PURE__*/React.createElement("b", null, w.l), /*#__PURE__*/React.createElement("i", null, w.t)))), /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis"
+  }, "Die Spieler sehen die Initiativliste, wer am Zug ist und wie es den Figuren geht \u2014 ", /*#__PURE__*/React.createElement("b", null, "nie die Trefferpunkte der Gegner"), ", nie ihre R\xFCstungsklasse, nie deine Notizen und nie das Protokoll. Der Zustand steht da wie im Bogen: \u201ESchwer verwundet\u201C statt einer Zahl. Bei den Helden gilt weiter, was oben unter Trefferpunkte eingestellt ist. Der Server h\xE4lt sich daran, nicht die Anzeige.")), /*#__PURE__*/React.createElement(EinstBlock, {
     titel: "\uD83C\uDFB0 Automat der Taverne",
     kurz: (rechnung.quote * 100).toFixed(0) + ' % · Vollbild ' + (autoVoll ? '1 auf ' + autoVoll : 'aus')
   }, /*#__PURE__*/React.createElement("div", {
@@ -5937,6 +5965,135 @@ const AutomatSchirm = ({
   }, "F\xFCnf Linien: die drei Reihen und die beiden Diagonalen. Drei gleiche Symbole auf einer Linie zahlen das Vielfache des Einsatzes. Die Quote ist aus H\xE4ufigkeit und Auszahlung gerechnet, nicht gesch\xE4tzt."), /*#__PURE__*/React.createElement("p", {
     className: "automat-fussnote"
   }, /*#__PURE__*/React.createElement("b", null, "Vollbild"), " \u2014 alle neun Felder dieselbe Speise: f\xFCnf Linien auf einmal und danach das Rad der Fortuna.", ' ', vollbildEins ? 'Etwa jede ' + vollbildEins + '. Drehung.' : 'Nur, wenn es von allein fällt — und das tut es so gut wie nie.')))));
+};
+
+// ==== js/src/2g-kampfsicht.jsx ====
+// Heldenbuch — der Kampf, wie ihn die Runde sieht.
+//
+// Der Kampftracker gehoert der Spielleitung. Was hier steht, ist die
+// andere Seite desselben Kampfes: die Reihenfolge, wer dran ist, wie es
+// den Figuren geht. Keine Zahlen der Gegner, keine Notizen, kein
+// Protokoll — und das nicht, weil diese Ansicht sie weglaesst, sondern
+// weil der Server sie gar nicht erst mitschickt (api.php,
+// kampfFuerSpieler). Was hier ankommt, darf hier stehen.
+//
+// Bei den Helden gilt weiter die Regel des Bogens: zeigt das Abenteuer
+// die Trefferpunkte offen, stehen die Zahlen da; sonst der Zustand.
+
+// Die Farbe zum Zustand — dieselbe Leiter wie im Bogen, hier ueber den
+// Namen gefunden, weil vom Server nur er und ein grober Balken kommen.
+const zustandFarbe = label => (TP_ZUSTAENDE.find(z => z.label === label) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1]).color;
+const KampfSichtZeile = ({
+  t,
+  dran,
+  helden,
+  setDefs,
+  tpOffen,
+  eigenerHeld
+}) => {
+  const held = t.art === 'held';
+  const c = held ? (helden || []).find(h => h.id === t.charId) : null;
+  const w = c ? charWerte(c, setDefs) : null;
+
+  // Beim Gegner kommt der Zustand fertig vom Server. Beim Helden steht er
+  // im Bogen, und ob die Zahl dazu sichtbar ist, entscheidet das
+  // Abenteuer — genau wie in der Heldenliste.
+  const zustand = held ? w ? tpZustand(w.hp, w.maxHp) : null : {
+    label: t.zustand || '—',
+    balken: +t.balken || 0,
+    color: zustandFarbe(t.zustand)
+  };
+  const anteil = held ? w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0 : +t.balken || 0;
+  const farbe = held && tpOffen && w ? anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a' : zustand ? zustand.color : 'var(--text-muted)';
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'ks-zeile' + (dran ? ' dran' : '') + (held ? ' held' : ' gegner') + (eigenerHeld ? ' eigen' : '')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ks-ini"
+  }, t.ini === null || t.ini === undefined ? '—' : t.ini), /*#__PURE__*/React.createElement("div", {
+    className: "ks-name"
+  }, /*#__PURE__*/React.createElement("b", null, held ? c ? c.name : 'Held' : t.name || 'Gegner'), held && c && /*#__PURE__*/React.createElement("i", null, (c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level), /*#__PURE__*/React.createElement("div", {
+    className: "ks-marken"
+  }, dran && /*#__PURE__*/React.createElement("span", {
+    className: "ks-dran"
+  }, "am Zug"), eigenerHeld && /*#__PURE__*/React.createElement("span", {
+    className: "ks-eigen"
+  }, "dein Held"), t.vorteil && /*#__PURE__*/React.createElement("span", {
+    className: "ks-marke gut"
+  }, "\uD83D\uDC4D Vorteil"), t.nachteil && /*#__PURE__*/React.createElement("span", {
+    className: "ks-marke schlecht"
+  }, "\uD83D\uDC4E Nachteil"), (t.erschoepfung || 0) > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "ks-marke ersch"
+  }, "Ersch\xF6pfung ", t.erschoepfung), (t.zustaende || []).map(z => /*#__PURE__*/React.createElement("span", {
+    className: "ks-marke",
+    key: z
+  }, z)))), /*#__PURE__*/React.createElement("div", {
+    className: "ks-tp"
+  }, held && tpOffen && w ? /*#__PURE__*/React.createElement("span", {
+    className: "ks-zahl",
+    style: {
+      color: farbe
+    }
+  }, w.hp, " ", /*#__PURE__*/React.createElement("i", null, "/ ", w.maxHp)) : /*#__PURE__*/React.createElement("span", {
+    className: "ks-zustand",
+    style: {
+      color: farbe
+    }
+  }, zustand ? zustand.label : '—'), /*#__PURE__*/React.createElement("span", {
+    className: "ks-balken"
+  }, /*#__PURE__*/React.createElement("i", {
+    style: {
+      width: (held && tpOffen ? anteil : zustand ? zustand.balken : 0) * 100 + '%',
+      background: farbe
+    }
+  }))));
+};
+const KampfSicht = ({
+  kampf,
+  helden,
+  eigeneIds,
+  setDefs,
+  tpOffen,
+  onSchliessen
+}) => {
+  if (!kampf) return null;
+  const liste = kampf.teilnehmer || [];
+  const dranIdx = Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
+  const dran = liste[dranIdx] || null;
+  const dranName = dran ? dran.art === 'held' ? ((helden || []).find(h => h.id === dran.charId) || {}).name || 'Held' : dran.name || 'Gegner' : '';
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: onSchliessen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ks-fenster",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ks-kopf"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "ks-titel"
+  }, "\u2694 ", kampf.name || 'Kampf'), /*#__PURE__*/React.createElement("span", {
+    className: "ks-runde"
+  }, /*#__PURE__*/React.createElement("span", null, "Runde"), /*#__PURE__*/React.createElement("b", null, kampf.runde || 1)), /*#__PURE__*/React.createElement("span", {
+    className: "ks-dran-kopf"
+  }, dranName ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, dranName)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-x",
+    onClick: onSchliessen,
+    title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
+    "aria-label": "Schlie\xDFen"
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "ks-liste"
+  }, liste.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "ks-leer"
+  }, "Noch steht niemand in der Reihe.") : liste.map((t, i) => /*#__PURE__*/React.createElement(KampfSichtZeile, {
+    key: t.id || i,
+    t: t,
+    dran: i === dranIdx,
+    helden: helden,
+    setDefs: setDefs,
+    tpOffen: tpOffen,
+    eigenerHeld: t.art === 'held' && (eigeneIds || []).includes(t.charId)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "ks-fuss"
+  }, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")));
 };
 
 // ==== js/src/3-sheet.jsx ====
@@ -11655,6 +11812,7 @@ function App() {
       aktiv: true,
       runde: kampf.runde,
       zug: kampf.zug,
+      gezeigt: !!kampf.gezeigt,
       teilnehmer: (kampf.teilnehmer || []).map(t => {
         const {
           bild,
@@ -11683,6 +11841,72 @@ function App() {
   useEffect(() => {
     kampfGespiegelt.current = null;
   }, [advId]);
+
+  // ── Der Kampf, wie ihn die Runde sieht ─────────────────────────
+  // Die Gegenseite des Spiegels: wer nicht leitet, fragt alle paar
+  // Sekunden nach, ob ein Kampf laeuft. Die Antwort ist winzig — eine
+  // Zahl, und der Rest nur, wenn sie sich bewegt hat.
+  //
+  // Was zurueckkommt, hat der Server schon zurechtgeschnitten: keine
+  // Zahlen der Gegner, keine Notizen, kein Protokoll. Ob ueberhaupt
+  // etwas kommt, entscheidet er auch — nach der Einstellung des
+  // Abenteuers und danach, ob die Spielleitung freigegeben hat.
+  const [kampfSichtDaten, setKampfSichtDaten] = useState(null);
+  const [showKampfSicht, setShowKampfSicht] = useState(false);
+  const kampfStandRef = useRef(-1);
+  const kampfSichtRef = useRef(null);
+  useEffect(() => {
+    const creds = serverCreds();
+    // Die Spielleitung hat den Tracker; sie braucht die Zuschauerbank nicht.
+    if (isDmMode || !advId || !verbunden(creds)) {
+      setKampfSichtDaten(null);
+      return;
+    }
+    let lebt = true,
+      uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          // Die Abkuerzung nur, wenn wir wirklich noch etwas haben, das
+          // stehenbleiben koennte — sonst bekaeme man nach einer
+          // Freigabe nichts mehr, weil sich der Stand nicht bewegt hat.
+          const seit = kampfSichtRef.current ? kampfStandRef.current : -1;
+          const d = await apiKampfStand(creds.url, creds.code, advId, seit);
+          if (!lebt) return;
+          kampfStandRef.current = +d.stand || 0;
+          // Fehlt "kampf" ganz, hat sich seit dem letzten Blick nichts
+          // getan — dann bleibt stehen, was schon da ist.
+          if (Object.prototype.hasOwnProperty.call(d, 'kampf')) {
+            const neu = d.kampf || null;
+            // Ein Kampf, der eben noch nicht da war, geht von allein auf.
+            if (neu && !kampfSichtRef.current) setShowKampfSicht(true);
+            if (!neu) setShowKampfSicht(false);
+            kampfSichtRef.current = neu;
+            setKampfSichtDaten(neu);
+          }
+        } catch {/* der naechste Versuch kommt gleich */}
+      }
+      // Waehrend eines Kampfes oefter, sonst selten. Die Anfrage ist ein
+      // paar Dutzend Byte gross, aber sie muss keine Uhr sein.
+      uhr = setTimeout(frage, kampfSichtRef.current ? 4000 : 12000);
+    };
+    frage();
+    return () => {
+      lebt = false;
+      clearTimeout(uhr);
+    };
+  }, [isDmMode, advId, svCode, konto]);
+
+  // Beim Wechsel des Abenteuers faengt das Zusehen von vorn an.
+  useEffect(() => {
+    kampfStandRef.current = -1;
+    kampfSichtRef.current = null;
+    setKampfSichtDaten(null);
+    setShowKampfSicht(false);
+  }, [advId]);
+
+  // Die eigenen Helden werden in der Liste hervorgehoben.
+  const eigeneHeldenIds = konto ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id) : [];
   const einstellungFuer = advEinstellung ? advEinstellung.id : null;
   useEffect(() => {
     if (!einstellungFuer) return;
@@ -13290,7 +13514,10 @@ function App() {
   }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
-  }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), !isDmMode && kampfSichtDaten && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setShowKampfSicht(true)
+  }, "\u2694 Kampf \xB7 Runde ", kampfSichtDaten.runde || 1), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showAutomat ? " an" : ""),
     onClick: () => setShowAutomat(o => !o)
   }, "\uD83C\uDFB0 Taverne")), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
@@ -13398,7 +13625,10 @@ function App() {
   }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setShowKampf(true)
-  }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), !isDmMode && kampfSichtDaten && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setShowKampfSicht(true)
+  }, "\u2694 Kampf \xB7 Runde ", kampfSichtDaten.runde || 1), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
@@ -18054,6 +18284,13 @@ function App() {
     onAnwenden: zeitAnwenden,
     onUhrStellen: uhrStellen,
     onAbbrechen: () => setZeitOffen(false)
+  }), showKampfSicht && kampfSichtDaten && !isDmMode && /*#__PURE__*/React.createElement(KampfSicht, {
+    kampf: kampfSichtDaten,
+    helden: advChars,
+    eigeneIds: eigeneHeldenIds,
+    setDefs: setDefs,
+    tpOffen: tpOffen,
+    onSchliessen: () => setShowKampfSicht(false)
   }), showKampf && isDmMode && /*#__PURE__*/React.createElement(KampfAnsicht, {
     kampf: kampf,
     setKampf: setKampf,

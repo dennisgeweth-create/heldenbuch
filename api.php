@@ -464,21 +464,32 @@ function tpZustandServer(int $hp, int $max): array {
     return ['zustand' => 'Kampfunfähig', 'balken' => 0.0];
 }
 
-// Zeigt dieses Abenteuer die Trefferpunkte offen? Die Einstellung liegt
-// in der Bibliothek unter _adventures, dort wo auch die Abenteuerliste
-// steht. Ist nichts eingetragen, sind sie offen — so war es immer.
-function tpOffenImAbenteuer(PDO $pdo, string $code, string $advId): bool {
+// Die Einstellungen eines Abenteuers liegen in der Bibliothek unter
+// _adventures, dort wo auch die Abenteuerliste steht. Der Server liest
+// sie mit, weil zwei Regeln daran haengen, die er selbst durchsetzen
+// muss: ob die Trefferpunkte offen sind und wer den Kampf sehen darf.
+function abenteuerAusBibliothek(PDO $pdo, string $code, string $advId): array {
     $st = $pdo->prepare("SELECT library_json FROM hb_sessions WHERE code=?");
     $st->execute([$code]);
     $lib = json_decode((string)($st->fetchColumn() ?: '{}'), true);
     $advs = (is_array($lib) && isset($lib['_adventures']) && is_array($lib['_adventures']))
         ? $lib['_adventures'] : [];
     foreach ($advs as $a) {
-        if (is_array($a) && (string)($a['id'] ?? '') === $advId) {
-            return empty($a['hpVerdeckt']);
-        }
+        if (is_array($a) && (string)($a['id'] ?? '') === $advId) return $a;
     }
-    return true;
+    return [];
+}
+// Ist nichts eingetragen, sind die Punkte offen — so war es immer.
+function tpOffenImAbenteuer(PDO $pdo, string $code, string $advId): bool {
+    return empty(abenteuerAusBibliothek($pdo, $code, $advId)['hpVerdeckt']);
+}
+// Wer den laufenden Kampf sehen darf: von allein ("auto"), erst wenn die
+// Spielleitung ihn zeigt ("ansage"), oder gar nicht ("aus"). Ohne
+// Eintrag gilt "auto" — wer den Kampf auf den Server schreibt, will ihn
+// in aller Regel auch zeigen.
+function kampfSichtImAbenteuer(PDO $pdo, string $code, string $advId): string {
+    $w = (string)(abenteuerAusBibliothek($pdo, $code, $advId)['kampfSicht'] ?? 'auto');
+    return in_array($w, ['auto', 'ansage', 'aus'], true) ? $w : 'auto';
 }
 
 // Die Fassung fuer alle, die das Abenteuer nicht leiten.
@@ -1507,14 +1518,28 @@ switch ($action) {
         $stand = (int)$row['stand'];
         $seit  = isset($body['seit']) ? (int)$body['seit'] : -1;
         $dm    = istDmVon($pdo, $z, $code, $advId);
-        if ($seit === $stand) respond(200, 'OK', ['stand' => $stand, 'dm' => $dm]);
         $k = json_decode($row['kampf_json'], true);
         if (!is_array($k)) respond(200, 'OK', ['stand' => $stand, 'kampf' => null, 'dm' => $dm]);
+        // Erst die Sichtbarkeit, dann die Abkuerzung: wird die Freigabe
+        // zurueckgenommen, aendert das den Stand des Kampfes nicht — die
+        // Antwort muss es trotzdem sofort sagen.
         if (!$dm) {
-            $offen = tpOffenImAbenteuer($pdo, $code, $advId);
-            $k = kampfFuerSpieler($k, $offen);
+            // Zwei Gruende, warum ein Spieler nichts sieht: das Abenteuer
+            // zeigt den Kampf grundsaetzlich nicht, oder die Spielleitung
+            // hat ihn noch nicht freigegeben. Beides wird hier
+            // entschieden und nicht im Browser.
+            $sicht = kampfSichtImAbenteuer($pdo, $code, $advId);
+            if ($sicht === 'aus' || ($sicht === 'ansage' && empty($k['gezeigt']))) {
+                respond(200, 'OK', ['stand' => $stand, 'kampf' => null,
+                                    'dm' => false, 'sicht' => $sicht]);
+            }
+            // Wer schon den neuesten Stand hat, braucht den Rest nicht.
+            if ($seit === $stand) respond(200, 'OK', ['stand' => $stand, 'dm' => false, 'sicht' => $sicht]);
+            $k = kampfFuerSpieler($k, tpOffenImAbenteuer($pdo, $code, $advId));
+            respond(200, 'OK', ['stand' => $stand, 'kampf' => $k, 'dm' => false, 'sicht' => $sicht]);
         }
-        respond(200, 'OK', ['stand' => $stand, 'kampf' => $k, 'dm' => $dm]);
+        if ($seit === $stand) respond(200, 'OK', ['stand' => $stand, 'dm' => true]);
+        respond(200, 'OK', ['stand' => $stand, 'kampf' => $k, 'dm' => true]);
     }
 
     default:

@@ -19,6 +19,8 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
 
   const klassenSetzen = (liste) => setzen({klassen: liste});
 
+  const kampfSicht = KAMPF_SICHT.some(x => x.k === adv.kampfSicht) ? adv.kampfSicht : 'auto';
+
   // Fuer die Zeile, die zugeklappt neben dem Titel steht.
   const zugeordnet = (helden || []).filter(h => (besitzer || {})[h.id]).length;
 
@@ -75,7 +77,8 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
 
           {/* ── Der Kampf ── */}
           <EinstBlock titel="⚔ Kampftracker"
-            kurz={adv.zugfenster === false ? 'ohne Zugfenster' : 'mit Zugfenster'}>
+            kurz={(adv.zugfenster === false ? 'ohne Zugfenster' : 'mit Zugfenster')
+                  + ' · Runde ' + (KAMPF_SICHT.find(x => x.k === kampfSicht) || {}).kurz}>
             <label className="einst-dm-zeile">
               <input type="checkbox" checked={adv.zugfenster !== false}
                 onChange={e=>setzen({zugfenster: e.target.checked})} />
@@ -86,6 +89,24 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               wählt die Spielleitung Waffe oder Zauber, tippt Ziele an und trägt ein, was
               ankommt — die Trefferpunkte rechnet das Fenster mit und schreibt den Zug ins
               Protokoll. Ohne Häkchen bleibt der Tracker, wie er war.
+            </div>
+
+            <div className="einst-titel" style={{marginTop:16}}>👁 Was die Runde sieht</div>
+            <div className="einst-wahl drei">
+              {KAMPF_SICHT.map(w => (
+                <button type="button" key={w.k}
+                  className={'einst-option' + (kampfSicht === w.k ? ' aktiv' : '')}
+                  onClick={()=>setzen({kampfSicht: w.k})}>
+                  <b>{w.l}</b><i>{w.t}</i>
+                </button>
+              ))}
+            </div>
+            <div className="einst-hinweis">
+              Die Spieler sehen die Initiativliste, wer am Zug ist und wie es den Figuren
+              geht — <b>nie die Trefferpunkte der Gegner</b>, nie ihre Rüstungsklasse, nie
+              deine Notizen und nie das Protokoll. Der Zustand steht da wie im Bogen:
+              „Schwer verwundet“ statt einer Zahl. Bei den Helden gilt weiter, was oben unter
+              Trefferpunkte eingestellt ist. Der Server hält sich daran, nicht die Anzeige.
             </div>
           </EinstBlock>
 

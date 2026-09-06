@@ -1691,6 +1691,10 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Mitschrift spielen. Ohne Eintrag ist er da.
   const advObj = (abenteuer || []).find(a => a.id === advId) || null;
   const zugfensterAn = !advObj || advObj.zugfenster !== false;
+  // Zeigt das Abenteuer den Kampf erst auf Ansage, braucht die
+  // Spielleitung einen Knopf dafuer. Bei "von allein" und "gar nicht"
+  // gibt es nichts zu druecken.
+  const sichtAnsage = !!advObj && advObj.kampfSicht === 'ansage';
   const zahlHelden = liste.filter(t => t.art === 'held').length;
   const zahlGegner = liste.length - zahlHelden;
 
@@ -1726,6 +1730,15 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             title="Eine vorbereitete Begegnung dazuladen">📋 Begegnung</button>
           <button className="kampf-kopf-btn zusatz" onClick={()=>setNothelferOffen(true)}
             title="Gegner aus dem Stegreif: Name, Trefferpunkte, Rüstungsklasse">✚ Nothelfer</button>
+          {sichtAnsage && !vorbereitung && (
+            <button className={"kampf-kopf-btn sicht" + (kampf.gezeigt ? " an" : "")}
+              onClick={()=>setKampf(k => k && ({...k, gezeigt: !k.gezeigt}))}
+              title={kampf.gezeigt
+                ? 'Die Runde sieht die Initiativliste und wie es den Figuren geht — nie die Zahlen der Gegner'
+                : 'Der Runde zeigen: Reihenfolge, wer am Zug ist, wie es den Figuren geht'}>
+              {kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'}
+            </button>
+          )}
           <button className={"kampf-kopf-btn zusatz" + (protokollOffen ? " an" : "")}
             onClick={()=>setProtokollOffen(o=>!o)}
             title="Was in diesem Kampf geschehen ist">

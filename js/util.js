@@ -17,6 +17,15 @@ const newEffect = () => ({id:Date.now().toString()+Math.random().toString(36).sl
 // ohne neue Spalte auf dem Server. Die Gegenstandsdatenbank bleibt
 // absichtlich abenteueruebergreifend: ein Heiltrank ist in jeder
 // Kampagne derselbe.
+// Wer den laufenden Kampf zu sehen bekommt. Steht neben der
+// Abenteuerliste, weil der Server dieselbe Angabe liest — und dort
+// entscheidet, ob er ueberhaupt etwas ausliefert.
+const KAMPF_SICHT = [
+  {k:'auto',   l:'Von allein',   kurz:'sieht mit',    t:'Sobald ein Kampf läuft, geht er bei den Spielern auf.'},
+  {k:'ansage', l:'Auf Ansage',   kurz:'auf Ansage',   t:'Erst wenn du im Tracker auf „zeigen“ drückst.'},
+  {k:'aus',    l:'Gar nicht',    kurz:'sieht nichts', t:'Der Kampf bleibt bei der Spielleitung, wie bisher.'},
+];
+
 const ADV_ERSTES = 'strahd';
 const advListe = (lib) => {
   const l = (lib && lib._adventures) || [];

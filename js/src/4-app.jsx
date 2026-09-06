@@ -1682,7 +1682,7 @@ function App() {
     const laeuft = !!kampf && kampf.aktiv !== false && kampf.phase !== 'vorbereitung';
     const schlank = (darf && laeuft) ? {
       name: kampf.name, phase: kampf.phase || 'kampf', aktiv: true,
-      runde: kampf.runde, zug: kampf.zug,
+      runde: kampf.runde, zug: kampf.zug, gezeigt: !!kampf.gezeigt,
       teilnehmer: (kampf.teilnehmer || []).map(t => {
         const {bild, ...rest} = t;
         return rest;
@@ -1705,6 +1705,70 @@ function App() {
   // Beim Wechsel des Abenteuers faengt das Spiegeln von vorn an — sonst
   // hielte der Merker den Stand des vorigen Abenteuers fuer den eigenen.
   useEffect(() => { kampfGespiegelt.current = null; }, [advId]);
+
+  // ── Der Kampf, wie ihn die Runde sieht ─────────────────────────
+  // Die Gegenseite des Spiegels: wer nicht leitet, fragt alle paar
+  // Sekunden nach, ob ein Kampf laeuft. Die Antwort ist winzig — eine
+  // Zahl, und der Rest nur, wenn sie sich bewegt hat.
+  //
+  // Was zurueckkommt, hat der Server schon zurechtgeschnitten: keine
+  // Zahlen der Gegner, keine Notizen, kein Protokoll. Ob ueberhaupt
+  // etwas kommt, entscheidet er auch — nach der Einstellung des
+  // Abenteuers und danach, ob die Spielleitung freigegeben hat.
+  const [kampfSichtDaten, setKampfSichtDaten] = useState(null);
+  const [showKampfSicht, setShowKampfSicht]   = useState(false);
+  const kampfStandRef = useRef(-1);
+  const kampfSichtRef = useRef(null);
+
+  useEffect(() => {
+    const creds = serverCreds();
+    // Die Spielleitung hat den Tracker; sie braucht die Zuschauerbank nicht.
+    if (isDmMode || !advId || !verbunden(creds)) { setKampfSichtDaten(null); return; }
+    let lebt = true, uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          // Die Abkuerzung nur, wenn wir wirklich noch etwas haben, das
+          // stehenbleiben koennte — sonst bekaeme man nach einer
+          // Freigabe nichts mehr, weil sich der Stand nicht bewegt hat.
+          const seit = kampfSichtRef.current ? kampfStandRef.current : -1;
+          const d = await apiKampfStand(creds.url, creds.code, advId, seit);
+          if (!lebt) return;
+          kampfStandRef.current = +d.stand || 0;
+          // Fehlt "kampf" ganz, hat sich seit dem letzten Blick nichts
+          // getan — dann bleibt stehen, was schon da ist.
+          if (Object.prototype.hasOwnProperty.call(d, 'kampf')) {
+            const neu = d.kampf || null;
+            // Ein Kampf, der eben noch nicht da war, geht von allein auf.
+            if (neu && !kampfSichtRef.current) setShowKampfSicht(true);
+            if (!neu) setShowKampfSicht(false);
+            kampfSichtRef.current = neu;
+            setKampfSichtDaten(neu);
+          }
+        } catch { /* der naechste Versuch kommt gleich */ }
+      }
+      // Waehrend eines Kampfes oefter, sonst selten. Die Anfrage ist ein
+      // paar Dutzend Byte gross, aber sie muss keine Uhr sein.
+      uhr = setTimeout(frage, kampfSichtRef.current ? 4000 : 12000);
+    };
+    frage();
+    return () => { lebt = false; clearTimeout(uhr); };
+  }, [isDmMode, advId, svCode, konto]);
+
+  // Beim Wechsel des Abenteuers faengt das Zusehen von vorn an.
+  useEffect(() => {
+    kampfStandRef.current = -1;
+    kampfSichtRef.current = null;
+    setKampfSichtDaten(null);
+    setShowKampfSicht(false);
+  }, [advId]);
+
+  // Die eigenen Helden werden in der Liste hervorgehoben.
+  const eigeneHeldenIds = konto
+    ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id)
+    : [];
+
+
 
   const einstellungFuer = advEinstellung ? advEinstellung.id : null;
   useEffect(() => {
@@ -2563,6 +2627,14 @@ function App() {
                   🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
                 </button>
               )}
+              {/* Fuer alle, die nicht leiten: der Kampf zum Zusehen. Er
+                  steht nur da, wenn gerade einer laeuft und das Abenteuer
+                  ihn zeigt. */}
+              {!isDmMode && kampfSichtDaten && (
+                <button className="btn-tool" onClick={()=>setShowKampfSicht(true)}>
+                  ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
+                </button>
+              )}
               <button className={"btn-tool"+(showAutomat?" an":"")}
                 onClick={()=>setShowAutomat(o=>!o)}>🎰 Taverne</button>
             </div>
@@ -2649,6 +2721,11 @@ function App() {
                     <button className="btn-tool" onClick={()=>setShowKampf(true)}>
                       ⚔ Kampf{!kampf || !kampf.aktiv ? ''
                         : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
+                    </button>
+                  )}
+                  {!isDmMode && kampfSichtDaten && (
+                    <button className="btn-tool" onClick={()=>setShowKampfSicht(true)}>
+                      ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
                     </button>
                   )}
                   {isDmMode && (
@@ -4749,6 +4826,12 @@ function App() {
           onAnwenden={zeitAnwenden}
           onUhrStellen={uhrStellen}
           onAbbrechen={()=>setZeitOffen(false)} />
+      )}
+
+      {showKampfSicht && kampfSichtDaten && !isDmMode && (
+        <KampfSicht kampf={kampfSichtDaten} helden={advChars} eigeneIds={eigeneHeldenIds}
+          setDefs={setDefs} tpOffen={tpOffen}
+          onSchliessen={()=>setShowKampfSicht(false)} />
       )}
 
       {showKampf && isDmMode && (

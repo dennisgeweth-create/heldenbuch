@@ -1408,6 +1408,7 @@
   .einst-titel { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--gold);
     letter-spacing:0.1em; text-transform:uppercase; margin-bottom:10px; }
   .einst-wahl { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .einst-wahl.drei { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
   .einst-option { display:flex; flex-direction:column; gap:4px; text-align:left; padding:11px 12px;
     background:var(--bg-card); border:1px solid var(--border); border-radius:5px; cursor:pointer; }
   .einst-option:hover { border-color:var(--border-bright); }
@@ -1506,11 +1507,78 @@
   .kampf-kopf-btn:hover { background:var(--bg-hover); border-color:var(--border-bright); color:var(--text-primary); }
   .kampf-kopf-btn.zusatz { border-color:#8c4a76; color:#e08fc4; }
   .kampf-kopf-btn.zusatz:hover { background:rgba(192,96,160,0.16); border-color:#c060a0; }
+  .kampf-kopf-btn.sicht { border-color:#3d6a99; color:#7ab8f5; }
+  .kampf-kopf-btn.sicht:hover { background:rgba(74,144,217,0.14); border-color:#4a90d9; }
+  .kampf-kopf-btn.sicht.an { background:rgba(74,144,217,0.20); border-color:#4a90d9; color:#cfe4ff; }
   .kampf-kopf-btn.ende { border-color:var(--gold-dim); color:var(--gold); }
   .kampf-kopf-btn.ende:hover { background:rgba(224,90,90,0.14); border-color:var(--crimson); color:#f0a0a0; }
   .kampf-kopf-x { width:40px; min-height:40px; border-radius:4px; cursor:pointer; padding:0;
     background:none; border:1px solid var(--border); color:var(--text-muted); font-size:13px; }
   .kampf-kopf-x:hover { background:var(--bg-hover); border-color:var(--border-bright); color:var(--text-primary); }
+  /* ── Der Kampf, wie ihn die Runde sieht ─────────────────────────
+     Dieselbe Sprache wie der Tracker, aber ohne Tasten: hier wird nichts
+     eingetragen, hier wird zugesehen. */
+  .ks-fenster { width:100%; max-width:560px; max-height:86vh; display:flex; flex-direction:column;
+    border-radius:9px; overflow:hidden; background:var(--bg-card);
+    border:1px solid var(--gold-dim); box-shadow:0 18px 50px rgba(0,0,0,0.7); }
+  .ks-kopf { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; padding:13px 16px;
+    background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .ks-titel { font-family:'Roboto Condensed',sans-serif; font-size:15px; letter-spacing:0.06em;
+    text-transform:uppercase; color:var(--gold); }
+  .ks-runde { display:flex; align-items:baseline; gap:6px; }
+  .ks-runde span { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-muted); }
+  .ks-runde b { font-family:'Roboto Condensed',sans-serif; font-size:18px; color:var(--gold);
+    font-weight:400; }
+  .ks-dran-kopf { flex:1; font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--text-muted); }
+  .ks-dran-kopf b { color:var(--text-primary); font-weight:400; }
+
+  .ks-liste { flex:1; min-height:0; overflow-y:auto; padding:10px; display:flex;
+    flex-direction:column; gap:7px; }
+  .ks-leer { padding:14px; font-size:13px; color:var(--text-muted); font-style:italic; }
+  .ks-zeile { display:grid; grid-template-columns:42px 1fr 128px; gap:11px; align-items:center;
+    padding:9px 11px; border-radius:6px; background:var(--bg-panel);
+    border:1px solid var(--border); }
+  .ks-zeile.held   { border-left:3px solid #4a90d9; }
+  .ks-zeile.gegner { border-left:3px solid #8b3a3a; }
+  .ks-zeile.dran   { border-color:var(--gold); background:rgba(224,90,90,0.07);
+    box-shadow:0 0 0 1px var(--gold-dim) inset; }
+  .ks-zeile.eigen .ks-name b { color:#9cccf7; }
+  .ks-ini { font-family:'Roboto Condensed',sans-serif; font-size:19px; color:var(--gold);
+    text-align:center; font-variant-numeric:tabular-nums; }
+  .ks-name { min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .ks-name b { font-family:'Roboto Condensed',sans-serif; font-size:14px; font-weight:400;
+    color:var(--text-primary); }
+  .ks-name i { font-style:normal; font-size:11px; color:var(--text-muted); }
+  .ks-marken { display:flex; flex-wrap:wrap; gap:4px; margin-top:2px; }
+  .ks-marke { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; letter-spacing:0.04em;
+    padding:1px 6px; border-radius:3px; background:var(--bg-card);
+    border:1px solid var(--border-bright); color:var(--text-muted); }
+  .ks-marke.gut      { border-color:#3f7a5c; color:#8fd9ae; }
+  .ks-marke.schlecht { border-color:#8b3a3a; color:#e8a0a0; }
+  .ks-marke.ersch    { border-color:var(--inspiration-dim); color:var(--inspiration); }
+  .ks-dran { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; letter-spacing:0.12em;
+    text-transform:uppercase; padding:1px 6px; border-radius:3px; color:var(--gold);
+    border:1px solid var(--gold-dim); background:rgba(224,90,90,0.10); }
+  .ks-eigen { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; letter-spacing:0.1em;
+    text-transform:uppercase; padding:1px 6px; border-radius:3px; color:#7ab8f5;
+    border:1px solid #3d6a99; }
+  .ks-tp { display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+  .ks-zahl { font-family:'Roboto Condensed',sans-serif; font-size:17px;
+    font-variant-numeric:tabular-nums; }
+  .ks-zahl i { font-style:normal; font-size:11px; color:var(--text-muted); }
+  .ks-zustand { font-family:'Roboto Condensed',sans-serif; font-size:12.5px; text-align:right; }
+  .ks-balken { width:100%; height:5px; border-radius:3px; background:var(--border);
+    overflow:hidden; }
+  .ks-balken i { display:block; height:100%; }
+  .ks-fuss { padding:11px 16px; font-size:11.5px; line-height:1.5; color:var(--text-muted);
+    background:var(--bg-panel); border-top:1px solid var(--border); flex-shrink:0; }
+
+  @media (max-width:520px) {
+    .ks-zeile { grid-template-columns:34px 1fr 96px; gap:8px; }
+  }
+
   /* ── Das Zugfenster ─────────────────────────────────────────────
      Der Knopf steht nur auf der Karte dessen, der dran ist, und nur, wenn
      das Abenteuer ihn anbietet. */
