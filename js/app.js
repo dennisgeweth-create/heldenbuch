@@ -2117,6 +2117,8 @@ const ZugFenster = ({
   runde,
   bisher,
   ansage,
+  ansagen,
+  onAnsageWeg,
   onAbbrechen,
   onAnwenden
 }) => {
@@ -2152,8 +2154,51 @@ const ZugFenster = ({
     };
   });
   const [richtung, setRichtung] = React.useState('schaden');
-  const [ziele, setZiele] = React.useState({});
+  // Kommt das Fenster aus einer Ansage, sind die Ziele des Spielers
+  // schon angekreuzt — was inzwischen aus dem Kampf ist, faellt weg.
+  const [ziele, setZiele] = React.useState(() => {
+    const z = {};
+    (ansage && ansage.zielIds || []).forEach(id => {
+      if ((liste || []).some(x => x.id === id)) z[id] = {
+        treffer: true,
+        bestanden: false,
+        wurf: '',
+        wert: 0
+      };
+    });
+    return z;
+  });
   const [text, setText] = React.useState(ansage ? ansage.text || '' : '');
+  // Welche Ansage gerade in den Feldern steht — sie ist erledigt, sobald
+  // uebernommen wird.
+  const [genommen, setGenommen] = React.useState(ansage ? ansage.id : null);
+
+  // Eine Ansage in die Felder holen. Dasselbe, was beim Aufmachen ueber
+  // "Eintragen" passiert — nur ohne das Fenster zu schliessen.
+  const ansageNehmen = a => {
+    const q = aktionsQuelle(held, a.art);
+    const i = q.findIndex(g => (g.name || '') === (a.was || ''));
+    setWahl({
+      art: a.art || 'frei',
+      i: i >= 0 ? i : null,
+      grad: +a.grad || 0,
+      suche: ''
+    });
+    const z = {};
+    (a.zielIds || []).forEach(id => {
+      if ((liste || []).some(x => x.id === id)) z[id] = {
+        treffer: true,
+        bestanden: false,
+        wurf: '',
+        wert: 0
+      };
+    });
+    setZiele(z);
+    setText(a.text || '');
+    setGenommen(a.id);
+  };
+  const meineAnsagen = (ansagen || []).filter(a => held && a.charId === held.id);
+  const andereAnsagen = (ansagen || []).filter(a => !held || a.charId !== held.id);
 
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
@@ -2336,10 +2381,11 @@ const ZugFenster = ({
   // das Fenster fuer die naechste Aktion ab — Waffe, Zauber und Grad
   // bleiben stehen, weil der zweite Hieb meistens derselbe ist.
   const uebernehmen = weiter => {
-    onAnwenden(bauen(), weiter);
+    onAnwenden(bauen(), weiter, genommen);
     if (weiter) {
       setZiele({});
       setText('');
+      setGenommen(null);
     }
   };
 
@@ -2394,7 +2440,34 @@ const ZugFenster = ({
     className: "zug-tp"
   }, /*#__PURE__*/React.createElement("b", null, t.hp), " / ", t.hpMax, " TP")), /*#__PURE__*/React.createElement("div", {
     className: "zug-leib"
-  }, !nurWerte && /*#__PURE__*/React.createElement(AktionsWahl, {
+  }, (meineAnsagen.length > 0 || andereAnsagen.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "zug-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-label"
+  }, "\uD83D\uDCE3 Angesagt"), meineAnsagen.map(a => /*#__PURE__*/React.createElement("div", {
+    className: 'zug-ansage' + (genommen === a.id ? ' an' : ''),
+    key: a.id
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "za-was"
+  }, a.was ? /*#__PURE__*/React.createElement("b", null, a.art === 'zauber' ? 'Zauber: ' : 'Angriff: ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => ansageNehmen(a),
+    title: "In die Felder \xFCbernehmen"
+  }, "\u21A7 \xFCbernehmen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "fx-del",
+    title: "Erledigt",
+    onClick: () => onAnsageWeg && onAnsageWeg(a.id)
+  }, "\u2715"))), andereAnsagen.map(a => {
+    const wer = (helden || []).find(h => h.id === a.charId);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "zug-ansage fremd",
+      key: a.id
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "za-was"
+    }, /*#__PURE__*/React.createElement("b", null, wer ? wer.name : 'Jemand'), a.was ? /*#__PURE__*/React.createElement("span", null, " \xB7 ", a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null));
+  })), !nurWerte && /*#__PURE__*/React.createElement(AktionsWahl, {
     held: held,
     wahl: wahl,
     setWahl: setWahl,
@@ -3448,9 +3521,9 @@ const KampfAnsicht = ({
     eintraege,
     treffer,
     platz
-  }, weiter) => {
+  }, weiter, ansageId) => {
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
-    if (zugFenster && zugFenster.ansage && onAnsageWeg) onAnsageWeg(zugFenster.ansage.id);
+    if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
     if (!weiter) setZugFenster(null);else setZugFenster(z => z && {
       id: z.id
     });
@@ -3955,6 +4028,8 @@ const KampfAnsicht = ({
     bisher: bisherImZug,
     ansage: zugFenster.ansage,
     key: (zugFenster.ansage || {}).id || zugFenster.id,
+    ansagen: ansagen,
+    onAnsageWeg: onAnsageWeg,
     onAbbrechen: () => setZugFenster(null),
     onAnwenden: zugAnwenden
   }), /*#__PURE__*/React.createElement("div", {
@@ -6239,7 +6314,11 @@ const AnsageFenster = ({
       art: wahl.art,
       was: gegenstand ? gegenstand.name || '' : '',
       grad: wahl.art === 'zauber' && grad > grundGrad ? grad : 0,
+      // Beides: die Namen zum Lesen und die Kennungen zum Weitergeben —
+      // damit im Zugfenster der Spielleitung schon angekreuzt ist, worauf
+      // der Spieler zielt.
       ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
+      zielIds: Object.keys(ziele),
       text: text.trim()
     });
     setLaeuft(false);

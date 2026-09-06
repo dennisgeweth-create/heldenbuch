@@ -592,12 +592,15 @@ ruf('char_owner_set', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', '
 ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf2]);
 
 $ansage = ['art' => 'zauber', 'was' => 'Feuerball', 'grad' => 4,
-           'ziele' => ['Ork'], 'text' => 'Ich zünde den Heuhaufen an.'];
+           'ziele' => ['Ork'], 'zielIds' => ['g9'], 'text' => 'Ich zünde den Heuhaufen an.'];
 $r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
                            'char_id' => 'h1', 'ansage' => $ansage]);
 pruefe('der Besitzer sagt an (200)', $r['status'] === 200, kurz($r));
 pruefe('und bekommt sie zurueck', ($r['body']['ansage']['was'] ?? '') === 'Feuerball');
 pruefe('mit eigener Kennung', strlen((string)($r['body']['ansage']['id'] ?? '')) > 6);
+pruefe('die Ziele stehen mit Namen drin', ($r['body']['ansage']['ziele'][0] ?? '') === 'Ork');
+pruefe('und mit Kennung, damit die Spielleitung sie nicht sucht',
+       ($r['body']['ansage']['zielIds'][0] ?? '') === 'g9');
 
 $r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd',
                            'char_id' => 'h1', 'ansage' => $ansage]);
@@ -616,12 +619,14 @@ pruefe('eine leere Ansage wird abgelehnt (400)', $r['status'] === 400, kurz($r))
 $r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
     'char_id' => 'h1', 'ansage' => ['art' => 'unfug', 'was' => str_repeat('x', 200),
                                     'grad' => 99, 'text' => 'kurz', 'runde' => 99,
-                                    'hp' => 1, 'ziele' => array_fill(0, 30, 'z')]]);
+                                    'hp' => 1, 'ziele' => array_fill(0, 30, 'z'),
+                                    'zielIds' => array_fill(0, 30, 'q')]]);
 $a = $r['body']['ansage'] ?? [];
 pruefe('eine erfundene Art wird zu "frei"', ($a['art'] ?? '') === 'frei');
 pruefe('ein zu langer Name wird gekuerzt', mb_strlen((string)($a['was'] ?? '')) === 80);
 pruefe('ein unmoeglicher Grad wird gedeckelt', ($a['grad'] ?? -1) === 9);
 pruefe('zu viele Ziele werden gekappt', count((array)($a['ziele'] ?? [])) === 12);
+pruefe('ihre Kennungen ebenso', count((array)($a['zielIds'] ?? [])) === 12);
 pruefe('fremde Felder kommen gar nicht erst mit',
        !array_key_exists('hp', $a) && !array_key_exists('runde', $a));
 

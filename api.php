@@ -1571,12 +1571,19 @@ switch ($action) {
             'was'    => mb_substr(trim((string)($a['was'] ?? '')), 0, 80),
             'grad'   => max(0, min(9, (int)($a['grad'] ?? 0))),
             'text'   => mb_substr(trim((string)($a['text'] ?? '')), 0, 500),
-            'ziele'  => [],
-            'zeit'   => time(),
+            'ziele'   => [],
+            'zielIds' => [],
+            'zeit'    => time(),
         ];
         foreach ((array)($a['ziele'] ?? []) as $zid) {
             if (count($sauber['ziele']) >= 12) break;
             $sauber['ziele'][] = mb_substr((string)$zid, 0, 60);
+        }
+        // Die Kennungen der Ziele gehen mit: die Spielleitung soll sie
+        // nicht noch einmal antippen muessen.
+        foreach ((array)($a['zielIds'] ?? []) as $zid) {
+            if (count($sauber['zielIds']) >= 12) break;
+            $sauber['zielIds'][] = mb_substr((string)$zid, 0, 60);
         }
         if ($sauber['was'] === '' && $sauber['text'] === '' && !$sauber['ziele']) {
             respond(400, 'Da steht nichts drin.');

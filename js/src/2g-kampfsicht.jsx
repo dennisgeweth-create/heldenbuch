@@ -100,7 +100,11 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
       art: wahl.art,
       was: gegenstand ? (gegenstand.name || '') : '',
       grad: (wahl.art === 'zauber' && grad > grundGrad) ? grad : 0,
+      // Beides: die Namen zum Lesen und die Kennungen zum Weitergeben —
+      // damit im Zugfenster der Spielleitung schon angekreuzt ist, worauf
+      // der Spieler zielt.
       ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
+      zielIds: Object.keys(ziele),
       text: text.trim(),
     });
     setLaeuft(false);

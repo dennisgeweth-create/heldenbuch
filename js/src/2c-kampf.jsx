@@ -621,7 +621,7 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
 //   Waffenliste, nur seinen Bogen aus der Sammlung — also nur Ziele, Werte
 //   und die Beschreibung.
 const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
-                      onAbbrechen, onAnwenden }) => {
+                      ansagen, onAnsageWeg, onAbbrechen, onAnwenden }) => {
   const held   = t.art === 'held' ? (helden || []).find(h => h.id === t.charId) : null;
   const waffen = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
@@ -647,8 +647,36 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
             i: null, grad: 0, suche: ''};
   });
   const [richtung, setRichtung] = React.useState('schaden');
-  const [ziele, setZiele]       = React.useState({});
+  // Kommt das Fenster aus einer Ansage, sind die Ziele des Spielers
+  // schon angekreuzt — was inzwischen aus dem Kampf ist, faellt weg.
+  const [ziele, setZiele]       = React.useState(() => {
+    const z = {};
+    ((ansage && ansage.zielIds) || []).forEach(id => {
+      if ((liste || []).some(x => x.id === id)) z[id] = {treffer: true, bestanden: false, wurf: '', wert: 0};
+    });
+    return z;
+  });
   const [text, setText]         = React.useState(ansage ? (ansage.text || '') : '');
+  // Welche Ansage gerade in den Feldern steht — sie ist erledigt, sobald
+  // uebernommen wird.
+  const [genommen, setGenommen]  = React.useState(ansage ? ansage.id : null);
+
+  // Eine Ansage in die Felder holen. Dasselbe, was beim Aufmachen ueber
+  // "Eintragen" passiert — nur ohne das Fenster zu schliessen.
+  const ansageNehmen = (a) => {
+    const q = aktionsQuelle(held, a.art);
+    const i = q.findIndex(g => (g.name || '') === (a.was || ''));
+    setWahl({art: a.art || 'frei', i: i >= 0 ? i : null, grad: +a.grad || 0, suche: ''});
+    const z = {};
+    ((a.zielIds) || []).forEach(id => {
+      if ((liste || []).some(x => x.id === id)) z[id] = {treffer: true, bestanden: false, wurf: '', wert: 0};
+    });
+    setZiele(z);
+    setText(a.text || '');
+    setGenommen(a.id);
+  };
+  const meineAnsagen  = (ansagen || []).filter(a => held && a.charId === held.id);
+  const andereAnsagen = (ansagen || []).filter(a => !held || a.charId !== held.id);
 
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
@@ -739,8 +767,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   // das Fenster fuer die naechste Aktion ab — Waffe, Zauber und Grad
   // bleiben stehen, weil der zweite Hieb meistens derselbe ist.
   const uebernehmen = (weiter) => {
-    onAnwenden(bauen(), weiter);
-    if (weiter) { setZiele({}); setText(''); }
+    onAnwenden(bauen(), weiter, genommen);
+    if (weiter) { setZiele({}); setText(''); setGenommen(null); }
   };
 
   // Die Vorschau zeigt dieselben Zeilen, die gleich im Protokoll stehen —
@@ -772,6 +800,39 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
         </div>
 
         <div className="zug-leib">
+          {(meineAnsagen.length > 0 || andereAnsagen.length > 0) && (
+            <div className="zug-block">
+              <div className="zug-label">📣 Angesagt</div>
+              {meineAnsagen.map(a => (
+                <div className={'zug-ansage' + (genommen === a.id ? ' an' : '')} key={a.id}>
+                  <span className="za-was">
+                    {a.was ? <b>{a.art === 'zauber' ? 'Zauber: ' : 'Angriff: '}{a.was}
+                      {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+                    {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
+                    {a.text ? <i>„{a.text}“</i> : null}
+                  </span>
+                  <button type="button" className="btn-icon" onClick={()=>ansageNehmen(a)}
+                    title="In die Felder übernehmen">↧ übernehmen</button>
+                  <button type="button" className="fx-del" title="Erledigt"
+                    onClick={()=>onAnsageWeg && onAnsageWeg(a.id)}>✕</button>
+                </div>
+              ))}
+              {andereAnsagen.map(a => {
+                const wer = (helden || []).find(h => h.id === a.charId);
+                return (
+                  <div className="zug-ansage fremd" key={a.id}>
+                    <span className="za-was">
+                      <b>{wer ? wer.name : 'Jemand'}</b>
+                      {a.was ? <span> · {a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
+                      {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
+                      {a.text ? <i>„{a.text}“</i> : null}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {!nurWerte && (
             <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer={t.name} />
           )}
@@ -1548,9 +1609,9 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Was im Zugfenster steht, geht denselben Weg wie alles andere: erst die
   // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
-  const zugAnwenden = ({eintraege, treffer, platz}, weiter) => {
+  const zugAnwenden = ({eintraege, treffer, platz}, weiter, ansageId) => {
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
-    if (zugFenster && zugFenster.ansage && onAnsageWeg) onAnsageWeg(zugFenster.ansage.id);
+    if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
     if (!weiter) setZugFenster(null);
     else setZugFenster(z => z && ({id: z.id}));
     (eintraege || []).forEach(e => protokollieren(e));
@@ -1942,6 +2003,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           <ZugFenster t={zugZiel} liste={liste} helden={helden} setDefs={setDefs}
             klassen={advKlassen(advObj)} runde={kampf.runde} bisher={bisherImZug}
             ansage={zugFenster.ansage} key={(zugFenster.ansage || {}).id || zugFenster.id}
+            ansagen={ansagen} onAnsageWeg={onAnsageWeg}
             onAbbrechen={()=>setZugFenster(null)} onAnwenden={zugAnwenden} />
         )}
 

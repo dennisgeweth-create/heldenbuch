@@ -1731,6 +1731,15 @@
   .zug-halb { font-style:normal; font-family:'Roboto Mono',ui-monospace,monospace;
     font-size:11.5px; color:var(--inspiration); }
 
+  .zug-ansage { display:flex; align-items:center; gap:9px; flex-wrap:wrap; padding:8px 10px;
+    border-radius:5px; background:rgba(232,184,75,0.06); border:1px solid var(--inspiration-dim);
+    margin-bottom:5px; }
+  .zug-ansage.an { border-color:var(--inspiration); background:rgba(232,184,75,0.12); }
+  .zug-ansage.fremd { background:var(--bg-panel); border-color:var(--border); }
+  .za-was { flex:1; min-width:160px; font-size:12.5px; color:var(--text-secondary); line-height:1.5; }
+  .za-was b { color:var(--text-primary); font-weight:500; }
+  .za-was i { color:var(--arcane-bright); font-style:italic; }
+
   .zug-frei { width:100%; min-height:54px; resize:vertical; padding:9px 11px; border-radius:5px;
     background:var(--bg-card); border:1px solid var(--border-bright); color:var(--text-primary);
     font-family:'Roboto',sans-serif; font-size:13.5px; line-height:1.5; }
