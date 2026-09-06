@@ -14303,7 +14303,42 @@ function App() {
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showAutomat ? " an" : ""),
     onClick: () => setShowAutomat(o => !o)
-  }, "\uD83C\uDFB0 Taverne"))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83C\uDFB0 Taverne")), svCode && /*#__PURE__*/React.createElement("div", {
+    className: "sync-actions",
+    style: {
+      marginTop: 10
+    }
+  }, konto ? /*#__PURE__*/React.createElement("button", {
+    className: "btn-konto",
+    onClick: kontoOeffnen,
+    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '') + ' — Passwort ändern, und was über dich gespeichert ist'
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "btn-konto-name"
+  }, "\uD83D\uDC64 ", konto.name), konto.ist_admin && /*#__PURE__*/React.createElement("i", {
+    className: "btn-konto-rolle"
+  }, "Verwaltung"), !konto.ist_admin && isDmMode && /*#__PURE__*/React.createElement("i", {
+    className: "btn-konto-rolle"
+  }, "Spielleitung")) : /*#__PURE__*/React.createElement("span", {
+    className: "btn-konto leer"
+  }, "Ohne Konto verbunden"), konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync dm",
+    title: "In den DM-Modus wechseln",
+    onClick: dmMitKonto
+  }, "\uD83D\uDD2E DM"), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync dm active",
+    title: "DM-Modus verlassen",
+    onClick: doDmLogout
+  }, "\uD83D\uDD2E aus"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync schmal",
+    title: "Daten neu vom Server laden",
+    "aria-label": "Neu laden",
+    onClick: () => doSyncLoad(svUrl, svCode, svPass)
+  }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync schmal",
+    title: "Abmelden",
+    "aria-label": "Abmelden",
+    onClick: signOut
+  }, "\u238B"))), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 8
     }

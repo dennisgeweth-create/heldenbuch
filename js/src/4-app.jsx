@@ -2803,6 +2803,37 @@ function App() {
                   <button className={"btn-tool"+(showAutomat?" an":"")}
                 onClick={()=>setShowAutomat(o=>!o)}>🎰 Taverne</button>
                 </div>
+
+                {/* Konto, Spielleitung und Abmelden standen nur in der
+                    breiten Leiste — auf dem Telefon kam man damit weder in
+                    den DM-Modus noch wieder heraus. Dieselbe Reihe, dieselbe
+                    Bedienung. */}
+                {svCode && (
+                  <div className="sync-actions" style={{marginTop:10}}>
+                    {konto ? (
+                      <button className="btn-konto" onClick={kontoOeffnen}
+                        title={'Angemeldet als ' + konto.name
+                               + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
+                               + ' — Passwort ändern, und was über dich gespeichert ist'}>
+                        <span className="btn-konto-name">👤 {konto.name}</span>
+                        {konto.ist_admin && <i className="btn-konto-rolle">Verwaltung</i>}
+                        {!konto.ist_admin && isDmMode && <i className="btn-konto-rolle">Spielleitung</i>}
+                      </button>
+                    ) : <span className="btn-konto leer">Ohne Konto verbunden</span>}
+                    {konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && (
+                      <button className="btn-sync dm" title="In den DM-Modus wechseln"
+                        onClick={dmMitKonto}>🔮 DM</button>
+                    )}
+                    {isDmMode && (
+                      <button className="btn-sync dm active" title="DM-Modus verlassen"
+                        onClick={doDmLogout}>🔮 aus</button>
+                    )}
+                    <button className="btn-sync schmal" title="Daten neu vom Server laden"
+                      aria-label="Neu laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺</button>
+                    <button className="btn-sync schmal" title="Abmelden"
+                      aria-label="Abmelden" onClick={signOut}>⎋</button>
+                  </div>
+                )}
               </div>
               <div style={{padding:8}}>
                 <div style={{padding:'6px 0 4px'}}>
