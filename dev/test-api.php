@@ -577,6 +577,83 @@ pruefe('danach ist nichts mehr zu sehen',
 $r = ruf('kampf_stand', ['code' => $code, 'adv_id' => 'strahd']);
 pruefe('ohne Kennung geht gar nichts (403)', $r['status'] === 403, kurz($r));
 
+abschnitt('Der Spieler sagt an');
+// Ein frischer Kampf, in dem h1 steht. h1 gehoert dem Spieler.
+$kampf2 = [
+    'aktiv' => true, 'phase' => 'kampf', 'name' => 'Im Hof', 'runde' => 1, 'zug' => 0,
+    'teilnehmer' => [
+        ['id' => 'held-h1', 'art' => 'held', 'charId' => 'h1', 'ini' => 15,
+         'zustaende' => [], 'erschoepfung' => 0],
+        ['id' => 'g9', 'art' => 'gegner', 'name' => 'Ork', 'ac' => 14,
+         'hp' => 15, 'hpMax' => 15, 'ini' => 9, 'zustaende' => [], 'erschoepfung' => 0],
+    ],
+];
+ruf('char_owner_set', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'owner' => $ids[$spieler]]);
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf2]);
+
+$ansage = ['art' => 'zauber', 'was' => 'Feuerball', 'grad' => 4,
+           'ziele' => ['Ork'], 'text' => 'Ich zünde den Heuhaufen an.'];
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'ansage' => $ansage]);
+pruefe('der Besitzer sagt an (200)', $r['status'] === 200, kurz($r));
+pruefe('und bekommt sie zurueck', ($r['body']['ansage']['was'] ?? '') === 'Feuerball');
+pruefe('mit eigener Kennung', strlen((string)($r['body']['ansage']['id'] ?? '')) > 6);
+
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'ansage' => $ansage]);
+pruefe('ein anderer Spieler nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'n1', 'ansage' => $ansage]);
+pruefe('und auch nicht mit einem fremden Bogen (403)', $r['status'] === 403, kurz($r));
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'eberron',
+                           'char_id' => 'h1', 'ansage' => $ansage]);
+pruefe('ohne laufenden Kampf gibt es nichts anzusagen (404)', $r['status'] === 404, kurz($r));
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'ansage' => ['art' => 'frei', 'text' => '']]);
+pruefe('eine leere Ansage wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+
+// Was geschickt wird, ist nicht, was gespeichert wird.
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'char_id' => 'h1', 'ansage' => ['art' => 'unfug', 'was' => str_repeat('x', 200),
+                                    'grad' => 99, 'text' => 'kurz', 'runde' => 99,
+                                    'hp' => 1, 'ziele' => array_fill(0, 30, 'z')]]);
+$a = $r['body']['ansage'] ?? [];
+pruefe('eine erfundene Art wird zu "frei"', ($a['art'] ?? '') === 'frei');
+pruefe('ein zu langer Name wird gekuerzt', mb_strlen((string)($a['was'] ?? '')) === 80);
+pruefe('ein unmoeglicher Grad wird gedeckelt', ($a['grad'] ?? -1) === 9);
+pruefe('zu viele Ziele werden gekappt', count((array)($a['ziele'] ?? [])) === 12);
+pruefe('fremde Felder kommen gar nicht erst mit',
+       !array_key_exists('hp', $a) && !array_key_exists('runde', $a));
+
+abschnitt('Die Ansagen ueberleben den Spiegel');
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung sieht beide Ansagen',
+       count((array)($r['body']['kampf']['ansagen'] ?? [])) === 2);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'nur' => 'ansagen']);
+pruefe('und kann sie einzeln holen (200)', $r['status'] === 200, kurz($r));
+pruefe('ohne den ganzen Kampf', !array_key_exists('kampf', $r['body'])
+       && count((array)($r['body']['ansagen'] ?? [])) === 2);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('der Spieler sieht sie auch',
+       count((array)($r['body']['kampf']['ansagen'] ?? [])) === 2);
+
+// Der Spiegel der Spielleitung schickt keine Ansagen mit — sie muessen
+// trotzdem stehen bleiben.
+$kampf2['runde'] = 2;
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf2]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('nach dem naechsten Spiegeln stehen sie noch da',
+       count((array)($r['body']['kampf']['ansagen'] ?? [])) === 2);
+pruefe('und die Runde ist mitgezogen', ($r['body']['kampf']['runde'] ?? 0) === 2);
+
+// Wer sie mitschickt, will sie aendern.
+$kampf2['ansagen'] = [];
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf2]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('mitgeschickt raeumt sie ab', count((array)($r['body']['kampf']['ansagen'] ?? [])) === 0);
+
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => null]);
+
 // Das Abenteuer wieder offen stellen, damit die folgenden Pruefungen
 // dieselbe Ausgangslage haben wie bisher.
 foreach ($advs as $i => $a) if (($a['id'] ?? '') === 'strahd') $advs[$i]['hpVerdeckt'] = false;

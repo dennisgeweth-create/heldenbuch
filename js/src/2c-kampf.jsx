@@ -454,6 +454,157 @@ const WertDialog = ({ modus, name, start, onAnwenden, onAbbrechen }) => {
   );
 };
 
+// ── Was jemand tut und womit ─────────────────────────────────────
+// Dieselbe Auswahl brauchen zwei Fenster: das der Spielleitung, die
+// gleich die Wirkung eintraegt, und das des Spielers, der nur ansagt.
+// Sie steht deshalb einmal hier und nicht zweimal.
+//
+// Sie liest ausschliesslich aus dem Bogen dessen, der handelt — seine
+// Waffen, seine Zauber, seine Zauberplaetze. Da gibt es nichts zu
+// verbergen: das ist sein Zeug. Ueber Wirkung entscheidet sie nichts.
+const sortierteSprueche = (held) => [...((held && held.spells) || [])]
+  .sort((a, b) => (a.level||0) - (b.level||0) || (a.name||'').localeCompare(b.name||'', 'de'));
+
+const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held)
+  : art === 'angriff' ? ((held && held.weapons) || []) : [];
+
+// Aus der Wahl {art, i, grad} alles ableiten, was beide Fenster
+// brauchen. Steht hier, damit die Ableitung nicht in jedem Fenster
+// wieder anders aussieht.
+const aktionsStand = (held, wahl) => {
+  const quelle = aktionsQuelle(held, wahl.art);
+  const gegenstand = (wahl.i === null || wahl.i === undefined) ? null : (quelle[wahl.i] || null);
+  const grundGrad = gegenstand ? (+gegenstand.level || 0) : 0;
+  const wirkung = (wahl.art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung))
+    ? gegenstand.wirkung : null;
+  const grad = wahl.grad || grundGrad;
+  return {quelle, gegenstand, grundGrad, wirkung, grad,
+          wurf: wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad) : ''};
+};
+
+const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
+  const waffen   = (held && held.weapons) || [];
+  const sprueche = sortierteSprueche(held);
+  const {quelle, gegenstand, grundGrad, wirkung, grad, wurf} = aktionsStand(held, wahl);
+
+  // Ein Magier auf Stufe 9 hat drei Dutzend Zauber. Gesucht wird ueber
+  // Namen, Schule, Schadensart und Grad; die Auswahl haengt am Eintrag
+  // und bleibt beim Filtern stehen.
+  const suchWort = (wahl.suche || '').trim().toLowerCase();
+  const gezeigt = !suchWort ? quelle : quelle.filter(g =>
+    (g.name || '').toLowerCase().includes(suchWort)
+    || (g.school || '').toLowerCase().includes(suchWort)
+    || (g.damageType || '').toLowerCase().includes(suchWort)
+    || (wahl.art === 'zauber'
+        && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort)));
+
+  // Die Plaetze des Helden: nur Grade, fuer die er welche hat — und der
+  // eigene Grad des Zaubers, damit immer etwas dasteht.
+  const plaetze = (held && held.spellSlots) || {};
+  const grade = [];
+  for (let l = Math.max(1, grundGrad); l <= 9; l++) {
+    const p = plaetze[l] || plaetze[String(l)];
+    if (l === grundGrad || (p && (+p.max || 0) > 0)) grade.push(l);
+  }
+  const platzRest = (l) => {
+    const p = plaetze[l] || plaetze[String(l)];
+    return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
+  };
+
+  const waehlen = (i) => {
+    const neu = i === wahl.i ? null : i;
+    const g = neu === null ? null : quelle[neu];
+    setWahl({...wahl, i: neu, grad: (g && wahl.art === 'zauber') ? (+g.level || 0) : 0});
+  };
+  const ArtTaste = ({k, kind, aus}) => (
+    <button type="button" className={'zug-taste' + (wahl.art === k ? ' an' : '')} disabled={aus}
+      onClick={()=>setWahl({...wahl, art: k, i: null, grad: 0, suche: ''})}>{kind}</button>
+  );
+
+  return (
+    <>
+      <div className="zug-block">
+        <div className="zug-label">Was tut {wer}</div>
+        <div className="zug-reihe">
+          <ArtTaste k="angriff" kind="⚔ Angriff" aus={!waffen.length} />
+          <ArtTaste k="zauber"  kind="✨ Zauber" aus={!sprueche.length} />
+          <ArtTaste k="frei"    kind="✍ Nur beschreiben" />
+        </div>
+      </div>
+
+      {wahl.art !== 'frei' && (
+        <div className="zug-block">
+          <div className="zug-label">
+            {wahl.art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'}
+          </div>
+          {quelle.length > 5 && (
+            <input className="zug-suche" value={wahl.suche || ''} placeholder="🔍 Suchen…"
+              aria-label={wahl.art === 'zauber' ? 'Zauber suchen' : 'Waffe suchen'}
+              onChange={e=>setWahl({...wahl, suche: e.target.value})} />
+          )}
+          {quelle.length === 0 ? (
+            <div className="zug-leer">
+              {wahl.art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.'}
+            </div>
+          ) : gezeigt.length === 0 ? (
+            <div className="zug-leer">Nichts gefunden zu „{(wahl.suche || '').trim()}“.</div>
+          ) : (
+            <div className="zug-liste">
+              {gezeigt.map((g) => {
+                const i = quelle.indexOf(g);
+                return (
+                  <button type="button" key={g.id || i}
+                    className={'zug-zeile' + (i === wahl.i ? ' an' : '')
+                               + (wahl.art === 'zauber' ? ' arkan' : '')}
+                    onClick={()=>waehlen(i)}>
+                    <span className="zug-sym">{wahl.art === 'zauber' ? '✨' : '⚔'}</span>
+                    <span className="zug-text">
+                      <b>{g.name || 'Ohne Namen'}</b>
+                      <i>{wahl.art === 'zauber'
+                        ? ((g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad')
+                           + (g.school ? ' · ' + g.school : '')
+                           + (g.range ? ' · ' + g.range : ''))
+                        : ((g.damageType ? g.damageType + ' · ' : '') + (g.range || ''))}</i>
+                    </span>
+                    <span className="zug-wirkt">{wahl.art === 'zauber'
+                      ? (hatWirkung(g.wirkung) ? (g.wirkung.wuerfel || '') : '')
+                      : (g.damage || '')}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Der Gradwaehler: er rechnet den Wurf hoch und sagt, welcher Platz
+          abgehakt wird. Nur bei Zaubern, die ueberhaupt einen kosten. */}
+      {wahl.art === 'zauber' && gegenstand && grundGrad > 0 && (
+        <div className="zug-grad">
+          <span className="zug-grad-label">Zauberplatz</span>
+          <span className="zug-reihe">
+            {grade.map(l => (
+              <button type="button" key={l}
+                className={'zug-grad-taste' + (l === grad ? ' an' : '')}
+                title={platzRest(l) + ' von ' + ((plaetze[l]||plaetze[String(l)]||{}).max || 0) + ' frei'}
+                onClick={()=>setWahl({...wahl, grad: l})}>
+                {l}<i>{platzRest(l)}</i>
+              </button>
+            ))}
+          </span>
+          <span className="zug-grad-erg">
+            {wurf ? <b>{wurf}</b> : <i>kein Würfel am Zauber</i>}
+            {grad > grundGrad && <span> · {grad - grundGrad} Grad höher</span>}
+            {platzRest(grad) > 0
+              ? <span> · Platz {grad}. Grad wird abgehakt</span>
+              : <span> · kein Platz mehr frei</span>}
+          </span>
+        </div>
+      )}
+    </>
+  );
+};
+
 // ── Das Zugfenster ───────────────────────────────────────────────
 // Bis hierher trug die Spielleitung den Schaden ein und schrieb daneben
 // auf, was eigentlich geschehen ist. Das Fenster dreht die Reihenfolge um:
@@ -469,12 +620,11 @@ const WertDialog = ({ modus, name, start, onAnwenden, onAbbrechen }) => {
 //   Beim Gegner gibt es keine Auswahl. Er hat im Heldenbuch keine
 //   Waffenliste, nur seinen Bogen aus der Sammlung — also nur Ziele, Werte
 //   und die Beschreibung.
-const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
+const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                       onAbbrechen, onAnwenden }) => {
   const held   = t.art === 'held' ? (helden || []).find(h => h.id === t.charId) : null;
   const waffen = (held && held.weapons) || [];
-  const sprueche = [...((held && held.spells) || [])]
-    .sort((a,b) => (a.level||0) - (b.level||0) || (a.name||'').localeCompare(b.name||'','de'));
+  const sprueche = sortierteSprueche(held);
 
   // Der Zauber-SG steht im Bogen — daran haengt, ob ein Rettungswurf
   // gelingt. Er wird hier nur gezeigt; entschieden wird am Tisch.
@@ -483,47 +633,33 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
   const zauberSG = (werte && zAttr)
     ? 8 + (+werte.eff.profBonus || 0) + mod(werte.eff[zAttr]) : null;
 
-  const [art, setArt]           = React.useState(waffen.length ? 'angriff'
-                                                 : (sprueche.length ? 'zauber' : 'frei'));
-  const [gewaehlt, setGewaehlt] = React.useState(null);
-  const [grad, setGrad]         = React.useState(0);
+  // Die Auswahl teilt sich dieses Fenster mit dem des Spielers. Kommt es
+  // aus einer Ansage, steht schon drin, was der Spieler gesagt hat — die
+  // Spielleitung ergaenzt nur noch die Zahlen.
+  const [wahl, setWahl] = React.useState(() => {
+    if (ansage && held) {
+      const q = aktionsQuelle(held, ansage.art);
+      const i = q.findIndex(g => (g.name || '') === (ansage.was || ''));
+      return {art: ansage.art || 'frei', i: i >= 0 ? i : null,
+              grad: +ansage.grad || 0, suche: ''};
+    }
+    return {art: waffen.length ? 'angriff' : (sprueche.length ? 'zauber' : 'frei'),
+            i: null, grad: 0, suche: ''};
+  });
   const [richtung, setRichtung] = React.useState('schaden');
   const [ziele, setZiele]       = React.useState({});
-  const [text, setText]         = React.useState('');
-  const [suche, setSuche]       = React.useState('');
+  const [text, setText]         = React.useState(ansage ? (ansage.text || '') : '');
 
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
-  const quelle = nurWerte ? [] : (art === 'zauber' ? sprueche : art === 'angriff' ? waffen : []);
-  const gegenstand = gewaehlt === null ? null : (quelle[gewaehlt] || null);
-  // Ein Magier auf Stufe 9 hat drei Dutzend Zauber. Gesucht wird ueber
-  // Namen, Schule und Grad; die Auswahl bleibt dabei stehen, weil sie am
-  // Eintrag haengt und nicht an der Zeile.
-  const suchWort = suche.trim().toLowerCase();
-  const gezeigt = !suchWort ? quelle : quelle.filter(g =>
-    (g.name || '').toLowerCase().includes(suchWort)
-    || (g.school || '').toLowerCase().includes(suchWort)
-    || (g.damageType || '').toLowerCase().includes(suchWort)
-    || (art === 'zauber' && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort)));
-
-  // Was der Zauber tut, steht am Zauber — wenn es jemand eingetragen hat.
-  const wirkung   = (art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung))
-    ? gegenstand.wirkung : null;
-  const grundGrad = gegenstand ? (+gegenstand.level || 0) : 0;
+  const art = nurWerte ? 'frei' : wahl.art;
+  const {gegenstand, grundGrad, wirkung, grad, wurf: wurfJetzt} =
+    nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:''}
+             : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
   const mitSchalter = !nurWerte && art !== 'frei' && richtung === 'schaden' && !mitRettung;
-  const wurfJetzt = wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad || grundGrad) : '';
-
-  // Die Plaetze des Helden: nur Grade, fuer die er ueberhaupt welche hat —
-  // und der eigene Grad des Zaubers, damit immer etwas dasteht.
-  const plaetze = (held && held.spellSlots) || {};
-  const grade = [];
-  for (let l = Math.max(1, grundGrad); l <= 9; l++) {
-    const p = plaetze[l] || plaetze[String(l)];
-    if (l === grundGrad || (p && (+p.max || 0) > 0)) grade.push(l);
-  }
   const platzRest = (l) => {
-    const p = plaetze[l] || plaetze[String(l)];
+    const p = ((held && held.spellSlots) || {})[l] || ((held && held.spellSlots) || {})[String(l)];
     return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
   };
 
@@ -542,13 +678,6 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
     if (z[id]) { const k = {...z}; delete k[id]; return k; }
     return {...z, [id]: {treffer: true, bestanden: false, wurf: '', wert: 0}};
   });
-  const zauberWaehlen = (i) => {
-    const neu = i === gewaehlt ? null : i;
-    setGewaehlt(neu);
-    const g = neu === null ? null : quelle[neu];
-    if (g && art === 'zauber') setGrad(+g.level || 0);
-  };
-
   // Einmal gebaut, zweimal genutzt: als Vorschau und als das, was beim
   // Uebernehmen wirklich geschrieben wird. So kann die Vorschau nicht von
   // dem abweichen, was danach im Protokoll steht.
@@ -632,11 +761,6 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
                               : '✓ Übernehmen — trägt ' + summe + ' TP ab')
     : '✓ Übernehmen';
 
-  const ArtTaste = ({k, kind, aus}) => (
-    <button type="button" className={'zug-taste' + (art === k ? ' an' : '')} disabled={aus}
-      onClick={()=>{ setArt(k); setGewaehlt(null); setSuche(''); }}>{kind}</button>
-  );
-
   return (
     <div className="form-overlay" onClick={onAbbrechen}>
       <div className="zug-fenster" onClick={e=>e.stopPropagation()}>
@@ -649,86 +773,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher,
 
         <div className="zug-leib">
           {!nurWerte && (
-            <div className="zug-block">
-              <div className="zug-label">Was tut {t.name}</div>
-              <div className="zug-reihe">
-                <ArtTaste k="angriff" kind="⚔ Angriff" aus={!waffen.length} />
-                <ArtTaste k="zauber"  kind="✨ Zauber" aus={!sprueche.length} />
-                <ArtTaste k="frei"    kind="✍ Nur beschreiben" />
-              </div>
-            </div>
-          )}
-
-          {!nurWerte && art !== 'frei' && (
-            <div className="zug-block">
-              <div className="zug-label">
-                {art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'}
-              </div>
-              {quelle.length > 5 && (
-                <input className="zug-suche" value={suche} placeholder="🔍 Suchen…"
-                  aria-label={art === 'zauber' ? 'Zauber suchen' : 'Waffe suchen'}
-                  onChange={e=>setSuche(e.target.value)} />
-              )}
-              {quelle.length === 0 ? (
-                <div className="zug-leer">
-                  {art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.'}
-                </div>
-              ) : gezeigt.length === 0 ? (
-                <div className="zug-leer">Nichts gefunden zu „{suche.trim()}“.</div>
-              ) : (
-                <div className="zug-liste">
-                  {gezeigt.map((g) => {
-                    const i = quelle.indexOf(g);
-                    return (
-                    <button type="button" key={g.id || i}
-                      className={'zug-zeile' + (i === gewaehlt ? ' an' : '')
-                                 + (art === 'zauber' ? ' arkan' : '')}
-                      onClick={()=>zauberWaehlen(i)}>
-                      <span className="zug-sym">{art === 'zauber' ? '✨' : '⚔'}</span>
-                      <span className="zug-text">
-                        <b>{g.name || 'Ohne Namen'}</b>
-                        <i>{art === 'zauber'
-                          ? ((g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad')
-                             + (g.school ? ' · ' + g.school : '')
-                             + (g.range ? ' · ' + g.range : ''))
-                          : ((g.damageType ? g.damageType + ' · ' : '')
-                             + (g.range || ''))}</i>
-                      </span>
-                      <span className="zug-wirkt">{art === 'zauber'
-                        ? (hatWirkung(g.wirkung) ? (g.wirkung.wuerfel || '') : '')
-                        : (g.damage || '')}</span>
-                    </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Der Gradwähler: er rechnet den Wurf hoch und sagt, welcher
-              Platz abgehakt wird. Nur bei Zaubern, die überhaupt einen
-              Platz kosten. */}
-          {!nurWerte && art === 'zauber' && gegenstand && grundGrad > 0 && (
-            <div className="zug-grad">
-              <span className="zug-grad-label">Zauberplatz</span>
-              <span className="zug-reihe">
-                {grade.map(l => (
-                  <button type="button" key={l}
-                    className={'zug-grad-taste' + (l === grad ? ' an' : '')}
-                    title={platzRest(l) + ' von ' + ((plaetze[l]||plaetze[String(l)]||{}).max || 0) + ' frei'}
-                    onClick={()=>setGrad(l)}>
-                    {l}<i>{platzRest(l)}</i>
-                  </button>
-                ))}
-              </span>
-              <span className="zug-grad-erg">
-                {wurfJetzt ? <b>{wurfJetzt}</b> : <i>kein Würfel am Zauber</i>}
-                {grad > grundGrad && <span> · {grad - grundGrad} Grad höher</span>}
-                {platzRest(grad) > 0
-                  ? <span> · Platz {grad}. Grad wird abgehakt</span>
-                  : <span> · kein Platz mehr frei</span>}
-              </span>
-            </div>
+            <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer={t.name} />
           )}
 
           <div className="zug-block">
@@ -1330,7 +1375,7 @@ const KampfSeite = ({ helden, setDefs, enemies, imKampf, ueberlagert, onZu,
 
 // ── Der Kampf ────────────────────────────────────────────────────
 const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
-                        abenteuer, advId, onSchliessen, onGegnerBlatt, onFrage,
+                        abenteuer, advId, ansagen, onAnsageWeg, onSchliessen, onGegnerBlatt, onFrage,
                         onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
@@ -1345,7 +1390,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [mitZahlen, setMitZahlen] = React.useState(true);
   const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
-  const [zugFenster, setZugFenster] = React.useState(null);   // id der Figur
+  const [zugFenster, setZugFenster] = React.useState(null);   // {id, ansage}
+  const [ansagenOffen, setAnsagenOffen] = React.useState(false);
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
 
@@ -1503,7 +1549,10 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
   const zugAnwenden = ({eintraege, treffer, platz}, weiter) => {
+    // Was eingetragen ist, muss nicht mehr angesagt bleiben.
+    if (zugFenster && zugFenster.ansage && onAnsageWeg) onAnsageWeg(zugFenster.ansage.id);
     if (!weiter) setZugFenster(null);
+    else setZugFenster(z => z && ({id: z.id}));
     (eintraege || []).forEach(e => protokollieren(e));
     (treffer || []).forEach(({id, modus, n, teile}) =>
       wertDirekt(id, modus, n, teile ? {teile} : null));
@@ -1677,7 +1726,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
 
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
-  const zugZiel = zugFenster && liste.find(t => t.id === zugFenster);
+  const zugZiel = zugFenster && liste.find(t => t.id === zugFenster.id);
   // Alles, was seit dem letzten Zugwechsel im Protokoll steht — das
   // Fenster zeigt es an, damit man den ganzen Zug vor sich hat.
   const bisherImZug = (() => {
@@ -1739,6 +1788,13 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               {kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'}
             </button>
           )}
+          {(ansagen || []).length > 0 && (
+            <button className={"kampf-kopf-btn ansage" + (ansagenOffen ? " an" : "")}
+              onClick={()=>setAnsagenOffen(o=>!o)}
+              title="Was die Runde angesagt hat">
+              📣 Ansagen · {(ansagen || []).length}
+            </button>
+          )}
           <button className={"kampf-kopf-btn zusatz" + (protokollOffen ? " an" : "")}
             onClick={()=>setProtokollOffen(o=>!o)}
             title="Was in diesem Kampf geschehen ist">
@@ -1758,6 +1814,37 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
         </div>
+
+        {ansagenOffen && (ansagen || []).length > 0 && (
+          <div className="kampf-ansagen">
+            <div className="kampf-ansagen-kopf">
+              📣 Angesagt — eintragen füllt das Zugfenster schon aus
+            </div>
+            {(ansagen || []).map(a => {
+              const held = (helden || []).find(h => h.id === a.charId);
+              const zeile = liste.find(x => x.art === 'held' && x.charId === a.charId);
+              return (
+                <div className="kampf-ansage" key={a.id}>
+                  <span className="ka-wer">{held ? held.name : 'Jemand'}</span>
+                  <span className="ka-was">
+                    {a.was ? <b>{a.art === 'zauber' ? 'Zauber: ' : 'Angriff: '}{a.was}
+                      {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+                    {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
+                    {a.text ? <i>„{a.text}“</i> : null}
+                  </span>
+                  {zeile && (
+                    <button className="btn-icon" title="Ins Zugfenster übernehmen"
+                      onClick={()=>{ setAnsagenOffen(false); setZugFenster({id: zeile.id, ansage: a}); }}>
+                      ✍ Eintragen
+                    </button>
+                  )}
+                  <button className="fx-del" title="Erledigt, weg damit"
+                    onClick={()=>onAnsageWeg && onAnsageWeg(a.id)}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {protokollOffen && (
           <div className="kampf-protokoll">
@@ -1854,6 +1941,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
         {zugZiel && (
           <ZugFenster t={zugZiel} liste={liste} helden={helden} setDefs={setDefs}
             klassen={advKlassen(advObj)} runde={kampf.runde} bisher={bisherImZug}
+            ansage={zugFenster.ansage} key={(zugFenster.ansage || {}).id || zugFenster.id}
             onAbbrechen={()=>setZugFenster(null)} onAnwenden={zugAnwenden} />
         )}
 
@@ -1864,7 +1952,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               detailOffen={detailOffen} setDetailOffen={setDetailOffen}
               onWert={(modus,n)=>wertDirekt(t.id, modus, n)}
               onFenster={(modus)=>setWertDlg({id:t.id, modus})}
-              onZug={zugfensterAn ? ()=>setZugFenster(t.id) : undefined}
+              onZug={zugfensterAn ? ()=>setZugFenster({id: t.id}) : undefined}
               onIni={v=>ini(t.id,v)} onNotiz={v=>notiz(t.id,v)}
               onNotizFertig={t.art === 'held' ? onHeldNotizSichern : undefined}
               onZustand={z=>zustand(t.id,z)} onMarke={k=>marke(t.id,k)}

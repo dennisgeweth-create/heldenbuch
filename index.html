@@ -122,6 +122,8 @@
     // sich seit dem letzten Blick nichts getan hat.
     const apiKampfSetzen = (url, code, advId, kampf)      => apiRequest(url, 'kampf_setzen', { code, adv_id: advId, kampf });
     const apiKampfStand  = (url, code, advId, seit)       => apiRequest(url, 'kampf_stand',  { code, adv_id: advId, seit });
+    const apiKampfAnsage  = (url, code, advId, charId, ansage) => apiRequest(url, 'kampf_eintrag', { code, adv_id: advId, char_id: charId, ansage });
+    const apiKampfAnsagen = (url, code, advId)                 => apiRequest(url, 'kampf_stand',   { code, adv_id: advId, nur: 'ansagen' });
     // ── Konten ──────────────────────────────────────────────────
     // Alles hier traegt die Kennung von selbst, ausser login und dem
     // allerersten Konto — da gibt es noch keine.

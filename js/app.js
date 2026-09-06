@@ -1934,6 +1934,165 @@ const WertDialog = ({
   }, "Abbrechen"))));
 };
 
+// ── Was jemand tut und womit ─────────────────────────────────────
+// Dieselbe Auswahl brauchen zwei Fenster: das der Spielleitung, die
+// gleich die Wirkung eintraegt, und das des Spielers, der nur ansagt.
+// Sie steht deshalb einmal hier und nicht zweimal.
+//
+// Sie liest ausschliesslich aus dem Bogen dessen, der handelt — seine
+// Waffen, seine Zauber, seine Zauberplaetze. Da gibt es nichts zu
+// verbergen: das ist sein Zeug. Ueber Wirkung entscheidet sie nichts.
+const sortierteSprueche = held => [...(held && held.spells || [])].sort((a, b) => (a.level || 0) - (b.level || 0) || (a.name || '').localeCompare(b.name || '', 'de'));
+const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held) : art === 'angriff' ? held && held.weapons || [] : [];
+
+// Aus der Wahl {art, i, grad} alles ableiten, was beide Fenster
+// brauchen. Steht hier, damit die Ableitung nicht in jedem Fenster
+// wieder anders aussieht.
+const aktionsStand = (held, wahl) => {
+  const quelle = aktionsQuelle(held, wahl.art);
+  const gegenstand = wahl.i === null || wahl.i === undefined ? null : quelle[wahl.i] || null;
+  const grundGrad = gegenstand ? +gegenstand.level || 0 : 0;
+  const wirkung = wahl.art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung) ? gegenstand.wirkung : null;
+  const grad = wahl.grad || grundGrad;
+  return {
+    quelle,
+    gegenstand,
+    grundGrad,
+    wirkung,
+    grad,
+    wurf: wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad) : ''
+  };
+};
+const AktionsWahl = ({
+  held,
+  wahl,
+  setWahl,
+  wer
+}) => {
+  const waffen = held && held.weapons || [];
+  const sprueche = sortierteSprueche(held);
+  const {
+    quelle,
+    gegenstand,
+    grundGrad,
+    wirkung,
+    grad,
+    wurf
+  } = aktionsStand(held, wahl);
+
+  // Ein Magier auf Stufe 9 hat drei Dutzend Zauber. Gesucht wird ueber
+  // Namen, Schule, Schadensart und Grad; die Auswahl haengt am Eintrag
+  // und bleibt beim Filtern stehen.
+  const suchWort = (wahl.suche || '').trim().toLowerCase();
+  const gezeigt = !suchWort ? quelle : quelle.filter(g => (g.name || '').toLowerCase().includes(suchWort) || (g.school || '').toLowerCase().includes(suchWort) || (g.damageType || '').toLowerCase().includes(suchWort) || wahl.art === 'zauber' && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort));
+
+  // Die Plaetze des Helden: nur Grade, fuer die er welche hat — und der
+  // eigene Grad des Zaubers, damit immer etwas dasteht.
+  const plaetze = held && held.spellSlots || {};
+  const grade = [];
+  for (let l = Math.max(1, grundGrad); l <= 9; l++) {
+    const p = plaetze[l] || plaetze[String(l)];
+    if (l === grundGrad || p && (+p.max || 0) > 0) grade.push(l);
+  }
+  const platzRest = l => {
+    const p = plaetze[l] || plaetze[String(l)];
+    return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
+  };
+  const waehlen = i => {
+    const neu = i === wahl.i ? null : i;
+    const g = neu === null ? null : quelle[neu];
+    setWahl({
+      ...wahl,
+      i: neu,
+      grad: g && wahl.art === 'zauber' ? +g.level || 0 : 0
+    });
+  };
+  const ArtTaste = ({
+    k,
+    kind,
+    aus
+  }) => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'zug-taste' + (wahl.art === k ? ' an' : ''),
+    disabled: aus,
+    onClick: () => setWahl({
+      ...wahl,
+      art: k,
+      i: null,
+      grad: 0,
+      suche: ''
+    })
+  }, kind);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "zug-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-label"
+  }, "Was tut ", wer), /*#__PURE__*/React.createElement("div", {
+    className: "zug-reihe"
+  }, /*#__PURE__*/React.createElement(ArtTaste, {
+    k: "angriff",
+    kind: "\u2694 Angriff",
+    aus: !waffen.length
+  }), /*#__PURE__*/React.createElement(ArtTaste, {
+    k: "zauber",
+    kind: "\u2728 Zauber",
+    aus: !sprueche.length
+  }), /*#__PURE__*/React.createElement(ArtTaste, {
+    k: "frei",
+    kind: "\u270D Nur beschreiben"
+  }))), wahl.art !== 'frei' && /*#__PURE__*/React.createElement("div", {
+    className: "zug-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-label"
+  }, wahl.art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'), quelle.length > 5 && /*#__PURE__*/React.createElement("input", {
+    className: "zug-suche",
+    value: wahl.suche || '',
+    placeholder: "\uD83D\uDD0D Suchen\u2026",
+    "aria-label": wahl.art === 'zauber' ? 'Zauber suchen' : 'Waffe suchen',
+    onChange: e => setWahl({
+      ...wahl,
+      suche: e.target.value
+    })
+  }), quelle.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "zug-leer"
+  }, wahl.art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.') : gezeigt.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "zug-leer"
+  }, "Nichts gefunden zu \u201E", (wahl.suche || '').trim(), "\u201C.") : /*#__PURE__*/React.createElement("div", {
+    className: "zug-liste"
+  }, gezeigt.map(g => {
+    const i = quelle.indexOf(g);
+    return /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      key: g.id || i,
+      className: 'zug-zeile' + (i === wahl.i ? ' an' : '') + (wahl.art === 'zauber' ? ' arkan' : ''),
+      onClick: () => waehlen(i)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "zug-sym"
+    }, wahl.art === 'zauber' ? '✨' : '⚔'), /*#__PURE__*/React.createElement("span", {
+      className: "zug-text"
+    }, /*#__PURE__*/React.createElement("b", null, g.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("i", null, wahl.art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : (g.damageType ? g.damageType + ' · ' : '') + (g.range || ''))), /*#__PURE__*/React.createElement("span", {
+      className: "zug-wirkt"
+    }, wahl.art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : g.damage || ''));
+  }))), wahl.art === 'zauber' && gegenstand && grundGrad > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "zug-grad"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "zug-grad-label"
+  }, "Zauberplatz"), /*#__PURE__*/React.createElement("span", {
+    className: "zug-reihe"
+  }, grade.map(l => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: l,
+    className: 'zug-grad-taste' + (l === grad ? ' an' : ''),
+    title: platzRest(l) + ' von ' + ((plaetze[l] || plaetze[String(l)] || {}).max || 0) + ' frei',
+    onClick: () => setWahl({
+      ...wahl,
+      grad: l
+    })
+  }, l, /*#__PURE__*/React.createElement("i", null, platzRest(l))))), /*#__PURE__*/React.createElement("span", {
+    className: "zug-grad-erg"
+  }, wurf ? /*#__PURE__*/React.createElement("b", null, wurf) : /*#__PURE__*/React.createElement("i", null, "kein W\xFCrfel am Zauber"), grad > grundGrad && /*#__PURE__*/React.createElement("span", null, " \xB7 ", grad - grundGrad, " Grad h\xF6her"), platzRest(grad) > 0 ? /*#__PURE__*/React.createElement("span", null, " \xB7 Platz ", grad, ". Grad wird abgehakt") : /*#__PURE__*/React.createElement("span", null, " \xB7 kein Platz mehr frei"))));
+};
+
 // ── Das Zugfenster ───────────────────────────────────────────────
 // Bis hierher trug die Spielleitung den Schaden ein und schrieb daneben
 // auf, was eigentlich geschehen ist. Das Fenster dreht die Reihenfolge um:
@@ -1957,53 +2116,65 @@ const ZugFenster = ({
   klassen,
   runde,
   bisher,
+  ansage,
   onAbbrechen,
   onAnwenden
 }) => {
   const held = t.art === 'held' ? (helden || []).find(h => h.id === t.charId) : null;
   const waffen = held && held.weapons || [];
-  const sprueche = [...(held && held.spells || [])].sort((a, b) => (a.level || 0) - (b.level || 0) || (a.name || '').localeCompare(b.name || '', 'de'));
+  const sprueche = sortierteSprueche(held);
 
   // Der Zauber-SG steht im Bogen — daran haengt, ob ein Rettungswurf
   // gelingt. Er wird hier nur gezeigt; entschieden wird am Tisch.
   const werte = held ? charWerte(held, setDefs) : null;
   const zAttr = held ? klassenAttr(held.charClass, klassen) : null;
   const zauberSG = werte && zAttr ? 8 + (+werte.eff.profBonus || 0) + mod(werte.eff[zAttr]) : null;
-  const [art, setArt] = React.useState(waffen.length ? 'angriff' : sprueche.length ? 'zauber' : 'frei');
-  const [gewaehlt, setGewaehlt] = React.useState(null);
-  const [grad, setGrad] = React.useState(0);
+
+  // Die Auswahl teilt sich dieses Fenster mit dem des Spielers. Kommt es
+  // aus einer Ansage, steht schon drin, was der Spieler gesagt hat — die
+  // Spielleitung ergaenzt nur noch die Zahlen.
+  const [wahl, setWahl] = React.useState(() => {
+    if (ansage && held) {
+      const q = aktionsQuelle(held, ansage.art);
+      const i = q.findIndex(g => (g.name || '') === (ansage.was || ''));
+      return {
+        art: ansage.art || 'frei',
+        i: i >= 0 ? i : null,
+        grad: +ansage.grad || 0,
+        suche: ''
+      };
+    }
+    return {
+      art: waffen.length ? 'angriff' : sprueche.length ? 'zauber' : 'frei',
+      i: null,
+      grad: 0,
+      suche: ''
+    };
+  });
   const [richtung, setRichtung] = React.useState('schaden');
   const [ziele, setZiele] = React.useState({});
-  const [text, setText] = React.useState('');
-  const [suche, setSuche] = React.useState('');
+  const [text, setText] = React.useState(ansage ? ansage.text || '' : '');
 
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
-  const quelle = nurWerte ? [] : art === 'zauber' ? sprueche : art === 'angriff' ? waffen : [];
-  const gegenstand = gewaehlt === null ? null : quelle[gewaehlt] || null;
-  // Ein Magier auf Stufe 9 hat drei Dutzend Zauber. Gesucht wird ueber
-  // Namen, Schule und Grad; die Auswahl bleibt dabei stehen, weil sie am
-  // Eintrag haengt und nicht an der Zeile.
-  const suchWort = suche.trim().toLowerCase();
-  const gezeigt = !suchWort ? quelle : quelle.filter(g => (g.name || '').toLowerCase().includes(suchWort) || (g.school || '').toLowerCase().includes(suchWort) || (g.damageType || '').toLowerCase().includes(suchWort) || art === 'zauber' && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort));
-
-  // Was der Zauber tut, steht am Zauber — wenn es jemand eingetragen hat.
-  const wirkung = art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung) ? gegenstand.wirkung : null;
-  const grundGrad = gegenstand ? +gegenstand.level || 0 : 0;
+  const art = nurWerte ? 'frei' : wahl.art;
+  const {
+    gegenstand,
+    grundGrad,
+    wirkung,
+    grad,
+    wurf: wurfJetzt
+  } = nurWerte ? {
+    gegenstand: null,
+    grundGrad: 0,
+    wirkung: null,
+    grad: 0,
+    wurf: ''
+  } : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
   const mitSchalter = !nurWerte && art !== 'frei' && richtung === 'schaden' && !mitRettung;
-  const wurfJetzt = wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad || grundGrad) : '';
-
-  // Die Plaetze des Helden: nur Grade, fuer die er ueberhaupt welche hat —
-  // und der eigene Grad des Zaubers, damit immer etwas dasteht.
-  const plaetze = held && held.spellSlots || {};
-  const grade = [];
-  for (let l = Math.max(1, grundGrad); l <= 9; l++) {
-    const p = plaetze[l] || plaetze[String(l)];
-    if (l === grundGrad || p && (+p.max || 0) > 0) grade.push(l);
-  }
   const platzRest = l => {
-    const p = plaetze[l] || plaetze[String(l)];
+    const p = (held && held.spellSlots || {})[l] || (held && held.spellSlots || {})[String(l)];
     return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
   };
   const zielSetzen = (id, p) => setZiele(z => ({
@@ -2061,13 +2232,6 @@ const ZugFenster = ({
       }
     };
   });
-  const zauberWaehlen = i => {
-    const neu = i === gewaehlt ? null : i;
-    setGewaehlt(neu);
-    const g = neu === null ? null : quelle[neu];
-    if (g && art === 'zauber') setGrad(+g.level || 0);
-  };
-
   // Einmal gebaut, zweimal genutzt: als Vorschau und als das, was beim
   // Uebernehmen wirklich geschrieben wird. So kann die Vorschau nicht von
   // dem abweichen, was danach im Protokoll steht.
@@ -2214,20 +2378,6 @@ const ZugFenster = ({
     });
   });
   const knopf = summe ? richtung === 'heilung' ? '✓ Übernehmen — heilt ' + summe + ' TP' : '✓ Übernehmen — trägt ' + summe + ' TP ab' : '✓ Übernehmen';
-  const ArtTaste = ({
-    k,
-    kind,
-    aus
-  }) => /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: 'zug-taste' + (art === k ? ' an' : ''),
-    disabled: aus,
-    onClick: () => {
-      setArt(k);
-      setGewaehlt(null);
-      setSuche('');
-    }
-  }, kind);
   return /*#__PURE__*/React.createElement("div", {
     className: "form-overlay",
     onClick: onAbbrechen
@@ -2244,68 +2394,12 @@ const ZugFenster = ({
     className: "zug-tp"
   }, /*#__PURE__*/React.createElement("b", null, t.hp), " / ", t.hpMax, " TP")), /*#__PURE__*/React.createElement("div", {
     className: "zug-leib"
-  }, !nurWerte && /*#__PURE__*/React.createElement("div", {
-    className: "zug-block"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "zug-label"
-  }, "Was tut ", t.name), /*#__PURE__*/React.createElement("div", {
-    className: "zug-reihe"
-  }, /*#__PURE__*/React.createElement(ArtTaste, {
-    k: "angriff",
-    kind: "\u2694 Angriff",
-    aus: !waffen.length
-  }), /*#__PURE__*/React.createElement(ArtTaste, {
-    k: "zauber",
-    kind: "\u2728 Zauber",
-    aus: !sprueche.length
-  }), /*#__PURE__*/React.createElement(ArtTaste, {
-    k: "frei",
-    kind: "\u270D Nur beschreiben"
-  }))), !nurWerte && art !== 'frei' && /*#__PURE__*/React.createElement("div", {
-    className: "zug-block"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "zug-label"
-  }, art === 'zauber' ? 'Welcher Zauber — aus dem Zauberbuch' : 'Womit — aus dem Bogen'), quelle.length > 5 && /*#__PURE__*/React.createElement("input", {
-    className: "zug-suche",
-    value: suche,
-    placeholder: "\uD83D\uDD0D Suchen\u2026",
-    "aria-label": art === 'zauber' ? 'Zauber suchen' : 'Waffe suchen',
-    onChange: e => setSuche(e.target.value)
-  }), quelle.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "zug-leer"
-  }, art === 'zauber' ? 'Keine Zauber im Bogen.' : 'Keine Waffen im Bogen.') : gezeigt.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "zug-leer"
-  }, "Nichts gefunden zu \u201E", suche.trim(), "\u201C.") : /*#__PURE__*/React.createElement("div", {
-    className: "zug-liste"
-  }, gezeigt.map(g => {
-    const i = quelle.indexOf(g);
-    return /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      key: g.id || i,
-      className: 'zug-zeile' + (i === gewaehlt ? ' an' : '') + (art === 'zauber' ? ' arkan' : ''),
-      onClick: () => zauberWaehlen(i)
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "zug-sym"
-    }, art === 'zauber' ? '✨' : '⚔'), /*#__PURE__*/React.createElement("span", {
-      className: "zug-text"
-    }, /*#__PURE__*/React.createElement("b", null, g.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("i", null, art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : (g.damageType ? g.damageType + ' · ' : '') + (g.range || ''))), /*#__PURE__*/React.createElement("span", {
-      className: "zug-wirkt"
-    }, art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : g.damage || ''));
-  }))), !nurWerte && art === 'zauber' && gegenstand && grundGrad > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "zug-grad"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "zug-grad-label"
-  }, "Zauberplatz"), /*#__PURE__*/React.createElement("span", {
-    className: "zug-reihe"
-  }, grade.map(l => /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    key: l,
-    className: 'zug-grad-taste' + (l === grad ? ' an' : ''),
-    title: platzRest(l) + ' von ' + ((plaetze[l] || plaetze[String(l)] || {}).max || 0) + ' frei',
-    onClick: () => setGrad(l)
-  }, l, /*#__PURE__*/React.createElement("i", null, platzRest(l))))), /*#__PURE__*/React.createElement("span", {
-    className: "zug-grad-erg"
-  }, wurfJetzt ? /*#__PURE__*/React.createElement("b", null, wurfJetzt) : /*#__PURE__*/React.createElement("i", null, "kein W\xFCrfel am Zauber"), grad > grundGrad && /*#__PURE__*/React.createElement("span", null, " \xB7 ", grad - grundGrad, " Grad h\xF6her"), platzRest(grad) > 0 ? /*#__PURE__*/React.createElement("span", null, " \xB7 Platz ", grad, ". Grad wird abgehakt") : /*#__PURE__*/React.createElement("span", null, " \xB7 kein Platz mehr frei"))), /*#__PURE__*/React.createElement("div", {
+  }, !nurWerte && /*#__PURE__*/React.createElement(AktionsWahl, {
+    held: held,
+    wahl: wahl,
+    setWahl: setWahl,
+    wer: t.name
+  }), /*#__PURE__*/React.createElement("div", {
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-label"
@@ -3102,6 +3196,8 @@ const KampfAnsicht = ({
   setDefs,
   abenteuer,
   advId,
+  ansagen,
+  onAnsageWeg,
   onSchliessen,
   onGegnerBlatt,
   onFrage,
@@ -3123,7 +3219,8 @@ const KampfAnsicht = ({
   const [mitZahlen, setMitZahlen] = React.useState(true);
   const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
-  const [zugFenster, setZugFenster] = React.useState(null); // id der Figur
+  const [zugFenster, setZugFenster] = React.useState(null); // {id, ansage}
+  const [ansagenOffen, setAnsagenOffen] = React.useState(false);
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
 
@@ -3352,7 +3449,11 @@ const KampfAnsicht = ({
     treffer,
     platz
   }, weiter) => {
-    if (!weiter) setZugFenster(null);
+    // Was eingetragen ist, muss nicht mehr angesagt bleiben.
+    if (zugFenster && zugFenster.ansage && onAnsageWeg) onAnsageWeg(zugFenster.ansage.id);
+    if (!weiter) setZugFenster(null);else setZugFenster(z => z && {
+      id: z.id
+    });
     (eintraege || []).forEach(e => protokollieren(e));
     (treffer || []).forEach(({
       id,
@@ -3628,7 +3729,7 @@ const KampfAnsicht = ({
   };
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
-  const zugZiel = zugFenster && liste.find(t => t.id === zugFenster);
+  const zugZiel = zugFenster && liste.find(t => t.id === zugFenster.id);
   // Alles, was seit dem letzten Zugwechsel im Protokoll steht — das
   // Fenster zeigt es an, damit man den ganzen Zug vor sich hat.
   const bisherImZug = (() => {
@@ -3715,7 +3816,11 @@ const KampfAnsicht = ({
       gezeigt: !k.gezeigt
     }),
     title: kampf.gezeigt ? 'Die Runde sieht die Initiativliste und wie es den Figuren geht — nie die Zahlen der Gegner' : 'Der Runde zeigen: Reihenfolge, wer am Zug ist, wie es den Figuren geht'
-  }, kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'), /*#__PURE__*/React.createElement("button", {
+  }, kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'), (ansagen || []).length > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-btn ansage" + (ansagenOffen ? " an" : ""),
+    onClick: () => setAnsagenOffen(o => !o),
+    title: "Was die Runde angesagt hat"
+  }, "\uD83D\uDCE3 Ansagen \xB7 ", (ansagen || []).length), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn zusatz" + (protokollOffen ? " an" : ""),
     onClick: () => setProtokollOffen(o => !o),
     title: "Was in diesem Kampf geschehen ist"
@@ -3735,7 +3840,36 @@ const KampfAnsicht = ({
     onClick: onSchliessen,
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter",
     "aria-label": "Kampftracker schlie\xDFen"
-  }, "\u2715")), protokollOffen && /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), ansagenOffen && (ansagen || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-ansagen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-ansagen-kopf"
+  }, "\uD83D\uDCE3 Angesagt \u2014 eintragen f\xFCllt das Zugfenster schon aus"), (ansagen || []).map(a => {
+    const held = (helden || []).find(h => h.id === a.charId);
+    const zeile = liste.find(x => x.art === 'held' && x.charId === a.charId);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "kampf-ansage",
+      key: a.id
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "ka-wer"
+    }, held ? held.name : 'Jemand'), /*#__PURE__*/React.createElement("span", {
+      className: "ka-was"
+    }, a.was ? /*#__PURE__*/React.createElement("b", null, a.art === 'zauber' ? 'Zauber: ' : 'Angriff: ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null), zeile && /*#__PURE__*/React.createElement("button", {
+      className: "btn-icon",
+      title: "Ins Zugfenster \xFCbernehmen",
+      onClick: () => {
+        setAnsagenOffen(false);
+        setZugFenster({
+          id: zeile.id,
+          ansage: a
+        });
+      }
+    }, "\u270D Eintragen"), /*#__PURE__*/React.createElement("button", {
+      className: "fx-del",
+      title: "Erledigt, weg damit",
+      onClick: () => onAnsageWeg && onAnsageWeg(a.id)
+    }, "\u2715"));
+  })), protokollOffen && /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll-kopf"
@@ -3819,6 +3953,8 @@ const KampfAnsicht = ({
     klassen: advKlassen(advObj),
     runde: kampf.runde,
     bisher: bisherImZug,
+    ansage: zugFenster.ansage,
+    key: (zugFenster.ansage || {}).id || zugFenster.id,
     onAbbrechen: () => setZugFenster(null),
     onAnwenden: zugAnwenden
   }), /*#__PURE__*/React.createElement("div", {
@@ -3836,7 +3972,9 @@ const KampfAnsicht = ({
       id: t.id,
       modus
     }),
-    onZug: zugfensterAn ? () => setZugFenster(t.id) : undefined,
+    onZug: zugfensterAn ? () => setZugFenster({
+      id: t.id
+    }) : undefined,
     onIni: v => ini(t.id, v),
     onNotiz: v => notiz(t.id, v),
     onNotizFertig: t.art === 'held' ? onHeldNotizSichern : undefined,
@@ -6047,12 +6185,144 @@ const KampfSichtZeile = ({
     }
   }))));
 };
+
+// ── Der Spieler sagt an ─────────────────────────────────────────
+// Er waehlt aus seinem eigenen Bogen — dieselbe Auswahl, die auch die
+// Spielleitung benutzt (AktionsWahl) — und tippt die Ziele an. Was
+// dabei nicht vorkommt, ist eine Zahl: wie viel ankommt, weiss er
+// nicht, und die Trefferpunkte der Gegner gehen ihn nichts an. Er sagt
+// an, die Spielleitung traegt ein.
+const AnsageFenster = ({
+  held,
+  kampf,
+  helden,
+  runde,
+  onAbbrechen,
+  onSenden
+}) => {
+  const waffen = held && held.weapons || [];
+  const sprueche = sortierteSprueche(held);
+  const [wahl, setWahl] = React.useState({
+    art: waffen.length ? 'angriff' : sprueche.length ? 'zauber' : 'frei',
+    i: null,
+    grad: 0,
+    suche: ''
+  });
+  const [ziele, setZiele] = React.useState({});
+  const [text, setText] = React.useState('');
+  const [laeuft, setLaeuft] = React.useState(false);
+  const {
+    gegenstand,
+    grundGrad,
+    grad,
+    wurf
+  } = aktionsStand(held, wahl);
+  const liste = kampf && kampf.teilnehmer || [];
+  const zielUm = id => setZiele(z => {
+    if (z[id]) {
+      const k = {
+        ...z
+      };
+      delete k[id];
+      return k;
+    }
+    return {
+      ...z,
+      [id]: true
+    };
+  });
+  const zielName = t => t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
+  const etwasDa = !!gegenstand || !!text.trim() || Object.keys(ziele).length > 0;
+  const senden = async () => {
+    setLaeuft(true);
+    await onSenden({
+      art: wahl.art,
+      was: gegenstand ? gegenstand.name || '' : '',
+      grad: wahl.art === 'zauber' && grad > grundGrad ? grad : 0,
+      ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
+      text: text.trim()
+    });
+    setLaeuft(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "form-overlay",
+    onClick: onAbbrechen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-fenster",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-kopf"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "zug-titel"
+  }, "\u270D ", held ? held.name : 'Ansage'), /*#__PURE__*/React.createElement("span", {
+    className: "zug-wer"
+  }, "Runde ", runde, " \xB7 was hast du vor?")), /*#__PURE__*/React.createElement("div", {
+    className: "zug-leib"
+  }, /*#__PURE__*/React.createElement(AktionsWahl, {
+    held: held,
+    wahl: wahl,
+    setWahl: setWahl,
+    wer: "du"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "zug-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-label"
+  }, "Auf wen"), /*#__PURE__*/React.createElement("div", {
+    className: "zug-ziele"
+  }, liste.map(t => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: t.id,
+    className: 'zug-ziel' + (ziele[t.id] ? ' an' : '') + (t.art === 'held' ? ' held' : ''),
+    onClick: () => zielUm(t.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "zug-ziel-kopf"
+  }, /*#__PURE__*/React.createElement("b", null, zielName(t))), /*#__PURE__*/React.createElement("span", {
+    className: "zug-ziel-tp"
+  }, t.art === 'held' ? t.charId === (held || {}).id ? 'du' : 'Held' : t.zustand || ''))))), /*#__PURE__*/React.createElement("div", {
+    className: "zug-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-label"
+  }, "Beschreibung \u2014 was du tust"), /*#__PURE__*/React.createElement("textarea", {
+    className: "zug-frei",
+    value: text,
+    onChange: e => setText(e.target.value),
+    maxLength: 500,
+    "aria-label": "Beschreibung deiner Aktion",
+    placeholder: "Ich springe hinter den Karren und schleudere Feuer \xFCber die Lichtung."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "zug-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-label"
+  }, "Das geht so an die Spielleitung"), /*#__PURE__*/React.createElement("div", {
+    className: "zug-vorschau"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pr-zeile zug"
+  }, "\u25B8 ", held ? held.name : 'Du', " sagt an"), gegenstand && /*#__PURE__*/React.createElement("div", {
+    className: "pr-zeile"
+  }, "   ", wahl.art === 'zauber' ? 'Zauber' : 'Angriff', ": ", gegenstand.name, wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), Object.keys(ziele).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "pr-zeile"
+  }, "   auf ", Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')), text.trim() && /*#__PURE__*/React.createElement("div", {
+    className: "pr-zeile frei"
+  }, "   \u201E", text.trim(), "\u201C"), !etwasDa && /*#__PURE__*/React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz.")))), /*#__PURE__*/React.createElement("div", {
+    className: "zug-fuss"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "zug-hinweis"
+  }, "Wie viel ankommt, tr\xE4gt die Spielleitung ein."), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: !etwasDa || laeuft,
+    onClick: senden
+  }, laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung'))));
+};
 const KampfSicht = ({
   kampf,
   helden,
   eigeneIds,
   setDefs,
   tpOffen,
+  onAnsage,
   onSchliessen
 }) => {
   if (!kampf) return null;
@@ -6091,9 +6361,19 @@ const KampfSicht = ({
     setDefs: setDefs,
     tpOffen: tpOffen,
     eigenerHeld: t.art === 'held' && (eigeneIds || []).includes(t.charId)
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), (kampf.ansagen || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "ks-ansagen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ks-ansagen-titel"
+  }, "\uD83D\uDCE3 Angesagt"), (kampf.ansagen || []).slice(-6).map(a => /*#__PURE__*/React.createElement("div", {
+    className: "ks-ansage",
+    key: a.id
+  }, /*#__PURE__*/React.createElement("b", null, ((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'), a.was ? /*#__PURE__*/React.createElement("span", null, a.art === 'zauber' ? ' zaubert ' : ' greift an mit ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null))), /*#__PURE__*/React.createElement("div", {
     className: "ks-fuss"
-  }, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")));
+  }, onAnsage ? /*#__PURE__*/React.createElement("button", {
+    className: "ks-ansage-knopf",
+    onClick: onAnsage
+  }, "\u270D Ansagen, was du tust") : null, /*#__PURE__*/React.createElement("span", null, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch."))));
 };
 
 // ==== js/src/3-sheet.jsx ====
@@ -11907,6 +12187,86 @@ function App() {
 
   // Die eigenen Helden werden in der Liste hervorgehoben.
   const eigeneHeldenIds = konto ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id) : [];
+
+  // Die Ansagen der Runde. Die Spielleitung fragt sie getrennt ab — sie
+  // schreibt den Kampf ja selbst und braucht ihn nicht zurueck, nur das,
+  // was die Spieler hineingerufen haben.
+  const [ansagen, setAnsagen] = useState([]);
+  const [ansageFuer, setAnsageFuer] = useState(null); // charId, waehrend das Fenster offen ist
+
+  useEffect(() => {
+    const creds = serverCreds();
+    if (!isDmMode || !advId || !verbunden(creds)) {
+      setAnsagen([]);
+      return;
+    }
+    let lebt = true,
+      uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          const d = await apiKampfAnsagen(creds.url, creds.code, advId);
+          if (lebt) setAnsagen(Array.isArray(d.ansagen) ? d.ansagen : []);
+        } catch {/* der naechste Versuch kommt gleich */}
+      }
+      uhr = setTimeout(frage, 5000);
+    };
+    frage();
+    return () => {
+      lebt = false;
+      clearTimeout(uhr);
+    };
+  }, [isDmMode, advId, svCode, konto]);
+
+  // Abgearbeitet ist abgearbeitet: die Spielleitung nimmt die Ansage aus
+  // der Liste, und weil sie dabei das Feld mitschickt, nimmt der Server
+  // sie auch aus dem Kampf.
+  const ansageWeg = id => {
+    setAnsagen(a => a.filter(x => x.id !== id));
+    const creds = serverCreds();
+    if (!verbunden(creds) || !kampf) return;
+    const rest = ansagen.filter(x => x.id !== id);
+    apiKampfSetzen(creds.url, creds.code, advId, {
+      name: kampf.name,
+      phase: kampf.phase || 'kampf',
+      aktiv: true,
+      runde: kampf.runde,
+      zug: kampf.zug,
+      gezeigt: !!kampf.gezeigt,
+      teilnehmer: (kampf.teilnehmer || []).map(t => {
+        const {
+          bild,
+          ...r
+        } = t;
+        return r;
+      }),
+      log: kampf.log || [],
+      ansagen: rest
+    }).catch(() => {});
+  };
+
+  // Und die andere Seite: der Spieler schickt seine Ansage ab.
+  const ansageSenden = async ansage => {
+    const creds = serverCreds();
+    if (!verbunden(creds) || !ansageFuer) return;
+    try {
+      await apiKampfAnsage(creds.url, creds.code, advId, ansageFuer, ansage);
+      setAnsageFuer(null);
+      kampfStandRef.current = -1; // beim naechsten Blick alles neu holen
+    } catch (e) {
+      appAlert('Die Ansage kam nicht an: ' + (e.message || 'unbekannter Fehler'));
+    }
+  };
+
+  // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
+  const ansageHeldId = (() => {
+    if (!kampfSichtDaten) return null;
+    const drin = (kampfSichtDaten.teilnehmer || []).filter(t => t.art === 'held' && eigeneHeldenIds.includes(t.charId));
+    if (!drin.length) return null;
+    const dran = (kampfSichtDaten.teilnehmer || [])[kampfSichtDaten.zug || 0];
+    if (dran && drin.some(t => t.charId === dran.charId)) return dran.charId;
+    return drin[0].charId;
+  })();
   const einstellungFuer = advEinstellung ? advEinstellung.id : null;
   useEffect(() => {
     if (!einstellungFuer) return;
@@ -18290,7 +18650,15 @@ function App() {
     eigeneIds: eigeneHeldenIds,
     setDefs: setDefs,
     tpOffen: tpOffen,
+    onAnsage: ansageHeldId ? () => setAnsageFuer(ansageHeldId) : null,
     onSchliessen: () => setShowKampfSicht(false)
+  }), ansageFuer && kampfSichtDaten && /*#__PURE__*/React.createElement(AnsageFenster, {
+    held: chars.find(c => c.id === ansageFuer),
+    kampf: kampfSichtDaten,
+    helden: advChars,
+    runde: kampfSichtDaten.runde || 1,
+    onAbbrechen: () => setAnsageFuer(null),
+    onSenden: ansageSenden
   }), showKampf && isDmMode && /*#__PURE__*/React.createElement(KampfAnsicht, {
     kampf: kampf,
     setKampf: setKampf,
@@ -18309,6 +18677,8 @@ function App() {
     heldNotizen: dmLibrary.heldNotizen,
     onHeldNotiz: heldNotizSetzen,
     onHeldNotizSichern: heldNotizSichern,
+    ansagen: ansagen,
+    onAnsageWeg: ansageWeg,
     onFrage: appConfirm
   }), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
     form: encForm,

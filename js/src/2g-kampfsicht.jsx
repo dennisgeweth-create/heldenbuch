@@ -64,7 +64,114 @@ const KampfSichtZeile = ({ t, dran, helden, setDefs, tpOffen, eigenerHeld }) => 
   );
 };
 
-const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onSchliessen }) => {
+
+// ── Der Spieler sagt an ─────────────────────────────────────────
+// Er waehlt aus seinem eigenen Bogen — dieselbe Auswahl, die auch die
+// Spielleitung benutzt (AktionsWahl) — und tippt die Ziele an. Was
+// dabei nicht vorkommt, ist eine Zahl: wie viel ankommt, weiss er
+// nicht, und die Trefferpunkte der Gegner gehen ihn nichts an. Er sagt
+// an, die Spielleitung traegt ein.
+const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) => {
+  const waffen   = (held && held.weapons) || [];
+  const sprueche = sortierteSprueche(held);
+  const [wahl, setWahl] = React.useState({
+    art: waffen.length ? 'angriff' : (sprueche.length ? 'zauber' : 'frei'),
+    i: null, grad: 0, suche: '',
+  });
+  const [ziele, setZiele] = React.useState({});
+  const [text, setText]   = React.useState('');
+  const [laeuft, setLaeuft] = React.useState(false);
+
+  const {gegenstand, grundGrad, grad, wurf} = aktionsStand(held, wahl);
+  const liste = (kampf && kampf.teilnehmer) || [];
+  const zielUm = (id) => setZiele(z => {
+    if (z[id]) { const k = {...z}; delete k[id]; return k; }
+    return {...z, [id]: true};
+  });
+
+  const zielName = (t) => t.art === 'held'
+    ? (((helden || []).find(h => h.id === t.charId) || {}).name || 'Held')
+    : (t.name || 'Gegner');
+
+  const etwasDa = !!gegenstand || !!text.trim() || Object.keys(ziele).length > 0;
+  const senden = async () => {
+    setLaeuft(true);
+    await onSenden({
+      art: wahl.art,
+      was: gegenstand ? (gegenstand.name || '') : '',
+      grad: (wahl.art === 'zauber' && grad > grundGrad) ? grad : 0,
+      ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
+      text: text.trim(),
+    });
+    setLaeuft(false);
+  };
+
+  return (
+    <div className="form-overlay" onClick={onAbbrechen}>
+      <div className="zug-fenster" onClick={e=>e.stopPropagation()}>
+        <div className="zug-kopf">
+          <span className="zug-titel">✍ {held ? held.name : 'Ansage'}</span>
+          <span className="zug-wer">Runde {runde} · was hast du vor?</span>
+        </div>
+
+        <div className="zug-leib">
+          <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer="du" />
+
+          <div className="zug-block">
+            <div className="zug-label">Auf wen</div>
+            <div className="zug-ziele">
+              {liste.map(t => (
+                <button type="button" key={t.id}
+                  className={'zug-ziel' + (ziele[t.id] ? ' an' : '') + (t.art === 'held' ? ' held' : '')}
+                  onClick={()=>zielUm(t.id)}>
+                  <span className="zug-ziel-kopf"><b>{zielName(t)}</b></span>
+                  <span className="zug-ziel-tp">
+                    {t.art === 'held' ? (t.charId === (held || {}).id ? 'du' : 'Held') : (t.zustand || '')}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="zug-block">
+            <div className="zug-label">Beschreibung — was du tust</div>
+            <textarea className="zug-frei" value={text} onChange={e=>setText(e.target.value)}
+              maxLength={500} aria-label="Beschreibung deiner Aktion"
+              placeholder="Ich springe hinter den Karren und schleudere Feuer über die Lichtung." />
+          </div>
+
+          <div className="zug-block">
+            <div className="zug-label">Das geht so an die Spielleitung</div>
+            <div className="zug-vorschau">
+              <div className="pr-zeile zug">▸ {held ? held.name : 'Du'} sagt an</div>
+              {gegenstand && (
+                <div className="pr-zeile">   {wahl.art === 'zauber' ? 'Zauber' : 'Angriff'}: {gegenstand.name}
+                  {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
+                  {wurf ? ' (' + wurf + ')' : ''}</div>
+              )}
+              {Object.keys(ziele).length > 0 && (
+                <div className="pr-zeile">   auf {Object.keys(ziele)
+                  .map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')}</div>
+              )}
+              {text.trim() && <div className="pr-zeile frei">   „{text.trim()}“</div>}
+              {!etwasDa && <i>Wähle etwas aus oder schreib einen Satz.</i>}
+            </div>
+          </div>
+        </div>
+
+        <div className="zug-fuss">
+          <span className="zug-hinweis">Wie viel ankommt, trägt die Spielleitung ein.</span>
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          <button className="btn-save" disabled={!etwasDa || laeuft} onClick={senden}>
+            {laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSchliessen }) => {
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
   const dranIdx = Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
@@ -96,9 +203,27 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onSchliessen }
               ))}
         </div>
 
+        {(kampf.ansagen || []).length > 0 && (
+          <div className="ks-ansagen">
+            <div className="ks-ansagen-titel">📣 Angesagt</div>
+            {(kampf.ansagen || []).slice(-6).map(a => (
+              <div className="ks-ansage" key={a.id}>
+                <b>{((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'}</b>
+                {a.was ? <span>{a.art === 'zauber' ? ' zaubert ' : ' greift an mit '}{a.was}
+                  {a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
+                {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
+                {a.text ? <i>„{a.text}“</i> : null}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="ks-fuss">
-          Was die Spielleitung notiert, steht hier nicht — und die Trefferpunkte der Gegner
-          bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.
+          {onAnsage ? (
+            <button className="ks-ansage-knopf" onClick={onAnsage}>✍ Ansagen, was du tust</button>
+          ) : null}
+          <span>Was die Spielleitung notiert, steht hier nicht — und die Trefferpunkte der
+            Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.</span>
         </div>
       </div>
     </div>

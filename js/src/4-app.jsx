@@ -1768,6 +1768,71 @@ function App() {
     ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id)
     : [];
 
+  // Die Ansagen der Runde. Die Spielleitung fragt sie getrennt ab — sie
+  // schreibt den Kampf ja selbst und braucht ihn nicht zurueck, nur das,
+  // was die Spieler hineingerufen haben.
+  const [ansagen, setAnsagen] = useState([]);
+  const [ansageFuer, setAnsageFuer] = useState(null);   // charId, waehrend das Fenster offen ist
+
+  useEffect(() => {
+    const creds = serverCreds();
+    if (!isDmMode || !advId || !verbunden(creds)) { setAnsagen([]); return; }
+    let lebt = true, uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          const d = await apiKampfAnsagen(creds.url, creds.code, advId);
+          if (lebt) setAnsagen(Array.isArray(d.ansagen) ? d.ansagen : []);
+        } catch { /* der naechste Versuch kommt gleich */ }
+      }
+      uhr = setTimeout(frage, 5000);
+    };
+    frage();
+    return () => { lebt = false; clearTimeout(uhr); };
+  }, [isDmMode, advId, svCode, konto]);
+
+  // Abgearbeitet ist abgearbeitet: die Spielleitung nimmt die Ansage aus
+  // der Liste, und weil sie dabei das Feld mitschickt, nimmt der Server
+  // sie auch aus dem Kampf.
+  const ansageWeg = (id) => {
+    setAnsagen(a => a.filter(x => x.id !== id));
+    const creds = serverCreds();
+    if (!verbunden(creds) || !kampf) return;
+    const rest = ansagen.filter(x => x.id !== id);
+    apiKampfSetzen(creds.url, creds.code, advId, {
+      name: kampf.name, phase: kampf.phase || 'kampf', aktiv: true,
+      runde: kampf.runde, zug: kampf.zug, gezeigt: !!kampf.gezeigt,
+      teilnehmer: (kampf.teilnehmer || []).map(t => { const {bild, ...r} = t; return r; }),
+      log: kampf.log || [],
+      ansagen: rest,
+    }).catch(() => {});
+  };
+
+  // Und die andere Seite: der Spieler schickt seine Ansage ab.
+  const ansageSenden = async (ansage) => {
+    const creds = serverCreds();
+    if (!verbunden(creds) || !ansageFuer) return;
+    try {
+      await apiKampfAnsage(creds.url, creds.code, advId, ansageFuer, ansage);
+      setAnsageFuer(null);
+      kampfStandRef.current = -1;        // beim naechsten Blick alles neu holen
+    } catch (e) {
+      appAlert('Die Ansage kam nicht an: ' + (e.message || 'unbekannter Fehler'));
+    }
+  };
+
+  // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
+  const ansageHeldId = (() => {
+    if (!kampfSichtDaten) return null;
+    const drin = (kampfSichtDaten.teilnehmer || [])
+      .filter(t => t.art === 'held' && eigeneHeldenIds.includes(t.charId));
+    if (!drin.length) return null;
+    const dran = (kampfSichtDaten.teilnehmer || [])[kampfSichtDaten.zug || 0];
+    if (dran && drin.some(t => t.charId === dran.charId)) return dran.charId;
+    return drin[0].charId;
+  })();
+
+
 
 
   const einstellungFuer = advEinstellung ? advEinstellung.id : null;
@@ -4831,7 +4896,14 @@ function App() {
       {showKampfSicht && kampfSichtDaten && !isDmMode && (
         <KampfSicht kampf={kampfSichtDaten} helden={advChars} eigeneIds={eigeneHeldenIds}
           setDefs={setDefs} tpOffen={tpOffen}
+          onAnsage={ansageHeldId ? ()=>setAnsageFuer(ansageHeldId) : null}
           onSchliessen={()=>setShowKampfSicht(false)} />
+      )}
+
+      {ansageFuer && kampfSichtDaten && (
+        <AnsageFenster held={chars.find(c => c.id === ansageFuer)} kampf={kampfSichtDaten}
+          helden={advChars} runde={kampfSichtDaten.runde || 1}
+          onAbbrechen={()=>setAnsageFuer(null)} onSenden={ansageSenden} />
       )}
 
       {showKampf && isDmMode && (
@@ -4846,6 +4918,7 @@ function App() {
           heldNotizen={dmLibrary.heldNotizen}
           onHeldNotiz={heldNotizSetzen}
           onHeldNotizSichern={heldNotizSichern}
+          ansagen={ansagen} onAnsageWeg={ansageWeg}
           onFrage={appConfirm} />
       )}
 

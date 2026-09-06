@@ -540,6 +540,13 @@ function kampfFuerSpieler(array $k, bool $hpOffen): array {
         $teil[] = $e;
     }
     $raus['teilnehmer'] = $teil;
+    // Die Ansagen gehen an alle zurueck: der Spieler soll sehen, dass
+    // seine angekommen ist, und die Runde sieht, wer schon angesagt hat.
+    $ans = [];
+    foreach ((array)($k['ansagen'] ?? []) as $a) {
+        if (is_array($a)) $ans[] = $a;
+    }
+    $raus['ansagen'] = $ans;
     // Ob die Helden ihre Zahlen sehen duerfen, entscheidet weiter der
     // Bogen. Der Kampf sagt nur, was fuer dieses Abenteuer gilt, damit
     // ein Spielergeraet nicht raten muss.
@@ -1487,6 +1494,16 @@ switch ($action) {
             respond(200, 'Kampf beendet.', ['stand' => 0]);
         }
         if (!is_array($k)) respond(400, 'Kampf hat das falsche Format.');
+        // Zwei schreiben an demselben Kampf: die Spielleitung den ganzen,
+        // der Spieler nur seine Ansage. Wer die Ansagen nicht mitschickt,
+        // will sie auch nicht loeschen — dieselbe Regel wie bei den
+        // Trefferpunkten, und aus demselben Grund.
+        if (!array_key_exists('ansagen', $k)) {
+            $alt = $pdo->prepare("SELECT kampf_json FROM hb_kampf WHERE session_code=? AND adv_id=?");
+            $alt->execute([$code, $advId]);
+            $vorher = json_decode((string)($alt->fetchColumn() ?: ''), true);
+            if (is_array($vorher) && !empty($vorher['ansagen'])) $k['ansagen'] = $vorher['ansagen'];
+        }
         $json = json_encode($k, JSON_UNESCAPED_UNICODE);
         // Bilder gehoeren nicht in den Kampf: er wird waehrend eines
         // Gefechts im Sekundentakt geschrieben. Der Tracker laesst sie
@@ -1500,6 +1517,84 @@ switch ($action) {
         $st = $pdo->prepare("SELECT stand FROM hb_kampf WHERE session_code=? AND adv_id=?");
         $st->execute([$code, $advId]);
         respond(200, 'Kampf gespeichert.', ['stand' => (int)($st->fetchColumn() ?: 1)]);
+    }
+
+    // Der Spieler sagt an, was er tut. Die Zahlen bleiben bei der
+    // Spielleitung — hier kommt nur an, WAS jemand vorhat: Waffe oder
+    // Zauber, auf wen, und ein Satz dazu.
+    //
+    // Drei Grenzen, alle auf dem Server: es geht nur zum eigenen Bogen,
+    // nur wenn dieser Held im Kampf steht, und es kann nichts anderes
+    // veraendern als die Liste der Ansagen. Wer den Kampf schreiben will,
+    // braucht kampf_setzen — und das darf nur die Spielleitung.
+    case 'kampf_eintrag': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $advId  = (string)($body['adv_id'] ?? '');
+        $charId = (string)($body['char_id'] ?? '');
+        if ($advId === '' || $charId === '') respond(400, 'Fehlende Daten.');
+        $z = zugang($pdo, $code, $pass, $body);
+
+        // Der Bogen muss ihm gehoeren. Die Spielleitung darf ohnehin
+        // ueber ihr eigenes Fenster und braucht diesen Weg nicht.
+        $cs = $pdo->prepare("SELECT owner FROM hb_chars WHERE session_code=? AND char_id=?");
+        $cs->execute([$code, $charId]);
+        $cr = $cs->fetch();
+        if (!$cr) respond(404, 'Bogen nicht gefunden.');
+        $eigen = $z['user'] && $cr['owner'] !== null && (int)$cr['owner'] === (int)$z['user']['id'];
+        if (!$eigen && !istDmVon($pdo, $z, $code, $advId)) {
+            respond(403, 'Das ist nicht dein Bogen.');
+        }
+
+        $st = $pdo->prepare("SELECT kampf_json, stand FROM hb_kampf WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(404, 'Hier läuft gerade kein Kampf.');
+        $k = json_decode($row['kampf_json'], true);
+        if (!is_array($k)) respond(404, 'Hier läuft gerade kein Kampf.');
+
+        $drin = false;
+        foreach ((array)($k['teilnehmer'] ?? []) as $t) {
+            if (is_array($t) && (string)($t['charId'] ?? '') === $charId) { $drin = true; break; }
+        }
+        if (!$drin) respond(403, 'Dieser Held steht nicht in diesem Kampf.');
+
+        $a = $body['ansage'] ?? null;
+        if (!is_array($a)) respond(400, 'Fehlende Ansage.');
+        // Es wird genommen, was gebraucht wird — nicht, was geschickt
+        // wurde. Sonst schriebe ein Spieler ueber diesen Weg Felder in
+        // den Kampf, die ihm nicht gehoeren.
+        $sauber = [
+            'id'     => bin2hex(random_bytes(6)),
+            'charId' => $charId,
+            'art'    => in_array((string)($a['art'] ?? ''), ['angriff','zauber','frei'], true)
+                        ? (string)$a['art'] : 'frei',
+            'was'    => mb_substr(trim((string)($a['was'] ?? '')), 0, 80),
+            'grad'   => max(0, min(9, (int)($a['grad'] ?? 0))),
+            'text'   => mb_substr(trim((string)($a['text'] ?? '')), 0, 500),
+            'ziele'  => [],
+            'zeit'   => time(),
+        ];
+        foreach ((array)($a['ziele'] ?? []) as $zid) {
+            if (count($sauber['ziele']) >= 12) break;
+            $sauber['ziele'][] = mb_substr((string)$zid, 0, 60);
+        }
+        if ($sauber['was'] === '' && $sauber['text'] === '' && !$sauber['ziele']) {
+            respond(400, 'Da steht nichts drin.');
+        }
+
+        $liste = (array)($k['ansagen'] ?? []);
+        $liste[] = $sauber;
+        // Was aelter ist als die letzten zwei Dutzend, hat niemand mehr
+        // gelesen — und der Kampf soll klein bleiben.
+        if (count($liste) > 24) $liste = array_slice($liste, -24);
+        $k['ansagen'] = $liste;
+
+        $json = json_encode($k, JSON_UNESCAPED_UNICODE);
+        if (strlen($json) > MAX_KAMPF_BYTES) respond(413, 'Kampf zu groß.');
+        $pdo->prepare("UPDATE hb_kampf SET kampf_json=?, stand=stand+1
+                       WHERE session_code=? AND adv_id=?")
+            ->execute([$json, $code, $advId]);
+        respond(200, 'Angesagt.', ['ansage' => $sauber]);
     }
 
     // Was ein Geraet alle paar Sekunden fragt. Die Antwort ist klein: der
@@ -1519,6 +1614,12 @@ switch ($action) {
         $seit  = isset($body['seit']) ? (int)$body['seit'] : -1;
         $dm    = istDmVon($pdo, $z, $code, $advId);
         $k = json_decode($row['kampf_json'], true);
+        // Die Spielleitung schreibt den Kampf selbst; sie braucht ihn
+        // nicht zurueck. Was sie braucht, sind die Ansagen der Runde.
+        if ($dm && ($body['nur'] ?? '') === 'ansagen') {
+            respond(200, 'OK', ['stand' => $stand, 'dm' => true,
+                                'ansagen' => array_values((array)(is_array($k) ? ($k['ansagen'] ?? []) : []))]);
+        }
         if (!is_array($k)) respond(200, 'OK', ['stand' => $stand, 'kampf' => null, 'dm' => $dm]);
         // Erst die Sichtbarkeit, dann die Abkuerzung: wird die Freigabe
         // zurueckgenommen, aendert das den Stand des Kampfes nicht — die
