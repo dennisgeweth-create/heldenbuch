@@ -13847,8 +13847,8 @@ function App() {
     className: "hb-logo",
     src: "logo.png",
     alt: "Heldenbuch",
-    width: 304,
-    height: 349
+    width: 360,
+    height: 275
   }), /*#__PURE__*/React.createElement("span", {
     className: "app-version"
   }, HB_VERSION)), /*#__PURE__*/React.createElement("div", {
@@ -14021,8 +14021,8 @@ function App() {
     className: "hb-logo schmal",
     src: "logo.png",
     alt: "Heldenbuch",
-    width: 304,
-    height: 349
+    width: 360,
+    height: 275
   }), /*#__PURE__*/React.createElement("span", {
     className: "app-version"
   }, HB_VERSION), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {

@@ -2616,7 +2616,7 @@ function App() {
             {/* Der Name steht im Zeichen selbst — ein zweiter darunter waere
                 derselbe Name zweimal. */}
             <img className="hb-logo" src="logo.png" alt="Heldenbuch"
-              width={304} height={349} />
+              width={360} height={275} />
             <span className="app-version">{HB_VERSION}</span>
           </div>
           <div className="char-list">
@@ -2761,7 +2761,7 @@ function App() {
             <div className="mobile-list-screen">
               <div style={{padding:"16px 12px 12px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
                 <img className="hb-logo schmal" src="logo.png" alt="Heldenbuch"
-                  width={304} height={349} />
+                  width={360} height={275} />
                 <span className="app-version">{HB_VERSION}</span>
                 {/* Sync status on mobile list */}
                 {svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && (
