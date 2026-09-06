@@ -1770,6 +1770,19 @@
     background:var(--bg-panel); border-top:1px solid var(--border); flex-shrink:0; }
   .zug-hinweis { margin-right:auto; font-size:11.5px; color:var(--text-muted); }
 
+  /* Auf breitem Schirm gibt es nichts zu klappen: der Griff ist weg, und
+     die zweite Reihe der Kopfzeile steht einfach mit in der ersten. */
+  .kampf-auf { display:none; }
+  .kampf-mehr-knopf { display:none; }
+  .kampf-kopf-mehr { display:contents; }
+  /* "Kampf beenden" steht im Markup bei den selteneren Handgriffen, damit
+     es auf dem Telefon hinter dem Punktknopf liegt. Auf breitem Schirm
+     soll es trotzdem dort stehen, wo es immer stand — rechts neben
+     "Naechster Zug". */
+  .kampf-weiter { order:1; }
+  .kampf-kopf-btn.ende { order:2; }
+  .kampf-kopf-x { order:3; }
+
   .kampf-hinweis { padding:8px 16px; font-size:11.5px; color:var(--inspiration);
     background:rgba(232,184,75,0.08); border-bottom:1px solid var(--border); flex-shrink:0; }
 
@@ -2083,6 +2096,42 @@
     .kt.zust { min-height:40px; }
     .kampf-zust-panel { right:auto; left:0; width:min(290px, 86vw); }
     .wert-reihe { grid-template-columns:repeat(3,1fr); }
+
+    /* Zugeklappt ist eine Zeile eine Zeile: Initiative, Name, Zustand,
+       Trefferpunkte. Alles Weitere kommt, wenn man sie antippt — und bei
+       dem, der dran ist, ist es von selbst da. */
+    .kampf-auf { display:block; position:absolute; top:8px; right:8px; width:34px; min-height:34px;
+      padding:0; border-radius:4px; cursor:pointer; background:var(--bg-card);
+      border:1px solid var(--border); color:var(--text-muted); font-size:12px; }
+    .kampf-auf:hover { border-color:var(--border-bright); color:var(--text-primary); }
+    .kampf-zeile { padding-right:52px; }
+    .kampf-zeile.zu .kampf-notiz,
+    .kampf-zeile.zu .kampf-tasten,
+    .kampf-zeile.zu .kampf-detail,
+    .kampf-zeile.zu .kampf-hp-unter { display:none; }
+    .kampf-zeile.zu .kampf-zug-knopf { display:none; }
+    /* Zugeklappt stehen Name und Trefferpunkte nebeneinander statt
+       untereinander — sonst braucht eine stille Zeile so viel Platz wie
+       eine, an der gerade gearbeitet wird. */
+    .kampf-zeile.zu { row-gap:4px; grid-template-columns:46px 1fr 104px; }
+    .kampf-zeile.zu .kampf-hp { grid-column:3; grid-row:1; align-self:center; }
+    .kampf-zeile.zu .kampf-hp-zahl { justify-content:flex-end; }
+    .kampf-zeile.zu .kampf-ac { grid-column:2; justify-self:start; margin-top:0;
+      padding:2px 8px; font-size:10.5px; }
+    .kampf-raus { top:auto; bottom:8px; right:8px; width:34px; min-height:34px; }
+
+    /* Die Kopfzeile traegt auf dem Telefon nur, was in jeder Runde
+       gebraucht wird. Der Rest steht hinter dem Punktknopf. */
+    .kampf-mehr-knopf { display:block; width:40px; min-height:40px; padding:0; border-radius:4px;
+      cursor:pointer; background:var(--bg-card); border:1px solid var(--border);
+      color:var(--text-secondary); font-size:18px; line-height:1; }
+    .kampf-mehr-knopf[aria-expanded="true"] { border-color:var(--gold-dim); color:var(--gold); }
+    .kampf-kopf-mehr { display:none; }
+    .kampf-kopf-mehr.offen { display:flex; flex-wrap:wrap; gap:8px; width:100%;
+      padding-top:8px; border-top:1px solid var(--border); }
+    .kampf-kopf-mehr.offen > button { flex:1 1 auto; }
+    .kampf-titel { font-size:13px; }
+    .kampf-dran { flex-basis:100%; order:9; }
   }
   .kampf-seite-knopf { display:none; width:40px; min-height:40px; padding:0; border-radius:4px;
     cursor:pointer; background:var(--bg-card); border:1px solid var(--border);
@@ -2101,6 +2150,16 @@
   .hp-bar-container .kampf-todes { margin-top:10px; }
   @media (max-width:640px) {
     .tp-tasten .kt { min-height:40px; flex:1 1 auto; }
+    /* Was man mit dem Daumen trifft, braucht Flaeche. Auf der Maus
+       reichen 23 Pixel, auf dem Telefon nicht. */
+    .kampf-raus { width:34px; min-height:34px; font-size:13px; }
+    .zug-richtung button, .zug-schalter button, .zug-mind button { min-height:36px;
+      padding-left:12px; padding-right:12px; }
+    .zug-fuss .btn-cancel, .zug-fuss .btn-save, .zug-fuss .btn-icon { min-height:42px; }
+    .zug-fuss { gap:8px; }
+    .zug-hinweis { flex-basis:100%; }
+    .zug-ziele { grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); }
+    .ks-ansage-knopf { flex-basis:100%; min-height:44px; }
   }
 
 /* ── Dreifaches Glück: der Automat in der Taverne ────────────────

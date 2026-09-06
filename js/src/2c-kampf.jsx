@@ -1105,8 +1105,15 @@ const ZustandWahl = ({ t, onZustand, onErschoepfung, onMarke, onSchliessen }) =>
 
 // ── Eine Karte ───────────────────────────────────────────────────
 const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotizFertig, onZustand, onMarke,
-                      onErschoepfung, onEntfernen, onBlatt, onTodes,
+                      onErschoepfung, onEntfernen, onBlatt, onTodes, auf, onAufklappen,
                       zustandOffen, setZustandOffen, detailOffen, setDetailOffen }) => {
+  // Wer dran ist, rueckt ins Bild. Auf dem Telefon steht sonst nach
+  // "Naechster Zug" jemand anderes auf dem Schirm als der, der handelt.
+  const eigen = React.useRef(null);
+  React.useEffect(() => {
+    if (dran && eigen.current) eigen.current.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+  }, [dran]);
+
   const gesamtMax = Math.max(1, t.hpMax || 1);
   const anteil = Math.max(0, Math.min(1, (t.hp || 0) / gesamtMax));
   const tot = (t.hp || 0) <= 0;
@@ -1114,8 +1121,9 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotiz
   const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
 
   return (
-    <div className={'kampf-zeile' + (dran ? ' dran' : '') + (tot ? ' tot' : '')
-                    + (t.art === 'held' ? ' held' : ' gegner')}>
+    <div ref={eigen} className={'kampf-zeile' + (dran ? ' dran' : '') + (tot ? ' tot' : '')
+                    + (t.art === 'held' ? ' held' : ' gegner')
+                    + (auf ? ' auf' : ' zu')}>
 
       <div className="kampf-ini-feld">
         <input className="kampf-ini" type="number" value={t.ini === null ? '' : t.ini}
@@ -1172,6 +1180,10 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotiz
       <textarea className="kampf-notiz" value={t.notiz || ''} placeholder="Notiz…"
         aria-label={'Notiz zu ' + t.name} onChange={e=>onNotiz(e.target.value)}
         onBlur={()=>onNotizFertig && onNotizFertig()} />
+
+      <button className="kampf-auf" onClick={onAufklappen} aria-expanded={!!auf}
+        title={auf ? 'Zuklappen' : 'Notiz und Tasten zeigen'}
+        aria-label={(auf ? 'Zuklappen: ' : 'Aufklappen: ') + t.name}>{auf ? '▾' : '▸'}</button>
 
       <div className="kampf-ac">AC {t.ac}</div>
 
@@ -1549,6 +1561,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
   const [zugFenster, setZugFenster] = React.useState(null);   // {id, ansage}
   const [ansagenOffen, setAnsagenOffen] = React.useState(false);
+  // Auf dem Telefon traegt jede Zeile sonst ihren ganzen Tastenblock —
+  // fuenf Figuren sind dann fast zwei Bildschirme, ohne dass man die
+  // Reihenfolge sieht. Aufgeklappt ist, wer dran ist, und was man antippt.
+  const [zeileOffen, setZeileOffen] = React.useState(null);
+  const [mehrOffen, setMehrOffen] = React.useState(false);
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
 
@@ -1928,6 +1945,10 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                   <b>{zahlGegner}</b> {zahlGegner === 1 ? 'Gegner' : 'Gegner'}</>
               : amZug ? <>Am Zug: <b>{amZug.name}</b></> : 'Niemand am Zug'}
           </div>
+          <button className="kampf-mehr-knopf" onClick={()=>setMehrOffen(o=>!o)}
+            aria-expanded={mehrOffen} title="Weitere Handgriffe">⋯</button>
+
+          <div className={'kampf-kopf-mehr' + (mehrOffen ? ' offen' : '')}>
           <button className="kampf-kopf-btn" onClick={alleIni}
             title="Für alle ohne Zahl würfeln">🎲 Alle Init.</button>
           <button className="kampf-kopf-btn zusatz" onClick={()=>setSpontan(true)}
@@ -1958,15 +1979,19 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             📜 Protokoll{!vorbereitung && (kampf.log||[]).length > 1
               ? ' · ' + (kampf.log||[]).length : ''}
           </button>
+          {/* Ein Kampf wird einmal beendet und dreissigmal weitergeklickt —
+              deshalb steht das Beenden bei den selteneren Handgriffen. */}
+          {!vorbereitung && (
+            <button className="kampf-kopf-btn ende" onClick={beenden}>⏹ Kampf beenden</button>
+          )}
+          </div>
+
           {vorbereitung ? (
             <button className="kampf-weiter start" onClick={starten} disabled={!liste.length}
               title={liste.length ? 'Runde 1 beginnt — ab hier schreibt das Protokoll mit'
                                   : 'Erst jemanden aufstellen'}>▶ Kampf starten</button>
           ) : (
-            <>
-              <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
-              <button className="kampf-kopf-btn ende" onClick={beenden}>⏹ Kampf beenden</button>
-            </>
+            <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
           )}
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
@@ -2116,7 +2141,9 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               onZustand={z=>zustand(t.id,z)} onMarke={k=>marke(t.id,k)}
               onErschoepfung={st=>erschoepfung(t.id,st)}
               onTodes={(d)=>aendernWerte(t.id, alt => ({...alt, deathSaves:d}), {art:'todes'})}
-              onEntfernen={()=>entfernen(t.id)} onBlatt={onGegnerBlatt} />
+              onEntfernen={()=>entfernen(t.id)} onBlatt={onGegnerBlatt}
+              auf={(amZug && amZug.id === t.id) || zeileOffen === t.id}
+              onAufklappen={()=>setZeileOffen(o => o === t.id ? null : t.id)} />
           ))}
         </div>
       </div>

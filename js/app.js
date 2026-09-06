@@ -2853,18 +2853,30 @@ const KampfZeile = ({
   onEntfernen,
   onBlatt,
   onTodes,
+  auf,
+  onAufklappen,
   zustandOffen,
   setZustandOffen,
   detailOffen,
   setDetailOffen
 }) => {
+  // Wer dran ist, rueckt ins Bild. Auf dem Telefon steht sonst nach
+  // "Naechster Zug" jemand anderes auf dem Schirm als der, der handelt.
+  const eigen = React.useRef(null);
+  React.useEffect(() => {
+    if (dran && eigen.current) eigen.current.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth'
+    });
+  }, [dran]);
   const gesamtMax = Math.max(1, t.hpMax || 1);
   const anteil = Math.max(0, Math.min(1, (t.hp || 0) / gesamtMax));
   const tot = (t.hp || 0) <= 0;
   const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a';
   const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
   return /*#__PURE__*/React.createElement("div", {
-    className: 'kampf-zeile' + (dran ? ' dran' : '') + (tot ? ' tot' : '') + (t.art === 'held' ? ' held' : ' gegner')
+    ref: eigen,
+    className: 'kampf-zeile' + (dran ? ' dran' : '') + (tot ? ' tot' : '') + (t.art === 'held' ? ' held' : ' gegner') + (auf ? ' auf' : ' zu')
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-ini-feld"
   }, /*#__PURE__*/React.createElement("input", {
@@ -2931,7 +2943,13 @@ const KampfZeile = ({
     "aria-label": 'Notiz zu ' + t.name,
     onChange: e => onNotiz(e.target.value),
     onBlur: () => onNotizFertig && onNotizFertig()
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-auf",
+    onClick: onAufklappen,
+    "aria-expanded": !!auf,
+    title: auf ? 'Zuklappen' : 'Notiz und Tasten zeigen',
+    "aria-label": (auf ? 'Zuklappen: ' : 'Aufklappen: ') + t.name
+  }, auf ? '▾' : '▸'), /*#__PURE__*/React.createElement("div", {
     className: "kampf-ac"
   }, "AC ", t.ac), /*#__PURE__*/React.createElement("div", {
     className: "kampf-hp"
@@ -3420,6 +3438,11 @@ const KampfAnsicht = ({
   const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
   const [zugFenster, setZugFenster] = React.useState(null); // {id, ansage}
   const [ansagenOffen, setAnsagenOffen] = React.useState(false);
+  // Auf dem Telefon traegt jede Zeile sonst ihren ganzen Tastenblock —
+  // fuenf Figuren sind dann fast zwei Bildschirme, ohne dass man die
+  // Reihenfolge sieht. Aufgeklappt ist, wer dran ist, und was man antippt.
+  const [zeileOffen, setZeileOffen] = React.useState(null);
+  const [mehrOffen, setMehrOffen] = React.useState(false);
   // Am schmalen Schirm liegt die Seitenspalte uebereinander statt daneben.
   const [seiteOffen, setSeiteOffen] = React.useState(false);
 
@@ -3995,6 +4018,13 @@ const KampfAnsicht = ({
   }, /*#__PURE__*/React.createElement("span", null, "Runde"), /*#__PURE__*/React.createElement("b", null, kampf.runde)), /*#__PURE__*/React.createElement("div", {
     className: "kampf-dran"
   }, vorbereitung ? /*#__PURE__*/React.createElement(React.Fragment, null, "Aufgestellt: ", /*#__PURE__*/React.createElement("b", null, zahlHelden), " ", zahlHelden === 1 ? 'Held' : 'Helden', ",", ' ', /*#__PURE__*/React.createElement("b", null, zahlGegner), " ", zahlGegner === 1 ? 'Gegner' : 'Gegner') : amZug ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, amZug.name)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-mehr-knopf",
+    onClick: () => setMehrOffen(o => !o),
+    "aria-expanded": mehrOffen,
+    title: "Weitere Handgriffe"
+  }, "\u22EF"), /*#__PURE__*/React.createElement("div", {
+    className: 'kampf-kopf-mehr' + (mehrOffen ? ' offen' : '')
+  }, /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn",
     onClick: alleIni,
     title: "F\xFCr alle ohne Zahl w\xFCrfeln"
@@ -4025,18 +4055,18 @@ const KampfAnsicht = ({
     className: "kampf-kopf-btn zusatz" + (protokollOffen ? " an" : ""),
     onClick: () => setProtokollOffen(o => !o),
     title: "Was in diesem Kampf geschehen ist"
-  }, "\uD83D\uDCDC Protokoll", !vorbereitung && (kampf.log || []).length > 1 ? ' · ' + (kampf.log || []).length : ''), vorbereitung ? /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCDC Protokoll", !vorbereitung && (kampf.log || []).length > 1 ? ' · ' + (kampf.log || []).length : ''), !vorbereitung && /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-btn ende",
+    onClick: beenden
+  }, "\u23F9 Kampf beenden")), vorbereitung ? /*#__PURE__*/React.createElement("button", {
     className: "kampf-weiter start",
     onClick: starten,
     disabled: !liste.length,
     title: liste.length ? 'Runde 1 beginnt — ab hier schreibt das Protokoll mit' : 'Erst jemanden aufstellen'
-  }, "\u25B6 Kampf starten") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+  }, "\u25B6 Kampf starten") : /*#__PURE__*/React.createElement("button", {
     className: "kampf-weiter",
     onClick: naechster
   }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
-    className: "kampf-kopf-btn ende",
-    onClick: beenden
-  }, "\u23F9 Kampf beenden")), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter",
@@ -4191,7 +4221,9 @@ const KampfAnsicht = ({
       art: 'todes'
     }),
     onEntfernen: () => entfernen(t.id),
-    onBlatt: onGegnerBlatt
+    onBlatt: onGegnerBlatt,
+    auf: amZug && amZug.id === t.id || zeileOffen === t.id,
+    onAufklappen: () => setZeileOffen(o => o === t.id ? null : t.id)
   })))));
 };
 
@@ -13667,7 +13699,8 @@ function App() {
       onClick: () => setShowArchive(false),
       style: {
         flex: 1,
-        padding: "5px 0",
+        padding: "9px 0",
+        minHeight: 36,
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 10,
         letterSpacing: "0.08em",
@@ -13687,7 +13720,8 @@ function App() {
       onClick: () => setShowArchive(true),
       style: {
         flex: 1,
-        padding: "5px 0",
+        padding: "9px 0",
+        minHeight: 36,
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 10,
         letterSpacing: "0.08em",

@@ -2494,7 +2494,7 @@ function App() {
         <div style={{display:"flex",gap:4,padding:"4px 8px 0",marginBottom:8}}>
           <button
             onClick={()=>setShowArchive(false)}
-            style={{flex:1,padding:"5px 0",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
+            style={{flex:1,padding:"9px 0",minHeight:36,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
               background:!showArchive?"var(--bg-panel)":"none",border:"1px solid",
               borderColor:!showArchive?"var(--gold-dim)":"var(--border)",
               color:!showArchive?"var(--gold)":"var(--text-muted)",borderRadius:"3px 0 0 3px",cursor:"pointer"}}>
@@ -2502,7 +2502,7 @@ function App() {
           </button>
           <button
             onClick={()=>setShowArchive(true)}
-            style={{flex:1,padding:"5px 0",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
+            style={{flex:1,padding:"9px 0",minHeight:36,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
               background:showArchive?"var(--bg-panel)":"none",border:"1px solid",
               borderColor:showArchive?"var(--gold-dim)":"var(--border)",
               color:showArchive?"var(--gold)":"var(--text-muted)",borderRadius:"0 3px 3px 0",cursor:"pointer",marginLeft:-1}}>
