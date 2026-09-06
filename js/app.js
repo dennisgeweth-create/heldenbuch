@@ -6556,6 +6556,33 @@ const AnsageFenster = ({
     onClick: senden
   }, laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung'))));
 };
+
+// Wie die Taverne: ein Fenster, das ueber der Anwendung liegt, aber
+// keine Klicks wegnimmt. Wer waehrend des Kampfes in seinem Bogen
+// nachsehen will, tippt einfach dorthin — der Kampf bleibt offen und
+// bleibt stehen, wo man ihn hingeschoben hat.
+const KS_SPEICHER = 'hb_kampfsicht_fenster';
+const KS_BREITE = 460;
+const ksLesen = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(KS_SPEICHER) || 'null');
+    if (d && Number.isFinite(+d.x)) return {
+      x: +d.x,
+      y: +d.y
+    };
+  } catch {}
+  return null;
+};
+const ksSchreiben = pos => {
+  try {
+    localStorage.setItem(KS_SPEICHER, JSON.stringify(pos));
+  } catch {}
+};
+// Immer so viel stehen lassen, dass man den Kopf noch zu fassen bekommt.
+const ksKlemmen = pos => ({
+  x: Math.max(-KS_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
+  y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
+});
 const KampfSicht = ({
   kampf,
   helden,
@@ -6565,19 +6592,53 @@ const KampfSicht = ({
   onAnsage,
   onSchliessen
 }) => {
+  const [pos, setPos] = React.useState(() => ksLesen() || ksKlemmen({
+    x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32),
+    y: 76
+  }));
+  const zug = React.useRef(null);
+  const zugStart = e => {
+    if (e.target.closest('button')) return; // der Schliessknopf schiebt nicht
+    zug.current = {
+      dx: e.clientX - pos.x,
+      dy: e.clientY - pos.y
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+  const zugBewegen = e => {
+    if (!zug.current) return;
+    setPos(ksKlemmen({
+      x: e.clientX - zug.current.dx,
+      y: e.clientY - zug.current.dy
+    }));
+  };
+  const zugEnde = () => {
+    if (zug.current) {
+      zug.current = null;
+      ksSchreiben(pos);
+    }
+  };
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
   const dranIdx = Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
   const dran = liste[dranIdx] || null;
   const dranName = dran ? dran.art === 'held' ? ((helden || []).find(h => h.id === dran.charId) || {}).name || 'Held' : dran.name || 'Gegner' : '';
   return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
-    onClick: onSchliessen
-  }, /*#__PURE__*/React.createElement("div", {
     className: "ks-fenster",
-    onClick: e => e.stopPropagation()
+    style: {
+      left: pos.x,
+      top: pos.y,
+      width: KS_BREITE
+    }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "ks-kopf"
+    className: "ks-kopf",
+    onPointerDown: zugStart,
+    onPointerMove: zugBewegen,
+    onPointerUp: zugEnde,
+    onPointerCancel: zugEnde,
+    title: "Zum Verschieben ziehen"
   }, /*#__PURE__*/React.createElement("span", {
     className: "ks-titel"
   }, "\u2694 ", kampf.name || 'Kampf'), /*#__PURE__*/React.createElement("span", {
@@ -6613,7 +6674,7 @@ const KampfSicht = ({
   }, onAnsage ? /*#__PURE__*/React.createElement("button", {
     className: "ks-ansage-knopf",
     onClick: onAnsage
-  }, "\u270D Ansagen, was du tust") : null, /*#__PURE__*/React.createElement("span", null, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch."))));
+  }, "\u270D Ansagen, was du tust") : null, /*#__PURE__*/React.createElement("span", null, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")));
 };
 
 // ==== js/src/3-sheet.jsx ====

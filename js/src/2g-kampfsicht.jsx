@@ -175,7 +175,43 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
   );
 };
 
+// Wie die Taverne: ein Fenster, das ueber der Anwendung liegt, aber
+// keine Klicks wegnimmt. Wer waehrend des Kampfes in seinem Bogen
+// nachsehen will, tippt einfach dorthin — der Kampf bleibt offen und
+// bleibt stehen, wo man ihn hingeschoben hat.
+const KS_SPEICHER = 'hb_kampfsicht_fenster';
+const KS_BREITE = 460;
+const ksLesen = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(KS_SPEICHER) || 'null');
+    if (d && Number.isFinite(+d.x)) return {x: +d.x, y: +d.y};
+  } catch {}
+  return null;
+};
+const ksSchreiben = (pos) => {
+  try { localStorage.setItem(KS_SPEICHER, JSON.stringify(pos)); } catch {}
+};
+// Immer so viel stehen lassen, dass man den Kopf noch zu fassen bekommt.
+const ksKlemmen = (pos) => ({
+  x: Math.max(-KS_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
+  y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60)),
+});
+
 const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSchliessen }) => {
+  const [pos, setPos] = React.useState(() => ksLesen()
+    || ksKlemmen({x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32), y: 76}));
+  const zug = React.useRef(null);
+  const zugStart = (e) => {
+    if (e.target.closest('button')) return;       // der Schliessknopf schiebt nicht
+    zug.current = {dx: e.clientX - pos.x, dy: e.clientY - pos.y};
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  };
+  const zugBewegen = (e) => {
+    if (!zug.current) return;
+    setPos(ksKlemmen({x: e.clientX - zug.current.dx, y: e.clientY - zug.current.dy}));
+  };
+  const zugEnde = () => { if (zug.current) { zug.current = null; ksSchreiben(pos); } };
+
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
   const dranIdx = Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
@@ -187,9 +223,9 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSc
     : '';
 
   return (
-    <div className="form-overlay" onClick={onSchliessen}>
-      <div className="ks-fenster" onClick={e=>e.stopPropagation()}>
-        <div className="ks-kopf">
+    <div className="ks-fenster" style={{left: pos.x, top: pos.y, width: KS_BREITE}}>
+        <div className="ks-kopf" onPointerDown={zugStart} onPointerMove={zugBewegen}
+          onPointerUp={zugEnde} onPointerCancel={zugEnde} title="Zum Verschieben ziehen">
           <span className="ks-titel">⚔ {kampf.name || 'Kampf'}</span>
           <span className="ks-runde"><span>Runde</span><b>{kampf.runde || 1}</b></span>
           <span className="ks-dran-kopf">{dranName ? <>Am Zug: <b>{dranName}</b></> : 'Niemand am Zug'}</span>
@@ -229,7 +265,6 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSc
           <span>Was die Spielleitung notiert, steht hier nicht — und die Trefferpunkte der
             Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.</span>
         </div>
-      </div>
     </div>
   );
 };

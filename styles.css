@@ -1543,11 +1543,17 @@
   /* ── Der Kampf, wie ihn die Runde sieht ─────────────────────────
      Dieselbe Sprache wie der Tracker, aber ohne Tasten: hier wird nichts
      eingetragen, hier wird zugesehen. */
-  .ks-fenster { width:100%; max-width:560px; max-height:86vh; display:flex; flex-direction:column;
-    border-radius:9px; overflow:hidden; background:var(--bg-card);
-    border:1px solid var(--gold-dim); box-shadow:0 18px 50px rgba(0,0,0,0.7); }
+  /* Ein Fenster, kein Vorhang — dieselbe Bauart wie die Taverne: es liegt
+     ueber der Anwendung, nimmt aber keine Klicks weg, und es bleibt
+     stehen, wo man es hingeschoben hat. */
+  .ks-fenster { position:fixed; z-index:61; max-height:min(80vh, 720px);
+    display:flex; flex-direction:column; border-radius:9px; overflow:hidden;
+    background:var(--bg-card); border:1px solid var(--gold-dim);
+    box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5); }
   .ks-kopf { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; padding:13px 16px;
-    background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0; }
+    background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0;
+    cursor:grab; touch-action:none; user-select:none; }
+  .ks-kopf:active { cursor:grabbing; }
   .ks-titel { font-family:'Roboto Condensed',sans-serif; font-size:15px; letter-spacing:0.06em;
     text-transform:uppercase; color:var(--gold); }
   .ks-runde { display:flex; align-items:baseline; gap:6px; }
@@ -1615,6 +1621,14 @@
 
   @media (max-width:520px) {
     .ks-zeile { grid-template-columns:34px 1fr 96px; gap:8px; }
+  }
+  /* Am schmalen Schirm ist ein schwebendes Fenster keine gute Idee — dort
+     fuellt der Kampf den Schirm, wie die Taverne auch. !important, weil
+     die Stelle im Code die Position setzt. */
+  @media (max-width:700px) {
+    .ks-fenster { left:0 !important; top:0 !important; right:0; bottom:0;
+      width:auto !important; max-height:none; border-radius:0; border:none; }
+    .ks-kopf { cursor:default; }
   }
 
   /* ── Das Zugfenster ─────────────────────────────────────────────
