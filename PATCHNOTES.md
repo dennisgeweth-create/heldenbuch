@@ -1,5 +1,169 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.5
+
+Die Ausgabe, in der die Runde mitsieht. Der Kampf liegt nicht mehr
+allein im Gerät der Spielleitung: er steht auf dem Server, jeder am
+Tisch sieht ihn — verschleiert, so wie im Bogen —, und wer dran ist,
+kann selbst ansagen, was er vorhat. Dazu Flächenzauber, Resistenzen,
+Gegenstände und Merkmale im Zug, und eine mobile Fassung, die
+nachgemessen ist.
+
+### 👁 Die Spieleransicht
+
+Bisher lag der Kampf allein im Gerät der Spielleitung. Das war richtig,
+solange ihn niemand sonst brauchte. Jetzt liegt er auf dem Server, und
+wer nicht leitet, fragt alle paar Sekunden nach: während eines Kampfes
+alle vier, sonst alle zwölf, und gar nicht, wenn das Fenster im
+Hintergrund liegt. Die Antwort ist eine Zahl; der Rest kommt nur, wenn
+sie sich bewegt hat.
+
+Zu sehen ist die Reihenfolge, wer am Zug ist und wie es den Figuren
+geht. Der eigene Held ist hervorgehoben.
+
+**Was nicht zu sehen ist**, ist der eigentliche Punkt: die Trefferpunkte
+der Gegner, ihre Rüstungsklasse, die Notizen der Spielleitung und das
+Protokoll. Und zwar nicht, weil die Ansicht sie wegließe — **der Server
+schickt sie gar nicht erst mit**. Verschleiern im Browser wäre keine
+Verschleierung.
+
+Beim Gegner steht deshalb immer der Zustand statt der Zahl, „Verwundet"
+mit grobem Balken. Bei den Helden gilt dieselbe Regel wie im Bogen:
+zeigt das Abenteuer die Punkte offen, stehen die Zahlen da, sonst auch
+dort der Zustand.
+
+Drei Einstellungen je Abenteuer, unter **Was die Runde sieht**:
+
+- **Von allein** — sobald ein Kampf läuft, geht er bei den Spielern auf.
+- **Auf Ansage** — erst wenn du im Tracker auf *Zeigen* drückst. Der
+  Knopf steht dann oben neben dem Protokoll.
+- **Gar nicht** — der Kampf bleibt bei dir, wie bisher.
+
+Entschieden wird auch das auf dem Server: bei *gar nicht* und bei *auf
+Ansage* ohne Freigabe liefert er nichts aus, nicht einmal die Namen.
+
+### 🪟 Und zwar als Fenster, nicht als Vorhang
+
+Beim Spieler liegt der Kampf in einem Fenster derselben Bauart wie die
+Taverne: es liegt über der Anwendung, nimmt aber keine Klicks weg. Wer
+mitten im Kampf in seinem Bogen nachsehen will, tippt einfach dorthin.
+Am Kopf schiebt man es dahin, wo es nicht stört, und dort bleibt es —
+die Stelle steht im Gerät und überlebt das Neuladen. Am schmalen Schirm
+füllt es den Schirm; ein schwebendes Fenster auf einem Telefon wäre eine
+Fingerübung.
+
+### 📣 Der Spieler sagt an, du trägst ein
+
+In der Spieleransicht steht **Ansagen, was du tust**. Darin dieselbe
+Auswahl wie bei dir: seine Waffen, sein Zauberbuch mit Suchfeld, der
+Gradwähler mit seinen Plätzen — und die Ziele als Kacheln ohne Zahlen,
+so wie der Server sie liefert. Dazu ein Satz.
+
+Zahlen kommen dabei nicht vor. Wie viel ankommt, weiß er nicht, und die
+Trefferpunkte der Gegner gehen ihn nichts an. Die Zahlen trägst
+weiterhin du ein.
+
+Bei dir steht im Kampfkopf **Ansagen · N**. Die Tafel zeigt, wer was
+vorhat; *Eintragen* öffnet das Zugfenster für diesen Helden — mit dem
+angesagten Zauber, dem angesagten Grad, dem Satz und **den schon
+angekreuzten Zielen**. Übernehmen nimmt die Ansage aus der Liste.
+
+Die Ansagen stehen auch im Zugfenster selbst: oben, was dieser Held
+angesagt hat, mit *↧ übernehmen*; darunter blasser, was die anderen
+vorhaben. Du arbeitest die Runde in diesem einen Fenster ab und siehst
+dabei, was noch kommt.
+
+### 🧪 Gegenstände und ⭐ Merkmale im Zug
+
+Das Zugfenster hat fünf Arten statt drei: **⚔ Angriff · ✨ Zauber ·
+🧪 Gegenstand · ⭐ Merkmal · ✍ Nur beschreiben**.
+
+**Gegenstand** bietet an, was im Inventar als *„⚔ Im Kampf zu
+verwenden"* angehakt ist und wovon noch etwas da ist — Tränke,
+Schriftrollen, Öle. Das Häkchen sitzt im Gegenstandsformular neben Menge
+und Gewicht; ohne es stünden dort auch Seil und Winterdecke.
+
+**Benutzen zieht ab.** So wie der Zauberplatz abgehakt wird, sinkt die
+Menge im Bogen um eins — ein Trank wurde bisher daneben erzählt, von
+Hand verrechnet und im Bogen selbst abgezogen. Bei null fällt der
+Gegenstand aus der Auswahl, bleibt aber im Inventar stehen;
+nachgefüllt wird außerhalb des Kampfes. Im Protokoll steht dann:
+
+      Gegenstand: Trank der Heilung
+      Trank der Heilung verbraucht · noch 2
+      Brunhilde wird um 9 geheilt · 18 → 27
+
+**Merkmale** werden nicht gekennzeichnet: welches im Kampf taugt, weiß
+der Spieler besser als der Bogen. Sie stehen sortiert wie im Bogen, mit
+Suchfeld ab sechs Einträgen.
+
+Beides steht auch dem Spieler zur Ansage offen — es ist dieselbe
+Auswahl.
+
+### 💥 Flächenzauber, Resistenz und Immunität
+
+Beim Feuerball stand dieselbe Zahl viermal da, einmal je Ziel. Zauber
+tragen jetzt ein Merkmal **Fläche — eine Zahl für alle**. Ist es
+gesetzt, steht der Schaden einmal oben, und bei jedem Ziel nur noch, ob
+sein Rettungswurf gelang; daneben, was dabei herauskommt: 22, oder 11
+für den, der besteht.
+
+*↧ Würfel nachtragen* erkennt es am Text der Vorlage — „jede Kreatur",
+oder ein Rettungswurf zusammen mit Radius, Kegel, Sphäre, Linie.
+Feuerball, Blitz und Sprühende Farben kommen so als Fläche herein,
+Magisches Geschoss und Schockgriff nicht: dort bleibt es bei einer
+eigenen Zahl je Ziel — drei Geschosse, drei Ziele, drei Werte.
+
+Dazu je Ziel ein Schalter: **voll · ½ Res. · immun**. Die Reihenfolge
+ist die des Regelwerks — erst der Rettungswurf, dann die Minderung. 22
+wird zu 11 für den, der besteht; mit Resistenz zu 5; wer immun ist,
+nimmt nichts. Im Protokoll steht es dabei: *„nimmt 5 Schaden —
+Resistenz"* und *„Wolf 1 ist immun gegen Feuer"*.
+
+Wo der Bogen die Resistenz kennt — ein Held mit dem Merkmal *Resistenz:
+Feuer* —, ist sie bei einem Feuerzauber vorgewählt. Ändern kannst du sie
+trotzdem: eine Resistenz hängt oft am Umstand und nicht nur am Bogen.
+Beim Gegner, dessen Resistenzen ohnehin nur als Text auf dem Bogen
+stehen, ist der Schalter der einzige Weg.
+
+### 📱 Die mobile Fassung, nachgemessen
+
+Nicht geschätzt, sondern bei 375 Punkten Breite jede Ansicht
+durchgegangen und jedes Bedienelement vermessen.
+
+**Der Kampftracker** war der schlimmste Fall: die Kopfzeile nahm 211
+Punkte, jede Kampfzeile 354 bis 389. Von 812 Punkten Schirm blieb Platz
+für anderthalb Figuren — wer wissen wollte, wer als nächstes dran ist,
+musste durch eine Wand aus Tasten scrollen. Jetzt ist eine zugeklappte
+Zeile wieder eine Zeile: Initiative, Name, Zustände, Rüstungsklasse und
+Trefferpunkte nebeneinander, 101 statt 354 Punkte. Notiz und
+Tastenblock kommen, wenn man sie antippt, und bei dem, der dran ist,
+sind sie von selbst da. Sechs Figuren passen auf einen Schirm statt
+anderthalb. Die Kopfzeile trägt nur noch, was in jeder Runde gebraucht
+wird — alles Seltenere steht hinter dem **⋯**-Knopf. Und wer dran ist,
+rückt nach *Nächster Zug* von selbst ins Bild.
+
+**Überall sonst** ging es um Fläche unter dem Daumen. Alles hier war
+unter 34 Punkten hoch und ist es nicht mehr: die Hinzufügen-Knöpfe im
+Bogen, der Name des Helden im Kopf, *Alle Slots wiederherstellen*, das
+Kreuz an einer Notiz, der Tauschgriff an einem Ausrüstungsplatz, die
+Filtermarken in Zauberbuch, Log und Abenteuerlog, die Werkzeugleiste des
+Texteditors, *Abbrechen* und *Speichern* in jedem Fenster, die Kopfzeile
+eines Einstellungsblocks, die Löschkreuze in Listen und die Reiter der
+Datenbank. Auf breitem Schirm ändert sich nichts.
+
+**Und was ganz fehlte:** in der schmalen Heldenleiste standen Konto,
+DM-Modus, Neuladen und Abmelden nicht — am Telefon kam man damit weder
+in die Spielleitung hinein noch wieder heraus. Die Reihe steht jetzt
+auch dort.
+
+### 🛡 Ein Wappen
+
+Das Zeichen ist das schwarze Lederbuch mit dem gotischen H, dem roten
+Band und den Beschlägen — im Kopf der Heldenleiste, im Browser-Tab und
+auf dem Startbildschirm. Weil es keinen Schriftzug trägt, steht der Name
+wieder darunter, mit der Ausgabe als kleinem Schild daneben.
+
 ## v4.4
 
 Die Ausgabe, in der die Spielleitung den Schaden nicht mehr zweimal

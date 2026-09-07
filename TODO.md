@@ -12,11 +12,9 @@ Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 - **Schnellerer Abgleich (Stufe 4).** Zwei Sekunden statt der jetzigen
   Wartezeit, damit „du bist dran" beim Spieler ankommt, solange es noch
   stimmt.
-- **Patchnotes ab v4.4.** Alles seit dem Zugfenster — Spieleransicht,
-  Ansagen, Flächenschaden, Resistenz, mobile Ansicht, Gegenstände und
-  Merkmale im Zug — ist noch nicht aufgeschrieben.
 
 ## Erledigt
 
 - ~~Gegenstände im Kampf benutzen, Menge abziehen, Merkmale benutzen~~ —
   siehe Zugfenster: ⚔ Angriff · ✨ Zauber · 🧪 Gegenstand · ⭐ Merkmal.
+- ~~Patchnotes ab v4.4~~ — stehen als **v4.5** in der `PATCHNOTES.md`.
