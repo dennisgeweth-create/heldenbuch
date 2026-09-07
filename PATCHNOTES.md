@@ -1,5 +1,188 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.7
+
+Die Ausgabe der Taverne. Aus einem Automaten wird ein Haus mit fünf
+Tischen — Blackjack, Roulette samt Rennbahn, Craps und ein
+Pferderennen, das wirklich gelaufen wird. Der Beutel hängt jetzt am
+Helden, und wer will, spielt mit echtem Gold aus dem Bogen.
+
+Gebaut in sieben Stufen, jede für sich fertig; der Plan dazu steht in
+der `TAVERNE.md`.
+
+### 🍺 Die Spielhalle
+
+Die Taverne ist ein Eingang mit Tischen geworden. Je Tisch eine Zeile:
+was er ist, und rechts, **was er kostet** — der Hausvorteil steht
+sichtbar davor, nicht im Kleingedruckten.
+
+Der Weg zurück in die Halle steht links im Kopf, neben dem Namen des
+Tisches. Nicht, während die Walzen laufen oder die Würfel rollen: ein
+Einsatz, der unterwegs ist, gehört zu Ende gespielt.
+
+In den Einstellungen des Abenteuers steht, **welche Tische aufgebaut
+sind**. Ein geschlossener Tisch steht nicht in der Halle; wer gerade
+daran sitzt, wird zurückgeschickt.
+
+### 👛 Der Beutel hängt am Helden
+
+Bisher lag in der Taverne ein Beutel, gleichgültig wer spielte — die
+Marken standen im Gerät. Jetzt hat **jeder Held seinen eigenen**.
+Welcher auf dem Tisch liegt, sagt der offene Bogen; ist keiner offen,
+der zuletzt bespielte. Wer zwei Charaktere gleichzeitig spielt, wechselt
+ihn im Kopf des Fensters — nicht mitten im Lauf, sonst fänden die Marken
+den falschen Beutel.
+
+Was früher im Gerät lag, bekommt der erste Held, der die Taverne
+betritt.
+
+### 🃏 Blackjack
+
+Sechs Blätter im Schlitten, bei drei Vierteln kommt ein neuer — das ist
+die Stelle, an der ein Kartenzähler aufhört zu zählen. Blackjack zahlt
+**3:2**, Versicherung 2:1. Verdoppeln auf **9, 10 und 11**, Teilen bis
+zu drei Blätter, geteilte Asse bekommen je eine Karte und stehen dann.
+
+Alles davon steht aufgedruckt auf dem grünen Filz, samt der Zahl der
+Blätter, die noch im Schlitten liegen. Wer am Tisch nach den Regeln
+fragen muss, spielt gegen jemanden, der sie besser kennt.
+
+**Die Tafel rät mit:** die Grundstrategie hebt den Knopf hervor, den sie
+empfiehlt — gedrückt wird trotzdem selbst. Auch die Versicherung sagt
+selbst, dass sie auf Dauer verliert.
+
+### 🎡 Französisches Roulette
+
+Ein Zéro statt zwei, der Kessel in seiner echten Reihenfolge, und **La
+Partage**: fällt die Null, kommt bei den einfachen Chancen die Hälfte
+zurück. Das drückt den Hausvorteil von 2,7 % auf **1,35 %** und macht
+diesen Tisch zum mildesten im Haus.
+
+Mehrfachwetten werden nicht über die Ränder zwischen den Feldern gelegt
+— auf einem Berührschirm trifft das niemand. Du sagst vorher, was du
+legen willst — **Plein · Cheval · Transversale · Carré · Sixain** — und
+tippst dann die Zahlen an; der Tisch prüft, ob sie aneinanderstoßen, und
+sagt es, wenn nicht. Der Jetonturm steht auf der kleinsten Zahl der
+Wette, und jede gedeckte Zahl bekommt einen Saum.
+
+**🏁 Die Rennbahn** ist der Kessel, ausgerollt, in einem kleinen Fenster
+über dem Tisch: die Null an der Kehre, dann einmal herum und auf der
+unteren Spur zurück. Vier Ansagen — Zéro-Spiel, Große Serie, Kleine
+Serie, Waisen — legen ihre Stücke so, wie sie am Tisch gelegt werden:
+als Chevals, Transversalen und ein Carré, nicht als Zahlenliste. Dazu
+Nachbarn von 1–1 bis 4–4 en plein.
+
+### 🎲 Craps
+
+Zwei Würfel, ein Punkt. Der erste Wurf entscheidet sofort — 7 und 11
+gewinnen die Passe, 2, 3 und 12 verlieren sie — oder setzt den Punkt;
+von da an gilt nur noch die eine Frage: kommt der Punkt vor der 7?
+
+Drin ist alles, was dazugehört: Pass und Don't Pass (Bar 12), Come und
+Don't Come mit eigenen Punkten, Place auf 4 bis 10, das Feld für einen
+Wurf, die Mitte mit Hart 6, Hart 8, Allen Craps und der Jeden 7.
+
+Und die **Odds** hinter der Passe, höchstens dreifach, zur wahren Quote:
+2:1 auf 4 und 10, 3:2 auf 5 und 9, 6:5 auf 6 und 8. **Kein Hausanteil**
+— es ist die einzige Wette im Haus, an der das Haus nichts verdient, und
+genau so steht sie da. Die *Jede 7* steht dafür rot: mit 16,7 % ist sie
+die teuerste des Hauses. Am Tisch sagt das niemand.
+
+Der Tisch lässt nur zu, was die Regel zulässt — Passe nur vor dem Punkt,
+Come und Place nur danach, Odds nur hinter einer Passe — und sagt den
+Grund, statt still abzulehnen.
+
+### 🐎 Das Pferderennen
+
+Kein Zufallsgenerator, der am Ende einen Sieger zieht und die Bewegung
+dazu erfindet: **das Rennen wird gelaufen.** Sechs Pferde mit Tempo,
+Ausdauer, Antritt und Laufstil; alle halbe Sekunde ein Schritt, und der
+Kraftverbrauch steigt mit der vierten Potenz des Tempos — wer vorn zu
+schnell geht, bezahlt es im Schlussbogen. Deshalb siehst du ein
+Führpferd führen und einen Steher kommen.
+
+Und weil das Rennen simuliert wird, **kommen die Quoten daraus**: vor
+jedem Lauf werden 2500 Rennen im Stillen durchgerechnet, die Trefferzahl
+ist die Wahrscheinlichkeit, ihr Kehrwert abzüglich 12 % die Quote.
+Niemand kann die Quote von der Wirklichkeit trennen — es ist dieselbe
+Rechnung.
+
+Gewettet wird auf **Sieg, Platz, Zwilling und Einlauf**. Was in 2500
+Läufen nie vorkam, nimmt das Haus nicht an. Strecke (1400–2000 m) und
+Boden (fest, gut, weich) wechseln je Lauf und stehen beide in den
+Quoten: über 1400 m bleibt allen etwas übrig und der Antritt
+entscheidet, über 2000 m kommen alle leer ins Ziel und der Steher
+gewinnt.
+
+### ◉ Echtes Gold
+
+Genau dafür hängt der Beutel am Helden. In den Einstellungen des
+Abenteuers steht die Wahl:
+
+- **⛃ Spielmarken** — wie bisher, im Gerät, berühren keinen Bogen.
+- **◉ Echtes Gold** — aus dem Bogen, über den Server, Teil der Kampagne.
+  Dann gilt eine kleinere Einsatzleiter: 1, 2, 5, 10. Fünfzig Goldmünzen
+  sind kein Zeitvertreib mehr, sondern eine Rüstung.
+
+Dazu ein **Höchstverlust je Tag und Held**. Er deckelt nicht den Bogen,
+sondern was auf dem Tisch liegt: wer 40 Gold hat und 10 verspielen darf,
+sieht am Tisch 10 — der Rest taucht dort gar nicht erst auf. Gezählt
+wird gegen den Stand des Tagesanfangs, damit auch stimmt, wer erst
+verliert und dann zurückgewinnt.
+
+Wer die Taverne verlässt, hinterlässt **eine Zeile im Abenteuerlog**:
+gesetzt, zurück, unterm Strich. Nicht jeder Dreh — das wären dreißig
+Zeilen je Abend.
+
+### 🧔 Der Wirt
+
+Drei Hausregeln je Abenteuer, jede mit ihrem Preis daneben:
+
+| Regel | an | aus |
+|---|---|---|
+| La Partage am Roulettetisch | 1,35 % ans Haus | 2,7 % |
+| Der Wirt zieht auf weicher 17 | gut 0,2 % mehr fürs Haus | er bleibt auf jeder 17 |
+| Die Mitte des Crapstisches | zahlt am besten, kostet am meisten | abgeräumt |
+
+Was gilt, steht am Tisch selbst und nicht nur in den Einstellungen — der
+Roulettetisch schreibt seinen eigenen Hausvorteil hin, der Filz die
+Regel des Wirts. Eine Einstellung, die man am Tisch nicht sieht, ist
+eine Falle.
+
+Dazu eine **Statistik je Held**: Runden, gesetzt, zurück, unterm Strich
+und die längste Serie in beide Richtungen. Und der Wirt selbst steht in
+der Halle und sagt etwas dazu — aus dem, was dasteht, nicht aus dem
+Nichts.
+
+### 🎨 Die Taverne im Farbschema des Heldenbuchs
+
+Sie trug eine eigene Farbwelt: warmes Messing auf Rauch, noch aus der
+Zeit, als das Heldenbuch selbst golden war. Beim Aufmachen wechselte das
+ganze Bild die Temperatur.
+
+Sie trägt jetzt dieselben Farben wie alles andere. **Warm bleibt nur,
+was Geld ist** — Marken, Einsätze und Gewinne stehen in Bernstein.
+Grün bleibt, was am Tisch grün ist: Blackjack, Craps und der
+Roulettetapis liegen auf Filz, so wie sie es überall tun.
+
+### 📐 Größer, wo Platz ist
+
+Ab Tabletbreite bekommt jeder Tisch die Breite, die er braucht —
+Automat 520, Blackjack 620, Rennen 700, Craps 720, **Roulette 780** —
+nie mehr, als der Schirm hergibt. Auf dem Telefon füllt er ihn wie
+bisher. Dazu bis zu 900 Punkte Höhe statt 760.
+
+### 🩹 Behoben
+
+- **Das Roulettefenster wurde beim Spielen länger und wieder kürzer.**
+  Drei Ursachen: die Knopfreihe brach um, die Abrechnung wuchs mit jeder
+  Gewinnzeile, und der Fuß wechselte zwischen einer und zwei Reihen.
+  Jetzt ein Raster mit fester Zeilenhöhe, eine Abrechnung, die in ihrem
+  eigenen Kasten rollt, und ein Fuß, dessen Hauptknopf sein Wort
+  wechselt.
+- Der Rennbahn-Knopf hieß intern wie die Rennbahn selbst und erbte
+  deren Rand — er saß dadurch tiefer als die anderen fünf.
+
 ## v4.6
 
 Die Ausgabe der Fenster. Dreißig Dialoge, die bisher als Vorhang vor
