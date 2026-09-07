@@ -6083,36 +6083,40 @@ const WAEHRUNG_GOLD = (lesen, schreiben) => ({
   schreiben,
   zuletzt: () => null
 });
+
+// Der Beutel des Geraets. Er gilt nur noch fuer den Fall ohne Bogen —
+// wer keinen Helden hat, spielt trotzdem, und dann liegt sein Beutel
+// hier. Was frueher fuer alle hier lag, zieht beim ersten Blick in den
+// Bogen um.
+const geraetLesen = heldId => {
+  const d = beutelLesen();
+  const b = d.beutel || {};
+  const k = heldId || OHNE_HELD;
+  if (Number.isFinite(+b[k])) return +b[k];
+  if (Number.isFinite(+d.marken)) return +d.marken;
+  return MARKEN_START;
+};
+const geraetSchreiben = (heldId, n) => {
+  const d = beutelLesen();
+  const {
+    marken,
+    ...rest
+  } = d;
+  beutelSchreiben({
+    ...rest,
+    beutel: {
+      ...(d.beutel || {}),
+      [heldId || OHNE_HELD]: Math.max(0, Math.round(n))
+    },
+    zuletzt: heldId || OHNE_HELD
+  });
+};
 const WAEHRUNGEN = {
   marken: {
     name: 'Spielmarken',
     kurz: '⛃',
-    lesen: heldId => {
-      const d = beutelLesen();
-      const b = d.beutel || {};
-      const k = heldId || OHNE_HELD;
-      if (Number.isFinite(+b[k])) return +b[k];
-      // Was frueher im Geraet lag, bekommt der erste Held, der die
-      // Taverne betritt. Beim ersten Einsatz ist es umgezogen und steht
-      // dort nicht mehr — sonst erbte es jeder noch einmal.
-      if (Number.isFinite(+d.marken)) return +d.marken;
-      return MARKEN_START;
-    },
-    schreiben: (heldId, n) => {
-      const d = beutelLesen();
-      const {
-        marken,
-        ...rest
-      } = d;
-      beutelSchreiben({
-        ...rest,
-        beutel: {
-          ...(d.beutel || {}),
-          [heldId || OHNE_HELD]: Math.max(0, Math.round(n))
-        },
-        zuletzt: heldId || OHNE_HELD
-      });
-    },
+    lesen: geraetLesen,
+    schreiben: geraetSchreiben,
     // Wer zuletzt gespielt hat — gebraucht, wenn gerade kein Bogen offen ist.
     zuletzt: () => beutelLesen().zuletzt || null
   }
@@ -6844,12 +6848,12 @@ const TaverneSchirm = ({
   cfg,
   helden,
   heldStart,
-  gold,
+  beutel,
   onSchliessen,
   onAbend
 }) => {
-  // Marken oder Gold — die Tische merken davon nichts.
-  const waehrung = gold ? gold : WAEHRUNGEN.marken;
+  // Marken oder Gold, Bogen oder Geraet — die Tische merken davon nichts.
+  const waehrung = beutel || WAEHRUNGEN.marken;
   // Wessen Beutel auf dem Tisch liegt: der offene Bogen, sonst der
   // zuletzt bespielte, sonst der erste. Ohne Bogen geht es auch.
   const stall = helden && helden.length ? helden : [];
@@ -15606,6 +15610,42 @@ function App() {
     const verloren = Math.max(0, tagStart(charId, habe) - habe);
     return Math.max(0, Math.min(habe, tavernenMax - verloren));
   };
+  // ── Der Beutel liegt im Bogen ─────────────────────────────
+  // Bis v4.7 lagen die Spielmarken im Gerät. „Am Helden“ hieß damit nur
+  // „je Held in diesem Browser“ — wer denselben Charakter mit einem
+  // anderen Konto oder an einem anderen Gerät öffnete, fand einen
+  // anderen Beutel. Sie stehen jetzt im Bogen und gehen denselben Weg
+  // wie alles andere daran: über den Server, für alle gleich.
+  //
+  // Was im Gerät lag, zieht beim ersten Blick in den Bogen mit um.
+  const markenBeutel = {
+    name: 'Spielmarken',
+    kurz: '⛃',
+    zuletzt: () => {
+      try {
+        return (JSON.parse(localStorage.getItem('hb_automat') || '{}') || {}).zuletzt || null;
+      } catch {
+        return null;
+      }
+    },
+    lesen: charId => {
+      const c = charsRef.current.find(x => x.id === charId);
+      if (!c) return WAEHRUNGEN.marken.lesen(charId); // ohne Bogen: das Gerät
+      return Number.isFinite(+c.marken) ? Math.max(0, Math.round(+c.marken)) : WAEHRUNGEN.marken.lesen(charId); // der Umzug
+    },
+    schreiben: (charId, wert) => {
+      const c = charsRef.current.find(x => x.id === charId);
+      if (!c) {
+        WAEHRUNGEN.marken.schreiben(charId, wert);
+        return;
+      }
+      const n = Math.max(0, Math.round(wert));
+      if (+c.marken === n) return;
+      heldImKampfAendern(charId, {
+        marken: n
+      }, c.name);
+    }
+  };
   const goldBeutel = tavernenGold ? {
     name: 'Goldmünzen',
     kurz: '◉',
@@ -22132,7 +22172,7 @@ function App() {
     cfg: advObj && advObj.automat,
     helden: tavernenHelden,
     heldStart: sel,
-    gold: goldBeutel,
+    beutel: tavernenGold ? goldBeutel : markenBeutel,
     onAbend: tavernenAbend,
     onSchliessen: () => setShowAutomat(false)
   }), advEinstellung && (isDmMode || konto && konto.ist_admin) && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {

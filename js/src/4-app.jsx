@@ -1800,6 +1800,34 @@ function App() {
     const verloren = Math.max(0, tagStart(charId, habe) - habe);
     return Math.max(0, Math.min(habe, tavernenMax - verloren));
   };
+  // ── Der Beutel liegt im Bogen ─────────────────────────────
+  // Bis v4.7 lagen die Spielmarken im Gerät. „Am Helden“ hieß damit nur
+  // „je Held in diesem Browser“ — wer denselben Charakter mit einem
+  // anderen Konto oder an einem anderen Gerät öffnete, fand einen
+  // anderen Beutel. Sie stehen jetzt im Bogen und gehen denselben Weg
+  // wie alles andere daran: über den Server, für alle gleich.
+  //
+  // Was im Gerät lag, zieht beim ersten Blick in den Bogen mit um.
+  const markenBeutel = {
+    name: 'Spielmarken', kurz: '⛃',
+    zuletzt: () => { try {
+      return (JSON.parse(localStorage.getItem('hb_automat') || '{}') || {}).zuletzt || null;
+    } catch { return null; } },
+    lesen: (charId) => {
+      const c = charsRef.current.find(x => x.id === charId);
+      if (!c) return WAEHRUNGEN.marken.lesen(charId);      // ohne Bogen: das Gerät
+      return Number.isFinite(+c.marken) ? Math.max(0, Math.round(+c.marken))
+        : WAEHRUNGEN.marken.lesen(charId);                 // der Umzug
+    },
+    schreiben: (charId, wert) => {
+      const c = charsRef.current.find(x => x.id === charId);
+      if (!c) { WAEHRUNGEN.marken.schreiben(charId, wert); return; }
+      const n = Math.max(0, Math.round(wert));
+      if (+c.marken === n) return;
+      heldImKampfAendern(charId, {marken: n}, c.name);
+    },
+  };
+
   const goldBeutel = tavernenGold ? {
     name: 'Goldmünzen', kurz: '◉', gold: true, leiter: [1, 2, 5, 10],
     zuletzt: () => null,
@@ -4978,7 +5006,7 @@ function App() {
       {showAutomat && (
         <TaverneSchirm cfg={advObj && advObj.automat}
           helden={tavernenHelden} heldStart={sel}
-          gold={goldBeutel} onAbend={tavernenAbend}
+          beutel={tavernenGold ? goldBeutel : markenBeutel} onAbend={tavernenAbend}
           onSchliessen={()=>setShowAutomat(false)} />
       )}
 

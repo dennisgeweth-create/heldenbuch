@@ -11,9 +11,14 @@ verlangt Arbeit, die eine spätere sowieso wegwirft.
   bedienbar. Auf dem Telefon füllt es den Schirm, ab Tabletbreite
   bekommt jeder Tisch die Breite, die er braucht — der Roulettetapis
   780, das Rennen 700, der Automat 520.
-- **Der Beutel hängt am Helden.** Nicht am Gerät. Damit ist der Umbau
-  auf echtes Gold ein Feldtausch hinter `lesen`/`schreiben` und kein
-  Umbau der Taverne.
+- **Der Beutel hängt am Helden** — und zwar im Bogen, nicht im Gerät.
+  Er geht denselben Weg wie alles andere daran: über den Server, für
+  alle gleich. (Bis v4.7.1 lag er im Gerät; derselbe Charakter hatte
+  dann bei zwei Konten zwei Beutel.) Der Umbau auf echtes Gold ist
+  damit ein Feldtausch hinter `lesen`/`schreiben` und kein Umbau der
+  Taverne.
+- **Die Statistik bleibt im Gerät.** Sie geht niemanden an außer den,
+  der spielt, und hat im Bogen nichts zu suchen.
 - **Die Quote steht dabei.** Was das Haus an einer Wette verdient,
   steht sichtbar am Tisch. Ein Spiel, das seinen Vorteil verschweigt,
   gehört nicht ins Heldenbuch.
