@@ -8,7 +8,9 @@ verlangt Arbeit, die eine spätere sowieso wegwirft.
 
 - **Ein Fenster, kein Vorhang.** Jeder Tisch liegt im selben
   verschiebbaren Fenster wie der Automat; der Bogen dahinter bleibt
-  bedienbar.
+  bedienbar. Auf dem Telefon füllt es den Schirm, ab Tabletbreite
+  bekommt jeder Tisch die Breite, die er braucht — der Roulettetapis
+  780, das Rennen 700, der Automat 520.
 - **Der Beutel hängt am Helden.** Nicht am Gerät. Damit ist der Umbau
   auf echtes Gold ein Feldtausch hinter `lesen`/`schreiben` und kein
   Umbau der Taverne.
@@ -108,10 +110,10 @@ zweiten Mal gebraucht wurde.
 - Die Auswertung eines Wurfs ist eine reine Rechnung (`crAuswerten`)
   und lässt sich deshalb einzeln prüfen.
 
-## Stufe 5 · 🐎 Das Pferderennen
+## Stufe 5 · 🐎 Das Pferderennen ✓
 
-Das einzige Spiel, das eine Simulation braucht — und das einzige, bei
-dem die Quoten daraus kommen.
+*Steht seit v4.7.* Das einzige Spiel, das eine Simulation braucht —
+und das einzige, bei dem die Quoten daraus kommen.
 
 - Sechs Pferde mit Tempo, Ausdauer, Antritt und Laufstil; alle halbe
   Sekunde ein Schritt, Verbrauch mit der vierten Potenz des Tempos.

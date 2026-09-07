@@ -2375,6 +2375,96 @@
   .einst-tisch-t i { display:block; font-style:normal; font-size:10.5px;
     color:var(--text-muted); margin-top:1px; }
 
+  /* ── Die Rennbahn vor dem Tor ─────────────────────────
+     Die Bahn ist Gras, deshalb liegt sie auf demselben Gruen wie die
+     Tische — nur dass hier gelaufen wird und nicht gelegt. */
+  .rn-mitte { padding:14px 12px 18px; align-items:stretch; gap:11px; }
+  .rn-bahn { padding:11px 11px 12px; }
+  .rn-kopf { display:flex; align-items:baseline; justify-content:space-between;
+    gap:10px; margin-bottom:8px; }
+  .rn-strecke { font-family:'Roboto Condensed',sans-serif; font-size:10.5px;
+    letter-spacing:0.12em; text-transform:uppercase; color:#9dcbb1; }
+  .rn-strecke b { color:var(--inspiration); font-size:14px; font-weight:400; }
+  .rn-uhr { font-family:'Roboto Condensed',sans-serif; font-size:14px;
+    color:var(--inspiration); font-variant-numeric:tabular-nums; }
+  .rn-spuren { display:flex; flex-direction:column; gap:4px; }
+  .rn-spur { display:flex; align-items:center; gap:7px; }
+  .rn-spur-nr { flex:0 0 14px; text-align:center; font-family:'Roboto Condensed',sans-serif;
+    font-size:11.5px; font-weight:700; }
+  .rn-gleis { position:relative; flex:1; height:20px; border-radius:4px;
+    background:rgba(0,0,0,0.26); border:1px solid rgba(216,240,226,0.18);
+    background-image:repeating-linear-gradient(90deg, transparent 0 24%,
+      rgba(216,240,226,0.10) 24% calc(24% + 1px)); }
+  .rn-gleis::after { content:''; position:absolute; right:4px; top:2px; bottom:2px; width:3px;
+    background:repeating-linear-gradient(180deg,#f0ead9 0 4px,transparent 4px 8px);
+    border-radius:1px; }
+  .rn-laeufer { position:absolute; top:2px; width:16px; height:14px; border-radius:3px;
+    transform:translateX(-50%); }
+  .rn-ruf { margin-top:9px; font-size:12px; color:#bfe3ce; min-height:17px; }
+
+  .rn-feld { display:grid; gap:5px; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); }
+  .rn-pferd { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:6px;
+    cursor:pointer; text-align:left; background:var(--bg-panel);
+    border:1px solid var(--border-bright); }
+  .rn-pferd:hover:not(:disabled) { border-color:var(--inspiration); }
+  .rn-pferd.an { border-color:var(--inspiration); background:var(--bg-hover); }
+  .rn-pferd.sieger { border-color:#56b183; }
+  .rn-pferd:disabled { cursor:default; }
+  .rn-decke { flex:0 0 24px; height:24px; border-radius:4px; display:flex; align-items:center;
+    justify-content:center; font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    font-weight:700; color:#14110d; }
+  .rn-name { flex:1; min-width:0; font-family:'Roboto Condensed',sans-serif; font-size:13px;
+    color:var(--text-primary); letter-spacing:0.03em; }
+  .rn-name i { display:block; font-style:normal; font-size:9.5px; color:var(--text-muted);
+    margin-top:1px; }
+  .rn-quote { flex:0 0 auto; text-align:right; }
+  .rn-quote b { display:block; font-family:'Roboto Condensed',sans-serif; font-size:14px;
+    color:var(--inspiration); font-weight:400; font-variant-numeric:tabular-nums; }
+  .rn-quote i { font-style:normal; font-size:8.5px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-muted); }
+  .rn-quote.leise b { color:var(--text-secondary); font-size:12.5px; }
+
+  .rn-arten { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .rn-art { min-height:34px; padding:0 12px; border-radius:5px; cursor:pointer;
+    background:var(--bg-panel); border:1px solid var(--border-bright);
+    color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:12px; }
+  .rn-art:hover:not(:disabled) { border-color:var(--inspiration); }
+  .rn-art.an { background:var(--inspiration); border-color:var(--inspiration);
+    color:#1a1200; font-weight:700; }
+  .rn-hinweis { flex:1 1 180px; font-size:11.5px; color:var(--text-muted); }
+
+  .rn-zettel { display:flex; flex-direction:column; gap:4px; }
+  .rn-wette { display:flex; align-items:center; gap:9px; padding:6px 9px; border-radius:5px;
+    background:var(--bg-panel); border:1px solid var(--border); }
+  .rn-w-art { flex:0 0 62px; font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.12em; text-transform:uppercase; color:var(--inspiration); }
+  .rn-w-text { flex:1; min-width:0; font-size:12.5px; color:var(--text-primary);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rn-w-quote, .rn-w-satz { font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--text-secondary); font-variant-numeric:tabular-nums; }
+  .rn-w-satz { color:var(--inspiration); }
+  .rn-w-weg { width:24px; height:24px; padding:0; border-radius:4px; cursor:pointer;
+    background:none; border:1px solid var(--border-bright); color:var(--text-muted);
+    font-size:11px; }
+  .rn-w-weg:hover:not(:disabled) { color:var(--text-primary); border-color:var(--inspiration); }
+
+  .rn-ergebnis { padding:11px 12px; border-radius:7px; background:var(--bg-panel);
+    border:1px solid var(--inspiration-dim); }
+  .rn-erg-kopf { font-family:'Roboto Condensed',sans-serif; font-size:11px;
+    color:var(--inspiration); letter-spacing:0.1em; text-transform:uppercase; }
+  .rn-erg-reihe { margin-top:8px; display:flex; flex-wrap:wrap; gap:5px; }
+  .rn-erg-pferd { display:flex; align-items:center; gap:5px; padding:4px 8px; border-radius:5px;
+    background:var(--bg-card); border:1px solid var(--border);
+    font-family:'Roboto Condensed',sans-serif; font-size:11.5px; color:var(--text-muted); }
+  .rn-erg-pferd.vorn { color:var(--text-primary); border-color:var(--border-bright); }
+  .rn-erg-pferd i { width:17px; height:17px; border-radius:3px; font-style:normal;
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    font-weight:700; color:#14110d; }
+  .rn-erg-pferd u { text-decoration:none; color:var(--text-muted);
+    font-variant-numeric:tabular-nums; }
+  .rn-abrechnung { margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
+    display:flex; flex-direction:column; gap:3px; }
+
   /* ── Craps ──────────────────────────────────────────
      Der Tisch ist nachempfunden: oben die Kaesten 4 bis 10 mit dem Puck
      auf dem Punkt, darunter Come und das Feld, die Mitte, und ganz
@@ -2466,6 +2556,7 @@
      Schwarz sind die Farben des Spiels, nicht die der Anwendung — sie
      bleiben, was sie sind. */
   .rlt-mitte { padding:14px 12px 18px; align-items:stretch; gap:11px; }
+  .rlt-mitte > * { flex-shrink:0; }
   .rlt-oben { display:flex; gap:13px; align-items:center; }
   .rlt-kessel { position:relative; width:118px; height:118px; flex-shrink:0; border-radius:50%;
     background:
@@ -2510,19 +2601,35 @@
   .rlt-partage { margin-top:7px; font-size:11px; line-height:1.5; color:var(--text-muted); }
   .rlt-partage b { color:var(--inspiration); font-weight:400; }
 
-  .rlt-modi { display:flex; gap:5px; flex-wrap:wrap; }
-  .rlt-modus { flex:1 1 auto; min-height:38px; padding:4px 8px; border-radius:5px;
+  /* Sechs Knoepfe, sechs Spalten — sie brechen nicht mehr um, und die
+     Reihe ist immer gleich hoch. */
+  /* Die Reihe ist 44 hoch, Punkt. Ohne feste Zeilenhoehe bestimmt der
+     laengste Knopf die Spur, und einer sitzt darin dann mittig. */
+  .rlt-modi { display:grid; grid-template-columns:repeat(6, 1fr);
+    grid-auto-rows:44px; gap:4px; align-items:stretch; }
+  .rlt-modus { min-height:40px; padding:4px 4px; border-radius:5px; overflow:hidden;
     cursor:pointer; background:var(--bg-panel); border:1px solid var(--border-bright);
     color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:12px; }
-  .rlt-modus i { display:block; font-style:normal; font-size:9.5px; color:var(--text-muted);
-    letter-spacing:0.06em; margin-top:1px; }
+  .rlt-modus i { display:block; font-style:normal; font-size:9px; color:var(--text-muted);
+    letter-spacing:0.04em; margin-top:1px; }
+  /* Alle sechs gleich hoch und einzeilig: sonst bestimmt das laengste
+     Wort, wie hoch die Reihe wird, und sie wird es bei jedem Wechsel neu. */
+  .rlt-modus { display:flex; flex-direction:column; align-items:center;
+    justify-content:center; height:44px; min-height:0; padding:2px 3px;
+    font-size:11px; line-height:1.15; letter-spacing:0.01em; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
   .rlt-modus:hover:not(:disabled) { border-color:var(--inspiration); }
   .rlt-modus.an { border-color:var(--inspiration); background:var(--bg-hover);
     color:var(--inspiration); }
   .rlt-modus.an i { color:var(--inspiration); }
-  .rlt-modus.bahn { flex:0 0 auto; }
+  /* Nicht ".bahn": so heisst die Rennbahn selbst, und der Knopf erbte
+     ihren Rand von zwoelf Punkten. */
+  .rlt-modus.rlt-bahn { color:var(--inspiration); }
   .rlt-modus:disabled { opacity:0.45; cursor:default; }
-  .rlt-hinweis { font-size:11.5px; color:var(--text-muted); }
+  /* Zwei Zeilen Platz, ob der Hinweis nun eine oder zwei braucht: sonst
+     ruckt der ganze Tapis, sobald sich die Wettart aendert. */
+  .rlt-hinweis { font-size:11.5px; color:var(--text-muted); min-height:30px; }
+  .rlt-melde { min-height:17px; }
 
   .rlt-tuch { border-radius:9px; padding:11px 10px;
     background:
@@ -2566,8 +2673,11 @@
   .rlt-tasten { display:flex; gap:8px; }
   .rlt-tasten .automat-hebel { flex:1; margin-top:0; }
   .rlt-tasten .bj-taste { flex:0 0 auto; }
+  /* Eine grosse Serie kann sieben Gewinnzeilen bringen. Sie rollen in
+     ihrem eigenen Kasten, statt das Fenster wachsen zu lassen. */
   .rlt-abrechnung { display:flex; flex-direction:column; gap:4px; padding:10px 12px;
-    border-radius:7px; background:var(--bg-panel); border:1px solid var(--border-bright); }
+    border-radius:7px; background:var(--bg-panel); border:1px solid var(--border-bright);
+    max-height:104px; overflow-y:auto; flex-shrink:0; }
   .rlt-zeile { display:flex; align-items:center; gap:10px; font-size:12.5px;
     color:var(--text-secondary); }
   .rlt-zeile span { flex:1; min-width:0; }
@@ -2710,6 +2820,12 @@
     font-variant-numeric:tabular-nums; }
   .bj-zeile.gut b { color:#56b183; }
   .bj-zeile.schlecht b { color:var(--gold); }
+
+  /* Ab Tabletbreite darf ein Tisch auch hoeher stehen — dort ist der
+     Schirm da, und ein Roulettetapis mit zwoelf Spalten braucht ihn. */
+  @media (min-width:768px) {
+    .automat-schirm { max-height:min(88vh, 900px); }
+  }
 
   /* ── Die Halle ─────────────────────────────────────
      Der Eingang: ein Tisch je Zeile, mit dem, was er ist, und rechts

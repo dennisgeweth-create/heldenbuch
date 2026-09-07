@@ -819,19 +819,33 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
 // zweiter Tisch braucht davon nichts noch einmal zu bauen.
 const TAVERNEN_TISCHE = [
   {k:'automat',   z:'🎰', name:'Dreifaches Glück',
-   unter:'Drei Walzen, fünf Linien, Rad der Fortuna', rand:'Einsatz 5–50', da:true},
+   unter:'Drei Walzen, fünf Linien, Rad der Fortuna', rand:'Einsatz 5–50',
+   da:true, breit:430, weit:520},
   {k:'blackjack', z:'🃏', name:'Blackjack',
    unter:'Gegen den Wirt. Blackjack zahlt anderthalbfach', rand:'Bank ≈ 0,5 %',
-   da:true, breit:470},
+   da:true, breit:470, weit:620},
   {k:'roulette',  z:'🎡', name:'Französisches Roulette',
    unter:'Ein Zéro, La Partage — die mildeste Bank im Haus', rand:'Bank 1,35 %',
-   da:true, breit:600},
+   da:true, breit:600, weit:780},
   {k:'craps',     z:'🎲', name:'Craps',
    unter:'Zwei Würfel, ein Punkt — und die Odds ohne Hausanteil', rand:'Bank 1,4 %',
-   da:true, breit:560},
+   da:true, breit:560, weit:720},
   {k:'rennen',    z:'🐎', name:'Die Rennbahn vor dem Tor',
-   unter:'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf', rand:'Bank 12 %'},
+   unter:'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf', rand:'Bank 12 %',
+   da:true, breit:560, weit:700},
 ];
+
+// Wie breit ein Tisch stehen darf. Auf dem Telefon so schmal wie
+// bisher, ab Tabletbreite so breit, wie der Tisch es braucht — der
+// Roulettetapis hat zwoelf Spalten, und die will man sehen. Nie breiter,
+// als der Schirm hergibt.
+const TABLET_AB = 768;
+const tischBreite = (tisch, schirm) => {
+  const eng = (tisch && tisch.breit) || FENSTER_BREITE;
+  if (!schirm || schirm < TABLET_AB) return eng;
+  const weit = (tisch && tisch.weit) || eng;
+  return Math.max(eng, Math.min(weit, schirm - 56));
+};
 
 // Welche Tische die Spielleitung fuer dieses Abenteuer geschlossen hat.
 // Nichts eingetragen heisst: alle offen — wie ueberall im Heldenbuch.
@@ -878,6 +892,13 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
   const [pos, setPos] = React.useState(() => fensterLesen()
     || fensterKlemmen({x: Math.max(20, (window.innerWidth || 1200) - FENSTER_BREITE - 40), y: 70}));
   const zug = React.useRef(null);   // {dx, dy} waehrend des Schiebens
+  // Die Breite haengt am Schirm, also muss sie ihm folgen.
+  const [schirm, setSchirm] = React.useState(() => window.innerWidth || 1200);
+  React.useEffect(() => {
+    const messen = () => setSchirm(window.innerWidth || 1200);
+    window.addEventListener('resize', messen);
+    return () => window.removeEventListener('resize', messen);
+  }, []);
 
   // Der Stand steht doppelt: als Zustand fuer die Anzeige und als
   // Referenz fuer die Rechnung. Ein Tisch verrechnet in einem Griff
@@ -923,7 +944,7 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
 
   return (
     <div className="automat-schirm"
-      style={{left: pos.x, top: pos.y, width: (jetzt && jetzt.breit) || FENSTER_BREITE}}>
+      style={{left: pos.x, top: pos.y, width: tischBreite(jetzt, schirm)}}>
       <div className="automat-kopf" onPointerDown={zugStart}
         onPointerMove={zugBewegen} onPointerUp={zugEnde} onPointerCancel={zugEnde}
         title="Zum Verschieben ziehen">
@@ -970,6 +991,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
         <RouletteTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'craps' ? (
         <CrapsTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+      ) : jetzt && jetzt.k === 'rennen' ? (
+        <RennenTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />

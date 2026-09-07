@@ -349,7 +349,7 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             {m.name}<i>{m.zahlt}</i>
           </button>
         ))}
-        <button type="button" className="rlt-modus bahn" disabled={phase !== 'setzen'}
+        <button type="button" className="rlt-modus rlt-bahn" disabled={phase !== 'setzen'}
           onClick={()=>setBahn(true)}>🏁 Rennbahn<i>Ansagen</i></button>
       </div>
       <div className="rlt-hinweis">
@@ -403,8 +403,7 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <span className="rlt-summe">Im Spiel <b>{imSpiel}</b></span>
       </div>
 
-      {phase === 'aus' && abrechnung ? (
-        <>
+      {phase === 'aus' && abrechnung && (
           <div className="rlt-abrechnung">
             {abrechnung.zeilen.filter(z => z.gewinn > 0).map((z, i) => {
               // La Partage steht auch hier — sie zahlt etwas zurück, ist
@@ -423,20 +422,23 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
                 {Math.abs(abrechnung.aus - abrechnung.einsatz)}</b>
             </div>
           </div>
-          <button className="automat-hebel" onClick={neueRunde}>Nächster Wurf</button>
-        </>
-      ) : (
-        <div className="rlt-tasten">
-          <button className="automat-hebel" onClick={werfen}
-            disabled={phase !== 'setzen' || !imSpiel}>
-            {phase === 'dreht' ? 'Rien ne va plus…' : 'Werfen'}
-          </button>
-          <button className="bj-taste" onClick={alleZurueck}
-            disabled={phase !== 'setzen' || !imSpiel}>Zurück</button>
-        </div>
       )}
 
-      {meldung && <div className="bj-melde leise">{meldung}</div>}
+      {/* Ein Fuss, nicht zwei: der Hauptknopf wechselt sein Wort. Zwei
+          Reihen, die einander ersetzen, machten das Fenster bei jedem
+          Wurf laenger und wieder kuerzer. */}
+      <div className="rlt-tasten">
+        <button className="automat-hebel"
+          onClick={phase === 'aus' ? neueRunde : werfen}
+          disabled={phase === 'dreht' || (phase === 'setzen' && !imSpiel)}>
+          {phase === 'dreht' ? 'Rien ne va plus…'
+            : phase === 'aus' ? 'Nächster Wurf' : 'Werfen'}
+        </button>
+        <button className="bj-taste" onClick={alleZurueck}
+          disabled={phase !== 'setzen' || !imSpiel}>Zurück</button>
+      </div>
+
+      <div className="bj-melde leise rlt-melde">{meldung}</div>
 
       {/* ── Die Rennbahn ────────────────────────────────────── */}
       {bahn && (
