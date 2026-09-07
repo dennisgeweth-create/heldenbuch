@@ -67,10 +67,10 @@ gezeigt, dass die Halle trägt.
 - Alles Gedruckte steht auf dem Filz: Auszahlung, die Regel des Wirts,
   die Versicherung und wie viele Blätter noch im Schlitten sind.
 
-## Stufe 3 · 🎡 Französisches Roulette
+## Stufe 3 · 🎡 Französisches Roulette ✓
 
-Der aufwendigste Tisch, weil der Tapis Platz braucht — 560 Punkte
-Fensterbreite, auf dem Telefon gedreht.
+*Steht seit v4.7.* Der aufwendigste Tisch, weil der Tapis Platz
+braucht — 600 Punkte Fensterbreite.
 
 **3a · Der Tisch.** Kessel mit einem Zéro und echter Reihenfolge, der
 Tapis mit Plein bis Sixain, Douzaines, Colonnes und den einfachen
@@ -80,6 +80,13 @@ Chancen. **La Partage**: bei Null die Hälfte zurück, 1,35 % ans Haus.
 über dem Tisch: Zéro-Spiel, Große Serie, Kleine Serie, Waisen — und
 Nachbarn von 1–1 bis 4–4. Sie legt die Jetons sichtbar auf den Tapis;
 sie ist eine Abkürzung, kein zweites Spiel.
+
+**Wie mehrere Zahlen gesetzt werden.** Nicht über die Ränder zwischen
+den Feldern — auf einem Berührschirm trifft das niemand. Man sagt
+vorher, was man legen will (Plein · Cheval · Transversale · Carré ·
+Sixain) und tippt dann die Zahlen an; der Tisch prüft, ob sie
+aneinanderstoßen, und sagt es, wenn nicht. Der Jetonturm steht auf der
+kleinsten Zahl der Wette, und jede gedeckte Zahl bekommt einen Saum.
 
 ## Stufe 4 · 🎲 Craps
 

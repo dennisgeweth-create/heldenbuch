@@ -2375,6 +2375,171 @@
   .einst-tisch-t i { display:block; font-style:normal; font-size:10.5px;
     color:var(--text-muted); margin-top:1px; }
 
+  /* ── Franzoesisches Roulette ────────────────────────────
+     Der Tapis liegt auf demselben Tuch wie der Kartentisch. Rot und
+     Schwarz sind die Farben des Spiels, nicht die der Anwendung — sie
+     bleiben, was sie sind. */
+  .rlt-mitte { padding:14px 12px 18px; align-items:stretch; gap:11px; }
+  .rlt-oben { display:flex; gap:13px; align-items:center; }
+  .rlt-kessel { position:relative; width:118px; height:118px; flex-shrink:0; border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 50%, var(--bg-panel) 0 27%, transparent 27%),
+      conic-gradient(#2f6b4d 0 9.7deg,
+        #17191b 9.7deg 19.5deg, #8f2b2b 19.5deg 29.2deg, #17191b 29.2deg 38.9deg,
+        #8f2b2b 38.9deg 48.6deg, #17191b 48.6deg 58.4deg, #8f2b2b 58.4deg 68.1deg,
+        #17191b 68.1deg 77.8deg, #8f2b2b 77.8deg 87.6deg, #17191b 87.6deg 97.3deg,
+        #8f2b2b 97.3deg 107deg, #17191b 107deg 116.8deg, #8f2b2b 116.8deg 126.5deg,
+        #17191b 126.5deg 136.2deg, #8f2b2b 136.2deg 146deg, #17191b 146deg 155.7deg,
+        #8f2b2b 155.7deg 165.4deg, #17191b 165.4deg 175.1deg, #8f2b2b 175.1deg 184.9deg,
+        #17191b 184.9deg 194.6deg, #8f2b2b 194.6deg 204.3deg, #17191b 204.3deg 214.1deg,
+        #8f2b2b 214.1deg 223.8deg, #17191b 223.8deg 233.5deg, #8f2b2b 233.5deg 243.2deg,
+        #17191b 243.2deg 253deg, #8f2b2b 253deg 262.7deg, #17191b 262.7deg 272.4deg,
+        #8f2b2b 272.4deg 282.2deg, #17191b 282.2deg 291.9deg, #8f2b2b 291.9deg 301.6deg,
+        #17191b 301.6deg 311.4deg, #8f2b2b 311.4deg 321.1deg, #17191b 321.1deg 330.8deg,
+        #8f2b2b 330.8deg 340.5deg, #17191b 340.5deg 350.3deg, #8f2b2b 350.3deg 360deg);
+    border:2px solid var(--border-bright);
+    box-shadow:0 0 22px rgba(0,0,0,0.5) inset; }
+  .rlt-kugelbahn { position:absolute; inset:0; }
+  .rlt-kugel { position:absolute; top:6px; left:50%; width:9px; height:9px; margin-left:-4.5px;
+    border-radius:50%; background:#f0ead9; box-shadow:0 0 8px rgba(240,234,217,0.7); }
+  .rlt-nabe { position:absolute; inset:27%; border-radius:50%; background:var(--bg-panel);
+    border:1px solid var(--border-bright); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; }
+  .rlt-nabe b { font-family:'Roboto Condensed',sans-serif; font-size:24px;
+    color:var(--inspiration); font-weight:400; line-height:1; }
+  .rlt-nabe b.leise { color:var(--text-muted); }
+  .rlt-nabe i { font-family:'Roboto Condensed',sans-serif; font-size:8.5px;
+    letter-spacing:0.16em; text-transform:uppercase; color:var(--text-muted);
+    font-style:normal; margin-top:3px; }
+  .rlt-lauf { flex:1; min-width:0; }
+  .rlt-lauf-titel { font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.2em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
+  .rlt-verlauf { display:flex; flex-wrap:wrap; gap:4px; min-height:24px; }
+  .rlt-verlauf .leise { font-size:12px; color:var(--text-muted); font-style:italic; }
+  .rlt-zahl { width:24px; height:24px; border-radius:4px; display:flex; align-items:center;
+    justify-content:center; font-family:'Roboto Condensed',sans-serif; font-size:11.5px;
+    color:var(--text-primary); font-variant-numeric:tabular-nums; }
+  .rlt-zahl.rot { background:#8f2b2b; } .rlt-zahl.null { background:#2f6b4d; }
+  .rlt-zahl.schwarz { background:#17191b; border:1px solid var(--border); }
+  .rlt-partage { margin-top:7px; font-size:11px; line-height:1.5; color:var(--text-muted); }
+  .rlt-partage b { color:var(--inspiration); font-weight:400; }
+
+  .rlt-modi { display:flex; gap:5px; flex-wrap:wrap; }
+  .rlt-modus { flex:1 1 auto; min-height:38px; padding:4px 8px; border-radius:5px;
+    cursor:pointer; background:var(--bg-panel); border:1px solid var(--border-bright);
+    color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:12px; }
+  .rlt-modus i { display:block; font-style:normal; font-size:9.5px; color:var(--text-muted);
+    letter-spacing:0.06em; margin-top:1px; }
+  .rlt-modus:hover:not(:disabled) { border-color:var(--inspiration); }
+  .rlt-modus.an { border-color:var(--inspiration); background:var(--bg-hover);
+    color:var(--inspiration); }
+  .rlt-modus.an i { color:var(--inspiration); }
+  .rlt-modus.bahn { flex:0 0 auto; }
+  .rlt-modus:disabled { opacity:0.45; cursor:default; }
+  .rlt-hinweis { font-size:11.5px; color:var(--text-muted); }
+
+  .rlt-tuch { border-radius:9px; padding:11px 10px;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.05), transparent 62%),
+      linear-gradient(180deg, #17553a, #0f3826 68%, #0c2e20);
+    border:1px solid #2b6a4c;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.35), inset 0 12px 30px rgba(0,0,0,0.28); }
+  .rlt-tapis { display:grid; gap:3px; grid-template-columns:30px repeat(12, 1fr) 30px; }
+  .rlt-feld { position:relative; min-height:29px; border-radius:3px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid rgba(216,240,226,0.30); background:rgba(0,0,0,0.20);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; color:#eaf5ee;
+    font-variant-numeric:tabular-nums; padding:0; }
+  .rlt-feld.rot { background:#6d1414; } .rlt-feld.schwarz { background:#101314; }
+  .rlt-feld.null { background:#1a5c37; }
+  .rlt-feld.null.gross { grid-row:1 / span 3; }
+  .rlt-feld.aussen { font-size:10px; letter-spacing:0.08em; text-transform:uppercase;
+    color:#cfe6d8; }
+  .rlt-feld.senk { writing-mode:vertical-rl; font-size:9px; letter-spacing:0.12em; }
+  .rlt-feld:hover:not(:disabled) { border-color:var(--inspiration); }
+  .rlt-feld.gedeckt { box-shadow:0 0 0 1px var(--inspiration) inset; }
+  .rlt-feld.gewaehlt { box-shadow:0 0 0 2px var(--inspiration) inset; }
+  .rlt-feld.trifft { box-shadow:0 0 0 2px #f0ead9 inset, 0 0 16px rgba(240,234,217,0.45); }
+  .rlt-feld:disabled { cursor:default; }
+  .rlt-turm { position:absolute; top:-6px; right:-6px; min-width:19px; height:19px;
+    padding:0 3px; border-radius:10px; background:var(--inspiration); border:2px solid #0c2e20;
+    color:#1a1200; font-family:'Roboto Condensed',sans-serif; font-size:9.5px;
+    font-weight:700; font-style:normal; display:flex; align-items:center;
+    justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.55); }
+  .rlt-aussen { margin-top:3px; display:grid; gap:3px;
+    grid-template-columns:30px repeat(12,1fr) 30px; }
+  .rlt-aussen .luecke { grid-column:span 1; }
+  .rlt-aussen .vier { grid-column:span 4; }
+  .rlt-aussen .zwei { grid-column:span 2; }
+  .rlt-aussen .rouge { color:#f09a9a; } .rlt-aussen .noir { color:#c8d6cd; }
+
+  .rlt-summe { flex:1; text-align:right; font-family:'Roboto Condensed',sans-serif;
+    font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); }
+  .rlt-summe b { color:var(--inspiration); font-size:15px; font-weight:400; margin-left:5px;
+    font-variant-numeric:tabular-nums; }
+  .rlt-tasten { display:flex; gap:8px; }
+  .rlt-tasten .automat-hebel { flex:1; margin-top:0; }
+  .rlt-tasten .bj-taste { flex:0 0 auto; }
+  .rlt-abrechnung { display:flex; flex-direction:column; gap:4px; padding:10px 12px;
+    border-radius:7px; background:var(--bg-panel); border:1px solid var(--border-bright); }
+  .rlt-zeile { display:flex; align-items:center; gap:10px; font-size:12.5px;
+    color:var(--text-secondary); }
+  .rlt-zeile span { flex:1; min-width:0; }
+  .rlt-zeile b { font-family:'Roboto Condensed',sans-serif; font-size:14px; font-weight:400;
+    color:var(--text-muted); min-width:52px; text-align:right;
+    font-variant-numeric:tabular-nums; }
+  .rlt-zeile.gut b { color:#56b183; }
+  .rlt-zeile.summe { margin-top:4px; padding-top:7px; border-top:1px solid var(--border);
+    color:var(--inspiration); }
+  .rlt-zeile.summe b { color:var(--inspiration); font-size:16px; }
+
+  /* ── Die Rennbahn: der Kessel, ausgerollt ────────────────────
+     Auf dem Tapis liegen die Zahlen der Reihe nach, im Kessel liegen
+     sie ganz anders. Wer Nachbarn setzen will, braucht die
+     Kesselreihenfolge — und genau die ist die Bahn. */
+  .bahn-fenster { max-width:520px; text-align:left; }
+  .bahn { display:flex; align-items:stretch; gap:3px; margin:12px 0; }
+  .bahn-null { flex:0 0 30px; display:flex; align-items:center; justify-content:center;
+    border-radius:15px 3px 3px 15px; background:#1a5c37; border:1px solid var(--border);
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary);
+    cursor:pointer; }
+  .bahn-kehre { flex:0 0 11px; border-radius:3px 15px 15px 3px; background:var(--bg-card);
+    border:1px solid var(--border); }
+  .bahn-gleise { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .bahn-reihe { display:grid; grid-template-columns:repeat(18, 1fr); gap:3px; }
+  .bahn-zahl { min-height:26px; border-radius:3px; display:flex; align-items:center;
+    justify-content:center; cursor:pointer; border:1px solid var(--border);
+    font-family:'Roboto Condensed',sans-serif; font-size:10.5px; color:var(--text-primary);
+    font-variant-numeric:tabular-nums; background:#101314; padding:0; }
+  .bahn-zahl.rot { background:#6d1414; }
+  .bahn-zahl:hover, .bahn-null:hover { border-color:var(--inspiration); }
+  .bahn-zahl.hell, .bahn-null.hell { box-shadow:0 0 0 2px var(--inspiration) inset; }
+  .bahn-weiten { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .bahn-weiten-titel { font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--text-muted); }
+  .bahn-weite { min-height:32px; padding:0 11px; border-radius:5px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border-bright);
+    color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:11.5px; }
+  .bahn-weite.an { background:var(--inspiration); border-color:var(--inspiration);
+    color:#1a1200; font-weight:700; }
+  .bahn-hinweis { margin-top:7px; font-size:11.5px; color:var(--text-muted); }
+  .bahn-ansagen { margin-top:11px; display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+  .bahn-ansage { padding:8px 6px; border-radius:5px; cursor:pointer; text-align:left;
+    background:var(--bg-card); border:1px solid var(--border-bright);
+    color:var(--text-primary); font-family:'Roboto Condensed',sans-serif; font-size:11.5px; }
+  .bahn-ansage i { display:block; font-style:normal; font-size:9.5px;
+    color:var(--text-muted); margin-top:2px; }
+  .bahn-ansage:hover { border-color:var(--inspiration); }
+  .bahn-fuss { margin-top:12px; padding-top:11px; border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:9px; }
+  .bahn-summe { flex:1; font-family:'Roboto Condensed',sans-serif; font-size:11px;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); }
+  .bahn-summe b { color:var(--inspiration); font-size:15px; font-weight:400; margin-left:4px; }
+  .bahn-weg { min-height:36px; padding:0 15px; border-radius:5px; cursor:pointer;
+    background:var(--bg-panel); border:1px solid var(--border-bright);
+    color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    letter-spacing:0.08em; text-transform:uppercase; }
+
   /* ── Blackjack ─────────────────────────────────────
      Das Gehäuse trägt die Farben des Heldenbuchs, die Spielfläche ihre
      eigenen: ein Kartentisch ist grün, im Wirtshaus wie überall. Was

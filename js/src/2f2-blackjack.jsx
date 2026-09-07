@@ -12,6 +12,10 @@
 const BJ_BLAETTER = 6;          // Blätter im Schlitten
 const BJ_NEU_AB   = 0.75;       // ab drei Vierteln wird neu gemischt
 const BJ_HAENDE   = 3;          // so oft darf geteilt werden (Hände insgesamt)
+// Verdoppelt wird nur auf neun, zehn und elf — die europäische Regel.
+// Auf allem anderen wäre es ohnehin selten richtig, und der Tisch sagt
+// es lieber, als es zuzulassen und danach zu bedauern.
+const BJ_DOPPELT_AB = 9, BJ_DOPPELT_BIS = 11;
 
 const BJ_FARBEN = [
   {z: '♠', rot: false}, {z: '♥', rot: true},
@@ -276,7 +280,9 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const wartetVers = phase === 'spiel' && wirt.length === 2
     && bjKarteWert(wirt[0]) === 11 && vers === null;
   const darfHandeln = phase === 'spiel' && !wartetVers && hand && !hand.fertig;
-  const darfVerdoppeln = darfHandeln && hand.karten.length === 2 && hand.einsatz <= marken;
+  const handWert = hand ? bjWert(hand.karten).wert : 0;
+  const darfVerdoppeln = darfHandeln && hand.karten.length === 2 && hand.einsatz <= marken
+    && handWert >= BJ_DOPPELT_AB && handWert <= BJ_DOPPELT_BIS;
   const darfTeilen = darfHandeln && hand.karten.length === 2
     && bjKarteWert(hand.karten[0]) === bjKarteWert(hand.karten[1])
     && haende.length < BJ_HAENDE && hand.einsatz <= marken;
@@ -306,6 +312,7 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <div className="bj-bogen">
           <span className="bj-druck gross">Blackjack zahlt 3 zu 2</span>
           <span className="bj-druck">Der Wirt zieht bis 16 und bleibt ab 17</span>
+          <span className="bj-druck">Verdoppeln nur auf 9, 10 und 11</span>
           <span className="bj-druck klein">Versicherung zahlt 2 zu 1 · {restBlaetter} Blätter im Schlitten</span>
         </div>
 
