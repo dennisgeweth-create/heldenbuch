@@ -35,9 +35,9 @@ verlangt Arbeit, die eine spätere sowieso wegwirft.
 - **Der Beutel am Helden** — je Bogen einer, Wechsler im Kopf für den
   seltenen Fall zweier gleichzeitig gespielter Charaktere.
 
-## Stufe 1 · Die Spielhalle
+## Stufe 1 · Die Spielhalle ✓
 
-Aus der Taverne wird ein Eingang mit fünf Tischen. Ohne diese Stufe
+*Steht seit v4.7.* Aus der Taverne wird ein Eingang mit fünf Tischen. Ohne diese Stufe
 stünde jedes weitere Spiel für sich, mit eigenem Fenster, eigener
 Kasse und eigener Abrechnung.
 
@@ -49,7 +49,9 @@ Was dabei entsteht und alle folgenden Stufen benutzen:
 - Die Einstellungen je Abenteuer, um einen Tisch zu schließen.
 
 Ohne neues Spiel ist diese Stufe schon sichtbar: der Automat zieht in
-die Halle ein.
+die Halle ein. Die vier ungebauten Tische stehen mit in der Liste —
+blass, ohne Griff, mit „im Bau" statt einer Quote. Ein Tisch, den es
+nicht gibt, soll nicht so aussehen, als gäbe es ihn.
 
 ## Stufe 2 · 🃏 Blackjack
 
