@@ -13,6 +13,17 @@ Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
   Wartezeit, damit „du bist dran" beim Spieler ankommt, solange es noch
   stimmt.
 
+## Die Taverne
+
+- **Der Wirt sagt etwas dazu.** Sprüche zu Gewinn und Verlust, nur an
+  den Tischen — Roulette, Blackjack, Craps. Der Automat und die Rennbahn
+  bleiben still: dort steht der Wirt nicht daneben. Er soll auf das
+  antworten, was gerade gefallen ist, und nicht nach zwei Abenden alles
+  schon gesagt haben.
+- **Fenstergröße und Aufbau der Tische.** Während des Spiels und bei der
+  Gewinnanzeige steht Platz leer, der etwas tragen könnte. Der Aufbau
+  darf dafür neu gedacht werden, nicht nur die Maße.
+
 ## Erledigt
 
 - ~~Gegenstände im Kampf benutzen, Menge abziehen, Merkmale benutzen~~ —
