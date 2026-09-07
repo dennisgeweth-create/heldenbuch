@@ -88,10 +88,11 @@ Sixain) und tippt dann die Zahlen an; der Tisch prüft, ob sie
 aneinanderstoßen, und sagt es, wenn nicht. Der Jetonturm steht auf der
 kleinsten Zahl der Wette, und jede gedeckte Zahl bekommt einen Saum.
 
-## Stufe 4 · 🎲 Craps
+## Stufe 4 · 🎲 Craps ✓
 
-Zwei Würfel, ein Punkt. Wenig Grafik, viel Regelwerk — deshalb nach
-dem Roulette, dessen Wettlogik hier zum zweiten Mal gebraucht wird.
+*Steht seit v4.7.* Zwei Würfel, ein Punkt. Wenig Grafik, viel
+Regelwerk — deshalb nach dem Roulette, dessen Wettlogik hier zum
+zweiten Mal gebraucht wurde.
 
 - Pass und Don’t Pass, Come und Don’t Come.
 - **Odds** hinter der Passe, zur wahren Quote und ohne Hausanteil —
@@ -100,6 +101,12 @@ dem Roulette, dessen Wettlogik hier zum zweiten Mal gebraucht wird.
   Hart 8, Alle Craps und Jeder 7 — letztere sichtbar als die teuerste
   Wette des Hauses.
 - Zwei ehrliche Würfel, kein nachträglich angepasstes Ergebnis.
+- Der Tisch lässt nur zu, was die Regel zulässt: Passe und Don’t Pass
+  nur vor dem Punkt, Come und Place nur danach, Odds höchstens
+  dreifach und nur hinter einer Passe. Wer daneben tippt, bekommt den
+  Grund gesagt statt einer stillen Ablehnung.
+- Die Auswertung eines Wurfs ist eine reine Rechnung (`crAuswerten`)
+  und lässt sich deshalb einzeln prüfen.
 
 ## Stufe 5 · 🐎 Das Pferderennen
 

@@ -827,7 +827,8 @@ const TAVERNEN_TISCHE = [
    unter:'Ein Zéro, La Partage — die mildeste Bank im Haus', rand:'Bank 1,35 %',
    da:true, breit:600},
   {k:'craps',     z:'🎲', name:'Craps',
-   unter:'Zwei Würfel, ein Punkt — und die Odds ohne Hausanteil', rand:'Bank 1,4 %'},
+   unter:'Zwei Würfel, ein Punkt — und die Odds ohne Hausanteil', rand:'Bank 1,4 %',
+   da:true, breit:560},
   {k:'rennen',    z:'🐎', name:'Die Rennbahn vor dem Tor',
    unter:'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf', rand:'Bank 12 %'},
 ];
@@ -967,6 +968,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
         <BlackjackTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'roulette' ? (
         <RouletteTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+      ) : jetzt && jetzt.k === 'craps' ? (
+        <CrapsTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />
