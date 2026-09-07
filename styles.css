@@ -2358,6 +2358,8 @@
     background:none; border:1px solid var(--border-bright); color:var(--text-secondary); font-size:13px; }
   .automat-x:hover { color:var(--text-primary); border-color:var(--text-muted); }
 
+  .einst-waehrung { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px; }
+
   /* Welche Tische offen sind — in den Einstellungen des Abenteuers. */
   .einst-tische { display:flex; flex-direction:column; gap:5px; }
   .einst-tisch { display:flex; align-items:center; gap:10px; padding:7px 9px;

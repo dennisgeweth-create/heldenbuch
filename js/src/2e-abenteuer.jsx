@@ -118,6 +118,35 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               Tisch steht nicht in der Halle — wer gerade daran sitzt, wird in
               die Halle zurückgeschickt.
             </div>
+            {/* Marken oder Gold. Marken liegen im Gerät und gehen
+                niemanden etwas an; Gold liegt im Bogen und ist Teil der
+                Kampagne — deshalb gehört ein Höchstverlust dazu. */}
+            <div className="einst-waehrung">
+              <button type="button"
+                className={'einst-option' + (!(adv.automat && adv.automat.gold) ? ' aktiv' : '')}
+                onClick={()=>autoFeld({gold: false})}>
+                <b>⛃ Spielmarken</b><i>Zeitvertreib. Liegen im Gerät, berühren keinen Bogen.</i>
+              </button>
+              <button type="button"
+                className={'einst-option' + ((adv.automat && adv.automat.gold) ? ' aktiv' : '')}
+                onClick={()=>autoFeld({gold: true})}>
+                <b>◉ Echtes Gold</b><i>Aus dem Bogen, über den Server. Einsatz 1 bis 10.</i>
+              </button>
+            </div>
+            {adv.automat && adv.automat.gold && (
+              <label className="einst-max" style={{marginBottom:12}}>
+                Höchstverlust je Tag und Held
+                <select className="form-select"
+                  value={(adv.automat && adv.automat.maxVerlust) || 0}
+                  onChange={e=>autoFeld({maxVerlust: +e.target.value || 0})}>
+                  <option value={0}>ohne Grenze</option>
+                  {[5, 10, 25, 50, 100].map(n2 => (
+                    <option key={n2} value={n2}>{n2} Goldmünzen</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             <div className="einst-tische">
               {TAVERNEN_TISCHE.map(t => {
                 const zu = ((adv.automat && adv.automat.zu) || []).includes(t.k);

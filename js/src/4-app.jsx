@@ -1768,6 +1768,71 @@ function App() {
     ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id)
     : [];
 
+  // ── Echtes Gold in der Taverne ──────────────────────────
+  // Steht das Abenteuer auf Gold, liest und schreibt die Taverne die
+  // Goldmünzen im Bogen statt der Marken im Gerät. Die Tische merken
+  // davon nichts — sie kennen nur lesen und schreiben.
+  //
+  // Ein Höchstverlust je Tag gehört dazu: sonst verspielt jemand die
+  // Ausrüstung der Gruppe an einem Tisch, den es zum Zeitvertreib gibt.
+  // Was heute schon verloren ist, steht im Gerät — es geht die Gruppe
+  // nichts an, nur den Tisch.
+  const tavernenGold = !!(advObj && advObj.automat && advObj.automat.gold);
+  const tavernenMax = Math.max(0, +((advObj && advObj.automat && advObj.automat.maxVerlust) || 0));
+  // Gemerkt wird nicht, wie viel verloren wurde, sondern womit der Tag
+  // angefangen hat. Dann stimmt die Grenze auch für den, der erst
+  // verliert und dann zurückgewinnt — sonst schrumpfte sein Spielraum,
+  // obwohl er nichts mehr verloren hat.
+  const tagStart = (charId, habe) => {
+    const heute = new Date().toISOString().slice(0, 10);
+    try {
+      const d = JSON.parse(localStorage.getItem('hb_taverne_verlust') || '{}') || {};
+      const e = d[charId];
+      if (e && e.tag === heute) return +e.start || 0;
+      d[charId] = {tag: heute, start: habe};
+      localStorage.setItem('hb_taverne_verlust', JSON.stringify(d));
+    } catch {}
+    return habe;
+  };
+  // Was heute noch verloren werden darf.
+  const nochFrei = (charId, habe) => {
+    if (!tavernenMax) return habe;
+    const verloren = Math.max(0, tagStart(charId, habe) - habe);
+    return Math.max(0, Math.min(habe, tavernenMax - verloren));
+  };
+  const goldBeutel = tavernenGold ? {
+    name: 'Goldmünzen', kurz: '◉', gold: true, leiter: [1, 2, 5, 10],
+    zuletzt: () => null,
+    // Auf dem Tisch liegt nicht alles Gold des Helden, sondern nur, was
+    // heute noch verspielt werden darf. Der Rest bleibt im Bogen und
+    // taucht am Tisch gar nicht erst auf.
+    lesen: (charId) => {
+      const c = charsRef.current.find(x => x.id === charId);
+      const habe = Math.max(0, Math.round(+((c && c.currency && c.currency.gp) || 0)));
+      return nochFrei(charId, habe);
+    },
+    schreiben: (charId, wert) => {
+      const c = charsRef.current.find(x => x.id === charId);
+      if (!c) return;
+      const alt = Math.max(0, Math.round(+((c.currency && c.currency.gp) || 0)));
+      const neu = Math.max(0, alt - nochFrei(charId, alt) + Math.round(wert));
+      if (neu === alt) return;
+      heldImKampfAendern(charId, {currency: {...(c.currency || {}), gp: neu}}, c.name);
+    },
+  } : null;
+
+  // Eine Zeile im Abenteuerlog, wenn jemand die Taverne wieder verlässt.
+  // Nicht jeder Dreh — das wären dreissig Zeilen je Abend.
+  const tavernenAbend = (charId, gesetzt, zurueck) => {
+    const c = charsRef.current.find(x => x.id === charId);
+    const rest = zurueck - gesetzt;
+    addLog(charId, (c || {}).name, 'inventar',
+      'In der Taverne: ' + gesetzt + ' gesetzt, ' + zurueck + ' zurück — '
+      + (rest >= 0 ? '+' + rest : '−' + Math.abs(rest)) + ' '
+      + (tavernenGold ? 'Goldmünzen' : 'Marken'),
+      {gesetzt, zurueck, waehrung: tavernenGold ? 'gold' : 'marken'});
+  };
+
   // Wer in der Taverne einen Beutel hat: die eigenen Bögen. Wer keine
   // besitzt — eine Gruppe ohne eingetragenen Besitz, die Spielleitung mit
   // ihren Nichtspielerfiguren — spielt mit denen, die er sieht. Zwei
@@ -4913,6 +4978,7 @@ function App() {
       {showAutomat && (
         <TaverneSchirm cfg={advObj && advObj.automat}
           helden={tavernenHelden} heldStart={sel}
+          gold={goldBeutel} onAbend={tavernenAbend}
           onSchliessen={()=>setShowAutomat(false)} />
       )}
 

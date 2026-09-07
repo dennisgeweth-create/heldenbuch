@@ -123,19 +123,24 @@ und das einzige, bei dem die Quoten daraus kommen.
 - Strecke 1400–2000 m und Boden fest/gut/weich wechseln je Lauf und
   stehen beide in den Quoten.
 
-## Stufe 6 · Echtes Gold
+## Stufe 6 · Echtes Gold ✓
 
-Der Grund, warum der Beutel schon jetzt am Helden hängt.
+*Steht seit v4.7.* Der Grund, warum der Beutel am Helden hängt.
 
 - Eine Einstellung je Abenteuer: **Marken** (wie bisher, im Gerät) oder
   **Gold** (aus dem Bogen, über den Server).
-- Hinter `lesen`/`schreiben` steht dann `char.currency` statt des
-  Gerätespeichers — die Tische selbst ändern sich nicht.
-- Jeder Abend endet mit einer Zeile im Abenteuerlog: gesetzt,
-  gewonnen, verloren. Was in der Taverne bleibt, bleibt nachvollziehbar.
-- Ein Höchstverlust je Abend, den die Spielleitung setzt — sonst
-  verspielt jemand die Ausrüstung der Gruppe an einem Tisch, den es
-  nur zum Zeitvertreib gibt.
+- Hinter `lesen`/`schreiben` steht dann `char.currency.gp` statt des
+  Gerätespeichers — die Tische selbst haben sich nicht geändert.
+- Mit Gold gilt eine kleinere Einsatzleiter: **1, 2, 5, 10**. Fünfzig
+  Goldmünzen sind kein Zeitvertreib mehr, sondern eine Rüstung.
+- **Ein Höchstverlust je Tag und Held**, den die Spielleitung setzt.
+  Auf dem Tisch liegt dann nicht alles Gold des Helden, sondern nur,
+  was heute noch verspielt werden darf — der Rest taucht am Tisch gar
+  nicht erst auf. Gezählt wird vom Stand des Tagesanfangs, damit auch
+  stimmt, wer erst verliert und dann zurückgewinnt.
+- Wer die Taverne verlässt, hinterlässt **eine Zeile im Abenteuerlog**:
+  gesetzt, zurück, unterm Strich. Nicht jeder Dreh — das wären dreißig
+  Zeilen je Abend.
 
 ## Stufe 7 · Der Wirt (offen, nicht bestellt)
 

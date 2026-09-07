@@ -5363,6 +5363,36 @@ const AbenteuerEinstellungen = ({
       marginBottom: 10
     }
   }, "Welche Tische in diesem Abenteuer aufgebaut sind. Ein geschlossener Tisch steht nicht in der Halle \u2014 wer gerade daran sitzt, wird in die Halle zur\xFCckgeschickt."), /*#__PURE__*/React.createElement("div", {
+    className: "einst-waehrung"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (!(adv.automat && adv.automat.gold) ? ' aktiv' : ''),
+    onClick: () => autoFeld({
+      gold: false
+    })
+  }, /*#__PURE__*/React.createElement("b", null, "\u26C3 Spielmarken"), /*#__PURE__*/React.createElement("i", null, "Zeitvertreib. Liegen im Ger\xE4t, ber\xFChren keinen Bogen.")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (adv.automat && adv.automat.gold ? ' aktiv' : ''),
+    onClick: () => autoFeld({
+      gold: true
+    })
+  }, /*#__PURE__*/React.createElement("b", null, "\u25C9 Echtes Gold"), /*#__PURE__*/React.createElement("i", null, "Aus dem Bogen, \xFCber den Server. Einsatz 1 bis 10."))), adv.automat && adv.automat.gold && /*#__PURE__*/React.createElement("label", {
+    className: "einst-max",
+    style: {
+      marginBottom: 12
+    }
+  }, "H\xF6chstverlust je Tag und Held", /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: adv.automat && adv.automat.maxVerlust || 0,
+    onChange: e => autoFeld({
+      maxVerlust: +e.target.value || 0
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: 0
+  }, "ohne Grenze"), [5, 10, 25, 50, 100].map(n2 => /*#__PURE__*/React.createElement("option", {
+    key: n2,
+    value: n2
+  }, n2, " Goldm\xFCnzen")))), /*#__PURE__*/React.createElement("div", {
     className: "einst-tische"
   }, TAVERNEN_TISCHE.map(t => {
     const zu = (adv.automat && adv.automat.zu || []).includes(t.k);
@@ -5745,9 +5775,12 @@ const automatSymbole = cfg => {
   return liste.some(x => x.gewicht > 0) ? liste : AUTOMAT_STANDARD;
 };
 const automatEinsaetze = cfg => {
+  // Mit Gold gilt eine kleinere Leiter; sie steht dann in der
+  // Einstellung, die der Tisch bekommt.
+  const leiter = cfg && Array.isArray(cfg.einsaetze) ? cfg.einsaetze : AUTOMAT_EINSAETZE;
   const max = cfg && +cfg.maxEinsatz;
-  const gefiltert = max ? AUTOMAT_EINSAETZE.filter(n => n <= max) : AUTOMAT_EINSAETZE;
-  return gefiltert.length ? gefiltert : [AUTOMAT_EINSAETZE[0]];
+  const gefiltert = max ? leiter.filter(n => n <= max) : leiter;
+  return gefiltert.length ? gefiltert : [leiter[0]];
 };
 // ── Das Vollbild ─────────────────────────────────────────────────
 // Neun gleiche Speisen — das Bonusspiel des Automaten. Von allein faellt
@@ -5935,6 +5968,24 @@ const beutelSchreiben = d => {
 };
 const OHNE_HELD = '_ohne'; // ohne Bogen spielt man trotzdem
 
+// ── Echtes Gold ────────────────────────────────────────
+// Genau dafuer haengt der Beutel seit v4.7 am Helden. Die Tische kennen
+// nur "lesen" und "schreiben", nicht das Feld dahinter — also reicht
+// es, hier ein zweites Feld einzusetzen. Marken liegen im Geraet und
+// gehen niemanden etwas an; Gold liegt im Bogen, geht ueber den Server
+// und ist Teil der Kampagne. Was gilt, entscheidet die Spielleitung je
+// Abenteuer.
+const WAEHRUNG_GOLD = (lesen, schreiben) => ({
+  name: 'Goldmünzen',
+  kurz: '◉',
+  gold: true,
+  // Die Einsaetze sind andere: fuenfzig Goldmuenzen sind kein
+  // Zeitvertreib mehr, sondern eine Ruestung.
+  leiter: [1, 2, 5, 10],
+  lesen,
+  schreiben,
+  zuletzt: () => null
+});
 const WAEHRUNGEN = {
   marken: {
     name: 'Spielmarken',
@@ -6687,9 +6738,12 @@ const TaverneSchirm = ({
   cfg,
   helden,
   heldStart,
-  onSchliessen
+  gold,
+  onSchliessen,
+  onAbend
 }) => {
-  const waehrung = WAEHRUNGEN.marken;
+  // Marken oder Gold — die Tische merken davon nichts.
+  const waehrung = gold ? gold : WAEHRUNGEN.marken;
   // Wessen Beutel auf dem Tisch liegt: der offene Bogen, sonst der
   // zuletzt bespielte, sonst der erste. Ohne Bogen geht es auch.
   const stall = helden && helden.length ? helden : [];
@@ -6722,6 +6776,7 @@ const TaverneSchirm = ({
   const markenRef = React.useRef(marken);
   const stellen = m => {
     const n = Math.max(0, Math.round(m));
+    buchen(n - markenRef.current);
     markenRef.current = n;
     waehrung.schreiben(heldId, n);
     setMarkenRoh(n);
@@ -6730,11 +6785,48 @@ const TaverneSchirm = ({
   const zahlen = delta => stellen(markenRef.current + delta);
   // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
   React.useEffect(() => {
+    // Wer den Beutel wechselt, schliesst den Abend des vorigen Helden ab
+    // — sonst stuende seine Zeile nie im Abenteuerlog.
+    const a = abend.current;
+    if (a.heldId && a.heldId !== heldId && a.gesetzt > 0 && onAbend) onAbend(a.heldId, a.gesetzt, a.zurueck);
+    abend.current = {
+      heldId,
+      gesetzt: 0,
+      zurueck: 0
+    };
     const n = waehrung.lesen(heldId);
     markenRef.current = n;
     setMarkenRoh(n);
   }, [heldId]);
+
+  // Was ein Tisch als Einsatz anbietet: bei Marken die Leiter des
+  // Abenteuers, bei Gold die kleine.
+  const cfgTisch = React.useMemo(() => waehrung.leiter ? {
+    ...(cfg || {}),
+    einsaetze: waehrung.leiter
+  } : cfg, [cfg, waehrung]);
   const offen = React.useMemo(() => tavernenZu(cfg), [cfg]);
+
+  // Was an diesem Abend durch die Taverne gegangen ist — fuer die eine
+  // Zeile im Abenteuerlog, wenn man wieder hinausgeht.
+  const abend = React.useRef({
+    heldId: null,
+    gesetzt: 0,
+    zurueck: 0
+  });
+  const buchen = delta => {
+    if (abend.current.heldId !== heldId) abend.current = {
+      heldId,
+      gesetzt: 0,
+      zurueck: 0
+    };
+    if (delta < 0) abend.current.gesetzt += -delta;else abend.current.zurueck += delta;
+  };
+  const hinaus = () => {
+    const a = abend.current;
+    if (onAbend && a.heldId && a.gesetzt > 0) onAbend(a.heldId, a.gesetzt, a.zurueck);
+    onSchliessen();
+  };
   const jetzt = tisch ? TAVERNEN_TISCHE.find(t => t.k === tisch) : null;
   // Ein Tisch, den die Spielleitung zwischendurch schliesst, laesst
   // einen nicht darin sitzen.
@@ -6809,30 +6901,30 @@ const TaverneSchirm = ({
     className: "automat-kasse"
   }, /*#__PURE__*/React.createElement("span", null, waehrung.kurz), /*#__PURE__*/React.createElement("b", null, marken), /*#__PURE__*/React.createElement("i", null, waehrung.name)), /*#__PURE__*/React.createElement("button", {
     className: "automat-x",
-    onClick: onSchliessen,
+    onClick: hinaus,
     "aria-label": "Schlie\xDFen"
   }, "\u2715")), jetzt && jetzt.k === 'automat' ? /*#__PURE__*/React.createElement(AutomatTisch, {
-    cfg: cfg,
+    cfg: cfgTisch,
     marken: marken,
     setMarken: setMarken,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'blackjack' ? /*#__PURE__*/React.createElement(BlackjackTisch, {
-    cfg: cfg,
+    cfg: cfgTisch,
     marken: marken,
     zahlen: zahlen,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'roulette' ? /*#__PURE__*/React.createElement(RouletteTisch, {
-    cfg: cfg,
+    cfg: cfgTisch,
     marken: marken,
     zahlen: zahlen,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'craps' ? /*#__PURE__*/React.createElement(CrapsTisch, {
-    cfg: cfg,
+    cfg: cfgTisch,
     marken: marken,
     zahlen: zahlen,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'rennen' ? /*#__PURE__*/React.createElement(RennenTisch, {
-    cfg: cfg,
+    cfg: cfgTisch,
     marken: marken,
     zahlen: zahlen,
     onLaeuft: setLaeuft
@@ -15312,6 +15404,82 @@ function App() {
   // Die eigenen Helden werden in der Liste hervorgehoben.
   const eigeneHeldenIds = konto ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id) : [];
 
+  // ── Echtes Gold in der Taverne ──────────────────────────
+  // Steht das Abenteuer auf Gold, liest und schreibt die Taverne die
+  // Goldmünzen im Bogen statt der Marken im Gerät. Die Tische merken
+  // davon nichts — sie kennen nur lesen und schreiben.
+  //
+  // Ein Höchstverlust je Tag gehört dazu: sonst verspielt jemand die
+  // Ausrüstung der Gruppe an einem Tisch, den es zum Zeitvertreib gibt.
+  // Was heute schon verloren ist, steht im Gerät — es geht die Gruppe
+  // nichts an, nur den Tisch.
+  const tavernenGold = !!(advObj && advObj.automat && advObj.automat.gold);
+  const tavernenMax = Math.max(0, +(advObj && advObj.automat && advObj.automat.maxVerlust || 0));
+  // Gemerkt wird nicht, wie viel verloren wurde, sondern womit der Tag
+  // angefangen hat. Dann stimmt die Grenze auch für den, der erst
+  // verliert und dann zurückgewinnt — sonst schrumpfte sein Spielraum,
+  // obwohl er nichts mehr verloren hat.
+  const tagStart = (charId, habe) => {
+    const heute = new Date().toISOString().slice(0, 10);
+    try {
+      const d = JSON.parse(localStorage.getItem('hb_taverne_verlust') || '{}') || {};
+      const e = d[charId];
+      if (e && e.tag === heute) return +e.start || 0;
+      d[charId] = {
+        tag: heute,
+        start: habe
+      };
+      localStorage.setItem('hb_taverne_verlust', JSON.stringify(d));
+    } catch {}
+    return habe;
+  };
+  // Was heute noch verloren werden darf.
+  const nochFrei = (charId, habe) => {
+    if (!tavernenMax) return habe;
+    const verloren = Math.max(0, tagStart(charId, habe) - habe);
+    return Math.max(0, Math.min(habe, tavernenMax - verloren));
+  };
+  const goldBeutel = tavernenGold ? {
+    name: 'Goldmünzen',
+    kurz: '◉',
+    gold: true,
+    leiter: [1, 2, 5, 10],
+    zuletzt: () => null,
+    // Auf dem Tisch liegt nicht alles Gold des Helden, sondern nur, was
+    // heute noch verspielt werden darf. Der Rest bleibt im Bogen und
+    // taucht am Tisch gar nicht erst auf.
+    lesen: charId => {
+      const c = charsRef.current.find(x => x.id === charId);
+      const habe = Math.max(0, Math.round(+(c && c.currency && c.currency.gp || 0)));
+      return nochFrei(charId, habe);
+    },
+    schreiben: (charId, wert) => {
+      const c = charsRef.current.find(x => x.id === charId);
+      if (!c) return;
+      const alt = Math.max(0, Math.round(+(c.currency && c.currency.gp || 0)));
+      const neu = Math.max(0, alt - nochFrei(charId, alt) + Math.round(wert));
+      if (neu === alt) return;
+      heldImKampfAendern(charId, {
+        currency: {
+          ...(c.currency || {}),
+          gp: neu
+        }
+      }, c.name);
+    }
+  } : null;
+
+  // Eine Zeile im Abenteuerlog, wenn jemand die Taverne wieder verlässt.
+  // Nicht jeder Dreh — das wären dreissig Zeilen je Abend.
+  const tavernenAbend = (charId, gesetzt, zurueck) => {
+    const c = charsRef.current.find(x => x.id === charId);
+    const rest = zurueck - gesetzt;
+    addLog(charId, (c || {}).name, 'inventar', 'In der Taverne: ' + gesetzt + ' gesetzt, ' + zurueck + ' zurück — ' + (rest >= 0 ? '+' + rest : '−' + Math.abs(rest)) + ' ' + (tavernenGold ? 'Goldmünzen' : 'Marken'), {
+      gesetzt,
+      zurueck,
+      waehrung: tavernenGold ? 'gold' : 'marken'
+    });
+  };
+
   // Wer in der Taverne einen Beutel hat: die eigenen Bögen. Wer keine
   // besitzt — eine Gruppe ohne eingetragenen Besitz, die Spielleitung mit
   // ihren Nichtspielerfiguren — spielt mit denen, die er sieht. Zwei
@@ -21797,6 +21965,8 @@ function App() {
     cfg: advObj && advObj.automat,
     helden: tavernenHelden,
     heldStart: sel,
+    gold: goldBeutel,
+    onAbend: tavernenAbend,
     onSchliessen: () => setShowAutomat(false)
   }), advEinstellung && (isDmMode || konto && konto.ist_admin) && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {
     adv: advEinstellung,

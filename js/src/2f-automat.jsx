@@ -54,9 +54,12 @@ const automatSymbole = (cfg) => {
   return liste.some(x => x.gewicht > 0) ? liste : AUTOMAT_STANDARD;
 };
 const automatEinsaetze = (cfg) => {
+  // Mit Gold gilt eine kleinere Leiter; sie steht dann in der
+  // Einstellung, die der Tisch bekommt.
+  const leiter = (cfg && Array.isArray(cfg.einsaetze)) ? cfg.einsaetze : AUTOMAT_EINSAETZE;
   const max = cfg && +cfg.maxEinsatz;
-  const gefiltert = max ? AUTOMAT_EINSAETZE.filter(n => n <= max) : AUTOMAT_EINSAETZE;
-  return gefiltert.length ? gefiltert : [AUTOMAT_EINSAETZE[0]];
+  const gefiltert = max ? leiter.filter(n => n <= max) : leiter;
+  return gefiltert.length ? gefiltert : [leiter[0]];
 };
 // ── Das Vollbild ─────────────────────────────────────────────────
 // Neun gleiche Speisen — das Bonusspiel des Automaten. Von allein faellt
@@ -217,6 +220,21 @@ const beutelSchreiben = (d) => {
   try { localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify(d)); } catch {}
 };
 const OHNE_HELD = '_ohne';   // ohne Bogen spielt man trotzdem
+
+// ── Echtes Gold ────────────────────────────────────────
+// Genau dafuer haengt der Beutel seit v4.7 am Helden. Die Tische kennen
+// nur "lesen" und "schreiben", nicht das Feld dahinter — also reicht
+// es, hier ein zweites Feld einzusetzen. Marken liegen im Geraet und
+// gehen niemanden etwas an; Gold liegt im Bogen, geht ueber den Server
+// und ist Teil der Kampagne. Was gilt, entscheidet die Spielleitung je
+// Abenteuer.
+const WAEHRUNG_GOLD = (lesen, schreiben) => ({
+  name: 'Goldmünzen', kurz: '◉', gold: true,
+  // Die Einsaetze sind andere: fuenfzig Goldmuenzen sind kein
+  // Zeitvertreib mehr, sondern eine Ruestung.
+  leiter: [1, 2, 5, 10],
+  lesen, schreiben, zuletzt: () => null,
+});
 
 const WAEHRUNGEN = {
   marken: {
@@ -875,8 +893,9 @@ const TavernenHalle = ({ tische, onWahl }) => (
   </div>
 );
 
-const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
-  const waehrung = WAEHRUNGEN.marken;
+const TaverneSchirm = ({ cfg, helden, heldStart, gold, onSchliessen, onAbend }) => {
+  // Marken oder Gold — die Tische merken davon nichts.
+  const waehrung = gold ? gold : WAEHRUNGEN.marken;
   // Wessen Beutel auf dem Tisch liegt: der offene Bogen, sonst der
   // zuletzt bespielte, sonst der erste. Ohne Bogen geht es auch.
   const stall = (helden && helden.length) ? helden : [];
@@ -907,6 +926,7 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
   const markenRef = React.useRef(marken);
   const stellen = (m) => {
     const n = Math.max(0, Math.round(m));
+    buchen(n - markenRef.current);
     markenRef.current = n;
     waehrung.schreiben(heldId, n);
     setMarkenRoh(n);
@@ -915,12 +935,36 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
   const zahlen = (delta) => stellen(markenRef.current + delta);
   // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
   React.useEffect(() => {
+    // Wer den Beutel wechselt, schliesst den Abend des vorigen Helden ab
+    // — sonst stuende seine Zeile nie im Abenteuerlog.
+    const a = abend.current;
+    if (a.heldId && a.heldId !== heldId && a.gesetzt > 0 && onAbend)
+      onAbend(a.heldId, a.gesetzt, a.zurueck);
+    abend.current = {heldId, gesetzt: 0, zurueck: 0};
     const n = waehrung.lesen(heldId);
     markenRef.current = n;
     setMarkenRoh(n);
   }, [heldId]);
 
+  // Was ein Tisch als Einsatz anbietet: bei Marken die Leiter des
+  // Abenteuers, bei Gold die kleine.
+  const cfgTisch = React.useMemo(
+    () => waehrung.leiter ? {...(cfg || {}), einsaetze: waehrung.leiter} : cfg,
+    [cfg, waehrung]);
   const offen = React.useMemo(() => tavernenZu(cfg), [cfg]);
+
+  // Was an diesem Abend durch die Taverne gegangen ist — fuer die eine
+  // Zeile im Abenteuerlog, wenn man wieder hinausgeht.
+  const abend = React.useRef({heldId: null, gesetzt: 0, zurueck: 0});
+  const buchen = (delta) => {
+    if (abend.current.heldId !== heldId) abend.current = {heldId, gesetzt: 0, zurueck: 0};
+    if (delta < 0) abend.current.gesetzt += -delta; else abend.current.zurueck += delta;
+  };
+  const hinaus = () => {
+    const a = abend.current;
+    if (onAbend && a.heldId && a.gesetzt > 0) onAbend(a.heldId, a.gesetzt, a.zurueck);
+    onSchliessen();
+  };
   const jetzt = tisch ? TAVERNEN_TISCHE.find(t => t.k === tisch) : null;
   // Ein Tisch, den die Spielleitung zwischendurch schliesst, laesst
   // einen nicht darin sitzen.
@@ -980,19 +1024,19 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
           <span>{waehrung.kurz}</span><b>{marken}</b>
           <i>{waehrung.name}</i>
         </div>
-        <button className="automat-x" onClick={onSchliessen} aria-label="Schließen">✕</button>
+        <button className="automat-x" onClick={hinaus} aria-label="Schließen">✕</button>
       </div>
 
       {jetzt && jetzt.k === 'automat' ? (
-        <AutomatTisch cfg={cfg} marken={marken} setMarken={setMarken} onLaeuft={setLaeuft} />
+        <AutomatTisch cfg={cfgTisch} marken={marken} setMarken={setMarken} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'blackjack' ? (
-        <BlackjackTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+        <BlackjackTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'roulette' ? (
-        <RouletteTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+        <RouletteTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'craps' ? (
-        <CrapsTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+        <CrapsTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'rennen' ? (
-        <RennenTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+        <RennenTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />
