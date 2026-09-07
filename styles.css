@@ -2320,55 +2320,55 @@
      sie hingeschoben hat. */
   .automat-schirm { position:fixed; z-index:62; display:flex; flex-direction:column;
     max-height:min(86vh, 760px); border-radius:10px; overflow:hidden;
-    background:#14110d; border:1px solid #4d4234;
+    background:var(--bg-void); border:1px solid var(--border-bright);
     box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5); }
   .automat-kopf { display:flex; align-items:center; gap:10px; flex-shrink:0;
-    padding:10px 14px; background:#1d1913; border-bottom:1px solid #362e23;
+    padding:10px 14px; background:var(--bg-panel); border-bottom:1px solid var(--border);
     cursor:grab; touch-action:none; user-select:none; }
   .automat-kopf-text { flex:1; min-width:0; }
   .automat-kopf:active { cursor:grabbing; }
-  .automat-titel { font-family:'Roboto Condensed',sans-serif; font-size:16px; color:#f2cd7d;
+  .automat-titel { font-family:'Roboto Condensed',sans-serif; font-size:16px; color:var(--inspiration);
     letter-spacing:0.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .automat-ort { font-family:'Roboto Condensed',sans-serif; font-size:9px; margin-top:1px;
-    letter-spacing:0.2em; text-transform:uppercase; color:#8a6520; white-space:nowrap;
+    letter-spacing:0.2em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
   /* Der Beutelwechsler sieht aus wie die Ortszeile, in der er steht —
      nur dass man ihn anfassen kann. */
   .automat-beutel { max-width:100%; padding:1px 18px 1px 0; border:none; background:none;
-    color:#8a6520; cursor:pointer; font-family:'Roboto Condensed',sans-serif; font-size:9px;
+    color:var(--text-muted); cursor:pointer; font-family:'Roboto Condensed',sans-serif; font-size:9px;
     letter-spacing:0.2em; text-transform:uppercase; appearance:none; -webkit-appearance:none;
-    background-image:linear-gradient(45deg,transparent 50%,#8a6520 50%),
-      linear-gradient(135deg,#8a6520 50%,transparent 50%);
+    background-image:linear-gradient(45deg,transparent 50%,var(--text-muted) 50%),
+      linear-gradient(135deg,var(--text-muted) 50%,transparent 50%);
     background-position:calc(100% - 7px) 55%, calc(100% - 3px) 55%;
     background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
-  .automat-beutel:hover:not(:disabled) { color:#d9a441;
-    background-image:linear-gradient(45deg,transparent 50%,#d9a441 50%),
-      linear-gradient(135deg,#d9a441 50%,transparent 50%); }
+  .automat-beutel:hover:not(:disabled) { color:var(--inspiration);
+    background-image:linear-gradient(45deg,transparent 50%,var(--inspiration) 50%),
+      linear-gradient(135deg,var(--inspiration) 50%,transparent 50%); }
   .automat-beutel:disabled { cursor:default; opacity:0.55; }
-  .automat-beutel option { background:#1d1913; color:#ece6da; letter-spacing:0; font-size:13px;
+  .automat-beutel option { background:var(--bg-panel); color:var(--text-primary); letter-spacing:0; font-size:13px;
     text-transform:none; }
 
   .automat-kasse { display:flex; align-items:baseline; gap:6px; padding:5px 11px; border-radius:5px;
-    flex-shrink:0; background:#14110d; border:1px solid #4d4234; }
-  .automat-kasse span { font-size:14px; color:#d9a441; }
-  .automat-kasse b { font-family:'Roboto Condensed',sans-serif; font-size:20px; color:#f2cd7d;
+    flex-shrink:0; background:var(--bg-void); border:1px solid var(--border-bright); }
+  .automat-kasse span { font-size:14px; color:var(--inspiration); }
+  .automat-kasse b { font-family:'Roboto Condensed',sans-serif; font-size:20px; color:var(--inspiration);
     font-weight:400; font-variant-numeric:tabular-nums; }
   .automat-kasse i { display:none; }
   .automat-x { width:34px; min-height:34px; flex-shrink:0; padding:0; border-radius:4px; cursor:pointer;
-    background:none; border:1px solid #4d4234; color:#a0957f; font-size:13px; }
-  .automat-x:hover { color:#ece6da; border-color:#8a6520; }
+    background:none; border:1px solid var(--border-bright); color:var(--text-secondary); font-size:13px; }
+  .automat-x:hover { color:var(--text-primary); border-color:var(--text-muted); }
 
   .automat-mitte { flex:1; overflow-y:auto; padding:22px 18px 40px;
     display:flex; flex-direction:column; align-items:center; gap:18px; }
   .automat-kasten { width:100%; max-width:430px; padding:20px; border-radius:10px;
-    background:#1d1913; border:1px solid #4d4234;
-    box-shadow:0 0 0 3px #14110d, 0 0 34px rgba(217,164,65,0.09); }
+    background:var(--bg-panel); border:1px solid var(--border-bright);
+    box-shadow:0 0 0 3px var(--bg-void), 0 0 34px rgba(217,164,65,0.09); }
   /* Drei Walzen mit je einem Fenster von drei Zellen Hoehe. Das Band
      darin ist 16 Zellen lang und faehrt auf die letzten drei — deshalb
      -81,25 % (13 von 16). */
   .automat-feld { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
   .automat-walze { aspect-ratio:1 / 3; overflow:hidden; border-radius:7px;
-    background:#14110d; border:1px solid #362e23; }
+    background:var(--bg-void); border:1px solid var(--border); }
   .automat-band { display:flex; flex-direction:column; transform:translateY(-81.25%); }
   .automat-feld.laeuft .automat-band {
     animation-name:automat-lauf; animation-fill-mode:forwards;
@@ -2380,9 +2380,9 @@
   }
   .automat-zelle { aspect-ratio:1; display:flex; align-items:center; justify-content:center;
     font-size:clamp(26px,9vw,40px); line-height:1; flex-shrink:0;
-    box-shadow:inset 0 -1px 0 #262019; transition:background .18s, box-shadow .18s; }
+    box-shadow:inset 0 -1px 0 var(--bg-panel); transition:background .18s, box-shadow .18s; }
   .automat-zelle.treffer { background:rgba(217,164,65,0.16);
-    box-shadow:inset 0 0 0 2px #d9a441, inset 0 0 16px rgba(217,164,65,0.3); }
+    box-shadow:inset 0 0 0 2px var(--inspiration), inset 0 0 16px rgba(217,164,65,0.3); }
   /* Waehrend des Laufs wird nichts hervorgehoben und leicht verwischt —
      scharfe Symbole in voller Fahrt sehen aus wie ein Ruckeln. */
   .automat-feld.laeuft .automat-zelle { filter:blur(0.6px); opacity:0.92; }
@@ -2393,84 +2393,84 @@
 
   .automat-meldung { min-height:44px; margin-top:14px; display:flex; flex-wrap:wrap;
     align-items:baseline; gap:5px 12px; }
-  .automat-meldung .leise { font-size:12px; color:#a0957f; }
+  .automat-meldung .leise { font-size:12px; color:var(--text-secondary); }
   .automat-meldung .gewinn { font-family:'Roboto Condensed',sans-serif; font-size:26px;
-    color:#f2cd7d; font-weight:400; font-variant-numeric:tabular-nums; }
+    color:var(--inspiration); font-weight:400; font-variant-numeric:tabular-nums; }
   .automat-meldung .vollbild { font-family:'Roboto Condensed',sans-serif; font-size:11px;
-    letter-spacing:0.14em; text-transform:uppercase; color:#74b184; }
+    letter-spacing:0.14em; text-transform:uppercase; color:#56b183; }
   .automat-meldung .freidreh { font-family:'Roboto Condensed',sans-serif; font-size:11px;
-    padding:2px 9px; border-radius:10px; border:1px solid #8a6520; color:#d9a441; }
+    padding:2px 9px; border-radius:10px; border:1px solid var(--text-muted); color:var(--inspiration); }
 
   .automat-einsatz { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
   .automat-label { font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.16em;
-    text-transform:uppercase; color:#a0957f; margin-right:4px; }
+    text-transform:uppercase; color:var(--text-secondary); margin-right:4px; }
   .automat-chip { min-width:46px; min-height:36px; border-radius:5px; cursor:pointer; padding:0 10px;
-    background:#14110d; border:1px solid #362e23; color:#a0957f;
+    background:var(--bg-void); border:1px solid var(--border); color:var(--text-secondary);
     font-family:'Roboto Condensed',sans-serif; font-size:14px; font-variant-numeric:tabular-nums; }
-  .automat-chip:hover:not(:disabled) { border-color:#8a6520; color:#ece6da; }
-  .automat-chip.aktiv { border-color:#d9a441; color:#f2cd7d; background:rgba(217,164,65,0.14); }
+  .automat-chip:hover:not(:disabled) { border-color:var(--text-muted); color:var(--text-primary); }
+  .automat-chip.aktiv { border-color:var(--inspiration); color:var(--inspiration); background:rgba(217,164,65,0.14); }
   .automat-chip:disabled { opacity:0.4; cursor:default; }
 
   .automat-hebel { width:100%; margin-top:14px; min-height:54px; border-radius:7px; cursor:pointer;
-    background:linear-gradient(180deg,#d9a441,#8a6520); border:1px solid #f2cd7d; color:#14110d;
+    background:linear-gradient(180deg,var(--inspiration),var(--text-muted)); border:1px solid var(--inspiration); color:var(--bg-void);
     font-family:'Roboto Condensed',sans-serif; font-size:17px; letter-spacing:0.1em;
     text-transform:uppercase; }
-  .automat-hebel:hover:not(:disabled) { background:linear-gradient(180deg,#f2cd7d,#b8862c); }
-  .automat-hebel:disabled { background:#262019; border-color:#362e23; color:#6d6355; cursor:default; }
-  .automat-hebel.frei { background:linear-gradient(180deg,#74b184,#3f7a5c); border-color:#9ed2ab; }
+  .automat-hebel:hover:not(:disabled) { background:linear-gradient(180deg,var(--inspiration),var(--inspiration-dim)); }
+  .automat-hebel:disabled { background:var(--bg-panel); border-color:var(--border); color:var(--text-muted); cursor:default; }
+  .automat-hebel.frei { background:linear-gradient(180deg,#56b183,#2f6b4d); border-color:#7fc79c; }
   .automat-nachschub { width:100%; margin-top:8px; min-height:38px; border-radius:5px; cursor:pointer;
-    background:none; border:1px dashed #4d4234; color:#a0957f;
+    background:none; border:1px dashed var(--border-bright); color:var(--text-secondary);
     font-family:'Roboto Condensed',sans-serif; font-size:12px; }
-  .automat-nachschub:hover { border-color:#8a6520; color:#d9a441; }
+  .automat-nachschub:hover { border-color:var(--text-muted); color:var(--inspiration); }
 
   .automat-tafel { width:100%; max-width:430px; border-radius:8px;
-    background:#1d1913; border:1px solid #362e23; overflow:hidden; }
+    background:var(--bg-panel); border:1px solid var(--border); overflow:hidden; }
   .automat-tafel-kopf { width:100%; display:flex; justify-content:space-between; align-items:center;
     gap:10px; padding:12px 15px; cursor:pointer; background:none; border:none;
     font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.16em;
-    text-transform:uppercase; color:#d9a441; }
-  .automat-tafel-kopf i { font-style:normal; color:#a0957f; letter-spacing:0.08em; }
+    text-transform:uppercase; color:var(--inspiration); }
+  .automat-tafel-kopf i { font-style:normal; color:var(--text-secondary); letter-spacing:0.08em; }
   .automat-tabelle { width:100%; border-collapse:collapse; font-size:13.5px; }
-  .automat-tabelle td { padding:7px 15px; border-top:1px solid #262019; color:#ece6da; }
+  .automat-tabelle td { padding:7px 15px; border-top:1px solid var(--bg-panel); color:var(--text-primary); }
   .automat-tabelle .sym { width:1%; white-space:nowrap; font-size:15px; letter-spacing:1px; }
-  .automat-tabelle .nam { font-family:'Roboto Condensed',sans-serif; color:#a0957f; }
-  .automat-tabelle .nam i { display:block; font-style:normal; font-size:10px; color:#8a6520; }
-  .automat-tabelle .zahl { width:1%; text-align:right; white-space:nowrap; color:#d9a441;
+  .automat-tabelle .nam { font-family:'Roboto Condensed',sans-serif; color:var(--text-secondary); }
+  .automat-tabelle .nam i { display:block; font-style:normal; font-size:10px; color:var(--text-muted); }
+  .automat-tabelle .zahl { width:1%; text-align:right; white-space:nowrap; color:var(--inspiration);
     font-family:'Roboto Condensed',sans-serif; font-variant-numeric:tabular-nums; }
-  .automat-fussnote { padding:10px 15px 14px; font-size:11.5px; line-height:1.55; color:#8a6520; }
+  .automat-fussnote { padding:10px 15px 14px; font-size:11.5px; line-height:1.55; color:var(--text-muted); }
 
   /* Das Rad der Fortuna. Vier Felder: eines rot oben, drei grün im
      Uhrzeigersinn — der Zeiger steht fest, das Rad dreht sich darunter. */
   .rad-huelle { position:absolute; inset:0; z-index:5; display:flex; align-items:center;
     justify-content:center; padding:20px; background:rgba(10,8,6,0.86); backdrop-filter:blur(3px); }
   .rad-fenster { width:100%; max-width:360px; padding:22px 20px 20px; border-radius:12px;
-    background:#1d1913; border:1px solid #8a6520; text-align:center;
+    background:var(--bg-panel); border:1px solid var(--text-muted); text-align:center;
     box-shadow:0 22px 60px rgba(0,0,0,0.75); }
-  .rad-titel { font-family:'Roboto Condensed',sans-serif; font-size:19px; color:#f2cd7d;
+  .rad-titel { font-family:'Roboto Condensed',sans-serif; font-size:19px; color:var(--inspiration);
     letter-spacing:0.12em; text-transform:uppercase; }
-  .rad-unter { font-size:12.5px; color:#a0957f; line-height:1.55; margin:8px 0 18px; }
-  .rad-unter b { color:#f2cd7d; font-weight:400; }
+  .rad-unter { font-size:12.5px; color:var(--text-secondary); line-height:1.55; margin:8px 0 18px; }
+  .rad-unter b { color:var(--inspiration); font-weight:400; }
 
   .rad-buehne { position:relative; width:190px; height:190px; margin:0 auto; }
   .rad-zeiger { position:absolute; top:-13px; left:50%; transform:translateX(-50%); z-index:2;
-    font-size:19px; color:#f2cd7d; line-height:1;
+    font-size:19px; color:var(--inspiration); line-height:1;
     text-shadow:0 2px 5px rgba(0,0,0,0.7); }
   .rad-scheibe { width:100%; height:100%; border-radius:50%;
-    border:3px solid #8a6520; box-shadow:0 0 0 4px #14110d, 0 0 26px rgba(217,164,65,0.2);
-    background:conic-gradient(#c9584a 0deg 90deg, #74b184 90deg 180deg,
-                              #5f9a70 180deg 270deg, #74b184 270deg 360deg); }
+    border:3px solid var(--text-muted); box-shadow:0 0 0 4px var(--bg-void), 0 0 26px rgba(217,164,65,0.2);
+    background:conic-gradient(var(--gold) 0deg 90deg, #56b183 90deg 180deg,
+                              #3f8a63 180deg 270deg, #56b183 270deg 360deg); }
 
   .rad-stand { display:flex; align-items:center; justify-content:center; gap:12px;
     margin-top:16px; min-height:26px; }
   .rad-runden { display:flex; gap:5px; }
-  .rad-punkt { width:9px; height:9px; border-radius:50%; border:1px solid #4d4234; }
-  .rad-punkt.voll { background:#d9a441; border-color:#f2cd7d; }
+  .rad-punkt { width:9px; height:9px; border-radius:50%; border:1px solid var(--border-bright); }
+  .rad-punkt.voll { background:var(--inspiration); border-color:var(--inspiration); }
   .rad-stand b { font-family:'Roboto Condensed',sans-serif; font-size:14px; font-weight:400; }
-  .rad-stand .leise { color:#a0957f; }
-  .rad-gut { color:#9ed2ab; }
-  .rad-schlecht { color:#e08080; }
-  .rad-summe { margin-top:8px; font-size:12.5px; color:#a0957f; }
-  .rad-summe b { color:#f2cd7d; font-weight:400; font-family:'Roboto Condensed',sans-serif;
+  .rad-stand .leise { color:var(--text-secondary); }
+  .rad-gut { color:#7fc79c; }
+  .rad-schlecht { color:var(--gold-bright); }
+  .rad-summe { margin-top:8px; font-size:12.5px; color:var(--text-secondary); }
+  .rad-summe b { color:var(--inspiration); font-weight:400; font-family:'Roboto Condensed',sans-serif;
     font-size:16px; }
   .rad-tasten { margin-top:16px; }
   .rad-tasten .automat-hebel { margin-top:0; }
@@ -2493,12 +2493,12 @@
   .verw-marke { font-style:normal; font-size:9.5px; letter-spacing:0.12em;
     text-transform:uppercase; padding:1px 5px; border-radius:3px; color:var(--text-muted);
     border:1px solid var(--border); white-space:nowrap; }
-  .verw-marke.admin { color:#e0a054; border-color:#6b5320; }
-  .verw-marke.an { color:#56b183; border-color:#2e5c44; }
+  .verw-marke.admin { color:var(--inspiration); border-color:#6b5320; }
+  .verw-marke.an { color:#56b183; border-color:#26543c; }
   .verw-rolle { max-width:160px; text-transform:none; letter-spacing:0; font-size:12.5px; }
   .verw-passwort { display:flex; flex-direction:column; gap:7px; margin-bottom:14px;
     padding:11px 13px; border-radius:5px; background:rgba(217,164,65,0.07);
-    border:1px solid #4d4234; font-size:13px; color:var(--text-secondary); }
+    border:1px solid var(--border-bright); font-size:13px; color:var(--text-secondary); }
   .verw-passwort i { font-style:normal; font-size:11.5px; color:var(--text-muted); line-height:1.5; }
   .verw-passwort .btn-icon { align-self:flex-start; }
   .verw-code { font-family:'Roboto Mono',ui-monospace,monospace; font-size:15px;
@@ -2568,9 +2568,9 @@
   /* Das Protokoll des laufenden Kampfes */
   /* Die Ansagen der Runde beim DM: was jemand vorhat, ein Klick, und es
      steht im Zugfenster. */
-  .kampf-kopf-btn.ansage { border-color:#8a6a1f; color:var(--inspiration); }
+  .kampf-kopf-btn.ansage { border-color:var(--inspiration-dim); color:var(--inspiration); }
   .kampf-kopf-btn.ansage:hover { background:rgba(232,184,75,0.12); border-color:var(--inspiration); }
-  .kampf-kopf-btn.ansage.an { background:rgba(232,184,75,0.18); color:#f2d98a; }
+  .kampf-kopf-btn.ansage.an { background:rgba(232,184,75,0.18); color:#f3ce74; }
   .kampf-ansagen { margin:0 0 10px; border:1px solid var(--inspiration-dim); border-radius:5px;
     background:var(--bg-void); overflow:hidden; }
   .kampf-ansagen-kopf { padding:7px 11px; background:rgba(232,184,75,0.08);
@@ -2604,7 +2604,7 @@
   .pr-runde { color:var(--gold); margin:9px 0 3px; letter-spacing:0.04em; }
   .pr-runde:first-child { margin-top:0; }
   .pr-zeile.zug { color:var(--text-primary); }
-  .pr-zeile.schwer { color:#e07a7a; }
+  .pr-zeile.schwer { color:var(--gold-bright); }
 
   /* Das Wirkungsfeld im Zauberformular. */
   .zauber-wirkung-kopf { display:flex; align-items:center; gap:10px; justify-content:space-between; }
@@ -2646,44 +2646,44 @@
 
   /* Setzen statt einstecken */
   .risiko-angebot { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:10px;
-    padding:9px 11px; border-radius:6px; background:rgba(217,164,65,0.07); border:1px solid #4d4234; }
+    padding:9px 11px; border-radius:6px; background:rgba(217,164,65,0.07); border:1px solid var(--border-bright); }
   .risiko-angebot-text { flex:1; min-width:80px; font-family:'Roboto Condensed',sans-serif;
-    font-size:12px; color:#d9a441; letter-spacing:0.04em; }
+    font-size:12px; color:var(--inspiration); letter-spacing:0.04em; }
   .risiko-knopf { min-height:34px; padding:0 11px; border-radius:5px; cursor:pointer;
-    background:#14110d; border:1px solid #8a6520; color:#d9a441;
+    background:var(--bg-void); border:1px solid var(--text-muted); color:var(--inspiration);
     font-family:'Roboto Condensed',sans-serif; font-size:12px; white-space:nowrap; }
-  .risiko-knopf:hover { background:rgba(217,164,65,0.16); border-color:#f2cd7d; color:#f2cd7d; }
-  .risiko-knopf.halb { border-color:#4d4234; color:#a0957f; }
+  .risiko-knopf:hover { background:rgba(217,164,65,0.16); border-color:var(--inspiration); color:var(--inspiration); }
+  .risiko-knopf.halb { border-color:var(--border-bright); color:var(--text-secondary); }
 
   .rad-fenster.risiko { max-width:380px; }
   .risiko-betrag { display:flex; flex-direction:column; align-items:center; gap:2px; margin-bottom:16px; }
   .risiko-betrag span { font-family:'Roboto Condensed',sans-serif; font-size:9.5px;
-    letter-spacing:0.18em; text-transform:uppercase; color:#a0957f; }
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--text-secondary); }
   .risiko-betrag b { font-family:'Roboto Condensed',sans-serif; font-size:34px; font-weight:400;
-    line-height:1.1; color:#f2cd7d; font-variant-numeric:tabular-nums; }
-  .risiko-betrag b.weg { color:#c9584a; }
+    line-height:1.1; color:var(--inspiration); font-variant-numeric:tabular-nums; }
+  .risiko-betrag b.weg { color:var(--gold); }
   .risiko-betrag i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10px;
-    letter-spacing:0.12em; text-transform:uppercase; color:#8a6520; }
+    letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); }
 
   .leiter-felder { display:flex; gap:5px; justify-content:center; margin:6px 0 4px; }
-  .leiter-feld { width:30px; height:30px; border-radius:5px; background:#14110d;
-    border:1px solid #362e23; transition:background .06s, border-color .06s; }
-  .leiter-feld.licht { background:#f2cd7d; border-color:#f2cd7d;
+  .leiter-feld { width:30px; height:30px; border-radius:5px; background:var(--bg-void);
+    border:1px solid var(--border); transition:background .06s, border-color .06s; }
+  .leiter-feld.licht { background:var(--inspiration); border-color:var(--inspiration);
     box-shadow:0 0 14px rgba(242,205,125,0.55); }
-  .leiter-feld.ziel { background:#74b184; border-color:#9ed2ab; }
-  .leiter-feld.licht.ziel { background:#9ed2ab; box-shadow:0 0 16px rgba(158,210,171,0.7); }
+  .leiter-feld.ziel { background:#56b183; border-color:#7fc79c; }
+  .leiter-feld.licht.ziel { background:#7fc79c; box-shadow:0 0 16px rgba(158,210,171,0.7); }
 
   .karte-wahl { display:flex; gap:10px; justify-content:center; margin:4px 0; }
   .karte-knopf { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;
-    width:104px; padding:14px 8px; border-radius:8px; background:#14110d;
-    border:1px solid #4d4234; font-size:26px; line-height:1; }
+    width:104px; padding:14px 8px; border-radius:8px; background:var(--bg-void);
+    border:1px solid var(--border-bright); font-size:26px; line-height:1; }
   .karte-knopf span { font-family:'Roboto Condensed',sans-serif; font-size:11px;
-    letter-spacing:0.14em; text-transform:uppercase; color:#a0957f; }
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--text-secondary); }
   .karte-knopf.rabe:hover:not(:disabled) { border-color:#8b9198; }
-  .karte-knopf.rose:hover:not(:disabled) { border-color:#c9584a; }
+  .karte-knopf.rose:hover:not(:disabled) { border-color:var(--gold); }
   .karte-knopf:disabled { opacity:0.4; cursor:default; }
   .risiko-tasten { display:flex; flex-direction:column; gap:8px; }
-  .automat-nachschub.nehmen { border-style:solid; border-color:#8a6520; color:#d9a441; margin-top:0; }
+  .automat-nachschub.nehmen { border-style:solid; border-color:var(--text-muted); color:var(--inspiration); margin-top:0; }
   @media (max-width:560px) { .leiter-feld { width:26px; height:26px; } }
 
   /* Am schmalen Schirm ist ein schwebendes Fenster keine gute Idee — dort
