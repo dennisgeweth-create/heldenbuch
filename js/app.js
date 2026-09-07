@@ -269,8 +269,12 @@ const Fenster = ({
     onPointerCancel: zugEnde,
     children: innen
   });
+
+  // Wer ein Fenster beiseite schiebt, will sehen, was daneben steht.
+  // Der Vorhang verschwindet deshalb, sobald das Fenster verschoben ist
+  // - genau wie beim Zuklappen.
   return /*#__PURE__*/React.createElement("div", _extends({
-    className: 'form-overlay' + (zu ? ' zu' : ''),
+    className: 'form-overlay' + (zu ? ' zu' : '') + (pos ? ' los' : ''),
     onClick: onClick
   }, rest), gehaeuse);
 };
@@ -8285,7 +8289,7 @@ const Sheet = () => {
     style: {
       marginBottom: 12
     }
-  }, "\uD83D\uDDE1 Waffen"), cur.weapons.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDDE1 Waffen"), (cur.weapons || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       color: "var(--text-muted)",
       fontStyle: "italic",
@@ -8714,8 +8718,12 @@ const Sheet = () => {
     }
   }, "\u2728 Bekannte Zauber"), (() => {
     // Build all class/dmg tags from current spells using tplData lookup
-    const allSpellClasses = [...new Set(cur.spells.flatMap(s => s.classes || []))].sort();
-    const allSpellDmg = [...new Set(cur.spells.flatMap(s => s.damageTags || []))].sort();
+    // Ein Bogen ohne Zauberliste ist keiner mit einer leeren: er
+    // kommt so von aelteren Staenden und von aussen herein. Ohne
+    // die Klammer sturzt der ganze Reiter ab.
+    const alleSprueche = cur.spells || [];
+    const allSpellClasses = [...new Set(alleSprueche.flatMap(s => s.classes || []))].sort();
+    const allSpellDmg = [...new Set(alleSprueche.flatMap(s => s.damageTags || []))].sort();
     const hasFilters = allSpellClasses.length > 0 || allSpellDmg.length > 0;
     const filterActive = spellTagFilter.classes.length > 0 || spellTagFilter.dmg.length > 0;
     return hasFilters && /*#__PURE__*/React.createElement("div", {
@@ -8850,7 +8858,7 @@ const Sheet = () => {
       color: "var(--arcane-bright)"
     },
     onClick: () => openTpl('spell')
-  }, "\uD83D\uDCD6 Von Vorlage (SRD)")), darfBearbeiten && cur.spells.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCD6 Von Vorlage (SRD)")), darfBearbeiten && (cur.spells || []).length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 8,
@@ -8887,7 +8895,7 @@ const Sheet = () => {
       fontSize: 12.5,
       color: nachgetragen ? "var(--inspiration)" : "var(--text-muted)"
     }
-  }, nachgetragen ? nachgetragen + (nachgetragen === 1 ? ' Zauber ergänzt' : ' Zauber ergänzt') + ' — im Zugfenster steht der Würfel jetzt dabei.' : 'Nichts zu ergänzen: entweder steht die Wirkung schon da, oder in der Beschreibung steht kein Würfel.')), cur.spells.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, nachgetragen ? nachgetragen + (nachgetragen === 1 ? ' Zauber ergänzt' : ' Zauber ergänzt') + ' — im Zugfenster steht der Würfel jetzt dabei.' : 'Nichts zu ergänzen: entweder steht die Wirkung schon da, oder in der Beschreibung steht kein Würfel.')), (cur.spells || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       color: "var(--text-muted)",
       fontStyle: "italic",
@@ -14887,9 +14895,9 @@ function App() {
     className: "btn-save",
     onClick: saveChar
   }, "\u2736 Speichern")))), showWF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
-    className: "form-modal",
+    className: "form-modal breit",
     style: {
-      maxWidth: 480
+      maxWidth: 820
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
@@ -15033,7 +15041,7 @@ function App() {
       }
     }, p);
   }))), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
+    className: "form-group form-halb"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
   }, "Beschreibung (optional)"), /*#__PURE__*/React.createElement(RichEditor, {
@@ -15045,7 +15053,7 @@ function App() {
     placeholder: "z.B. Reichweite geworfen: 9/36m, magisch...",
     rows: 2
   })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
+    className: "form-group form-halb"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
   }, "Bild (optional)"), /*#__PURE__*/React.createElement("div", {
@@ -15156,16 +15164,16 @@ function App() {
     className: "btn-save",
     onClick: addWeapon
   }, wfEditId ? "Speichern" : "+ Hinzufügen")))), showFF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
-    className: "form-modal",
+    className: "form-modal breit",
     style: {
-      maxWidth: 480
+      maxWidth: 700
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
   }, ffEditId ? '✏️ Fähigkeit bearbeiten' : '⭐ Neue Fähigkeit'), /*#__PURE__*/React.createElement("div", {
     className: "form-grid"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
+    className: "form-group form-halb"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
   }, "Name"), /*#__PURE__*/React.createElement("input", {
@@ -15177,7 +15185,7 @@ function App() {
       name: e.target.value
     })
   })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
+    className: "form-group form-halb"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
   }, "Quelle (optional)"), /*#__PURE__*/React.createElement("input", {
@@ -15250,9 +15258,9 @@ function App() {
     className: "btn-save",
     onClick: saveFeature
   }, ffEditId ? '✓ Speichern' : '+ Hinzufügen')))), showSF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
-    className: "form-modal",
+    className: "form-modal breit",
     style: {
-      maxWidth: 480
+      maxWidth: 880
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
@@ -15349,7 +15357,7 @@ function App() {
       components: e.target.value
     })
   })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
+    className: "form-group form-halb"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
   }, "Beschreibung"), /*#__PURE__*/React.createElement(RichEditor, {
@@ -15361,7 +15369,7 @@ function App() {
     placeholder: "Wirkung des Zaubers...",
     rows: 4
   })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group form-full"
+    className: "form-group form-halb"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label zauber-wirkung-kopf"
   }, "Wirkung im Kampf", /*#__PURE__*/React.createElement("button", {
@@ -15596,9 +15604,9 @@ function App() {
     className: "btn-save",
     onClick: addSpell
   }, sfEditId ? '✓ Speichern' : '+ Hinzufügen')))), showNF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
-    className: "form-modal",
+    className: "form-modal breit",
     style: {
-      maxWidth: 520
+      maxWidth: 780
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
@@ -15727,9 +15735,9 @@ function App() {
     className: "btn-save",
     onClick: saveNote
   }, nfEditId ? '✓ Speichern' : '+ Hinzufügen')))), showIF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
-    className: "form-modal",
+    className: "form-modal breit",
     style: {
-      maxWidth: 520
+      maxWidth: 840
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"

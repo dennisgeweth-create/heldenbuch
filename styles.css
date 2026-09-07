@@ -643,7 +643,12 @@
   .btn-add { padding:8px 16px; border:1px dashed var(--border); border-radius:4px; background:none; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:11px; cursor:pointer; letter-spacing:0.08em; text-transform:uppercase; width:100%; margin-top:8px; }
   .btn-add:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
 
-  .form-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; backdrop-filter:blur(4px); }
+  /* Kein Weichzeichner: was hinter einem Fenster steht, soll lesbar
+     bleiben - der Bogen, die Liste, der laufende Kampf. Der Vorhang
+     nimmt dem Hintergrund nur die Aufmerksamkeit, nicht die Schaerfe.
+     Er kostete ausserdem beim Schieben die Darstellung: sobald das
+     Fenster fest stand, zeichnete der Weichzeichner nur noch Grau. */
+  .form-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.62); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
   .confirm-box { background:var(--bg-deep); border:1px solid var(--border-bright); border-radius:8px; padding:28px 28px 20px; max-width:380px; width:100%; text-align:center; box-shadow:0 16px 48px rgba(0,0,0,0.7); }
   .confirm-icon { font-size:32px; margin-bottom:12px; }
   .confirm-msg { font-family:'Roboto',sans-serif; font-size:16px; color:var(--text-primary); line-height:1.5; margin-bottom:24px; }
@@ -706,8 +711,28 @@
     align-items:flex-start; }
   .form-overlay.zu > .fenster { pointer-events:auto; }
 
-  /* Geschoben steht es, wo man es hingelegt hat. */
+  /* Geschoben steht es, wo man es hingelegt hat - und der Vorhang ist
+     weg, denn beiseitegeschoben wird ein Fenster, um daneben zu
+     arbeiten. */
   .fenster.los { box-shadow:0 24px 64px rgba(0,0,0,0.72); }
+  .form-overlay.los { background:transparent; pointer-events:none; }
+  .form-overlay.los > .fenster { pointer-events:auto; }
+
+  /* ── Breite Formulare ────────────────────────────────────
+     Waffe, Zauber, Merkmal, Notiz und Gegenstand sind die Fenster, in
+     denen wirklich gearbeitet wird. In 480 Punkten Breite stand darin
+     alles untereinander: sechs kurze Felder auf sechs Zeilen, dann drei
+     Textbloecke, und man rollte durch ein Fenster, das halb leer war.
+     Ab Tabletbreite liegt dort ein Raster aus sechs Spalten: ein kurzes
+     Feld nimmt zwei davon (drei je Zeile), ein halber Block drei, ein
+     ganzer alle sechs. */
+  .form-halb { grid-column:1 / -1; }
+  @media (min-width:900px) {
+    .form-modal.breit .form-grid { grid-template-columns:repeat(6, 1fr); gap:12px 14px; }
+    .form-modal.breit .form-grid > .form-group { grid-column:span 2; }
+    .form-modal.breit .form-grid > .form-halb  { grid-column:span 3; }
+    .form-modal.breit .form-grid > .form-full  { grid-column:1 / -1; }
+  }
 
 
   .mobile-topbar { display:none; }

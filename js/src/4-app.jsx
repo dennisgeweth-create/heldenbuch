@@ -2982,7 +2982,7 @@ function App() {
       )}
       {showWF && (
         <Fenster>
-          <div className="form-modal" style={{maxWidth:480}}>
+          <div className="form-modal breit" style={{maxWidth:820}}>
             <div className="form-title">{wfEditId ? "Waffe bearbeiten" : "Neue Waffe"}</div>
             <div className="form-grid">
               <div className="form-group form-full">
@@ -3033,12 +3033,12 @@ function App() {
                   })}
                 </div>
               </div>
-              <div className="form-group form-full">
+              <div className="form-group form-halb">
                 <div className="form-label">Beschreibung (optional)</div>
                 <RichEditor value={wf.description||''} onChange={v=>setWf({...wf,description:v})}
                   placeholder="z.B. Reichweite geworfen: 9/36m, magisch..." rows={2} />
               </div>
-              <div className="form-group form-full">
+              <div className="form-group form-halb">
                 <div className="form-label">Bild (optional)</div>
                 <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
                   {wf.imageData && (
@@ -3080,14 +3080,14 @@ function App() {
 
       {showFF && (
         <Fenster>
-          <div className="form-modal" style={{maxWidth:480}}>
+          <div className="form-modal breit" style={{maxWidth:700}}>
             <div className="form-title">{ffEditId ? '✏️ Fähigkeit bearbeiten' : '⭐ Neue Fähigkeit'}</div>
             <div className="form-grid">
-              <div className="form-group form-full">
+              <div className="form-group form-halb">
                 <div className="form-label">Name</div>
                 <input className="form-input" placeholder="z.B. Bardische Inspiration, Wildform..." value={ff.name} onChange={e=>setFf({...ff,name:e.target.value})} />
               </div>
-              <div className="form-group form-full">
+              <div className="form-group form-halb">
                 <div className="form-label">Quelle (optional)</div>
                 <input className="form-input" placeholder="z.B. Barde Stufe 1, Kampfstil..." value={ff.source} onChange={e=>setFf({...ff,source:e.target.value})} />
               </div>
@@ -3123,7 +3123,7 @@ function App() {
 
       {showSF && (
         <Fenster>
-          <div className="form-modal" style={{maxWidth:480}}>
+          <div className="form-modal breit" style={{maxWidth:880}}>
             <div className="form-title">{sfEditId ? '✏️ Zauber bearbeiten' : '✨ Neuer Zauber'}</div>
             <div className="form-grid">
               <div className="form-group form-full">
@@ -3159,7 +3159,7 @@ function App() {
                 <div className="form-label">Komponenten</div>
                 <input className="form-input" placeholder="V, S, M (...)" value={sf.components||''} onChange={e=>setSf({...sf,components:e.target.value})} />
               </div>
-              <div className="form-group form-full">
+              <div className="form-group form-halb">
                 <div className="form-label">Beschreibung</div>
                 <RichEditor value={sf.description} onChange={v=>setSf({...sf,description:v})} placeholder="Wirkung des Zaubers..." rows={4} />
               </div>
@@ -3167,7 +3167,7 @@ function App() {
                   Angaben bleibt der Zauber, was er war, und im Zugfenster
                   wird die Zahl getippt. Mit ihnen steht dort der Wurf, der
                   Gradwähler rechnet ihn hoch und der Rettungswurf halbiert. */}
-              <div className="form-group form-full">
+              <div className="form-group form-halb">
                 <div className="form-label zauber-wirkung-kopf">
                   Wirkung im Kampf
                   <button type="button" className="btn-icon"
@@ -3272,7 +3272,7 @@ function App() {
 
       {showNF && (
         <Fenster>
-          <div className="form-modal" style={{maxWidth:520}}>
+          <div className="form-modal breit" style={{maxWidth:780}}>
             <div className="form-title">{nfEditId ? '✏️ Notiz bearbeiten' : '📄 Neue Notiz'}</div>
             <div className="form-grid">
               <div className="form-group form-full">
@@ -3321,7 +3321,7 @@ function App() {
 
       {showIF && (
         <Fenster>
-          <div className="form-modal" style={{maxWidth:520}}>
+          <div className="form-modal breit" style={{maxWidth:840}}>
             <div className="form-title">{itfEditId ? '✏️ Gegenstand bearbeiten' : '🎒 Neuer Gegenstand'}</div>
 
             {/* DB item templates — only shown when creating new */}

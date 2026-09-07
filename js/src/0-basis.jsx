@@ -208,8 +208,12 @@ const Fenster = ({ onClick, children, ...rest }) => {
     children: innen,
   });
 
+  // Wer ein Fenster beiseite schiebt, will sehen, was daneben steht.
+  // Der Vorhang verschwindet deshalb, sobald das Fenster verschoben ist
+  // - genau wie beim Zuklappen.
   return (
-    <div className={'form-overlay' + (zu ? ' zu' : '')} onClick={onClick} {...rest}>
+    <div className={'form-overlay' + (zu ? ' zu' : '') + (pos ? ' los' : '')}
+      onClick={onClick} {...rest}>
       {gehaeuse}
     </div>
   );

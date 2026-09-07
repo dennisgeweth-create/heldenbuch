@@ -848,7 +848,7 @@ const Sheet = () => {
             <div className="section-divider" />
 
             <div className="section-title" style={{marginBottom:12}}>&#128481; Waffen</div>
-            {cur.weapons.length===0
+            {(cur.weapons||[]).length===0
               ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Keine Waffen angelegt. Klicke unten um eine hinzuzufügen.</div>
               : <div className="weapon-grid">
                   {[...cur.weapons]
@@ -1061,8 +1061,12 @@ const Sheet = () => {
             <div className="section-title" style={{marginBottom:8}}>✨ Bekannte Zauber</div>
             {(() => {
               // Build all class/dmg tags from current spells using tplData lookup
-              const allSpellClasses = [...new Set(cur.spells.flatMap(s => s.classes||[]))].sort();
-              const allSpellDmg = [...new Set(cur.spells.flatMap(s => s.damageTags||[]))].sort();
+              // Ein Bogen ohne Zauberliste ist keiner mit einer leeren: er
+              // kommt so von aelteren Staenden und von aussen herein. Ohne
+              // die Klammer sturzt der ganze Reiter ab.
+              const alleSprueche = cur.spells || [];
+              const allSpellClasses = [...new Set(alleSprueche.flatMap(s => s.classes||[]))].sort();
+              const allSpellDmg = [...new Set(alleSprueche.flatMap(s => s.damageTags||[]))].sort();
               const hasFilters = allSpellClasses.length>0 || allSpellDmg.length>0;
               const filterActive = spellTagFilter.classes.length>0 || spellTagFilter.dmg.length>0;
               return hasFilters && (
@@ -1097,7 +1101,7 @@ const Sheet = () => {
             {/* Der Einleser fuer alle auf einmal. Er fasst nur an, was noch
                 keine Wirkung hat — was von Hand eingetragen wurde, bleibt.
                 Ohne ihn muesste jeder Zauber einzeln aufgemacht werden. */}
-            {darfBearbeiten && cur.spells.length > 0 && (
+            {darfBearbeiten && (cur.spells||[]).length > 0 && (
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
                 <button className="btn-add" style={{borderColor:"var(--inspiration)",color:"var(--inspiration)"}}
                   title="Würfel, Rettungswurf und Steigerung aus den Beschreibungen übernehmen — für alle Zauber, bei denen noch nichts eingetragen ist"
@@ -1123,7 +1127,7 @@ const Sheet = () => {
                 )}
               </div>
             )}
-            {cur.spells.length===0
+            {(cur.spells||[]).length===0
               ? <div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14,marginBottom:12}}>Noch keine Zauber eingetragen.</div>
               : [0,...sls.filter(l=>l!==0)].filter(l=>sbl[l]).map(l => {
                   const isCollapsed = collapsedLevels.has(l);
