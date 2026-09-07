@@ -1768,6 +1768,16 @@ function App() {
     ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id)
     : [];
 
+  // Wer in der Taverne einen Beutel hat: die eigenen Bögen. Wer keine
+  // besitzt — eine Gruppe ohne eingetragenen Besitz, die Spielleitung mit
+  // ihren Nichtspielerfiguren — spielt mit denen, die er sieht. Zwei
+  // gleichzeitig gespielte Charaktere haben damit zwei Beutel.
+  const tavernenHelden = (() => {
+    const sichtbar = chars.filter(c => !c.archived && (!c.dmOnly || isDmMode));
+    const eigene = sichtbar.filter(c => eigeneHeldenIds.includes(c.id));
+    return (eigene.length ? eigene : sichtbar).map(c => ({id: c.id, name: c.name}));
+  })();
+
   // Die Ansagen der Runde. Die Spielleitung fragt sie getrennt ab — sie
   // schreibt den Kampf ja selbst und braucht ihn nicht zurueck, nur das,
   // was die Spieler hineingerufen haben.
@@ -4902,6 +4912,7 @@ function App() {
 
       {showAutomat && (
         <AutomatSchirm cfg={advObj && advObj.automat}
+          helden={tavernenHelden} heldStart={sel}
           onSchliessen={()=>setShowAutomat(false)} />
       )}
 

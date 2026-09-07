@@ -199,21 +199,48 @@ const werteAus = (feld, einsatz, liste) => {
 // Nur im Geraet. Kein Server, kein Charakterbogen — und trotzdem schon
 // hinter einer Abstraktion, damit "spaeter mit echtem Gold" eine
 // Zeilenaenderung bleibt und kein Umbau.
+// ── Der Beutel haengt am Helden ────────────────────────────
+// Bis hierher lagen die Marken im Geraet: ein Beutel, gleichgueltig wer
+// spielte. Sie haengen jetzt am Helden — nicht, weil das Spiel es heute
+// verlangte, sondern weil es der Umbau auf echtes Gold tut. Gold liegt im
+// Bogen; wer die Marken schon dort fuehrt, muss spaeter nur das Feld
+// tauschen und nicht die halbe Taverne.
+//
+// Und weil jemand zwei Charaktere gleichzeitig spielen kann, gibt es
+// zwei Beutel. Welcher auf dem Tisch liegt, sagt der offene Bogen; im
+// Kopf des Fensters steht es und laesst sich umstellen.
+const beutelLesen = () => {
+  try { return JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || '{}') || {}; }
+  catch { return {}; }
+};
+const beutelSchreiben = (d) => {
+  try { localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify(d)); } catch {}
+};
+const OHNE_HELD = '_ohne';   // ohne Bogen spielt man trotzdem
+
 const WAEHRUNGEN = {
   marken: {
     name: 'Spielmarken', kurz: '⛃',
-    lesen: () => {
-      try {
-        const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || 'null');
-        return d && Number.isFinite(+d.marken) ? +d.marken : MARKEN_START;
-      } catch { return MARKEN_START; }
+    lesen: (heldId) => {
+      const d = beutelLesen();
+      const b = d.beutel || {};
+      const k = heldId || OHNE_HELD;
+      if (Number.isFinite(+b[k])) return +b[k];
+      // Was frueher im Geraet lag, bekommt der erste Held, der die
+      // Taverne betritt. Beim ersten Einsatz ist es umgezogen und steht
+      // dort nicht mehr — sonst erbte es jeder noch einmal.
+      if (Number.isFinite(+d.marken)) return +d.marken;
+      return MARKEN_START;
     },
-    schreiben: (n) => {
-      try {
-        const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || '{}') || {};
-        localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify({...d, marken: Math.max(0, Math.round(n))}));
-      } catch {}
+    schreiben: (heldId, n) => {
+      const d = beutelLesen();
+      const {marken, ...rest} = d;
+      beutelSchreiben({...rest,
+        beutel: {...(d.beutel || {}), [heldId || OHNE_HELD]: Math.max(0, Math.round(n))},
+        zuletzt: heldId || OHNE_HELD});
     },
+    // Wer zuletzt gespielt hat — gebraucht, wenn gerade kein Bogen offen ist.
+    zuletzt: () => beutelLesen().zuletzt || null,
   },
 };
 
@@ -391,14 +418,23 @@ const fensterKlemmen = (pos) => ({
 });
 
 // ── Der Schirm ───────────────────────────────────────────────────
-const AutomatSchirm = ({ cfg, onSchliessen }) => {
+const AutomatSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
   const waehrung = WAEHRUNGEN.marken;
+  // Wessen Beutel auf dem Tisch liegt: der offene Bogen, sonst der
+  // zuletzt bespielte, sonst der erste. Ohne Bogen geht es auch.
+  const stall = (helden && helden.length) ? helden : [];
+  const [heldId, setHeldId] = React.useState(() => {
+    if (heldStart && stall.some(h => h.id === heldStart)) return heldStart;
+    const z = waehrung.zuletzt();
+    if (z && stall.some(h => h.id === z)) return z;
+    return stall.length ? stall[0].id : null;
+  });
   // Was die Spielleitung fuer dieses Abenteuer eingestellt hat.
   const symbole   = React.useMemo(() => automatSymbole(cfg), [cfg]);
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
   const vollbildP    = React.useMemo(() => automatVollbildP(cfg), [cfg]);
   const vollbildEins = React.useMemo(() => automatVollbildEins(cfg), [cfg]);
-  const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen());
+  const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen(heldId));
   const [einsatz, setEinsatz] = React.useState(10);
   const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
   const [ergebnis, setErgebnis] = React.useState(null);   // {gewinn, treffer, …}
@@ -420,7 +456,13 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
     || fensterKlemmen({x: Math.max(20, (window.innerWidth || 1200) - FENSTER_BREITE - 40), y: 70}));
   const zug = React.useRef(null);   // {dx, dy} waehrend des Schiebens
 
-  const setMarken = (n) => { const m = Math.max(0, Math.round(n)); waehrung.schreiben(m); setMarkenRoh(m); };
+  const setMarken = (n) => {
+    const m = Math.max(0, Math.round(n));
+    waehrung.schreiben(heldId, m);
+    setMarkenRoh(m);
+  };
+  // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
+  React.useEffect(() => { setMarkenRoh(waehrung.lesen(heldId)); }, [heldId]);
   const quote = React.useMemo(() => automatQuote(symbole, vollbildP), [symbole, vollbildP]);
 
   // Wer Bewegung im Betriebssystem abgeschaltet hat, bekommt das Ergebnis
@@ -618,7 +660,21 @@ const AutomatSchirm = ({ cfg, onSchliessen }) => {
         title="Zum Verschieben ziehen">
         <div className="automat-kopf-text">
           <div className="automat-titel">🎰 Dreifaches Glück</div>
-          <div className="automat-ort">Taverne des Glücks</div>
+          {/* Wessen Marken gerade auf dem Tisch liegen. Bei einem Bogen
+              steht der Name da, bei mehreren laesst er sich wechseln —
+              nicht mitten im Lauf, sonst faenden die Marken den falschen
+              Beutel. */}
+          <div className="automat-ort">
+            {stall.length > 1 ? (
+              <select className="automat-beutel" value={heldId || ''} disabled={laeuft}
+                onPointerDown={e=>e.stopPropagation()}
+                onChange={e=>setHeldId(e.target.value)}
+                aria-label="Wessen Beutel auf dem Tisch liegt"
+                title="Wessen Beutel auf dem Tisch liegt">
+                {stall.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+              </select>
+            ) : (stall.length === 1 ? stall[0].name : 'Taverne des Glücks')}
+          </div>
         </div>
         <div className="automat-kasse">
           <span>{waehrung.kurz}</span><b>{marken}</b>

@@ -5880,27 +5880,62 @@ const werteAus = (feld, einsatz, liste) => {
 // Nur im Geraet. Kein Server, kein Charakterbogen — und trotzdem schon
 // hinter einer Abstraktion, damit "spaeter mit echtem Gold" eine
 // Zeilenaenderung bleibt und kein Umbau.
+// ── Der Beutel haengt am Helden ────────────────────────────
+// Bis hierher lagen die Marken im Geraet: ein Beutel, gleichgueltig wer
+// spielte. Sie haengen jetzt am Helden — nicht, weil das Spiel es heute
+// verlangte, sondern weil es der Umbau auf echtes Gold tut. Gold liegt im
+// Bogen; wer die Marken schon dort fuehrt, muss spaeter nur das Feld
+// tauschen und nicht die halbe Taverne.
+//
+// Und weil jemand zwei Charaktere gleichzeitig spielen kann, gibt es
+// zwei Beutel. Welcher auf dem Tisch liegt, sagt der offene Bogen; im
+// Kopf des Fensters steht es und laesst sich umstellen.
+const beutelLesen = () => {
+  try {
+    return JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || '{}') || {};
+  } catch {
+    return {};
+  }
+};
+const beutelSchreiben = d => {
+  try {
+    localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify(d));
+  } catch {}
+};
+const OHNE_HELD = '_ohne'; // ohne Bogen spielt man trotzdem
+
 const WAEHRUNGEN = {
   marken: {
     name: 'Spielmarken',
     kurz: '⛃',
-    lesen: () => {
-      try {
-        const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || 'null');
-        return d && Number.isFinite(+d.marken) ? +d.marken : MARKEN_START;
-      } catch {
-        return MARKEN_START;
-      }
+    lesen: heldId => {
+      const d = beutelLesen();
+      const b = d.beutel || {};
+      const k = heldId || OHNE_HELD;
+      if (Number.isFinite(+b[k])) return +b[k];
+      // Was frueher im Geraet lag, bekommt der erste Held, der die
+      // Taverne betritt. Beim ersten Einsatz ist es umgezogen und steht
+      // dort nicht mehr — sonst erbte es jeder noch einmal.
+      if (Number.isFinite(+d.marken)) return +d.marken;
+      return MARKEN_START;
     },
-    schreiben: n => {
-      try {
-        const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || '{}') || {};
-        localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify({
-          ...d,
-          marken: Math.max(0, Math.round(n))
-        }));
-      } catch {}
-    }
+    schreiben: (heldId, n) => {
+      const d = beutelLesen();
+      const {
+        marken,
+        ...rest
+      } = d;
+      beutelSchreiben({
+        ...rest,
+        beutel: {
+          ...(d.beutel || {}),
+          [heldId || OHNE_HELD]: Math.max(0, Math.round(n))
+        },
+        zuletzt: heldId || OHNE_HELD
+      });
+    },
+    // Wer zuletzt gespielt hat — gebraucht, wenn gerade kein Bogen offen ist.
+    zuletzt: () => beutelLesen().zuletzt || null
   }
 };
 
@@ -6109,15 +6144,26 @@ const fensterKlemmen = pos => ({
 // ── Der Schirm ───────────────────────────────────────────────────
 const AutomatSchirm = ({
   cfg,
+  helden,
+  heldStart,
   onSchliessen
 }) => {
   const waehrung = WAEHRUNGEN.marken;
+  // Wessen Beutel auf dem Tisch liegt: der offene Bogen, sonst der
+  // zuletzt bespielte, sonst der erste. Ohne Bogen geht es auch.
+  const stall = helden && helden.length ? helden : [];
+  const [heldId, setHeldId] = React.useState(() => {
+    if (heldStart && stall.some(h => h.id === heldStart)) return heldStart;
+    const z = waehrung.zuletzt();
+    if (z && stall.some(h => h.id === z)) return z;
+    return stall.length ? stall[0].id : null;
+  });
   // Was die Spielleitung fuer dieses Abenteuer eingestellt hat.
   const symbole = React.useMemo(() => automatSymbole(cfg), [cfg]);
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
   const vollbildP = React.useMemo(() => automatVollbildP(cfg), [cfg]);
   const vollbildEins = React.useMemo(() => automatVollbildEins(cfg), [cfg]);
-  const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen());
+  const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen(heldId));
   const [einsatz, setEinsatz] = React.useState(10);
   const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
   const [ergebnis, setErgebnis] = React.useState(null); // {gewinn, treffer, …}
@@ -6143,9 +6189,13 @@ const AutomatSchirm = ({
 
   const setMarken = n => {
     const m = Math.max(0, Math.round(n));
-    waehrung.schreiben(m);
+    waehrung.schreiben(heldId, m);
     setMarkenRoh(m);
   };
+  // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
+  React.useEffect(() => {
+    setMarkenRoh(waehrung.lesen(heldId));
+  }, [heldId]);
   const quote = React.useMemo(() => automatQuote(symbole, vollbildP), [symbole, vollbildP]);
 
   // Wer Bewegung im Betriebssystem abgeschaltet hat, bekommt das Ergebnis
@@ -6412,7 +6462,18 @@ const AutomatSchirm = ({
     className: "automat-titel"
   }, "\uD83C\uDFB0 Dreifaches Gl\xFCck"), /*#__PURE__*/React.createElement("div", {
     className: "automat-ort"
-  }, "Taverne des Gl\xFCcks")), /*#__PURE__*/React.createElement("div", {
+  }, stall.length > 1 ? /*#__PURE__*/React.createElement("select", {
+    className: "automat-beutel",
+    value: heldId || '',
+    disabled: laeuft,
+    onPointerDown: e => e.stopPropagation(),
+    onChange: e => setHeldId(e.target.value),
+    "aria-label": "Wessen Beutel auf dem Tisch liegt",
+    title: "Wessen Beutel auf dem Tisch liegt"
+  }, stall.map(h => /*#__PURE__*/React.createElement("option", {
+    key: h.id,
+    value: h.id
+  }, h.name))) : stall.length === 1 ? stall[0].name : 'Taverne des Glücks')), /*#__PURE__*/React.createElement("div", {
     className: "automat-kasse"
   }, /*#__PURE__*/React.createElement("span", null, waehrung.kurz), /*#__PURE__*/React.createElement("b", null, marken), /*#__PURE__*/React.createElement("i", null, waehrung.name)), /*#__PURE__*/React.createElement("button", {
     className: "automat-x",
@@ -12721,6 +12782,19 @@ function App() {
 
   // Die eigenen Helden werden in der Liste hervorgehoben.
   const eigeneHeldenIds = konto ? chars.filter(c => +(besitzer || {})[c.id] === +konto.id).map(c => c.id) : [];
+
+  // Wer in der Taverne einen Beutel hat: die eigenen Bögen. Wer keine
+  // besitzt — eine Gruppe ohne eingetragenen Besitz, die Spielleitung mit
+  // ihren Nichtspielerfiguren — spielt mit denen, die er sieht. Zwei
+  // gleichzeitig gespielte Charaktere haben damit zwei Beutel.
+  const tavernenHelden = (() => {
+    const sichtbar = chars.filter(c => !c.archived && (!c.dmOnly || isDmMode));
+    const eigene = sichtbar.filter(c => eigeneHeldenIds.includes(c.id));
+    return (eigene.length ? eigene : sichtbar).map(c => ({
+      id: c.id,
+      name: c.name
+    }));
+  })();
 
   // Die Ansagen der Runde. Die Spielleitung fragt sie getrennt ab — sie
   // schreibt den Kampf ja selbst und braucht ihn nicht zurueck, nur das,
@@ -19192,6 +19266,8 @@ function App() {
     onClick: passwortAendern
   }, "\xDCbernehmen")))), showAutomat && /*#__PURE__*/React.createElement(AutomatSchirm, {
     cfg: advObj && advObj.automat,
+    helden: tavernenHelden,
+    heldStart: sel,
     onSchliessen: () => setShowAutomat(false)
   }), advEinstellung && (isDmMode || konto && konto.ist_admin) && /*#__PURE__*/React.createElement(AbenteuerEinstellungen, {
     adv: advEinstellung,

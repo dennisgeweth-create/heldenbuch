@@ -2332,6 +2332,22 @@
   .automat-ort { font-family:'Roboto Condensed',sans-serif; font-size:9px; margin-top:1px;
     letter-spacing:0.2em; text-transform:uppercase; color:#8a6520; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
+  /* Der Beutelwechsler sieht aus wie die Ortszeile, in der er steht —
+     nur dass man ihn anfassen kann. */
+  .automat-beutel { max-width:100%; padding:1px 18px 1px 0; border:none; background:none;
+    color:#8a6520; cursor:pointer; font-family:'Roboto Condensed',sans-serif; font-size:9px;
+    letter-spacing:0.2em; text-transform:uppercase; appearance:none; -webkit-appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,#8a6520 50%),
+      linear-gradient(135deg,#8a6520 50%,transparent 50%);
+    background-position:calc(100% - 7px) 55%, calc(100% - 3px) 55%;
+    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
+  .automat-beutel:hover:not(:disabled) { color:#d9a441;
+    background-image:linear-gradient(45deg,transparent 50%,#d9a441 50%),
+      linear-gradient(135deg,#d9a441 50%,transparent 50%); }
+  .automat-beutel:disabled { cursor:default; opacity:0.55; }
+  .automat-beutel option { background:#1d1913; color:#ece6da; letter-spacing:0; font-size:13px;
+    text-transform:none; }
+
   .automat-kasse { display:flex; align-items:baseline; gap:6px; padding:5px 11px; border-radius:5px;
     flex-shrink:0; background:#14110d; border:1px solid #4d4234; }
   .automat-kasse span { font-size:14px; color:#d9a441; }
