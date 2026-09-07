@@ -657,6 +657,21 @@ ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'ka
 $r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
 pruefe('mitgeschickt raeumt sie ab', count((array)($r['body']['kampf']['ansagen'] ?? [])) === 0);
 
+// Seit dem Zugfenster steht im Bogen mehr als Waffe und Zauber: ein
+// Trank aus dem Inventar und ein Merkmal des Charakters. Die Liste der
+// erlaubten Arten muss beides durchlassen, sonst kommt beim
+// Spielleiter nur noch „Nur beschreiben“ an.
+foreach ([['gegenstand', 'Trank der Heilung'], ['merkmal', 'Zweiter Atem']] as $paar) {
+    $r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+        'char_id' => 'h1',
+        'ansage' => ['art' => $paar[0], 'was' => $paar[1], 'zielIds' => ['g9']]]);
+    pruefe('ein Zug der Art "' . $paar[0] . '" laesst sich ansagen (200)',
+           $r['status'] === 200, kurz($r));
+    pruefe('und behaelt seine Art', ($r['body']['ansage']['art'] ?? '') === $paar[0],
+           (string)($r['body']['ansage']['art'] ?? ''));
+    pruefe('und seinen Namen', ($r['body']['ansage']['was'] ?? '') === $paar[1]);
+}
+
 ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => null]);
 
 // Das Abenteuer wieder offen stellen, damit die folgenden Pruefungen

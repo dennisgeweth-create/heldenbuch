@@ -547,7 +547,7 @@ const hatWirkung = (w) => !!(w && (w.wuerfel || w.art || w.rettung));
 const newSpell  = () => ({id:Date.now().toString(),name:"",level:1,school:"Hervorrufung",castingTime:"1 Aktion",range:"9 m",duration:"Sofort",components:"V, S",description:"",prepared:true});
 // gearKind: in welchen Ausruestungsplatz das Stueck passt (leer = keiner).
 // armorType/baseAC/acBonus nur bei Ruestungen und Schilden gefuellt.
-const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false,gearKind:"",armorType:"",baseAC:0,acBonus:0});
+const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false,kampf:false,gearKind:"",armorType:"",baseAC:0,acBonus:0});
 
 // Lightweight fuzzy search: returns score > 0 if all query chars appear in order in str
 const fuzzyMatch = (str, query) => {

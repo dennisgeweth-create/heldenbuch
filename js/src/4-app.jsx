@@ -3446,6 +3446,19 @@ function App() {
                 <div className="form-label">Gewicht (kg, optional)</div>
                 <input className="form-input" type="number" min="0" step="0.1" placeholder="z.B. 1.5" value={itf.weight} onChange={e=>setItf({...itf,weight:e.target.value})} />
               </div>
+              {/* Nur was hier angehakt ist, steht im Kampftracker zur Wahl —
+                  Tränke, Schriftrollen, Öle. Sonst stünden dort auch das
+                  Seil und die Winterdecke. */}
+              <div className="form-group form-full">
+                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                  <input type="checkbox" checked={!!itf.kampf}
+                    onChange={e=>setItf({...itf,kampf:e.target.checked})}
+                    style={{width:16,height:16,cursor:'pointer',accentColor:'var(--gold)'}} />
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>
+                    ⚔ Im Kampf zu verwenden — steht im Zugfenster zur Wahl, Benutzen zieht die Menge ab
+                  </span>
+                </label>
+              </div>
               {/* Ausruestungsplatz: erst damit taucht das Stueck in der
                   Auswahl eines Platzes auf. Ohne Angabe bleibt es ein reiner
                   Inventargegenstand, so wie bisher. */}

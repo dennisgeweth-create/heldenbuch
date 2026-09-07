@@ -1566,7 +1566,8 @@ switch ($action) {
         $sauber = [
             'id'     => bin2hex(random_bytes(6)),
             'charId' => $charId,
-            'art'    => in_array((string)($a['art'] ?? ''), ['angriff','zauber','frei'], true)
+            'art'    => in_array((string)($a['art'] ?? ''),
+                                 ['angriff','zauber','gegenstand','merkmal','frei'], true)
                         ? (string)$a['art'] : 'frei',
             'was'    => mb_substr(trim((string)($a['was'] ?? '')), 0, 80),
             'grad'   => max(0, min(9, (int)($a['grad'] ?? 0))),
