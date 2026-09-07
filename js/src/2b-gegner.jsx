@@ -44,7 +44,7 @@ const GegnerBlatt = ({ gegner, onSchliessen, onBearbeiten, onLoeschen, onBild })
   const attr = [['str','STR'],['dex','GES'],['con','KON'],['int','INT'],['wis','WEI'],['cha','CHA']];
   const listen = GEGNER_LISTEN.filter(l => (g[l.key]||[]).length > 0);
   return (
-    <div className="form-overlay" onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen}>
       <div className="form-modal gegner-blatt" onClick={e=>e.stopPropagation()}>
         <div className="gegner-blatt-kopf">
           {g.image && (
@@ -114,7 +114,7 @@ const GegnerBlatt = ({ gegner, onSchliessen, onBearbeiten, onLoeschen, onBild })
           <button className="btn-cancel" onClick={onSchliessen}>Schließen</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 
@@ -127,7 +127,7 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
   const setListe = (key, wert) => setzen({[key]: wert});
 
   return (
-    <div className="form-overlay">
+    <Fenster>
       <div className="form-modal" style={{maxWidth:560}}>
         <div className="form-title">{neu ? '💀 Neuer Gegner' : '✎ Gegner bearbeiten'}</div>
         <div className="form-grid" style={{maxHeight:'62vh',overflowY:'auto',paddingRight:4}}>
@@ -254,7 +254,7 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
           <button className="btn-save" onClick={onSpeichern}>💾 Speichern</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 
@@ -371,7 +371,7 @@ const BegegnungFormular = ({ form, setForm, enemies, abenteuer, onSpeichern, onA
   };
 
   return (
-    <div className="form-overlay">
+    <Fenster>
       <div className="form-modal" style={{maxWidth:540}}>
         <div className="form-title">{neu ? '⚔ Neue Begegnung' : '✎ Begegnung bearbeiten'}</div>
         <div className="form-grid" style={{maxHeight:'62vh',overflowY:'auto',paddingRight:4}}>
@@ -451,7 +451,7 @@ const BegegnungFormular = ({ form, setForm, enemies, abenteuer, onSpeichern, onA
           <button className="btn-save" onClick={onSpeichern}>💾 Speichern</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 

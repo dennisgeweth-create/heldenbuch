@@ -407,7 +407,7 @@ const WertDialog = ({ modus, name, start, onAnwenden, onAbbrechen }) => {
   const stufe = (n) => setWert(w => w + n);
 
   return (
-    <div className="form-overlay" onClick={onAbbrechen}>
+    <Fenster onClick={onAbbrechen}>
       <div className={'wert-fenster ' + cfg.farbe} onClick={e=>e.stopPropagation()}>
         <div className="wert-titel">{cfg.titel} — {name}</div>
         <div className="wert-strich" />
@@ -459,7 +459,7 @@ const WertDialog = ({ modus, name, start, onAnwenden, onAbbrechen }) => {
           <button className="wert-ab" onClick={onAbbrechen}>Abbrechen</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 
@@ -890,7 +890,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     : '✓ Übernehmen';
 
   return (
-    <div className="form-overlay" onClick={onAbbrechen}>
+    <Fenster onClick={onAbbrechen}>
       <div className="zug-fenster" onClick={e=>e.stopPropagation()}>
 
         <div className="zug-kopf">
@@ -1131,7 +1131,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
             disabled={!eintraege.length && !treffer.length}>{knopf}</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 
@@ -1348,7 +1348,7 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotiz
 const BegegnungWahl = ({ encounters, enemies, advId, onLaden, onAbbrechen }) => {
   const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
   return (
-    <div className="form-overlay" onClick={onAbbrechen}>
+    <Fenster onClick={onAbbrechen}>
       <div className="form-modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
         <div className="form-title">📋 Begegnung laden</div>
         {waehlbar.length === 0 ? (
@@ -1378,7 +1378,7 @@ const BegegnungWahl = ({ encounters, enemies, advId, onLaden, onAbbrechen }) => 
           <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 
@@ -1394,7 +1394,7 @@ const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
   const taste = (e) => { if (e.key === 'Enter') fertig(); };
 
   return (
-    <div className="form-overlay" onClick={onAbbrechen}>
+    <Fenster onClick={onAbbrechen}>
       <div className="form-modal" style={{maxWidth:400}} onClick={e=>e.stopPropagation()}>
         <div className="form-title">✚ Nothelfer</div>
         <div className="einst-hinweis" style={{marginTop:0,marginBottom:14}}>
@@ -1434,7 +1434,7 @@ const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
           <button className="btn-save" onClick={fertig}>In den Kampf</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 
@@ -1460,7 +1460,7 @@ const SpontanWahl = ({ enemies, laufend, onStarten, onAbbrechen }) => {
   const gesamt = gewaehlt.reduce((s,x) => s + x.count, 0);
 
   return (
-    <div className="form-overlay" onClick={onAbbrechen}>
+    <Fenster onClick={onAbbrechen}>
       <div className="form-modal spontan" onClick={e=>e.stopPropagation()}>
         <div className="form-title">
           {laufend ? '⚡ Gegner in den Kampf holen' : '⚡ Spontaner Kampf'}
@@ -1521,7 +1521,7 @@ const SpontanWahl = ({ enemies, laufend, onStarten, onAbbrechen }) => {
           </button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 

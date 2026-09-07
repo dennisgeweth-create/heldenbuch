@@ -111,7 +111,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
   };
 
   return (
-    <div className="form-overlay" onClick={onAbbrechen}>
+    <Fenster onClick={onAbbrechen}>
       <div className="zug-fenster" onClick={e=>e.stopPropagation()}>
         <div className="zug-kopf">
           <span className="zug-titel">✍ {held ? held.name : 'Ansage'}</span>
@@ -171,7 +171,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
           </button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 

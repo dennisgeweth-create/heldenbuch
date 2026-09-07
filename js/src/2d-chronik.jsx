@@ -239,7 +239,7 @@ const EreignisFormular = ({ ereignis, chronik, advId, abenteuer, chars, neu,
   const merkmale = (held && held.features) || [];
 
   return (
-    <div className="form-overlay">
+    <Fenster>
       <div className="form-modal" style={{maxWidth:520}}>
         <div className="form-title">{neu ? '🕰 Neues Ereignis' : '✎ Ereignis bearbeiten'}</div>
         <div className="form-grid" style={{maxHeight:'62vh',overflowY:'auto',paddingRight:4}}>
@@ -409,7 +409,7 @@ const EreignisFormular = ({ ereignis, chronik, advId, abenteuer, chars, neu,
           <button className="btn-save" disabled={!e.name.trim()} onClick={onSpeichern}>💾 Speichern</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
 
@@ -461,7 +461,7 @@ const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrech
 
   if (ergebnis) {
     return (
-      <div className="form-overlay">
+      <Fenster>
         <div className="form-modal" style={{maxWidth:460}}>
           <div className="form-title">⏩ {restText(ergebnis.delta)} vergangen</div>
           <div className="zeit-jetzt">
@@ -487,12 +487,12 @@ const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrech
             <button className="btn-save" onClick={onAbbrechen}>Weiter</button>
           </div>
         </div>
-      </div>
+      </Fenster>
     );
   }
 
   return (
-    <div className="form-overlay">
+    <Fenster>
       <div className="form-modal" style={{maxWidth:500}}>
         <div className="form-title">⏩ Zeit vergeht</div>
         <div style={{maxHeight:'64vh',overflowY:'auto',paddingRight:4}}>
@@ -601,6 +601,6 @@ const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrech
           </button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };

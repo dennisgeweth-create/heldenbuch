@@ -138,6 +138,143 @@ const EinstBlock = ({
   }, children));
 };
 
+// ── Ein Bearbeiten-Fenster ist ein Fenster ────────────────────
+// Bisher war jeder Dialog ein Vorhang: er lag in der Mitte, nahm den
+// ganzen Schirm, und wer nachsehen wollte, was dahinter steht — der
+// eigene Bogen, die Liste, der Kampf —, musste ihn schliessen und die
+// Eingaben aufgeben.
+//
+// Jetzt hat jeder Dialog eine Titelzeile, an der man ihn beiseite
+// schiebt, und einen Knopf, der ihn auf genau diese Zeile zusammen-
+// klappt. Zugeklappt faellt der Vorhang weg: das Heldenbuch dahinter
+// ist wieder zu bedienen, und der Dialog wartet als schmaler Balken,
+// bis man ihn wieder aufklappt. Auf dem Telefon liegt dieser Balken am
+// unteren Rand — dort, wo der Dialog ohnehin aufgeht.
+//
+// Damit dafuer nicht dreissig Dialoge einzeln umgeschrieben werden
+// mussten, arbeitet das Fenster am fertigen Baum: es nimmt den Dialog,
+// den es umschliesst, markiert dessen erstes Kind als Kopf — die
+// Titelzeile, die jeder ohnehin hat — und haengt die beiden Knoepfe
+// daneben. Wer <Fenster> statt <div className="form-overlay"> schreibt,
+// bekommt alles Weitere geschenkt.
+const FENSTER_LUFT = 120; // so viel bleibt immer greifbar am Rand
+
+// Nicht jeder Dialog kennt einen Weg hinaus, den wir kennen: manche
+// schliessen per Klick auf den Hintergrund, andere nur ueber ihren
+// eigenen Abbrechen-Knopf. Das Kreuz nimmt, was da ist.
+const fensterAusgang = el => el && [...el.querySelectorAll('button')].find(b => !b.classList.contains('fenster-knopf') && /^(abbrechen|schlie(ss|ß)en|fertig|verstanden|✕|✕ .*)$/i.test((b.textContent || '').trim()));
+const Fenster = ({
+  onClick,
+  children,
+  ...rest
+}) => {
+  const [pos, setPos] = useState(null); // null = mittig, wie bisher
+  const [zu, setZu] = useState(false);
+  const [ausgang, setAusgang] = useState(false);
+  const haus = useRef(null);
+  const zug = useRef(null);
+  useEffect(() => {
+    setAusgang(!!onClick || !!fensterAusgang(haus.current));
+  }, [onClick]);
+  const schliessen = () => {
+    if (onClick) {
+      onClick({
+        stopPropagation: () => {}
+      });
+      return;
+    }
+    const k = fensterAusgang(haus.current);
+    if (k) k.click();
+  };
+
+  // Geschoben wird am Kopf — und nur dort, damit ein Griff daneben nicht
+  // aus Versehen das ganze Fenster mitnimmt.
+  const zugStart = e => {
+    const el = haus.current;
+    if (!el || !e.target.closest) return;
+    if ((window.innerWidth || 0) <= 640) return; // am Telefon liegt es unten fest
+    if (!e.target.closest('.fenster-kopf')) return;
+    if (e.target.closest('button, a, input, select, textarea, [contenteditable]')) return;
+    const r = el.getBoundingClientRect();
+    zug.current = {
+      dx: e.clientX - r.left,
+      dy: e.clientY - r.top
+    };
+    setPos({
+      x: r.left,
+      y: r.top,
+      w: r.width
+    });
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch (err) {}
+  };
+  const zugBewegen = e => {
+    if (!zug.current) return;
+    const b = window.innerWidth || 1200,
+      h = window.innerHeight || 800;
+    setPos(p => p && {
+      ...p,
+      x: Math.max(-p.w + FENSTER_LUFT, Math.min(e.clientX - zug.current.dx, b - FENSTER_LUFT)),
+      y: Math.max(0, Math.min(e.clientY - zug.current.dy, h - 44))
+    });
+  };
+  const zugEnde = () => {
+    zug.current = null;
+  };
+  const kind = React.Children.toArray(children).find(k => React.isValidElement(k));
+  if (!kind) return null;
+  const innen = React.Children.toArray(kind.props.children);
+  const kopfI = innen.findIndex(k => React.isValidElement(k) && typeof k.type === 'string');
+  if (kopfI >= 0) {
+    innen[kopfI] = React.cloneElement(innen[kopfI], {
+      className: ((innen[kopfI].props.className || '') + ' fenster-kopf').trim()
+    });
+    innen.splice(kopfI, 0, /*#__PURE__*/React.createElement("div", {
+      className: "fenster-knoepfe",
+      key: "hb-fenster-knoepfe"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fenster-knopf",
+      onClick: () => setZu(z => !z),
+      "aria-expanded": !zu,
+      title: zu ? 'Wieder aufklappen' : 'Zuklappen — an das Heldenbuch dahinter',
+      "aria-label": zu ? 'Fenster aufklappen' : 'Fenster zuklappen'
+    }, zu ? '▴' : '▾'), ausgang && /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fenster-knopf",
+      onClick: schliessen,
+      title: "Schlie\xDFen",
+      "aria-label": "Fenster schlie\xDFen"
+    }, "\u2715")));
+  }
+  const gehaeuse = React.cloneElement(kind, {
+    ref: haus,
+    className: ((kind.props.className || '') + ' fenster' + (zu ? ' zu' : '') + (pos ? ' los' : '')).trim(),
+    style: {
+      ...(kind.props.style || {}),
+      ...(pos ? {
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        width: pos.w,
+        maxWidth: 'none',
+        margin: 0,
+        maxHeight: 'calc(100vh - ' + Math.round(pos.y) + 'px - 14px)'
+      } : null)
+    },
+    onPointerDown: zugStart,
+    onPointerMove: zugBewegen,
+    onPointerUp: zugEnde,
+    onPointerCancel: zugEnde,
+    children: innen
+  });
+  return /*#__PURE__*/React.createElement("div", _extends({
+    className: 'form-overlay' + (zu ? ' zu' : ''),
+    onClick: onClick
+  }, rest), gehaeuse);
+};
+
 // ==== js/src/1-editors.jsx ====
 // Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
 // Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
@@ -625,8 +762,7 @@ const GegnerBlatt = ({
   const g = gegner;
   const attr = [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']];
   const listen = GEGNER_LISTEN.filter(l => (g[l.key] || []).length > 0);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onSchliessen
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal gegner-blatt",
@@ -719,9 +855,7 @@ const GegnerFormular = ({
   const setListe = (key, wert) => setzen({
     [key]: wert
   });
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 560
@@ -1176,9 +1310,7 @@ const BegegnungFormular = ({
     });
     setSuche('');
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 540
@@ -1881,8 +2013,7 @@ const WertDialog = ({
   const cfg = WERT_MODI[modus] || WERT_MODI.schaden;
   const [wert, setWert] = React.useState(+start || 0);
   const stufe = n => setWert(w => w + n);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
   }, /*#__PURE__*/React.createElement("div", {
     className: 'wert-fenster ' + cfg.farbe,
@@ -2557,8 +2688,7 @@ const ZugFenster = ({
     });
   });
   const knopf = summe ? richtung === 'heilung' ? '✓ Übernehmen — heilt ' + summe + ' TP' : '✓ Übernehmen — trägt ' + summe + ' TP ab' : '✓ Übernehmen';
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-fenster",
@@ -3165,8 +3295,7 @@ const BegegnungWahl = ({
   onAbbrechen
 }) => {
   const waehlbar = encounters.filter(e => !e.adventure || e.adventure === advId);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
@@ -3215,8 +3344,7 @@ const NothelferFenster = ({
   const taste = e => {
     if (e.key === 'Enter') fertig();
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
@@ -3330,8 +3458,7 @@ const SpontanWahl = ({
   } : x));
   const entfernen = id => setGewaehlt(g => g.filter(x => x.enemyId !== id));
   const gesamt = gewaehlt.reduce((s, x) => s + x.count, 0);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal spontan",
@@ -4609,9 +4736,7 @@ const EreignisFormular = ({
   const b = e.bindung || {};
   const held = helden.find(c => c.id === b.charId);
   const merkmale = held && held.features || [];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 520
@@ -4928,9 +5053,7 @@ const ZeitDialog = ({
     });
   };
   if (ergebnis) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "form-overlay"
-    }, /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
         maxWidth: 460
@@ -4957,9 +5080,7 @@ const ZeitDialog = ({
       onClick: onAbbrechen
     }, "Weiter"))));
   }
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 500
@@ -5157,9 +5278,7 @@ const AbenteuerEinstellungen = ({
     name: '',
     color: '#8b9198'
   }]);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 560
@@ -6590,8 +6709,7 @@ const AnsageFenster = ({
     });
     setLaeuft(false);
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-fenster",
@@ -13667,9 +13785,7 @@ function App() {
     const loadMore = () => {
       if (!alLoading && alHasMore) fetchPage(alEntries.length, alSearchRef.current, alTabsRef.current, false);
     };
-    return /*#__PURE__*/React.createElement("div", {
-      className: "form-overlay"
-    }, /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
         maxWidth: 640,
@@ -14564,9 +14680,7 @@ function App() {
   }, lb))))), /*#__PURE__*/React.createElement("button", {
     className: "mobile-fab",
     onClick: mv === "list" ? openNew : () => setMv("list")
-  }, mv === "list" ? "+" : "☰")), showCF && ec && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, mv === "list" ? "+" : "☰")), showCF && ec && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 420
@@ -14772,9 +14886,7 @@ function App() {
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
     onClick: saveChar
-  }, "\u2736 Speichern")))), showWF && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, "\u2736 Speichern")))), showWF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 480
@@ -15043,9 +15155,7 @@ function App() {
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
     onClick: addWeapon
-  }, wfEditId ? "Speichern" : "+ Hinzufügen")))), showFF && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, wfEditId ? "Speichern" : "+ Hinzufügen")))), showFF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 480
@@ -15139,9 +15249,7 @@ function App() {
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
     onClick: saveFeature
-  }, ffEditId ? '✓ Speichern' : '+ Hinzufügen')))), showSF && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, ffEditId ? '✓ Speichern' : '+ Hinzufügen')))), showSF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 480
@@ -15487,9 +15595,7 @@ function App() {
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
     onClick: addSpell
-  }, sfEditId ? '✓ Speichern' : '+ Hinzufügen')))), showNF && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, sfEditId ? '✓ Speichern' : '+ Hinzufügen')))), showNF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 520
@@ -15620,9 +15726,7 @@ function App() {
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
     onClick: saveNote
-  }, nfEditId ? '✓ Speichern' : '+ Hinzufügen')))), showIF && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, nfEditId ? '✓ Speichern' : '+ Hinzufügen')))), showIF && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 520
@@ -16244,9 +16348,7 @@ function App() {
       if (c.dmOnly) return isDmMode; // DM heroes only visible when in DM mode
       return true;
     });
-    return /*#__PURE__*/React.createElement("div", {
-      className: "form-overlay"
-    }, /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
         maxWidth: 420
@@ -16580,8 +16682,7 @@ function App() {
     const item = itemViewer;
     const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
     const icon = item.icon || '🎒';
-    return /*#__PURE__*/React.createElement("div", {
-      className: "form-overlay",
+    return /*#__PURE__*/React.createElement(Fenster, {
       onClick: () => setItemViewer(null)
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
@@ -16871,8 +16972,7 @@ function App() {
       v: w.proficient ? "Ja" : "Nein",
       c: w.proficient ? "var(--gold)" : "var(--text-muted)"
     }];
-    return /*#__PURE__*/React.createElement("div", {
-      className: "form-overlay",
+    return /*#__PURE__*/React.createElement(Fenster, {
       onClick: () => setWeaponViewer(null)
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
@@ -17192,9 +17292,7 @@ function App() {
     const SCHOOLS = ['Verzauberung', 'Beschwörung', 'Verwandlung', 'Nekromantie', 'Hervorrufung', 'Illusion', 'Erkenntnis', 'Bann'];
     const DMG_TYPES = ['Hieb', 'Stich', 'Wucht', 'Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekro', 'Psycho', 'Energie', 'Kraft'];
     const WPN_PROPS = ['Finesse', 'Weit', 'Leicht', 'Schwer', 'Werfbar', 'Zweihändig', 'Vielseitig', 'Ladezeit', 'Besondere'];
-    return /*#__PURE__*/React.createElement("div", {
-      className: "form-overlay"
-    }, /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
         maxWidth: 600,
@@ -18753,8 +18851,7 @@ function App() {
       if (confirmDlg.onOk) confirmDlg.onOk();
       setConfirmDlg(null);
     }
-  }, confirmDlg.okLabel || 'Bestätigen')))), verwaltung && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  }, confirmDlg.okLabel || 'Bestätigen')))), verwaltung && /*#__PURE__*/React.createElement(Fenster, {
     onClick: () => setVerwaltung(null)
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
@@ -18891,8 +18988,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: () => setVerwaltung(null)
-  }, "Schlie\xDFen")))), kontoDlg && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  }, "Schlie\xDFen")))), kontoDlg && /*#__PURE__*/React.createElement(Fenster, {
     onClick: () => setKontoDlg(null)
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
@@ -19012,9 +19108,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: () => setKontoDlg(null)
-  }, "Schlie\xDFen")))), passwortDlg && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, "Schlie\xDFen")))), passwortDlg && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 400
@@ -19217,8 +19311,7 @@ function App() {
         setEnemyForm(null);
       }
     }
-  }), showAdvVerwaltung && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay",
+  }), showAdvVerwaltung && /*#__PURE__*/React.createElement(Fenster, {
     onClick: () => setShowAdvVerwaltung(false)
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
@@ -19318,9 +19411,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: () => setShowAdvVerwaltung(false)
-  }, "Schlie\xDFen")))), showSetup && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, "Schlie\xDFen")))), showSetup && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 420
@@ -19405,9 +19496,7 @@ function App() {
     },
     disabled: setupBusy,
     onClick: erstesKontoAnlegen
-  }, "Erstes Konto anlegen")))), showTpl && tplData && /*#__PURE__*/React.createElement("div", {
-    className: "form-overlay"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, "Erstes Konto anlegen")))), showTpl && tplData && /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
       maxWidth: 580

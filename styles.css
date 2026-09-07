@@ -666,6 +666,50 @@
   .form-textarea { resize:vertical; min-height:80px; }
   .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
 
+  /* ── Dialoge sind Fenster ─────────────────────────────────
+     Die Titelzeile ist der Griff, an dem man das Fenster beiseite
+     schiebt; die beiden Knoepfe rechts darin klappen es zu und
+     schliessen es. Zugeklappt bleibt nur der Kopf stehen — und der
+     Vorhang verschwindet, sonst kaeme man an das Heldenbuch dahinter
+     nicht heran. */
+  .fenster { position:relative; }
+  .fenster > .form-title,
+  .fenster > .fenster-kopf { padding-right:84px; }
+  .fenster-knoepfe { position:sticky; top:0; z-index:6; height:0; overflow:visible;
+    display:flex; justify-content:flex-end; gap:6px; pointer-events:none; }
+  .fenster-knopf { pointer-events:auto; margin-top:14px; width:30px; height:30px; padding:0;
+    display:flex; align-items:center; justify-content:center; border-radius:4px;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; line-height:1; cursor:pointer; }
+  .fenster-knopf:hover { border-color:var(--gold-dim); color:var(--gold); }
+
+  /* Der Kopf traegt den Titel und ist zugleich der Griff. Er bleibt beim
+     Rollen stehen — und dafuer traegt er die Polsterung des Fensters
+     selbst, sonst zoege der Inhalt sichtbar durch die Luecke darueber. */
+  .form-modal.fenster:has(> .form-title)   { padding-top:0; }
+  .form-modal.fenster:has(> .form-actions) { padding-bottom:0; }
+  .fenster > .form-title { position:sticky; top:0; z-index:5;
+    margin:0 -24px 20px; padding:24px 24px 12px; background:var(--bg-deep); }
+  /* Und der Fuss bleibt stehen: bei einem langen Formular sucht man
+     sonst Speichern am unteren Ende. */
+  .fenster > .form-actions { position:sticky; bottom:0; z-index:5;
+    margin:16px -24px 0; padding:14px 24px 24px; background:var(--bg-deep); }
+
+  /* Zugeklappt: nur noch der Kopf, und der Rest des Schirms gehoert
+     wieder dem Heldenbuch. */
+  .fenster.zu { max-height:none !important; height:auto !important; overflow:hidden;
+    padding-top:0 !important; padding-bottom:0 !important;
+    box-shadow:0 14px 40px rgba(0,0,0,0.65); }
+  .fenster.zu > *:not(.fenster-kopf):not(.fenster-knoepfe) { display:none !important; }
+  .fenster.zu > .form-title { margin-bottom:0; padding-bottom:16px; border-bottom:none; }
+  .form-overlay.zu { background:transparent; backdrop-filter:none; pointer-events:none;
+    align-items:flex-start; }
+  .form-overlay.zu > .fenster { pointer-events:auto; }
+
+  /* Geschoben steht es, wo man es hingelegt hat. */
+  .fenster.los { box-shadow:0 24px 64px rgba(0,0,0,0.72); }
+
+
   .mobile-topbar { display:none; }
   .mobile-list-screen { display:none; }
   .mobile-bottom-nav { display:block; position:fixed; bottom:0; left:260px; right:0; background:var(--bg-deep); border-top:1px solid var(--border-bright); padding:6px 8px; z-index:20; transition:left 0.25s ease; }
@@ -723,9 +767,26 @@
     .slot-pip { width:22px; height:22px; }
     .currency-row { grid-template-columns:repeat(3,1fr); }
     .form-overlay { padding:0; align-items:flex-end; }
+    /* Der Dialog kommt von unten — zugeklappt bleibt er dort liegen und
+       gibt den Bogen darueber wieder frei. Die Reiterleiste bleibt dabei
+       sichtbar: sonst waere zwar der Bogen frei, aber der Weg zu ihm
+       verdeckt. */
+    .form-overlay.zu { align-items:flex-end; padding-bottom:58px; }
+    .form-overlay.zu .form-modal { border-radius:12px 12px 0 0;
+      border-bottom:1px solid var(--border-bright); }
     .form-modal { border-radius:12px 12px 0 0; max-height:92svh; padding:20px 16px 24px; border-bottom:none; }
+    .fenster > .form-title { margin:0 -16px 20px; padding:20px 16px 12px; }
+    .fenster > .form-actions { margin:16px -16px 0; padding:14px 16px 24px; }
+    .fenster > .form-title,
+    .fenster > .fenster-kopf { padding-right:80px; }
     .form-grid { grid-template-columns:1fr; }
     .form-full { grid-column:1; }
+  }
+  @media (min-width:641px) {
+    .fenster > .fenster-kopf { cursor:grab; touch-action:none; user-select:none; }
+    .fenster > .fenster-kopf:active { cursor:grabbing; }
+    .fenster.los > .fenster-kopf { cursor:grabbing; }
+    .form-modal { max-height:min(88svh, 920px); }
   }
   @media (min-width:1025px) {
     .desktop-sheet { display:block; }
@@ -747,7 +808,19 @@
     .form-grid { grid-template-columns:1fr 1fr; }
     .form-full { grid-column:1 / -1; }
     .form-overlay { padding:24px; align-items:center; }
-    .form-modal { border-radius:10px; max-height:88svh; border-bottom:1px solid var(--border); }
+    .form-modal { border-radius:10px; max-height:88svh; border-bottom:1px solid var(--border);
+      box-shadow:0 24px 64px rgba(0,0,0,0.6); }
+    /* Am Tablet wird getippt, nicht gezielt: Felder und Knoepfe in den
+       Fenstern bekommen dieselbe Groesse wie ueberall sonst auf
+       Beruehrschirmen. */
+    .form-input, .form-select, .form-textarea { font-size:15px; padding:10px 12px; }
+    .form-textarea { min-height:96px; }
+    .form-label { font-size:11px; }
+    .form-title { font-size:19px; }
+    .btn-save, .btn-cancel { min-height:42px; padding:10px 22px; font-size:13px; }
+    .fenster-knopf { width:36px; height:36px; font-size:13px; margin-top:11px; }
+    .fenster > .form-title,
+    .fenster > .fenster-kopf { padding-right:96px; }
     .combat-row { flex-wrap:wrap; overflow-x:visible; }
     .combat-box { min-width:110px; }
     .combat-label { display:block; }
@@ -767,6 +840,11 @@
      Dicht stehende Punkte brauchen echte Größe plus Abstand; eine nur
      vergrößerte Trefferfläche würde die Nachbarn überlappen.        */
   @media (hover:none), (pointer:coarse) {
+    /* Auf- und Zuklappen sind Tippziele wie alle anderen. */
+    .fenster-knopf { width:34px; height:34px; margin-top:12px; }
+    .fenster > .form-title,
+    .fenster > .fenster-kopf { padding-right:90px; }
+
     /* Mittelweg zwischen der ursprünglichen (9px) und der auf Touch-Ziele
        vergrößerten Fassung (22px). Da hier nichts mehr angetippt wird,
        zählt nur noch Lesbarkeit, nicht die Trefferfläche. */

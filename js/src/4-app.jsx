@@ -2417,7 +2417,7 @@ function App() {
     };
 
     return (
-      <div className="form-overlay">
+      <Fenster>
         <div className="form-modal" style={{maxWidth:640,height:'85vh',display:'flex',flexDirection:'column',padding:0,overflow:'hidden'}}>
           <div style={{padding:'14px 18px 10px',borderBottom:'1px solid var(--border)',flexShrink:0,background:'var(--bg-deep)'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
@@ -2478,7 +2478,7 @@ function App() {
             {!alHasMore && alEntries.length>0 && <div style={{textAlign:'center',padding:'10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:'var(--text-muted)'}}>Alle {alEntries.length} Einträge geladen</div>}
           </div>
         </div>
-      </div>
+      </Fenster>
     );
   };
 
@@ -2914,7 +2914,7 @@ function App() {
       </div>
 
       {showCF && ec && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:420}}>
             <div className="form-title">{chars.find(c=>c.id===ec.id)?"✎ Charakter bearbeiten":"✶ Neuer Charakter"}</div>
 
@@ -2978,10 +2978,10 @@ function App() {
               <button className="btn-save" onClick={saveChar}>✶ Speichern</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
       {showWF && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:480}}>
             <div className="form-title">{wfEditId ? "Waffe bearbeiten" : "Neue Waffe"}</div>
             <div className="form-grid">
@@ -3074,12 +3074,12 @@ function App() {
               <button className="btn-save" onClick={addWeapon}>{wfEditId ? "Speichern" : "+ Hinzufügen"}</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
 
       {showFF && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:480}}>
             <div className="form-title">{ffEditId ? '✏️ Fähigkeit bearbeiten' : '⭐ Neue Fähigkeit'}</div>
             <div className="form-grid">
@@ -3118,11 +3118,11 @@ function App() {
               <button className="btn-save" onClick={saveFeature}>{ffEditId ? '✓ Speichern' : '+ Hinzufügen'}</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
       {showSF && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:480}}>
             <div className="form-title">{sfEditId ? '✏️ Zauber bearbeiten' : '✨ Neuer Zauber'}</div>
             <div className="form-grid">
@@ -3267,11 +3267,11 @@ function App() {
               <button className="btn-save" onClick={addSpell}>{sfEditId ? '✓ Speichern' : '+ Hinzufügen'}</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
       {showNF && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:520}}>
             <div className="form-title">{nfEditId ? '✏️ Notiz bearbeiten' : '📄 Neue Notiz'}</div>
             <div className="form-grid">
@@ -3316,11 +3316,11 @@ function App() {
               <button className="btn-save" onClick={saveNote}>{nfEditId ? '✓ Speichern' : '+ Hinzufügen'}</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
       {showIF && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:520}}>
             <div className="form-title">{itfEditId ? '✏️ Gegenstand bearbeiten' : '🎒 Neuer Gegenstand'}</div>
 
@@ -3605,7 +3605,7 @@ function App() {
               <button className="btn-save" onClick={addItem}>{itfEditId ? '✓ Speichern' : '+ Hinzufügen'}</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
       {/* Transfer Modal */}
       {showTransfer && cur && (() => {
@@ -3617,7 +3617,7 @@ function App() {
           return true;
         });
         return (
-          <div className="form-overlay">
+          <Fenster>
             <div className="form-modal" style={{maxWidth:420}}>
               <div className="form-title">➤ Gegenstände übergeben</div>
               <div style={{marginBottom:16}}>
@@ -3672,7 +3672,7 @@ function App() {
               )}
               <button className="btn-icon" style={{width:"100%",justifyContent:"center"}} onClick={()=>setShowTransfer(false)}>Abbrechen</button>
             </div>
-          </div>
+          </Fenster>
         );
       })()}
 
@@ -3763,7 +3763,7 @@ function App() {
         const r = RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
         const icon = item.icon || '🎒';
         return (
-          <div className="form-overlay" onClick={()=>setItemViewer(null)}>
+          <Fenster onClick={()=>setItemViewer(null)}>
             <div className="form-modal" style={{maxWidth:460,padding:0,overflow:'hidden',maxHeight:'85vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
               {/* Header */}
               <div style={{background:`linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`,borderBottom:`1px solid ${r.color}55`,padding:'16px 18px 14px',display:'flex',gap:14,alignItems:'flex-start'}}>
@@ -3853,7 +3853,7 @@ function App() {
                 <button className="btn-cancel" onClick={()=>setItemViewer(null)}>Schließen</button>
               </div>
             </div>
-          </div>
+          </Fenster>
         );
       })()}
 
@@ -3873,7 +3873,7 @@ function App() {
           {l:"Übung",     v:w.proficient?"Ja":"Nein",      c:w.proficient?"var(--gold)":"var(--text-muted)"},
         ];
         return (
-          <div className="form-overlay" onClick={()=>setWeaponViewer(null)}>
+          <Fenster onClick={()=>setWeaponViewer(null)}>
             <div className="form-modal" style={{maxWidth:460,padding:0,overflow:'hidden',maxHeight:'85vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
               {/* Kopf: nach Schadensart getoenter Balken, wie bei den Gegenständen */}
               <div style={{background:`linear-gradient(180deg, ${dc}30 0%, ${dc}14 100%), var(--bg-card)`,borderBottom:`1px solid ${dc}55`,padding:'14px 18px 12px',display:'flex',gap:12,alignItems:'flex-start'}}>
@@ -3936,7 +3936,7 @@ function App() {
                   onClick={()=>{setWeaponViewer(null);delWeapon(w.id);}}>✕ Löschen</button>
               </div>
             </div>
-          </div>
+          </Fenster>
         );
       })()}
 
@@ -3976,7 +3976,7 @@ function App() {
         const DMG_TYPES = ['Hieb','Stich','Wucht','Feuer','Kälte','Blitz','Säure','Gift','Nekro','Psycho','Energie','Kraft'];
         const WPN_PROPS = ['Finesse','Weit','Leicht','Schwer','Werfbar','Zweihändig','Vielseitig','Ladezeit','Besondere'];
         return (
-          <div className="form-overlay">
+          <Fenster>
             <div className="form-modal" style={{maxWidth:600,height:'85vh',display:'flex',flexDirection:'column'}}>
               <div className="form-title">📚 Datenbank verwalten {isDmMode && <span style={{fontSize:11,color:'#c060a0',fontFamily:"'Roboto Condensed',sans-serif",marginLeft:8}}>🔮 DM-Modus</span>}</div>
 
@@ -4618,7 +4618,7 @@ function App() {
                 <button className="btn-cancel" onClick={()=>setShowDB(false)}>Schließen</button>
               </div>}
             </div>
-          </div>
+          </Fenster>
         );
       })()}
 
@@ -4637,7 +4637,7 @@ function App() {
 
 
       {verwaltung && (
-        <div className="form-overlay" onClick={()=>setVerwaltung(null)}>
+        <Fenster onClick={()=>setVerwaltung(null)}>
           <div className="form-modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
             <div className="form-title">🛠 Verwaltung · {svCode}</div>
 
@@ -4745,11 +4745,11 @@ function App() {
               <button className="btn-cancel" onClick={()=>setVerwaltung(null)}>Schließen</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
       {kontoDlg && (
-        <div className="form-overlay" onClick={()=>setKontoDlg(null)}>
+        <Fenster onClick={()=>setKontoDlg(null)}>
           <div className="form-modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
             <div className="form-title">👤 Mein Konto</div>
 
@@ -4852,11 +4852,11 @@ function App() {
               <button className="btn-cancel" onClick={()=>setKontoDlg(null)}>Schließen</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
       {passwortDlg && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:400}}>
             <div className="form-title">🔑 Passwort wählen</div>
             <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:16,lineHeight:1.55}}>
@@ -4896,7 +4896,7 @@ function App() {
               <button className="btn-save" onClick={passwortAendern}>Übernehmen</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
 
@@ -5007,7 +5007,7 @@ function App() {
 
       {/* Abenteuer verwalten */}
       {showAdvVerwaltung && (
-        <div className="form-overlay" onClick={()=>setShowAdvVerwaltung(false)}>
+        <Fenster onClick={()=>setShowAdvVerwaltung(false)}>
           <div className="form-modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
             <div className="form-title">🗺 Abenteuer</div>
             <p style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.6,marginBottom:14}}>
@@ -5065,14 +5065,14 @@ function App() {
               <button className="btn-cancel" onClick={()=>setShowAdvVerwaltung(false)}>Schließen</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
 
       {/* Anmelden. Seit Stufe 7 gibt es nur noch einen Weg hinein, und der
           braucht zwei Angaben: wer du bist und dein Passwort. Die Gruppe
           steht am Konto, die Adresse des Servers in der Adresszeile. */}
       {showSetup && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:420}}>
             <div className="form-title">👤 Anmelden</div>
             <p style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.6,marginBottom:16}}>
@@ -5119,11 +5119,11 @@ function App() {
               </button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
       {/* Template Picker Modal */}
       {showTpl && tplData && (
-        <div className="form-overlay">
+        <Fenster>
           <div className="form-modal" style={{maxWidth:580}}>
             <div className="form-title">
               {showTpl==='spell' ? '📖 Zauber aus SRD wählen' : showTpl==='wildshape' ? '🐺 Tierverwandlung – Bestiar' : '📖 Waffe aus SRD wählen'}
@@ -5363,7 +5363,7 @@ function App() {
               <button className="btn-cancel" onClick={()=>setShowTpl(null)}>Schließen</button>
             </div>
           </div>
-        </div>
+        </Fenster>
       )}
     </SheetCtx.Provider>
   );

@@ -40,7 +40,7 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
   const hinzu = () => klassenSetzen([...klassen, {name:'', color:'#8b9198'}]);
 
   return (
-    <div className="form-overlay">
+    <Fenster>
       <div className="form-modal" style={{maxWidth:560}}>
         <div className="form-title">⚙ Einstellungen · {adv.name || 'Abenteuer'}</div>
 
@@ -337,6 +337,6 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
           <button className="btn-save" onClick={onSpeichern}>💾 Speichern</button>
         </div>
       </div>
-    </div>
+    </Fenster>
   );
 };
