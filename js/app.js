@@ -5393,6 +5393,44 @@ const AbenteuerEinstellungen = ({
     key: n2,
     value: n2
   }, n2, " Goldm\xFCnzen")))), /*#__PURE__*/React.createElement("div", {
+    className: "einst-regeln"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "einst-tisch"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !(adv.automat && adv.automat.partageAus),
+    onChange: e => autoFeld({
+      partageAus: !e.target.checked
+    })
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "einst-tisch-z"
+  }, "\uD83C\uDFA1"), /*#__PURE__*/React.createElement("span", {
+    className: "einst-tisch-t"
+  }, /*#__PURE__*/React.createElement("b", null, "La Partage am Roulettetisch"), /*#__PURE__*/React.createElement("i", null, adv.automat && adv.automat.partageAus ? 'aus — bei der Null bleibt alles liegen, 2,7 % ans Haus' : 'an — bei der Null die Hälfte zurück, 1,35 % ans Haus'))), /*#__PURE__*/React.createElement("label", {
+    className: "einst-tisch"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!(adv.automat && adv.automat.weich17),
+    onChange: e => autoFeld({
+      weich17: e.target.checked
+    })
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "einst-tisch-z"
+  }, "\uD83C\uDCCF"), /*#__PURE__*/React.createElement("span", {
+    className: "einst-tisch-t"
+  }, /*#__PURE__*/React.createElement("b", null, "Der Wirt zieht auf weicher 17"), /*#__PURE__*/React.createElement("i", null, adv.automat && adv.automat.weich17 ? 'an — gut zwei Zehntelprozent mehr für das Haus' : 'aus — er bleibt auf jeder 17'))), /*#__PURE__*/React.createElement("label", {
+    className: "einst-tisch"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !(adv.automat && adv.automat.mitteAus),
+    onChange: e => autoFeld({
+      mitteAus: !e.target.checked
+    })
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "einst-tisch-z"
+  }, "\uD83C\uDFB2"), /*#__PURE__*/React.createElement("span", {
+    className: "einst-tisch-t"
+  }, /*#__PURE__*/React.createElement("b", null, "Die Mitte des Crapstisches"), /*#__PURE__*/React.createElement("i", null, adv.automat && adv.automat.mitteAus ? 'abgeräumt — keine Hartwege, keine Jede 7' : 'offen — zahlt am besten, kostet am meisten')))), /*#__PURE__*/React.createElement("div", {
     className: "einst-tische"
   }, TAVERNEN_TISCHE.map(t => {
     const zu = (adv.automat && adv.automat.zu || []).includes(t.k);
@@ -5967,6 +6005,65 @@ const beutelSchreiben = d => {
   } catch {}
 };
 const OHNE_HELD = '_ohne'; // ohne Bogen spielt man trotzdem
+
+// ── Was der Wirt sich merkt ────────────────────────────────
+// Eine Zeile je Held, im Geraet: wie viele Runden, wie viel gesetzt und
+// wie viel zurueck, und die laengste Serie in beide Richtungen. Es geht
+// niemanden an ausser den, der spielt — deshalb liegt es dort, wo auch
+// die Marken liegen, und nicht auf dem Server.
+const statLesen = heldId => {
+  const d = beutelLesen();
+  const e = (d.stat || {})[heldId || OHNE_HELD];
+  return {
+    runden: 0,
+    gesetzt: 0,
+    zurueck: 0,
+    siegSerie: 0,
+    pechSerie: 0,
+    serie: 0,
+    art: '',
+    ...(e || {})
+  };
+};
+const statSchreiben = (heldId, stat) => {
+  const d = beutelLesen();
+  beutelSchreiben({
+    ...d,
+    stat: {
+      ...(d.stat || {}),
+      [heldId || OHNE_HELD]: stat
+    }
+  });
+};
+// Eine Runde ist zu Ende, wenn der naechste Einsatz kommt. Gewonnen hat
+// sie, wer mehr zurueckbekam, als er hineingelegt hat.
+const statRunde = (stat, gesetzt, zurueck) => {
+  if (gesetzt <= 0) return stat;
+  const gut = zurueck > gesetzt;
+  const art = gut ? 'sieg' : 'pech';
+  const serie = stat.art === art ? stat.serie + 1 : 1;
+  return {
+    runden: stat.runden + 1,
+    gesetzt: stat.gesetzt + gesetzt,
+    zurueck: stat.zurueck + zurueck,
+    serie,
+    art,
+    siegSerie: Math.max(stat.siegSerie, art === 'sieg' ? serie : 0),
+    pechSerie: Math.max(stat.pechSerie, art === 'pech' ? serie : 0)
+  };
+};
+
+// Der Wirt sagt etwas dazu — aus dem, was dasteht, nicht aus dem Nichts.
+const wirtSpruch = stat => {
+  if (!stat.runden) return 'Der Wirt wischt einen Becher aus. „Setz dich, wenn du magst.“';
+  const rest = stat.zurueck - stat.gesetzt;
+  if (stat.art === 'pech' && stat.serie >= 5) return '„' + stat.serie + ' Runden am Stück daneben. Trink erst mal was.“';
+  if (stat.art === 'sieg' && stat.serie >= 4) return '„' + stat.serie + ' hintereinander. Der Wirt sieht dir jetzt zu.“';
+  if (rest > 0 && stat.runden >= 10) return '„Du stehst mit ' + rest + ' vorn. Das kommt nicht oft vor.“';
+  if (rest < -50) return '„Das Haus dankt. Das Haus dankt sehr.“';
+  if (stat.runden >= 40) return '„Du bist länger hier als mein Feuer.“';
+  return '„Weiter geht’s. Das Haus hat Zeit.“';
+};
 
 // ── Echtes Gold ────────────────────────────────────────
 // Genau dafuer haengt der Beutel seit v4.7 am Helden. Die Tische kennen
@@ -6691,6 +6788,15 @@ const TAVERNEN_TISCHE = [{
   weit: 700
 }];
 
+// Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
+// vorsieht — La Partage an, der Wirt bleibt auf jeder 17, die Mitte des
+// Crapstisches offen.
+const hausregeln = cfg => ({
+  partage: !(cfg && cfg.partageAus),
+  weich17: !!(cfg && cfg.weich17),
+  mitte: !(cfg && cfg.mitteAus)
+});
+
 // Wie breit ein Tisch stehen darf. Auf dem Telefon so schmal wie
 // bisher, ab Tabletbreite so breit, wie der Tisch es braucht — der
 // Roulettetapis hat zwoelf Spalten, und die will man sehen. Nie breiter,
@@ -6788,12 +6894,20 @@ const TaverneSchirm = ({
     // Wer den Beutel wechselt, schliesst den Abend des vorigen Helden ab
     // — sonst stuende seine Zeile nie im Abenteuerlog.
     const a = abend.current;
-    if (a.heldId && a.heldId !== heldId && a.gesetzt > 0 && onAbend) onAbend(a.heldId, a.gesetzt, a.zurueck);
+    if (a.heldId && a.heldId !== heldId) {
+      rundeSchliessen(a.heldId);
+      if (a.gesetzt > 0 && onAbend) onAbend(a.heldId, a.gesetzt, a.zurueck);
+    }
     abend.current = {
       heldId,
       gesetzt: 0,
       zurueck: 0
     };
+    runde.current = {
+      gesetzt: 0,
+      zurueck: 0
+    };
+    setStat(statLesen(heldId));
     const n = waehrung.lesen(heldId);
     markenRef.current = n;
     setMarkenRoh(n);
@@ -6801,10 +6915,13 @@ const TaverneSchirm = ({
 
   // Was ein Tisch als Einsatz anbietet: bei Marken die Leiter des
   // Abenteuers, bei Gold die kleine.
-  const cfgTisch = React.useMemo(() => waehrung.leiter ? {
+  const cfgTisch = React.useMemo(() => ({
     ...(cfg || {}),
-    einsaetze: waehrung.leiter
-  } : cfg, [cfg, waehrung]);
+    regeln: hausregeln(cfg),
+    ...(waehrung.leiter ? {
+      einsaetze: waehrung.leiter
+    } : null)
+  }), [cfg, waehrung]);
   const offen = React.useMemo(() => tavernenZu(cfg), [cfg]);
 
   // Was an diesem Abend durch die Taverne gegangen ist — fuer die eine
@@ -6814,15 +6931,41 @@ const TaverneSchirm = ({
     gesetzt: 0,
     zurueck: 0
   });
+  // Die offene Runde: ein Einsatz, danach was zurueckkam. Sie schliesst,
+  // wenn der naechste Einsatz kommt — oder wenn man hinausgeht.
+  const runde = React.useRef({
+    gesetzt: 0,
+    zurueck: 0
+  });
+  const [stat, setStat] = React.useState(() => statLesen(heldId));
+  const rundeSchliessen = id => {
+    const r = runde.current;
+    if (r.gesetzt <= 0) return;
+    runde.current = {
+      gesetzt: 0,
+      zurueck: 0
+    };
+    const neu = statRunde(statLesen(id), r.gesetzt, r.zurueck);
+    statSchreiben(id, neu);
+    if (id === heldId) setStat(neu);
+  };
   const buchen = delta => {
     if (abend.current.heldId !== heldId) abend.current = {
       heldId,
       gesetzt: 0,
       zurueck: 0
     };
-    if (delta < 0) abend.current.gesetzt += -delta;else abend.current.zurueck += delta;
+    if (delta < 0) {
+      rundeSchliessen(heldId);
+      abend.current.gesetzt += -delta;
+      runde.current.gesetzt += -delta;
+    } else if (delta > 0) {
+      abend.current.zurueck += delta;
+      runde.current.zurueck += delta;
+    }
   };
   const hinaus = () => {
+    rundeSchliessen(heldId);
     const a = abend.current;
     if (onAbend && a.heldId && a.gesetzt > 0) onAbend(a.heldId, a.gesetzt, a.zurueck);
     onSchliessen();
@@ -6934,8 +7077,14 @@ const TaverneSchirm = ({
     tische: offen,
     onWahl: setTisch
   }), /*#__PURE__*/React.createElement("div", {
+    className: "halle-wirt"
+  }, "\uD83E\uDDD4 ", wirtSpruch(stat)), stat.runden > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "halle-stat"
+  }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, stat.runden), " Runden"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, stat.gesetzt), " gesetzt"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, stat.zurueck), " zur\xFCck"), /*#__PURE__*/React.createElement("span", {
+    className: stat.zurueck - stat.gesetzt >= 0 ? 'gut' : 'schlecht'
+  }, /*#__PURE__*/React.createElement("b", null, stat.zurueck - stat.gesetzt >= 0 ? '+' : '−', Math.abs(stat.zurueck - stat.gesetzt)), " unterm Strich"), /*#__PURE__*/React.createElement("span", null, "l\xE4ngste Serie ", /*#__PURE__*/React.createElement("b", null, stat.siegSerie), "\u2009\u2713 / ", /*#__PURE__*/React.createElement("b", null, stat.pechSerie), "\u2009\u2717")), /*#__PURE__*/React.createElement("div", {
     className: "halle-fuss"
-  }, "Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden \u2014 nichts davon ber\xFChrt einen Bogen. Was das Haus an einem Tisch verdient, steht am Tisch.")));
+  }, waehrung.gold ? 'Gespielt wird mit echtem Gold aus dem Bogen — die Spielleitung hat es so eingestellt.' : 'Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden — nichts davon berührt einen Bogen.', ' ', "Was das Haus an einem Tisch verdient, steht am Tisch.")));
 };
 
 // ==== js/src/2f2-blackjack.jsx ====
@@ -7073,6 +7222,9 @@ const BlackjackTisch = ({
   onLaeuft
 }) => {
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  // Zieht der Wirt auf einer weichen 17, gewinnt das Haus etwa zwei
+  // Zehntelprozent mehr. Die Spielleitung stellt es ein, der Filz sagt es.
+  const weich17 = !!(cfg && cfg.regeln && cfg.regeln.weich17);
   const schlitten = React.useRef(bjNeuerSchlitten());
   // Innerhalb eines Griffs werden mehrere Karten gezogen und mehrere
   // Betraege verrechnet. Zustand allein taugt dafuer nicht — er kommt
@@ -7259,7 +7411,15 @@ const BlackjackTisch = ({
     const lebt = hs.some(h => bjWert(h.karten).wert <= 21);
     let w = [...wirt];
     if (lebt) {
-      while (bjWert(w).wert < 17) w.push(ziehen());
+      // Bis 16 zieht er immer; die weiche 17 ist die Hausregel.
+      const zieht = () => {
+        const {
+          wert,
+          weich
+        } = bjWert(w);
+        return wert < 17 || weich17 && wert === 17 && weich;
+      };
+      while (zieht()) w.push(ziehen());
       setWirt(w);
     }
     abrechnen(hs, w, vers || 0);
@@ -7369,7 +7529,7 @@ const BlackjackTisch = ({
     className: "bj-druck gross"
   }, "Blackjack zahlt 3 zu 2"), /*#__PURE__*/React.createElement("span", {
     className: "bj-druck"
-  }, "Der Wirt zieht bis 16 und bleibt ab 17"), /*#__PURE__*/React.createElement("span", {
+  }, weich17 ? 'Der Wirt zieht bis 16 und auf weicher 17' : 'Der Wirt zieht bis 16 und bleibt ab 17'), /*#__PURE__*/React.createElement("span", {
     className: "bj-druck"
   }, "Verdoppeln nur auf 9, 10 und 11"), /*#__PURE__*/React.createElement("span", {
     className: "bj-druck klein"
@@ -7766,6 +7926,10 @@ const RouletteTisch = ({
   onLaeuft
 }) => {
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  // Ohne La Partage ist es kein franzoesischer Tisch mehr, sondern ein
+  // gewoehnlicher mit einem Zero: 2,7 % statt 1,35 %. Die Spielleitung
+  // darf das, aber es steht dann auch so am Tisch.
+  const partage = !(cfg && cfg.regeln && cfg.regeln.partage === false);
   const [jeton, setJeton] = React.useState(() => einsaetze[0] || 5);
   const [modus, setModus] = React.useState('plein');
   const [wahl, setWahl] = React.useState([]);
@@ -7917,7 +8081,7 @@ const RouletteTisch = ({
       if (trifft) {
         g = w.betrag + w.betrag * RLT_ZAHLT[w.art];
         text = 'trifft';
-      } else if (w.art === 'einfach' && n === 0) {
+      } else if (partage && w.art === 'einfach' && n === 0) {
         // La Partage: bei der Null bleibt bei den einfachen Chancen die
         // Hälfte liegen. Das ist der ganze Unterschied zum Rest der Welt.
         g = Math.floor(w.betrag / 2);
@@ -8027,7 +8191,7 @@ const RouletteTisch = ({
     key: i
   }, n))), /*#__PURE__*/React.createElement("div", {
     className: "rlt-partage"
-  }, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "La Partage"), " \u2014 bei der Null die H\xE4lfte zur\xFCck auf die einfachen Chancen. 1,35 % ans Haus."))), /*#__PURE__*/React.createElement("div", {
+  }, partage ? /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "La Partage"), " \u2014 bei der Null die H\xE4lfte zur\xFCck auf die einfachen Chancen. 1,35 % ans Haus.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "ohne La Partage"), " \u2014 bei der Null bleibt alles liegen. 2,7 % ans Haus.")))), /*#__PURE__*/React.createElement("div", {
     className: "rlt-modi"
   }, RLT_MODI.map(m => /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -8474,6 +8638,9 @@ const CrapsTisch = ({
   onLaeuft
 }) => {
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  // Die Mitte zahlt am besten und kostet am meisten. Eine Runde, die
+  // das nicht am Tisch haben will, raeumt sie ab.
+  const mitte = !(cfg && cfg.regeln && cfg.regeln.mitte === false);
   const [jeton, setJeton] = React.useState(() => einsaetze[0] || 5);
   const [wetten, setWetten] = React.useState(crLeer);
   const [punkt, setPunkt] = React.useState(null);
@@ -8646,7 +8813,7 @@ const CrapsTisch = ({
     className: "cr-feld-hinweis"
   }, "2 zahlt doppelt, 12 dreifach \xB7 5,6 % ans Haus"), wetten.feld > 0 && /*#__PURE__*/React.createElement("i", {
     className: "cr-jeton"
-  }, wetten.feld)), /*#__PURE__*/React.createElement("div", {
+  }, wetten.feld)), mitte && /*#__PURE__*/React.createElement("div", {
     className: "cr-props"
   }, [6, 8].map(n => /*#__PURE__*/React.createElement("button", {
     type: "button",

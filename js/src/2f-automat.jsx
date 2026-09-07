@@ -221,6 +221,53 @@ const beutelSchreiben = (d) => {
 };
 const OHNE_HELD = '_ohne';   // ohne Bogen spielt man trotzdem
 
+// ── Was der Wirt sich merkt ────────────────────────────────
+// Eine Zeile je Held, im Geraet: wie viele Runden, wie viel gesetzt und
+// wie viel zurueck, und die laengste Serie in beide Richtungen. Es geht
+// niemanden an ausser den, der spielt — deshalb liegt es dort, wo auch
+// die Marken liegen, und nicht auf dem Server.
+const statLesen = (heldId) => {
+  const d = beutelLesen();
+  const e = (d.stat || {})[heldId || OHNE_HELD];
+  return {runden:0, gesetzt:0, zurueck:0, siegSerie:0, pechSerie:0,
+          serie:0, art:'', ...(e || {})};
+};
+const statSchreiben = (heldId, stat) => {
+  const d = beutelLesen();
+  beutelSchreiben({...d, stat: {...(d.stat || {}), [heldId || OHNE_HELD]: stat}});
+};
+// Eine Runde ist zu Ende, wenn der naechste Einsatz kommt. Gewonnen hat
+// sie, wer mehr zurueckbekam, als er hineingelegt hat.
+const statRunde = (stat, gesetzt, zurueck) => {
+  if (gesetzt <= 0) return stat;
+  const gut = zurueck > gesetzt;
+  const art = gut ? 'sieg' : 'pech';
+  const serie = stat.art === art ? stat.serie + 1 : 1;
+  return {
+    runden: stat.runden + 1,
+    gesetzt: stat.gesetzt + gesetzt,
+    zurueck: stat.zurueck + zurueck,
+    serie, art,
+    siegSerie: Math.max(stat.siegSerie, art === 'sieg' ? serie : 0),
+    pechSerie: Math.max(stat.pechSerie, art === 'pech' ? serie : 0),
+  };
+};
+
+// Der Wirt sagt etwas dazu — aus dem, was dasteht, nicht aus dem Nichts.
+const wirtSpruch = (stat) => {
+  if (!stat.runden) return 'Der Wirt wischt einen Becher aus. „Setz dich, wenn du magst.“';
+  const rest = stat.zurueck - stat.gesetzt;
+  if (stat.art === 'pech' && stat.serie >= 5)
+    return '„' + stat.serie + ' Runden am Stück daneben. Trink erst mal was.“';
+  if (stat.art === 'sieg' && stat.serie >= 4)
+    return '„' + stat.serie + ' hintereinander. Der Wirt sieht dir jetzt zu.“';
+  if (rest > 0 && stat.runden >= 10)
+    return '„Du stehst mit ' + rest + ' vorn. Das kommt nicht oft vor.“';
+  if (rest < -50) return '„Das Haus dankt. Das Haus dankt sehr.“';
+  if (stat.runden >= 40) return '„Du bist länger hier als mein Feuer.“';
+  return '„Weiter geht’s. Das Haus hat Zeit.“';
+};
+
 // ── Echtes Gold ────────────────────────────────────────
 // Genau dafuer haengt der Beutel seit v4.7 am Helden. Die Tische kennen
 // nur "lesen" und "schreiben", nicht das Feld dahinter — also reicht
@@ -853,6 +900,15 @@ const TAVERNEN_TISCHE = [
    da:true, breit:560, weit:700},
 ];
 
+// Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
+// vorsieht — La Partage an, der Wirt bleibt auf jeder 17, die Mitte des
+// Crapstisches offen.
+const hausregeln = (cfg) => ({
+  partage: !(cfg && cfg.partageAus),
+  weich17: !!(cfg && cfg.weich17),
+  mitte:   !(cfg && cfg.mitteAus),
+});
+
 // Wie breit ein Tisch stehen darf. Auf dem Telefon so schmal wie
 // bisher, ab Tabletbreite so breit, wie der Tisch es braucht — der
 // Roulettetapis hat zwoelf Spalten, und die will man sehen. Nie breiter,
@@ -938,9 +994,13 @@ const TaverneSchirm = ({ cfg, helden, heldStart, gold, onSchliessen, onAbend }) 
     // Wer den Beutel wechselt, schliesst den Abend des vorigen Helden ab
     // — sonst stuende seine Zeile nie im Abenteuerlog.
     const a = abend.current;
-    if (a.heldId && a.heldId !== heldId && a.gesetzt > 0 && onAbend)
-      onAbend(a.heldId, a.gesetzt, a.zurueck);
+    if (a.heldId && a.heldId !== heldId) {
+      rundeSchliessen(a.heldId);
+      if (a.gesetzt > 0 && onAbend) onAbend(a.heldId, a.gesetzt, a.zurueck);
+    }
     abend.current = {heldId, gesetzt: 0, zurueck: 0};
+    runde.current = {gesetzt: 0, zurueck: 0};
+    setStat(statLesen(heldId));
     const n = waehrung.lesen(heldId);
     markenRef.current = n;
     setMarkenRoh(n);
@@ -949,18 +1009,40 @@ const TaverneSchirm = ({ cfg, helden, heldStart, gold, onSchliessen, onAbend }) 
   // Was ein Tisch als Einsatz anbietet: bei Marken die Leiter des
   // Abenteuers, bei Gold die kleine.
   const cfgTisch = React.useMemo(
-    () => waehrung.leiter ? {...(cfg || {}), einsaetze: waehrung.leiter} : cfg,
+    () => ({...(cfg || {}), regeln: hausregeln(cfg),
+            ...(waehrung.leiter ? {einsaetze: waehrung.leiter} : null)}),
     [cfg, waehrung]);
   const offen = React.useMemo(() => tavernenZu(cfg), [cfg]);
 
   // Was an diesem Abend durch die Taverne gegangen ist — fuer die eine
   // Zeile im Abenteuerlog, wenn man wieder hinausgeht.
   const abend = React.useRef({heldId: null, gesetzt: 0, zurueck: 0});
+  // Die offene Runde: ein Einsatz, danach was zurueckkam. Sie schliesst,
+  // wenn der naechste Einsatz kommt — oder wenn man hinausgeht.
+  const runde = React.useRef({gesetzt: 0, zurueck: 0});
+  const [stat, setStat] = React.useState(() => statLesen(heldId));
+
+  const rundeSchliessen = (id) => {
+    const r = runde.current;
+    if (r.gesetzt <= 0) return;
+    runde.current = {gesetzt: 0, zurueck: 0};
+    const neu = statRunde(statLesen(id), r.gesetzt, r.zurueck);
+    statSchreiben(id, neu);
+    if (id === heldId) setStat(neu);
+  };
   const buchen = (delta) => {
     if (abend.current.heldId !== heldId) abend.current = {heldId, gesetzt: 0, zurueck: 0};
-    if (delta < 0) abend.current.gesetzt += -delta; else abend.current.zurueck += delta;
+    if (delta < 0) {
+      rundeSchliessen(heldId);
+      abend.current.gesetzt += -delta;
+      runde.current.gesetzt += -delta;
+    } else if (delta > 0) {
+      abend.current.zurueck += delta;
+      runde.current.zurueck += delta;
+    }
   };
   const hinaus = () => {
+    rundeSchliessen(heldId);
     const a = abend.current;
     if (onAbend && a.heldId && a.gesetzt > 0) onAbend(a.heldId, a.gesetzt, a.zurueck);
     onSchliessen();
@@ -1040,10 +1122,23 @@ const TaverneSchirm = ({ cfg, helden, heldStart, gold, onSchliessen, onAbend }) 
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />
+          <div className="halle-wirt">🧔 {wirtSpruch(stat)}</div>
+          {stat.runden > 0 && (
+            <div className="halle-stat">
+              <span><b>{stat.runden}</b> Runden</span>
+              <span><b>{stat.gesetzt}</b> gesetzt</span>
+              <span><b>{stat.zurueck}</b> zurück</span>
+              <span className={stat.zurueck - stat.gesetzt >= 0 ? 'gut' : 'schlecht'}>
+                <b>{stat.zurueck - stat.gesetzt >= 0 ? '+' : '−'}
+                  {Math.abs(stat.zurueck - stat.gesetzt)}</b> unterm Strich</span>
+              <span>längste Serie <b>{stat.siegSerie}</b> ✓ / <b>{stat.pechSerie}</b> ✗</span>
+            </div>
+          )}
           <div className="halle-fuss">
-            Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden —
-            nichts davon berührt einen Bogen. Was das Haus an einem Tisch
-            verdient, steht am Tisch.
+            {waehrung.gold
+              ? 'Gespielt wird mit echtem Gold aus dem Bogen — die Spielleitung hat es so eingestellt.'
+              : 'Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden — nichts davon berührt einen Bogen.'}
+            {' '}Was das Haus an einem Tisch verdient, steht am Tisch.
           </div>
         </div>
       )}

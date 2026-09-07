@@ -142,14 +142,41 @@ und das einzige, bei dem die Quoten daraus kommen.
   gesetzt, zurück, unterm Strich. Nicht jeder Dreh — das wären dreißig
   Zeilen je Abend.
 
-## Stufe 7 · Der Wirt (offen, nicht bestellt)
+## Stufe 7 · Der Wirt ✓
 
-Kleinigkeiten, die erst Sinn ergeben, wenn die Tische stehen:
+*Steht seit v4.7.* Die Kleinigkeiten, die erst Sinn ergeben, wenn die
+Tische stehen.
 
-- Hausregeln je Abenteuer: La Partage an oder aus, weicher 17 beim
-  Wirt, Höchsteinsatz je Tisch, welche Wetten die Mitte zeigt.
-- Eine Statistik je Held: gespielt, gewonnen, verloren, längste Serie.
-- Der Wirt als Figur — er kommentiert, was am Tisch passiert.
+**Drei Hausregeln je Abenteuer**, jede mit ihrem Preis daneben:
+
+| Regel | an | aus |
+|---|---|---|
+| La Partage am Roulettetisch | 1,35 % ans Haus | 2,7 % |
+| Der Wirt zieht auf weicher 17 | gut 0,2 % mehr fürs Haus | er bleibt auf jeder 17 |
+| Die Mitte des Crapstisches | zahlt am besten, kostet am meisten | abgeräumt |
+
+Was gilt, steht am Tisch selbst — der Roulettetisch schreibt seinen
+eigenen Hausvorteil hin, der Filz die Regel des Wirts.
+
+**Eine Statistik je Held**, im Gerät neben den Marken: Runden, gesetzt,
+zurück, unterm Strich, und die längste Serie in beide Richtungen. Eine
+Runde ist zu Ende, wenn der nächste Einsatz kommt.
+
+**Der Wirt** steht in der Halle und sagt etwas dazu — aus dem, was
+dasteht, nicht aus dem Nichts: nach fünf Fehlschlägen rät er zu einem
+Getränk, nach vier Treffern sieht er zu.
+
+Nicht gebaut: ein Höchsteinsatz je Tisch. Der eine für alle reicht, und
+je Tisch wären es fünf Einstellungen, die niemand pflegt.
+
+---
+
+## Alle sieben Stufen stehen
+
+Die Taverne ist damit fertig gebaut: fünf Tische, ein Beutel je Held,
+wahlweise echtes Gold, drei Hausregeln und ein Wirt, der mitzählt.
+Was von hier aus noch käme, steht in keinem Plan mehr — es wäre neu zu
+besprechen.
 
 ---
 

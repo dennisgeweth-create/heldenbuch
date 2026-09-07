@@ -160,6 +160,9 @@ const CrWuerfel = ({ n }) => {
 
 const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  // Die Mitte zahlt am besten und kostet am meisten. Eine Runde, die
+  // das nicht am Tisch haben will, raeumt sie ab.
+  const mitte = !(cfg && cfg.regeln && cfg.regeln.mitte === false);
   const [jeton, setJeton] = React.useState(() => einsaetze[0] || 5);
   const [wetten, setWetten] = React.useState(crLeer);
   const [punkt, setPunkt] = React.useState(null);
@@ -309,6 +312,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           {wetten.feld > 0 && <i className="cr-jeton">{wetten.feld}</i>}
         </button>
 
+        {mitte && (
         <div className="cr-props">
           {[6, 8].map(n => (
             <button type="button" key={n} className="cr-prop"
@@ -329,6 +333,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             {wetten.sieben > 0 && <i className="cr-jeton">{wetten.sieben}</i>}
           </button>
         </div>
+        )}
 
         <button type="button" className="cr-band dont"
           onClick={()=>setzen(w => { w.dont += jeton; }, kommenAus,

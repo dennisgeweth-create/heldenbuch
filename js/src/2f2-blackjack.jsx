@@ -102,6 +102,9 @@ const BjKarte = ({ k, zu }) => zu
 
 const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  // Zieht der Wirt auf einer weichen 17, gewinnt das Haus etwa zwei
+  // Zehntelprozent mehr. Die Spielleitung stellt es ein, der Filz sagt es.
+  const weich17 = !!(cfg && cfg.regeln && cfg.regeln.weich17);
   const schlitten = React.useRef(bjNeuerSchlitten());
   // Innerhalb eines Griffs werden mehrere Karten gezogen und mehrere
   // Betraege verrechnet. Zustand allein taugt dafuer nicht — er kommt
@@ -231,7 +234,12 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     const lebt = hs.some(h => bjWert(h.karten).wert <= 21);
     let w = [...wirt];
     if (lebt) {
-      while (bjWert(w).wert < 17) w.push(ziehen());
+      // Bis 16 zieht er immer; die weiche 17 ist die Hausregel.
+      const zieht = () => {
+        const {wert, weich} = bjWert(w);
+        return wert < 17 || (weich17 && wert === 17 && weich);
+      };
+      while (zieht()) w.push(ziehen());
       setWirt(w);
     }
     abrechnen(hs, w, vers || 0);
@@ -311,7 +319,10 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             hier: dann muss man den Wirt nicht fragen. */}
         <div className="bj-bogen">
           <span className="bj-druck gross">Blackjack zahlt 3 zu 2</span>
-          <span className="bj-druck">Der Wirt zieht bis 16 und bleibt ab 17</span>
+          <span className="bj-druck">
+            {weich17 ? 'Der Wirt zieht bis 16 und auf weicher 17'
+                     : 'Der Wirt zieht bis 16 und bleibt ab 17'}
+          </span>
           <span className="bj-druck">Verdoppeln nur auf 9, 10 und 11</span>
           <span className="bj-druck klein">Versicherung zahlt 2 zu 1 · {restBlaetter} Blätter im Schlitten</span>
         </div>

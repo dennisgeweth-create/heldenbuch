@@ -132,6 +132,10 @@ const RLT_EINFACH = [
 
 const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  // Ohne La Partage ist es kein franzoesischer Tisch mehr, sondern ein
+  // gewoehnlicher mit einem Zero: 2,7 % statt 1,35 %. Die Spielleitung
+  // darf das, aber es steht dann auch so am Tisch.
+  const partage = !(cfg && cfg.regeln && cfg.regeln.partage === false);
   const [jeton, setJeton] = React.useState(() => einsaetze[0] || 5);
   const [modus, setModus] = React.useState('plein');
   const [wahl, setWahl] = React.useState([]);
@@ -247,7 +251,7 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       if (trifft) {
         g = w.betrag + w.betrag * RLT_ZAHLT[w.art];
         text = 'trifft';
-      } else if (w.art === 'einfach' && n === 0) {
+      } else if (partage && w.art === 'einfach' && n === 0) {
         // La Partage: bei der Null bleibt bei den einfachen Chancen die
         // Hälfte liegen. Das ist der ganze Unterschied zum Rest der Welt.
         g = Math.floor(w.betrag / 2);
@@ -334,8 +338,13 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
                   <span className={'rlt-zahl ' + rltFarbe(n)} key={i}>{n}</span>))}
           </div>
           <div className="rlt-partage">
-            Ein Zéro · <b>La Partage</b> — bei der Null die Hälfte zurück auf
-            die einfachen Chancen. 1,35 % ans Haus.
+            {partage ? (
+              <>Ein Zéro · <b>La Partage</b> — bei der Null die Hälfte zurück
+                auf die einfachen Chancen. 1,35 % ans Haus.</>
+            ) : (
+              <>Ein Zéro · <b>ohne La Partage</b> — bei der Null bleibt alles
+                liegen. 2,7 % ans Haus.</>
+            )}
           </div>
         </div>
       </div>

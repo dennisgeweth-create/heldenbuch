@@ -147,6 +147,38 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               </label>
             )}
 
+            {/* Hausregeln. Jede kostet oder bringt etwas, und wie viel,
+                steht dabei — sonst wäre es eine Einstellung ohne Folgen. */}
+            <div className="einst-regeln">
+              <label className="einst-tisch">
+                <input type="checkbox" checked={!(adv.automat && adv.automat.partageAus)}
+                  onChange={e=>autoFeld({partageAus: !e.target.checked})} />
+                <span className="einst-tisch-z">🎡</span>
+                <span className="einst-tisch-t"><b>La Partage am Roulettetisch</b>
+                  <i>{(adv.automat && adv.automat.partageAus)
+                    ? 'aus — bei der Null bleibt alles liegen, 2,7 % ans Haus'
+                    : 'an — bei der Null die Hälfte zurück, 1,35 % ans Haus'}</i></span>
+              </label>
+              <label className="einst-tisch">
+                <input type="checkbox" checked={!!(adv.automat && adv.automat.weich17)}
+                  onChange={e=>autoFeld({weich17: e.target.checked})} />
+                <span className="einst-tisch-z">🃏</span>
+                <span className="einst-tisch-t"><b>Der Wirt zieht auf weicher 17</b>
+                  <i>{(adv.automat && adv.automat.weich17)
+                    ? 'an — gut zwei Zehntelprozent mehr für das Haus'
+                    : 'aus — er bleibt auf jeder 17'}</i></span>
+              </label>
+              <label className="einst-tisch">
+                <input type="checkbox" checked={!(adv.automat && adv.automat.mitteAus)}
+                  onChange={e=>autoFeld({mitteAus: !e.target.checked})} />
+                <span className="einst-tisch-z">🎲</span>
+                <span className="einst-tisch-t"><b>Die Mitte des Crapstisches</b>
+                  <i>{(adv.automat && adv.automat.mitteAus)
+                    ? 'abgeräumt — keine Hartwege, keine Jede 7'
+                    : 'offen — zahlt am besten, kostet am meisten'}</i></span>
+              </label>
+            </div>
+
             <div className="einst-tische">
               {TAVERNEN_TISCHE.map(t => {
                 const zu = ((adv.automat && adv.automat.zu) || []).includes(t.k);
