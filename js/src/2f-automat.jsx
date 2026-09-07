@@ -993,6 +993,23 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
   };
   const setMarken = (n) => stellen(n);
   const zahlen = (delta) => stellen(markenRef.current + delta);
+  // Der Beutel liegt im Bogen, und am Bogen sitzt vielleicht noch
+  // jemand: das andere Gerät desselben Spielers, die Spielleitung, der
+  // Abgleich im Hintergrund. Ändert sich der Stand dort, kommt er hier
+  // auf den Tisch — aber nur zwischen zwei Einwürfen. Während die
+  // Walzen laufen, gehört der Stand dem Tisch.
+  const beutelRef = React.useRef(waehrung);
+  beutelRef.current = waehrung;
+  React.useEffect(() => {
+    if (laeuft) return undefined;
+    const uhr = setInterval(() => {
+      const n = beutelRef.current.lesen(heldId);
+      if (!Number.isFinite(n) || n === markenRef.current) return;
+      markenRef.current = n;
+      setMarkenRoh(n);
+    }, 2000);
+    return () => clearInterval(uhr);
+  }, [heldId, laeuft]);
   // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
   React.useEffect(() => {
     // Wer den Beutel wechselt, schliesst den Abend des vorigen Helden ab

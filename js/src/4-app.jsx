@@ -1816,8 +1816,18 @@ function App() {
     lesen: (charId) => {
       const c = charsRef.current.find(x => x.id === charId);
       if (!c) return WAEHRUNGEN.marken.lesen(charId);      // ohne Bogen: das Gerät
-      return Number.isFinite(+c.marken) ? Math.max(0, Math.round(+c.marken))
-        : WAEHRUNGEN.marken.lesen(charId);                 // der Umzug
+      if (Number.isFinite(+c.marken)) return Math.max(0, Math.round(+c.marken));
+      // Der Umzug. Steht im Bogen noch nichts, gilt der Stand dieses
+      // Geräts — aber er wird auch gleich hineingeschrieben. Ihn nur zu
+      // lesen hieße: solange niemand spielt, zeigt jedes Gerät weiter
+      // seine eigene Zahl. Genau daran hingen die zwei Beutel auf
+      // demselben Helden. Wer zuerst hineinsieht, setzt den Stand.
+      const n = WAEHRUNGEN.marken.lesen(charId);
+      if (!umgezogen.current.has(charId)) {
+        umgezogen.current.add(charId);
+        setTimeout(() => markenBeutel.schreiben(charId, n), 0);
+      }
+      return n;
     },
     schreiben: (charId, wert) => {
       const c = charsRef.current.find(x => x.id === charId);
@@ -1827,6 +1837,11 @@ function App() {
       heldImKampfAendern(charId, {marken: n}, c.name);
     },
   };
+
+  // Welche Boegen ihren Stand schon aus dem Geraet bekommen haben. Ohne
+  // das Merkzeichen versuchte es jeder Lesevorgang erneut — auch dort,
+  // wo das Schreiben verweigert wird.
+  const umgezogen = useRef(new Set());
 
   const goldBeutel = tavernenGold ? {
     name: 'Goldmünzen', kurz: '◉', gold: true, leiter: [1, 2, 5, 10],

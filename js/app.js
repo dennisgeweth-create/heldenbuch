@@ -6893,6 +6893,23 @@ const TaverneSchirm = ({
   };
   const setMarken = n => stellen(n);
   const zahlen = delta => stellen(markenRef.current + delta);
+  // Der Beutel liegt im Bogen, und am Bogen sitzt vielleicht noch
+  // jemand: das andere Gerät desselben Spielers, die Spielleitung, der
+  // Abgleich im Hintergrund. Ändert sich der Stand dort, kommt er hier
+  // auf den Tisch — aber nur zwischen zwei Einwürfen. Während die
+  // Walzen laufen, gehört der Stand dem Tisch.
+  const beutelRef = React.useRef(waehrung);
+  beutelRef.current = waehrung;
+  React.useEffect(() => {
+    if (laeuft) return undefined;
+    const uhr = setInterval(() => {
+      const n = beutelRef.current.lesen(heldId);
+      if (!Number.isFinite(n) || n === markenRef.current) return;
+      markenRef.current = n;
+      setMarkenRoh(n);
+    }, 2000);
+    return () => clearInterval(uhr);
+  }, [heldId, laeuft]);
   // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
   React.useEffect(() => {
     // Wer den Beutel wechselt, schliesst den Abend des vorigen Helden ab
@@ -15631,7 +15648,18 @@ function App() {
     lesen: charId => {
       const c = charsRef.current.find(x => x.id === charId);
       if (!c) return WAEHRUNGEN.marken.lesen(charId); // ohne Bogen: das Gerät
-      return Number.isFinite(+c.marken) ? Math.max(0, Math.round(+c.marken)) : WAEHRUNGEN.marken.lesen(charId); // der Umzug
+      if (Number.isFinite(+c.marken)) return Math.max(0, Math.round(+c.marken));
+      // Der Umzug. Steht im Bogen noch nichts, gilt der Stand dieses
+      // Geräts — aber er wird auch gleich hineingeschrieben. Ihn nur zu
+      // lesen hieße: solange niemand spielt, zeigt jedes Gerät weiter
+      // seine eigene Zahl. Genau daran hingen die zwei Beutel auf
+      // demselben Helden. Wer zuerst hineinsieht, setzt den Stand.
+      const n = WAEHRUNGEN.marken.lesen(charId);
+      if (!umgezogen.current.has(charId)) {
+        umgezogen.current.add(charId);
+        setTimeout(() => markenBeutel.schreiben(charId, n), 0);
+      }
+      return n;
     },
     schreiben: (charId, wert) => {
       const c = charsRef.current.find(x => x.id === charId);
@@ -15646,6 +15674,11 @@ function App() {
       }, c.name);
     }
   };
+
+  // Welche Boegen ihren Stand schon aus dem Geraet bekommen haben. Ohne
+  // das Merkzeichen versuchte es jeder Lesevorgang erneut — auch dort,
+  // wo das Schreiben verweigert wird.
+  const umgezogen = useRef(new Set());
   const goldBeutel = tavernenGold ? {
     name: 'Goldmünzen',
     kurz: '◉',
