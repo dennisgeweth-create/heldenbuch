@@ -4911,7 +4911,7 @@ function App() {
 
 
       {showAutomat && (
-        <AutomatSchirm cfg={advObj && advObj.automat}
+        <TaverneSchirm cfg={advObj && advObj.automat}
           helden={tavernenHelden} heldStart={sel}
           onSchliessen={()=>setShowAutomat(false)} />
       )}

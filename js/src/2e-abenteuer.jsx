@@ -110,6 +110,32 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
             </div>
           </EinstBlock>
 
+          {/* ── Die Taverne ── */}
+          <EinstBlock titel="🍺 Tische der Taverne"
+            kurz={tavernenZu(adv.automat).length + ' von ' + TAVERNEN_TISCHE.length + ' offen'}>
+            <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+              Welche Tische in diesem Abenteuer aufgebaut sind. Ein geschlossener
+              Tisch steht nicht in der Halle — wer gerade daran sitzt, wird in
+              die Halle zurückgeschickt.
+            </div>
+            <div className="einst-tische">
+              {TAVERNEN_TISCHE.map(t => {
+                const zu = ((adv.automat && adv.automat.zu) || []).includes(t.k);
+                return (
+                  <label key={t.k} className={'einst-tisch' + (t.da ? '' : ' spaeter')}>
+                    <input type="checkbox" checked={!zu} disabled={!t.da}
+                      onChange={e=>{
+                        const l = ((adv.automat && adv.automat.zu) || []).filter(x => x !== t.k);
+                        autoFeld({zu: e.target.checked ? l : [...l, t.k]});
+                      }} />
+                    <span className="einst-tisch-z">{t.z}</span>
+                    <span className="einst-tisch-t"><b>{t.name}</b><i>{t.da ? t.unter : 'wird noch gebaut'}</i></span>
+                  </label>
+                );
+              })}
+            </div>
+          </EinstBlock>
+
           {/* ── Der Automat ── */}
           <EinstBlock titel="🎰 Automat der Taverne"
             kurz={(rechnung.quote * 100).toFixed(0) + ' % · Vollbild '

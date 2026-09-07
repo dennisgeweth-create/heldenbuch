@@ -5354,6 +5354,37 @@ const AbenteuerEinstellungen = ({
   }, /*#__PURE__*/React.createElement("b", null, w.l), /*#__PURE__*/React.createElement("i", null, w.t)))), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis"
   }, "Die Spieler sehen die Initiativliste, wer am Zug ist und wie es den Figuren geht \u2014 ", /*#__PURE__*/React.createElement("b", null, "nie die Trefferpunkte der Gegner"), ", nie ihre R\xFCstungsklasse, nie deine Notizen und nie das Protokoll. Der Zustand steht da wie im Bogen: \u201ESchwer verwundet\u201C statt einer Zahl. Bei den Helden gilt weiter, was oben unter Trefferpunkte eingestellt ist. Der Server h\xE4lt sich daran, nicht die Anzeige.")), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83C\uDF7A Tische der Taverne",
+    kurz: tavernenZu(adv.automat).length + ' von ' + TAVERNEN_TISCHE.length + ' offen'
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "Welche Tische in diesem Abenteuer aufgebaut sind. Ein geschlossener Tisch steht nicht in der Halle \u2014 wer gerade daran sitzt, wird in die Halle zur\xFCckgeschickt."), /*#__PURE__*/React.createElement("div", {
+    className: "einst-tische"
+  }, TAVERNEN_TISCHE.map(t => {
+    const zu = (adv.automat && adv.automat.zu || []).includes(t.k);
+    return /*#__PURE__*/React.createElement("label", {
+      key: t.k,
+      className: 'einst-tisch' + (t.da ? '' : ' spaeter')
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: !zu,
+      disabled: !t.da,
+      onChange: e => {
+        const l = (adv.automat && adv.automat.zu || []).filter(x => x !== t.k);
+        autoFeld({
+          zu: e.target.checked ? l : [...l, t.k]
+        });
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "einst-tisch-z"
+    }, t.z), /*#__PURE__*/React.createElement("span", {
+      className: "einst-tisch-t"
+    }, /*#__PURE__*/React.createElement("b", null, t.name), /*#__PURE__*/React.createElement("i", null, t.da ? t.unter : 'wird noch gebaut')));
+  }))), /*#__PURE__*/React.createElement(EinstBlock, {
     titel: "\uD83C\uDFB0 Automat der Taverne",
     kurz: (rechnung.quote * 100).toFixed(0) + ' % · Vollbild ' + (autoVoll ? '1 auf ' + autoVoll : 'aus')
   }, /*#__PURE__*/React.createElement("div", {
@@ -6142,28 +6173,22 @@ const fensterKlemmen = pos => ({
 });
 
 // ── Der Schirm ───────────────────────────────────────────────────
-const AutomatSchirm = ({
+// ── Der Automat, jetzt ein Tisch unter mehreren ───────────────
+// Rahmen, Kopf, Beutel und das Schieben liegen seit der Halle eine
+// Ebene hoeher: sie gehoeren der Taverne und nicht dem Automaten. Hier
+// steht nur noch, was auf dem Tisch passiert.
+const AutomatTisch = ({
   cfg,
-  helden,
-  heldStart,
-  onSchliessen
+  marken,
+  setMarken,
+  onLaeuft
 }) => {
   const waehrung = WAEHRUNGEN.marken;
-  // Wessen Beutel auf dem Tisch liegt: der offene Bogen, sonst der
-  // zuletzt bespielte, sonst der erste. Ohne Bogen geht es auch.
-  const stall = helden && helden.length ? helden : [];
-  const [heldId, setHeldId] = React.useState(() => {
-    if (heldStart && stall.some(h => h.id === heldStart)) return heldStart;
-    const z = waehrung.zuletzt();
-    if (z && stall.some(h => h.id === z)) return z;
-    return stall.length ? stall[0].id : null;
-  });
   // Was die Spielleitung fuer dieses Abenteuer eingestellt hat.
   const symbole = React.useMemo(() => automatSymbole(cfg), [cfg]);
   const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
   const vollbildP = React.useMemo(() => automatVollbildP(cfg), [cfg]);
   const vollbildEins = React.useMemo(() => automatVollbildEins(cfg), [cfg]);
-  const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen(heldId));
   const [einsatz, setEinsatz] = React.useState(10);
   const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
   const [ergebnis, setErgebnis] = React.useState(null); // {gewinn, treffer, …}
@@ -6181,21 +6206,12 @@ const AutomatSchirm = ({
   const [risiko, setRisiko] = React.useState(null);
   const laufRef = React.useRef(null);
   const radRef = React.useRef(null);
-  const [pos, setPos] = React.useState(() => fensterLesen() || fensterKlemmen({
-    x: Math.max(20, (window.innerWidth || 1200) - FENSTER_BREITE - 40),
-    y: 70
-  }));
-  const zug = React.useRef(null); // {dx, dy} waehrend des Schiebens
 
-  const setMarken = n => {
-    const m = Math.max(0, Math.round(n));
-    waehrung.schreiben(heldId, m);
-    setMarkenRoh(m);
-  };
-  // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
+  // Solange die Walzen laufen, darf der Beutel oben nicht gewechselt
+  // werden — die Taverne muss davon wissen.
   React.useEffect(() => {
-    setMarkenRoh(waehrung.lesen(heldId));
-  }, [heldId]);
+    if (onLaeuft) onLaeuft(laeuft);
+  }, [laeuft]);
   const quote = React.useMemo(() => automatQuote(symbole, vollbildP), [symbole, vollbildP]);
 
   // Wer Bewegung im Betriebssystem abgeschaltet hat, bekommt das Ergebnis
@@ -6257,33 +6273,6 @@ const AutomatSchirm = ({
     window.addEventListener('resize', anpassen);
     return () => window.removeEventListener('resize', anpassen);
   }, []);
-
-  // Schieben am Kopf. Zeigerereignisse statt Maus: dasselbe fuer Finger
-  // und Stift, und der Zeiger bleibt beim Fenster, auch wenn er darueber
-  // hinausrutscht.
-  const zugStart = e => {
-    if (e.target.closest('button')) return; // der Schliessknopf schiebt nicht
-    zug.current = {
-      dx: e.clientX - pos.x,
-      dy: e.clientY - pos.y
-    };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-  };
-  const zugBewegen = e => {
-    if (!zug.current) return;
-    setPos(fensterKlemmen({
-      x: e.clientX - zug.current.dx,
-      y: e.clientY - zug.current.dy
-    }));
-  };
-  const zugEnde = () => {
-    if (zug.current) {
-      zug.current = null;
-      fensterSchreiben(pos);
-    }
-  };
   const frei = freidrehe > 0;
   const kannDrehen = !laeuft && !rad && !risiko && (frei || marken >= einsatz);
   const drehen = () => {
@@ -6442,44 +6431,7 @@ const AutomatSchirm = ({
     const gezeigt = ergebnis.treffer.length > 1 && zeigeLinie >= 0 ? [ergebnis.treffer[zeigeLinie]] : ergebnis.treffer;
     gezeigt.forEach(t => t.felder.forEach(f => leuchtet.add(f)));
   }
-  return /*#__PURE__*/React.createElement("div", {
-    className: "automat-schirm",
-    style: {
-      left: pos.x,
-      top: pos.y,
-      width: FENSTER_BREITE
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "automat-kopf",
-    onPointerDown: zugStart,
-    onPointerMove: zugBewegen,
-    onPointerUp: zugEnde,
-    onPointerCancel: zugEnde,
-    title: "Zum Verschieben ziehen"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "automat-kopf-text"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "automat-titel"
-  }, "\uD83C\uDFB0 Dreifaches Gl\xFCck"), /*#__PURE__*/React.createElement("div", {
-    className: "automat-ort"
-  }, stall.length > 1 ? /*#__PURE__*/React.createElement("select", {
-    className: "automat-beutel",
-    value: heldId || '',
-    disabled: laeuft,
-    onPointerDown: e => e.stopPropagation(),
-    onChange: e => setHeldId(e.target.value),
-    "aria-label": "Wessen Beutel auf dem Tisch liegt",
-    title: "Wessen Beutel auf dem Tisch liegt"
-  }, stall.map(h => /*#__PURE__*/React.createElement("option", {
-    key: h.id,
-    value: h.id
-  }, h.name))) : stall.length === 1 ? stall[0].name : 'Taverne des Glücks')), /*#__PURE__*/React.createElement("div", {
-    className: "automat-kasse"
-  }, /*#__PURE__*/React.createElement("span", null, waehrung.kurz), /*#__PURE__*/React.createElement("b", null, marken), /*#__PURE__*/React.createElement("i", null, waehrung.name)), /*#__PURE__*/React.createElement("button", {
-    className: "automat-x",
-    onClick: onSchliessen,
-    "aria-label": "Schlie\xDFen"
-  }, "\u2715")), risiko && /*#__PURE__*/React.createElement(RisikoFenster, {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, risiko && /*#__PURE__*/React.createElement(RisikoFenster, {
     risiko: risiko,
     setRisiko: setRisiko,
     onNehmen: b => {
@@ -6629,6 +6581,206 @@ const AutomatSchirm = ({
   }, "F\xFCnf Linien: die drei Reihen und die beiden Diagonalen. Drei gleiche Symbole auf einer Linie zahlen das Vielfache des Einsatzes. Die Quote ist aus H\xE4ufigkeit und Auszahlung gerechnet, nicht gesch\xE4tzt."), /*#__PURE__*/React.createElement("p", {
     className: "automat-fussnote"
   }, /*#__PURE__*/React.createElement("b", null, "Vollbild"), " \u2014 alle neun Felder dieselbe Speise: f\xFCnf Linien auf einmal und danach das Rad der Fortuna.", ' ', vollbildEins ? 'Etwa jede ' + vollbildEins + '. Drehung.' : 'Nur, wenn es von allein fällt — und das tut es so gut wie nie.')))));
+};
+
+// ══ Die Spielhalle ══════════════════════════════════════════
+// Aus der Taverne wird ein Eingang mit mehreren Tischen. Der Automat
+// ist einer davon; die anderen stehen schon in der Liste, damit man
+// sieht, was das Haus vorhat — aufgebaut sind sie noch nicht, und das
+// steht auch dabei. Ein Tisch, den es nicht gibt, wird nicht angeboten,
+// als gaebe es ihn.
+//
+// Was hier oben liegt und alle Tische benutzen: das Fenster, der Kopf
+// mit Beutel und Beutelwechsler, das Schieben, das Schliessen. Ein
+// zweiter Tisch braucht davon nichts noch einmal zu bauen.
+const TAVERNEN_TISCHE = [{
+  k: 'automat',
+  z: '🎰',
+  name: 'Dreifaches Glück',
+  unter: 'Drei Walzen, fünf Linien, Rad der Fortuna',
+  rand: 'Einsatz 5–50',
+  da: true
+}, {
+  k: 'blackjack',
+  z: '🃏',
+  name: 'Blackjack',
+  unter: 'Gegen den Wirt. Blackjack zahlt anderthalbfach',
+  rand: 'Bank ≈ 0,5 %'
+}, {
+  k: 'roulette',
+  z: '🎡',
+  name: 'Französisches Roulette',
+  unter: 'Ein Zéro, La Partage — die mildeste Bank im Haus',
+  rand: 'Bank 1,35 %'
+}, {
+  k: 'craps',
+  z: '🎲',
+  name: 'Craps',
+  unter: 'Zwei Würfel, ein Punkt — und die Odds ohne Hausanteil',
+  rand: 'Bank 1,4 %'
+}, {
+  k: 'rennen',
+  z: '🐎',
+  name: 'Die Rennbahn vor dem Tor',
+  unter: 'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf',
+  rand: 'Bank 12 %'
+}];
+
+// Welche Tische die Spielleitung fuer dieses Abenteuer geschlossen hat.
+// Nichts eingetragen heisst: alle offen — wie ueberall im Heldenbuch.
+const tavernenZu = cfg => {
+  const l = cfg && Array.isArray(cfg.zu) ? cfg.zu : [];
+  return TAVERNEN_TISCHE.filter(t => !l.includes(t.k));
+};
+const TavernenHalle = ({
+  tische,
+  onWahl
+}) => /*#__PURE__*/React.createElement("div", {
+  className: "halle"
+}, tische.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  className: "halle-leer"
+}, "Heute ist geschlossen \u2014 die Spielleitung hat alle Tische abgeraeumt.") : tische.map(t => /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  key: t.k,
+  className: 'halle-tisch' + (t.da ? '' : ' spaeter'),
+  disabled: !t.da,
+  onClick: () => t.da && onWahl(t.k),
+  title: t.da ? t.name : 'Dieser Tisch wird noch gebaut'
+}, /*#__PURE__*/React.createElement("span", {
+  className: "halle-zeichen"
+}, t.z), /*#__PURE__*/React.createElement("span", {
+  className: "halle-text"
+}, /*#__PURE__*/React.createElement("span", {
+  className: "halle-name"
+}, t.name), /*#__PURE__*/React.createElement("span", {
+  className: "halle-unter"
+}, t.unter)), /*#__PURE__*/React.createElement("span", {
+  className: "halle-rand"
+}, t.da ? t.rand : 'im Bau'))));
+const TaverneSchirm = ({
+  cfg,
+  helden,
+  heldStart,
+  onSchliessen
+}) => {
+  const waehrung = WAEHRUNGEN.marken;
+  // Wessen Beutel auf dem Tisch liegt: der offene Bogen, sonst der
+  // zuletzt bespielte, sonst der erste. Ohne Bogen geht es auch.
+  const stall = helden && helden.length ? helden : [];
+  const [heldId, setHeldId] = React.useState(() => {
+    if (heldStart && stall.some(h => h.id === heldStart)) return heldStart;
+    const z = waehrung.zuletzt();
+    if (z && stall.some(h => h.id === z)) return z;
+    return stall.length ? stall[0].id : null;
+  });
+  const [marken, setMarkenRoh] = React.useState(() => waehrung.lesen(heldId));
+  const [tisch, setTisch] = React.useState(null); // null = die Halle
+  const [laeuft, setLaeuft] = React.useState(false); // sperrt Beutel und Rueckweg
+  const [pos, setPos] = React.useState(() => fensterLesen() || fensterKlemmen({
+    x: Math.max(20, (window.innerWidth || 1200) - FENSTER_BREITE - 40),
+    y: 70
+  }));
+  const zug = React.useRef(null); // {dx, dy} waehrend des Schiebens
+
+  const setMarken = n => {
+    const m = Math.max(0, Math.round(n));
+    waehrung.schreiben(heldId, m);
+    setMarkenRoh(m);
+  };
+  // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
+  React.useEffect(() => {
+    setMarkenRoh(waehrung.lesen(heldId));
+  }, [heldId]);
+  const offen = React.useMemo(() => tavernenZu(cfg), [cfg]);
+  const jetzt = tisch ? TAVERNEN_TISCHE.find(t => t.k === tisch) : null;
+  // Ein Tisch, den die Spielleitung zwischendurch schliesst, laesst
+  // einen nicht darin sitzen.
+  React.useEffect(() => {
+    if (tisch && !offen.some(t => t.k === tisch)) setTisch(null);
+  }, [offen, tisch]);
+
+  // Schieben am Kopf. Zeigerereignisse statt Maus: dasselbe fuer Finger
+  // und Stift, und der Zeiger bleibt beim Fenster, auch wenn er darueber
+  // hinausrutscht.
+  const zugStart = e => {
+    if (e.target.closest('button, select')) return; // Knoepfe schieben nicht
+    zug.current = {
+      dx: e.clientX - pos.x,
+      dy: e.clientY - pos.y
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+  const zugBewegen = e => {
+    if (!zug.current) return;
+    setPos(fensterKlemmen({
+      x: e.clientX - zug.current.dx,
+      y: e.clientY - zug.current.dy
+    }));
+  };
+  const zugEnde = () => {
+    if (zug.current) {
+      zug.current = null;
+      fensterSchreiben(pos);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "automat-schirm",
+    style: {
+      left: pos.x,
+      top: pos.y,
+      width: FENSTER_BREITE
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "automat-kopf",
+    onPointerDown: zugStart,
+    onPointerMove: zugBewegen,
+    onPointerUp: zugEnde,
+    onPointerCancel: zugEnde,
+    title: "Zum Verschieben ziehen"
+  }, jetzt && /*#__PURE__*/React.createElement("button", {
+    className: "automat-x zurueck",
+    onClick: () => setTisch(null),
+    disabled: laeuft,
+    "aria-label": "Zur\xFCck in die Halle",
+    title: "Zur\xFCck in die Halle"
+  }, "\u2039"), /*#__PURE__*/React.createElement("div", {
+    className: "automat-kopf-text"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "automat-titel"
+  }, jetzt ? jetzt.z + ' ' + jetzt.name : '🍺 Taverne des Glücks'), /*#__PURE__*/React.createElement("div", {
+    className: "automat-ort"
+  }, stall.length > 1 ? /*#__PURE__*/React.createElement("select", {
+    className: "automat-beutel",
+    value: heldId || '',
+    disabled: laeuft,
+    onPointerDown: e => e.stopPropagation(),
+    onChange: e => setHeldId(e.target.value),
+    "aria-label": "Wessen Beutel auf dem Tisch liegt",
+    title: "Wessen Beutel auf dem Tisch liegt"
+  }, stall.map(h => /*#__PURE__*/React.createElement("option", {
+    key: h.id,
+    value: h.id
+  }, h.name))) : stall.length === 1 ? stall[0].name : offen.length + (offen.length === 1 ? ' Tisch' : ' Tische'))), /*#__PURE__*/React.createElement("div", {
+    className: "automat-kasse"
+  }, /*#__PURE__*/React.createElement("span", null, waehrung.kurz), /*#__PURE__*/React.createElement("b", null, marken), /*#__PURE__*/React.createElement("i", null, waehrung.name)), /*#__PURE__*/React.createElement("button", {
+    className: "automat-x",
+    onClick: onSchliessen,
+    "aria-label": "Schlie\xDFen"
+  }, "\u2715")), jetzt && jetzt.k === 'automat' ? /*#__PURE__*/React.createElement(AutomatTisch, {
+    cfg: cfg,
+    marken: marken,
+    setMarken: setMarken,
+    onLaeuft: setLaeuft
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "automat-mitte halle-mitte"
+  }, /*#__PURE__*/React.createElement(TavernenHalle, {
+    tische: offen,
+    onWahl: setTisch
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "halle-fuss"
+  }, "Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden \u2014 nichts davon ber\xFChrt einen Bogen. Was das Haus an einem Tisch verdient, steht am Tisch.")));
 };
 
 // ==== js/src/2g-kampfsicht.jsx ====
@@ -19264,7 +19416,7 @@ function App() {
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
     onClick: passwortAendern
-  }, "\xDCbernehmen")))), showAutomat && /*#__PURE__*/React.createElement(AutomatSchirm, {
+  }, "\xDCbernehmen")))), showAutomat && /*#__PURE__*/React.createElement(TaverneSchirm, {
     cfg: advObj && advObj.automat,
     helden: tavernenHelden,
     heldStart: sel,
