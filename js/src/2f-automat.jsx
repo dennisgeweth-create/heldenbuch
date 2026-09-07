@@ -821,7 +821,8 @@ const TAVERNEN_TISCHE = [
   {k:'automat',   z:'🎰', name:'Dreifaches Glück',
    unter:'Drei Walzen, fünf Linien, Rad der Fortuna', rand:'Einsatz 5–50', da:true},
   {k:'blackjack', z:'🃏', name:'Blackjack',
-   unter:'Gegen den Wirt. Blackjack zahlt anderthalbfach', rand:'Bank ≈ 0,5 %'},
+   unter:'Gegen den Wirt. Blackjack zahlt anderthalbfach', rand:'Bank ≈ 0,5 %',
+   da:true, breit:470},
   {k:'roulette',  z:'🎡', name:'Französisches Roulette',
    unter:'Ein Zéro, La Partage — die mildeste Bank im Haus', rand:'Bank 1,35 %'},
   {k:'craps',     z:'🎲', name:'Craps',
@@ -876,13 +877,25 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
     || fensterKlemmen({x: Math.max(20, (window.innerWidth || 1200) - FENSTER_BREITE - 40), y: 70}));
   const zug = React.useRef(null);   // {dx, dy} waehrend des Schiebens
 
-  const setMarken = (n) => {
-    const m = Math.max(0, Math.round(n));
-    waehrung.schreiben(heldId, m);
-    setMarkenRoh(m);
+  // Der Stand steht doppelt: als Zustand fuer die Anzeige und als
+  // Referenz fuer die Rechnung. Ein Tisch verrechnet in einem Griff
+  // mehrere Betraege — Einsatz, Verdopplung, Auszahlung —, und der
+  // Zustand kaeme dafuer jedes Mal zu spaet.
+  const markenRef = React.useRef(marken);
+  const stellen = (m) => {
+    const n = Math.max(0, Math.round(m));
+    markenRef.current = n;
+    waehrung.schreiben(heldId, n);
+    setMarkenRoh(n);
   };
+  const setMarken = (n) => stellen(n);
+  const zahlen = (delta) => stellen(markenRef.current + delta);
   // Wechselt der Beutel, kommt der Stand des anderen Helden auf den Tisch.
-  React.useEffect(() => { setMarkenRoh(waehrung.lesen(heldId)); }, [heldId]);
+  React.useEffect(() => {
+    const n = waehrung.lesen(heldId);
+    markenRef.current = n;
+    setMarkenRoh(n);
+  }, [heldId]);
 
   const offen = React.useMemo(() => tavernenZu(cfg), [cfg]);
   const jetzt = tisch ? TAVERNEN_TISCHE.find(t => t.k === tisch) : null;
@@ -907,7 +920,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
   const zugEnde = () => { if (zug.current) { zug.current = null; fensterSchreiben(pos); } };
 
   return (
-    <div className="automat-schirm" style={{left: pos.x, top: pos.y, width: FENSTER_BREITE}}>
+    <div className="automat-schirm"
+      style={{left: pos.x, top: pos.y, width: (jetzt && jetzt.breit) || FENSTER_BREITE}}>
       <div className="automat-kopf" onPointerDown={zugStart}
         onPointerMove={zugBewegen} onPointerUp={zugEnde} onPointerCancel={zugEnde}
         title="Zum Verschieben ziehen">
@@ -948,6 +962,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, onSchliessen }) => {
 
       {jetzt && jetzt.k === 'automat' ? (
         <AutomatTisch cfg={cfg} marken={marken} setMarken={setMarken} onLaeuft={setLaeuft} />
+      ) : jetzt && jetzt.k === 'blackjack' ? (
+        <BlackjackTisch cfg={cfg} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />

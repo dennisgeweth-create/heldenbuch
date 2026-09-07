@@ -53,16 +53,19 @@ die Halle ein. Die vier ungebauten Tische stehen mit in der Liste —
 blass, ohne Griff, mit „im Bau" statt einer Quote. Ein Tisch, den es
 nicht gibt, soll nicht so aussehen, als gäbe es ihn.
 
-## Stufe 2 · 🃏 Blackjack
+## Stufe 2 · 🃏 Blackjack ✓
 
-Das kleinste der vier — es braucht kein neues Gerüst, nur Karten.
-Deshalb steht es vor den anderen: an ihm zeigt sich, ob die Halle
-trägt.
+*Steht seit v4.7.* Das kleinste der vier — es braucht kein neues
+Gerüst, nur Karten. Deshalb stand es vor den anderen: an ihm hat sich
+gezeigt, dass die Halle trägt.
 
 - Sechs Blätter im Schlitten, neu gemischt bei drei Vierteln.
 - Blackjack zahlt 3:2, der Wirt zieht bis 16 und bleibt ab 17.
 - Verdoppeln, Teilen (bis zu drei Blätter), Versicherung bei offenem Ass.
-- Die Tafel rät mit; entschieden wird selbst.
+- Die Tafel rät mit; entschieden wird selbst. Der geratene Knopf ist
+  hervorgehoben, gedrückt wird trotzdem selbst.
+- Alles Gedruckte steht auf dem Filz: Auszahlung, die Regel des Wirts,
+  die Versicherung und wie viele Blätter noch im Schlitten sind.
 
 ## Stufe 3 · 🎡 Französisches Roulette
 
