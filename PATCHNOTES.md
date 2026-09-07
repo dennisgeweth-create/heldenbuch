@@ -1,5 +1,94 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.6
+
+Die Ausgabe der Fenster. Dreißig Dialoge, die bisher als Vorhang vor
+allem lagen, lassen sich jetzt beiseite schieben und zuklappen — und die
+fünf, in denen wirklich gearbeitet wird, haben Arbeitsbreite bekommen.
+
+### 🪟 Dialoge sind Fenster
+
+Jeder Dialog war ein Vorhang. Er lag in der Mitte, nahm den ganzen
+Schirm, und wer nachsehen wollte, was dahinter steht — der eigene Bogen,
+die Liste, der laufende Kampf —, musste ihn schließen und die Eingaben
+aufgeben.
+
+Jetzt hat jeder Dialog eine Titelzeile mit zwei Knöpfen:
+
+- **▾ zuklappen.** Es bleibt nur die Titelzeile stehen, und der Vorhang
+  fällt weg: das Heldenbuch dahinter ist wieder zu bedienen. Der Dialog
+  wartet als schmaler Balken, bis du ihn mit **▴** wieder aufklappst.
+  Nichts geht dabei verloren — was eingetippt ist, steht nach dem
+  Aufklappen noch da.
+- **✕ schließen.** Wo ein Dialog keinen Klick auf den Hintergrund kennt,
+  drückt das Kreuz seinen eigenen *Abbrechen*.
+
+**Geschoben wird an der Titelzeile.** Ab Tabletbreite: anfassen,
+hinlegen, dort bleibt es. Auf dem Telefon geht der Dialog weiter von
+unten auf — ein schwebendes Fenster auf einem Telefon wäre eine
+Fingerübung — und **zugeklappt liegt der Balken über der Reiterleiste**,
+ohne sie zu verdecken. Damit kommt man auch dort an seinen Bogen, ohne
+den Dialog zu verlieren.
+
+Dazu, was ein Fenster sonst noch braucht: **der Titel bleibt beim Rollen
+oben stehen, der Fuß mit Abbrechen und Speichern unten.** In einem
+langen Formular sucht man den Speichern-Knopf nicht mehr am Ende.
+
+Nicht umgebaut, weil es keinen Sinn ergibt: die Sicherheitsabfrage, die
+beantwortet werden will, Symbol- und Platzwahl, die über einem anderen
+Fenster liegen, sowie Münzfeld und Bildbetrachter.
+
+### 🔎 Der Hintergrund ist wieder scharf
+
+Der Vorhang zeichnete alles dahinter weich. Ein Fenster schiebt man aber
+beiseite, um daneben zu lesen — und weich gezeichnet war dort nichts
+mehr zu lesen. Schlimmer noch: sobald das Fenster beim Schieben auf feste
+Lage umsprang, hatte der Weichzeichner nichts mehr zu zeichnen und ließ
+nur Grau stehen.
+
+Er ist weg, der Vorhang von 0.8 auf 0.62 aufgehellt, und **sobald ein
+Fenster verschoben ist, verschwindet er ganz** — wie beim Zuklappen.
+Dahinter lässt sich dann auch wieder arbeiten.
+
+### 📐 Fünf Fenster in Arbeitsbreite
+
+Waffe, Zauber, Merkmal, Notiz und Gegenstand sind die Fenster, in denen
+wirklich gearbeitet wird. In 480 Punkten Breite stand darin alles
+untereinander: sechs kurze Felder auf sechs Zeilen, dann drei
+Textblöcke — man rollte durch ein Fenster, das halb leer war.
+
+| Fenster | vorher | jetzt |
+|---|---|---|
+| Zauber | 480 | **880** |
+| Gegenstand | 520 | **840** |
+| Waffe | 480 | **820** |
+| Notiz | 520 | **780** |
+| Merkmal | 480 | **700** |
+
+Ab 900 Punkten Schirmbreite — also auch auf dem Tablet — liegt darin ein
+Raster aus sechs Spalten: ein kurzes Feld nimmt zwei davon, drei stehen
+nebeneinander; ein halber Block nimmt drei, zwei stehen nebeneinander;
+ein ganzer alle sechs.
+
+Damit steht beim **Zauber die Beschreibung neben der Wirkung im Kampf**,
+bei der **Waffe die Beschreibung neben dem Bild**, beim **Merkmal der
+Name neben der Quelle**. Grad, Schule, Wirkzeit, Reichweite, Dauer und
+Komponenten stehen zu dritt in zwei Zeilen statt zu zweit in dreien. Das
+Zauberfenster ist damit 699 statt gut 1000 Punkte hoch — es passt wieder
+auf einen Schirm.
+
+### 👆 Am Tablet fingergerecht
+
+In den Fenstern sind Eingabefelder jetzt 15 px mit 10 px Polster,
+*Speichern* und *Abbrechen* 42 Punkte hoch und die Fenstergriffe 36. Auf
+Berührschirmen allgemein 34.
+
+### 🩹 Behoben
+
+- **Weißer Bildschirm bei manchen Bögen.** Ein Bogen ohne Zauber- oder
+  Waffenliste — so kommen sie von älteren Ständen und von außen herein —
+  riss den Zauber- bzw. den Aktionenreiter mit. Jetzt nicht mehr.
+
 ## v4.5
 
 Die Ausgabe, in der die Runde mitsieht. Der Kampf liegt nicht mehr
