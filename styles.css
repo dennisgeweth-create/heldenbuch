@@ -2872,6 +2872,64 @@
   .bj-zeile.gut b { color:#56b183; }
   .bj-zeile.schlecht b { color:var(--gold); }
 
+  /* ── Der Charakterassistent ──────────────────────
+     Sechs Schritte in einem Fenster. Die Leiste oben sagt, wo man ist
+     und was schon steht; die Vorschau unten steht immer da. */
+  .ass-fenster { max-width:640px; display:flex; flex-direction:column;
+    max-height:88vh; }
+  .ass-leiste { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px; }
+  .ass-punkt { display:flex; align-items:center; gap:5px; padding:5px 9px;
+    border-radius:14px; cursor:pointer; font-family:'Roboto Condensed',sans-serif;
+    font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase;
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-muted); }
+  .ass-punkt i { display:flex; align-items:center; justify-content:center;
+    width:15px; height:15px; border-radius:50%; font-style:normal; font-size:9px;
+    background:var(--bg-void); border:1px solid var(--border); }
+  .ass-punkt.fertig { color:var(--text-secondary); border-color:var(--border-bright); }
+  .ass-punkt.fertig i { background:#2d6a4f; border-color:#2d6a4f; color:#e8f5ec; }
+  .ass-punkt.an { background:var(--bg-hover); border-color:var(--inspiration);
+    color:var(--text-primary); }
+  /* overflow-y allein setzt die andere Achse auf auto — dann steht
+     unten ein Rollbalken, der nichts zu rollen hat. */
+  .ass-inhalt { flex:1; overflow-y:auto; overflow-x:hidden; min-height:180px; }
+
+  .ass-warum { font-size:11.5px; line-height:1.6; color:var(--text-muted);
+    margin-bottom:9px; }
+  .ass-wahl { display:grid; gap:5px; grid-template-columns:repeat(auto-fill, minmax(178px, 1fr)); }
+  .ass-karte { display:block; text-align:left; padding:8px 10px; border-radius:6px;
+    cursor:pointer; background:var(--bg-card); border:1px solid var(--border); }
+  .ass-karte:hover:not(:disabled) { border-color:var(--inspiration); }
+  .ass-karte.an { border-color:var(--inspiration); background:var(--bg-hover); }
+  .ass-karte:disabled { opacity:0.4; cursor:default; }
+  .ass-karte.fest { opacity:0.75; border-style:dashed; }
+  .ass-karte.klein { padding:6px 9px; }
+  .ass-karte b { display:block; font-family:'Roboto Condensed',sans-serif; font-size:13px;
+    font-weight:400; color:var(--text-primary); }
+  .ass-karte.an b { color:var(--inspiration); }
+  .ass-karte i { display:block; font-style:normal; font-size:10.5px; line-height:1.45;
+    color:var(--text-muted); margin-top:2px; }
+
+  .ass-tasten { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:9px; }
+  .ass-kauf { margin-bottom:8px; font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    color:var(--text-secondary); }
+  .ass-kauf.zuviel { color:var(--gold); }
+  .ass-attr { display:flex; flex-direction:column; gap:4px; }
+  .ass-attr-zeile { display:flex; align-items:center; gap:9px; padding:5px 9px;
+    border-radius:6px; background:var(--bg-card); border:1px solid var(--border); }
+  .ass-attr-name { flex:1; min-width:0; font-size:12.5px; color:var(--text-secondary); }
+  .ass-attr-zeile .form-select { width:auto; min-width:84px; padding:3px 7px; }
+  .ass-attr-wurf { min-width:84px; text-align:center;
+    font-family:'Roboto Condensed',sans-serif; font-size:15px; color:var(--text-primary); }
+  .ass-attr-summe { flex:0 0 74px; text-align:right;
+    font-family:'Roboto Condensed',sans-serif; font-size:16px; color:var(--inspiration);
+    font-variant-numeric:tabular-nums; }
+  .ass-attr-summe i { font-style:normal; font-size:10.5px; color:var(--text-muted); }
+  .ass-vorschau { max-height:150px; overflow-y:auto; overflow-x:hidden; }
+  /* Der zweite Weg hinein steht leiser da als der erste. */
+  .btn-new.schlicht { margin-top:6px; background:var(--bg-card);
+    border:1px solid var(--border); color:var(--text-muted); font-weight:400; }
+  .btn-new.schlicht:hover { border-color:var(--border-bright); color:var(--text-secondary); }
+
   /* ── Der Stufenaufstieg ─────────────────────────
      Die Vorschau ist der wichtigste Kasten im Fenster: was nicht darin
      steht, passiert nicht. Deshalb steht sie hell und die Wahl davor

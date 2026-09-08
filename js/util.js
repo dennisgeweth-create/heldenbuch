@@ -435,6 +435,153 @@ const fmod = v => { const m=mod(v); return (m>=0?"+":"")+m; };
 // Formatiert einen bereits fertigen Modifikator (nicht den Attributswert).
 const fnum = n => (n>=0?"+":"")+n;
 
+// ── Der Charakterassistent ──────────────────────────────────────
+// Aus sechs Entscheidungen einen Bogen. Auch das eine reine Rechnung:
+// die Oberfläche sammelt nur den Entwurf ein, und was daraus wird,
+// steht hier — prüfbar von aussen und identisch mit dem, was das
+// Übernehmen schreibt.
+
+// Die drei Wege zu den Attributen. Der Standardsatz ist der schnellste,
+// der Punktekauf der gerechteste, die Würfel der aufregendste.
+const STANDARD_SATZ = [15, 14, 13, 12, 10, 8];
+const PUNKTE_KOSTEN = {8:0, 9:1, 10:2, 11:3, 12:4, 13:5, 14:7, 15:9};
+const PUNKTE_GESAMT = 27;
+const punkteKosten = (werte) => ATTR_WAHL
+  .reduce((s, a) => s + (PUNKTE_KOSTEN[werte[a.k]] === undefined ? 99 : PUNKTE_KOSTEN[werte[a.k]]), 0);
+// Vier Würfel, der schlechteste fällt weg — sechsmal.
+const attributeWuerfeln = () => ATTR_WAHL.reduce((raus, a) => {
+  const w = [0,0,0,0].map(() => 1 + Math.floor(Math.random() * 6)).sort((x, y) => y - x);
+  raus[a.k] = w[0] + w[1] + w[2];
+  return raus;
+}, {});
+
+const volkFinden  = (name) => VOELKER.find(v => v.name === name) || null;
+const unterFinden = (volk, name) => ((volk && volk.unter) || []).find(u => u.name === name) || null;
+
+// Was aus dem Entwurf wird. Dieselbe Form wie beim Aufstieg:
+//   neu       die Felder für den Bogen
+//   zeilen    was drinsteht, für die Vorschau
+//   hinweise  was der Assistent nicht kann
+//   fehlt     was noch fehlt, damit „Fertig“ sagen kann, warum nicht
+const assistentPlan = (e) => {
+  const d = e || {};
+  const volk  = volkFinden(d.volk);
+  const unter = unterFinden(volk, d.untervolk);
+  const kl    = KLASSEN_REGELN[d.klasse] || null;
+  const hg    = HINTERGRUENDE.find(h => h.name === d.hintergrund) || null;
+  const zeilen = [], hinweise = [], fehlt = [];
+  const zeile = (was, wert) => zeilen.push({was, neu: wert});
+
+  // ── Die Attribute: Grundwert, Volk, Wahl ──
+  const grund = d.attribute || {};
+  const boni = {};
+  const dazu = (o) => { for (const k of Object.keys(o || {})) boni[k] = (boni[k] || 0) + o[k]; };
+  dazu(volk && volk.boni);
+  dazu(unter && unter.boni);
+  dazu(d.wahlBoni);
+  const werte = {};
+  for (const a of ATTR_WAHL) werte[a.k] = Math.min(20, (+grund[a.k] || 0) + (boni[a.k] || 0));
+
+  const neu = {};
+  if (d.name) neu.name = d.name;
+  if (volk)   neu.race = volk.name + (unter ? ' (' + unter.name + ')' : '');
+  if (kl)     neu.charClass = d.klasse;
+  if (hg)     neu.background = hg.name;
+  neu.level = 1;
+  neu.profBonus = 2;
+
+  for (const a of ATTR_WAHL) {
+    if (!grund[a.k]) continue;
+    neu[a.k] = werte[a.k];
+    zeile(a.l, werte[a.k] + (boni[a.k] ? '  (' + grund[a.k] + ' + ' + boni[a.k] + ')' : ''));
+  }
+
+  // ── Was daraus folgt ──
+  if (volk) {
+    neu.speed = (unter && unter.tempo) || volk.tempo;
+    zeile('Bewegung', neu.speed + ' m');
+    neu.languages = [...volk.sprachen];
+    zeile('Sprachen', volk.sprachen.join(', '));
+  }
+  if (kl) {
+    // Auf Stufe 1 gibt der Trefferwürfel sein Höchstes — gewürfelt wird
+    // erst ab Stufe 2.
+    const tp = Math.max(1, kl.tw + mod(werte.con || 10));
+    neu.maxHp = tp; neu.hp = tp;
+    zeile('Trefferpunkte', tp + '  (W' + kl.tw + ' + Konstitution)');
+    neu.savingThrowProfs = [...kl.rw];
+    zeile('Rettungswürfe', kl.rw.map(k => (ATTR_WAHL.find(a => a.k === k) || {}).l).join(', '));
+    const plaetze = zauberPlaetze(d.klasse, 1);
+    if (plaetze) {
+      neu.spellSlots = {};
+      for (let g = 1; g <= 9; g++) neu.spellSlots[g] = {max: plaetze[g] || 0, used: 0};
+      if (plaetze[1]) zeile('Zauberplätze', plaetze[1] + ' vom 1. Grad');
+    }
+  }
+  if (werte.dex) {
+    neu.initiative = mod(werte.dex);
+    neu.ac = 10 + mod(werte.dex);
+    zeile('Initiative', (neu.initiative >= 0 ? '+' : '') + neu.initiative);
+    zeile('Rüstungsklasse', neu.ac + '  (ohne Rüstung)');
+  }
+
+  // ── Fertigkeiten: die des Hintergrunds stehen fest ──
+  const ausHg = hg ? [...hg.fert] : [];
+  const gewaehlt = (d.fertigkeiten || []).filter(f => !ausHg.includes(f));
+  if (ausHg.length || gewaehlt.length) {
+    neu.skillProfs = [...new Set([...ausHg, ...gewaehlt])];
+    const wort = (k) => (SKILLS.find(x => x.key === k) || {}).label || k;
+    zeile('Geübte Fertigkeiten', neu.skillProfs.map(wort).join(', '));
+  }
+
+  // ── Merkmale: Namen und Quelle, kein Text ──
+  const merkmale = [];
+  if (volk) (volk.merkmale || []).forEach(m => merkmale.push({name: m, source: volk.name}));
+  if (hg && hg.merkmal) merkmale.push({name: hg.merkmal, source: hg.name});
+  if (merkmale.length) {
+    neu.features = merkmale.map((m, i) => ({
+      id: 'ass' + Date.now() + i, name: m.name, source: m.source,
+      description: '', effects: [], effectsActive: true,
+    }));
+    zeile('Merkmale', merkmale.map(m => m.name).join(', '));
+  }
+
+  // ── Ausrüstung: Paket oder Gold ──
+  if (d.ausruestung === 'paket' && kl) {
+    neu.inventory = (kl.paket || []).map((n, i) => ({
+      ...newItem(), id: 'assi' + Date.now() + i, name: n, qty: 1,
+    }));
+    zeile('Ausrüstung', (kl.paket || []).join(', '));
+  } else if (d.ausruestung === 'gold') {
+    const g = Math.max(0, Math.round(+d.gold || 0));
+    neu.currency = {pp:0, gp:g, ep:0, sp:0, cp:0};
+    zeile('Startgold', g + ' Goldmünzen  (' + (kl ? kl.gold : '—') + ')');
+  }
+
+  // ── Was noch fehlt ──
+  if (!d.name)  fehlt.push('ein Name');
+  if (!volk)    fehlt.push('ein Volk');
+  if (volk && (volk.unter || []).length && !unter) fehlt.push('eine Untergruppe des Volkes');
+  if (volk && volk.wahlBoni && Object.values(d.wahlBoni || {}).reduce((a, b) => a + b, 0) !== volk.wahlBoni)
+    fehlt.push(volk.wahlBoni + ' Punkte auf frei gewählte Attribute');
+  if (!kl)      fehlt.push('eine Klasse');
+  if (!hg)      fehlt.push('ein Hintergrund');
+  if (ATTR_WAHL.some(a => !grund[a.k])) fehlt.push('die Attribute');
+  if (kl && gewaehlt.length !== kl.fertZahl)
+    fehlt.push(kl.fertZahl + ' Fertigkeiten der Klasse (gewählt: ' + gewaehlt.length + ')');
+  if (!d.ausruestung) fehlt.push('Ausrüstung oder Startgold');
+
+  // ── Was er nicht kann ──
+  if (!kl && d.klasse) hinweise.push('Die Klasse „' + d.klasse + '“ steht nicht in den Tabellen. '
+    + 'Trefferpunkte, Rettungswürfe und Zauberplätze musst du selbst eintragen.');
+  if (d.ausruestung === 'paket')
+    hinweise.push('Das Paket kommt als Liste ins Inventar — Werte wie Schaden oder '
+      + 'Rüstungsklasse trägst du an den Stücken selbst nach.');
+  if (kl && kl.ruestung) hinweise.push('Geübt: ' + kl.ruestung + ' · ' + kl.waffen
+    + '. Das steht auf dem Bogen nicht als Feld, aber es gilt.');
+  return {neu, zeilen, hinweise, fehlt};
+};
+
 // ── Der Stufenaufstieg ──────────────────────────────────────────
 // Was eine Stufe am Bogen ändert, als Rechnung ohne Oberfläche: so
 // lässt sie sich von aussen prüfen, und die Vorschau zeigt später

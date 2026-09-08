@@ -162,6 +162,57 @@ EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{
 const isFlagEffect = (t) => EFFECT_FLAGS.has(t);
 
 const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachengeborener","Gnom","Halbelf","Anderes"];
+// ── Die Völker ─────────────────────────────────────────────────
+// Was am Anfang aus dem Volk folgt: die Attributsboni, wie weit man
+// geht, welche Sprachen man spricht, und die Merkmale beim Namen. Die
+// Texte stehen nicht hier — sie gehören in die Bibliothek der Gruppe,
+// und die gibt es schon.
+//
+// Die Bewegung steht in Metern, weil der Bogen sie so anzeigt.
+const VOELKER = [
+  {name:'Mensch',        boni:{str:1,dex:1,con:1,int:1,wis:1,cha:1}, tempo:9,
+   sprachen:['Gemeinsprache','eine weitere'], merkmale:[]},
+  {name:'Zwerg',         boni:{con:2}, tempo:7.5, sprachen:['Gemeinsprache','Zwergisch'],
+   merkmale:['Dunkelsicht','Zwergische Zähigkeit','Zwergische Kampfausbildung','Steinkundig'],
+   unter:[{name:'Hügelzwerg', boni:{wis:1}}, {name:'Gebirgszwerg', boni:{str:2}}]},
+  {name:'Elf',           boni:{dex:2}, tempo:9, sprachen:['Gemeinsprache','Elfisch'],
+   merkmale:['Dunkelsicht','Scharfe Sinne','Feenblut','Trance'],
+   unter:[{name:'Hochelf', boni:{int:1}}, {name:'Waldelf', boni:{wis:1}, tempo:10.5},
+          {name:'Dunkelelf', boni:{cha:1}}]},
+  {name:'Halbling',      boni:{dex:2}, tempo:7.5, sprachen:['Gemeinsprache','Halblingisch'],
+   merkmale:['Glückspilz','Tapfer','Halblingflinkheit'],
+   unter:[{name:'Leichtfuß', boni:{cha:1}}, {name:'Stämmig', boni:{con:1}}]},
+  {name:'Gnom',          boni:{int:2}, tempo:7.5, sprachen:['Gemeinsprache','Gnomisch'],
+   merkmale:['Dunkelsicht','Gnomische List'],
+   unter:[{name:'Felsgnom', boni:{con:1}}, {name:'Waldgnom', boni:{dex:1}}]},
+  {name:'Halbelf',       boni:{cha:2}, tempo:9, sprachen:['Gemeinsprache','Elfisch','eine weitere'],
+   merkmale:['Dunkelsicht','Feenblut','Vielseitigkeit'], wahlBoni:2},
+  {name:'Halbork',       boni:{str:2,con:1}, tempo:9, sprachen:['Gemeinsprache','Orkisch'],
+   merkmale:['Dunkelsicht','Bedrohlich','Unbändige Ausdauer','Wilde Angriffe']},
+  {name:'Drachenblütig', boni:{str:2,cha:1}, tempo:9, sprachen:['Gemeinsprache','Drakonisch'],
+   merkmale:['Drachenabstammung','Odemwaffe','Schadensresistenz']},
+  {name:'Tiefling',      boni:{int:1,cha:2}, tempo:9, sprachen:['Gemeinsprache','Infernalisch'],
+   merkmale:['Dunkelsicht','Höllische Widerstandskraft','Infernalisches Erbe']},
+];
+
+// ── Die Hintergründe ───────────────────────────────────────────
+// Zwei geübte Fertigkeiten, dazu Werkzeug oder Sprachen und ein
+// Merkmal beim Namen. Mehr braucht der Bogen davon nicht.
+const HINTERGRUENDE = [
+  {name:'Akolyth',       fert:['einblick','religion'],            dazu:'Zwei weitere Sprachen',            merkmal:'Zuflucht der Gläubigen'},
+  {name:'Adliger',       fert:['geschichte','ueberreden'],        dazu:'Ein Spielset, eine weitere Sprache', merkmal:'Position der Privilegien'},
+  {name:'Einsiedler',    fert:['medizin','religion'],             dazu:'Kräuterkundeset, eine weitere Sprache', merkmal:'Entdeckung'},
+  {name:'Gildenhandwerker', fert:['einblick','ueberreden'],       dazu:'Ein Handwerkszeug, eine weitere Sprache', merkmal:'Gildenmitgliedschaft'},
+  {name:'Kriminell',     fert:['taueschen','heimlichkeit'],       dazu:'Ein Spielset, Diebeswerkzeug',     merkmal:'Kriminelle Kontakte'},
+  {name:'Scharlatan',    fert:['taueschen','fingerfert'],         dazu:'Verkleidungsset, Fälscherset',     merkmal:'Falsche Identität'},
+  {name:'Seemann',       fert:['athletik','aufmerksamkeit'],      dazu:'Navigationsinstrumente, Fahrzeuge (Wasser)', merkmal:'Schiffspassage'},
+  {name:'Soldat',        fert:['athletik','einschuechtern'],      dazu:'Ein Spielset, Fahrzeuge (Land)',   merkmal:'Militärischer Rang'},
+  {name:'Unterhalter',   fert:['akrobatik','auftreten'],          dazu:'Verkleidungsset, ein Musikinstrument', merkmal:'Beliebt beim Publikum'},
+  {name:'Volksheld',     fert:['tierfuehrung','ueberleben'],      dazu:'Ein Handwerkszeug, Fahrzeuge (Land)', merkmal:'Ländliche Gastfreundschaft'},
+  {name:'Waise',         fert:['fingerfert','heimlichkeit'],      dazu:'Verkleidungsset, Diebeswerkzeug',  merkmal:'Stadtgeheimnisse'},
+  {name:'Weiser',        fert:['arkaneKunde','geschichte'],       dazu:'Zwei weitere Sprachen',            merkmal:'Forscher'},
+];
+
 // ── Was eine Klasse je Stufe mitbringt ──────────────────────────
 // Nur Tabellen, kein Text: Trefferwürfel, welche Stufen eine
 // Attributssteigerung geben, auf welcher die Unterklasse gewählt wird,
@@ -172,18 +223,54 @@ const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachen
 // Wer eine eigene Klasse einträgt, steht hier nicht — der Aufstieg
 // sagt das dann und rechnet nur, was er ohne die Tabelle kann.
 const KLASSEN_REGELN = {
-  Barbar:       {tw:12, zauber:null,   asi:[4,8,12,16,19],          unter:3, rw:['str','con']},
-  Barde:        {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:3, rw:['dex','cha']},
-  Kleriker:     {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:1, rw:['wis','cha']},
-  Druide:       {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis']},
-  'Kämpfer':    {tw:10, zauber:null,   asi:[4,6,8,12,14,16,19],     unter:3, rw:['str','con']},
-  'Mönch':      {tw:8,  zauber:null,   asi:[4,8,12,16,19],          unter:3, rw:['str','dex']},
-  Paladin:      {tw:10, zauber:'halb', asi:[4,8,12,16,19],          unter:3, rw:['wis','cha']},
-  'Waldläufer': {tw:10, zauber:'halb', asi:[4,8,12,16,19],          unter:3, rw:['str','dex']},
-  Schurke:      {tw:8,  zauber:null,   asi:[4,8,10,12,16,19],       unter:3, rw:['dex','int']},
-  Zauberer:     {tw:6,  zauber:'voll', asi:[4,8,12,16,19],          unter:1, rw:['con','cha']},
-  Hexenmeister: {tw:8,  zauber:'pakt', asi:[4,8,12,16,19],          unter:1, rw:['wis','cha']},
-  Magier:       {tw:6,  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis']},
+  Barbar:       {tw:12, zauber:null,   asi:[4,8,12,16,19],          unter:3, rw:['str','con'],
+                 fertZahl:2, fert:['tierfuehrung','athletik','einschuechtern','natur','aufmerksamkeit','ueberleben'],
+                 ruestung:'Leichte und mittlere Rüstung, Schilde', waffen:'Einfache und Kriegswaffen',
+                 gold:'2W4×10', paket:['Große Axt','Zwei Handäxte','Vier Wurfspeere','Entdeckerpaket']},
+  Barde:        {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:3, rw:['dex','cha'],
+                 fertZahl:3, fert:'alle',
+                 ruestung:'Leichte Rüstung', waffen:'Einfache Waffen, Handarmbrust, Langschwert, Rapier, Kurzschwert',
+                 gold:'5W4×10', paket:['Rapier','Lederrüstung','Laute','Diplomatenpaket','Dolch']},
+  Kleriker:     {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:1, rw:['wis','cha'],
+                 fertZahl:2, fert:['geschichte','einblick','medizin','ueberreden','religion'],
+                 ruestung:'Leichte und mittlere Rüstung, Schilde', waffen:'Einfache Waffen',
+                 gold:'5W4×10', paket:['Streitkolben','Schuppenpanzer','Schild','Heiliges Symbol','Priesterpaket']},
+  Druide:       {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis'],
+                 fertZahl:2, fert:['arkaneKunde','tierfuehrung','medizin','natur','aufmerksamkeit','religion','ueberleben'],
+                 ruestung:'Leichte und mittlere Rüstung, Schilde (nichts aus Metall)', waffen:'Keulen, Dolche, Speere, Schleudern, Sicheln und Ähnliches',
+                 gold:'2W4×10', paket:['Holzschild','Sichel','Lederrüstung','Entdeckerpaket','Druidischer Fokus']},
+  'Kämpfer':    {tw:10, zauber:null,   asi:[4,6,8,12,14,16,19],     unter:3, rw:['str','con'],
+                 fertZahl:2, fert:['akrobatik','tierfuehrung','athletik','geschichte','einblick','einschuechtern','aufmerksamkeit','ueberleben'],
+                 ruestung:'Alle Rüstungen, Schilde', waffen:'Einfache und Kriegswaffen',
+                 gold:'5W4×10', paket:['Kettenhemd','Langschwert','Schild','Leichte Armbrust','Entdeckerpaket']},
+  'Mönch':      {tw:8,  zauber:null,   asi:[4,8,12,16,19],          unter:3, rw:['str','dex'],
+                 fertZahl:2, fert:['akrobatik','athletik','geschichte','einblick','religion','heimlichkeit'],
+                 ruestung:'Keine', waffen:'Einfache Waffen, Kurzschwerter',
+                 gold:'5W4', paket:['Kurzschwert','Zehn Wurfpfeile','Entdeckerpaket']},
+  Paladin:      {tw:10, zauber:'halb', asi:[4,8,12,16,19],          unter:3, rw:['wis','cha'],
+                 fertZahl:2, fert:['athletik','einblick','einschuechtern','medizin','ueberreden','religion'],
+                 ruestung:'Alle Rüstungen, Schilde', waffen:'Einfache und Kriegswaffen',
+                 gold:'5W4×10', paket:['Kettenhemd','Langschwert','Schild','Fünf Wurfspeere','Heiliges Symbol','Priesterpaket']},
+  'Waldläufer': {tw:10, zauber:'halb', asi:[4,8,12,16,19],          unter:3, rw:['str','dex'],
+                 fertZahl:3, fert:['tierfuehrung','athletik','einblick','nachforschung','natur','aufmerksamkeit','heimlichkeit','ueberleben'],
+                 ruestung:'Leichte und mittlere Rüstung, Schilde', waffen:'Einfache und Kriegswaffen',
+                 gold:'5W4×10', paket:['Schuppenpanzer','Zwei Kurzschwerter','Langbogen','Köcher mit 20 Pfeilen','Entdeckerpaket']},
+  Schurke:      {tw:8,  zauber:null,   asi:[4,8,10,12,16,19],       unter:3, rw:['dex','int'],
+                 fertZahl:4, fert:['akrobatik','athletik','taueschen','einblick','einschuechtern','nachforschung','aufmerksamkeit','auftreten','ueberreden','fingerfert','heimlichkeit'],
+                 ruestung:'Leichte Rüstung', waffen:'Einfache Waffen, Handarmbrust, Langschwert, Rapier, Kurzschwert',
+                 gold:'4W4×10', paket:['Rapier','Kurzbogen','Köcher mit 20 Pfeilen','Lederrüstung','Zwei Dolche','Diebeswerkzeug','Einbrecherpaket']},
+  Zauberer:     {tw:6,  zauber:'voll', asi:[4,8,12,16,19],          unter:1, rw:['con','cha'],
+                 fertZahl:2, fert:['arkaneKunde','taueschen','einblick','einschuechtern','ueberreden','religion'],
+                 ruestung:'Keine', waffen:'Wurfpfeile, Schleudern, Kampfstäbe, leichte Armbrüste',
+                 gold:'3W4×10', paket:['Leichte Armbrust','Köcher mit 20 Bolzen','Zwei Dolche','Arkaner Fokus','Entdeckerpaket']},
+  Hexenmeister: {tw:8,  zauber:'pakt', asi:[4,8,12,16,19],          unter:1, rw:['wis','cha'],
+                 fertZahl:2, fert:['arkaneKunde','taueschen','geschichte','einschuechtern','nachforschung','natur','religion'],
+                 ruestung:'Leichte Rüstung', waffen:'Einfache Waffen',
+                 gold:'4W4×10', paket:['Leichte Armbrust','Köcher mit 20 Bolzen','Lederrüstung','Zwei Dolche','Arkaner Fokus','Gelehrtenpaket']},
+  Magier:       {tw:6,  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis'],
+                 fertZahl:2, fert:['arkaneKunde','geschichte','einblick','nachforschung','medizin','religion'],
+                 ruestung:'Keine', waffen:'Dolche, Wurfpfeile, Schleudern, Kampfstäbe, leichte Armbrüste',
+                 gold:'4W4×10', paket:['Kampfstab','Komponentenbeutel','Zauberbuch','Gelehrtenpaket']},
 };
 
 // Die Zauberplätze, Stufe 1 bis 20. Je Zeile die Plätze vom 1. bis zum

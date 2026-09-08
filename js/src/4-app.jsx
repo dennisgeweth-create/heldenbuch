@@ -2087,12 +2087,29 @@ function App() {
   // legte man ihn an und faende ihn nicht wieder.
   // Die Vorgabe kommt aus dem Abenteuer: hat es "Kaempfer" gestrichen,
   // soll der neue Held nicht damit anfangen.
+  const openAssistent = () => setAssistent(true);
   const openNew  = () => {
     const erste = (klassen[0] || {}).name;
     setEc({...newChar(), adventure: advId, ...(erste ? {charClass: erste} : {})});
     setShowCF(true);
   };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
+
+  // ── Der Charakterassistent ─────────────────────────
+  // Er legt an, was aus den Regeln folgt. Das Formular von Hand bleibt
+  // daneben stehen — wer seinen Bogen lieber selbst tippt, merkt von
+  // alldem nichts.
+  const [assistent, setAssistent] = useState(false);
+  const assistentFertig = (plan) => {
+    const held = {...newChar(), ...plan.neu, id: Date.now().toString(), adventure: advId};
+    save([...charsRef.current, held]);
+    addLog(held.id, held.name, 'charakter', 'Charakter angelegt (Assistent)', {
+      volk: held.race, klasse: held.charClass, hintergrund: held.background,
+      trefferpunkte: held.maxHp,
+    });
+    setAssistent(false);
+    selectChar(held.id);
+  };
 
   // ── Der Stufenaufstieg ────────────────────────────
   // Das Fenster rechnet nichts selbst — es zeigt, was `aufstiegPlan`
@@ -2798,7 +2815,7 @@ function App() {
     gearWornList, initTotal, insp, inspMax, invRarity, invTagFilter,
     isDmMode, itemFx, klassen, languages, nhGesperrt, notesList, noteTagFilter,
     darfBearbeiten,
-    openAufstieg, openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
+    openAssistent, openAufstieg, openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
     setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
     setExNote, setExSpell, setFf, setFfEditId, setGearPick, setGearSlot,
@@ -2896,7 +2913,14 @@ function App() {
             </div>
           )}
           <div className="sidebar-footer">
-            <button className="btn-new" onClick={openNew}>✦ Neuer Charakter</button>
+            {/* Zwei Wege hinein: der Assistent führt durch die Regeln,
+                das Formular fragt nur nach fünf Feldern. Wer weiß, was er
+                tut, ist mit dem zweiten schneller. */}
+            <button className="btn-new" onClick={openAssistent}>✦ Neuer Charakter</button>
+            <button className="btn-new schlicht" onClick={openNew}
+              title="Nur Name, Volk, Hintergrund und Klasse — den Rest trägst du selbst ein">
+              ✎ Von Hand
+            </button>
             <div className="sidebar-tools">
               <button className="btn-tool" onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
               <button className="btn-tool" onClick={()=>{
@@ -4254,6 +4278,12 @@ function App() {
 
       {/* Adventure Log Modal */}
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
+
+      {assistent && (
+        <CharakterAssistent klassen={klassen}
+          onAbbrechen={()=>setAssistent(false)}
+          onFertig={assistentFertig} />
+      )}
 
       {aufstieg && (
         <StufenAufstieg char={aufstieg}
