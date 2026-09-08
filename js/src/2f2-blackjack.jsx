@@ -88,6 +88,10 @@ const bjRat = (karten, wirtKarte, darfTeilen, darfVerdoppeln) => {
   if (wert === 9)  return (w >= 3 && w <= 6 && darfVerdoppeln) ? 'verdoppeln' : 'karte';
   return 'karte';
 };
+// Der Takt des Tisches. Kein Schmuck: er ist der Unterschied zwischen
+// einem Spiel und einer Ausgabe von Ergebnissen.
+const BJ_TAKT   = 420;   // zwischen zwei Karten
+const BJ_ZEIGEN = 700;   // bevor aufgedeckt oder abgerechnet wird
 const BJ_RAT_WORT = {karte: 'ziehen', stehen: 'stehen',
                      verdoppeln: 'verdoppeln', teilen: 'teilen'};
 
@@ -122,8 +126,22 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const [vers, setVers] = React.useState(null);        // Einsatz der Versicherung, 0 = abgelehnt
   const [meldung, setMeldung] = React.useState('Setze und lass geben.');
   const [abrechnung, setAbrechnung] = React.useState(null);
+  const [wirtWort, wirtSagen] = useWirt('blackjack');
+  // Am Tisch legt niemand vier Karten auf einmal hin. Sie kamen bisher
+  // alle im selben Augenblick, und wer hinsah, hatte nichts gesehen:
+  // Blatt fertig, Wirt fertig, abgerechnet. Jetzt liegt zwischen zwei
+  // Karten eine Pause, und der Wirt zieht seine im Takt — sonst ist es
+  // kein Geben, sondern ein Ergebnis.
+  const [gibt, setGibt] = React.useState(false);
+  const lebt = React.useRef(true);
+  React.useEffect(() => () => { lebt.current = false; }, []);
+  const warte = (ms) => new Promise(r => setTimeout(r, ms));
+  const [tafel, setTafelRoh] = React.useState(tafelLesen);
+  const setTafel = (an) => { setTafelRoh(an); tafelSchreiben(an); };
 
-  React.useEffect(() => { if (onLaeuft) onLaeuft(phase === 'spiel'); }, [phase]);
+  // Auch waehrend des Gebens sitzt man am Tisch: der Weg zurueck in die
+  // Halle bleibt zu, bis die Karten liegen.
+  React.useEffect(() => { if (onLaeuft) onLaeuft(phase === 'spiel' || gibt); }, [phase, gibt]);
 
   // Eine Karte vom Schlitten. Bei drei Vierteln kommt ein neuer — das
   // ist die Stelle, an der ein Kartenzähler aufhört zu zählen.
@@ -142,21 +160,41 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const restBlaetter = Math.max(0,
     ((schlitten.current.length - gezogen) / 52)).toFixed(1).replace('.', ',');
 
-  const geben = () => {
+  const geben = async () => {
+    if (gibt) return;
     if (einsatz > marken) { setMeldung('So viel liegt nicht mehr im Beutel.'); return; }
     const k = zieheN(4);
     zahlen(-einsatz);
     const hand = {karten: [k[0], k[2]], einsatz, fertig: false, doppelt: false, ass: false};
     const w = [k[1], k[3]];
-    setHaende([hand]); setWirt(w); setAktiv(0); setOffen(false);
-    setVers(null); setAbrechnung(null);
+    setAktiv(0); setOffen(false); setVers(null); setAbrechnung(null);
+    setGibt(true);
+    setMeldung('');
+
+    // Die Reihenfolge am Tisch: erst der Spieler, dann der Wirt, und die
+    // zweite Karte des Wirts kommt verdeckt zuletzt.
+    setHaende([{...hand, karten: [k[0]]}]); setWirt([]);
+    await warte(BJ_TAKT);          if (!lebt.current) return;
+    setWirt([w[0]]);
+    await warte(BJ_TAKT);          if (!lebt.current) return;
+    setHaende([hand]);
+    await warte(BJ_TAKT);          if (!lebt.current) return;
+    setWirt(w);
+    await warte(BJ_TAKT);          if (!lebt.current) return;
+    setGibt(false);
 
     if (bjKarteWert(w[0]) === 11) {
       setPhase('spiel');
       setMeldung('Ass beim Wirt — Versicherung?');
       return;
     }
-    if (bjBlackjack(hand.karten) || bjBlackjack(w)) { setOffen(true); abrechnen([hand], w, 0); return; }
+    if (bjBlackjack(hand.karten) || bjBlackjack(w)) {
+      // Ein Blackjack wird trotzdem gezeigt, bevor er verrechnet wird.
+      setOffen(true);
+      await warte(BJ_ZEIGEN);      if (!lebt.current) return;
+      abrechnen([hand], w, 0);
+      return;
+    }
     setPhase('spiel');
     setMeldung('');
   };
@@ -169,8 +207,13 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     if (ja && preis > marken) { setMeldung('Für die Versicherung reicht es nicht.'); return; }
     if (ja) zahlen(-preis);
     setVers(preis);
-    if (bjBlackjack(wirt)) { setOffen(true); abrechnen(haende, wirt, preis); return; }
-    if (bjBlackjack(haende[0].karten)) { setOffen(true); abrechnen(haende, wirt, preis); return; }
+    const zeigenUndRechnen = async () => {
+      setGibt(true); setOffen(true);
+      await warte(BJ_ZEIGEN);      if (!lebt.current) return;
+      setGibt(false);
+      abrechnen(haende, wirt, preis);
+    };
+    if (bjBlackjack(wirt) || bjBlackjack(haende[0].karten)) { zeigenUndRechnen(); return; }
     setMeldung(ja ? 'Versichert. Der Wirt hat keinen Blackjack.' : '');
   };
 
@@ -227,21 +270,30 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     else setAktiv(aktiv);
   };
 
-  const wirtZieht = (hs) => {
+  const wirtZieht = async (hs) => {
     // Nur wenn überhaupt eine Hand steht, deckt der Wirt auf — sonst
     // hat er nichts zu schlagen.
+    setGibt(true);
     setOffen(true);
-    const lebt = hs.some(h => bjWert(h.karten).wert <= 21);
+    const steht = hs.some(h => bjWert(h.karten).wert <= 21);
     let w = [...wirt];
-    if (lebt) {
+    if (steht) {
+      await warte(BJ_ZEIGEN);      if (!lebt.current) return;
       // Bis 16 zieht er immer; die weiche 17 ist die Hausregel.
       const zieht = () => {
         const {wert, weich} = bjWert(w);
         return wert < 17 || (weich17 && wert === 17 && weich);
       };
-      while (zieht()) w.push(ziehen());
-      setWirt(w);
+      // Eine Karte, eine Pause. Wer zusieht, soll mitzählen können —
+      // und wer auf die Sechzehn hofft, soll den Augenblick haben.
+      while (zieht()) {
+        w = [...w, ziehen()];
+        setWirt(w);
+        await warte(BJ_TAKT);      if (!lebt.current) return;
+      }
+      await warte(BJ_ZEIGEN);      if (!lebt.current) return;
     }
+    setGibt(false);
     abrechnen(hs, w, vers || 0);
   };
 
@@ -274,6 +326,17 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     }
     if (aus > 0) zahlen(aus);
     setAbrechnung({zeilen, vers: versZeile, aus});
+    // Der Wirt sagt etwas dazu — und zwar zu dem, was gefallen ist.
+    // Blackjack, ueberkauft, der Wirt selbst ueber: das sind die
+    // Augenblicke, an denen an einem echten Tisch jemand etwas sagt.
+    const einsatz = hs.reduce((x, h) => x + h.einsatz, 0) + versEinsatz;
+    const eigen = zeilen.some(z => /Blackjack! 3:2/.test(z.text)) ? 'blackjack'
+      : zeilen.every(z => z.wert > 21)                            ? 'ueberkauft'
+      : wBj                                                       ? 'wirtBlackjack'
+      : wWert > 21                                                ? 'wirtUeber'
+      : (zeilen.length === 1 && zeilen[0].gewinn === zeilen[0].einsatz) ? 'stand'
+      : null;
+    wirtSagen({fall: eigen, aus, einsatz});
     setPhase('aus');
     setMeldung('');
   };
@@ -281,26 +344,38 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const neueRunde = () => {
     setPhase('wette'); setHaende([]); setWirt([]); setOffen(false);
     setVers(null); setAbrechnung(null); setMeldung('Setze und lass geben.');
+    wirtSagen(null);
   };
 
   // ── Was gerade erlaubt ist ─────────────────────────────────────
   const hand = haende[aktiv];
   const wartetVers = phase === 'spiel' && wirt.length === 2
     && bjKarteWert(wirt[0]) === 11 && vers === null;
-  const darfHandeln = phase === 'spiel' && !wartetVers && hand && !hand.fertig;
+  const darfHandeln = phase === 'spiel' && !gibt && !wartetVers && hand && !hand.fertig;
   const handWert = hand ? bjWert(hand.karten).wert : 0;
   const darfVerdoppeln = darfHandeln && hand.karten.length === 2 && hand.einsatz <= marken
     && handWert >= BJ_DOPPELT_AB && handWert <= BJ_DOPPELT_BIS;
   const darfTeilen = darfHandeln && hand.karten.length === 2
     && bjKarteWert(hand.karten[0]) === bjKarteWert(hand.karten[1])
     && haende.length < BJ_HAENDE && hand.einsatz <= marken;
-  const rat = darfHandeln ? bjRat(hand.karten, wirt[0], darfTeilen, darfVerdoppeln) : null;
+  // Ohne Tafel wird nichts gerechnet und nichts hervorgehoben — dann
+  // steht da nur, was auf dem Tisch liegt.
+  const rat = (tafel && darfHandeln)
+    ? bjRat(hand.karten, wirt[0], darfTeilen, darfVerdoppeln) : null;
 
   const wirtWert = bjWert(offen ? wirt : wirt.slice(0, 1));
 
   return (
     <div className="automat-mitte bj-mitte">
       <div className="filz bj-filz">
+        {/* Die Tafel ist Geschmack, keine Hausregel — deshalb ein
+            Schalter am Tisch und keine Einstellung im Abenteuer. */}
+        <button type="button" className={'bj-tafel' + (tafel ? ' an' : '')}
+          onClick={()=>setTafel(!tafel)} aria-pressed={tafel}
+          title={tafel ? 'Die Tafel rät mit — abschalten'
+                       : 'Die Tafel schweigt — einschalten'}>
+          🎓<i>{tafel ? 'Tafel an' : 'Tafel aus'}</i>
+        </button>
         {/* Der Wirt sitzt oben, wie am Tisch. Seine zweite Karte liegt
             verdeckt, bis er dran ist. */}
         <div className="bj-seite">
@@ -350,6 +425,8 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         </div>
       </div>
 
+      <WirtSagt spruch={wirtWort} />
+
       {/* ── Was man tun kann ───────────────────────────────────── */}
       {phase === 'wette' && (
         <>
@@ -393,8 +470,8 @@ const BlackjackTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
               onClick={teilen} disabled={!darfTeilen}>Teilen</button>
           </div>
           <div className="bj-melde">
-            <b>{bjWert(hand.karten).wert} gegen {bjKarteWert(wirt[0])}.</b>{' '}
-            Die Tafel rät: {BJ_RAT_WORT[rat]}.
+            <b>{bjWert(hand.karten).wert} gegen {bjKarteWert(wirt[0])}.</b>
+            {rat ? ' Die Tafel rät: ' + BJ_RAT_WORT[rat] + '.' : ''}
           </div>
         </>
       )}

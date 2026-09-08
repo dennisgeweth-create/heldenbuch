@@ -221,6 +221,19 @@ const beutelSchreiben = (d) => {
 };
 const OHNE_HELD = '_ohne';   // ohne Bogen spielt man trotzdem
 
+// Ob die Tafel mitraet, ist Geschmack und keine Hausregel: der eine will
+// die Grundstrategie sehen, der andere findet, dass sie ihm das Spiel
+// wegnimmt. Es liegt deshalb im Geraet und nicht im Abenteuer — jeder
+// stellt es fuer sich, und niemand stellt es fuer andere.
+const tafelLesen = () => {
+  const d = beutelLesen();
+  return d.tafel !== false;                 // von Haus aus raet sie mit
+};
+const tafelSchreiben = (an) => {
+  const d = beutelLesen();
+  beutelSchreiben({...d, tafel: !!an});
+};
+
 // ── Was der Wirt sich merkt ────────────────────────────────
 // Eine Zeile je Held, im Geraet: wie viele Runden, wie viel gesetzt und
 // wie viel zurueck, und die laengste Serie in beide Richtungen. Es geht
@@ -267,6 +280,149 @@ const wirtSpruch = (stat) => {
   if (stat.runden >= 40) return '„Du bist länger hier als mein Feuer.“';
   return '„Weiter geht’s. Das Haus hat Zeit.“';
 };
+
+// ── Der Wirt am Tisch ──────────────────────────────────
+// Er steht an den drei Tischen daneben, an denen jemand gibt: Roulette,
+// Blackjack, Craps. Nicht am Automaten und nicht an der Rennbahn — dort
+// ist er nicht, und ein Wirt, der ueberall gleichzeitig steht, ist
+// keiner.
+//
+// Ein Spruch, der nur "gewonnen" und "verloren" kennt, ist nach zwei
+// Abenden abgenutzt. Er bekommt deshalb, was tatsaechlich gefallen ist,
+// und hat zu den seltenen Sachen etwas Eigenes zu sagen: zum Blackjack,
+// zur Null, zur Sieben nach einem Punkt. Zum Gewoehnlichen sagt er
+// Gewoehnliches — aber nie zweimal hintereinander dasselbe.
+
+// Der erste Satz, bevor etwas gefallen ist. Er haelt den Platz, den
+// spaeter die Antwort braucht — sonst rueckte der Tisch bei jedem Wurf.
+const WIRT_GRUSS = {
+  blackjack: 'Der Wirt klopft auf den Schlitten. „Setz, dann gebe ich.“',
+  roulette:  'Der Wirt dreht den Kessel leer an. „Legen Sie, meine Herrschaften.“',
+  craps:     'Der Wirt schiebt die Würfel herüber. „Deine Hand.“',
+};
+
+// Was gefallen ist, nicht nur wie es ausging.
+const WIRT_FALL = {
+  blackjack: [
+    '„Blackjack.“ Er zahlt anderthalbfach und sieht dabei nicht auf.',
+    '„Das erste Blatt sitzt. Das zweite selten.“',
+  ],
+  ueberkauft: [
+    '„Über einundzwanzig. Da hilft kein Zureden.“',
+    '„Eine zu viel. Die zieht jeder mal.“',
+    '„Zweiundzwanzig zählt hier wie null.“',
+  ],
+  wirtUeber: [
+    '„Das Haus hat sich verzählt.“ Er lacht kurz und zahlt.',
+    '„Auch der Wirt geht über.“ Er räumt seine eigenen Karten zuerst ab.',
+  ],
+  stand: [
+    '„Stand. Keiner hat verloren, keiner hat gelernt.“',
+    '„Unentschieden. Das kommt seltener vor als Verlieren.“',
+  ],
+  wirtBlackjack: [
+    '„Blackjack — meiner.“ Er dreht die zweite Karte um, als hätte er es gewusst.',
+    '„Manchmal sitzt es beim Haus.“',
+  ],
+  zero: [
+    '„Zéro.“ Er teilt die einfachen Chancen und legt die Hälfte zurück.',
+    '„Die Null. Einmal in siebenunddreißig — heute jetzt.“',
+  ],
+  zeroHart: [
+    '„Zéro. Ohne Partage heute.“ Er räumt den ganzen Tisch ab.',
+    '„Die Null nimmt alles. So hat es die Runde bestellt.“',
+  ],
+  plein: [
+    '„Plein. Fünfunddreißig zu eins.“ Er zählt zweimal nach.',
+    '„Auf die Zahl. Das sieht dieser Tisch nicht oft.“',
+  ],
+  siebenRaus: [
+    '„Sieben raus.“ Er dreht den Marker auf Aus.',
+    '„Die Sieben kommt immer. Nur nie, wenn man sie braucht.“',
+  ],
+  punktSteht: [
+    '„Der Punkt steht.“ Er dreht den Marker um und legt ihn auf die Zahl.',
+    '„Jetzt gilt nur noch eins: die Zahl vor der Sieben.“',
+  ],
+  punktGefallen: [
+    '„Der Punkt fällt!“ Er klopft zweimal auf den Rand.',
+    '„Gehalten. Der Schütze bleibt.“',
+  ],
+  craps: [
+    '„Craps. Neuer Wurf, gleicher Schütze.“',
+    '„Zwei, drei, zwölf — das Haus nimmt sie alle drei.“',
+  ],
+  sofort: [
+    '„Sofort durch. Das geht schnell hier.“',
+    '„Der erste Wurf entscheidet. Heute für dich.“',
+  ],
+};
+
+// Und wenn nichts Besonderes gefallen ist: etwas Gewoehnliches.
+const WIRT_LAGE = {
+  gross: [
+    '„So viel geht hier selten hinaus.“ Er notiert nichts, aber er merkt es sich.',
+    '„Das war ein guter Abend in einer Runde.“',
+    '„Nimm es mit. Der Tisch steht morgen auch noch.“',
+  ],
+  sieg: [
+    '„Geht doch.“ Er schiebt die Marken herüber.',
+    '„Nimm es, bevor du es wieder setzt.“',
+    '„Sauber.“',
+    '„Das Haus zahlt. Ungern, aber es zahlt.“',
+  ],
+  gleich: [
+    '„Nichts passiert. Auch das ist ein Ergebnis.“',
+    '„Zurück auf Anfang. Kostet nur Zeit.“',
+  ],
+  klein: [
+    '„Weg. Aber nicht weit.“',
+    '„Das holst du wieder.“',
+    '„Kleiner Verlust, langer Abend.“',
+  ],
+  pech: [
+    '„Das Haus dankt.“',
+    '„Das war teuer.“ Er räumt ab, ohne es zu zählen.',
+    '„Setz kleiner. Ich sag das nicht oft.“',
+  ],
+};
+
+// Welche Kiste gilt: erst der Fall, dann die Lage.
+const wirtAmTisch = (lage, gemieden) => {
+  const kiste = (lage.fall && WIRT_FALL[lage.fall])
+    || WIRT_LAGE[wirtLage(lage.aus - lage.einsatz, lage.einsatz)];
+  if (!kiste || !kiste.length) return null;
+  // Nicht zweimal hintereinander dasselbe. Bleibt nichts uebrig, darf
+  // sich der Wirt wiederholen — das tun Wirte.
+  const frisch = kiste.filter(z => !gemieden.includes(z));
+  const aus = frisch.length ? frisch : kiste;
+  return aus[Math.floor(Math.random() * aus.length)];
+};
+const wirtLage = (rest, einsatz) => {
+  if (rest === 0) return 'gleich';
+  if (rest > 0) return rest >= 4 * Math.max(1, einsatz) ? 'gross' : 'sieg';
+  return -rest > 2 * Math.max(1, einsatz) ? 'pech' : 'klein';
+};
+
+// Der Wirt merkt sich, was er zuletzt gesagt hat. Mehr braucht er nicht.
+const useWirt = (tisch) => {
+  const [spruch, setSpruch] = React.useState(WIRT_GRUSS[tisch] || null);
+  const alt = React.useRef([]);
+  const sagen = (lage) => {
+    if (!lage) { setSpruch(WIRT_GRUSS[tisch] || null); return; }
+    const z = wirtAmTisch(lage, alt.current);
+    if (!z) return;
+    alt.current = [z, ...alt.current].slice(0, 5);
+    setSpruch(z);
+  };
+  return [spruch, sagen];
+};
+
+// Eine Zeile, immer da. Sie haelt ihren Platz auch leer — ein Tisch,
+// der bei jeder Abrechnung um eine Zeile waechst, ruckelt.
+const WirtSagt = ({ spruch }) => (
+  <div className="tisch-wirt">{spruch ? <span>🧔 {spruch}</span> : null}</div>
+);
 
 // ── Echtes Gold ────────────────────────────────────────
 // Genau dafuer haengt der Beutel seit v4.7 am Helden. Die Tische kennen

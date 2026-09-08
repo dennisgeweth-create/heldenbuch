@@ -145,6 +145,7 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const [gefallen, setGefallen] = React.useState(null);
   const [verlauf, setVerlauf] = React.useState([]);
   const [abrechnung, setAbrechnung] = React.useState(null);
+  const [wirtWort, wirtSagen] = useWirt('roulette');
   const [meldung, setMeldung] = React.useState('');
   const [bahn, setBahn] = React.useState(false);
   const [weite, setWeite] = React.useState(2);
@@ -258,15 +259,24 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         text = 'La Partage — die Hälfte zurück';
       } else text = 'verfällt';
       aus += g;
-      return {name: w.name, betrag: w.betrag, gewinn: g, text, trifft};
+      return {name: w.name, betrag: w.betrag, gewinn: g, text, trifft, art: w.art};
     });
     if (aus > 0) zahlen(aus);
-    setAbrechnung({zeilen, aus, einsatz: wetten.reduce((s,w)=>s+w.betrag,0)});
+    const einsatz = wetten.reduce((s, w) => s + w.betrag, 0);
+    setAbrechnung({zeilen, aus, einsatz});
+    // Die Null und der Volltreffer sind die beiden Augenblicke, an denen
+    // an einem Roulettetisch jemand etwas sagt.
+    wirtSagen({
+      fall: n === 0 ? (partage ? 'zero' : 'zeroHart')
+        : zeilen.some(z => z.trifft && z.art === 'plein') ? 'plein' : null,
+      aus, einsatz,
+    });
     setPhase('aus');
   };
 
   const neueRunde = () => {
     setPhase('setzen'); setWetten([]); setWahl([]); setAbrechnung(null); setMeldung('');
+    wirtSagen(null);
   };
 
   // Ein Jeton liegt auf einem Feld, nicht anteilig auf sechs. Der Turm
@@ -436,6 +446,8 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       {/* Ein Fuss, nicht zwei: der Hauptknopf wechselt sein Wort. Zwei
           Reihen, die einander ersetzen, machten das Fenster bei jedem
           Wurf laenger und wieder kuerzer. */}
+      <WirtSagt spruch={wirtWort} />
+
       <div className="rlt-tasten">
         <button className="automat-hebel"
           onClick={phase === 'aus' ? neueRunde : werfen}

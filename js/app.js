@@ -6035,6 +6035,22 @@ const beutelSchreiben = d => {
 };
 const OHNE_HELD = '_ohne'; // ohne Bogen spielt man trotzdem
 
+// Ob die Tafel mitraet, ist Geschmack und keine Hausregel: der eine will
+// die Grundstrategie sehen, der andere findet, dass sie ihm das Spiel
+// wegnimmt. Es liegt deshalb im Geraet und nicht im Abenteuer — jeder
+// stellt es fuer sich, und niemand stellt es fuer andere.
+const tafelLesen = () => {
+  const d = beutelLesen();
+  return d.tafel !== false; // von Haus aus raet sie mit
+};
+const tafelSchreiben = an => {
+  const d = beutelLesen();
+  beutelSchreiben({
+    ...d,
+    tafel: !!an
+  });
+};
+
 // ── Was der Wirt sich merkt ────────────────────────────────
 // Eine Zeile je Held, im Geraet: wie viele Runden, wie viel gesetzt und
 // wie viel zurueck, und die laengste Serie in beide Richtungen. Es geht
@@ -6093,6 +6109,93 @@ const wirtSpruch = stat => {
   if (stat.runden >= 40) return '„Du bist länger hier als mein Feuer.“';
   return '„Weiter geht’s. Das Haus hat Zeit.“';
 };
+
+// ── Der Wirt am Tisch ──────────────────────────────────
+// Er steht an den drei Tischen daneben, an denen jemand gibt: Roulette,
+// Blackjack, Craps. Nicht am Automaten und nicht an der Rennbahn — dort
+// ist er nicht, und ein Wirt, der ueberall gleichzeitig steht, ist
+// keiner.
+//
+// Ein Spruch, der nur "gewonnen" und "verloren" kennt, ist nach zwei
+// Abenden abgenutzt. Er bekommt deshalb, was tatsaechlich gefallen ist,
+// und hat zu den seltenen Sachen etwas Eigenes zu sagen: zum Blackjack,
+// zur Null, zur Sieben nach einem Punkt. Zum Gewoehnlichen sagt er
+// Gewoehnliches — aber nie zweimal hintereinander dasselbe.
+
+// Der erste Satz, bevor etwas gefallen ist. Er haelt den Platz, den
+// spaeter die Antwort braucht — sonst rueckte der Tisch bei jedem Wurf.
+const WIRT_GRUSS = {
+  blackjack: 'Der Wirt klopft auf den Schlitten. „Setz, dann gebe ich.“',
+  roulette: 'Der Wirt dreht den Kessel leer an. „Legen Sie, meine Herrschaften.“',
+  craps: 'Der Wirt schiebt die Würfel herüber. „Deine Hand.“'
+};
+
+// Was gefallen ist, nicht nur wie es ausging.
+const WIRT_FALL = {
+  blackjack: ['„Blackjack.“ Er zahlt anderthalbfach und sieht dabei nicht auf.', '„Das erste Blatt sitzt. Das zweite selten.“'],
+  ueberkauft: ['„Über einundzwanzig. Da hilft kein Zureden.“', '„Eine zu viel. Die zieht jeder mal.“', '„Zweiundzwanzig zählt hier wie null.“'],
+  wirtUeber: ['„Das Haus hat sich verzählt.“ Er lacht kurz und zahlt.', '„Auch der Wirt geht über.“ Er räumt seine eigenen Karten zuerst ab.'],
+  stand: ['„Stand. Keiner hat verloren, keiner hat gelernt.“', '„Unentschieden. Das kommt seltener vor als Verlieren.“'],
+  wirtBlackjack: ['„Blackjack — meiner.“ Er dreht die zweite Karte um, als hätte er es gewusst.', '„Manchmal sitzt es beim Haus.“'],
+  zero: ['„Zéro.“ Er teilt die einfachen Chancen und legt die Hälfte zurück.', '„Die Null. Einmal in siebenunddreißig — heute jetzt.“'],
+  zeroHart: ['„Zéro. Ohne Partage heute.“ Er räumt den ganzen Tisch ab.', '„Die Null nimmt alles. So hat es die Runde bestellt.“'],
+  plein: ['„Plein. Fünfunddreißig zu eins.“ Er zählt zweimal nach.', '„Auf die Zahl. Das sieht dieser Tisch nicht oft.“'],
+  siebenRaus: ['„Sieben raus.“ Er dreht den Marker auf Aus.', '„Die Sieben kommt immer. Nur nie, wenn man sie braucht.“'],
+  punktSteht: ['„Der Punkt steht.“ Er dreht den Marker um und legt ihn auf die Zahl.', '„Jetzt gilt nur noch eins: die Zahl vor der Sieben.“'],
+  punktGefallen: ['„Der Punkt fällt!“ Er klopft zweimal auf den Rand.', '„Gehalten. Der Schütze bleibt.“'],
+  craps: ['„Craps. Neuer Wurf, gleicher Schütze.“', '„Zwei, drei, zwölf — das Haus nimmt sie alle drei.“'],
+  sofort: ['„Sofort durch. Das geht schnell hier.“', '„Der erste Wurf entscheidet. Heute für dich.“']
+};
+
+// Und wenn nichts Besonderes gefallen ist: etwas Gewoehnliches.
+const WIRT_LAGE = {
+  gross: ['„So viel geht hier selten hinaus.“ Er notiert nichts, aber er merkt es sich.', '„Das war ein guter Abend in einer Runde.“', '„Nimm es mit. Der Tisch steht morgen auch noch.“'],
+  sieg: ['„Geht doch.“ Er schiebt die Marken herüber.', '„Nimm es, bevor du es wieder setzt.“', '„Sauber.“', '„Das Haus zahlt. Ungern, aber es zahlt.“'],
+  gleich: ['„Nichts passiert. Auch das ist ein Ergebnis.“', '„Zurück auf Anfang. Kostet nur Zeit.“'],
+  klein: ['„Weg. Aber nicht weit.“', '„Das holst du wieder.“', '„Kleiner Verlust, langer Abend.“'],
+  pech: ['„Das Haus dankt.“', '„Das war teuer.“ Er räumt ab, ohne es zu zählen.', '„Setz kleiner. Ich sag das nicht oft.“']
+};
+
+// Welche Kiste gilt: erst der Fall, dann die Lage.
+const wirtAmTisch = (lage, gemieden) => {
+  const kiste = lage.fall && WIRT_FALL[lage.fall] || WIRT_LAGE[wirtLage(lage.aus - lage.einsatz, lage.einsatz)];
+  if (!kiste || !kiste.length) return null;
+  // Nicht zweimal hintereinander dasselbe. Bleibt nichts uebrig, darf
+  // sich der Wirt wiederholen — das tun Wirte.
+  const frisch = kiste.filter(z => !gemieden.includes(z));
+  const aus = frisch.length ? frisch : kiste;
+  return aus[Math.floor(Math.random() * aus.length)];
+};
+const wirtLage = (rest, einsatz) => {
+  if (rest === 0) return 'gleich';
+  if (rest > 0) return rest >= 4 * Math.max(1, einsatz) ? 'gross' : 'sieg';
+  return -rest > 2 * Math.max(1, einsatz) ? 'pech' : 'klein';
+};
+
+// Der Wirt merkt sich, was er zuletzt gesagt hat. Mehr braucht er nicht.
+const useWirt = tisch => {
+  const [spruch, setSpruch] = React.useState(WIRT_GRUSS[tisch] || null);
+  const alt = React.useRef([]);
+  const sagen = lage => {
+    if (!lage) {
+      setSpruch(WIRT_GRUSS[tisch] || null);
+      return;
+    }
+    const z = wirtAmTisch(lage, alt.current);
+    if (!z) return;
+    alt.current = [z, ...alt.current].slice(0, 5);
+    setSpruch(z);
+  };
+  return [spruch, sagen];
+};
+
+// Eine Zeile, immer da. Sie haelt ihren Platz auch leer — ein Tisch,
+// der bei jeder Abrechnung um eine Zeile waechst, ruckelt.
+const WirtSagt = ({
+  spruch
+}) => /*#__PURE__*/React.createElement("div", {
+  className: "tisch-wirt"
+}, spruch ? /*#__PURE__*/React.createElement("span", null, "\uD83E\uDDD4 ", spruch) : null);
 
 // ── Echtes Gold ────────────────────────────────────────
 // Genau dafuer haengt der Beutel seit v4.7 am Helden. Die Tische kennen
@@ -7263,6 +7366,10 @@ const bjRat = (karten, wirtKarte, darfTeilen, darfVerdoppeln) => {
   if (wert === 9) return w >= 3 && w <= 6 && darfVerdoppeln ? 'verdoppeln' : 'karte';
   return 'karte';
 };
+// Der Takt des Tisches. Kein Schmuck: er ist der Unterschied zwischen
+// einem Spiel und einer Ausgabe von Ergebnissen.
+const BJ_TAKT = 420; // zwischen zwei Karten
+const BJ_ZEIGEN = 700; // bevor aufgedeckt oder abgerechnet wird
 const BJ_RAT_WORT = {
   karte: 'ziehen',
   stehen: 'stehen',
@@ -7306,9 +7413,29 @@ const BlackjackTisch = ({
   const [vers, setVers] = React.useState(null); // Einsatz der Versicherung, 0 = abgelehnt
   const [meldung, setMeldung] = React.useState('Setze und lass geben.');
   const [abrechnung, setAbrechnung] = React.useState(null);
+  const [wirtWort, wirtSagen] = useWirt('blackjack');
+  // Am Tisch legt niemand vier Karten auf einmal hin. Sie kamen bisher
+  // alle im selben Augenblick, und wer hinsah, hatte nichts gesehen:
+  // Blatt fertig, Wirt fertig, abgerechnet. Jetzt liegt zwischen zwei
+  // Karten eine Pause, und der Wirt zieht seine im Takt — sonst ist es
+  // kein Geben, sondern ein Ergebnis.
+  const [gibt, setGibt] = React.useState(false);
+  const lebt = React.useRef(true);
+  React.useEffect(() => () => {
+    lebt.current = false;
+  }, []);
+  const warte = ms => new Promise(r => setTimeout(r, ms));
+  const [tafel, setTafelRoh] = React.useState(tafelLesen);
+  const setTafel = an => {
+    setTafelRoh(an);
+    tafelSchreiben(an);
+  };
+
+  // Auch waehrend des Gebens sitzt man am Tisch: der Weg zurueck in die
+  // Halle bleibt zu, bis die Karten liegen.
   React.useEffect(() => {
-    if (onLaeuft) onLaeuft(phase === 'spiel');
-  }, [phase]);
+    if (onLaeuft) onLaeuft(phase === 'spiel' || gibt);
+  }, [phase, gibt]);
 
   // Eine Karte vom Schlitten. Bei drei Vierteln kommt ein neuer — das
   // ist die Stelle, an der ein Kartenzähler aufhört zu zählen.
@@ -7324,7 +7451,8 @@ const BlackjackTisch = ({
   };
   const ziehen = () => zieheN(1)[0];
   const restBlaetter = Math.max(0, (schlitten.current.length - gezogen) / 52).toFixed(1).replace('.', ',');
-  const geben = () => {
+  const geben = async () => {
+    if (gibt) return;
     if (einsatz > marken) {
       setMeldung('So viel liegt nicht mehr im Beutel.');
       return;
@@ -7339,19 +7467,42 @@ const BlackjackTisch = ({
       ass: false
     };
     const w = [k[1], k[3]];
-    setHaende([hand]);
-    setWirt(w);
     setAktiv(0);
     setOffen(false);
     setVers(null);
     setAbrechnung(null);
+    setGibt(true);
+    setMeldung('');
+
+    // Die Reihenfolge am Tisch: erst der Spieler, dann der Wirt, und die
+    // zweite Karte des Wirts kommt verdeckt zuletzt.
+    setHaende([{
+      ...hand,
+      karten: [k[0]]
+    }]);
+    setWirt([]);
+    await warte(BJ_TAKT);
+    if (!lebt.current) return;
+    setWirt([w[0]]);
+    await warte(BJ_TAKT);
+    if (!lebt.current) return;
+    setHaende([hand]);
+    await warte(BJ_TAKT);
+    if (!lebt.current) return;
+    setWirt(w);
+    await warte(BJ_TAKT);
+    if (!lebt.current) return;
+    setGibt(false);
     if (bjKarteWert(w[0]) === 11) {
       setPhase('spiel');
       setMeldung('Ass beim Wirt — Versicherung?');
       return;
     }
     if (bjBlackjack(hand.karten) || bjBlackjack(w)) {
+      // Ein Blackjack wird trotzdem gezeigt, bevor er verrechnet wird.
       setOffen(true);
+      await warte(BJ_ZEIGEN);
+      if (!lebt.current) return;
       abrechnen([hand], w, 0);
       return;
     }
@@ -7370,14 +7521,16 @@ const BlackjackTisch = ({
     }
     if (ja) zahlen(-preis);
     setVers(preis);
-    if (bjBlackjack(wirt)) {
+    const zeigenUndRechnen = async () => {
+      setGibt(true);
       setOffen(true);
+      await warte(BJ_ZEIGEN);
+      if (!lebt.current) return;
+      setGibt(false);
       abrechnen(haende, wirt, preis);
-      return;
-    }
-    if (bjBlackjack(haende[0].karten)) {
-      setOffen(true);
-      abrechnen(haende, wirt, preis);
+    };
+    if (bjBlackjack(wirt) || bjBlackjack(haende[0].karten)) {
+      zeigenUndRechnen();
       return;
     }
     setMeldung(ja ? 'Versichert. Der Wirt hat keinen Blackjack.' : '');
@@ -7468,13 +7621,16 @@ const BlackjackTisch = ({
     setHaende(hs);
     if (ass) weiter(hs, aktiv);else setAktiv(aktiv);
   };
-  const wirtZieht = hs => {
+  const wirtZieht = async hs => {
     // Nur wenn überhaupt eine Hand steht, deckt der Wirt auf — sonst
     // hat er nichts zu schlagen.
+    setGibt(true);
     setOffen(true);
-    const lebt = hs.some(h => bjWert(h.karten).wert <= 21);
+    const steht = hs.some(h => bjWert(h.karten).wert <= 21);
     let w = [...wirt];
-    if (lebt) {
+    if (steht) {
+      await warte(BJ_ZEIGEN);
+      if (!lebt.current) return;
       // Bis 16 zieht er immer; die weiche 17 ist die Hausregel.
       const zieht = () => {
         const {
@@ -7483,9 +7639,18 @@ const BlackjackTisch = ({
         } = bjWert(w);
         return wert < 17 || weich17 && wert === 17 && weich;
       };
-      while (zieht()) w.push(ziehen());
-      setWirt(w);
+      // Eine Karte, eine Pause. Wer zusieht, soll mitzählen können —
+      // und wer auf die Sechzehn hofft, soll den Augenblick haben.
+      while (zieht()) {
+        w = [...w, ziehen()];
+        setWirt(w);
+        await warte(BJ_TAKT);
+        if (!lebt.current) return;
+      }
+      await warte(BJ_ZEIGEN);
+      if (!lebt.current) return;
     }
+    setGibt(false);
     abrechnen(hs, w, vers || 0);
   };
   const abrechnen = (hs, w, versEinsatz) => {
@@ -7547,6 +7712,16 @@ const BlackjackTisch = ({
       vers: versZeile,
       aus
     });
+    // Der Wirt sagt etwas dazu — und zwar zu dem, was gefallen ist.
+    // Blackjack, ueberkauft, der Wirt selbst ueber: das sind die
+    // Augenblicke, an denen an einem echten Tisch jemand etwas sagt.
+    const einsatz = hs.reduce((x, h) => x + h.einsatz, 0) + versEinsatz;
+    const eigen = zeilen.some(z => /Blackjack! 3:2/.test(z.text)) ? 'blackjack' : zeilen.every(z => z.wert > 21) ? 'ueberkauft' : wBj ? 'wirtBlackjack' : wWert > 21 ? 'wirtUeber' : zeilen.length === 1 && zeilen[0].gewinn === zeilen[0].einsatz ? 'stand' : null;
+    wirtSagen({
+      fall: eigen,
+      aus,
+      einsatz
+    });
     setPhase('aus');
     setMeldung('');
   };
@@ -7558,22 +7733,31 @@ const BlackjackTisch = ({
     setVers(null);
     setAbrechnung(null);
     setMeldung('Setze und lass geben.');
+    wirtSagen(null);
   };
 
   // ── Was gerade erlaubt ist ─────────────────────────────────────
   const hand = haende[aktiv];
   const wartetVers = phase === 'spiel' && wirt.length === 2 && bjKarteWert(wirt[0]) === 11 && vers === null;
-  const darfHandeln = phase === 'spiel' && !wartetVers && hand && !hand.fertig;
+  const darfHandeln = phase === 'spiel' && !gibt && !wartetVers && hand && !hand.fertig;
   const handWert = hand ? bjWert(hand.karten).wert : 0;
   const darfVerdoppeln = darfHandeln && hand.karten.length === 2 && hand.einsatz <= marken && handWert >= BJ_DOPPELT_AB && handWert <= BJ_DOPPELT_BIS;
   const darfTeilen = darfHandeln && hand.karten.length === 2 && bjKarteWert(hand.karten[0]) === bjKarteWert(hand.karten[1]) && haende.length < BJ_HAENDE && hand.einsatz <= marken;
-  const rat = darfHandeln ? bjRat(hand.karten, wirt[0], darfTeilen, darfVerdoppeln) : null;
+  // Ohne Tafel wird nichts gerechnet und nichts hervorgehoben — dann
+  // steht da nur, was auf dem Tisch liegt.
+  const rat = tafel && darfHandeln ? bjRat(hand.karten, wirt[0], darfTeilen, darfVerdoppeln) : null;
   const wirtWert = bjWert(offen ? wirt : wirt.slice(0, 1));
   return /*#__PURE__*/React.createElement("div", {
     className: "automat-mitte bj-mitte"
   }, /*#__PURE__*/React.createElement("div", {
     className: "filz bj-filz"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'bj-tafel' + (tafel ? ' an' : ''),
+    onClick: () => setTafel(!tafel),
+    "aria-pressed": tafel,
+    title: tafel ? 'Die Tafel rät mit — abschalten' : 'Die Tafel schweigt — einschalten'
+  }, "\uD83C\uDF93", /*#__PURE__*/React.createElement("i", null, tafel ? 'Tafel an' : 'Tafel aus')), /*#__PURE__*/React.createElement("div", {
     className: "bj-seite"
   }, /*#__PURE__*/React.createElement("span", {
     className: "bj-wer"
@@ -7624,7 +7808,9 @@ const BlackjackTisch = ({
     }, /*#__PURE__*/React.createElement("i", null, h.einsatz)), /*#__PURE__*/React.createElement("span", {
       className: 'bj-punkte hell' + (wert > 21 ? ' weg' : '')
     }, wert, bjBlackjack(h.karten) && haende.length === 1 ? ' ♦' : ''));
-  }))), phase === 'wette' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement(WirtSagt, {
+    spruch: wirtWort
+  }), phase === 'wette' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "automat-einsatz"
   }, /*#__PURE__*/React.createElement("span", {
     className: "automat-einsatz-titel"
@@ -7668,7 +7854,7 @@ const BlackjackTisch = ({
     disabled: !darfTeilen
   }, "Teilen")), /*#__PURE__*/React.createElement("div", {
     className: "bj-melde"
-  }, /*#__PURE__*/React.createElement("b", null, bjWert(hand.karten).wert, " gegen ", bjKarteWert(wirt[0]), "."), ' ', "Die Tafel r\xE4t: ", BJ_RAT_WORT[rat], ".")), phase === 'aus' && abrechnung && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("b", null, bjWert(hand.karten).wert, " gegen ", bjKarteWert(wirt[0]), "."), rat ? ' Die Tafel rät: ' + BJ_RAT_WORT[rat] + '.' : '')), phase === 'aus' && abrechnung && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "bj-abrechnung"
   }, abrechnung.zeilen.map((z, i) => /*#__PURE__*/React.createElement("div", {
     className: 'bj-zeile' + (z.gewinn > z.einsatz ? ' gut' : z.gewinn === 0 ? ' schlecht' : ''),
@@ -8003,6 +8189,7 @@ const RouletteTisch = ({
   const [gefallen, setGefallen] = React.useState(null);
   const [verlauf, setVerlauf] = React.useState([]);
   const [abrechnung, setAbrechnung] = React.useState(null);
+  const [wirtWort, wirtSagen] = useWirt('roulette');
   const [meldung, setMeldung] = React.useState('');
   const [bahn, setBahn] = React.useState(false);
   const [weite, setWeite] = React.useState(2);
@@ -8157,14 +8344,23 @@ const RouletteTisch = ({
         betrag: w.betrag,
         gewinn: g,
         text,
-        trifft
+        trifft,
+        art: w.art
       };
     });
     if (aus > 0) zahlen(aus);
+    const einsatz = wetten.reduce((s, w) => s + w.betrag, 0);
     setAbrechnung({
       zeilen,
       aus,
-      einsatz: wetten.reduce((s, w) => s + w.betrag, 0)
+      einsatz
+    });
+    // Die Null und der Volltreffer sind die beiden Augenblicke, an denen
+    // an einem Roulettetisch jemand etwas sagt.
+    wirtSagen({
+      fall: n === 0 ? partage ? 'zero' : 'zeroHart' : zeilen.some(z => z.trifft && z.art === 'plein') ? 'plein' : null,
+      aus,
+      einsatz
     });
     setPhase('aus');
   };
@@ -8174,6 +8370,7 @@ const RouletteTisch = ({
     setWahl([]);
     setAbrechnung(null);
     setMeldung('');
+    wirtSagen(null);
   };
 
   // Ein Jeton liegt auf einem Feld, nicht anteilig auf sechs. Der Turm
@@ -8325,7 +8522,9 @@ const RouletteTisch = ({
     }, /*#__PURE__*/React.createElement("span", null, z.name, " \xB7 ", z.text), /*#__PURE__*/React.createElement("b", null, d >= 0 ? '+' + d : '−' + Math.abs(d)));
   }), /*#__PURE__*/React.createElement("div", {
     className: "rlt-zeile summe"
-  }, /*#__PURE__*/React.createElement("span", null, abrechnung.aus >= abrechnung.einsatz ? 'Gewonnen' : 'Verloren'), /*#__PURE__*/React.createElement("b", null, abrechnung.aus - abrechnung.einsatz >= 0 ? '+' : '−', Math.abs(abrechnung.aus - abrechnung.einsatz)))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, abrechnung.aus >= abrechnung.einsatz ? 'Gewonnen' : 'Verloren'), /*#__PURE__*/React.createElement("b", null, abrechnung.aus - abrechnung.einsatz >= 0 ? '+' : '−', Math.abs(abrechnung.aus - abrechnung.einsatz)))), /*#__PURE__*/React.createElement(WirtSagt, {
+    spruch: wirtWort
+  }), /*#__PURE__*/React.createElement("div", {
     className: "rlt-tasten"
   }, /*#__PURE__*/React.createElement("button", {
     className: "automat-hebel",
@@ -8711,6 +8910,7 @@ const CrapsTisch = ({
   const [augen, setAugen] = React.useState(null); // [a, b]
   const [rollt, setRollt] = React.useState(false);
   const [zeilen, setZeilen] = React.useState([]);
+  const [wirtWort, wirtSagen] = useWirt('craps');
   const [ruf, setRuf] = React.useState('Der erste Wurf setzt den Punkt.');
   const [meldung, setMeldung] = React.useState('');
   const [verlauf, setVerlauf] = React.useState([]);
@@ -8770,6 +8970,20 @@ const CrapsTisch = ({
           b
         }, ...v].slice(0, 10));
         setRuf(e.punkt === null ? punkt === null ? e.summe === 7 || e.summe === 11 ? 'Sofort gewonnen — ' + e.summe + '.' : 'Craps, ' + e.summe + '. Neuer Wurf.' : e.summe === 7 ? 'Sieben raus. Der Punkt ist weg.' : 'Der Punkt ' + e.summe + ' ist gefallen!' : punkt === null ? 'Punkt steht auf der ' + e.punkt + ' — jetzt gilt: die ' + e.punkt + ' vor der 7.' : e.summe + ' — weiter.');
+        // Der Wirt am Crapstisch redet ueber den Wurf, nicht ueber das
+        // Geld: die Sieben nach einem Punkt und der gefallene Punkt sind
+        // die beiden Augenblicke, an denen der ganze Tisch aufsieht.
+        //
+        // Und er sagt nichts, wenn nichts gefallen ist. Ein Wurf mit
+        // stehendem Punkt entscheidet oft gar nichts — die Passe bleibt
+        // liegen. Ein "kleiner Verlust" waere dann schlicht falsch.
+        const fall = e.punkt === null ? punkt === null ? e.summe === 7 || e.summe === 11 ? 'sofort' : 'craps' : e.summe === 7 ? 'siebenRaus' : 'punktGefallen' : punkt === null ? 'punktSteht' : null;
+        const satz = e.zeilen.reduce((x, z) => x + (z.betrag > 0 ? z.betrag : 0), 0);
+        if (fall || satz > 0) wirtSagen({
+          fall,
+          aus: e.aus,
+          einsatz: satz
+        });
         setRollt(false);
       }
     }, 90);
@@ -8951,7 +9165,9 @@ const CrapsTisch = ({
   }, zeilen.map((z, i) => /*#__PURE__*/React.createElement("div", {
     className: 'rlt-zeile' + (z.gewinn > z.betrag ? ' gut' : ''),
     key: i
-  }, /*#__PURE__*/React.createElement("span", null, z.name), /*#__PURE__*/React.createElement("b", null, z.betrag === 0 ? '' : z.gewinn > z.betrag ? '+' + (z.gewinn - z.betrag) : z.gewinn === z.betrag ? '±0' : '−' + z.betrag)))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, z.name), /*#__PURE__*/React.createElement("b", null, z.betrag === 0 ? '' : z.gewinn > z.betrag ? '+' + (z.gewinn - z.betrag) : z.gewinn === z.betrag ? '±0' : '−' + z.betrag)))), /*#__PURE__*/React.createElement(WirtSagt, {
+    spruch: wirtWort
+  }), /*#__PURE__*/React.createElement("div", {
     className: "rlt-tasten"
   }, /*#__PURE__*/React.createElement("button", {
     className: "automat-hebel",

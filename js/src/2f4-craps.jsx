@@ -169,6 +169,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const [augen, setAugen] = React.useState(null);      // [a, b]
   const [rollt, setRollt] = React.useState(false);
   const [zeilen, setZeilen] = React.useState([]);
+  const [wirtWort, wirtSagen] = useWirt('craps');
   const [ruf, setRuf] = React.useState('Der erste Wurf setzt den Punkt.');
   const [meldung, setMeldung] = React.useState('');
   const [verlauf, setVerlauf] = React.useState([]);
@@ -223,6 +224,20 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             : (punkt === null ? 'Punkt steht auf der ' + e.punkt
                + ' — jetzt gilt: die ' + e.punkt + ' vor der 7.'
                : e.summe + ' — weiter.'));
+        // Der Wirt am Crapstisch redet ueber den Wurf, nicht ueber das
+        // Geld: die Sieben nach einem Punkt und der gefallene Punkt sind
+        // die beiden Augenblicke, an denen der ganze Tisch aufsieht.
+        //
+        // Und er sagt nichts, wenn nichts gefallen ist. Ein Wurf mit
+        // stehendem Punkt entscheidet oft gar nichts — die Passe bleibt
+        // liegen. Ein "kleiner Verlust" waere dann schlicht falsch.
+        const fall = e.punkt === null
+          ? (punkt === null
+              ? (e.summe === 7 || e.summe === 11 ? 'sofort' : 'craps')
+              : (e.summe === 7 ? 'siebenRaus' : 'punktGefallen'))
+          : (punkt === null ? 'punktSteht' : null);
+        const satz = e.zeilen.reduce((x, z) => x + (z.betrag > 0 ? z.betrag : 0), 0);
+        if (fall || satz > 0) wirtSagen({fall, aus: e.aus, einsatz: satz});
         setRollt(false);
       }
     }, 90);
@@ -383,6 +398,8 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           ))}
         </div>
       )}
+
+      <WirtSagt spruch={wirtWort} />
 
       <div className="rlt-tasten">
         <button className="automat-hebel" onClick={werfen} disabled={rollt || !imSpiel}>

@@ -2747,7 +2747,10 @@
     border:1px solid #2b6a4c;
     box-shadow:inset 0 0 0 1px rgba(0,0,0,0.35), inset 0 14px 34px rgba(0,0,0,0.30),
       0 4px 14px rgba(0,0,0,0.4); }
-  .bj-filz { display:flex; flex-direction:column; align-items:center; gap:11px; }
+  /* Oben bleibt ein Streifen frei: dort sitzt der Schalter der Tafel,
+     und die Punktzahl des Wirts soll nicht darunter geraten. */
+  .bj-filz { display:flex; flex-direction:column; align-items:center; gap:11px;
+    padding-top:34px; }
   .bj-seite { display:flex; align-items:center; gap:11px; width:100%;
     justify-content:center; }
   .bj-seite.dran { outline:1px solid var(--inspiration); outline-offset:5px;
@@ -2764,7 +2767,30 @@
     border:1px solid #c9c2b0; display:flex; flex-direction:column; justify-content:space-between;
     padding:4px 5px; font-family:'Roboto Condensed',sans-serif;
     box-shadow:0 3px 9px rgba(0,0,0,0.5); flex-shrink:0; }
+  /* Eine Karte, die einfach dasteht, hat niemand kommen sehen. Sie
+     kommt jetzt von der Seite des Schlittens herein — kurz genug, dass
+     es den Takt nicht aufhält, lang genug, dass man es merkt. */
+  .bj-karte { animation:bj-rein .30s cubic-bezier(.2,.9,.3,1.05) both; }
+  @keyframes bj-rein {
+    from { opacity:0; transform:translate(26px,-16px) rotate(7deg) scale(0.94); }
+    to   { opacity:1; transform:none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bj-karte { animation:none; }
+  }
   .bj-karte.rot { color:#a01818; }
+
+  /* Der Schalter der Tafel sitzt in der Ecke des Filzes — dort, wo am
+     Tisch das Schild steht, und nicht in den Einstellungen. */
+  .bj-tafel { position:absolute; top:8px; right:9px; z-index:1;
+    display:flex; align-items:center; gap:5px; padding:4px 8px; border-radius:6px;
+    cursor:pointer; font-size:13px; line-height:1;
+    background:rgba(0,0,0,0.26); border:1px solid rgba(216,240,226,0.22);
+    color:#bfe3ce; opacity:0.55; }
+  .bj-tafel i { font-style:normal; font-family:'Roboto Condensed',sans-serif;
+    font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; }
+  .bj-tafel.an { opacity:1; border-color:rgba(216,240,226,0.42); }
+  .bj-tafel:hover { border-color:var(--inspiration); color:var(--inspiration); }
   .bj-karte b { font-size:14px; line-height:1; font-weight:700; }
   .bj-karte span { font-size:16px; line-height:1; align-self:flex-end; }
   .bj-karte.zu { background:repeating-linear-gradient(135deg,#2a2e32 0 5px,#1a1c1e 5px 10px);
@@ -2807,6 +2833,14 @@
   .bj-vers { padding:11px 12px; border-radius:7px; background:var(--bg-panel);
     border:1px solid var(--border-bright); display:flex; flex-direction:column; gap:9px; }
   .bj-vers-text { font-size:12px; line-height:1.6; color:var(--text-secondary); }
+
+  /* Der Wirt am Tisch. Die Zeile haelt ihren Platz auch leer: ein
+     Tisch, der bei jeder Abrechnung um eine Zeile waechst und danach
+     wieder schrumpft, ruckelt bei jedem Wurf. */
+  .tisch-wirt { min-height:34px; display:flex; align-items:center;
+    padding:5px 11px; border-radius:7px; background:var(--bg-card);
+    border:1px solid var(--border); font-size:12.5px; line-height:1.45;
+    color:var(--text-secondary); font-style:italic; }
 
   .bj-abrechnung { display:flex; flex-direction:column; gap:4px; padding:10px 12px;
     border-radius:7px; background:var(--bg-panel); border:1px solid var(--border-bright); }
