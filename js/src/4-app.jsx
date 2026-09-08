@@ -897,27 +897,49 @@ function App() {
     catch { appAlert('Das ist keine Sicherung des Heldenbuchs.'); return; }
     if (!fremd || typeof fremd !== 'object') { appAlert('Das ist keine Sicherung des Heldenbuchs.'); return; }
 
-    const zaehlung = [];
+    // Doppelt ist doppelt, auch wenn die Großschreibung abweicht oder
+    // ein Leerzeichen zu viel darin steht. „Seil, 15 m“ und „Seil,15 m“
+    // sind dasselbe Seil, und zwei davon nebeneinander sind ein Ärgernis,
+    // das niemand mehr aufräumt.
+    const schluessel = (n) => String(n || '').toLowerCase()
+      .replace(/[\s,.·–—_-]+/g, ' ').trim();
+
+    // Was wirklich dazukäme — einmal ausgerechnet, dann gezeigt und
+    // danach genau so geschrieben.
+    const dazu = {};
+    let doppelt = 0;
     LIB_INHALT.forEach(k => {
-      const dazu = (fremd[k] || []).filter(e => e && e.name
-        && !((userLibrary || {})[k] || []).some(x => x.name === e.name));
-      if (dazu.length) zaehlung.push(dazu.length + ' × ' + k);
+      const da = new Set((((userLibrary || {})[k]) || []).map(e => schluessel(e.name)));
+      const liste = [];
+      (fremd[k] || []).forEach(e => {
+        if (!e || !e.name) return;
+        const sk = schluessel(e.name);
+        // Auch gegen sich selbst: eine Datei kann denselben Eintrag
+        // zweimal enthalten.
+        if (da.has(sk)) { doppelt++; return; }
+        da.add(sk);
+        liste.push(e);
+      });
+      if (liste.length) dazu[k] = liste;
     });
-    if (!zaehlung.length) { appAlert('Darin steht nichts, was hier noch fehlt.'); return; }
+
+    const zaehlung = Object.keys(dazu).map(k => dazu[k].length + ' × ' + k);
+    if (!zaehlung.length) {
+      appAlert(doppelt
+        ? 'Alle ' + doppelt + ' Einträge stehen schon in der Datenbank.'
+        : 'Darin steht nichts, was hier noch fehlt.');
+      return;
+    }
 
     // Erst zeigen, dann ändern — wie überall sonst auch.
     appConfirm('Das kommt dazu: ' + zaehlung.join(' · ')
-      + '. Was denselben Namen trägt, bleibt unverändert stehen.', () => {
+      + (doppelt ? '. Übersprungen werden ' + doppelt + ', die es schon gibt.' : '.'), () => {
       saveLibrary(alt => {
-        const neu = {...alt};
-        LIB_INHALT.forEach(k => {
-          const hier = [...((alt || {})[k] || [])];
-          (fremd[k] || []).forEach(e => {
-            if (e && e.name && !hier.some(x => x.name === e.name)) hier.push(e);
-          });
-          if (hier.length) neu[k] = hier;
+        const raus = {...alt};
+        Object.keys(dazu).forEach(k => {
+          raus[k] = [...((alt || {})[k] || []), ...dazu[k]];
         });
-        return neu;
+        return raus;
       });
     });
   };
