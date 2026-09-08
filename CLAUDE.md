@@ -24,6 +24,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2f6-poker.jsx` | Ultimate Texas Hold’em — Blattbewertung, Tafel, Abrechnung |
 | ↳ `2h-proben.jsx` | Proben auf Ansage — Balken und Ansagefenster |
 | ↳ `2i-beute.jsx` | Beute — hinlegen, nehmen, in die Bögen eintragen |
+| ↳ `2j-laden.jsx` | Laden — Auslage, kaufen, verkaufen |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |

@@ -1776,6 +1776,47 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Der Laden ──────────────────────────────────────────────────
+  // Die Auslage steht in der Bibliothek der Gruppe, je Abenteuer eine.
+  // Sie braucht keinen eigenen Abgleich: die Bibliothek kommt ohnehin
+  // mit jedem Ladevorgang, und eine Warenliste ändert sich selten.
+  const [ladenOffen, setLadenOffen] = useState(false);
+  const [ladenBearbeiten, setLadenBearbeiten] = useState(false);
+  const laden = ((userLibrary || {})._laeden || {})[advId] || null;
+  const ladenSpeichern = (l) => {
+    saveLibrary({...userLibrary, _laeden: {...((userLibrary || {})._laeden || {}), [advId]: l}});
+    setLadenBearbeiten(false);
+  };
+
+  // Gekauft wird aus dem Beutel des Helden und in sein Inventar. Beides
+  // in einem Zug, damit nicht das eine ohne das andere passiert.
+  const ladenKaufen = (held, ware) => {
+    const c = charsRef.current.find(x => x.id === held.id);
+    if (!c) return;
+    const beutel = muenzenZahlen(c.currency, ware.preis);
+    if (!beutel) { appAlert('Dafür reicht der Beutel nicht.'); return; }
+    // Was es schon gibt, wird mehr statt doppelt.
+    const inv = [...(c.inventory || [])];
+    const i = inv.findIndex(x => (x.name || '').toLowerCase() === ware.name.toLowerCase());
+    if (i >= 0) inv[i] = {...inv[i], qty: (+inv[i].qty || 1) + 1};
+    else inv.push({...newItem(), id: 'kauf' + Date.now(), name: ware.name,
+                   qty: 1, description: ware.notiz || ''});
+    save(charsRef.current.map(x => x.id === c.id ? {...x, currency: beutel, inventory: inv} : x));
+    addLog(c.id, c.name, 'inventar', 'Gekauft: ' + ware.name,
+      {preis: preisText(ware.preis), laden: (laden && laden.name) || undefined});
+  };
+
+  const ladenVerkaufen = (held, stueck, kupfer) => {
+    const c = charsRef.current.find(x => x.id === held.id);
+    if (!c) return;
+    const inv = (c.inventory || []).map(x => x.id === stueck.id
+      ? {...x, qty: (+x.qty || 1) - 1} : x).filter(x => (+x.qty || 0) > 0);
+    save(charsRef.current.map(x => x.id === c.id
+      ? {...x, currency: muenzenDazu(c.currency, kupfer), inventory: inv} : x));
+    addLog(c.id, c.name, 'inventar', 'Verkauft: ' + stueck.name,
+      {erloes: preisText(kupfer), laden: (laden && laden.name) || undefined});
+  };
+
   // ── Die Beute ──────────────────────────────────────────────────
   // Ein Fund je Abenteuer. Er ist nicht eilig wie „du bist dran“,
   // deshalb wird seltener gefragt: alle fünf Sekunden, solange einer
@@ -3095,6 +3136,12 @@ function App() {
                 const {url, code, pass} = serverCreds();
                 if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
+              {/* Der Laden steht da, sobald die Spielleitung eine Auslage
+                  hingelegt hat — vorher sieht ihn nur sie. */}
+              {(laden || isDmMode) && (
+                <button className="btn-tool" onClick={()=>setLadenOffen(true)}
+                  title="Kaufen und verkaufen">🏪 {(laden && laden.name) || 'Laden'}</button>
+              )}
               {/* Liegt ein Fund, sieht ihn jeder — sonst legt nur die
                   Spielleitung einen hin. */}
               {beute ? (
@@ -4459,6 +4506,19 @@ function App() {
 
       {/* Adventure Log Modal */}
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
+
+      {ladenOffen && (
+        <LadenFenster laden={laden} isDmMode={isDmMode}
+          helden={chars.filter(c => !c.archived && (c.adventure || advId) === advId
+            && darfSchreiben(c))}
+          onKaufen={ladenKaufen} onVerkaufen={ladenVerkaufen}
+          onBearbeiten={()=>setLadenBearbeiten(true)}
+          onSchliessen={()=>setLadenOffen(false)} />
+      )}
+      {ladenBearbeiten && (
+        <LadenBearbeiten laden={laden}
+          onAbbrechen={()=>setLadenBearbeiten(false)} onSpeichern={ladenSpeichern} />
+      )}
 
       {beuteAnlegen && (
         <BeuteAnlegen onAbbrechen={()=>setBeuteAnlegen(false)} onHinlegen={beuteHinlegen} />

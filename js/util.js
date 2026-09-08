@@ -597,6 +597,57 @@ const assistentPlan = (e) => {
   return {neu, zeilen, hinweise, fehlt};
 };
 
+// ── Geld ────────────────────────────────────────────────────────
+// Der Laden braucht, was am Tisch der Wirt macht: herausgeben. Alles
+// in Kupfer gerechnet, gezahlt wird aus dem Kleingeld zuerst — wer mit
+// Kupfer zahlen kann, behält sein Gold —, und was zu viel war, kommt
+// als Wechselgeld zurück. Elektrum bleibt dabei liegen, wo es liegt:
+// es wird angenommen, aber nie herausgegeben, so wie überall.
+const MUENZ_WERT = {cp:1, sp:10, ep:50, gp:100, pp:1000};
+const muenzenSumme = (w) => Object.keys(MUENZ_WERT)
+  .reduce((s, k) => s + (+((w || {})[k]) || 0) * MUENZ_WERT[k], 0);
+
+// Zahlt einen Betrag in Kupfer. Zurück kommt der neue Beutel — oder
+// null, wenn es nicht reicht. Der Beutel wird dabei nicht umgerechnet:
+// wer hundert Platin hat, hat sie hinterher noch.
+const muenzenZahlen = (w, kupfer) => {
+  const betrag = Math.max(0, Math.round(kupfer || 0));
+  if (muenzenSumme(w) < betrag) return null;
+  const neu = {pp:0, gp:0, ep:0, sp:0, cp:0, ...(w || {})};
+  let offen = betrag;
+  for (const k of ['cp', 'sp', 'ep', 'gp', 'pp']) {
+    if (offen <= 0) break;
+    const habe = +neu[k] || 0;
+    const nehmen = Math.min(habe, Math.ceil(offen / MUENZ_WERT[k]));
+    neu[k] = habe - nehmen;
+    offen -= nehmen * MUENZ_WERT[k];
+  }
+  // Was zu viel hingelegt wurde, kommt in möglichst wenigen Münzen zurück.
+  let rest = -offen;
+  for (const k of ['pp', 'gp', 'sp', 'cp']) {
+    const n = Math.floor(rest / MUENZ_WERT[k]);
+    if (n > 0) { neu[k] = (+neu[k] || 0) + n; rest -= n * MUENZ_WERT[k]; }
+  }
+  return neu;
+};
+// Gutschreiben ist einfacher als zahlen: es kommt in Gold und Silber.
+const muenzenDazu = (w, kupfer) => {
+  const neu = {pp:0, gp:0, ep:0, sp:0, cp:0, ...(w || {})};
+  let rest = Math.max(0, Math.round(kupfer || 0));
+  for (const k of ['gp', 'sp', 'cp']) {
+    const n = Math.floor(rest / MUENZ_WERT[k]);
+    if (n > 0) { neu[k] = (+neu[k] || 0) + n; rest -= n * MUENZ_WERT[k]; }
+  }
+  return neu;
+};
+// Ein Preis, wie ihn ein Laden anschreibt: in Gold, mit Silber dahinter.
+const preisText = (kupfer) => {
+  const n = Math.max(0, Math.round(kupfer || 0));
+  const g = Math.floor(n / 100), s = Math.floor((n % 100) / 10), c = n % 10;
+  return [g ? g + ' GM' : '', s ? s + ' SM' : '', c ? c + ' KM' : '']
+    .filter(Boolean).join(' ') || '0 GM';
+};
+
 // ── Konzentration ───────────────────────────────────────────────
 // Kein Tisch denkt daran, und niemand gibt es gern zu: ein Zauber mit
 // Konzentration endet, wenn man den Rettungswurf nach einem Treffer

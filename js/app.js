@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -11241,6 +11241,253 @@ const BeuteFenster = ({
   }, "Schlie\xDFen"))));
 };
 
+// ==== js/src/2j-laden.jsx ====
+// Heldenbuch — der Laden.
+//
+// Kaufen hiess bisher: im Inventar eine Zeile anlegen, im Beutel eine
+// Zahl herunterrechnen, und beides von Hand in zwei Reitern. Verkaufen
+// dasselbe rückwärts. Beides wird deshalb selten richtig gemacht.
+//
+// Die Spielleitung stellt zusammen, was ein Ort führt und zu welchem
+// Teil er zurückkauft — der übliche halbe. Der Rest ist Rechnen, und
+// das kann das Programm besser: bezahlt wird aus dem Kleingeld zuerst,
+// und was zu viel hingelegt wurde, kommt als Wechselgeld zurück.
+
+// Gold als Text, wie man es tippt: „2,5" sind 250 Kupfer.
+const goldZuKupfer = t => {
+  const n = Number(String(t).replace(',', '.'));
+  return Number.isFinite(n) ? Math.max(0, Math.round(n * 100)) : 0;
+};
+const kupferZuGold = k => String(Math.round(+k || 0) / 100).replace('.', ',');
+const LadenBearbeiten = ({
+  laden,
+  onAbbrechen,
+  onSpeichern
+}) => {
+  const [name, setName] = React.useState(laden && laden.name || 'Der Laden');
+  const [kauf, setKauf] = React.useState(Math.round((laden && laden.kauf || 0.5) * 100));
+  const [waren, setWaren] = React.useState((laden && laden.waren || []).map(w => ({
+    ...w,
+    gold: kupferZuGold(w.preis)
+  })).concat([{
+    name: '',
+    gold: '',
+    notiz: ''
+  }]));
+  const setZeile = (i, p) => setWaren(w => w.map((x, j) => j === i ? {
+    ...x,
+    ...p
+  } : x));
+  const fertig = () => onSpeichern({
+    name: name.trim() || 'Der Laden',
+    kauf: Math.max(0, Math.min(100, kauf)) / 100,
+    waren: waren.filter(w => (w.name || '').trim()).map((w, i) => ({
+      id: w.id || 'w' + Date.now() + i,
+      name: w.name.trim(),
+      preis: goldZuKupfer(w.gold),
+      notiz: (w.notiz || '').trim()
+    }))
+  });
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 560
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83C\uDFEA Was der Ort f\xFChrt"), /*#__PURE__*/React.createElement("div", {
+    className: "beute-neu",
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: name,
+    maxLength: 60,
+    placeholder: "z.B. Bogens Kr\xE4merladen",
+    onChange: e => setName(e.target.value)
+  }), /*#__PURE__*/React.createElement("label", {
+    className: "auf-zahl"
+  }, /*#__PURE__*/React.createElement("span", null, "kauft zu"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: 0,
+    max: 100,
+    wert: kauf,
+    onWert: setKauf
+  }), /*#__PURE__*/React.createElement("span", null, "%"))), /*#__PURE__*/React.createElement("div", {
+    className: "ass-warum"
+  }, "Preise in Gold \u2014 \u201E2,5\" sind zwei Gold und f\xFCnf Silber. Eine Zeile ohne Namen f\xE4llt weg."), /*#__PURE__*/React.createElement("div", {
+    className: "beute-zeilen laden-bearbeiten"
+  }, waren.map((w, i) => /*#__PURE__*/React.createElement("div", {
+    className: "beute-neu",
+    key: i
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: w.name,
+    maxLength: 80,
+    placeholder: "Ware",
+    onChange: e => setZeile(i, {
+      name: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input laden-preis",
+    value: w.gold,
+    placeholder: "GM",
+    onChange: e => setZeile(i, {
+      gold: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: w.notiz || '',
+    maxLength: 120,
+    placeholder: "Notiz",
+    onChange: e => setZeile(i, {
+      notiz: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "konz-weg",
+    title: "Zeile weg",
+    onClick: () => setWaren(x => x.filter((_, j) => j !== i))
+  }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: () => setWaren(w => [...w, {
+      name: '',
+      gold: '',
+      notiz: ''
+    }])
+  }, "+ Noch eine Zeile")), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: fertig
+  }, "Speichern"))));
+};
+const LadenFenster = ({
+  laden,
+  helden,
+  isDmMode,
+  onKaufen,
+  onVerkaufen,
+  onBearbeiten,
+  onSchliessen
+}) => {
+  const [wer, setWer] = React.useState((helden[0] || {}).id || '');
+  const [preise, setPreise] = React.useState({}); // was für ein Stück geboten wird
+  const held = helden.find(h => h.id === wer) || null;
+  const beutel = held && held.currency || {
+    pp: 0,
+    gp: 0,
+    ep: 0,
+    sp: 0,
+    cp: 0
+  };
+  const habe = muenzenSumme(beutel);
+  const waren = laden && laden.waren || [];
+  const kauf = laden && laden.kauf || 0;
+
+  // Was der Laden für ein Stück aus dem Inventar bietet: der Anteil vom
+  // Ladenpreis, wenn er die Ware führt — sonst muss jemand eine Zahl
+  // hinschreiben, und das ist die Spielleitung.
+  const gebot = i => {
+    if (preise[i.id] !== undefined) return goldZuKupfer(preise[i.id]);
+    const w = waren.find(x => x.name.toLowerCase() === (i.name || '').toLowerCase());
+    return w ? Math.round(w.preis * kauf) : 0;
+  };
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onClick: onSchliessen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal laden-fenster",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83C\uDFEA ", laden && laden.name || 'Der Laden'), helden.length > 1 && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Wer kauft"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: wer,
+    onChange: e => setWer(e.target.value)
+  }, helden.map(h => /*#__PURE__*/React.createElement("option", {
+    key: h.id,
+    value: h.id
+  }, h.name)))), held && /*#__PURE__*/React.createElement("div", {
+    className: "laden-beutel"
+  }, /*#__PURE__*/React.createElement("span", null, held.name, " hat"), /*#__PURE__*/React.createElement("b", null, preisText(habe))), /*#__PURE__*/React.createElement("div", {
+    className: "form-label",
+    style: {
+      marginTop: 10
+    }
+  }, "Auslage"), /*#__PURE__*/React.createElement("div", {
+    className: "beute-liste"
+  }, waren.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Der Ort f\xFChrt noch nichts."), waren.map(w => {
+    const reicht = habe >= w.preis;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "beute-stueck",
+      key: w.id
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "beute-was"
+    }, /*#__PURE__*/React.createElement("b", null, w.name), w.notiz && /*#__PURE__*/React.createElement("i", null, w.notiz)), /*#__PURE__*/React.createElement("span", {
+      className: "laden-schild"
+    }, preisText(w.preis)), /*#__PURE__*/React.createElement("button", {
+      className: "bj-taste",
+      disabled: !held || !reicht,
+      title: reicht ? '' : 'Dafür reicht der Beutel nicht',
+      onClick: () => onKaufen(held, w)
+    }, "Kaufen"));
+  })), held && (held.inventory || []).length > 0 && kauf > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "form-label",
+    style: {
+      marginTop: 12
+    }
+  }, "Verkaufen \u2014 der Ort zahlt ", Math.round(kauf * 100), " %"), /*#__PURE__*/React.createElement("div", {
+    className: "beute-liste"
+  }, (held.inventory || []).map(i => {
+    const g = gebot(i);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "beute-stueck",
+      key: i.id
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "beute-was"
+    }, /*#__PURE__*/React.createElement("b", null, i.name, (+i.qty || 1) > 1 ? ' ×' + i.qty : '')), /*#__PURE__*/React.createElement("input", {
+      className: "form-input laden-preis",
+      value: preise[i.id] !== undefined ? preise[i.id] : kupferZuGold(g),
+      onChange: e => setPreise(p => ({
+        ...p,
+        [i.id]: e.target.value
+      }))
+    }), /*#__PURE__*/React.createElement("button", {
+      className: "bj-taste",
+      disabled: g <= 0,
+      title: g > 0 ? '' : 'Wofür denn? Trag einen Preis ein.',
+      onClick: () => onVerkaufen(held, i, g)
+    }, "Verkaufen"));
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 14
+    }
+  }, isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    style: {
+      marginRight: 'auto'
+    },
+    onClick: onBearbeiten
+  }, "Auslage \xE4ndern"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onSchliessen
+  }, "Schlie\xDFen"))));
+};
+
 // ==== js/src/3-sheet.jsx ====
 // Heldenbuch — der Charakterbogen mit seinen sieben Reitern.
 
@@ -17617,6 +17864,75 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Der Laden ──────────────────────────────────────────────────
+  // Die Auslage steht in der Bibliothek der Gruppe, je Abenteuer eine.
+  // Sie braucht keinen eigenen Abgleich: die Bibliothek kommt ohnehin
+  // mit jedem Ladevorgang, und eine Warenliste ändert sich selten.
+  const [ladenOffen, setLadenOffen] = useState(false);
+  const [ladenBearbeiten, setLadenBearbeiten] = useState(false);
+  const laden = ((userLibrary || {})._laeden || {})[advId] || null;
+  const ladenSpeichern = l => {
+    saveLibrary({
+      ...userLibrary,
+      _laeden: {
+        ...((userLibrary || {})._laeden || {}),
+        [advId]: l
+      }
+    });
+    setLadenBearbeiten(false);
+  };
+
+  // Gekauft wird aus dem Beutel des Helden und in sein Inventar. Beides
+  // in einem Zug, damit nicht das eine ohne das andere passiert.
+  const ladenKaufen = (held, ware) => {
+    const c = charsRef.current.find(x => x.id === held.id);
+    if (!c) return;
+    const beutel = muenzenZahlen(c.currency, ware.preis);
+    if (!beutel) {
+      appAlert('Dafür reicht der Beutel nicht.');
+      return;
+    }
+    // Was es schon gibt, wird mehr statt doppelt.
+    const inv = [...(c.inventory || [])];
+    const i = inv.findIndex(x => (x.name || '').toLowerCase() === ware.name.toLowerCase());
+    if (i >= 0) inv[i] = {
+      ...inv[i],
+      qty: (+inv[i].qty || 1) + 1
+    };else inv.push({
+      ...newItem(),
+      id: 'kauf' + Date.now(),
+      name: ware.name,
+      qty: 1,
+      description: ware.notiz || ''
+    });
+    save(charsRef.current.map(x => x.id === c.id ? {
+      ...x,
+      currency: beutel,
+      inventory: inv
+    } : x));
+    addLog(c.id, c.name, 'inventar', 'Gekauft: ' + ware.name, {
+      preis: preisText(ware.preis),
+      laden: laden && laden.name || undefined
+    });
+  };
+  const ladenVerkaufen = (held, stueck, kupfer) => {
+    const c = charsRef.current.find(x => x.id === held.id);
+    if (!c) return;
+    const inv = (c.inventory || []).map(x => x.id === stueck.id ? {
+      ...x,
+      qty: (+x.qty || 1) - 1
+    } : x).filter(x => (+x.qty || 0) > 0);
+    save(charsRef.current.map(x => x.id === c.id ? {
+      ...x,
+      currency: muenzenDazu(c.currency, kupfer),
+      inventory: inv
+    } : x));
+    addLog(c.id, c.name, 'inventar', 'Verkauft: ' + stueck.name, {
+      erloes: preisText(kupfer),
+      laden: laden && laden.name || undefined
+    });
+  };
+
   // ── Die Beute ──────────────────────────────────────────────────
   // Ein Fund je Abenteuer. Er ist nicht eilig wie „du bist dran“,
   // deshalb wird seltener gefragt: alle fünf Sekunden, solange einer
@@ -19781,7 +20097,11 @@ function App() {
       } = serverCreds();
       if (url && code && pass) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
     }
-  }, "\uD83D\uDCD6 Abenteuerlog"), beute ? /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCD6 Abenteuerlog"), (laden || isDmMode) && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setLadenOffen(true),
+    title: "Kaufen und verkaufen"
+  }, "\uD83C\uDFEA ", laden && laden.name || 'Laden'), beute ? /*#__PURE__*/React.createElement("button", {
     className: "btn-tool beute-knopf",
     onClick: () => setBeuteOffen(true)
   }, "\uD83D\uDCB0 Beute", /*#__PURE__*/React.createElement("span", null, (beute.stuecke || []).filter(s => !s.an).length || '')) : isDmMode ? /*#__PURE__*/React.createElement("button", {
@@ -22758,6 +23078,18 @@ function App() {
   }, "\u2715 Schlie\xDFen"))), showAdventLog && /*#__PURE__*/React.createElement(AdventureLog, {
     onClose: () => setShowAdventLog(false),
     isDmMode: isDmMode
+  }), ladenOffen && /*#__PURE__*/React.createElement(LadenFenster, {
+    laden: laden,
+    isDmMode: isDmMode,
+    helden: chars.filter(c => !c.archived && (c.adventure || advId) === advId && darfSchreiben(c)),
+    onKaufen: ladenKaufen,
+    onVerkaufen: ladenVerkaufen,
+    onBearbeiten: () => setLadenBearbeiten(true),
+    onSchliessen: () => setLadenOffen(false)
+  }), ladenBearbeiten && /*#__PURE__*/React.createElement(LadenBearbeiten, {
+    laden: laden,
+    onAbbrechen: () => setLadenBearbeiten(false),
+    onSpeichern: ladenSpeichern
   }), beuteAnlegen && /*#__PURE__*/React.createElement(BeuteAnlegen, {
     onAbbrechen: () => setBeuteAnlegen(false),
     onHinlegen: beuteHinlegen

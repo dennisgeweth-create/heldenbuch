@@ -236,14 +236,31 @@ daliegt, hat niemand etwas bekommen, und ein halb verteilter Fund
 lässt sich noch umverteilen. Der zweite Weg hinaus heißt *Wegräumen*
 und ist ausdrücklich.
 
-## Stufe 6 · Der Laden
+## Stufe 6 · Der Laden ✓
 
-Kaufen und verkaufen aus der Bibliothek: Gold heraus, Gegenstand hinein,
-ohne Handarbeit in zwei Reitern. Die Spielleitung stellt zusammen, was
-ein Ort führt, und zu welchem Preis er kauft — der übliche halbe.
+*Steht seit v4.9.* Kaufen hieß bisher: im Inventar eine Zeile anlegen,
+im Beutel eine Zahl herunterrechnen, beides von Hand in zwei Reitern.
+Verkaufen dasselbe rückwärts. Deshalb wird beides selten richtig
+gemacht.
 
-Nach Stufe 5, weil beide dasselbe brauchen: Gegenstände von einer Seite
-auf die andere schieben und das Gold dazu buchen.
+Die Spielleitung stellt zusammen, was ein Ort führt und zu welchem
+Teil er zurückkauft — der übliche halbe. Die Auslage steht in der
+Bibliothek der Gruppe, je Abenteuer eine; sie braucht keinen eigenen
+Abgleich, denn die Bibliothek kommt ohnehin mit jedem Ladevorgang.
+
+**Der Rest ist Rechnen, und das kann das Programm besser.** Bezahlt
+wird aus dem Kleingeld zuerst — wer mit Kupfer zahlen kann, behält sein
+Gold —, und was zu viel hingelegt wurde, kommt als Wechselgeld
+zurück. Der Beutel wird dabei nicht umgerechnet: wer Platin hat, hat es
+hinterher noch. Nachgerechnet an einem Beutel aus fünf Münzsorten: nach
+sieben Gold stimmt die Summe auf den Kupfer genau, und das Platin liegt
+noch da.
+
+**Failsafes:** Kaufen ist gesperrt, wenn der Beutel nicht reicht, und
+sagt das. Verkaufen ist gesperrt, solange kein Preis dasteht — für ein
+Stück, das der Ort nicht führt, muss jemand eine Zahl hinschreiben.
+Beutel und Inventar ändern sich in einem Zug, damit nicht das eine ohne
+das andere passiert. Und jede Zeile geht ins Log, mit Preis und Ort.
 
 ## Stufe 7 · Traglast — je Abenteuer, von Haus aus **aus**
 
