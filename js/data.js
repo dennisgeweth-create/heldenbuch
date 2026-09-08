@@ -16,6 +16,7 @@ const CC = {
   Zauberer:     {bg:"#2a1a3a",border:"#6a3fa0",text:"#b080e0"},
   Hexenmeister: {bg:"#3a1030",border:"#902060",text:"#d060a0"},
   Magier:       {bg:"#1a1a3a",border:"#2040a0",text:"#6080d0"},
+  Artifizient:  {bg:"#10333a",border:"#2a8898",text:"#70b8c8"},
 };
 const SC = {
   Beschwörung:  {bg:"#1a2a3a",border:"#2060a0",text:"#60a0e0"},
@@ -272,6 +273,15 @@ const KLASSEN_REGELN = {
                  fertZahl:2, fert:['arkaneKunde','taueschen','geschichte','einschuechtern','nachforschung','natur','religion'],
                  ruestung:'Leichte Rüstung', waffen:'Einfache Waffen',
                  gold:'4W4×10', paket:['Leichte Armbrust','Köcher mit 20 Bolzen','Lederrüstung','Zwei Dolche','Arkaner Fokus','Gelehrtenpaket']},
+  // Der Artifizient steht nicht im SRD; seine Zahlen sind Spielwerte und
+  // keine Beschreibung — die Merkmale selbst kommen aus dem Buch der
+  // Gruppe. Er zaubert nach einer eigenen Tabelle: wie ein halber, aber
+  // schon auf der 1. Stufe, und beim Mischen zaehlt er aufgerundet.
+  Artifizient:  {tw:8,  mc:[['int']],  zauber:'artifizient', asi:[4,8,12,16,19], unter:3, rw:['con','int'],
+                 fertZahl:2, fert:['arkaneKunde','fingerfert','geschichte','nachforschung','aufmerksamkeit'],
+                 ruestung:'Leichte und mittelschwere Rüstung, Schilde', waffen:'Einfache Waffen',
+                 gold:'5W4×10', paket:['Zwei einfache Waffen','Leichte Armbrust mit 20 Bolzen',
+                                       'Beschlagenes Leder','Diebeswerkzeug','Kerker-Erkunderausrüstung']},
   Magier:       {tw:6,  mc:[['int']],  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis'],
                  fertZahl:2, fert:['arkaneKunde','geschichte','einblick','nachforschung','medizin','religion'],
                  ruestung:'Keine', waffen:'Dolche, Wurfpfeile, Schleudern, Kampfstäbe, leichte Armbrüste',

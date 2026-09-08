@@ -1006,6 +1006,15 @@ const zauberPlaetze = (klasse, stufe) => {
     const p = PAKT_PLAETZE[i];
     return {...leer, [p.g]: p.n};
   }
+  // Der Artifizient folgt der Tabelle der halben Zauberwirker — mit
+  // einer Ausnahme: er hat schon auf der 1. Stufe zwei Plaetze, wo ein
+  // Paladin noch keinen hat.
+  if (r.zauber === 'artifizient') {
+    const zeile2 = (i === 0) ? [2] : (ZAUBER_HALB[i] || []);
+    const raus2 = {...leer};
+    zeile2.forEach((n, g) => { raus2[g + 1] = n; });
+    return raus2;
+  }
   const zeile = (r.zauber === 'halb' ? ZAUBER_HALB : ZAUBER_VOLL)[i] || [];
   const raus = {...leer};
   zeile.forEach((n, g) => { raus[g + 1] = n; });
@@ -1037,15 +1046,19 @@ const gesamtStufe = (c) => charKlassen(c).reduce((s, k) => s + k.level, 0);
 // und nicht zwei — dass sie schon nach einer kurzen Rast zurückkommen,
 // sagt der Aufstieg als Hinweis.
 const ZAUBER_ART = (name) => (KLASSEN_REGELN[name] || {}).zauber || null;
+// Volle Klassen zaehlen ganz, halbe zur Haelfte abgerundet — und der
+// Artifizient zur Haelfte **aufgerundet**, so steht es in seinem Buch.
 const zauberStufe = (klassen) => (klassen || []).reduce((s, k) => {
   const art = ZAUBER_ART(k.charClass);
   const st = Math.max(0, +k.level || 0);
-  return s + (art === 'voll' ? st : art === 'halb' ? Math.floor(st / 2) : 0);
+  return s + (art === 'voll' ? st
+            : art === 'halb' ? Math.floor(st / 2)
+            : art === 'artifizient' ? Math.ceil(st / 2) : 0);
 }, 0);
 
 const zauberPlaetzeGemischt = (klassen) => {
   const liste = (klassen || []).filter(k => k && k.charClass);
-  const zauber = liste.filter(k => ['voll', 'halb'].includes(ZAUBER_ART(k.charClass)));
+  const zauber = liste.filter(k => ['voll', 'halb', 'artifizient'].includes(ZAUBER_ART(k.charClass)));
   const pakt   = liste.filter(k => ZAUBER_ART(k.charClass) === 'pakt');
   if (!zauber.length && !pakt.length) return null;
 
@@ -1304,7 +1317,7 @@ const aufstiegPlan = (char, wahl) => {
       + 'nicht die volle Ausbildung. Rüstungen, Waffen und Fertigkeiten also nachsehen.');
   }
 
-  const zauberKlassen = nachher.filter(k => ['voll', 'halb'].includes(ZAUBER_ART(k.charClass)));
+  const zauberKlassen = nachher.filter(k => ['voll', 'halb', 'artifizient'].includes(ZAUBER_ART(k.charClass)));
   if (zauberKlassen.length > 1) {
     hinweise.push('Zauberplätze über ' + zauberKlassen.length + ' Klassen: gerechnet mit '
       + 'Zaubererstufe ' + zauberStufe(zauberKlassen) + ' (volle Klassen ganz, halbe zur Hälfte). '
