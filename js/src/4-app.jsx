@@ -834,6 +834,12 @@ function App() {
   // davor — _adventures, _laeden — sind Einstellungen und keine
   // Sammlung.
   const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape'];
+  // Die Schlüssel heissen englisch, seit es die Datei gibt. In einer
+  // Rückfrage haben sie nichts verloren: „12 × spell" liest niemand.
+  const LIB_WORT = {spell: ['Zauber', 'Zauber'], weapon: ['Waffe', 'Waffen'],
+    item: ['Gegenstand', 'Gegenstände'], set: ['Ausrüstungssatz', 'Ausrüstungssätze'],
+    wildshape: ['Tierverwandlung', 'Tierverwandlungen']};
+  const libWort = (k, n) => (LIB_WORT[k] || [k, k])[n === 1 ? 0 : 1];
   const libZaehlen = (l) => LIB_INHALT
     .reduce((s, k) => s + (((l || {})[k] || []).length), 0);
 
@@ -923,7 +929,7 @@ function App() {
       if (liste.length) dazu[k] = liste;
     });
 
-    const zaehlung = Object.keys(dazu).map(k => dazu[k].length + ' × ' + k);
+    const zaehlung = Object.keys(dazu).map(k => dazu[k].length + ' ' + libWort(k, dazu[k].length));
     if (!zaehlung.length) {
       appAlert(doppelt
         ? 'Alle ' + doppelt + ' Einträge stehen schon in der Datenbank.'

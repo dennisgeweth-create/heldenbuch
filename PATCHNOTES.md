@@ -1,5 +1,157 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.0
+
+Diese Fassung fängt mit einem Schrecken an: die Datenbank der Gruppe
+war leer. Zauber weg, Gegenstände weg, Tierverwandlungen weg. Wieder da
+ist sie aus einer Sicherung — aber ein Programm, dem so etwas passieren
+kann, ist damit nicht fertig.
+
+Deshalb steht in dieser Fassung an drei Stellen dasselbe: **was einmal
+drin ist, geht nicht ohne Rückfrage wieder heraus.** Die Bibliothek
+lässt sich nicht mehr leerschreiben, sie lässt sich sichern, und beim
+Einspielen wird nichts überschrieben, was schon dasteht.
+
+Dazu der Rest des Abends: Listen, die man einfügt statt sie zu tippen,
+und ein Zug, in dem mehr als eine Sache passieren darf.
+
+### 🛟 Die Datenbank kann sich nicht mehr selbst leeren
+
+Wie es dazu kam, ist nicht restlos geklärt — sicher ist, wo es
+schiefgehen *konnte*: an vier Stellen wurde die Sammlung gespeichert,
+wie sie beim Öffnen des Fensters ausgesehen hat. Wer zwei Fenster offen
+hatte, schrieb mit dem einen zurück, was das andere schon geändert
+hatte.
+
+Diese vier Stellen rechnen jetzt vom aktuellen Stand aus. Und darüber
+liegt ein Riegel: **eine Speicherung, die aus etwas nichts machen
+würde, wird abgelehnt** — mit einem Hinweis statt einer leeren
+Datenbank. Ein Fehler, der die Sammlung kostet, ist etwas anderes als
+einer, der eine Meldung zeigt.
+
+### 💾 Sichern und einspielen
+
+Unten im Datenbankfenster stehen zwei neue Knöpfe. **⬇ Sicherung** lädt
+die ganze Sammlung als Datei herunter — Zauber, Waffen, Gegenstände,
+Ausrüstungssätze, Tierverwandlungen, mit dem Datum im Dateinamen. Das
+ist die Datei, die man wegheftet, bevor etwas passiert.
+
+**⬆ Einspielen** liest sie zurück, und zwar *dazu* und nicht *darüber*:
+Was schon dasteht, bleibt, wie es ist. Vorher steht in einer Rückfrage,
+was ankommt und was übersprungen wird — „Das kommt dazu: 12 Zauber · 3
+Gegenstände. Übersprungen werden 288, die es schon gibt." Doppelte
+erkennt es am Namen, nachsichtig gegen Groß- und Kleinschreibung und
+gegen Leerzeichen: „Seil, 15 m" und „Seil,15 m" sind dasselbe Seil.
+
+Damit lässt sich eine Sammlung auch zusammenlegen, ohne dass jemand
+hinterher 300 Zeilen durchsieht.
+
+### 📋 Listen einfügen statt tippen
+
+Beute entsteht am Tisch als Aufzählung: auf einem Zettel, in einer
+Nachricht, in der Antwort einer KI. Sie danach Zeile für Zeile in
+Felder zu übertragen, hat bisher jeder gescheut — und dann stand die
+Beute nirgends.
+
+Im Fenster **Beute hinlegen** steht jetzt oben ein Knopf *Liste
+einfügen*. Der Text darf aussehen, wie er will:
+
+```
+Titel: Aus der Truhe im Keller
+340 GM
+22 SM
+Ring des Schutzes | schimmert blau
+8x Fackel
+Schmuck | im Wert von 500 Gold
+```
+
+Aufzählungszeichen dürfen davorstehen, die Menge vorn oder hinten
+(`8x Fackel`, `Fackel ×8`), die Notiz hinter einem senkrechten Strich.
+Münzen erkennt eine Zeile an ihren Wörtern — `340 GM, 22 Silber und 15
+KM` ist eine Kasse, `12 Goldringe` sind zwölf Ringe. Und ein
+Bindestrich zählt nicht als Trennung: die Zwei-Hand-Axt behält ihren
+Namen.
+
+**Hingelegt wird nichts von allein.** Der Text füllt die Zeilen, und
+davor sitzt weiter die Spielleitung — jede Zahl steht zum Ändern da.
+Namen, die in der Datenbank stehen, bringen ihre Beschreibung mit; wo
+die Liste selbst eine Notiz mitliefert, gilt die Liste.
+
+Daneben steht eine **Anweisung zum Kopieren**, die einer KI sagt, in
+welcher Form die Liste zurückkommen soll. Unten hängt man an, was
+gefunden werden soll.
+
+### ⚔ Gegner aus dem Stegreif — jetzt eine ganze Liste
+
+Dasselbe im Kampf. Der Knopf **✚ Nothelfer** nahm einen Gegner; jetzt
+nimmt er eine Liste, mit demselben Feld darüber:
+
+```
+4x Goblin | 7 TP | RK 15
+Goblin-Boss | 21 TP | RK 17
+2x Wolf | 2W6+2 TP | RK 13
+Wächter am Tor 11 13
+```
+
+Auch hier wird nachsichtig gelesen: mit Strichen, mit Kommas, ganz ohne
+Trennzeichen (zwei Zahlen am Ende sind Trefferpunkte und
+Rüstungsklasse), mit `TP`/`RK` oder ohne. Was fehlt, ist ein
+Trefferpunkt und Rüstungsklasse zehn.
+
+Steht bei den Trefferpunkten ein **Würfel**, wird er für jeden einzeln
+geworfen — vier Goblins sind vier verschiedene Zahlen und nicht viermal
+dieselbe. Angelegt wird weiter aus dem Stegreif: nichts davon wandert
+in die Gegnersammlung, alles geht geradewegs in die Initiative.
+
+### 🎒 Beute und Laden füllen sich aus der Datenbank
+
+Beim Tippen schlägt die Sammlung der Gruppe vor, und was dahintersteht
+— Beschreibung, Seltenheit, Gewicht — kommt beim Eintragen von selbst
+mit. Der Ring des Schutzes steht damit im Inventar so da wie in der
+Datenbank und nicht als nackte Zeile.
+
+**Die Beschreibung bleibt trotzdem deine.** Wer „Schmuck" schreibt und
+„im Wert von 500 Gold" dahinter, bekommt genau das — der Vorschlag
+füllt nur, wo nichts steht. Dasselbe in der Auslage des Ladens.
+
+### 🗣 Mehrere Ansagen in einem Zug
+
+Ein Zug ist selten eine Sache. Angriff und Trank, Zauber und Rückzug —
+bisher passte eine Ansage hinein, und der Rest wurde daneben geredet.
+
+Jetzt meldet ein Spieler so viele Aktionen und Bonusaktionen an, wie er
+will. Oben in seinem Fenster steht die Zusammenfassung dessen, was er
+eingereicht hat, jede Zeile als **Aktion** oder **Bonusaktion**
+gekennzeichnet. Die Spielleitung sieht die Vorschläge nebeneinander,
+nimmt einen oder mehrere davon an und arbeitet sie **nacheinander** ab
+— ein Fenster nach dem anderen, in der Reihenfolge, in der sie
+angenommen wurden.
+
+### 🍺 Die Taverne im Log
+
+Wer in der Taverne gewinnt oder verliert, steht jetzt unter einem
+eigenen Tag. Ein Abend am Rouletterad soll nicht dieselbe Liste füllen
+wie der Kampf, den man nachlesen will — und umgekehrt findet man das
+Spielgeld jetzt an einer Stelle.
+
+### 🩹 Behoben
+
+- **Der Reiter „Log" am Charakterbogen war leer**, seit die Konten
+  eingeführt wurden. Er fragte nach einem Gruppenpasswort, das es seit
+  Stufe 7 nicht mehr gibt, und ließ es bei jedem Laden bleiben.
+  Dieselbe Abfrage stand noch an einer zweiten Stelle.
+- **Zwei Schließen-Knöpfe im Abenteuerlog** — das Fenster brachte
+  seinen eigenen mit und bekam noch einen vom Rahmen.
+- **Ein Tag im Abenteuerlog schloss das Fenster.** Das war meine eigene
+  Nebenwirkung aus dem Punkt darüber; behoben ist es an der Stelle, an
+  der jedes Fenster entsteht, damit es nicht dem nächsten passiert.
+- **Die Ansagen im Kampf gingen verloren**, wenn das Fenster zwischen
+  zwei Meldungen neu aufgebaut wurde. Die Warteschlange liegt jetzt
+  eine Ebene höher, wo das Neuaufbauen sie nicht erwischt.
+- **Die Werkbank unter `dev/` lief nicht mehr**: zwei Hilfsfunktionen
+  stehen in der `index.html` und nicht in den Quellen. Betrifft nur das
+  Testen, aber ohne sie prüft man nichts.
+
 ## v4.9
 
 Der Abend selbst war gut abgedeckt — Kampf, Zauberplätze, Rasten,
