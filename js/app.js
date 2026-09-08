@@ -99,6 +99,103 @@ const ZahlFeld = ({
   }));
 };
 
+// ── Eine Liste als Text einfügen ─────────────────────────────────
+// Beute und Gegner entstehen am Tisch als Aufzählung: auf einem Zettel,
+// in einer Nachricht, in der Antwort einer KI. Sie danach Zeile für
+// Zeile in Felder zu übertragen, scheut jeder — und dann steht es
+// nirgends.
+//
+// Der Baustein bringt das Feld mit, die Anweisung zum Kopieren und die
+// Rückmeldung. Was der Text bedeutet, weiss nur das Fenster, das ihn
+// liest: `onText` bekommt ihn roh und antwortet mit {gut, meldung}.
+// Zugeklappt steht hier nur ein Knopf — wer von Hand tippt, soll ihn
+// nicht jedes Mal wegschieben.
+const ListeEinfuegen = ({
+  anweisung,
+  platzhalter,
+  aufschrift,
+  onText
+}) => {
+  const [offen, setOffen] = useState(false);
+  const [roh, setRoh] = useState('');
+  const [meldung, setMeldung] = useState('');
+  const [zeigAnweisung, setZeigAnweisung] = useState(false);
+  const [kopiert, setKopiert] = useState(false);
+  const anweisungFeld = useRef(null);
+  const uebernehmen = () => {
+    const a = onText(roh) || {};
+    setMeldung(a.meldung || '');
+    if (a.gut) {
+      setRoh('');
+      setOffen(false);
+    }
+  };
+
+  // Kopieren geht auf zwei Wegen, und einer davon fehlt ohne HTTPS.
+  // Deshalb liegt die Anweisung in einem Feld: markiert ist sie in
+  // jedem Fall, und wer mag, nimmt sie mit der Tastatur.
+  const kopieren = () => {
+    const f = anweisungFeld.current;
+    if (f) {
+      f.focus();
+      f.select();
+    }
+    const fertig = () => {
+      setKopiert(true);
+      setTimeout(() => setKopiert(false), 2500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(anweisung).then(fertig, () => {});
+    } else {
+      try {
+        if (document.execCommand('copy')) fertig();
+      } catch (e) {}
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "liste-einfuegen"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste liste-einfuegen-auf",
+    onClick: () => {
+      setOffen(o => !o);
+      setMeldung('');
+    }
+  }, "\uD83D\uDCCB ", offen ? 'Liste zuklappen' : aufschrift || 'Liste einfügen'), offen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input liste-roh",
+    value: roh,
+    rows: 7,
+    placeholder: platzhalter,
+    onChange: e => {
+      setRoh(e.target.value);
+      setMeldung('');
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "liste-einfuegen-fuss"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: () => setZeigAnweisung(a => !a)
+  }, zeigAnweisung ? 'Anweisung zu' : 'Anweisung für eine KI'), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: !roh.trim(),
+    onClick: uebernehmen
+  }, "\xDCbernehmen")), zeigAnweisung && /*#__PURE__*/React.createElement("div", {
+    className: "liste-anweisung"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ass-warum"
+  }, "Diesen Text der KI vorlegen und unten anh\xE4ngen, was gebraucht wird. Was zur\xFCckkommt, kommt hier oben hinein."), /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input liste-roh",
+    readOnly: true,
+    rows: 8,
+    ref: anweisungFeld,
+    value: anweisung
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: kopieren
+  }, kopiert ? '✓ Kopiert' : 'Anweisung kopieren'))), meldung && /*#__PURE__*/React.createElement("div", {
+    className: "liste-meldung"
+  }, meldung));
+};
+
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
@@ -3468,27 +3565,69 @@ const BegegnungWahl = ({
     onClick: onAbbrechen
   }, "Abbrechen"))));
 };
+
+// Was die Spielleitung einer KI vorlegt, damit hinten eine Gegnerliste
+// herauskommt, die dieses Fenster lesen kann. Der letzte Absatz bleibt
+// offen — dort steht, wer diesmal im Weg steht.
+const KAMPF_KI_ANWEISUNG = ['Erstelle mir eine Gegnerliste für einen Kampf in Dungeons & Dragons 5e', 'auf Deutsch. Antworte nur mit der Liste: keine Einleitung, keine', 'Erklärung, keine Tabelle, keine Überschriften, keine Werteblöcke.', '', 'Eine Zeile je Gegnerart, in dieser Form:', '  <Anzahl>x <Name> | <Trefferpunkte> TP | RK <Rüstungsklasse>', '', 'Dabei gilt:', '- Die Anzahl darfst du weglassen, wenn es nur einer ist.', '- Trefferpunkte als feste Zahl oder als Würfel: „7 TP" oder „2W6 TP".', '  Gewürfelt wird hier, für jeden Gegner einzeln.', '- Gegner mit ihrem deutschen Namen: „Goblin", „Wolf", „Skelett".', '- Nur Name, Trefferpunkte und Rüstungsklasse — alles Weitere', '  (Angriffe, Zauber, Fähigkeiten) bleibt beim Spielleiter.', '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.', '', 'Beispiel:', '4x Goblin | 7 TP | RK 15', 'Goblin-Boss | 21 TP | RK 17', '2x Wolf | 2W6+2 TP | RK 13', '', 'Und das soll im Weg stehen:', ''].join('\n');
 const NothelferFenster = ({
   onAnlegen,
   onAbbrechen
 }) => {
-  const [name, setName] = React.useState('');
-  const [tp, setTp] = React.useState('');
-  const [ac, setAc] = React.useState('');
-  const [anzahl, setAnzahl] = React.useState(1);
-  const fertig = () => {
-    const n = Math.max(1, Math.min(20, +anzahl || 1));
-    onAnlegen(name, tp, ac, n);
+  const [zeilen, setZeilen] = React.useState([{
+    name: '',
+    tp: '',
+    ac: '',
+    anzahl: 1
+  }]);
+  const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {
+    ...x,
+    ...p
+  } : x));
+  const gute = zeilen.filter(z => (z.name || '').trim());
+
+  // Der eingefügte Text wird zu Zeilen — nicht zu Gegnern. In die
+  // Initiative geht erst der Knopf unten, und bis dahin steht jede Zahl
+  // zum Ändern da.
+  const uebernehmen = roh => {
+    const g = gegnerAusText(roh);
+    if (!g.length) return {
+      gut: false,
+      meldung: 'Daraus lässt sich nichts lesen. Eine Zeile je Gegner.'
+    };
+    setZeilen(z => z.filter(x => (x.name || '').trim()).concat(g.map(x => ({
+      name: x.name,
+      tp: x.tp,
+      ac: x.ac === null ? '' : String(x.ac),
+      anzahl: x.anzahl
+    })), [{
+      name: '',
+      tp: '',
+      ac: '',
+      anzahl: 1
+    }]));
+    const summe = g.reduce((s, x) => s + x.anzahl, 0);
+    return {
+      gut: true,
+      meldung: 'Übernommen: ' + g.length + (g.length === 1 ? ' Zeile' : ' Zeilen') + (summe !== g.length ? ', zusammen ' + summe + ' Gegner' : '') + '. Sieh sie durch, bevor sie in den Kampf gehen.'
+    };
   };
+  const fertig = () => onAnlegen(gute.map(z => ({
+    name: z.name.trim(),
+    tp: z.tp,
+    ac: z.ac,
+    anzahl: Math.max(1, Math.min(40, +z.anzahl || 1))
+  })));
   const taste = e => {
     if (e.key === 'Enter') fertig();
   };
+  const summe = gute.reduce((s, z) => s + Math.max(1, Math.min(40, +z.anzahl || 1)), 0);
   return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
-      maxWidth: 400
+      maxWidth: 520
     },
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("div", {
@@ -3497,78 +3636,91 @@ const NothelferFenster = ({
     className: "einst-hinweis",
     style: {
       marginTop: 0,
-      marginBottom: 14
+      marginBottom: 12
     }
-  }, "F\xFCr den W\xE4chter, der im Abenteuerbuch mit einem Satz abgehandelt ist. Er kommt sofort in die Initiative und wandert nicht in die Gegnersammlung."), /*#__PURE__*/React.createElement("div", {
-    className: "form-grid",
-    style: {
-      gridTemplateColumns: "1fr"
-    }
+  }, "F\xFCr den W\xE4chter, der im Abenteuerbuch mit einem Satz abgehandelt ist. Sie kommen sofort in die Initiative und wandern nicht in die Gegnersammlung."), /*#__PURE__*/React.createElement(ListeEinfuegen, {
+    anweisung: KAMPF_KI_ANWEISUNG,
+    aufschrift: "Gegnerliste einf\xFCgen",
+    onText: uebernehmen,
+    platzhalter: 'Eine Zeile je Gegner:\n\n4x Goblin | 7 TP | RK 15\nGoblin-Boss | 21 TP | RK 17\nWächter am Tor | 2W6 | 13'
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "not-zeilen"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Name"), /*#__PURE__*/React.createElement("input", {
-    className: "form-input",
-    autoFocus: true,
+    className: "not-neu not-kopf"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "not-name"
+  }, "Name"), /*#__PURE__*/React.createElement("span", null, "TP"), /*#__PURE__*/React.createElement("span", null, "RK"), /*#__PURE__*/React.createElement("span", null, "Anz."), /*#__PURE__*/React.createElement("span", null)), zeilen.map((z, i) => /*#__PURE__*/React.createElement("div", {
+    className: "not-neu",
+    key: i
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input not-name",
+    autoFocus: i === 0,
+    maxLength: 60,
     placeholder: "z.B. W\xE4chter am Tor",
-    value: name,
-    onChange: e => setName(e.target.value),
+    value: z.name,
+    onChange: e => setZeile(i, {
+      name: e.target.value
+    }),
     onKeyDown: taste
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "not-zeile"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Trefferpunkte"), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement("input", {
     className: "form-input",
-    type: "number",
-    min: 1,
-    max: 9999,
-    placeholder: "11",
-    value: tp,
-    onChange: e => setTp(e.target.value),
+    maxLength: 12,
+    placeholder: "TP",
+    value: z.tp,
+    onChange: e => setZeile(i, {
+      tp: e.target.value
+    }),
     onKeyDown: taste
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "R\xFCstungsklasse"), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement("input", {
     className: "form-input",
-    type: "number",
-    min: 1,
-    max: 40,
-    placeholder: "13",
-    value: ac,
-    onChange: e => setAc(e.target.value),
+    maxLength: 3,
+    placeholder: "RK",
+    value: z.ac,
+    onChange: e => setZeile(i, {
+      ac: e.target.value
+    }),
     onKeyDown: taste
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "form-group"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "form-label"
-  }, "Anzahl"), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement("input", {
     className: "form-input",
-    type: "number",
-    min: 1,
-    max: 20,
-    value: anzahl,
-    onChange: e => setAnzahl(e.target.value),
+    maxLength: 2,
+    placeholder: "Anz.",
+    value: z.anzahl,
+    onChange: e => setZeile(i, {
+      anzahl: e.target.value
+    }),
     onKeyDown: taste
-  })))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "konz-weg",
+    title: "Zeile weg",
+    onClick: () => setZeilen(z2 => z2.length > 1 ? z2.filter((_, j) => j !== i) : [{
+      name: '',
+      tp: '',
+      ac: '',
+      anzahl: 1
+    }])
+  }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: () => setZeilen(z => [...z, {
+      name: '',
+      tp: '',
+      ac: '',
+      anzahl: 1
+    }])
+  }, "+ Noch eine Zeile")), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
-      marginTop: 0
+      marginTop: 10
     }
-  }, "Die Initiative wird gew\xFCrfelt. Leere Felder bedeuten 1 Trefferpunkt und R\xFCstungsklasse 10."), /*#__PURE__*/React.createElement("div", {
+  }, "Die Initiative wird gew\xFCrfelt. Leere Felder bedeuten 1 Trefferpunkt und R\xFCstungsklasse 10; \u201E2W6\" wird f\xFCr jeden Gegner einzeln geworfen."), /*#__PURE__*/React.createElement("div", {
     className: "form-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: onAbbrechen
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
+    disabled: !gute.length,
     onClick: fertig
-  }, "In den Kampf"))));
+  }, gute.length ? summe === 1 ? 'In den Kampf' : summe + ' in den Kampf' : 'Noch kein Name'))));
 };
 const SpontanWahl = ({
   enemies,
@@ -4571,13 +4723,21 @@ const KampfAnsicht = ({
     className: "kampf-hinweis"
   }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), nothelferOffen && /*#__PURE__*/React.createElement(NothelferFenster, {
     onAbbrechen: () => setNothelferOffen(false),
-    onAnlegen: (name, tp, ac, anzahl) => {
+    onAnlegen: reihen => {
       setNothelferOffen(false);
       const neue = [];
-      for (let i = 0; i < anzahl; i++) {
-        neue.push(nothelferAnlegen(anzahl > 1 ? ((name || '').trim() || 'Gegner') + ' ' + (i + 1) : name, tp, ac));
-      }
-      dazu(neue);
+      reihen.forEach(z => {
+        for (let i = 0; i < z.anzahl; i++) {
+          // Eine Würfelangabe wird für jeden einzeln geworfen —
+          // vier Goblins sind vier verschiedene Zahlen.
+          const tp = /[dw]/i.test(z.tp) ? wuerfelTP({
+            hpDice: z.tp,
+            hpMax: 1
+          }) : z.tp;
+          neue.push(nothelferAnlegen(z.anzahl > 1 ? z.name + ' ' + (i + 1) : z.name, tp, z.ac));
+        }
+      });
+      if (neue.length) dazu(neue);
     }
   }), begegnungOffen && /*#__PURE__*/React.createElement(BegegnungWahl, {
     encounters: encounters,
@@ -11204,12 +11364,6 @@ const BeuteAnlegen = ({
     anzahl: 1,
     notiz: ''
   }]);
-  const [einfuegen, setEinfuegen] = React.useState(false);
-  const [roh, setRoh] = React.useState('');
-  const [meldung, setMeldung] = React.useState('');
-  const [zeigAnweisung, setZeigAnweisung] = React.useState(false);
-  const [kopiert, setKopiert] = React.useState(false);
-  const anweisungFeld = React.useRef(null);
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {
     ...x,
     ...p
@@ -11218,12 +11372,14 @@ const BeuteAnlegen = ({
 
   // Der eingefügte Text wird zu Zeilen — nicht zu Beute. Hingelegt wird
   // erst mit dem Knopf unten, und bis dahin steht alles zum Ändern da.
-  const uebernehmen = () => {
+  const uebernehmen = roh => {
     const g = beuteAusText(roh);
     const geld = COINS.some(c => g.muenzen[c.key] > 0);
     if (!g.stuecke.length && !geld) {
-      setMeldung('Daraus lässt sich nichts lesen. Eine Zeile je Gegenstand.');
-      return;
+      return {
+        gut: false,
+        meldung: 'Daraus lässt sich nichts lesen. Eine Zeile je Gegenstand.'
+      };
     }
     if (g.titel && !titel.trim()) setTitel(g.titel);
     if (geld) setMuenzen(m => {
@@ -11253,27 +11409,10 @@ const BeuteAnlegen = ({
     const was = [];
     if (g.stuecke.length) was.push(g.stuecke.length + (g.stuecke.length === 1 ? ' Stück' : ' Stücke'));
     if (geld) was.push(beuteMuenzText(g.muenzen));
-    setMeldung('Übernommen: ' + was.join(' und ') + '. Sieh die Zeilen durch, bevor du hinlegst.');
-    setRoh('');
-    setEinfuegen(false);
-  };
-  const anweisungKopieren = () => {
-    const f = anweisungFeld.current;
-    if (f) {
-      f.focus();
-      f.select();
-    }
-    const fertig = () => {
-      setKopiert(true);
-      setTimeout(() => setKopiert(false), 2500);
+    return {
+      gut: true,
+      meldung: 'Übernommen: ' + was.join(' und ') + '. Sieh die Zeilen durch, bevor du hinlegst.'
     };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(BEUTE_KI_ANWEISUNG).then(fertig, () => {});
-    } else {
-      try {
-        if (document.execCommand('copy')) fertig();
-      } catch (e) {}
-    }
   };
   const leer = !stuecke.length && !COINS.some(c => muenzen[c.key] > 0);
   return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
@@ -11284,48 +11423,11 @@ const BeuteAnlegen = ({
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
-  }, "\uD83D\uDCB0 Beute hinlegen"), /*#__PURE__*/React.createElement("div", {
-    className: "beute-einfuegen"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "bj-taste beute-einfuegen-auf",
-    onClick: () => {
-      setEinfuegen(e => !e);
-      setMeldung('');
-    }
-  }, "\uD83D\uDCCB ", einfuegen ? 'Liste zuklappen' : 'Liste einfügen'), einfuegen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
-    className: "form-input beute-roh",
-    value: roh,
-    rows: 7,
-    placeholder: 'Eine Zeile je Gegenstand:\n\n340 GM\n8x Fackel\nRing des Schutzes | schimmert blau',
-    onChange: e => {
-      setRoh(e.target.value);
-      setMeldung('');
-    }
+  }, "\uD83D\uDCB0 Beute hinlegen"), /*#__PURE__*/React.createElement(ListeEinfuegen, {
+    anweisung: BEUTE_KI_ANWEISUNG,
+    onText: uebernehmen,
+    platzhalter: 'Eine Zeile je Gegenstand:\n\n340 GM\n8x Fackel\nRing des Schutzes | schimmert blau'
   }), /*#__PURE__*/React.createElement("div", {
-    className: "beute-einfuegen-fuss"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "bj-taste",
-    onClick: () => setZeigAnweisung(a => !a)
-  }, zeigAnweisung ? 'Anweisung zu' : 'Anweisung für eine KI'), /*#__PURE__*/React.createElement("button", {
-    className: "btn-save",
-    disabled: !roh.trim(),
-    onClick: uebernehmen
-  }, "\xDCbernehmen")), zeigAnweisung && /*#__PURE__*/React.createElement("div", {
-    className: "beute-anweisung"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "ass-warum"
-  }, "Diesen Text der KI vorlegen und unten anh\xE4ngen, was gefunden werden soll. Was zur\xFCckkommt, kommt hier oben hinein."), /*#__PURE__*/React.createElement("textarea", {
-    className: "form-input beute-roh",
-    readOnly: true,
-    rows: 8,
-    ref: anweisungFeld,
-    value: BEUTE_KI_ANWEISUNG
-  }), /*#__PURE__*/React.createElement("button", {
-    className: "bj-taste",
-    onClick: anweisungKopieren
-  }, kopiert ? '✓ Kopiert' : 'Anweisung kopieren'))), meldung && /*#__PURE__*/React.createElement("div", {
-    className: "beute-meldung"
-  }, meldung)), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"

@@ -77,6 +77,82 @@ const ZahlFeld = ({ wert, onWert, min, max, leerWert, sofort, onKeyDown, ...rest
   );
 };
 
+// ── Eine Liste als Text einfügen ─────────────────────────────────
+// Beute und Gegner entstehen am Tisch als Aufzählung: auf einem Zettel,
+// in einer Nachricht, in der Antwort einer KI. Sie danach Zeile für
+// Zeile in Felder zu übertragen, scheut jeder — und dann steht es
+// nirgends.
+//
+// Der Baustein bringt das Feld mit, die Anweisung zum Kopieren und die
+// Rückmeldung. Was der Text bedeutet, weiss nur das Fenster, das ihn
+// liest: `onText` bekommt ihn roh und antwortet mit {gut, meldung}.
+// Zugeklappt steht hier nur ein Knopf — wer von Hand tippt, soll ihn
+// nicht jedes Mal wegschieben.
+const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
+  const [offen, setOffen] = useState(false);
+  const [roh, setRoh] = useState('');
+  const [meldung, setMeldung] = useState('');
+  const [zeigAnweisung, setZeigAnweisung] = useState(false);
+  const [kopiert, setKopiert] = useState(false);
+  const anweisungFeld = useRef(null);
+
+  const uebernehmen = () => {
+    const a = onText(roh) || {};
+    setMeldung(a.meldung || '');
+    if (a.gut) { setRoh(''); setOffen(false); }
+  };
+
+  // Kopieren geht auf zwei Wegen, und einer davon fehlt ohne HTTPS.
+  // Deshalb liegt die Anweisung in einem Feld: markiert ist sie in
+  // jedem Fall, und wer mag, nimmt sie mit der Tastatur.
+  const kopieren = () => {
+    const f = anweisungFeld.current;
+    if (f) { f.focus(); f.select(); }
+    const fertig = () => { setKopiert(true); setTimeout(() => setKopiert(false), 2500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(anweisung).then(fertig, () => {});
+    } else {
+      try { if (document.execCommand('copy')) fertig(); } catch (e) {}
+    }
+  };
+
+  return (
+    <div className="liste-einfuegen">
+      <button className="bj-taste liste-einfuegen-auf"
+        onClick={()=>{ setOffen(o => !o); setMeldung(''); }}>
+        📋 {offen ? 'Liste zuklappen' : (aufschrift || 'Liste einfügen')}
+      </button>
+      {offen && (
+        <>
+          <textarea className="form-input liste-roh" value={roh} rows={7}
+            placeholder={platzhalter}
+            onChange={e=>{ setRoh(e.target.value); setMeldung(''); }} />
+          <div className="liste-einfuegen-fuss">
+            <button className="bj-taste" onClick={()=>setZeigAnweisung(a => !a)}>
+              {zeigAnweisung ? 'Anweisung zu' : 'Anweisung für eine KI'}
+            </button>
+            <button className="btn-save" disabled={!roh.trim()} onClick={uebernehmen}>
+              Übernehmen
+            </button>
+          </div>
+          {zeigAnweisung && (
+            <div className="liste-anweisung">
+              <div className="ass-warum">Diesen Text der KI vorlegen und unten anhängen,
+                was gebraucht wird. Was zurückkommt, kommt hier oben hinein.</div>
+              <textarea className="form-input liste-roh" readOnly rows={8}
+                ref={anweisungFeld} value={anweisung} />
+              <button className="bj-taste" onClick={kopieren}>
+                {kopiert ? '✓ Kopiert' : 'Anweisung kopieren'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {meldung && <div className="liste-meldung">{meldung}</div>}
+    </div>
+  );
+};
+
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.

@@ -1458,56 +1458,116 @@ const BegegnungWahl = ({ encounters, enemies, advId, onLaden, onAbbrechen }) => 
   );
 };
 
+// Was die Spielleitung einer KI vorlegt, damit hinten eine Gegnerliste
+// herauskommt, die dieses Fenster lesen kann. Der letzte Absatz bleibt
+// offen — dort steht, wer diesmal im Weg steht.
+const KAMPF_KI_ANWEISUNG = [
+  'Erstelle mir eine Gegnerliste für einen Kampf in Dungeons & Dragons 5e',
+  'auf Deutsch. Antworte nur mit der Liste: keine Einleitung, keine',
+  'Erklärung, keine Tabelle, keine Überschriften, keine Werteblöcke.',
+  '',
+  'Eine Zeile je Gegnerart, in dieser Form:',
+  '  <Anzahl>x <Name> | <Trefferpunkte> TP | RK <Rüstungsklasse>',
+  '',
+  'Dabei gilt:',
+  '- Die Anzahl darfst du weglassen, wenn es nur einer ist.',
+  '- Trefferpunkte als feste Zahl oder als Würfel: „7 TP" oder „2W6 TP".',
+  '  Gewürfelt wird hier, für jeden Gegner einzeln.',
+  '- Gegner mit ihrem deutschen Namen: „Goblin", „Wolf", „Skelett".',
+  '- Nur Name, Trefferpunkte und Rüstungsklasse — alles Weitere',
+  '  (Angriffe, Zauber, Fähigkeiten) bleibt beim Spielleiter.',
+  '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.',
+  '',
+  'Beispiel:',
+  '4x Goblin | 7 TP | RK 15',
+  'Goblin-Boss | 21 TP | RK 17',
+  '2x Wolf | 2W6+2 TP | RK 13',
+  '',
+  'Und das soll im Weg stehen:',
+  '',
+].join('\n');
+
 const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
-  const [name, setName] = React.useState('');
-  const [tp, setTp]     = React.useState('');
-  const [ac, setAc]     = React.useState('');
-  const [anzahl, setAnzahl] = React.useState(1);
-  const fertig = () => {
-    const n = Math.max(1, Math.min(20, +anzahl || 1));
-    onAnlegen(name, tp, ac, n);
+  const [zeilen, setZeilen] = React.useState([{name:'', tp:'', ac:'', anzahl:1}]);
+  const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {...x, ...p} : x));
+  const gute = zeilen.filter(z => (z.name || '').trim());
+
+  // Der eingefügte Text wird zu Zeilen — nicht zu Gegnern. In die
+  // Initiative geht erst der Knopf unten, und bis dahin steht jede Zahl
+  // zum Ändern da.
+  const uebernehmen = (roh) => {
+    const g = gegnerAusText(roh);
+    if (!g.length) return {gut: false, meldung: 'Daraus lässt sich nichts lesen. Eine Zeile je Gegner.'};
+    setZeilen(z => z.filter(x => (x.name || '').trim()).concat(
+      g.map(x => ({name: x.name, tp: x.tp, ac: x.ac === null ? '' : String(x.ac),
+                   anzahl: x.anzahl})),
+      [{name:'', tp:'', ac:'', anzahl:1}]));
+    const summe = g.reduce((s, x) => s + x.anzahl, 0);
+    return {gut: true, meldung: 'Übernommen: ' + g.length + (g.length === 1 ? ' Zeile' : ' Zeilen')
+      + (summe !== g.length ? ', zusammen ' + summe + ' Gegner' : '')
+      + '. Sieh sie durch, bevor sie in den Kampf gehen.'};
   };
+
+  const fertig = () => onAnlegen(gute.map(z => ({
+    name: z.name.trim(), tp: z.tp, ac: z.ac,
+    anzahl: Math.max(1, Math.min(40, +z.anzahl || 1)),
+  })));
   const taste = (e) => { if (e.key === 'Enter') fertig(); };
+  const summe = gute.reduce((s, z) => s + Math.max(1, Math.min(40, +z.anzahl || 1)), 0);
 
   return (
     <Fenster onClick={onAbbrechen}>
-      <div className="form-modal" style={{maxWidth:400}} onClick={e=>e.stopPropagation()}>
+      <div className="form-modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
         <div className="form-title">✚ Nothelfer</div>
-        <div className="einst-hinweis" style={{marginTop:0,marginBottom:14}}>
+        <div className="einst-hinweis" style={{marginTop:0,marginBottom:12}}>
           Für den Wächter, der im Abenteuerbuch mit einem Satz abgehandelt ist.
-          Er kommt sofort in die Initiative und wandert nicht in die Gegnersammlung.
+          Sie kommen sofort in die Initiative und wandern nicht in die Gegnersammlung.
         </div>
-        <div className="form-grid" style={{gridTemplateColumns:"1fr"}}>
-          <div className="form-group">
-            <div className="form-label">Name</div>
-            <input className="form-input" autoFocus placeholder="z.B. Wächter am Tor"
-              value={name} onChange={e=>setName(e.target.value)} onKeyDown={taste} />
+
+        <ListeEinfuegen anweisung={KAMPF_KI_ANWEISUNG} aufschrift="Gegnerliste einfügen"
+          onText={uebernehmen}
+          platzhalter={'Eine Zeile je Gegner:\n\n4x Goblin | 7 TP | RK 15\nGoblin-Boss | 21 TP | RK 17\nWächter am Tor | 2W6 | 13'} />
+
+        <div className="not-zeilen">
+          {/* Ausgefüllt sagen drei Zahlen nebeneinander nicht mehr, welche
+              welche ist — deshalb stehen die Spalten oben angeschrieben. */}
+          <div className="not-neu not-kopf">
+            <span className="not-name">Name</span>
+            <span>TP</span><span>RK</span><span>Anz.</span><span></span>
           </div>
-          <div className="not-zeile">
-            <div className="form-group">
-              <div className="form-label">Trefferpunkte</div>
-              <input className="form-input" type="number" min={1} max={9999} placeholder="11"
-                value={tp} onChange={e=>setTp(e.target.value)} onKeyDown={taste} />
+          {zeilen.map((z, i) => (
+            <div className="not-neu" key={i}>
+              <input className="form-input not-name" autoFocus={i === 0} maxLength={60}
+                placeholder="z.B. Wächter am Tor" value={z.name}
+                onChange={e=>setZeile(i, {name: e.target.value})} onKeyDown={taste} />
+              {/* Trefferpunkte als Feld und nicht als Zahlenfeld: „2W6"
+                  soll hier stehen dürfen, gewürfelt wird beim Anlegen. */}
+              <input className="form-input" maxLength={12} placeholder="TP" value={z.tp}
+                onChange={e=>setZeile(i, {tp: e.target.value})} onKeyDown={taste} />
+              <input className="form-input" maxLength={3} placeholder="RK" value={z.ac}
+                onChange={e=>setZeile(i, {ac: e.target.value})} onKeyDown={taste} />
+              <input className="form-input" maxLength={2} placeholder="Anz." value={z.anzahl}
+                onChange={e=>setZeile(i, {anzahl: e.target.value})} onKeyDown={taste} />
+              <button className="konz-weg" title="Zeile weg"
+                onClick={()=>setZeilen(z2 => z2.length > 1 ? z2.filter((_, j) => j !== i)
+                                                          : [{name:'', tp:'', ac:'', anzahl:1}])}>✕</button>
             </div>
-            <div className="form-group">
-              <div className="form-label">Rüstungsklasse</div>
-              <input className="form-input" type="number" min={1} max={40} placeholder="13"
-                value={ac} onChange={e=>setAc(e.target.value)} onKeyDown={taste} />
-            </div>
-            <div className="form-group">
-              <div className="form-label">Anzahl</div>
-              <input className="form-input" type="number" min={1} max={20}
-                value={anzahl} onChange={e=>setAnzahl(e.target.value)} onKeyDown={taste} />
-            </div>
-          </div>
+          ))}
+          <button className="bj-taste"
+            onClick={()=>setZeilen(z => [...z, {name:'', tp:'', ac:'', anzahl:1}])}>
+            + Noch eine Zeile
+          </button>
         </div>
-        <div className="einst-hinweis" style={{marginTop:0}}>
+
+        <div className="einst-hinweis" style={{marginTop:10}}>
           Die Initiative wird gewürfelt. Leere Felder bedeuten 1 Trefferpunkt und
-          Rüstungsklasse 10.
+          Rüstungsklasse 10; „2W6" wird für jeden Gegner einzeln geworfen.
         </div>
         <div className="form-actions">
           <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
-          <button className="btn-save" onClick={fertig}>In den Kampf</button>
+          <button className="btn-save" disabled={!gute.length} onClick={fertig}>
+            {gute.length ? (summe === 1 ? 'In den Kampf' : summe + ' in den Kampf') : 'Noch kein Name'}
+          </button>
         </div>
       </div>
     </Fenster>
@@ -2281,14 +2341,19 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
         {nothelferOffen && (
           <NothelferFenster
             onAbbrechen={()=>setNothelferOffen(false)}
-            onAnlegen={(name, tp, ac, anzahl)=>{
+            onAnlegen={(reihen)=>{
               setNothelferOffen(false);
               const neue = [];
-              for (let i = 0; i < anzahl; i++) {
-                neue.push(nothelferAnlegen(
-                  anzahl > 1 ? ((name || '').trim() || 'Gegner') + ' ' + (i+1) : name, tp, ac));
-              }
-              dazu(neue);
+              reihen.forEach(z => {
+                for (let i = 0; i < z.anzahl; i++) {
+                  // Eine Würfelangabe wird für jeden einzeln geworfen —
+                  // vier Goblins sind vier verschiedene Zahlen.
+                  const tp = /[dw]/i.test(z.tp) ? wuerfelTP({hpDice: z.tp, hpMax: 1}) : z.tp;
+                  neue.push(nothelferAnlegen(
+                    z.anzahl > 1 ? z.name + ' ' + (i+1) : z.name, tp, z.ac));
+                }
+              });
+              if (neue.length) dazu(neue);
             }} />
         )}
 

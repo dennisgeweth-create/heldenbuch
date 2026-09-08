@@ -71,24 +71,16 @@ const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
   const [muenzen, setMuenzen] = React.useState({pp:0, gp:0, ep:0, sp:0, cp:0});
   const [zeilen, setZeilen] = React.useState([{name:'', anzahl:1, notiz:''}]);
 
-  const [einfuegen, setEinfuegen] = React.useState(false);
-  const [roh, setRoh] = React.useState('');
-  const [meldung, setMeldung] = React.useState('');
-  const [zeigAnweisung, setZeigAnweisung] = React.useState(false);
-  const [kopiert, setKopiert] = React.useState(false);
-  const anweisungFeld = React.useRef(null);
-
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {...x, ...p} : x));
   const stuecke = zeilen.filter(z => z.name.trim());
 
   // Der eingefügte Text wird zu Zeilen — nicht zu Beute. Hingelegt wird
   // erst mit dem Knopf unten, und bis dahin steht alles zum Ändern da.
-  const uebernehmen = () => {
+  const uebernehmen = (roh) => {
     const g = beuteAusText(roh);
     const geld = COINS.some(c => g.muenzen[c.key] > 0);
     if (!g.stuecke.length && !geld) {
-      setMeldung('Daraus lässt sich nichts lesen. Eine Zeile je Gegenstand.');
-      return;
+      return {gut: false, meldung: 'Daraus lässt sich nichts lesen. Eine Zeile je Gegenstand.'};
     }
     if (g.titel && !titel.trim()) setTitel(g.titel);
     if (geld) setMuenzen(m => {
@@ -108,20 +100,10 @@ const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
     const was = [];
     if (g.stuecke.length) was.push(g.stuecke.length + (g.stuecke.length === 1 ? ' Stück' : ' Stücke'));
     if (geld) was.push(beuteMuenzText(g.muenzen));
-    setMeldung('Übernommen: ' + was.join(' und ') + '. Sieh die Zeilen durch, bevor du hinlegst.');
-    setRoh(''); setEinfuegen(false);
+    return {gut: true, meldung: 'Übernommen: ' + was.join(' und ')
+      + '. Sieh die Zeilen durch, bevor du hinlegst.'};
   };
 
-  const anweisungKopieren = () => {
-    const f = anweisungFeld.current;
-    if (f) { f.focus(); f.select(); }
-    const fertig = () => { setKopiert(true); setTimeout(() => setKopiert(false), 2500); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(BEUTE_KI_ANWEISUNG).then(fertig, () => {});
-    } else {
-      try { if (document.execCommand('copy')) fertig(); } catch (e) {}
-    }
-  };
   const leer = !stuecke.length && !COINS.some(c => muenzen[c.key] > 0);
 
   return (
@@ -129,39 +111,8 @@ const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
       <div className="form-modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
         <div className="form-title">💰 Beute hinlegen</div>
 
-        <div className="beute-einfuegen">
-          <button className="bj-taste beute-einfuegen-auf"
-            onClick={()=>{ setEinfuegen(e => !e); setMeldung(''); }}>
-            📋 {einfuegen ? 'Liste zuklappen' : 'Liste einfügen'}
-          </button>
-          {einfuegen && (
-            <>
-              <textarea className="form-input beute-roh" value={roh} rows={7}
-                placeholder={'Eine Zeile je Gegenstand:\n\n340 GM\n8x Fackel\nRing des Schutzes | schimmert blau'}
-                onChange={e=>{ setRoh(e.target.value); setMeldung(''); }} />
-              <div className="beute-einfuegen-fuss">
-                <button className="bj-taste" onClick={()=>setZeigAnweisung(a => !a)}>
-                  {zeigAnweisung ? 'Anweisung zu' : 'Anweisung für eine KI'}
-                </button>
-                <button className="btn-save" disabled={!roh.trim()} onClick={uebernehmen}>
-                  Übernehmen
-                </button>
-              </div>
-              {zeigAnweisung && (
-                <div className="beute-anweisung">
-                  <div className="ass-warum">Diesen Text der KI vorlegen und unten anhängen,
-                    was gefunden werden soll. Was zurückkommt, kommt hier oben hinein.</div>
-                  <textarea className="form-input beute-roh" readOnly rows={8}
-                    ref={anweisungFeld} value={BEUTE_KI_ANWEISUNG} />
-                  <button className="bj-taste" onClick={anweisungKopieren}>
-                    {kopiert ? '✓ Kopiert' : 'Anweisung kopieren'}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-          {meldung && <div className="beute-meldung">{meldung}</div>}
-        </div>
+        <ListeEinfuegen anweisung={BEUTE_KI_ANWEISUNG} onText={uebernehmen}
+          platzhalter={'Eine Zeile je Gegenstand:\n\n340 GM\n8x Fackel\nRing des Schutzes | schimmert blau'} />
 
         <div className="form-group form-full">
           <div className="form-label">Woher</div>

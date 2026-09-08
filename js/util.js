@@ -691,6 +691,73 @@ const beuteAusText = (text) => {
   return {titel, muenzen, stuecke};
 };
 
+// ── Gegner als Text ─────────────────────────────────────────────
+// Dasselbe für den Kampf. Was hier herauskommt, wandert nicht in die
+// Gegnersammlung, sondern geradewegs in die Initiative — der Wächter am
+// Tor, die vier Goblins, der Wolf, den sich jemand gerade ausgedacht
+// hat. Drei Angaben genügen, und keine davon muss dastehen: ohne
+// Trefferpunkte ist es einer, ohne Rüstungsklasse zehn.
+//
+// Die Trefferpunkte bleiben als Text stehen, auch „2W8+2" — gewürfelt
+// wird erst im Kampf, und dann für jeden der vier Goblins einzeln.
+const gegnerAusText = (text) => {
+  const raus = [];
+
+  String(text || '').split(/\r?\n/).forEach(roh => {
+    let z = String(roh || '').trim();
+    if (!z) return;
+    z = z.replace(/^[-–—*•·]\s+/, '').replace(/^\d+[.)]\s+/, '').trim();
+    if (!z || z.startsWith('#')) return;
+
+    const felder = z.split(/\s*[|;,]\s*/).map(f => f.trim()).filter(Boolean);
+    if (!felder.length) return;
+
+    let name = felder.shift();
+    let anzahl = 1, tp = '', ac = null;
+
+    // Die Anzahl steht am Namen: „4x Goblin" oder „Goblin ×4".
+    const vorn = /^(\d+)\s*[×xX*]\s*(.+)$/.exec(name) || /^(\d+)\s+(.+)$/.exec(name);
+    const hinten = /^(.+?)\s*[×xX*]\s*(\d+)$/.exec(name);
+    if (vorn)        { anzahl = +vorn[1];   name = vorn[2].trim(); }
+    else if (hinten) { anzahl = +hinten[2]; name = hinten[1].trim(); }
+
+    // Ganz ohne Trennzeichen: „Wächter am Tor 11 13". Zwei Zahlen am
+    // Ende sind Trefferpunkte und Rüstungsklasse — eine einzelne nicht,
+    // die gehört zum Namen („Wache 2").
+    if (!felder.length) {
+      const m = /^(.*[^\d\s])\s+(\d+)\s+(\d+)$/.exec(name);
+      if (m) { name = m[1].trim(); felder.push(m[2], m[3]); }
+    }
+
+    // Was hinter dem Namen steht, ordnet sich über sein Wort zu. Zahlen
+    // ohne Wort füllen der Reihe nach, was noch leer ist.
+    const frei = [];
+    felder.forEach(f => {
+      const t = /\d+\s*[dwDW]\s*\d+(?:\s*\+\s*\d+)?|\d+/.exec(f);
+      if (!t) return;
+      const zahl = t[0];
+      const wort = (f.slice(0, t.index) + ' ' + f.slice(t.index + zahl.length)).toLowerCase();
+      if (/r(ü|ue)stung|\brk\b|\bac\b|panzer/.test(wort)) ac = Math.round(+zahl) || ac;
+      else if (/treffer|leben|\btp\b|\bhp\b|\blp\b/.test(wort)) tp = zahl;
+      // Die Anzahl braucht ihr Zeichen: „4x" ist eine Anzahl, die blosse
+      // 4 in „Goblin | 4 | 15" sind Trefferpunkte.
+      else if (/anzahl|st(ü|ue)ck/.test(wort) || /^\s*[×x*]\s*$/.test(wort)) anzahl = +zahl || anzahl;
+      else frei.push(zahl);
+    });
+    frei.forEach(zahl => {
+      if (!tp) tp = zahl;
+      else if (ac === null) ac = Math.round(+zahl) || null;
+    });
+
+    name = name.replace(/[.,;:]+$/, '').trim();
+    if (!name) return;
+    raus.push({name: name.slice(0, 60), tp: String(tp || ''), ac: ac,
+               anzahl: Math.max(1, Math.min(40, anzahl))});
+  });
+
+  return raus.slice(0, 60);
+};
+
 // ── Aus der Datenbank ───────────────────────────────────────────
 // Beute und Laden fuellen sich aus der Sammlung der Gruppe. Gesucht
 // wird nachsichtig: Grossschreibung und ein Leerzeichen zu viel sollen

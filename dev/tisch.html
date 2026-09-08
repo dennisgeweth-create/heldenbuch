@@ -109,6 +109,13 @@
     const apiSaveLibrary = wbStumm;
     const apiSaveLog = wbStumm;
     const apiSetDmPassword = wbStumm;
+    // Stehen sonst in der index.html und fehlen hier deshalb: ohne die
+    // Platzhalter bricht jeder Baustein ab, der nach dem Zugang fragt
+    // oder etwas merken will.
+    const serverCreds = () => ({url: '', code: '', pass: '', token: ''});
+    const safeSetItem = (schluessel, wert) => {
+      try { localStorage.setItem('wb_' + schluessel, wert); } catch (e) {}
+    };
   </script>
   <script src="../js/data.js?v=dev"></script>
   <script src="../js/util.js?v=dev"></script>
