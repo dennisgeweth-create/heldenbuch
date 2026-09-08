@@ -2649,7 +2649,8 @@
   /* Zwei Zeilen Platz, ob der Hinweis nun eine oder zwei braucht: sonst
      ruckt der ganze Tapis, sobald sich die Wettart aendert. */
   .rlt-hinweis { font-size:11.5px; color:var(--text-muted); min-height:30px; }
-  .rlt-melde { min-height:17px; }
+  /* Was dazwischenkam, steht in derselben Zeile — nur nicht so leise. */
+  .rlt-hinweis.wichtig { color:var(--inspiration); }
 
   .rlt-tuch { border-radius:9px; padding:11px 10px;
     background:
@@ -2879,9 +2880,16 @@
      Und was das Fenster an Breite dazubekommt, gehoert dem Spiel und
      nicht dem Rand: eine Spielkarte von 46 Punkten sah auf einem
      620 Punkte breiten Filz aus wie ein Daumennagel. */
+  .automat-mitte { flex:1; overflow-y:auto; padding:22px 18px 40px;
+    display:flex; flex-direction:column; align-items:stretch; gap:18px; }
+  .aut-mitte { align-items:center; }
+
   @media (min-width:768px) {
     .automat-schirm { max-height:min(88vh, 900px); }
-    .automat-mitte { padding:16px 16px 22px; gap:13px; }
+    /* Ab hier ist Platz da, aber nicht endlos: 40 Punkte Polster
+       unter dem letzten Knopf sind auf dem Telefon Rollraum und auf
+       dem Schreibtisch nur ein leerer Streifen. */
+    .automat-mitte { padding:16px 16px 16px; gap:12px; }
 
     /* Blackjack: Karten in Handgroesse. */
     .bj-karte, .bj-platz { width:58px; height:83px; }
@@ -2949,9 +2957,6 @@
      Filz war so breit wie sein laengster Satz, auf der Rennbahn also
      bei jedem Zwischenruf anders. Jetzt fuellt der Tisch das Fenster,
      und zentriert wird nur noch der Automat. */
-  .automat-mitte { flex:1; overflow-y:auto; padding:22px 18px 40px;
-    display:flex; flex-direction:column; align-items:stretch; gap:18px; }
-  .aut-mitte { align-items:center; }
   .automat-kasten { width:100%; max-width:430px; padding:20px; border-radius:10px;
     background:var(--bg-panel); border:1px solid var(--border-bright);
     box-shadow:0 0 0 3px var(--bg-void), 0 0 34px rgba(217,164,65,0.09); }

@@ -144,6 +144,16 @@ Sekunden.
 
 ### 🩹 Behoben
 
+- **Unter den Knöpfen des Roulettetisches stand ein leerer Streifen.**
+  Zwei Ursachen: eine Meldezeile, die fast immer leer war, und 40 Punkte
+  Polster, die am Telefon Rollraum sind und auf dem Schreibtisch nichts.
+  Die Meldung steht jetzt in der Hinweiszeile über dem Tapis — die sagt
+  ohnehin, was zu tun ist, und wenn etwas dazwischenkam, sagt sie das
+  statt dessen. Das Fenster ist damit 714 statt 792 Punkte hoch und
+  rollt nicht mehr.
+- Und noch einmal dieselbe Falle wie bei der Breite: die Tablet-Regel
+  für die Mitte stand in der Datei **vor** ihrer Grundregel und kam nie
+  an. Die Grundregel steht jetzt davor.
 - Drei tote Regelsätze in der Taverne: `.rn-mitte`, `.cr-mitte`,
   `.rlt-mitte` und `.bj-mitte` sagten seit v4.7 dasselbe wie die Regel,
   die sie überschrieb — jetzt sagen sie nichts mehr, weil es die Regel

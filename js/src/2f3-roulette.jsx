@@ -421,10 +421,14 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <button type="button" className="rlt-modus rlt-bahn" disabled={phase !== 'setzen'}
           onClick={()=>setBahn(true)}>🏁 Rennbahn<i>Ansagen</i></button>
       </div>
-      <div className="rlt-hinweis">
-        {wahl.length
+      {/* Diese Zeile sagt, was zu tun ist — und wenn etwas dazwischen
+          kam, sagt sie das statt dessen. Zwei Zeilen fuer dieselbe
+          Aufgabe brauchte es nicht; die zweite stand unter den
+          Knoepfen und war fast immer leer. */}
+      <div className={'rlt-hinweis' + (meldung ? ' wichtig' : '')}>
+        {meldung || (wahl.length
           ? 'Gewählt: ' + wahl.join(', ') + ' — noch ' + (modusInfo.zahl - wahl.length) + '.'
-          : modusInfo.hinweis}
+          : modusInfo.hinweis)}
       </div>
 
       {/* ── Der Tapis ───────────────────────────────────────── */}
@@ -491,8 +495,6 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <button className="bj-taste" onClick={alleZurueck}
           disabled={phase !== 'setzen' || !imSpiel}>Zurück</button>
       </div>
-
-      <div className="bj-melde leise rlt-melde">{meldung}</div>
 
       {/* ── Die Rennbahn ────────────────────────────────────── */}
       {bahn && (

@@ -8511,8 +8511,8 @@ const RouletteTisch = ({
     disabled: phase !== 'setzen',
     onClick: () => setBahn(true)
   }, "\uD83C\uDFC1 Rennbahn", /*#__PURE__*/React.createElement("i", null, "Ansagen"))), /*#__PURE__*/React.createElement("div", {
-    className: "rlt-hinweis"
-  }, wahl.length ? 'Gewählt: ' + wahl.join(', ') + ' — noch ' + (modusInfo.zahl - wahl.length) + '.' : modusInfo.hinweis), /*#__PURE__*/React.createElement("div", {
+    className: 'rlt-hinweis' + (meldung ? ' wichtig' : '')
+  }, meldung || (wahl.length ? 'Gewählt: ' + wahl.join(', ') + ' — noch ' + (modusInfo.zahl - wahl.length) + '.' : modusInfo.hinweis)), /*#__PURE__*/React.createElement("div", {
     className: "rlt-tuch"
   }, /*#__PURE__*/React.createElement("div", {
     className: "rlt-tapis"
@@ -8565,9 +8565,7 @@ const RouletteTisch = ({
     className: "bj-taste",
     onClick: alleZurueck,
     disabled: phase !== 'setzen' || !imSpiel
-  }, "Zur\xFCck")), /*#__PURE__*/React.createElement("div", {
-    className: "bj-melde leise rlt-melde"
-  }, meldung), bahn && /*#__PURE__*/React.createElement("div", {
+  }, "Zur\xFCck")), bahn && /*#__PURE__*/React.createElement("div", {
     className: "rad-huelle",
     onClick: () => setBahn(false)
   }, /*#__PURE__*/React.createElement("div", {
