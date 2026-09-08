@@ -485,6 +485,16 @@ const fensterKlemmen = (pos) => ({
   x: Math.max(-FENSTER_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
   y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60)),
 });
+// Wird der Schirm kleiner, gilt eine strengere Regel als beim Schieben:
+// was hineinpasst, wird auch ganz hereingeholt. Wer sein Fenster selbst
+// halb hinausschiebt, darf das — wer nur sein Browserfenster kleiner
+// zieht, hat es nicht gewollt und faende die Taverne sonst nicht wieder.
+const fensterZeigen = (pos, breite) => {
+  const b = window.innerWidth || 1200, h = window.innerHeight || 800;
+  const x = Math.max(8, Math.min(pos.x, Math.max(8, b - breite - 8)));
+  const y = Math.max(0, Math.min(pos.y, Math.max(0, h - 60)));
+  return (x === pos.x && y === pos.y) ? pos : {x, y};
+};
 
 // ── Der Schirm ───────────────────────────────────────────────────
 // ── Der Automat, jetzt ein Tisch unter mehreren ───────────────
@@ -563,18 +573,6 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
   React.useEffect(() => {
     if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
   }, [einsaetze]);
-
-  // Wird das Browserfenster kleiner, darf die Taverne nicht draussen
-  // liegenbleiben — sie waere sonst nur noch ueber das Zuruecksetzen des
-  // Speichers zu erreichen.
-  React.useEffect(() => {
-    const anpassen = () => setPos(p => {
-      const k = fensterKlemmen(p);
-      return (k.x === p.x && k.y === p.y) ? p : k;
-    });
-    window.addEventListener('resize', anpassen);
-    return () => window.removeEventListener('resize', anpassen);
-  }, []);
 
   const frei = freidrehe > 0;
   const kannDrehen = !laeuft && !rad && !risiko && (frei || marken >= einsatz);
@@ -749,7 +747,7 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
         </div>
       )}
 
-      <div className="automat-mitte">
+      <div className="automat-mitte aut-mitte">
         <div className="automat-kasten">
           <div className={'automat-feld' + (laeuft ? ' laeuft' : '')} role="group" aria-label="Walzen">
             {[0,1,2].map(spalte => (
@@ -1074,6 +1072,15 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
   React.useEffect(() => {
     if (tisch && !offen.some(t => t.k === tisch)) setTisch(null);
   }, [offen, tisch]);
+
+  // Wird das Browserfenster kleiner — oder legt ein breiterer Tisch auf,
+  // waehrend das Fenster schon rechts steht —, holt es sich zurueck ins
+  // Bild. Sonst waere die Taverne nur noch ueber das Zuruecksetzen des
+  // Speichers zu erreichen.
+  React.useEffect(() => {
+    const k = fensterZeigen(pos, tischBreite(jetzt, schirm));
+    if (k !== pos) { setPos(k); fensterSchreiben(k); }
+  }, [schirm, jetzt]);
 
   // Schieben am Kopf. Zeigerereignisse statt Maus: dasselbe fuer Finger
   // und Stift, und der Zeiger bleibt beim Fenster, auch wenn er darueber

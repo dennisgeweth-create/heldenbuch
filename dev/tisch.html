@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Werkbank — die Tische der Taverne</title>
+  <!-- ══════════════════════════════════════════════════════════════
+       Die Tavernenfenster allein, ohne Anmeldung und ohne Server.
+
+       Sie haengen sonst hinter dem Konto: um an einem Tisch etwas
+       auszumessen, muesste man sich anmelden, eine Gruppe haben und
+       einen Helden. Diese Seite laedt dieselbe js/app.js und haengt
+       nur den Schirm der Taverne an einen erfundenen Beutel.
+
+       Sie wird nie ausgeliefert — der Deploy kopiert eine
+       ausgeschriebene Dateiliste, und dev/ steht nicht darin.
+
+           python devserver.py     und dann /dev/tisch.html
+       ══════════════════════════════════════════════════════════════ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap" />
+  <link rel="stylesheet" href="../styles.css?v=dev" />
+  <style>
+    body { margin:0; min-height:100vh; background:var(--bg-void,#0b0b0d);
+           font-family:'Roboto',sans-serif; color:var(--text-primary,#e8e8ea); }
+    /* Die Anwendung selbst laeuft mit, wird aber nicht gezeigt: ihr
+       Anmeldefenster laege sonst ueber dem Tisch. */
+    #root, #loading { display:none !important; }
+    #errmsg { display:none; margin:12px; padding:12px; border-radius:6px;
+              background:#3a1116; color:#ffb4b4; white-space:pre-wrap;
+              font-family:monospace; font-size:12px; }
+    .wb-leiste { position:fixed; left:0; right:0; bottom:0; z-index:5;
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      padding:9px 12px; background:#141416; border-top:1px solid #2a2a2e;
+      font-family:'Roboto Condensed',sans-serif; font-size:12px; }
+    .wb-leiste b { color:#e8b959; font-variant-numeric:tabular-nums; }
+    .wb-leiste button { padding:5px 10px; border-radius:5px; cursor:pointer;
+      background:#1e1e22; border:1px solid #33333a; color:#d6d6da;
+      font-family:inherit; font-size:12px; }
+    .wb-leiste button:hover { border-color:#e8b959; }
+    .wb-mass { margin-left:auto; color:#8a8a92; font-variant-numeric:tabular-nums; }
+  </style>
+</head>
+<body>
+  <div id="loading"></div>
+  <div id="root"></div>
+  <div id="errmsg"></div>
+  <div id="werkbank"></div>
+  <div class="wb-leiste">
+    <span>Werkbank</span>
+    <button onclick="wbBreite(390)">Telefon 390</button>
+    <button onclick="wbBreite(834)">iPad 834</button>
+    <button onclick="wbBreite(1280)">Desktop 1280</button>
+    <button onclick="wbMessen()">Messen</button>
+    <span class="wb-mass" id="wb-mass"></span>
+  </div>
+
+  <script>
+    window.onerror = function (msg, src, line) {
+      var el = document.getElementById('errmsg');
+      el.style.display = 'block';
+      el.textContent += 'Fehler: ' + msg + '\nZeile: ' + line + '\n';
+    };
+    // Die Anwendung ruft den Server nur, wenn eine Adresse dasteht.
+    try { localStorage.removeItem('sv_url'); } catch (e) {}
+    // Die Huellen um die Schnittstelle stehen sonst in der index.html.
+    // Hier braucht sie niemand — aber js/app.js liest ein paar davon
+    // beim Laden, und ein fehlender Name braeche die ganze Datei ab.
+    const wbStumm = () => Promise.reject(new Error('Werkbank: kein Server'));
+    const apiAdvDmSetzen = wbStumm;
+    const apiBesitzerSetzen = wbStumm;
+    const apiDeleteChar = wbStumm;
+    const apiDeleteItem = wbStumm;
+    const apiDmDeleteEncounter = wbStumm;
+    const apiDmDeleteEnemy = wbStumm;
+    const apiDmImportEnemies = wbStumm;
+    const apiDmLoad = wbStumm;
+    const apiDmLoadChronik = wbStumm;
+    const apiDmLoadEncounters = wbStumm;
+    const apiDmLoadEnemies = wbStumm;
+    const apiDmSaveChronik = wbStumm;
+    const apiDmSaveEncounter = wbStumm;
+    const apiDmSaveEnemy = wbStumm;
+    const apiDmSaveLibrary = wbStumm;
+    const apiGruppeNeu = wbStumm;
+    const apiKampfAnsage = wbStumm;
+    const apiKampfAnsagen = wbStumm;
+    const apiKampfSetzen = wbStumm;
+    const apiKampfStand = wbStumm;
+    const apiKontoListe = wbStumm;
+    const apiKontoLoeschen = wbStumm;
+    const apiKontoNeu = wbStumm;
+    const apiKontoReset = wbStumm;
+    const apiLoadChars = wbStumm;
+    const apiLoadLogs = wbStumm;
+    const apiLogFrist = wbStumm;
+    const apiLogin = wbStumm;
+    const apiLogout = wbStumm;
+    const apiMe = wbStumm;
+    const apiMeineDaten = wbStumm;
+    const apiMitglieder = wbStumm;
+    const apiPassAendern = wbStumm;
+    const apiPoll = wbStumm;
+    const apiRolleSetzen = wbStumm;
+    const apiSaveChar = wbStumm;
+    const apiSaveChars = wbStumm;
+    const apiSaveItem = wbStumm;
+    const apiSaveLibrary = wbStumm;
+    const apiSaveLog = wbStumm;
+    const apiSetDmPassword = wbStumm;
+  </script>
+  <script src="../js/data.js?v=dev"></script>
+  <script src="../js/util.js?v=dev"></script>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/app.js?v=dev"></script>
+  <script>
+    // Ein erfundener Beutel. Er liegt hier im Speicher der Seite und
+    // nirgends sonst — die Werkbank soll keinen Bogen anfassen.
+    var wbStand = {probe1: 400, probe2: 250};
+    var wbBeutel = {
+      name: 'Spielmarken', kurz: '⛃',
+      zuletzt: function () { return null; },
+      lesen: function (id) { return wbStand[id] != null ? wbStand[id] : 200; },
+      schreiben: function (id, n) { wbStand[id] = n; },
+    };
+    var wbHelden = [
+      {id: 'probe1', name: 'Brunhilde'},
+      {id: 'probe2', name: 'Halgrim'},
+    ];
+    ReactDOM.createRoot(document.getElementById('werkbank')).render(
+      React.createElement(TaverneSchirm, {
+        cfg: null, helden: wbHelden, heldStart: 'probe1', beutel: wbBeutel,
+        onAbend: function () {},
+        onSchliessen: function () { console.log('zu'); },
+      })
+    );
+
+    // Ein Fenster, das seine Breite aendert, ist von aussen schlecht zu
+    // pruefen: hier steht sie in Zahlen.
+    function wbMessen() {
+      var teile = [];
+      var s = document.querySelector('.automat-schirm');
+      if (s) teile.push('Fenster ' + Math.round(s.getBoundingClientRect().width));
+      var m = document.querySelector('.automat-mitte');
+      if (m) teile.push('Inhalt ' + Math.round(m.getBoundingClientRect().width));
+      var g = document.querySelectorAll('.rn-gleis');
+      if (g.length) {
+        var br = [].map.call(g, function (e) { return Math.round(e.getBoundingClientRect().width); });
+        teile.push('Gleise ' + br.join('/'));
+      }
+      if (s) teile.push('Hoehe ' + Math.round(s.getBoundingClientRect().height)
+        + ' / ' + window.innerHeight);
+      document.getElementById('wb-mass').textContent = teile.join('  ·  ');
+      return teile.join('  ·  ');
+    }
+    function wbBreite(px) {
+      document.getElementById('wb-mass').textContent =
+        'Fensterbreite von aussen setzen: ' + px + ' px';
+    }
+  </script>
+</body>
+</html>

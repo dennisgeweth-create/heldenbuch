@@ -2380,7 +2380,6 @@
   /* ── Die Rennbahn vor dem Tor ─────────────────────────
      Die Bahn ist Gras, deshalb liegt sie auf demselben Gruen wie die
      Tische — nur dass hier gelaufen wird und nicht gelegt. */
-  .rn-mitte { padding:14px 12px 18px; align-items:stretch; gap:11px; }
   .rn-bahn { padding:11px 11px 12px; }
   .rn-kopf { display:flex; align-items:baseline; justify-content:space-between;
     gap:10px; margin-bottom:8px; }
@@ -2471,7 +2470,6 @@
      Der Tisch ist nachempfunden: oben die Kaesten 4 bis 10 mit dem Puck
      auf dem Punkt, darunter Come und das Feld, die Mitte, und ganz
      unten die beiden Linien mit den Odds dazwischen. */
-  .cr-mitte { padding:14px 12px 18px; align-items:stretch; gap:11px; }
   .cr-wurf { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px;
     background:var(--bg-panel); border:1px solid var(--border); }
   /* Die Augen sind gezeichnet, nicht getippt: das Schriftzeichen fuer
@@ -2557,7 +2555,6 @@
      Der Tapis liegt auf demselben Tuch wie der Kartentisch. Rot und
      Schwarz sind die Farben des Spiels, nicht die der Anwendung — sie
      bleiben, was sie sind. */
-  .rlt-mitte { padding:14px 12px 18px; align-items:stretch; gap:11px; }
   .rlt-mitte > * { flex-shrink:0; }
   .rlt-oben { display:flex; gap:13px; align-items:center; }
   .rlt-kessel { position:relative; width:118px; height:118px; flex-shrink:0; border-radius:50%;
@@ -2743,7 +2740,6 @@
      eigenen: ein Kartentisch ist grün, im Wirtshaus wie überall. Was
      aufgedruckt ist, steht auch hier aufgedruckt — dann muss niemand
      den Wirt nach den Regeln fragen. */
-  .bj-mitte { padding:14px 12px 18px; align-items:stretch; gap:11px; }
   .filz { position:relative; border-radius:9px; padding:14px 12px 16px;
     background:
       radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.055), transparent 62%),
@@ -2824,9 +2820,30 @@
   .bj-zeile.schlecht b { color:var(--gold); }
 
   /* Ab Tabletbreite darf ein Tisch auch hoeher stehen — dort ist der
-     Schirm da, und ein Roulettetapis mit zwoelf Spalten braucht ihn. */
+     Schirm da, und ein Roulettetapis mit zwoelf Spalten braucht ihn.
+     Und was das Fenster an Breite dazubekommt, gehoert dem Spiel und
+     nicht dem Rand: eine Spielkarte von 46 Punkten sah auf einem
+     620 Punkte breiten Filz aus wie ein Daumennagel. */
   @media (min-width:768px) {
     .automat-schirm { max-height:min(88vh, 900px); }
+    .automat-mitte { padding:16px 16px 22px; gap:13px; }
+
+    /* Blackjack: Karten in Handgroesse. */
+    .bj-karte, .bj-platz { width:58px; height:83px; }
+    .bj-karte { padding:5px 6px; }
+    .bj-karte b { font-size:17px; }
+    .bj-karte span { font-size:20px; }
+    .bj-blatt { gap:8px; }
+    .bj-filz { gap:14px; }
+    .bj-seite { gap:14px; }
+    .bj-kreis { width:44px; height:44px; flex-basis:44px; }
+    .bj-kreis i { min-width:30px; height:30px; border-radius:15px; font-size:12px; }
+    .bj-taste { min-height:44px; font-size:12.5px; }
+
+    /* Craps: die beiden Wuerfel sind das, worauf alle schauen. */
+    .cr-wuerfel { width:52px; height:52px; border-radius:8px; }
+    .cr-wuerfel i { width:10px; height:10px; }
+    .cr-wurf { gap:13px; padding:12px 14px; }
   }
 
   /* ── Die Halle ─────────────────────────────────────
@@ -2834,7 +2851,7 @@
      dem, was er kostet. Was noch gebaut wird, steht mit da — blass und
      ohne Griff. Ein Tisch, den es nicht gibt, soll nicht so aussehen,
      als gaebe es ihn. */
-  .halle-mitte { padding:14px 12px 20px; align-items:stretch; gap:12px; }
+  .halle-mitte { padding:14px 12px 20px; gap:12px; }
   .halle { display:flex; flex-direction:column; gap:7px; }
   .halle-tisch { display:flex; align-items:center; gap:12px; padding:11px 12px;
     border-radius:8px; cursor:pointer; text-align:left; width:100%;
@@ -2871,8 +2888,15 @@
   .automat-x.zurueck { font-size:18px; line-height:1; }
   .automat-x:disabled { opacity:0.4; cursor:default; }
 
+  /* Der Rumpf jedes Tisches. Bis v4.7 stand hier align-items:center —
+     eine Regel aus der Zeit, als die Taverne nur den Automaten hatte.
+     Sie stand hinter den Tischen und hat deren stretch geschlagen: der
+     Filz war so breit wie sein laengster Satz, auf der Rennbahn also
+     bei jedem Zwischenruf anders. Jetzt fuellt der Tisch das Fenster,
+     und zentriert wird nur noch der Automat. */
   .automat-mitte { flex:1; overflow-y:auto; padding:22px 18px 40px;
-    display:flex; flex-direction:column; align-items:center; gap:18px; }
+    display:flex; flex-direction:column; align-items:stretch; gap:18px; }
+  .aut-mitte { align-items:center; }
   .automat-kasten { width:100%; max-width:430px; padding:20px; border-radius:10px;
     background:var(--bg-panel); border:1px solid var(--border-bright);
     box-shadow:0 0 0 3px var(--bg-void), 0 0 34px rgba(217,164,65,0.09); }

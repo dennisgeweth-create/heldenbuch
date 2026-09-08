@@ -158,6 +158,7 @@ const EinstBlock = ({
 // daneben. Wer <Fenster> statt <div className="form-overlay"> schreibt,
 // bekommt alles Weitere geschenkt.
 const FENSTER_LUFT = 120; // so viel bleibt immer greifbar am Rand
+const FENSTER_RAND = 12; // so viel Abstand bleibt, wenn es hereingeholt wird
 
 // Nicht jeder Dialog kennt einen Weg hinaus, den wir kennen: manche
 // schliessen per Klick auf den Hintergrund, andere nur ueber ihren
@@ -200,10 +201,14 @@ const Fenster = ({
       dx: e.clientX - r.left,
       dy: e.clientY - r.top
     };
+    // w ist die Breite, die gerade gilt; w0 die, die das Fenster haben
+    // will. Auf einem schmalen Schirm sind sie verschieden, und wird er
+    // wieder breit, soll das Fenster seine alte Breite zurueckbekommen.
     setPos({
       x: r.left,
       y: r.top,
-      w: r.width
+      w: r.width,
+      w0: r.width
     });
     try {
       el.setPointerCapture(e.pointerId);
@@ -222,6 +227,30 @@ const Fenster = ({
   const zugEnde = () => {
     zug.current = null;
   };
+
+  // Ein verschobenes Fenster steht in Bildpunkten vom linken oberen Eck.
+  // Wird das Browserfenster kleiner, bliebe es liegen, wo es lag — also
+  // draussen, mitsamt seinem Abbrechen-Knopf. Es kommt deshalb mit,
+  // sobald sich die Groesse aendert, und wird schmaler, wenn es sonst
+  // nicht mehr hineinpasst.
+  useEffect(() => {
+    const anpassen = () => setPos(p => {
+      if (!p) return p;
+      const b = window.innerWidth || 1200,
+        h = window.innerHeight || 800;
+      const w = Math.max(280, Math.min(p.w0 || p.w, b - 2 * FENSTER_RAND));
+      const x = Math.max(FENSTER_RAND, Math.min(p.x, Math.max(FENSTER_RAND, b - w - FENSTER_RAND)));
+      const y = Math.max(0, Math.min(p.y, Math.max(0, h - 44)));
+      return w === p.w && x === p.x && y === p.y ? p : {
+        ...p,
+        w,
+        x,
+        y
+      };
+    });
+    window.addEventListener('resize', anpassen);
+    return () => window.removeEventListener('resize', anpassen);
+  }, []);
   const kind = React.Children.toArray(children).find(k => React.isValidElement(k));
   if (!kind) return null;
   const innen = React.Children.toArray(kind.props.children);
@@ -6323,6 +6352,20 @@ const fensterKlemmen = pos => ({
   x: Math.max(-FENSTER_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
   y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
 });
+// Wird der Schirm kleiner, gilt eine strengere Regel als beim Schieben:
+// was hineinpasst, wird auch ganz hereingeholt. Wer sein Fenster selbst
+// halb hinausschiebt, darf das — wer nur sein Browserfenster kleiner
+// zieht, hat es nicht gewollt und faende die Taverne sonst nicht wieder.
+const fensterZeigen = (pos, breite) => {
+  const b = window.innerWidth || 1200,
+    h = window.innerHeight || 800;
+  const x = Math.max(8, Math.min(pos.x, Math.max(8, b - breite - 8)));
+  const y = Math.max(0, Math.min(pos.y, Math.max(0, h - 60)));
+  return x === pos.x && y === pos.y ? pos : {
+    x,
+    y
+  };
+};
 
 // ── Der Schirm ───────────────────────────────────────────────────
 // ── Der Automat, jetzt ein Tisch unter mehreren ───────────────
@@ -6413,18 +6456,6 @@ const AutomatTisch = ({
   React.useEffect(() => {
     if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
   }, [einsaetze]);
-
-  // Wird das Browserfenster kleiner, darf die Taverne nicht draussen
-  // liegenbleiben — sie waere sonst nur noch ueber das Zuruecksetzen des
-  // Speichers zu erreichen.
-  React.useEffect(() => {
-    const anpassen = () => setPos(p => {
-      const k = fensterKlemmen(p);
-      return k.x === p.x && k.y === p.y ? p : k;
-    });
-    window.addEventListener('resize', anpassen);
-    return () => window.removeEventListener('resize', anpassen);
-  }, []);
   const frei = freidrehe > 0;
   const kannDrehen = !laeuft && !rad && !risiko && (frei || marken >= einsatz);
   const drehen = () => {
@@ -6638,7 +6669,7 @@ const AutomatTisch = ({
     disabled: rad.dreht,
     onClick: () => setRad(null)
   }, "Weiter")))), /*#__PURE__*/React.createElement("div", {
-    className: "automat-mitte"
+    className: "automat-mitte aut-mitte"
   }, /*#__PURE__*/React.createElement("div", {
     className: "automat-kasten"
   }, /*#__PURE__*/React.createElement("div", {
@@ -6997,6 +7028,18 @@ const TaverneSchirm = ({
   React.useEffect(() => {
     if (tisch && !offen.some(t => t.k === tisch)) setTisch(null);
   }, [offen, tisch]);
+
+  // Wird das Browserfenster kleiner — oder legt ein breiterer Tisch auf,
+  // waehrend das Fenster schon rechts steht —, holt es sich zurueck ins
+  // Bild. Sonst waere die Taverne nur noch ueber das Zuruecksetzen des
+  // Speichers zu erreichen.
+  React.useEffect(() => {
+    const k = fensterZeigen(pos, tischBreite(jetzt, schirm));
+    if (k !== pos) {
+      setPos(k);
+      fensterSchreiben(k);
+    }
+  }, [schirm, jetzt]);
 
   // Schieben am Kopf. Zeigerereignisse statt Maus: dasselbe fuer Finger
   // und Stift, und der Zeiger bleibt beim Fenster, auch wenn er darueber
