@@ -80,7 +80,7 @@ const ZahlFeld = ({ wert, onWert, min, max, leerWert, sofort, onKeyDown, ...rest
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v4.7';
+const HB_VERSION = 'v4.8';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,

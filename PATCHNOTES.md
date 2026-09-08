@@ -1,5 +1,156 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.8
+
+Nachschlag zur Taverne — und zwei Sachen aus dem Kampf, die lange auf
+der Liste standen. Der Beutel liegt jetzt wirklich am Helden und nicht
+nur fast, die Tische bekommen die Breite ihres Fensters, der Wirt sagt
+etwas dazu, und ein Heiltrank rechnet selbst.
+
+### 👛 Der Beutel lag am Gerät, nicht am Helden
+
+In v4.7 stand, der Beutel hänge am Helden. Das war die halbe Wahrheit:
+die Marken lagen im `localStorage`, und „am Helden“ hieß damit **„je
+Held in diesem Browser“**. Wer denselben Charakter mit einem anderen
+Konto oder an einem anderen Gerät öffnete, fand einen anderen Beutel.
+
+Sie stehen jetzt im Bogen und gehen denselben Weg wie alles andere
+daran — über den Server, für alle gleich. Und der Umzug **findet auch
+statt**: wer die Taverne öffnet und im Bogen nichts findet, schreibt
+seinen Gerätestand hinein. Ihn nur zu lesen hätte bedeutet: solange
+niemand spielt, zeigt jedes Gerät weiter seine eigene Zahl.
+
+Dazu folgt der Tisch dem Bogen, solange nichts läuft — ändert ein
+zweites Gerät den Beutel, kommt die Zahl alle zwei Sekunden herüber.
+Nicht mitten im Wurf: ein Einsatz, der unterwegs ist, gehört zu Ende
+gespielt.
+
+Die Statistik des Wirts bleibt mit Absicht im Gerät. Sie geht niemanden
+an außer den, der spielt.
+
+### 📐 Die Tische bekommen die Breite ihres Fensters
+
+Die Rennbahn war nicht immer gleich breit. Der Grund stand eine Ebene
+höher: `.automat-mitte` zentrierte mit `align-items:center` und stand
+in der Datei **hinter** allen fünf Tischen — deren `stretch` kam nie an.
+Der Filz war dadurch so breit wie sein längster Satz, und weil auf der
+Rennbahn der Ruf des Ansagers *im* Filz steht, wechselte die Bahn bei
+jedem Zwischenruf die Breite. Am Telefon fiel es nicht auf: dort ist das
+Fenster ohnehin so schmal wie der Text.
+
+Gemessen: 229 Punkte Bahn in einem 700 Punkte breiten Fenster, jetzt 674
+— und über einen ganzen Lauf hinweg dieselben 674.
+
+**Ab Tabletbreite wächst damit das Spiel und nicht der Rand.** Eine
+Spielkarte von 46 Punkten sah auf 620 Punkten Filz aus wie ein
+Daumennagel; sie ist jetzt 58 × 83, dazu ein größerer Einsatzkreis und
+höhere Tasten. Craps bekommt Würfel von 52 statt 40. Am Telefon bleibt
+alles, wie es war.
+
+### 🧔 Der Wirt steht am Tisch
+
+Er sagt jetzt etwas zu Gewinn und Verlust — an den drei Tischen, an
+denen jemand gibt: **Roulette, Blackjack, Craps**. Nicht am Automaten
+und nicht an der Rennbahn; dort steht er nicht daneben, und ein Wirt,
+der überall gleichzeitig steht, ist keiner.
+
+Er bekommt, **was gefallen ist**, nicht nur ob gewonnen wurde. Zum
+Blackjack, zur Null, zur Sieben nach einem Punkt hat er etwas Eigenes zu
+sagen, zum Gewöhnlichen etwas Gewöhnliches — aber nie zweimal
+hintereinander dasselbe.
+
+Und er schweigt, wenn nichts entschieden wurde: ein Crapswurf mit
+stehendem Punkt entscheidet oft gar nichts, die Passe bleibt liegen.
+„Kleiner Verlust“ wäre dann schlicht gelogen.
+
+Seine Zeile hält ihren Platz auch leer. Ein Tisch, der bei jeder
+Abrechnung um eine Zeile wächst und danach wieder schrumpft, ruckelt bei
+jedem Wurf.
+
+### 🃏 Blackjack bekommt einen Takt
+
+Bisher lagen vier Karten im selben Augenblick da, der Wirt zog fertig,
+es war abgerechnet — wer hinsah, hatte nichts gesehen.
+
+Jetzt kommt **eine Karte nach der anderen**, in der Reihenfolge des
+Tisches: Spieler, Wirt, Spieler, und die zweite des Wirts verdeckt
+zuletzt. Der Wirt zieht einzeln, mit Pause dazwischen — wer auf die
+Sechzehn hofft, soll den Augenblick haben —, und vor dem Aufdecken wie
+vor dem Abrechnen liegt noch einer. Jede Karte kommt dabei von der Seite
+des Schlittens hereingeflogen; bei `prefers-reduced-motion` gar nicht.
+
+**Die Tafel lässt sich abschalten.** Ein Schalter in der Ecke des
+Filzes: aus heißt kein hervorgehobener Knopf und kein „Die Tafel rät“,
+nur noch „12 gegen 9“. Ob man die Grundstrategie sehen will, ist
+Geschmack und keine Hausregel — die Wahl liegt deshalb im Gerät, jeder
+stellt sie für sich und niemand für andere.
+
+### 🎲 Zwei Stellen, an denen Platz leer stand
+
+**Der Würfelbalken bei Craps** zählt jetzt die Serie des Schützen. Das
+ist, was an einem Crapstisch ohnehin jeder mitzählt — und gezählt wird
+nicht nach Würfen, sondern nach der letzten Sieben: sie beendet jede
+Serie.
+
+**Neben dem Roulettekessel** standen 596 × 77 Punkte leer, während die
+Abrechnung darunter Platz brauchte. Dort steht jetzt der Zettel: vor dem
+Wurf, was auf dem Tapis liegt, danach, was es gebracht hat — so wie es
+der Croupier neben dem Kessel ansagt. Die Spalte ist immer da und immer
+gleich hoch, das Fenster wechselt seine Höhe beim Wurf also nicht mehr.
+Am Telefon gibt es sie nicht; dort ist daneben kein Platz.
+
+### 🪟 Ein Fenster, das man nicht mehr sieht, ist verloren
+
+Beide Fensterarten merken sich ihren Platz in Bildpunkten vom linken
+oberen Eck. Wurde das Browserfenster kleiner, blieben sie liegen, wo sie
+lagen — also draußen, mitsamt ihrem Abbrechen-Knopf.
+
+Sie holen sich jetzt zurück ins Bild, und die Bearbeiten-Fenster werden
+schmaler, wenn es sonst nicht mehr passt; wird wieder Platz, bekommen
+sie ihre alte Breite zurück. Beim Tavernenschirm stand das sogar schon
+da — nur im falschen Bauteil: der Aufruf saß seit dem Umbau auf die
+Halle im Automaten, wo es kein `setPos` mehr gibt, und warf jedes Mal
+einen Fehler.
+
+Es gilt auch beim Tischwechsel: der Roulettetisch ist 780 breit, und auf
+einem schmalen Schirm rückt das Fenster dafür von selbst nach links.
+
+### 🧪 Tränke mit Wirkung
+
+Ein Gegenstand darf jetzt dieselbe Wirkung tragen wie ein Zauber — Art,
+Würfel, Schadensart, Rettungswurf, halber Schaden, Fläche. Damit rechnet
+das Zugfenster auch beim Heiltrank, statt ihn nur zu protokollieren, und
+**der Schalter steht schon auf Heilung**, wenn die Wirkung heilt;
+umlegen lässt er sich trotzdem.
+
+Der Gradwähler bleibt beim Zauber: ein Trank hat keinen Grad.
+
+Die Felder stehen im Editor nur da, wenn **im Kampf zu verwenden**
+angehakt ist — sonst stünden sie am Seil und an der Winterdecke. Und
+„↧ Aus der Beschreibung lesen“ gibt es auch hier: „Du erhältst 2W4+2
+Trefferpunkte zurück“ trägt sich damit selbst ein. Ohne Angaben bleibt
+der Gegenstand, was er war.
+
+### ⏱ Zwei Sekunden im Kampf
+
+Vier waren zu viel. Die Spielleitung saß schon am nächsten Zug, wenn
+beim Spieler **„du bist dran“** aufleuchtete. Teuer ist der schnellere
+Takt nicht: die Anfrage trägt einen Stand mit und bekommt nichts zurück,
+wenn sich nichts bewegt hat.
+
+Ein verstecktes Fenster fragt weiterhin gar nicht — und wer zum Fenster
+zurückkommt, bekommt sofort den Stand von jetzt statt den von vor zwölf
+Sekunden.
+
+### 🩹 Behoben
+
+- Drei tote Regelsätze in der Taverne: `.rn-mitte`, `.cr-mitte`,
+  `.rlt-mitte` und `.bj-mitte` sagten seit v4.7 dasselbe wie die Regel,
+  die sie überschrieb — jetzt sagen sie nichts mehr, weil es die Regel
+  selbst tut.
+- Der Wirt sprach beim ersten Versuch auch dann von Verlust, wenn der
+  Wurf nur den Punkt gesetzt hatte.
+
 ## v4.7
 
 Die Ausgabe der Taverne. Aus einem Automaten wird ein Haus mit fünf
