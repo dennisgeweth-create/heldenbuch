@@ -870,6 +870,58 @@ function App() {
     });
   };
 
+  // ── Sichern und einspielen ──────────────────────────
+  // Die Datenbank einer Runde ist über Jahre gewachsen und liegt an
+  // genau einer Stelle. Bis hierher gab es keinen Weg, sie in die Hand
+  // zu bekommen — wer sie verlor, hatte sie verloren.
+  const dbSichern = () => {
+    try {
+      const text = JSON.stringify(userLibrary || {}, null, 1);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], {type: 'application/json'}));
+      const heute = new Date().toISOString().slice(0, 10);
+      a.download = 'heldenbuch-datenbank-' + heute + '.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch (e) { appAlert('Die Sicherung ging nicht: ' + (e.message || '')); }
+  };
+
+  // Eingespielt wird **dazu**, nicht darüber: was denselben Namen trägt,
+  // bleibt stehen, wie es ist. Eine Sicherung von gestern soll nicht die
+  // Arbeit von heute wegnehmen — und die Einstellungen (alles mit einem
+  // Unterstrich davor) bleiben ohnehin unberührt.
+  const dbEinspielen = async (datei) => {
+    if (!datei) return;
+    let fremd = null;
+    try { fremd = JSON.parse(await datei.text()); }
+    catch { appAlert('Das ist keine Sicherung des Heldenbuchs.'); return; }
+    if (!fremd || typeof fremd !== 'object') { appAlert('Das ist keine Sicherung des Heldenbuchs.'); return; }
+
+    const zaehlung = [];
+    LIB_INHALT.forEach(k => {
+      const dazu = (fremd[k] || []).filter(e => e && e.name
+        && !((userLibrary || {})[k] || []).some(x => x.name === e.name));
+      if (dazu.length) zaehlung.push(dazu.length + ' × ' + k);
+    });
+    if (!zaehlung.length) { appAlert('Darin steht nichts, was hier noch fehlt.'); return; }
+
+    // Erst zeigen, dann ändern — wie überall sonst auch.
+    appConfirm('Das kommt dazu: ' + zaehlung.join(' · ')
+      + '. Was denselben Namen trägt, bleibt unverändert stehen.', () => {
+      saveLibrary(alt => {
+        const neu = {...alt};
+        LIB_INHALT.forEach(k => {
+          const hier = [...((alt || {})[k] || [])];
+          (fremd[k] || []).forEach(e => {
+            if (e && e.name && !hier.some(x => x.name === e.name)) hier.push(e);
+          });
+          if (hier.length) neu[k] = hier;
+        });
+        return neu;
+      });
+    });
+  };
+
   const addToLibrary = (type, entry) => {
     saveLibrary(alt => {
       const lib = {...alt};
@@ -5242,6 +5294,23 @@ function App() {
               )}
 
               {!dbForm && <div className="form-actions" style={{marginTop:12,flexShrink:0}}>
+                {/* Eine Datenbank, die über Jahre wächst und an einer
+                    einzigen Stelle liegt, braucht einen Weg heraus. */}
+                {!isDmMode && (
+                  <button className="btn-cancel" style={{marginRight:'auto'}}
+                    onClick={dbSichern} title="Alles als Datei herunterladen">
+                    ⬇ Sicherung
+                  </button>
+                )}
+                {!isDmMode && (
+                  <label className="btn-cancel" style={{cursor:'pointer'}}
+                    title="Eine Sicherung dazunehmen — vorhandene Einträge bleiben">
+                    ⬆ Einspielen
+                    <input type="file" accept="application/json,.json" style={{display:'none'}}
+                      onChange={e => { const f = e.target.files && e.target.files[0];
+                                       e.target.value = ''; dbEinspielen(f); }} />
+                  </label>
+                )}
                 <button className="btn-cancel" onClick={()=>setShowDB(false)}>Schließen</button>
               </div>}
             </div>
