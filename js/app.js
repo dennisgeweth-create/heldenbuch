@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -10994,6 +10994,253 @@ const ProbenBalken = ({
   }, "Abr\xE4umen")));
 };
 
+// ==== js/src/2i-beute.jsx ====
+// Heldenbuch — die Beute.
+//
+// Bis hierher gab es sie gar nicht: gefunden wurde am Tisch, verteilt
+// im Kopf, und eingetragen hat es hinterher jeder für sich — oder
+// niemand. Am nächsten Abend weiss dann keiner mehr, wer den Ring hat.
+//
+// Ein Fund je Abenteuer. Die Spielleitung legt ihn hin, jeder nimmt
+// sich, wozu er schreiben darf, und beim Abschliessen wandert alles in
+// die Bögen: Stücke ins Inventar, Münzen in den Beutel, eine Zeile ins
+// Abenteuerlog — mit dem, der sie genommen hat.
+//
+// **Ein Fund ist erst verteilt, wenn nichts mehr offen liegt.** Der
+// Knopf zum Abschliessen sagt, wie viele Stücke noch daliegen. Beute,
+// die halb verteilt in einem Fenster verschwindet, ist am nächsten
+// Abend Streit.
+
+// Münzen gleichmäßig auf die Helden, der Rest an den ersten. Kupfer
+// zu wechseln ist eine Sache für den Tisch und nicht für das Programm.
+const beuteTeilen = (muenzen, zahl) => {
+  const teile = [];
+  for (let i = 0; i < Math.max(1, zahl); i++) teile.push({
+    pp: 0,
+    gp: 0,
+    ep: 0,
+    sp: 0,
+    cp: 0
+  });
+  for (const m of ['pp', 'gp', 'ep', 'sp', 'cp']) {
+    const n = Math.max(0, Math.round((muenzen || {})[m] || 0));
+    const je = Math.floor(n / Math.max(1, zahl));
+    const rest = n - je * Math.max(1, zahl);
+    teile.forEach(t => {
+      t[m] = je;
+    });
+    if (rest > 0) teile[0][m] += rest;
+  }
+  return teile;
+};
+const beuteMuenzText = m => COINS.filter(c => (m || {})[c.key] > 0).map(c => m[c.key] + ' ' + c.label).join(' · ');
+const BeuteAnlegen = ({
+  onAbbrechen,
+  onHinlegen
+}) => {
+  const [titel, setTitel] = React.useState('');
+  const [muenzen, setMuenzen] = React.useState({
+    pp: 0,
+    gp: 0,
+    ep: 0,
+    sp: 0,
+    cp: 0
+  });
+  const [zeilen, setZeilen] = React.useState([{
+    name: '',
+    anzahl: 1,
+    notiz: ''
+  }]);
+  const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {
+    ...x,
+    ...p
+  } : x));
+  const stuecke = zeilen.filter(z => z.name.trim());
+  const leer = !stuecke.length && !COINS.some(c => muenzen[c.key] > 0);
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 520
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDCB0 Beute hinlegen"), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Woher"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: titel,
+    maxLength: 80,
+    placeholder: "z.B. Aus der Truhe im Keller",
+    onChange: e => setTitel(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "M\xFCnzen"), /*#__PURE__*/React.createElement("div", {
+    className: "beute-muenzen"
+  }, COINS.map(c => /*#__PURE__*/React.createElement("label", {
+    className: "beute-muenze",
+    key: c.key
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: c.color
+    }
+  }, c.label), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: 0,
+    wert: muenzen[c.key],
+    onWert: v => setMuenzen(m => ({
+      ...m,
+      [c.key]: v
+    }))
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "form-label",
+    style: {
+      marginTop: 12
+    }
+  }, "St\xFCcke"), /*#__PURE__*/React.createElement("div", {
+    className: "beute-zeilen"
+  }, zeilen.map((z, i) => /*#__PURE__*/React.createElement("div", {
+    className: "beute-neu",
+    key: i
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: z.name,
+    maxLength: 80,
+    placeholder: "z.B. Ring des Schutzes",
+    onChange: e => setZeile(i, {
+      name: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input beute-anzahl",
+    min: 1,
+    wert: z.anzahl,
+    onWert: v => setZeile(i, {
+      anzahl: v
+    })
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: z.notiz,
+    maxLength: 120,
+    placeholder: "Notiz",
+    onChange: e => setZeile(i, {
+      notiz: e.target.value
+    })
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "konz-weg",
+    title: "Zeile weg",
+    onClick: () => setZeilen(z2 => z2.filter((_, j) => j !== i))
+  }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: () => setZeilen(z => [...z, {
+      name: '',
+      anzahl: 1,
+      notiz: ''
+    }])
+  }, "+ Noch eine Zeile")), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: leer,
+    onClick: () => onHinlegen({
+      titel,
+      muenzen,
+      stuecke
+    })
+  }, leer ? 'Da ist noch nichts' : 'Hinlegen'))));
+};
+const BeuteFenster = ({
+  beute,
+  helden,
+  isDmMode,
+  darfNehmen,
+  onNehmen,
+  onSchliessen,
+  onAbschliessen,
+  onAbraeumen
+}) => {
+  if (!beute) return null;
+  const stuecke = beute.stuecke || [];
+  const offen = stuecke.filter(s => !s.an);
+  const teile = beuteTeilen(beute.muenzen, helden.length);
+  const muenzText = beuteMuenzText(beute.muenzen);
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onClick: onSchliessen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 560
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDCB0 ", beute.titel || 'Was gefunden wurde'), muenzText && /*#__PURE__*/React.createElement("div", {
+    className: "beute-kasse"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "beute-kasse-summe"
+  }, muenzText), helden.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "beute-kasse-teil"
+  }, "Geteilt durch ", helden.length, ": je ", /*#__PURE__*/React.createElement("b", null, beuteMuenzText(teile[1] || teile[0]) || 'nichts'), beuteMuenzText(teile[0]) !== beuteMuenzText(teile[1] || teile[0]) ? ' · der Rest an ' + helden[0].name : '') : /*#__PURE__*/React.createElement("div", {
+    className: "beute-kasse-teil"
+  }, "Kein Held im Abenteuer \u2014 die M\xFCnzen bleiben liegen.")), /*#__PURE__*/React.createElement("div", {
+    className: "beute-liste"
+  }, stuecke.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Nur M\xFCnzen."), stuecke.map(s => /*#__PURE__*/React.createElement("div", {
+    className: 'beute-stueck' + (s.an ? ' vergeben' : ''),
+    key: s.id
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "beute-was"
+  }, /*#__PURE__*/React.createElement("b", null, s.name, s.anzahl > 1 ? ' ×' + s.anzahl : ''), s.notiz && /*#__PURE__*/React.createElement("i", null, s.notiz)), s.an ? /*#__PURE__*/React.createElement("div", {
+    className: "beute-an"
+  }, /*#__PURE__*/React.createElement("span", null, s.anName || 'vergeben'), /*#__PURE__*/React.createElement("button", {
+    className: "konz-weg",
+    title: "Zur\xFCcklegen",
+    onClick: () => onNehmen(s, null)
+  }, "\u2715")) : /*#__PURE__*/React.createElement("div", {
+    className: "beute-wer"
+  }, helden.filter(h => darfNehmen(h)).map(h => /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    key: h.id,
+    onClick: () => onNehmen(s, h)
+  }, h.name)), helden.filter(h => darfNehmen(h)).length === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "probe-leer"
+  }, "Kein Bogen, in den du schreiben darfst."))))), isDmMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: 'beute-stand' + (offen.length ? ' offen' : '')
+  }, offen.length ? offen.length + (offen.length === 1 ? ' Stück liegt' : ' Stücke liegen') + ' noch da' : 'Alles vergeben.'), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbraeumen
+  }, "Wegr\xE4umen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onSchliessen
+  }, "Sp\xE4ter"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: offen.length > 0,
+    onClick: onAbschliessen,
+    title: offen.length ? 'Erst muss alles vergeben sein' : ''
+  }, "In die B\xF6gen eintragen"))) : /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onSchliessen
+  }, "Schlie\xDFen"))));
+};
+
 // ==== js/src/3-sheet.jsx ====
 // Heldenbuch — der Charakterbogen mit seinen sieben Reitern.
 
@@ -17370,6 +17617,161 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Die Beute ──────────────────────────────────────────────────
+  // Ein Fund je Abenteuer. Er ist nicht eilig wie „du bist dran“,
+  // deshalb wird seltener gefragt: alle fünf Sekunden, solange einer
+  // liegt, sonst alle zwölf.
+  const [beute, setBeute] = useState(null);
+  const [beuteOffen, setBeuteOffen] = useState(false);
+  const [beuteAnlegen, setBeuteAnlegen] = useState(false);
+  const beuteRef = useRef(null);
+  const beuteStandRef = useRef(-1);
+  useEffect(() => {
+    beuteRef.current = beute;
+  }, [beute]);
+  useEffect(() => {
+    const creds = serverCreds();
+    if (!advId || !verbunden(creds)) {
+      setBeute(null);
+      return;
+    }
+    let lebt = true,
+      uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          const d = await apiBeuteStand(creds.url, creds.code, creds.pass, advId, beuteStandRef.current);
+          if (!lebt) return;
+          if (Object.prototype.hasOwnProperty.call(d, 'beute')) {
+            beuteRef.current = d.beute || null;
+            setBeute(d.beute || null);
+          }
+          beuteStandRef.current = +d.stand || 0;
+        } catch {/* der naechste Versuch kommt gleich */}
+      }
+      uhr = setTimeout(frage, document.hidden ? 20000 : beuteRef.current ? 5000 : 12000);
+    };
+    frage();
+    const wach = () => {
+      if (!document.hidden && lebt) {
+        clearTimeout(uhr);
+        frage();
+      }
+    };
+    document.addEventListener('visibilitychange', wach);
+    return () => {
+      lebt = false;
+      clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
+    };
+  }, [advId, svCode, konto]);
+  const beuteHinlegen = async b => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiBeuteSetzen(url, code, pass, advId, b);
+      beuteStandRef.current = -1;
+      setBeuteAnlegen(false);
+      setBeuteOffen(true);
+    } catch (e) {
+      appAlert('Der Fund kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
+    }
+  };
+  const beuteNehmen = async (stueck, held) => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiBeuteNehmen(url, code, pass, advId, stueck.id, held ? held.id : '', held ? held.name : '');
+      beuteStandRef.current = -1;
+    } catch (e) {
+      appAlert('Das ging nicht: ' + (e.message || 'unbekannter Fehler'));
+    }
+  };
+  const beuteWegraeumen = async () => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiBeuteSetzen(url, code, pass, advId, null);
+      setBeute(null);
+      setBeuteOffen(false);
+      beuteStandRef.current = -1;
+    } catch {}
+  };
+
+  // Wer im Abenteuer steht und etwas abbekommt.
+  const beuteHelden = chars.filter(c => !c.archived && !c.dmOnly && (c.adventure || advId) === advId);
+
+  // Abschliessen: alles wandert in die Boegen. Erst hier — solange der
+  // Fund liegt, hat niemand etwas bekommen, und ein halb verteilter
+  // Fund laesst sich noch umverteilen.
+  const beuteAbschliessen = async () => {
+    if (!beute) return;
+    const teile = beuteTeilen(beute.muenzen, beuteHelden.length);
+    const nach = {};
+    beuteHelden.forEach((h, i) => {
+      nach[h.id] = {
+        stuecke: [],
+        muenzen: teile[i] || null
+      };
+    });
+    (beute.stuecke || []).forEach(st => {
+      if (st.an && nach[st.an]) nach[st.an].stuecke.push(st);else if (st.an) nach[st.an] = {
+        stuecke: [st],
+        muenzen: null
+      };
+    });
+    const neu = charsRef.current.map(c => {
+      const t = nach[c.id];
+      if (!t) return c;
+      const inv = [...(c.inventory || []), ...t.stuecke.map((st, i) => ({
+        ...newItem(),
+        id: 'beu' + Date.now() + i,
+        name: st.name,
+        qty: st.anzahl || 1,
+        description: st.notiz || ''
+      }))];
+      const w = {
+        ...(c.currency || {
+          pp: 0,
+          gp: 0,
+          ep: 0,
+          sp: 0,
+          cp: 0
+        })
+      };
+      if (t.muenzen) for (const m of ['pp', 'gp', 'ep', 'sp', 'cp']) w[m] = (+w[m] || 0) + (t.muenzen[m] || 0);
+      return {
+        ...c,
+        inventory: inv,
+        currency: w
+      };
+    });
+    save(neu);
+    // Je Held eine Zeile — mit dem, der sie genommen hat, denn das
+    // schreibt das Log seit v4.8.1 von selbst dazu.
+    beuteHelden.forEach(h => {
+      const t = nach[h.id];
+      if (!t) return;
+      const stueckText = t.stuecke.map(s => s.name + (s.anzahl > 1 ? ' ×' + s.anzahl : '')).join(', ');
+      const geld = beuteMuenzText(t.muenzen);
+      if (!stueckText && !geld) return;
+      addLog(h.id, h.name, 'inventar', 'Aus der Beute' + (beute.titel ? ': ' + beute.titel : ''), {
+        stuecke: stueckText || undefined,
+        muenzen: geld || undefined
+      });
+    });
+    await beuteWegraeumen();
+  };
+
   // ── Proben auf Ansage ──────────────────────────────────────────
   // Eine je Abenteuer, und alle sehen dieselbe. Gefragt wird alle drei
   // Sekunden, solange eine offen steht, sonst alle neun — und gar
@@ -17466,6 +17868,10 @@ function App() {
     probeStandRef.current = -1;
     probeRef.current = null;
     setProbe(null);
+    beuteStandRef.current = -1;
+    beuteRef.current = null;
+    setBeute(null);
+    setBeuteOffen(false);
   }, [advId]);
 
   // Die eigenen Helden werden in der Liste hervorgehoben.
@@ -19375,7 +19781,14 @@ function App() {
       } = serverCreds();
       if (url && code && pass) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
     }
-  }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCD6 Abenteuerlog"), beute ? /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool beute-knopf",
+    onClick: () => setBeuteOffen(true)
+  }, "\uD83D\uDCB0 Beute", /*#__PURE__*/React.createElement("span", null, (beute.stuecke || []).filter(s => !s.an).length || '')) : isDmMode ? /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setBeuteAnlegen(true),
+    title: "Was die Gruppe gefunden hat"
+  }, "\uD83D\uDCB0 Beute") : null, isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setProbeAnsagen(true),
     title: "Alle w\xFCrfeln auf dieselbe Fertigkeit"
@@ -22345,6 +22758,18 @@ function App() {
   }, "\u2715 Schlie\xDFen"))), showAdventLog && /*#__PURE__*/React.createElement(AdventureLog, {
     onClose: () => setShowAdventLog(false),
     isDmMode: isDmMode
+  }), beuteAnlegen && /*#__PURE__*/React.createElement(BeuteAnlegen, {
+    onAbbrechen: () => setBeuteAnlegen(false),
+    onHinlegen: beuteHinlegen
+  }), beute && beuteOffen && /*#__PURE__*/React.createElement(BeuteFenster, {
+    beute: beute,
+    helden: beuteHelden,
+    isDmMode: isDmMode,
+    darfNehmen: darfSchreiben,
+    onNehmen: beuteNehmen,
+    onSchliessen: () => setBeuteOffen(false),
+    onAbschliessen: beuteAbschliessen,
+    onAbraeumen: beuteWegraeumen
   }), probe && /*#__PURE__*/React.createElement(ProbenBalken, {
     probe: probe,
     isDmMode: isDmMode,

@@ -212,16 +212,29 @@ vergessen wird:
 **Was es nicht tut:** den Rettungswurf würfeln oder entscheiden, ob er
 gelang. Es erinnert und nennt die Zahl; gewürfelt wird mit der Hand.
 
-## Stufe 5 · Beute verteilen
+## Stufe 5 · Beute verteilen ✓
 
-Gibt es noch gar nicht. Die Spielleitung legt einen Fund an — Münzen und
-Gegenstände —, die Gruppe verteilt ihn. Gold und Gegenstände wandern in
-die Bögen, eine Zeile ins Abenteuerlog, und zwar mit dem, der sie
-genommen hat.
+*Steht seit v4.9.* Bis dahin gab es sie gar nicht: gefunden wurde am
+Tisch, verteilt im Kopf, eingetragen hinterher von jedem selbst — oder
+von niemandem. Am nächsten Abend weiß dann keiner mehr, wer den Ring
+hat.
 
-**Failsafe:** Ein Fund ist erst verteilt, wenn alles vergeben ist. Was
-offen bleibt, bleibt sichtbar — Beute, die halb verteilt in einem
-Fenster verschwindet, ist am nächsten Abend Streit.
+Ein Fund je Abenteuer. Die Spielleitung legt ihn hin — Münzen und
+Stücke mit Notiz —, und **jeder sieht ihn**. Genommen wird durch Antippen
+des Helden; der Server lässt nur zu, wer in diesen Bogen schreiben darf.
+Zurücklegen geht auch.
+
+**Die Münzen teilt das Programm**, gleichmäßig durch die Helden des
+Abenteuers, den Rest an den ersten — und es steht vorher da, wer wie
+viel bekommt. Kupfer zu wechseln ist eine Sache für den Tisch.
+
+**Der Failsafe:** *In die Bögen eintragen* bleibt gesperrt, solange ein
+Stück offen liegt, und der Knopf darüber sagt, wie viele es sind. Erst
+beim Abschließen wandert alles hinüber — Stücke ins Inventar, Münzen in
+den Beutel, je Held eine Zeile ins Abenteuerlog. Solange der Fund
+daliegt, hat niemand etwas bekommen, und ein halb verteilter Fund
+lässt sich noch umverteilen. Der zweite Weg hinaus heißt *Wegräumen*
+und ist ausdrücklich.
 
 ## Stufe 6 · Der Laden
 

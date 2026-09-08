@@ -124,6 +124,15 @@
     const apiKampfStand  = (url, code, advId, seit)       => apiRequest(url, 'kampf_stand',  { code, adv_id: advId, seit });
     const apiKampfAnsage  = (url, code, advId, charId, ansage) => apiRequest(url, 'kampf_eintrag', { code, adv_id: advId, char_id: charId, ansage });
     const apiKampfAnsagen = (url, code, advId)                 => apiRequest(url, 'kampf_stand',   { code, adv_id: advId, nur: 'ansagen' });
+    // ── Die Beute ───────────────────────────────────────────────
+    const apiBeuteSetzen = (url, code, pass, advId, beute) =>
+      apiRequest(url, 'beute_setzen', { code, password: pass, adv_id: advId, beute });
+    const apiBeuteNehmen = (url, code, pass, advId, stueckId, charId, name) =>
+      apiRequest(url, 'beute_nehmen', { code, password: pass, adv_id: advId,
+                                        stueck_id: stueckId, char_id: charId, name });
+    const apiBeuteStand  = (url, code, pass, advId, seit) =>
+      apiRequest(url, 'beute_stand',  { code, password: pass, adv_id: advId, seit });
+
     // ── Proben auf Ansage ───────────────────────────────────────
     const apiProbeSetzen  = (url, code, pass, advId, probe) =>
       apiRequest(url, 'probe_setzen',  { code, password: pass, adv_id: advId, probe });

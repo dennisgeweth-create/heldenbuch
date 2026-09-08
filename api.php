@@ -143,6 +143,16 @@ $pdo->exec("
         CONSTRAINT fk_hbk_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    CREATE TABLE IF NOT EXISTS hb_beute (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        beute_json   TEXT        NOT NULL,
+        stand        BIGINT      NOT NULL DEFAULT 1,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_code, adv_id),
+        CONSTRAINT fk_hbb_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_proben (
         session_code VARCHAR(20) NOT NULL,
         adv_id       VARCHAR(50) NOT NULL,
@@ -1218,6 +1228,97 @@ switch ($action) {
             if ($l['details']) $l['details'] = json_decode($l['details'], true);
         }
         respond(200, 'OK', ['logs' => $logs, 'has_more' => count($logs) >= $limit, 'offset' => $offset]);
+
+    // ── Die Beute ───────────────────────────────────────────────
+    // Ein Fund je Abenteuer. Die Spielleitung legt ihn hin, die Gruppe
+    // nimmt sich — jeder das, wozu er schreiben darf. Verteilt ist er
+    // erst, wenn kein Stück mehr offen liegt; das entscheidet aber die
+    // Oberflaeche, nicht der Server. Hier steht nur, was liegt.
+    case 'beute_setzen':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $roh = $body['beute'] ?? null;
+        if ($roh === null) {
+            $pdo->prepare("DELETE FROM hb_beute WHERE session_code=? AND adv_id=?")
+                ->execute([$code, $advId]);
+            respond(200, 'Abgeräumt.');
+        }
+        if (!is_array($roh)) respond(400, 'Fehlende Beute.');
+        $muenzen = [];
+        foreach (['pp','gp','ep','sp','cp'] as $m) {
+            $muenzen[$m] = max(0, min(999999, (int)(($roh['muenzen'] ?? [])[$m] ?? 0)));
+        }
+        $stuecke = [];
+        foreach ((array)($roh['stuecke'] ?? []) as $st) {
+            if (count($stuecke) >= 40) break;
+            if (!is_array($st)) continue;
+            $name = mb_substr(trim((string)($st['name'] ?? '')), 0, 80);
+            if ($name === '') continue;
+            $stuecke[] = [
+                'id'     => bin2hex(random_bytes(5)),
+                'name'   => $name,
+                'anzahl' => max(1, min(999, (int)($st['anzahl'] ?? 1))),
+                'notiz'  => mb_substr(trim((string)($st['notiz'] ?? '')), 0, 120),
+                'an'     => null,
+                'anName' => '',
+            ];
+        }
+        if (!$stuecke && !array_sum($muenzen)) respond(400, 'Der Fund ist leer.');
+        $beute = ['id' => bin2hex(random_bytes(6)), 'zeit' => time(),
+                  'titel' => mb_substr(trim((string)($roh['titel'] ?? '')), 0, 80),
+                  'muenzen' => $muenzen, 'stuecke' => $stuecke];
+        $pdo->prepare("INSERT INTO hb_beute (session_code, adv_id, beute_json, stand)
+                       VALUES(?,?,?,1)
+                       ON DUPLICATE KEY UPDATE beute_json=VALUES(beute_json), stand=stand+1")
+            ->execute([$code, $advId, json_encode($beute, JSON_UNESCAPED_UNICODE)]);
+        respond(201, 'Hingelegt.', ['beute' => $beute]);
+
+    case 'beute_nehmen':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId  = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $stId   = mb_substr((string)($body['stueck_id'] ?? ''), 0, 40);
+        $charId = mb_substr((string)($body['char_id'] ?? ''), 0, 50);
+        if ($advId === '' || $stId === '') respond(400, 'Fehlende Daten.');
+        // Nehmen darf nur, wer in diesen Bogen schreiben darf. Zurueck-
+        // legen (char_id leer) darf jeder in der Runde.
+        if ($charId !== '') besitzPruefen($pdo, $z, $code, $charId);
+        $st = $pdo->prepare("SELECT beute_json FROM hb_beute WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(404, 'Es liegt nichts.');
+        $beute = json_decode($row['beute_json'], true);
+        if (!is_array($beute)) respond(404, 'Es liegt nichts.');
+        $gefunden = false;
+        foreach ($beute['stuecke'] as &$stueck) {
+            if ((string)$stueck['id'] !== $stId) continue;
+            $gefunden = true;
+            $stueck['an']     = $charId === '' ? null : $charId;
+            $stueck['anName'] = $charId === '' ? '' : mb_substr(trim((string)($body['name'] ?? '')), 0, 60);
+        }
+        unset($stueck);
+        if (!$gefunden) respond(404, 'Das Stück liegt nicht mehr da.');
+        $pdo->prepare("UPDATE hb_beute SET beute_json=?, stand=stand+1
+                       WHERE session_code=? AND adv_id=?")
+            ->execute([json_encode($beute, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        respond(200, 'Genommen.', ['beute' => $beute]);
+
+    case 'beute_stand':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
+        $st = $pdo->prepare("SELECT beute_json, stand FROM hb_beute WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(200, 'OK', ['stand' => 0, 'beute' => null]);
+        $stand = (int)$row['stand'];
+        $seit  = (int)($body['seit'] ?? -1);
+        if ($seit >= 0 && $seit === $stand) respond(200, 'OK', ['stand' => $stand]);
+        respond(200, 'OK', ['stand' => $stand, 'beute' => json_decode($row['beute_json'], true)]);
 
     // ── Proben auf Ansage ───────────────────────────────────────
     // "Alle einen Wurf auf Wahrnehmung." Bis hierher hiess das: reihum

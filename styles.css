@@ -2872,6 +2872,46 @@
   .bj-zeile.gut b { color:#56b183; }
   .bj-zeile.schlecht b { color:var(--gold); }
 
+  /* ── Die Beute ──────────────────────────────── */
+  .beute-muenzen { display:grid; gap:5px; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); }
+  .beute-muenze { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:6px;
+    background:var(--bg-card); border:1px solid var(--border); }
+  .beute-muenze span { flex:1; min-width:0; font-family:'Roboto Condensed',sans-serif; font-size:11px; }
+  .beute-muenze .form-input { width:64px; text-align:center; padding:3px 4px; }
+  .beute-zeilen { display:flex; flex-direction:column; gap:5px; }
+  .beute-neu { display:flex; gap:5px; align-items:center; }
+  .beute-neu .form-input { flex:1; min-width:0; }
+  .beute-anzahl { flex:0 0 58px !important; text-align:center; }
+
+  .beute-kasse { padding:9px 11px; border-radius:7px; margin-bottom:10px;
+    background:var(--bg-panel); border:1px solid var(--border-bright); }
+  .beute-kasse-summe { font-family:'Roboto Condensed',sans-serif; font-size:15px;
+    color:var(--inspiration); }
+  .beute-kasse-teil { font-size:11.5px; color:var(--text-muted); margin-top:3px; }
+  .beute-kasse-teil b { color:var(--text-secondary); font-weight:400; }
+
+  .beute-liste { display:flex; flex-direction:column; gap:5px; max-height:46vh; overflow-y:auto;
+    overflow-x:hidden; }
+  .beute-stueck { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:6px;
+    background:var(--bg-card); border:1px solid var(--border); flex-wrap:wrap; }
+  .beute-stueck.vergeben { border-color:var(--border-bright); opacity:0.8; }
+  .beute-was { flex:1 1 160px; min-width:0; }
+  .beute-was b { font-family:'Roboto Condensed',sans-serif; font-size:13px; font-weight:400;
+    color:var(--text-primary); }
+  .beute-was i { display:block; font-style:normal; font-size:11px; color:var(--text-muted);
+    margin-top:2px; }
+  .beute-wer { display:flex; gap:4px; flex-wrap:wrap; }
+  .beute-wer .bj-taste { min-height:30px; padding:0 9px; font-size:11px; }
+  .beute-an { display:flex; align-items:center; gap:7px; }
+  .beute-an span { font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--inspiration); }
+  .beute-stand { margin-top:10px; font-size:12px; color:#56b183; }
+  .beute-stand.offen { color:var(--inspiration); }
+  .beute-knopf span { display:inline-flex; align-items:center; justify-content:center;
+    min-width:16px; height:16px; margin-left:5px; padding:0 4px; border-radius:8px;
+    background:var(--inspiration); color:var(--bg-void); font-size:10px; }
+  .beute-knopf span:empty { display:none; }
+
   /* ── Konzentration ────────────────────────────── */
   .konz-zeile { display:flex; align-items:flex-start; gap:9px; margin-bottom:10px;
     padding:9px 11px; border-radius:7px; background:var(--bg-card);

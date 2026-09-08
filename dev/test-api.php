@@ -737,6 +737,55 @@ $r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'str
 pruefe('danach steht nichts mehr an',
        array_key_exists('probe', $r['body']) && $r['body']['probe'] === null, kurz($r));
 
+abschnitt('Die Beute');
+$r = ruf('beute_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('ohne Fund liegt nichts (200)', $r['status'] === 200
+       && array_key_exists('beute', $r['body']) && $r['body']['beute'] === null, kurz($r));
+
+$fund = ['titel' => 'Aus der Truhe', 'muenzen' => ['gp' => 17, 'sp' => 3],
+         'stuecke' => [['name' => 'Ring des Schutzes', 'anzahl' => 1, 'notiz' => 'schimmert'],
+                       ['name' => 'Fackel', 'anzahl' => 5, 'notiz' => '']]];
+$r = ruf('beute_setzen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'beute' => $fund]);
+pruefe('ein Spieler legt nichts hin (403)', $r['status'] === 403, kurz($r));
+
+$r = ruf('beute_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'beute' => $fund]);
+pruefe('die Spielleitung legt hin (201)', $r['status'] === 201, kurz($r));
+$stuecke = (array)($r['body']['beute']['stuecke'] ?? []);
+pruefe('zwei Stuecke liegen da', count($stuecke) === 2, 'Stuecke: ' . count($stuecke));
+pruefe('und sie sind noch niemandem zugeteilt',
+       array_key_exists('an', $stuecke[0]) && $stuecke[0]['an'] === null);
+$stId = (string)($stuecke[0]['id'] ?? '');
+
+$r = ruf('beute_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'beute' => ['muenzen' => [], 'stuecke' => []]]);
+pruefe('ein leerer Fund wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+
+$r = ruf('beute_nehmen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                          'stueck_id' => $stId, 'char_id' => 'h1', 'name' => 'Armin']);
+pruefe('der Besitzer nimmt sich (200)', $r['status'] === 200, kurz($r));
+$s0 = ((array)($r['body']['beute']['stuecke'] ?? []))[0] ?? [];
+pruefe('und es steht auf seinen Namen', ($s0['anName'] ?? '') === 'Armin', kurz($r));
+
+$r = ruf('beute_nehmen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                          'stueck_id' => $stId, 'char_id' => 'd1', 'name' => 'Fremd']);
+pruefe('fuer einen fremden Bogen nimmt niemand (403)', $r['status'] === 403, kurz($r));
+
+$r = ruf('beute_nehmen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                          'stueck_id' => 'gibtsnicht', 'char_id' => 'h1']);
+pruefe('ein Stueck, das nicht daliegt (404)', $r['status'] === 404, kurz($r));
+
+$r = ruf('beute_nehmen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                          'stueck_id' => $stId, 'char_id' => '']);
+$s0 = ((array)($r['body']['beute']['stuecke'] ?? []))[0] ?? [];
+pruefe('zuruecklegen geht auch (200)', $r['status'] === 200
+       && array_key_exists('an', $s0) && $s0['an'] === null, kurz($r));
+
+$r = ruf('beute_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'beute' => null]);
+pruefe('die Spielleitung raeumt weg (200)', $r['status'] === 200, kurz($r));
+$r = ruf('beute_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('danach liegt nichts mehr',
+       array_key_exists('beute', $r['body']) && $r['body']['beute'] === null, kurz($r));
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

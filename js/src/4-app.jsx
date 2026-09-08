@@ -1776,6 +1776,108 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Die Beute ──────────────────────────────────────────────────
+  // Ein Fund je Abenteuer. Er ist nicht eilig wie „du bist dran“,
+  // deshalb wird seltener gefragt: alle fünf Sekunden, solange einer
+  // liegt, sonst alle zwölf.
+  const [beute, setBeute] = useState(null);
+  const [beuteOffen, setBeuteOffen] = useState(false);
+  const [beuteAnlegen, setBeuteAnlegen] = useState(false);
+  const beuteRef = useRef(null);
+  const beuteStandRef = useRef(-1);
+  useEffect(() => { beuteRef.current = beute; }, [beute]);
+
+  useEffect(() => {
+    const creds = serverCreds();
+    if (!advId || !verbunden(creds)) { setBeute(null); return; }
+    let lebt = true, uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          const d = await apiBeuteStand(creds.url, creds.code, creds.pass, advId, beuteStandRef.current);
+          if (!lebt) return;
+          if (Object.prototype.hasOwnProperty.call(d, 'beute')) {
+            beuteRef.current = d.beute || null;
+            setBeute(d.beute || null);
+          }
+          beuteStandRef.current = +d.stand || 0;
+        } catch { /* der naechste Versuch kommt gleich */ }
+      }
+      uhr = setTimeout(frage, document.hidden ? 20000 : (beuteRef.current ? 5000 : 12000));
+    };
+    frage();
+    const wach = () => { if (!document.hidden && lebt) { clearTimeout(uhr); frage(); } };
+    document.addEventListener('visibilitychange', wach);
+    return () => {
+      lebt = false; clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
+    };
+  }, [advId, svCode, konto]);
+
+  const beuteHinlegen = async (b) => {
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiBeuteSetzen(url, code, pass, advId, b);
+      beuteStandRef.current = -1;
+      setBeuteAnlegen(false); setBeuteOffen(true);
+    } catch (e) { appAlert('Der Fund kam nicht durch: ' + (e.message || 'unbekannter Fehler')); }
+  };
+  const beuteNehmen = async (stueck, held) => {
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiBeuteNehmen(url, code, pass, advId, stueck.id,
+        held ? held.id : '', held ? held.name : '');
+      beuteStandRef.current = -1;
+    } catch (e) { appAlert('Das ging nicht: ' + (e.message || 'unbekannter Fehler')); }
+  };
+  const beuteWegraeumen = async () => {
+    const {url, code, pass} = serverCreds();
+    try { await apiBeuteSetzen(url, code, pass, advId, null); setBeute(null); setBeuteOffen(false); beuteStandRef.current = -1; }
+    catch {}
+  };
+
+  // Wer im Abenteuer steht und etwas abbekommt.
+  const beuteHelden = chars.filter(c => !c.archived && !c.dmOnly
+    && (c.adventure || advId) === advId);
+
+  // Abschliessen: alles wandert in die Boegen. Erst hier — solange der
+  // Fund liegt, hat niemand etwas bekommen, und ein halb verteilter
+  // Fund laesst sich noch umverteilen.
+  const beuteAbschliessen = async () => {
+    if (!beute) return;
+    const teile = beuteTeilen(beute.muenzen, beuteHelden.length);
+    const nach = {};
+    beuteHelden.forEach((h, i) => { nach[h.id] = {stuecke: [], muenzen: teile[i] || null}; });
+    (beute.stuecke || []).forEach(st => {
+      if (st.an && nach[st.an]) nach[st.an].stuecke.push(st);
+      else if (st.an) nach[st.an] = {stuecke: [st], muenzen: null};
+    });
+    const neu = charsRef.current.map(c => {
+      const t = nach[c.id];
+      if (!t) return c;
+      const inv = [...(c.inventory || []), ...t.stuecke.map((st, i) => ({
+        ...newItem(), id: 'beu' + Date.now() + i, name: st.name,
+        qty: st.anzahl || 1, description: st.notiz || '',
+      }))];
+      const w = {...(c.currency || {pp:0,gp:0,ep:0,sp:0,cp:0})};
+      if (t.muenzen) for (const m of ['pp','gp','ep','sp','cp']) w[m] = (+w[m] || 0) + (t.muenzen[m] || 0);
+      return {...c, inventory: inv, currency: w};
+    });
+    save(neu);
+    // Je Held eine Zeile — mit dem, der sie genommen hat, denn das
+    // schreibt das Log seit v4.8.1 von selbst dazu.
+    beuteHelden.forEach(h => {
+      const t = nach[h.id];
+      if (!t) return;
+      const stueckText = t.stuecke.map(s => s.name + (s.anzahl > 1 ? ' ×' + s.anzahl : '')).join(', ');
+      const geld = beuteMuenzText(t.muenzen);
+      if (!stueckText && !geld) return;
+      addLog(h.id, h.name, 'inventar', 'Aus der Beute' + (beute.titel ? ': ' + beute.titel : ''),
+        {stuecke: stueckText || undefined, muenzen: geld || undefined});
+    });
+    await beuteWegraeumen();
+  };
+
   // ── Proben auf Ansage ──────────────────────────────────────────
   // Eine je Abenteuer, und alle sehen dieselbe. Gefragt wird alle drei
   // Sekunden, solange eine offen steht, sonst alle neun — und gar
@@ -1843,6 +1945,9 @@ function App() {
     probeStandRef.current = -1;
     probeRef.current = null;
     setProbe(null);
+    beuteStandRef.current = -1;
+    beuteRef.current = null;
+    setBeute(null); setBeuteOffen(false);
   }, [advId]);
 
   // Die eigenen Helden werden in der Liste hervorgehoben.
@@ -2990,6 +3095,16 @@ function App() {
                 const {url, code, pass} = serverCreds();
                 if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
+              {/* Liegt ein Fund, sieht ihn jeder — sonst legt nur die
+                  Spielleitung einen hin. */}
+              {beute ? (
+                <button className="btn-tool beute-knopf" onClick={()=>setBeuteOffen(true)}>
+                  💰 Beute<span>{(beute.stuecke || []).filter(s => !s.an).length || ''}</span>
+                </button>
+              ) : isDmMode ? (
+                <button className="btn-tool" onClick={()=>setBeuteAnlegen(true)}
+                  title="Was die Gruppe gefunden hat">💰 Beute</button>
+              ) : null}
               {/* Eine Probe geht auch ohne Kampf — die meisten sogar. */}
               {isDmMode && (
                 <button className="btn-tool" onClick={()=>setProbeAnsagen(true)}
@@ -4344,6 +4459,16 @@ function App() {
 
       {/* Adventure Log Modal */}
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
+
+      {beuteAnlegen && (
+        <BeuteAnlegen onAbbrechen={()=>setBeuteAnlegen(false)} onHinlegen={beuteHinlegen} />
+      )}
+      {beute && beuteOffen && (
+        <BeuteFenster beute={beute} helden={beuteHelden} isDmMode={isDmMode}
+          darfNehmen={darfSchreiben} onNehmen={beuteNehmen}
+          onSchliessen={()=>setBeuteOffen(false)}
+          onAbschliessen={beuteAbschliessen} onAbraeumen={beuteWegraeumen} />
+      )}
 
       {probe && (
         <ProbenBalken probe={probe} isDmMode={isDmMode} setDefs={setDefs}
