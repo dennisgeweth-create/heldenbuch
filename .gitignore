@@ -1,1 +1,6 @@
 config.php
+
+# Die eigene Sammlung der Gruppe: Buchtext, der nicht ins Repo und
+# nicht in die Auslieferung gehoert. Sie liegt auf dem Server neben der
+# index.html und ueberlebt jeden Upload, weil der dort nichts loescht.
+data-eigen.json

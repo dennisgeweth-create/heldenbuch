@@ -1104,7 +1104,7 @@ const merkmaleFuer = (daten, klasse, von, bis, schon, unterName, eigene) => {
         .find(x => dbSchluessel(x.name) === dbSchluessel(unterName))
     : null;
   const ausUnter = (u ? (u.merkmale || []) : []).filter(passt)
-    .map(m => ({...m, klasse, quelle: u.name, herkunft: 'SRD 5.1'}));
+    .map(m => ({...m, klasse, quelle: u.name, herkunft: m.herkunft || u.herkunft || 'SRD 5.1'}));
 
   // Was die Gruppe selbst hinterlegt hat. Ein Eintrag ohne Klasse gilt
   // fuer alle; einer mit Unterklasse nur, wenn genau die im Bogen steht.
@@ -1125,7 +1125,7 @@ const merkmaleFuer = (daten, klasse, von, bis, schon, unterName, eigene) => {
   const ausKlasse = ((d.merkmale || {})[klasse] || [])
     .filter(passt)
     .filter(m => !(m.unter && belegt.has(m.stufe)))
-    .map(m => ({...m, klasse, herkunft: 'SRD 5.1'}));
+    .map(m => ({...m, klasse, herkunft: m.herkunft || 'SRD 5.1'}));
 
   return [...ausKlasse, ...ausUnter, ...ausEigen].sort((a, b) => a.stufe - b.stufe
     || (a.quelle ? 1 : 0) - (b.quelle ? 1 : 0));

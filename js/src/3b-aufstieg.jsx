@@ -17,11 +17,55 @@ const AUFSTIEG_ASI = ['zwei', 'eins', 'talent'];
 // erst, wenn der Aufstieg aufgeht — 35 KB bei jedem Start für etwas,
 // das einmal im Monat gebraucht wird, waeren verkehrt.
 let MERKMAL_DATEN = null;
+// Neben der ausgelieferten Datei liegt wahlweise eine zweite:
+// `data-eigen.json`. Sie steht nicht im Repo und wird nie ausgeliefert —
+// wer die Bücher besitzt, legt sie selbst neben die index.html, und der
+// Upload rührt sie nicht an (er löscht dort nichts). Was darin steht,
+// gilt damit für die ganze Gruppe wie das Regelwerk selbst; die
+// Datenbank bleibt frei für das, was ihr euch ausgedacht habt.
+//
+// Sie hat dieselbe Form wie data-merkmale.json und darf zusätzlich
+// `talente` mitbringen:
+//   {quelle:"PHB", merkmale:{Kämpfer:[…]}, unterklassen:{…}, talente:[…]}
+const EIGEN_DATEI = 'data-eigen.json';
+
+const holen = (datei) => fetch(datei)
+  .then(r => r.ok ? r.json() : null)
+  .catch(() => null);
+
+// Zwei Sammlungen werden eine. Die eigene steht hinten an: bei gleichem
+// Namen gewinnt, was zuerst da war.
+const merkmaleMischen = (srd, eigen) => {
+  if (!eigen) return srd;
+  const raus = {...srd, merkmale: {...(srd.merkmale || {})},
+                unterklassen: {...(srd.unterklassen || {})}};
+  const quelle = eigen.quelle || 'Eigene Sammlung';
+  const stempeln = (liste) => (liste || []).map(m => ({...m, herkunft: m.herkunft || quelle}));
+
+  Object.keys(eigen.merkmale || {}).forEach(kl => {
+    const da = new Set((raus.merkmale[kl] || []).map(m => dbSchluessel(m.name)));
+    raus.merkmale[kl] = [...(raus.merkmale[kl] || []),
+      ...stempeln(eigen.merkmale[kl]).filter(m => !da.has(dbSchluessel(m.name)))];
+  });
+  Object.keys(eigen.unterklassen || {}).forEach(kl => {
+    const da = new Set((raus.unterklassen[kl] || []).map(u => dbSchluessel(u.name)));
+    raus.unterklassen[kl] = [...(raus.unterklassen[kl] || []),
+      ...(eigen.unterklassen[kl] || [])
+        .filter(u => !da.has(dbSchluessel(u.name)))
+        .map(u => ({...u, herkunft: u.herkunft || quelle,
+                    merkmale: stempeln(u.merkmale)}))];
+  });
+  raus.talente = stempeln(eigen.talente);
+  return raus;
+};
+
 const merkmaleLaden = () => {
   if (MERKMAL_DATEN) return Promise.resolve(MERKMAL_DATEN);
-  return fetch('data-merkmale.json')
-    .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)))
-    .then(d => { MERKMAL_DATEN = d || {}; return MERKMAL_DATEN; })
+  return Promise.all([holen('data-merkmale.json'), holen(EIGEN_DATEI)])
+    .then(([srd, eigen]) => {
+      MERKMAL_DATEN = merkmaleMischen(srd || {}, eigen);
+      return MERKMAL_DATEN;
+    })
     .catch(() => ({}));
 };
 
@@ -110,7 +154,15 @@ const StufenAufstieg = ({ char, talente, eigeneMerkmale, onAbbrechen, onUeberneh
   const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined
     ? !m.unter : !aus[m.stufe + ':' + m.name]);
 
-  const talEintrag = (talente || []).find(t => t.name === talName) || null;
+  // Talente aus zwei Quellen: was neben der index.html liegt, gilt für
+  // die ganze Gruppe; was in der Datenbank steht, habt ihr euch selbst
+  // ausgedacht. Bei gleichem Namen gewinnt die Datei.
+  const alleTalente = [
+    ...((merkmalDaten && merkmalDaten.talente) || []),
+    ...(talente || []).filter(t => !((merkmalDaten && merkmalDaten.talente) || [])
+      .some(x => dbSchluessel(x.name) === dbSchluessel(t.name))),
+  ];
+  const talEintrag = alleTalente.find(t => t.name === talName) || null;
   const talHalb = talEintrag ? (talEintrag.halb || []) : [];
   const talent = (asiStufen.length && asiArt === 'talent' && talEintrag)
     ? {...talEintrag, attr: (talHalb.length ? (talHalb.includes(talAttr) ? talAttr : '') : '')}
@@ -271,11 +323,11 @@ const StufenAufstieg = ({ char, talente, eigeneMerkmale, onAbbrechen, onUeberneh
                 )}
               </div>
             )}
-            {asiArt === 'talent' && ((talente || []).length === 0 ? (
+            {asiArt === 'talent' && (alleTalente.length === 0 ? (
               <div className="auf-hinweis">
-                In eurer Datenbank steht noch kein Talent. Leg sie unter
-                <b> 📚 Datenbank ▸ ⭐ Talente</b> an — dann stehen sie hier zur Wahl,
-                kommen mit ihrem Text in den Bogen und ihre Effekte wirken.
+                Es ist noch kein Talent hinterlegt. Zwei Wege: einzeln unter
+                <b> 📚 Datenbank ▸ ⭐ Talente</b>, oder als Sammlung für die ganze
+                Gruppe in einer <b>data-eigen.json</b> neben der index.html.
                 Bis dahin lässt der Aufstieg die Attribute in Ruhe.
               </div>
             ) : (
@@ -284,8 +336,10 @@ const StufenAufstieg = ({ char, talente, eigeneMerkmale, onAbbrechen, onUeberneh
                   <select className="form-select" value={talName}
                     onChange={e=>{ setTalName(e.target.value); setTalAttr(''); }}>
                     <option value="">Talent wählen…</option>
-                    {[...(talente || [])].sort((a, b) => a.name.localeCompare(b.name, 'de'))
-                      .map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                    {[...alleTalente].sort((a, b) => a.name.localeCompare(b.name, 'de'))
+                      .map(t => <option key={t.name} value={t.name}>
+                        {t.name}{t.herkunft ? ' · ' + t.herkunft : ''}
+                      </option>)}
                   </select>
                 </div>
                 {talEintrag && (
