@@ -15559,6 +15559,18 @@ const AusruestungsPuppe = () => {
 // von dem abweichen, was danach im Bogen steht.
 
 const AUFSTIEG_ASI = ['zwei', 'eins', 'talent'];
+
+// Die Klassenmerkmale aus dem SRD. Geladen wird einmal je Sitzung und
+// erst, wenn der Aufstieg aufgeht — 35 KB bei jedem Start für etwas,
+// das einmal im Monat gebraucht wird, waeren verkehrt.
+let MERKMAL_DATEN = null;
+const merkmaleLaden = () => {
+  if (MERKMAL_DATEN) return Promise.resolve(MERKMAL_DATEN);
+  return fetch('data-merkmale.json').then(r => r.ok ? r.json() : Promise.reject(new Error(r.status))).then(d => {
+    MERKMAL_DATEN = d && d.merkmale || {};
+    return MERKMAL_DATEN;
+  }).catch(() => ({}));
+};
 const StufenAufstieg = ({
   char,
   onAbbrechen,
@@ -15586,6 +15598,15 @@ const StufenAufstieg = ({
   const [tpPlus, setTpPlus] = React.useState(schnitt * Math.max(1, stufen));
   const [gewuerfelt, setGewuerfelt] = React.useState(null);
 
+  // Die Merkmale der Klasse. `aus` sind die abgewählten — vorgewählt ist
+  // alles, was die Klasse selbst gibt; was von der Unterklasse kommt,
+  // steht nur als Erinnerung da.
+  const [merkmalDaten, setMerkmalDaten] = React.useState(MERKMAL_DATEN);
+  const [aus, setAus] = React.useState({});
+  React.useEffect(() => {
+    merkmaleLaden().then(setMerkmalDaten);
+  }, []);
+
   // Nichts ist vorgewählt. Eine vorgewählte Stärke landet sonst im
   // Bogen eines Magiers, weil jemand nur auf Übernehmen gedrückt hat —
   // der Assistent darf diese Wahl nicht für jemanden treffen.
@@ -15601,6 +15622,7 @@ const StufenAufstieg = ({
     setGewuerfelt(null);
     setArt('schnitt');
     setAsiArt(null);
+    setAus({});
     setTpPlus(regel ? schnitt * stufen : 0);
   }, [klasse, ziel]);
   const wuerfeln = () => {
@@ -15627,11 +15649,14 @@ const StufenAufstieg = ({
     [asiA]: 1,
     [asiB]: 1
   };
+  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features);
+  const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined ? !m.unter : !aus[m.stufe + ':' + m.name]);
   const plan = aufstiegPlan(char, {
     klasse,
     ziel,
     tpPlus,
-    asi
+    asi,
+    merkmale: gewaehlt
   });
   const geht = ziel > von;
   return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
@@ -15752,7 +15777,33 @@ const StufenAufstieg = ({
     value: a.k
   }, a.l)))), asiArt === 'talent' && /*#__PURE__*/React.createElement("div", {
     className: "auf-hinweis"
-  }, "Talente stehen nicht in den Tabellen \u2014 trag es als Merkmal ein. Der Aufstieg l\xE4sst die Attribute dann in Ruhe.")), /*#__PURE__*/React.createElement("div", {
+  }, "Talente stehen nicht in den Tabellen \u2014 trag es als Merkmal ein. Der Aufstieg l\xE4sst die Attribute dann in Ruhe.")), neueMerkmale.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Neue Merkmale \u2014 ", gewaehlt.length, " von ", neueMerkmale.length, " ausgew\xE4hlt"), /*#__PURE__*/React.createElement("div", {
+    className: "auf-merkmale"
+  }, neueMerkmale.map(m => {
+    const k = m.stufe + ':' + m.name;
+    const an = aus[k] === undefined ? !m.unter : !aus[k];
+    return /*#__PURE__*/React.createElement("label", {
+      className: 'auf-merkmal' + (an ? ' an' : '') + (m.unter ? ' unter' : ''),
+      key: k
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: an,
+      onChange: () => setAus(a => ({
+        ...a,
+        [k]: an
+      }))
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "auf-merkmal-kopf"
+    }, /*#__PURE__*/React.createElement("b", null, m.name), /*#__PURE__*/React.createElement("i", null, "Stufe ", m.stufe, m.unter ? ' · Unterklasse' : '')), /*#__PURE__*/React.createElement("span", {
+      className: "auf-merkmal-text"
+    }, m.text));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "auf-hinweis"
+  }, "Aus dem SRD 5.1. Was die Unterklasse gibt, steht nur als Erinnerung da \u2014 wie es hei\xDFt, wei\xDF dein Bogen.")), /*#__PURE__*/React.createElement("div", {
     className: "form-label",
     style: {
       marginTop: 4

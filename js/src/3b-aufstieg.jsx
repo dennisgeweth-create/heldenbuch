@@ -13,6 +13,18 @@
 
 const AUFSTIEG_ASI = ['zwei', 'eins', 'talent'];
 
+// Die Klassenmerkmale aus dem SRD. Geladen wird einmal je Sitzung und
+// erst, wenn der Aufstieg aufgeht — 35 KB bei jedem Start für etwas,
+// das einmal im Monat gebraucht wird, waeren verkehrt.
+let MERKMAL_DATEN = null;
+const merkmaleLaden = () => {
+  if (MERKMAL_DATEN) return Promise.resolve(MERKMAL_DATEN);
+  return fetch('data-merkmale.json')
+    .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)))
+    .then(d => { MERKMAL_DATEN = (d && d.merkmale) || {}; return MERKMAL_DATEN; })
+    .catch(() => ({}));
+};
+
 const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
   // Wer mehrere Klassen hat, steigt in einer davon auf — und welche das
   // ist, entscheidet alles Weitere: den Trefferwürfel, die Stufe, die
@@ -37,6 +49,13 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
   const [tpPlus, setTpPlus] = React.useState(schnitt * Math.max(1, stufen));
   const [gewuerfelt, setGewuerfelt] = React.useState(null);
 
+  // Die Merkmale der Klasse. `aus` sind die abgewählten — vorgewählt ist
+  // alles, was die Klasse selbst gibt; was von der Unterklasse kommt,
+  // steht nur als Erinnerung da.
+  const [merkmalDaten, setMerkmalDaten] = React.useState(MERKMAL_DATEN);
+  const [aus, setAus] = React.useState({});
+  React.useEffect(() => { merkmaleLaden().then(setMerkmalDaten); }, []);
+
   // Nichts ist vorgewählt. Eine vorgewählte Stärke landet sonst im
   // Bogen eines Magiers, weil jemand nur auf Übernehmen gedrückt hat —
   // der Assistent darf diese Wahl nicht für jemanden treffen.
@@ -47,7 +66,7 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
   // Ändert sich Klasse oder Ziel, stimmt der alte Betrag nicht mehr.
   React.useEffect(() => { setZiel(Math.min(20, von + 1)); }, [klasse]);
   React.useEffect(() => {
-    setGewuerfelt(null); setArt('schnitt'); setAsiArt(null);
+    setGewuerfelt(null); setArt('schnitt'); setAsiArt(null); setAus({});
     setTpPlus(regel ? schnitt * stufen : 0);
   }, [klasse, ziel]);
 
@@ -68,7 +87,11 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
     : asiArt === 'zwei' ? {[asiA]: 2}
     : (asiA === asiB ? {[asiA]: 2} : {[asiA]: 1, [asiB]: 1});
 
-  const plan = aufstiegPlan(char, {klasse, ziel, tpPlus, asi});
+  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features);
+  const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined
+    ? !m.unter : !aus[m.stufe + ':' + m.name]);
+
+  const plan = aufstiegPlan(char, {klasse, ziel, tpPlus, asi, merkmale: gewaehlt});
   const geht = ziel > von;
 
   return (
@@ -186,6 +209,36 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
                 Der Aufstieg lässt die Attribute dann in Ruhe.
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Was die Klasse gibt ─────────────────────────────── */}
+        {neueMerkmale.length > 0 && (
+          <div className="form-group form-full">
+            <div className="form-label">
+              Neue Merkmale — {gewaehlt.length} von {neueMerkmale.length} ausgewählt
+            </div>
+            <div className="auf-merkmale">
+              {neueMerkmale.map(m => {
+                const k = m.stufe + ':' + m.name;
+                const an = aus[k] === undefined ? !m.unter : !aus[k];
+                return (
+                  <label className={'auf-merkmal' + (an ? ' an' : '') + (m.unter ? ' unter' : '')} key={k}>
+                    <input type="checkbox" checked={an}
+                      onChange={()=>setAus(a => ({...a, [k]: an}))} />
+                    <span className="auf-merkmal-kopf">
+                      <b>{m.name}</b>
+                      <i>Stufe {m.stufe}{m.unter ? ' · Unterklasse' : ''}</i>
+                    </span>
+                    <span className="auf-merkmal-text">{m.text}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="auf-hinweis">
+              Aus dem SRD 5.1. Was die Unterklasse gibt, steht nur als Erinnerung da —
+              wie es heißt, weiß dein Bogen.
+            </div>
           </div>
         )}
 

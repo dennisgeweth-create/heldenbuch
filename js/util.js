@@ -1083,6 +1083,23 @@ const mischenGeht = (char, klasse) => {
   return 'Für ' + klasse + ' verlangt das Regelwerk ' + wege + ' — hier steht ' + habe + '.';
 };
 
+// Die Klassenmerkmale, die zwischen zwei Stufen dazukommen. Die Daten
+// stehen in data-merkmale.json (SRD 5.1) und werden erst geladen, wenn
+// der Aufstieg aufgeht — ein Aufstieg im Monat rechtfertigt keine Datei
+// bei jedem Start.
+//
+// Was die Unterklasse gibt, steht als Erinnerung dabei ("unter") und
+// wird nicht vorgewaehlt: welches Merkmal es ist, weiss nur der Bogen.
+// Und was schon im Bogen steht, kommt nicht ein zweites Mal.
+const merkmaleFuer = (daten, klasse, von, bis, schon) => {
+  const liste = ((daten || {})[klasse] || []);
+  const da = new Set((schon || []).map(f => dbSchluessel(f && f.name)));
+  return liste
+    .filter(m => m.stufe > von && m.stufe <= bis)
+    .filter(m => !da.has(dbSchluessel(m.name + ' ' + m.stufe)) && !da.has(dbSchluessel(m.name)))
+    .map(m => ({...m, klasse}));
+};
+
 // Was der Aufstieg vorhat. Er schreibt nichts — er sagt nur, was er
 // schreiben würde, und genau das steht dann in der Vorschau.
 //
@@ -1177,6 +1194,23 @@ const aufstiegPlan = (char, wahl) => {
       }
     }
     if (anders) neu.spellSlots = raus;
+  }
+
+  // Die Merkmale, die dazukommen sollen. Sie stehen in der Vorschau und
+  // werden genau so geschrieben — die Auswahl trifft das Fenster, das
+  // Eintragen steht hier, damit beides nicht auseinanderlaufen kann.
+  const merkmale = (w.merkmale || []).filter(m => m && m.name);
+  if (merkmale.length) {
+    const jetzt = Date.now().toString(36);
+    neu.features = [...((c.features) || []), ...merkmale.map((m, i) => ({
+      id: 'srd' + jetzt + i,
+      name: m.name,
+      source: 'SRD 5.1 · ' + (m.klasse || name) + ' ' + m.stufe,
+      description: m.text || '',
+      effects: [], effectsActive: true,
+    }))];
+    merkmale.forEach(m => zeilen.push({was: 'Merkmal', alt: '—',
+      neu: m.name + ' (Stufe ' + m.stufe + ')'}));
   }
 
   // Was er nicht kann und was er nicht entscheidet, sagt er.

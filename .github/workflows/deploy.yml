@@ -34,7 +34,7 @@ jobs:
           mkdir -p deploy/js deploy/vendor
           cp .htaccess api.php apple-touch-icon.png favicon.png logo.png index.html styles.css deploy/
           cp PATCHNOTES.md deploy/
-          cp data-spells.json data-weapons.json data-wildshapes.json deploy/
+          cp data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json deploy/
           cp js/data.js js/util.js js/app.js deploy/js/
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
@@ -72,7 +72,7 @@ jobs:
       - name: Verify deployed files
         run: |
           FAIL=0
-          FILES="index.html styles.css PATCHNOTES.md js/data.js js/util.js js/app.js data-spells.json data-weapons.json data-wildshapes.json vendor/react.production.min.js vendor/react-dom.production.min.js"
+          FILES="index.html styles.css PATCHNOTES.md js/data.js js/util.js js/app.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

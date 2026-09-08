@@ -1,0 +1,1262 @@
+{
+ "version": "SRD 5.1 – Creative Commons Attribution 4.0",
+ "hinweis": "Stufen und englische Namen aus dem SRD 5.1. Die deutschen Namen und die Sätze sind kurze eigene Zusammenfassungen und ersetzen das Regelwerk nicht.",
+ "merkmale": {
+  "Barbar": [
+   {
+    "stufe": 1,
+    "name": "Kampfrausch",
+    "en": "Rage",
+    "text": "Du gerätst in Wut: Bonus auf Schadenswürfe mit Stärkewaffen, Vorteil auf Stärkewürfe und -rettungswürfe, Resistenz gegen Hieb-, Stich- und Wuchtschaden. Begrenzte Male je langer Rast."
+   },
+   {
+    "stufe": 1,
+    "name": "Ungerüstete Verteidigung",
+    "en": "Unarmored Defense",
+    "text": "Ohne Rüstung ist deine Rüstungsklasse 10 + Geschicklichkeits- + Konstitutionsmodifikator. Ein Schild ist erlaubt."
+   },
+   {
+    "stufe": 2,
+    "name": "Rücksichtsloser Angriff",
+    "en": "Reckless Attack",
+    "text": "Du kannst mit Vorteil auf Nahkampfangriffe mit Stärke angreifen — dafür haben Angriffe gegen dich bis zu deinem nächsten Zug ebenfalls Vorteil."
+   },
+   {
+    "stufe": 2,
+    "name": "Gefahrensinn",
+    "en": "Danger Sense",
+    "text": "Vorteil auf Geschicklichkeitsrettungswürfe gegen Wirkungen, die du sehen kannst."
+   },
+   {
+    "stufe": 3,
+    "name": "Urtümlicher Pfad",
+    "en": "Primal Path",
+    "text": "Du wählst deinen Pfad — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 5,
+    "name": "Zusätzlicher Angriff",
+    "en": "Extra Attack",
+    "text": "Du greifst zweimal an, wenn du die Angriffsaktion nimmst."
+   },
+   {
+    "stufe": 5,
+    "name": "Schnelle Bewegung",
+    "en": "Fast Movement",
+    "text": "Deine Bewegungsrate steigt um 3 Meter, solange du keine schwere Rüstung trägst."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal des Pfades",
+    "en": "Path feature",
+    "text": "Dein urtümlicher Pfad gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 7,
+    "name": "Wilder Instinkt",
+    "en": "Feral Instinct",
+    "text": "Vorteil auf Initiative. Wirst du überrascht, darfst du trotzdem handeln, wenn du zuerst in den Kampfrausch gehst."
+   },
+   {
+    "stufe": 9,
+    "name": "Brutaler kritischer Treffer",
+    "en": "Brutal Critical (1 die)",
+    "text": "Bei einem kritischen Treffer würfelst du einen zusätzlichen Waffenschadenswürfel."
+   },
+   {
+    "stufe": 10,
+    "name": "Merkmal des Pfades",
+    "en": "Path feature",
+    "text": "Dein urtümlicher Pfad gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 11,
+    "name": "Unerbittlicher Kampfrausch",
+    "en": "Relentless Rage",
+    "text": "Fällst du im Kampfrausch auf 0 Trefferpunkte, hältst du dich mit einem Konstitutionsrettungswurf bei 1 Trefferpunkt."
+   },
+   {
+    "stufe": 13,
+    "name": "Brutaler kritischer Treffer (2)",
+    "en": "Brutal Critical (2 dice)",
+    "text": "Zwei zusätzliche Waffenschadenswürfel bei einem kritischen Treffer."
+   },
+   {
+    "stufe": 14,
+    "name": "Merkmal des Pfades",
+    "en": "Path feature",
+    "text": "Dein urtümlicher Pfad gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 15,
+    "name": "Anhaltender Kampfrausch",
+    "en": "Persistent Rage",
+    "text": "Dein Kampfrausch endet nur noch, wenn du bewusstlos wirst oder ihn selbst beendest."
+   },
+   {
+    "stufe": 17,
+    "name": "Brutaler kritischer Treffer (3)",
+    "en": "Brutal Critical (3 dice)",
+    "text": "Drei zusätzliche Waffenschadenswürfel bei einem kritischen Treffer."
+   },
+   {
+    "stufe": 18,
+    "name": "Unbezwingbare Stärke",
+    "en": "Indomitable Might",
+    "text": "Ist dein Wurf für einen Stärkewurf niedriger als deine Stärke, nimmst du stattdessen deinen Stärkewert."
+   },
+   {
+    "stufe": 20,
+    "name": "Urtümlicher Held",
+    "en": "Primal Champion",
+    "text": "Stärke und Konstitution steigen um 4, ihr Höchstwert auf 24."
+   }
+  ],
+  "Barde": [
+   {
+    "stufe": 1,
+    "name": "Zauberwirken",
+    "en": "Spellcasting: Bard",
+    "text": "Du wirkst Zauber aus der Bardenliste. Charisma ist dein Zauberattribut."
+   },
+   {
+    "stufe": 1,
+    "name": "Bardische Inspiration (W6)",
+    "en": "Bardic Inspiration (d6)",
+    "text": "Als Bonusaktion gibst du einer Kreatur einen Würfel, den sie einem Wurf hinzuzählen darf. Male gleich deinem Charismamodifikator je langer Rast."
+   },
+   {
+    "stufe": 2,
+    "name": "Alleskönner",
+    "en": "Jack of All Trades",
+    "text": "Auf Attributswürfe ohne Übung zählst du den halben Übungsbonus, abgerundet."
+   },
+   {
+    "stufe": 2,
+    "name": "Lied der Rast (W6)",
+    "en": "Song of Rest (d6)",
+    "text": "Bei einer kurzen Rast heilen deine Verbündeten zusätzlich einen Würfel, wenn sie Trefferwürfel verbrauchen."
+   },
+   {
+    "stufe": 3,
+    "name": "Expertise",
+    "en": "Expertise",
+    "text": "Zwei geübte Fertigkeiten zählen den Übungsbonus doppelt."
+   },
+   {
+    "stufe": 3,
+    "name": "Bardenkolleg",
+    "en": "Bard College",
+    "text": "Du wählst dein Kolleg — es gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 5,
+    "name": "Bardische Inspiration (W8)",
+    "en": "Bardic Inspiration (d8)",
+    "text": "Dein Inspirationswürfel steigt auf W8."
+   },
+   {
+    "stufe": 5,
+    "name": "Quell der Inspiration",
+    "en": "Font of Inspiration",
+    "text": "Bardische Inspiration kommt schon nach einer kurzen Rast zurück."
+   },
+   {
+    "stufe": 6,
+    "name": "Gegenzauber",
+    "en": "Countercharm",
+    "text": "Als Aktion gibst du dir und Verbündeten in der Nähe Vorteil auf Rettungswürfe gegen Verängstigen und Bezaubern."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal des Kollegs",
+    "en": "Bard College feature",
+    "text": "Dein Bardenkolleg gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 9,
+    "name": "Lied der Rast (W8)",
+    "en": "Song of Rest (d8)",
+    "text": "Der Würfel des Liedes steigt auf W8."
+   },
+   {
+    "stufe": 10,
+    "name": "Expertise",
+    "en": "Expertise",
+    "text": "Zwei weitere geübte Fertigkeiten zählen den Übungsbonus doppelt."
+   },
+   {
+    "stufe": 10,
+    "name": "Bardische Inspiration (W10)",
+    "en": "Bardic Inspiration (d10)",
+    "text": "Dein Inspirationswürfel steigt auf W10."
+   },
+   {
+    "stufe": 10,
+    "name": "Magische Geheimnisse",
+    "en": "Magical Secrets",
+    "text": "Zwei Zauber aus einer beliebigen Klasse zählen für dich als Bardenzauber."
+   },
+   {
+    "stufe": 13,
+    "name": "Lied der Rast (W10)",
+    "en": "Song of Rest (d10)",
+    "text": "Der Würfel des Liedes steigt auf W10."
+   },
+   {
+    "stufe": 14,
+    "name": "Magische Geheimnisse",
+    "en": "Magical Secrets",
+    "text": "Zwei weitere Zauber aus einer beliebigen Klasse."
+   },
+   {
+    "stufe": 14,
+    "name": "Merkmal des Kollegs",
+    "en": "Bard College feature",
+    "text": "Dein Bardenkolleg gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 15,
+    "name": "Bardische Inspiration (W12)",
+    "en": "Bardic Inspiration (d12)",
+    "text": "Dein Inspirationswürfel steigt auf W12."
+   },
+   {
+    "stufe": 17,
+    "name": "Lied der Rast (W12)",
+    "en": "Song of Rest (d12)",
+    "text": "Der Würfel des Liedes steigt auf W12."
+   },
+   {
+    "stufe": 18,
+    "name": "Magische Geheimnisse",
+    "en": "Magical Secrets",
+    "text": "Zwei weitere Zauber aus einer beliebigen Klasse."
+   },
+   {
+    "stufe": 20,
+    "name": "Überlegene Inspiration",
+    "en": "Superior Inspiration",
+    "text": "Zu Beginn eines Kampfes bekommst du eine Anwendung Bardischer Inspiration, wenn keine mehr übrig ist."
+   }
+  ],
+  "Kleriker": [
+   {
+    "stufe": 1,
+    "name": "Zauberwirken",
+    "en": "Spellcasting: Cleric",
+    "text": "Du wirkst Zauber aus der Klerikerliste und bereitest sie täglich vor. Weisheit ist dein Zauberattribut."
+   },
+   {
+    "stufe": 1,
+    "name": "Göttliche Domäne",
+    "en": "Divine Domain",
+    "text": "Du wählst deine Domäne — sie gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 1,
+    "name": "Domänenzauber",
+    "en": "Domain Spells",
+    "text": "Deine Domäne gibt dir Zauber, die immer vorbereitet sind und nicht auf dein Tageslimit zählen.",
+    "unter": true
+   },
+   {
+    "stufe": 2,
+    "name": "Göttliche Macht (1×)",
+    "en": "Channel Divinity (1/rest)",
+    "text": "Einmal je kurzer oder langer Rast rufst du die Macht deiner Gottheit an."
+   },
+   {
+    "stufe": 2,
+    "name": "Göttliche Macht: Untote vertreiben",
+    "en": "Channel Divinity: Turn Undead",
+    "text": "Untote in der Nähe müssen einen Weisheitsrettungswurf bestehen oder fliehen eine Minute lang vor dir."
+   },
+   {
+    "stufe": 2,
+    "name": "Merkmal der Domäne",
+    "en": "Divine Domain feature",
+    "text": "Deine Domäne gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 3,
+    "name": "Domänenzauber",
+    "en": "Domain Spells",
+    "text": "Weitere Domänenzauber sind ab jetzt immer vorbereitet.",
+    "unter": true
+   },
+   {
+    "stufe": 5,
+    "name": "Domänenzauber",
+    "en": "Domain Spells",
+    "text": "Weitere Domänenzauber sind ab jetzt immer vorbereitet.",
+    "unter": true
+   },
+   {
+    "stufe": 5,
+    "name": "Untote vernichten (HG 1/2)",
+    "en": "Destroy Undead (CR 1/2 or below)",
+    "text": "Vertriebene Untote bis Herausforderungsgrad 1/2 werden sofort vernichtet."
+   },
+   {
+    "stufe": 6,
+    "name": "Göttliche Macht (2×)",
+    "en": "Channel Divinity (2/rest)",
+    "text": "Zwei Anwendungen Göttlicher Macht je Rast."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal der Domäne",
+    "en": "Divine Domain feature",
+    "text": "Deine Domäne gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 7,
+    "name": "Domänenzauber",
+    "en": "Domain Spells",
+    "text": "Weitere Domänenzauber sind ab jetzt immer vorbereitet.",
+    "unter": true
+   },
+   {
+    "stufe": 8,
+    "name": "Untote vernichten (HG 1)",
+    "en": "Destroy Undead (CR 1 or below)",
+    "text": "Vertriebene Untote bis Herausforderungsgrad 1 werden vernichtet."
+   },
+   {
+    "stufe": 8,
+    "name": "Merkmal der Domäne",
+    "en": "Divine Domain feature",
+    "text": "Deine Domäne gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 9,
+    "name": "Domänenzauber",
+    "en": "Domain Spells",
+    "text": "Weitere Domänenzauber sind ab jetzt immer vorbereitet.",
+    "unter": true
+   },
+   {
+    "stufe": 10,
+    "name": "Göttliches Eingreifen",
+    "en": "Divine Intervention",
+    "text": "Du bittest deine Gottheit um Hilfe: gelingt ein Prozentwurf gegen deine Stufe, greift sie ein."
+   },
+   {
+    "stufe": 11,
+    "name": "Untote vernichten (HG 2)",
+    "en": "Destroy Undead (CR 2 or below)",
+    "text": "Vertriebene Untote bis Herausforderungsgrad 2 werden vernichtet."
+   },
+   {
+    "stufe": 14,
+    "name": "Untote vernichten (HG 3)",
+    "en": "Destroy Undead (CR 3 or below)",
+    "text": "Vertriebene Untote bis Herausforderungsgrad 3 werden vernichtet."
+   },
+   {
+    "stufe": 17,
+    "name": "Untote vernichten (HG 4)",
+    "en": "Destroy Undead (CR 4 or below)",
+    "text": "Vertriebene Untote bis Herausforderungsgrad 4 werden vernichtet."
+   },
+   {
+    "stufe": 17,
+    "name": "Merkmal der Domäne",
+    "en": "Divine Domain feature",
+    "text": "Deine Domäne gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 18,
+    "name": "Göttliche Macht (3×)",
+    "en": "Channel Divinity (3/rest)",
+    "text": "Drei Anwendungen Göttlicher Macht je Rast."
+   },
+   {
+    "stufe": 20,
+    "name": "Göttliches Eingreifen (sicher)",
+    "en": "Divine Intervention Improvement",
+    "text": "Dein Ruf nach göttlichem Eingreifen gelingt immer — danach erst wieder nach sieben Tagen."
+   }
+  ],
+  "Druide": [
+   {
+    "stufe": 1,
+    "name": "Zauberwirken",
+    "en": "Spellcasting: Druid",
+    "text": "Du wirkst Zauber aus der Druidenliste und bereitest sie täglich vor. Weisheit ist dein Zauberattribut."
+   },
+   {
+    "stufe": 1,
+    "name": "Druidisch",
+    "en": "Druidic",
+    "text": "Du sprichst die Geheimsprache der Druiden und kannst verborgene Botschaften hinterlassen."
+   },
+   {
+    "stufe": 2,
+    "name": "Tiergestalt (HG 1/4)",
+    "en": "Wild Shape (CR 1/4 or below, no flying or swim speed)",
+    "text": "Zweimal je Rast verwandelst du dich in ein Tier bis Herausforderungsgrad 1/4 ohne Flug- oder Schwimmbewegung."
+   },
+   {
+    "stufe": 2,
+    "name": "Druidenzirkel",
+    "en": "Druid Circle",
+    "text": "Du wählst deinen Zirkel — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 4,
+    "name": "Tiergestalt (HG 1/2)",
+    "en": "Wild Shape (CR 1/2 or below, no flying speed)",
+    "text": "Jetzt bis Herausforderungsgrad 1/2, Schwimmen erlaubt."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal des Zirkels",
+    "en": "Druid Circle feature",
+    "text": "Dein Zirkel gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 8,
+    "name": "Tiergestalt (HG 1)",
+    "en": "Wild Shape (CR 1 or below)",
+    "text": "Jetzt bis Herausforderungsgrad 1, auch fliegende Tiere."
+   },
+   {
+    "stufe": 10,
+    "name": "Merkmal des Zirkels",
+    "en": "Druid Circle feature",
+    "text": "Dein Zirkel gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 14,
+    "name": "Merkmal des Zirkels",
+    "en": "Druid Circle feature",
+    "text": "Dein Zirkel gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 18,
+    "name": "Zeitloser Körper",
+    "en": "Timeless Body",
+    "text": "Du alterst nur noch ein Zehntel so schnell."
+   },
+   {
+    "stufe": 18,
+    "name": "Tierzauber",
+    "en": "Beast Spells",
+    "text": "In Tiergestalt kannst du weiter zaubern — ohne Gesten und Worte."
+   },
+   {
+    "stufe": 20,
+    "name": "Erzdruide",
+    "en": "Archdruid",
+    "text": "Deine Tiergestalt ist unbegrenzt oft möglich, und du brauchst für Zauber weder Gesten noch Worte."
+   }
+  ],
+  "Kämpfer": [
+   {
+    "stufe": 1,
+    "name": "Kampfstil",
+    "en": "Fighting Style",
+    "text": "Du wählst einen Kampfstil — Bogenschießen, Verteidigung, Duellieren, Zweihandwaffen, Schutz oder Zweiwaffenkampf."
+   },
+   {
+    "stufe": 1,
+    "name": "Zweiter Wind",
+    "en": "Second Wind",
+    "text": "Als Bonusaktion heilst du dich um 1W10 + Stufe. Einmal je Rast."
+   },
+   {
+    "stufe": 2,
+    "name": "Aktionsschub",
+    "en": "Action Surge (1 use)",
+    "text": "Einmal je Rast nimmst du in deinem Zug eine zusätzliche Aktion."
+   },
+   {
+    "stufe": 3,
+    "name": "Kampfarchetyp",
+    "en": "Martial Archetype",
+    "text": "Du wählst deinen Archetyp — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 5,
+    "name": "Zusätzlicher Angriff",
+    "en": "Extra Attack",
+    "text": "Du greifst zweimal an, wenn du die Angriffsaktion nimmst."
+   },
+   {
+    "stufe": 7,
+    "name": "Merkmal des Archetyps",
+    "en": "Martial Archetype feature",
+    "text": "Dein Kampfarchetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 9,
+    "name": "Unbeugsam",
+    "en": "Indomitable (1 use)",
+    "text": "Einmal je lange Rast wiederholst du einen misslungenen Rettungswurf."
+   },
+   {
+    "stufe": 10,
+    "name": "Merkmal des Archetyps",
+    "en": "Martial Archetype feature",
+    "text": "Dein Kampfarchetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 11,
+    "name": "Zusätzlicher Angriff (2)",
+    "en": "Extra Attack (2)",
+    "text": "Du greifst dreimal an, wenn du die Angriffsaktion nimmst."
+   },
+   {
+    "stufe": 13,
+    "name": "Unbeugsam (2×)",
+    "en": "Indomitable (2 uses)",
+    "text": "Zwei Wiederholungen je lange Rast."
+   },
+   {
+    "stufe": 15,
+    "name": "Merkmal des Archetyps",
+    "en": "Martial Archetype feature",
+    "text": "Dein Kampfarchetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 17,
+    "name": "Aktionsschub (2×)",
+    "en": "Action Surge (2 uses)",
+    "text": "Zwei Aktionsschübe je Rast."
+   },
+   {
+    "stufe": 17,
+    "name": "Unbeugsam (3×)",
+    "en": "Indomitable (3 uses)",
+    "text": "Drei Wiederholungen je lange Rast."
+   },
+   {
+    "stufe": 18,
+    "name": "Merkmal des Archetyps",
+    "en": "Martial Archetype feature",
+    "text": "Dein Kampfarchetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 20,
+    "name": "Zusätzlicher Angriff (3)",
+    "en": "Extra Attack (3)",
+    "text": "Du greifst viermal an, wenn du die Angriffsaktion nimmst."
+   }
+  ],
+  "Mönch": [
+   {
+    "stufe": 1,
+    "name": "Ungerüstete Verteidigung",
+    "en": "Unarmored Defense",
+    "text": "Ohne Rüstung und Schild ist deine Rüstungsklasse 10 + Geschicklichkeits- + Weisheitsmodifikator."
+   },
+   {
+    "stufe": 1,
+    "name": "Kampfkunst",
+    "en": "Martial Arts",
+    "text": "Mit waffenlosen Schlägen und Mönchswaffen nutzt du Geschicklichkeit, würfelst einen eigenen Schadenswürfel und schlägst als Bonusaktion nach."
+   },
+   {
+    "stufe": 2,
+    "name": "Ki",
+    "en": "Ki",
+    "text": "Du hast Ki-Punkte gleich deiner Mönchsstufe; sie kommen nach einer kurzen Rast zurück."
+   },
+   {
+    "stufe": 2,
+    "name": "Schlaghagel",
+    "en": "Flurry of Blows",
+    "text": "Für 1 Ki schlägst du nach der Angriffsaktion zweimal waffenlos zu."
+   },
+   {
+    "stufe": 2,
+    "name": "Geduldige Verteidigung",
+    "en": "Patient Defense",
+    "text": "Für 1 Ki nimmst du die Ausweichen-Aktion als Bonusaktion."
+   },
+   {
+    "stufe": 2,
+    "name": "Schritt des Windes",
+    "en": "Step of the Wind",
+    "text": "Für 1 Ki spurtest oder rückst du zurück — als Bonusaktion, und dein Sprung ist doppelt so weit."
+   },
+   {
+    "stufe": 2,
+    "name": "Ungerüstete Bewegung",
+    "en": "Unarmored Movement",
+    "text": "Deine Bewegungsrate steigt ohne Rüstung und Schild um 3 Meter."
+   },
+   {
+    "stufe": 3,
+    "name": "Klostertradition",
+    "en": "Monastic Tradition",
+    "text": "Du wählst deine Tradition — sie gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 3,
+    "name": "Geschosse ablenken",
+    "en": "Deflect Missiles",
+    "text": "Als Reaktion verringerst du den Schaden eines Fernkampfangriffs; fällt er auf 0, kannst du das Geschoss zurückwerfen."
+   },
+   {
+    "stufe": 4,
+    "name": "Sanfter Fall",
+    "en": "Slow Fall",
+    "text": "Als Reaktion verringerst du Fallschaden um das Fünffache deiner Stufe."
+   },
+   {
+    "stufe": 5,
+    "name": "Zusätzlicher Angriff",
+    "en": "Extra Attack",
+    "text": "Du greifst zweimal an, wenn du die Angriffsaktion nimmst."
+   },
+   {
+    "stufe": 5,
+    "name": "Betäubender Schlag",
+    "en": "Stunning Strike",
+    "text": "Für 1 Ki muss ein getroffenes Ziel einen Konstitutionsrettungswurf bestehen oder ist bis zum Ende deines nächsten Zuges betäubt."
+   },
+   {
+    "stufe": 6,
+    "name": "Ki-gestärkte Schläge",
+    "en": "Ki Empowered Strikes",
+    "text": "Deine waffenlosen Schläge gelten als magisch."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal der Tradition",
+    "en": "Monastic Tradition feature",
+    "text": "Deine Klostertradition gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 7,
+    "name": "Ausweichen",
+    "en": "Evasion",
+    "text": "Bei Geschicklichkeitsrettungswürfen gegen halben Schaden nimmst du bei Erfolg gar keinen und sonst den halben."
+   },
+   {
+    "stufe": 7,
+    "name": "Stille des Geistes",
+    "en": "Stillness of Mind",
+    "text": "Als Aktion beendest du einen Effekt, der dich bezaubert oder verängstigt."
+   },
+   {
+    "stufe": 9,
+    "name": "Ungerüstete Bewegung (Wände)",
+    "en": "Unarmored Movement",
+    "text": "Du läufst über senkrechte Flächen und über Wasser, solange dein Zug dort endet."
+   },
+   {
+    "stufe": 10,
+    "name": "Reinheit des Körpers",
+    "en": "Purity of Body",
+    "text": "Du bist immun gegen Krankheit und Gift."
+   },
+   {
+    "stufe": 11,
+    "name": "Merkmal der Tradition",
+    "en": "Monastic Tradition feature",
+    "text": "Deine Klostertradition gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 13,
+    "name": "Zunge von Sonne und Mond",
+    "en": "Tongue of the Sun and Moon",
+    "text": "Du verstehst jede gesprochene Sprache, und wer dich hört, versteht dich."
+   },
+   {
+    "stufe": 14,
+    "name": "Diamantene Seele",
+    "en": "Diamond Soul",
+    "text": "Du bist in allen Rettungswürfen geübt und darfst misslungene für 1 Ki wiederholen."
+   },
+   {
+    "stufe": 15,
+    "name": "Zeitloser Körper",
+    "en": "Timeless Body",
+    "text": "Du alterst nicht mehr sichtbar und brauchst keine Nahrung und kein Wasser."
+   },
+   {
+    "stufe": 17,
+    "name": "Merkmal der Tradition",
+    "en": "Monastic Tradition feature",
+    "text": "Deine Klostertradition gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 18,
+    "name": "Leerer Körper",
+    "en": "Empty Body",
+    "text": "Für 4 Ki wirst du unsichtbar und resistent gegen alles außer Energieschaden; für 8 Ki wirkst du Astrale Projektion."
+   },
+   {
+    "stufe": 20,
+    "name": "Vollkommenes Selbst",
+    "en": "Perfect Self",
+    "text": "Zu Beginn eines Kampfes ohne Ki bekommst du 4 Punkte zurück."
+   }
+  ],
+  "Paladin": [
+   {
+    "stufe": 1,
+    "name": "Göttliches Gespür",
+    "en": "Divine Sense",
+    "text": "Du spürst Himmlische, Unholde und Untote in der Nähe. Male gleich 1 + Charismamodifikator je langer Rast."
+   },
+   {
+    "stufe": 1,
+    "name": "Handauflegen",
+    "en": "Lay on Hands",
+    "text": "Ein Vorrat an Heilung von 5 × Stufe, den du als Aktion verteilst; 5 Punkte heilen stattdessen eine Krankheit oder ein Gift."
+   },
+   {
+    "stufe": 2,
+    "name": "Kampfstil",
+    "en": "Fighting Style",
+    "text": "Du wählst einen Kampfstil."
+   },
+   {
+    "stufe": 2,
+    "name": "Zauberwirken",
+    "en": "Spellcasting: Paladin",
+    "text": "Du wirkst Zauber aus der Paladinliste und bereitest sie täglich vor. Charisma ist dein Zauberattribut."
+   },
+   {
+    "stufe": 2,
+    "name": "Göttliche Verdammnis",
+    "en": "Divine Smite",
+    "text": "Beim Treffen verbrauchst du einen Zauberplatz für zusätzlichen Strahlenschaden — mehr gegen Untote und Unholde."
+   },
+   {
+    "stufe": 3,
+    "name": "Göttliche Gesundheit",
+    "en": "Divine Health",
+    "text": "Du bist immun gegen Krankheit."
+   },
+   {
+    "stufe": 3,
+    "name": "Heiliger Schwur",
+    "en": "Sacred Oath",
+    "text": "Du legst deinen Schwur ab — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 3,
+    "name": "Schwurzauber",
+    "en": "Oath Spells",
+    "text": "Dein Schwur gibt dir Zauber, die immer vorbereitet sind.",
+    "unter": true
+   },
+   {
+    "stufe": 3,
+    "name": "Göttliche Macht",
+    "en": "Channel Divinity",
+    "text": "Dein Schwur gibt dir zwei Anwendungen Göttlicher Macht, eine je Rast.",
+    "unter": true
+   },
+   {
+    "stufe": 5,
+    "name": "Zusätzlicher Angriff",
+    "en": "Extra Attack",
+    "text": "Du greifst zweimal an, wenn du die Angriffsaktion nimmst."
+   },
+   {
+    "stufe": 6,
+    "name": "Aura des Schutzes",
+    "en": "Aura of Protection",
+    "text": "Du und Verbündete in 3 Metern zählen deinen Charismamodifikator auf alle Rettungswürfe."
+   },
+   {
+    "stufe": 7,
+    "name": "Merkmal des Schwurs",
+    "en": "Sacred Oath feature",
+    "text": "Dein Heiliger Schwur gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 10,
+    "name": "Aura des Mutes",
+    "en": "Aura of Courage",
+    "text": "Du und Verbündete in 3 Metern können nicht verängstigt werden."
+   },
+   {
+    "stufe": 11,
+    "name": "Verbesserte Göttliche Verdammnis",
+    "en": "Improved Divine Smite",
+    "text": "Deine Nahkampfangriffe verursachen zusätzlich 1W8 Strahlenschaden."
+   },
+   {
+    "stufe": 14,
+    "name": "Reinigende Berührung",
+    "en": "Cleansing Touch",
+    "text": "Als Aktion beendest du einen Zauber auf dir oder einer berührten Kreatur. Male gleich deinem Charismamodifikator."
+   },
+   {
+    "stufe": 15,
+    "name": "Merkmal des Schwurs",
+    "en": "Sacred Oath feature",
+    "text": "Dein Heiliger Schwur gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 18,
+    "name": "Größere Auren",
+    "en": "Aura improvements",
+    "text": "Deine Auren reichen jetzt 9 Meter weit."
+   },
+   {
+    "stufe": 20,
+    "name": "Merkmal des Schwurs",
+    "en": "Sacred Oath feature",
+    "text": "Dein Heiliger Schwur gibt auf dieser Stufe sein letztes Merkmal.",
+    "unter": true
+   }
+  ],
+  "Waldläufer": [
+   {
+    "stufe": 1,
+    "name": "Bevorzugter Feind",
+    "en": "Favored Enemy (1 type)",
+    "text": "Vorteil auf Spurenlesen und Erinnern bei einer Art von Kreatur; du sprichst eine ihrer Sprachen."
+   },
+   {
+    "stufe": 1,
+    "name": "Natürlicher Entdecker",
+    "en": "Natural Explorer (1 terrain type)",
+    "text": "In einer Geländeart wirst du nicht verlangsamt, verirrst dich nicht und findest doppelt so viel Nahrung."
+   },
+   {
+    "stufe": 2,
+    "name": "Kampfstil",
+    "en": "Fighting Style",
+    "text": "Du wählst einen Kampfstil."
+   },
+   {
+    "stufe": 2,
+    "name": "Zauberwirken",
+    "en": "Spellcasting: Ranger",
+    "text": "Du wirkst Zauber aus der Waldläuferliste. Weisheit ist dein Zauberattribut."
+   },
+   {
+    "stufe": 3,
+    "name": "Waldläuferarchetyp",
+    "en": "Ranger Archetype",
+    "text": "Du wählst deinen Archetyp — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 3,
+    "name": "Urtümliches Gewahrsein",
+    "en": "Primeval Awareness",
+    "text": "Mit einem Zauberplatz spürst du, ob bestimmte Kreaturenarten in der Umgebung sind."
+   },
+   {
+    "stufe": 5,
+    "name": "Zusätzlicher Angriff",
+    "en": "Extra Attack",
+    "text": "Du greifst zweimal an, wenn du die Angriffsaktion nimmst."
+   },
+   {
+    "stufe": 6,
+    "name": "Bevorzugter Feind (2)",
+    "en": "Favored Enemy (2 types)",
+    "text": "Eine zweite Art von Kreatur und eine weitere Sprache."
+   },
+   {
+    "stufe": 6,
+    "name": "Natürlicher Entdecker (2)",
+    "en": "Natural Explorer (2 terrain types)",
+    "text": "Eine zweite Geländeart."
+   },
+   {
+    "stufe": 7,
+    "name": "Merkmal des Archetyps",
+    "en": "Ranger Archetype feature",
+    "text": "Dein Archetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 8,
+    "name": "Schritt des Landes",
+    "en": "Land's Stride",
+    "text": "Schwieriges Gelände aus Pflanzen kostet dich nichts, und du hast Vorteil gegen magische Ranken."
+   },
+   {
+    "stufe": 10,
+    "name": "Natürlicher Entdecker (3)",
+    "en": "Natural Explorer (3 terrain types)",
+    "text": "Eine dritte Geländeart."
+   },
+   {
+    "stufe": 10,
+    "name": "Im Freien verstecken",
+    "en": "Hide in Plain Sight",
+    "text": "Nach einer Minute Tarnung bekommst du +10 auf Heimlichkeit, solange du dich nicht bewegst."
+   },
+   {
+    "stufe": 11,
+    "name": "Merkmal des Archetyps",
+    "en": "Ranger Archetype feature",
+    "text": "Dein Archetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 14,
+    "name": "Bevorzugter Feind (3)",
+    "en": "Favored Enemy (3 enemies)",
+    "text": "Eine dritte Art von Kreatur und eine weitere Sprache."
+   },
+   {
+    "stufe": 14,
+    "name": "Verschwinden",
+    "en": "Vanish",
+    "text": "Du versteckst dich als Bonusaktion, und ohne Magie kann man dich nicht verfolgen."
+   },
+   {
+    "stufe": 15,
+    "name": "Merkmal des Archetyps",
+    "en": "Ranger Archetype feature",
+    "text": "Dein Archetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 18,
+    "name": "Wilde Sinne",
+    "en": "Feral Senses",
+    "text": "Du kämpfst gegen unsichtbare Kreaturen ohne Nachteil und spürst sie in 9 Metern."
+   },
+   {
+    "stufe": 20,
+    "name": "Feindtöter",
+    "en": "Foe Slayer",
+    "text": "Einmal je Zug zählst du deinen Weisheitsmodifikator auf Angriff oder Schaden gegen deinen bevorzugten Feind."
+   }
+  ],
+  "Schurke": [
+   {
+    "stufe": 1,
+    "name": "Expertise",
+    "en": "Expertise",
+    "text": "Zwei geübte Fertigkeiten (oder Diebeswerkzeug) zählen den Übungsbonus doppelt."
+   },
+   {
+    "stufe": 1,
+    "name": "Hinterhältiger Angriff",
+    "en": "Sneak Attack",
+    "text": "Einmal je Zug zusätzlicher Schaden, wenn du Vorteil hast oder ein Verbündeter beim Ziel steht."
+   },
+   {
+    "stufe": 1,
+    "name": "Diebesjargon",
+    "en": "Thieves' Cant",
+    "text": "Du sprichst die Geheimsprache der Diebe."
+   },
+   {
+    "stufe": 2,
+    "name": "Gerissene Aktion",
+    "en": "Cunning Action",
+    "text": "Als Bonusaktion spurten, zurückziehen oder verstecken."
+   },
+   {
+    "stufe": 3,
+    "name": "Schurkenarchetyp",
+    "en": "Roguish Archetype",
+    "text": "Du wählst deinen Archetyp — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 5,
+    "name": "Unheimliches Ausweichen",
+    "en": "Uncanny Dodge",
+    "text": "Als Reaktion halbierst du den Schaden eines Angriffs, den du kommen siehst."
+   },
+   {
+    "stufe": 6,
+    "name": "Expertise",
+    "en": "Expertise",
+    "text": "Zwei weitere geübte Fertigkeiten zählen den Übungsbonus doppelt."
+   },
+   {
+    "stufe": 7,
+    "name": "Ausweichen",
+    "en": "Evasion",
+    "text": "Bei Geschicklichkeitsrettungswürfen gegen halben Schaden nimmst du bei Erfolg gar keinen und sonst den halben."
+   },
+   {
+    "stufe": 9,
+    "name": "Merkmal des Archetyps",
+    "en": "Roguish Archetype feature",
+    "text": "Dein Archetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 11,
+    "name": "Verlässliches Talent",
+    "en": "Reliable Talent",
+    "text": "Bei geübten Attributswürfen zählt ein Wurf unter 10 als 10."
+   },
+   {
+    "stufe": 13,
+    "name": "Merkmal des Archetyps",
+    "en": "Roguish Archetype feature",
+    "text": "Dein Archetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 14,
+    "name": "Blindgespür",
+    "en": "Blindsense",
+    "text": "Du bemerkst versteckte und unsichtbare Kreaturen in 3 Metern."
+   },
+   {
+    "stufe": 15,
+    "name": "Aalglatter Geist",
+    "en": "Slippery Mind",
+    "text": "Du bist in Weisheitsrettungswürfen geübt."
+   },
+   {
+    "stufe": 17,
+    "name": "Merkmal des Archetyps",
+    "en": "Roguish Archetype feature",
+    "text": "Dein Archetyp gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 18,
+    "name": "Ausweichend",
+    "en": "Elusive",
+    "text": "Solange du nicht kampfunfähig bist, hat kein Angriff Vorteil gegen dich."
+   },
+   {
+    "stufe": 20,
+    "name": "Glücksstoß",
+    "en": "Stroke of Luck",
+    "text": "Einmal je Rast machst du aus einem verfehlten Angriff einen Treffer oder aus einem Attributswurf eine 20."
+   }
+  ],
+  "Zauberer": [
+   {
+    "stufe": 1,
+    "name": "Zauberwirken",
+    "en": "Spellcasting: Sorcerer",
+    "text": "Du wirkst Zauber aus der Zaubererliste. Charisma ist dein Zauberattribut."
+   },
+   {
+    "stufe": 1,
+    "name": "Ursprung der Zauberkraft",
+    "en": "Sorcerous Origin",
+    "text": "Du wählst deinen Ursprung — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 2,
+    "name": "Quell der Magie",
+    "en": "Font of Magic",
+    "text": "Du hast Zauberpunkte gleich deiner Stufe; sie kommen nach einer langen Rast zurück."
+   },
+   {
+    "stufe": 2,
+    "name": "Zauberplätze schaffen",
+    "en": "Flexible Casting: Creating Spell Slots",
+    "text": "Du machst aus Zauberpunkten einen Zauberplatz."
+   },
+   {
+    "stufe": 2,
+    "name": "Zauberplätze umwandeln",
+    "en": "Flexible Casting: Converting Spell Slot",
+    "text": "Du machst aus einem Zauberplatz Zauberpunkte."
+   },
+   {
+    "stufe": 3,
+    "name": "Metamagie",
+    "en": "Metamagic",
+    "text": "Zwei Metamagie-Optionen, mit denen du Zauber gegen Zauberpunkte veränderst."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal des Ursprungs",
+    "en": "Sorcerous Origin feature",
+    "text": "Dein Ursprung gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 10,
+    "name": "Metamagie",
+    "en": "Metamagic",
+    "text": "Eine weitere Metamagie-Option."
+   },
+   {
+    "stufe": 14,
+    "name": "Merkmal des Ursprungs",
+    "en": "Sorcerous Origin feature",
+    "text": "Dein Ursprung gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 17,
+    "name": "Metamagie",
+    "en": "Metamagic",
+    "text": "Eine weitere Metamagie-Option."
+   },
+   {
+    "stufe": 18,
+    "name": "Merkmal des Ursprungs",
+    "en": "Sorcerous Origin feature",
+    "text": "Dein Ursprung gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 20,
+    "name": "Wiederkehrende Zauberkraft",
+    "en": "Sorcerous Restoration",
+    "text": "Nach einer kurzen Rast bekommst du 4 Zauberpunkte zurück."
+   }
+  ],
+  "Hexenmeister": [
+   {
+    "stufe": 1,
+    "name": "Jenseitiger Patron",
+    "en": "Otherworldly Patron",
+    "text": "Du wählst deinen Patron — er gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 1,
+    "name": "Paktmagie",
+    "en": "Pact Magic",
+    "text": "Du hast wenige Zauberplätze, alle auf demselben Grad — und sie kommen schon nach einer kurzen Rast zurück. Charisma ist dein Zauberattribut."
+   },
+   {
+    "stufe": 2,
+    "name": "Schauerliche Anrufungen",
+    "en": "Eldritch Invocations",
+    "text": "Zwei Anrufungen, die deine Magie dauerhaft verändern. Beim Aufstieg darfst du eine tauschen."
+   },
+   {
+    "stufe": 3,
+    "name": "Paktgeschenk",
+    "en": "Pact Boon",
+    "text": "Klinge, Kette oder Buch — dein Patron gibt dir eine dauerhafte Gabe."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal des Patrons",
+    "en": "Otherworldly Patron feature",
+    "text": "Dein Patron gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 10,
+    "name": "Merkmal des Patrons",
+    "en": "Otherworldly Patron feature",
+    "text": "Dein Patron gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 11,
+    "name": "Mystisches Arkanum (6. Grad)",
+    "en": "Mystic Arcanum (6th level)",
+    "text": "Ein Zauber 6. Grades, einmal je lange Rast, ohne Zauberplatz."
+   },
+   {
+    "stufe": 13,
+    "name": "Mystisches Arkanum (7. Grad)",
+    "en": "Mystic Arcanum (7th level)",
+    "text": "Ein Zauber 7. Grades, einmal je lange Rast."
+   },
+   {
+    "stufe": 14,
+    "name": "Merkmal des Patrons",
+    "en": "Otherworldly Patron feature",
+    "text": "Dein Patron gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 15,
+    "name": "Mystisches Arkanum (8. Grad)",
+    "en": "Mystic Arcanum (8th level)",
+    "text": "Ein Zauber 8. Grades, einmal je lange Rast."
+   },
+   {
+    "stufe": 17,
+    "name": "Mystisches Arkanum (9. Grad)",
+    "en": "Mystic Arcanum (9th level)",
+    "text": "Ein Zauber 9. Grades, einmal je lange Rast."
+   },
+   {
+    "stufe": 20,
+    "name": "Schauerlicher Meister",
+    "en": "Eldritch Master",
+    "text": "Einmal je lange Rast bittest du deinen Patron um alle Zauberplätze zurück."
+   }
+  ],
+  "Magier": [
+   {
+    "stufe": 1,
+    "name": "Zauberwirken",
+    "en": "Spellcasting: Wizard",
+    "text": "Du wirkst Zauber aus deinem Zauberbuch und bereitest sie täglich vor. Intelligenz ist dein Zauberattribut."
+   },
+   {
+    "stufe": 1,
+    "name": "Arkane Wiederherstellung",
+    "en": "Arcane Recovery",
+    "text": "Einmal am Tag bekommst du bei einer kurzen Rast Zauberplätze bis zur Hälfte deiner Stufe zurück."
+   },
+   {
+    "stufe": 2,
+    "name": "Arkane Tradition",
+    "en": "Arcane Tradition",
+    "text": "Du wählst deine Schule — sie gibt dir auf dieser und späteren Stufen eigene Merkmale."
+   },
+   {
+    "stufe": 6,
+    "name": "Merkmal der Tradition",
+    "en": "Arcane Tradition feature",
+    "text": "Deine arkane Tradition gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 10,
+    "name": "Merkmal der Tradition",
+    "en": "Arcane Tradition feature",
+    "text": "Deine arkane Tradition gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 14,
+    "name": "Merkmal der Tradition",
+    "en": "Arcane Tradition feature",
+    "text": "Deine arkane Tradition gibt auf dieser Stufe ein Merkmal.",
+    "unter": true
+   },
+   {
+    "stufe": 18,
+    "name": "Zaubermeisterschaft",
+    "en": "Spell Mastery",
+    "text": "Einen Zauber 1. und einen 2. Grades wirkst du beliebig oft ohne Zauberplatz."
+   },
+   {
+    "stufe": 20,
+    "name": "Signaturzauber",
+    "en": "Signature Spell",
+    "text": "Zwei Zauber 3. Grades sind immer vorbereitet und einmal je kurzer Rast ohne Platz wirkbar."
+   }
+  ]
+ }
+}

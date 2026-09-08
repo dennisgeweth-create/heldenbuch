@@ -117,6 +117,31 @@ stehen hervorgehoben da. Die Zahlen daneben bleiben trotzdem deine: wer
 Wen die Sammlung nicht kennt, entsteht wie bisher aus dem Stegreif.
 Geschrieben wird in die Sammlung dabei nie — gelesen schon.
 
+### 📜 Der Aufstieg bringt die Merkmale mit
+
+Was eine Stufe gibt, stand bisher nur im Buch. „Stufe 5: Zusätzlicher
+Angriff" hat jeder von Hand abgeschrieben — oder es vergessen und ist
+drei Sitzungen lang mit einem Angriff zu wenig herumgelaufen.
+
+Der Aufstieg zeigt jetzt, was dazukommt, und trägt es auf Knopfdruck in
+die Merkmale des Bogens ein — mit Name, kurzem Satz und Quelle
+(„SRD 5.1 · Kämpfer 5"). Angekreuzt ist, was die Klasse selbst gibt;
+**was von der Unterklasse kommt, steht nur als Erinnerung da** und ist
+nicht vorgewählt: wie es heißt, weiß nur dein Bogen. Was schon im Bogen
+steht, kommt kein zweites Mal — auch wenn es anders geschrieben ist.
+
+**198 Merkmale, alle zwölf Klassen, Stufe 1 bis 20.** Die Stufen und die
+englischen Namen stammen aus dem SRD 5.1 (Creative Commons Attribution
+4.0) und sind Eintrag für Eintrag gegen die Quelle geprüft; die
+deutschen Namen und die Sätze darunter sind kurze Zusammenfassungen und
+ersetzen das Regelwerk nicht. Der englische Name steht bei jedem Eintrag
+mit dabei — zum Nachschlagen im eigenen Buch.
+
+Was **nicht** dabei ist und auch nicht dazukommen kann: die Talente und
+Unterklassen aus dem Spielerhandbuch, Tasha's Kessel und Xanathar's
+Ratgeber. Die stehen außerhalb der Lizenz; das SRD enthält genau ein
+Talent. Für alles Weitere ist die Datenbank der Gruppe da.
+
 ### 💰 Der Beutel
 
 Fünf Münzsorten, jede mit eigenem Fenster, darin „Hinzufügen",

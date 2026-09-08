@@ -35,6 +35,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `js/util.js` | reine Hilfsfunktionen ohne React |
 | `styles.css` | gesamte Oberfläche |
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
+| ↳ `data-merkmale.json` | Klassenmerkmale Stufe 1–20; der Aufstieg lädt sie beim Öffnen |
 | `api.php` | Server-Sync, braucht `config.php` (nicht im Repo) |
 | `TAVERNE.md` | Stufenplan der Taverne — alle Stufen gebaut |
 | `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — alle Stufen gebaut |
