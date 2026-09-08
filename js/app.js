@@ -2169,7 +2169,13 @@ const aktionsStand = (held, wahl) => {
   const quelle = aktionsQuelle(held, wahl.art);
   const gegenstand = wahl.i === null || wahl.i === undefined ? null : quelle[wahl.i] || null;
   const grundGrad = gegenstand ? +gegenstand.level || 0 : 0;
-  const wirkung = wahl.art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung) ? gegenstand.wirkung : null;
+  // Nicht nur der Zauber trägt eine Wirkung. Ein Heiltrank wirft 2W4+2,
+  // Alchemistenfeuer 1W4 Feuer und will einen Rettungswurf — dieselben
+  // Felder, dieselbe Rechnung. Der Gradwähler bleibt beim Zauber: ein
+  // Trank hat keinen Grad, und wuerfelAufGrad gibt bei Grad 0 den Würfel
+  // unverändert zurück.
+  const mitWirkung = wahl.art === 'zauber' || wahl.art === 'gegenstand';
+  const wirkung = mitWirkung && gegenstand && hatWirkung(gegenstand.wirkung) ? gegenstand.wirkung : null;
   const grad = wahl.grad || grundGrad;
   return {
     quelle,
@@ -2209,7 +2215,7 @@ const AktionsWahl = ({
   // Die zweite Zeile eines Eintrags und das, was rechts steht — je Art
   // etwas anderes, aber immer dieselben zwei Plaetze.
   const unterZeile = g => wahl.art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : wahl.art === 'angriff' ? (g.damageType ? g.damageType + ' · ' : '') + (g.range || '') : wahl.art === 'gegenstand' ? ((RARITIES.find(r => r.key === g.rarity) || {}).label || '') + ((g.tags || []).length ? ' · ' + (g.tags || []).join(', ') : '') : g.source || '';
-  const rechts = g => wahl.art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : wahl.art === 'angriff' ? g.damage || '' : wahl.art === 'gegenstand' ? (+g.qty || 0) + '×' : '';
+  const rechts = g => wahl.art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : wahl.art === 'angriff' ? g.damage || '' : wahl.art === 'gegenstand' ? (hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '') + (+g.qty || 0) + '×' : '';
 
   // Die Plaetze des Helden: nur Grade, fuer die er welche hat — und der
   // eigene Grad des Zaubers, damit immer etwas dasteht.
@@ -2450,6 +2456,13 @@ const ZugFenster = ({
     wurf: ''
   } : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
+  // Ein Heiltrank heilt. Wer ihn wählt, soll den Schalter nicht erst
+  // umlegen müssen — umlegen darf er ihn trotzdem, deshalb hängt das
+  // hier an der Wahl und nicht an jedem Bild.
+  React.useEffect(() => {
+    const a = wirkung && wirkung.art;
+    if (a === 'heilung' || a === 'temp') setRichtung('heilung');else if (a === 'schaden') setRichtung('schaden');
+  }, [wahl.art, wahl.i]);
   // Flaechenzauber: ein Wurf fuer alle. Der Schaden steht dann einmal
   // oben, und bei jedem Ziel nur noch, ob der Rettungswurf gelang.
   const flaeche = !!(wirkung && wirkung.flaeche);
@@ -2465,7 +2478,7 @@ const ZugFenster = ({
   // Schadensart steht als Merkmal am Helden. Sie ist damit vorgewaehlt —
   // aendern kann die Spielleitung sie trotzdem, denn eine Resistenz
   // haengt oft am Umstand und nicht nur am Bogen.
-  const schadensArt = () => art === 'zauber' ? wirkung && wirkung.schadensart || '' : gegenstand && gegenstand.damageType || '';
+  const schadensArt = () => wirkung && wirkung.schadensart || gegenstand && gegenstand.damageType || '';
   const vorgemindert = ziel => {
     const a = schadensArt();
     if (!a || !ziel) return '';
@@ -2594,7 +2607,7 @@ const ZugFenster = ({
       })).filter(x => x.wert > 0);
       const voll = basis + extra.reduce((sum, x) => sum + x.wert, 0);
       // Die Teile stehen nur dann im Protokoll, wenn es mehr als einen gibt.
-      const grundArt = art === 'zauber' ? wirkung && wirkung.schadensart || '' : gegenstand && gegenstand.damageType || '';
+      const grundArt = wirkung && wirkung.schadensart || gegenstand && gegenstand.damageType || '';
       const teile = extra.length ? [{
         wert: basis,
         art: grundArt
@@ -15853,14 +15866,32 @@ function App() {
           }
         } catch {/* der naechste Versuch kommt gleich */}
       }
-      // Waehrend eines Kampfes oefter, sonst selten. Die Anfrage ist ein
-      // paar Dutzend Byte gross, aber sie muss keine Uhr sein.
-      uhr = setTimeout(frage, kampfSichtRef.current ? 4000 : 12000);
+      // Waehrend eines Kampfes alle zwei Sekunden. Das ist der Takt,
+      // in dem „du bist dran“ ankommen muss: bei vier Sekunden sass die
+      // Spielleitung schon wieder am naechsten Zug, wenn es beim Spieler
+      // aufleuchtete. Teuer ist es nicht — die Anfrage traegt einen
+      // Stand mit und bekommt nichts zurueck, wenn er sich nicht
+      // bewegt hat.
+      //
+      // Wer nicht hinsieht, bekommt auch nichts: ein verstecktes
+      // Fenster fragt gar nicht erst, und dann muss die Uhr auch nicht
+      // schnell schlagen.
+      const takt = document.hidden ? 12000 : kampfSichtRef.current ? 2000 : 12000;
+      uhr = setTimeout(frage, takt);
     };
     frage();
+    // Und wer zurueckkommt, sieht sofort den Stand von jetzt und nicht
+    // den von vor zwoelf Sekunden.
+    const wach = () => {
+      if (document.hidden || !lebt) return;
+      clearTimeout(uhr);
+      frage();
+    };
+    document.addEventListener('visibilitychange', wach);
     return () => {
       lebt = false;
       clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
     };
   }, [isDmMode, advId, svCode, konto]);
 
@@ -19340,7 +19371,119 @@ function App() {
       fontSize: 12,
       color: 'var(--text-secondary)'
     }
-  }, "\u2694 Im Kampf zu verwenden \u2014 steht im Zugfenster zur Wahl, Benutzen zieht die Menge ab"))), /*#__PURE__*/React.createElement("div", {
+  }, "\u2694 Im Kampf zu verwenden \u2014 steht im Zugfenster zur Wahl, Benutzen zieht die Menge ab"))), itf.kampf && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label zauber-wirkung-kopf"
+  }, "Wirkung im Kampf", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    title: "W\xFCrfel und Rettungswurf aus der Beschreibung \xFCbernehmen",
+    onClick: () => setItf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        ...wirkungAusText(f.description, f.tags)
+      }
+    }))
+  }, "\u21A7 Aus der Beschreibung lesen")), /*#__PURE__*/React.createElement("datalist", {
+    id: "hb-arten-item"
+  }, SCHADENSARTEN.map(a => /*#__PURE__*/React.createElement("option", {
+    key: a,
+    value: a
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "zauber-wirkung"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Art"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: (itf.wirkung || {}).art || '',
+    onChange: e => setItf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        art: e.target.value
+      }
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keine \u2014"), /*#__PURE__*/React.createElement("option", {
+    value: "schaden"
+  }, "Schaden"), /*#__PURE__*/React.createElement("option", {
+    value: "heilung"
+  }, "Heilung"), /*#__PURE__*/React.createElement("option", {
+    value: "temp"
+  }, "Tempor\xE4re TP"))), /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "W\xFCrfel"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    placeholder: "2W4+2",
+    value: (itf.wirkung || {}).wuerfel || '',
+    onChange: e => setItf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        wuerfel: e.target.value
+      }
+    }))
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Schadensart"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    list: "hb-arten-item",
+    placeholder: "Feuer",
+    value: (itf.wirkung || {}).schadensart || '',
+    onChange: e => setItf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        schadensart: e.target.value
+      }
+    }))
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Rettungswurf"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: (itf.wirkung || {}).rettung || '',
+    onChange: e => setItf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        rettung: e.target.value
+      }
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keiner \u2014"), RETTUNGEN.map(r => /*#__PURE__*/React.createElement("option", {
+    key: r.k,
+    value: r.k
+  }, r.l)))), /*#__PURE__*/React.createElement("label", {
+    className: "zw-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!(itf.wirkung || {}).halb,
+    onChange: e => setItf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        halb: e.target.checked
+      }
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, "Bestanden = halber Schaden")), /*#__PURE__*/React.createElement("label", {
+    className: "zw-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!(itf.wirkung || {}).flaeche,
+    onChange: e => setItf(f => ({
+      ...f,
+      wirkung: {
+        ...(f.wirkung || {}),
+        flaeche: e.target.checked
+      }
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, "Fl\xE4che \u2014 eine Zahl f\xFCr alle"))), hatWirkung(itf.wirkung) && /*#__PURE__*/React.createElement("div", {
+    className: "zw-probe"
+  }, "Im Zugfenster steht dann: ", /*#__PURE__*/React.createElement("b", null, (itf.wirkung || {}).wuerfel || '—'), (itf.wirkung || {}).art === 'heilung' ? ' als Heilung' : (itf.wirkung || {}).art === 'temp' ? ' als temporäre TP' : '', (itf.wirkung || {}).rettung ? ' · Rettungswurf ' + (RETTUNG_KURZ[(itf.wirkung || {}).rettung] || '') : '')), /*#__PURE__*/React.createElement("div", {
     className: "form-group"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"

@@ -515,7 +515,13 @@ const aktionsStand = (held, wahl) => {
   const quelle = aktionsQuelle(held, wahl.art);
   const gegenstand = (wahl.i === null || wahl.i === undefined) ? null : (quelle[wahl.i] || null);
   const grundGrad = gegenstand ? (+gegenstand.level || 0) : 0;
-  const wirkung = (wahl.art === 'zauber' && gegenstand && hatWirkung(gegenstand.wirkung))
+  // Nicht nur der Zauber trägt eine Wirkung. Ein Heiltrank wirft 2W4+2,
+  // Alchemistenfeuer 1W4 Feuer und will einen Rettungswurf — dieselben
+  // Felder, dieselbe Rechnung. Der Gradwähler bleibt beim Zauber: ein
+  // Trank hat keinen Grad, und wuerfelAufGrad gibt bei Grad 0 den Würfel
+  // unverändert zurück.
+  const mitWirkung = wahl.art === 'zauber' || wahl.art === 'gegenstand';
+  const wirkung = (mitWirkung && gegenstand && hatWirkung(gegenstand.wirkung))
     ? gegenstand.wirkung : null;
   const grad = wahl.grad || grundGrad;
   return {quelle, gegenstand, grundGrad, wirkung, grad,
@@ -557,7 +563,10 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
   const rechts = (g) => wahl.art === 'zauber'
     ? (hatWirkung(g.wirkung) ? (g.wirkung.wuerfel || '') : '')
     : wahl.art === 'angriff'    ? (g.damage || '')
-    : wahl.art === 'gegenstand' ? ((+g.qty || 0) + '×') : '';
+    : wahl.art === 'gegenstand'
+      ? ((hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '')
+         + (+g.qty || 0) + '×')
+      : '';
 
   // Die Plaetze des Helden: nur Grade, fuer die er welche hat — und der
   // eigene Grad des Zaubers, damit immer etwas dasteht.
@@ -738,6 +747,14 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:''}
              : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
+  // Ein Heiltrank heilt. Wer ihn wählt, soll den Schalter nicht erst
+  // umlegen müssen — umlegen darf er ihn trotzdem, deshalb hängt das
+  // hier an der Wahl und nicht an jedem Bild.
+  React.useEffect(() => {
+    const a = wirkung && wirkung.art;
+    if (a === 'heilung' || a === 'temp') setRichtung('heilung');
+    else if (a === 'schaden') setRichtung('schaden');
+  }, [wahl.art, wahl.i]);
   // Flaechenzauber: ein Wurf fuer alle. Der Schaden steht dann einmal
   // oben, und bei jedem Ziel nur noch, ob der Rettungswurf gelang.
   const flaeche = !!(wirkung && wirkung.flaeche);
@@ -753,9 +770,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   // Schadensart steht als Merkmal am Helden. Sie ist damit vorgewaehlt —
   // aendern kann die Spielleitung sie trotzdem, denn eine Resistenz
   // haengt oft am Umstand und nicht nur am Bogen.
-  const schadensArt = () => (art === 'zauber'
-    ? ((wirkung && wirkung.schadensart) || '')
-    : ((gegenstand && gegenstand.damageType) || ''));
+  const schadensArt = () => ((wirkung && wirkung.schadensart)
+    || (gegenstand && gegenstand.damageType) || '');
   const vorgemindert = (ziel) => {
     const a = schadensArt();
     if (!a || !ziel) return '';
@@ -818,9 +834,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
         .filter(x => x.wert > 0));
       const voll = basis + extra.reduce((sum, x) => sum + x.wert, 0);
       // Die Teile stehen nur dann im Protokoll, wenn es mehr als einen gibt.
-      const grundArt = art === 'zauber'
-        ? ((wirkung && wirkung.schadensart) || '')
-        : ((gegenstand && gegenstand.damageType) || '');
+      const grundArt = (wirkung && wirkung.schadensart)
+        || (gegenstand && gegenstand.damageType) || '';
       const teile = extra.length ? [{wert: basis, art: grundArt}, ...extra] : null;
       let n = voll;
       if (mitRettung) {

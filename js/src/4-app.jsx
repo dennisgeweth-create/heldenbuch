@@ -1747,12 +1747,33 @@ function App() {
           }
         } catch { /* der naechste Versuch kommt gleich */ }
       }
-      // Waehrend eines Kampfes oefter, sonst selten. Die Anfrage ist ein
-      // paar Dutzend Byte gross, aber sie muss keine Uhr sein.
-      uhr = setTimeout(frage, kampfSichtRef.current ? 4000 : 12000);
+      // Waehrend eines Kampfes alle zwei Sekunden. Das ist der Takt,
+      // in dem „du bist dran“ ankommen muss: bei vier Sekunden sass die
+      // Spielleitung schon wieder am naechsten Zug, wenn es beim Spieler
+      // aufleuchtete. Teuer ist es nicht — die Anfrage traegt einen
+      // Stand mit und bekommt nichts zurueck, wenn er sich nicht
+      // bewegt hat.
+      //
+      // Wer nicht hinsieht, bekommt auch nichts: ein verstecktes
+      // Fenster fragt gar nicht erst, und dann muss die Uhr auch nicht
+      // schnell schlagen.
+      const takt = document.hidden ? 12000
+        : kampfSichtRef.current ? 2000 : 12000;
+      uhr = setTimeout(frage, takt);
     };
     frage();
-    return () => { lebt = false; clearTimeout(uhr); };
+    // Und wer zurueckkommt, sieht sofort den Stand von jetzt und nicht
+    // den von vor zwoelf Sekunden.
+    const wach = () => {
+      if (document.hidden || !lebt) return;
+      clearTimeout(uhr);
+      frage();
+    };
+    document.addEventListener('visibilitychange', wach);
+    return () => {
+      lebt = false; clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
+    };
   }, [isDmMode, advId, svCode, konto]);
 
   // Beim Wechsel des Abenteuers faengt das Zusehen von vorn an.
@@ -3577,6 +3598,80 @@ function App() {
                   </span>
                 </label>
               </div>
+              {/* Was das Stück im Kampf tut — dieselben Felder wie am
+                  Zauber, ohne den Grad: ein Trank hat keinen. Alles
+                  freiwillig. Ohne diese Angaben bleibt der Gegenstand,
+                  was er war, und im Zugfenster wird die Zahl getippt wie
+                  bisher. Mit ihnen steht dort der Wurf, der Schalter
+                  steht schon auf Heilung, und ein Rettungswurf
+                  halbiert. */}
+              {itf.kampf && (
+                <div className="form-group form-full">
+                  <div className="form-label zauber-wirkung-kopf">
+                    Wirkung im Kampf
+                    <button type="button" className="btn-icon"
+                      title="Würfel und Rettungswurf aus der Beschreibung übernehmen"
+                      onClick={()=>setItf(f=>({...f, wirkung: {...(f.wirkung||{}),
+                        ...wirkungAusText(f.description, f.tags)}}))}>
+                      ↧ Aus der Beschreibung lesen
+                    </button>
+                  </div>
+                  {/* Die Liste des Zugfensters steht dort und nicht hier. */}
+                  <datalist id="hb-arten-item">
+                    {SCHADENSARTEN.map(a => <option key={a} value={a} />)}
+                  </datalist>
+                  <div className="zauber-wirkung">
+                    <label className="zw-feld">
+                      <span>Art</span>
+                      <select className="form-select" value={(itf.wirkung||{}).art || ''}
+                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), art:e.target.value}}))}>
+                        <option value="">— keine —</option>
+                        <option value="schaden">Schaden</option>
+                        <option value="heilung">Heilung</option>
+                        <option value="temp">Temporäre TP</option>
+                      </select>
+                    </label>
+                    <label className="zw-feld">
+                      <span>Würfel</span>
+                      <input className="form-input" placeholder="2W4+2" value={(itf.wirkung||{}).wuerfel || ''}
+                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), wuerfel:e.target.value}}))} />
+                    </label>
+                    <label className="zw-feld">
+                      <span>Schadensart</span>
+                      <input className="form-input" list="hb-arten-item" placeholder="Feuer"
+                        value={(itf.wirkung||{}).schadensart || ''}
+                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), schadensart:e.target.value}}))} />
+                    </label>
+                    <label className="zw-feld">
+                      <span>Rettungswurf</span>
+                      <select className="form-select" value={(itf.wirkung||{}).rettung || ''}
+                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), rettung:e.target.value}}))}>
+                        <option value="">— keiner —</option>
+                        {RETTUNGEN.map(r => <option key={r.k} value={r.k}>{r.l}</option>)}
+                      </select>
+                    </label>
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={!!(itf.wirkung||{}).halb}
+                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), halb:e.target.checked}}))} />
+                      <span>Bestanden = halber Schaden</span>
+                    </label>
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={!!(itf.wirkung||{}).flaeche}
+                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), flaeche:e.target.checked}}))} />
+                      <span>Fläche — eine Zahl für alle</span>
+                    </label>
+                  </div>
+                  {hatWirkung(itf.wirkung) && (
+                    <div className="zw-probe">
+                      Im Zugfenster steht dann: <b>{(itf.wirkung||{}).wuerfel || '—'}</b>
+                      {(itf.wirkung||{}).art === 'heilung' ? ' als Heilung'
+                        : (itf.wirkung||{}).art === 'temp' ? ' als temporäre TP' : ''}
+                      {(itf.wirkung||{}).rettung
+                        ? ' · Rettungswurf ' + (RETTUNG_KURZ[(itf.wirkung||{}).rettung] || '') : ''}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Ausruestungsplatz: erst damit taucht das Stueck in der
                   Auswahl eines Platzes auf. Ohne Angabe bleibt es ein reiner
                   Inventargegenstand, so wie bisher. */}
