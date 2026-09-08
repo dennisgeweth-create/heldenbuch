@@ -2535,9 +2535,6 @@
   .cr-band i { font-style:normal; font-size:10px; color:#9dcbb1; letter-spacing:0.04em;
     text-transform:none; }
   .cr-band i.cr-jeton { color:#1a1200; }
-  .cr-band .cr-quote { position:absolute; right:11px; top:11px; font-size:10.5px;
-    color:#9dcbb1; letter-spacing:0.1em; }
-  .cr-band .cr-quote.gut { color:#8fe0b0; }
   .cr-band.an { border-color:var(--inspiration); background:rgba(232,184,75,0.10); }
   .cr-band.pass { border-width:2px; }
   .cr-band.odds { border-style:dashed; }

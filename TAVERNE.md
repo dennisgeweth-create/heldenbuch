@@ -50,7 +50,7 @@ Kasse und eigener Abrechnung.
 
 Was dabei entsteht und alle folgenden Stufen benutzen:
 
-- Die Tischwahl mit Name, einer Zeile Erklärung und dem Hausvorteil.
+- Die Tischwahl mit Name und einer Zeile Erklärung.
 - Das gemeinsame Gerüst: Fenster, Kopf mit Beutel und Beutelwechsler,
   Einsatzjetons, Wettschein, Abrechnung, Meldungszeile.
 - Die Einstellungen je Abenteuer, um einen Tisch zu schließen.
@@ -160,8 +160,9 @@ Tische stehen.
 | Der Wirt zieht auf weicher 17 | gut 0,2 % mehr fürs Haus | er bleibt auf jeder 17 |
 | Die Mitte des Crapstisches | zahlt am besten, kostet am meisten | abgeräumt |
 
-Was gilt, steht am Tisch selbst — der Roulettetisch schreibt seinen
-eigenen Hausvorteil hin, der Filz die Regel des Wirts.
+Was gilt, steht am Tisch selbst — der Roulettetisch schreibt seine
+Regel hin, der Filz die des Wirts. Der Hausvorteil steht seit v4.9
+nirgends mehr: er interessiert die Rechnung und nicht den, der spielt.
 
 **Eine Statistik je Held**, im Gerät neben den Marken: Runden, gesetzt,
 zurück, unterm Strich, und die längste Serie in beide Richtungen. Eine

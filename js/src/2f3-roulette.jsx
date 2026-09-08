@@ -4,7 +4,9 @@
 // Reihenfolge, und **La Partage** — fällt die Null, kommt bei den
 // einfachen Chancen die Hälfte zurück. Das drückt den Vorteil des
 // Hauses von 2,7 % auf 1,35 % und macht diesen Tisch zum mildesten im
-// Haus. Es steht am Tisch, nicht im Kleingedruckten.
+// Haus — das steht seit v4.9 nicht mehr am Tisch: was der Tisch dem
+// Haus bringt, interessiert die Rechnung und nicht den, der sich
+// hinsetzt. Die Regel selbst steht weiter da.
 //
 // Die Mehrfachwetten werden nicht über Ränder zwischen den Feldern
 // gelegt — auf einem Berührschirm trifft das niemand. Stattdessen sagt
@@ -373,11 +375,11 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           </div>
           <div className="rlt-partage">
             {partage ? (
-              <>Ein Zéro · <b>La Partage</b> — bei der Null die Hälfte zurück
-                auf die einfachen Chancen. 1,35 % ans Haus.</>
+              <>Ein Zéro · <b>La Partage</b> — bei der Null kommt auf den
+                einfachen Chancen die Hälfte zurück.</>
             ) : (
               <>Ein Zéro · <b>ohne La Partage</b> — bei der Null bleibt alles
-                liegen. 2,7 % ans Haus.</>
+                liegen.</>
             )}
           </div>
         </div>

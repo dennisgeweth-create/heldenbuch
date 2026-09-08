@@ -17,7 +17,6 @@ const CR_PUNKTE = [4, 5, 6, 8, 9, 10];
 const CR_ODDS  = {4:[2,1], 10:[2,1], 5:[3,2], 9:[3,2], 6:[6,5], 8:[6,5]};
 // Place zahlt schlechter als die Wahrheit; genau darin liegt der Anteil.
 const CR_PLACE = {4:[9,5], 10:[9,5], 5:[7,5], 9:[7,5], 6:[7,6], 8:[7,6]};
-const CR_PLACE_RAND = {4:'6,67 %', 10:'6,67 %', 5:'4 %', 9:'4 %', 6:'1,52 %', 8:'1,52 %'};
 
 const crLeer = () => ({
   pass:0, odds:0, dont:0, come:0, dontCome:0,
@@ -276,7 +275,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         onClick={()=>setzen(w => { w.place[n] = (w.place[n] || 0) + jeton; },
           punkt !== null, 'Place-Wetten ruhen, solange kein Punkt steht.')}
         title={'Place ' + n + ' zahlt ' + CR_PLACE[n][0] + ':' + CR_PLACE[n][1]
-               + ' · ' + CR_PLACE_RAND[n] + ' ans Haus'}>
+}>
         <b>{n}</b><i>{CR_PLACE[n][0]} : {CR_PLACE[n][1]}</i>
         {punkt === n && <span className="cr-puck">ON</span>}
         {place > 0 && <i className="cr-jeton">{place}</i>}
@@ -335,7 +334,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           onClick={()=>setzen(w => { w.feld += jeton; }, true)}>
           <span className="cr-feld-titel">Feld · ein Wurf</span>
           <span className="cr-feld-zahlen"><em>2</em> 3 4 · 9 10 11 <em>12</em></span>
-          <span className="cr-feld-hinweis">2 zahlt doppelt, 12 dreifach · 5,6 % ans Haus</span>
+          <span className="cr-feld-hinweis">2 zahlt doppelt, 12 dreifach</span>
           {wetten.feld > 0 && <i className="cr-jeton">{wetten.feld}</i>}
         </button>
 
@@ -356,7 +355,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           <button type="button" className="cr-prop mies"
             onClick={()=>setzen(w => { w.sieben += jeton; }, true)}
             title="Die teuerste Wette des Hauses">
-            <b>Jede 7</b><i>4 : 1 · 16,7 %</i>
+            <b>Jede 7</b><i>4 : 1</i>
             {wetten.sieben > 0 && <i className="cr-jeton">{wetten.sieben}</i>}
           </button>
         </div>
@@ -366,7 +365,6 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           onClick={()=>setzen(w => { w.dont += jeton; }, kommenAus,
             'Don’t Pass wird nur vor dem Punkt gesetzt.')}>
           Don’t Pass <i>gegen den Werfer · Bar 12</i>
-          <span className="cr-quote">1,36 %</span>
           {wetten.dont > 0 && <i className="cr-jeton">{wetten.dont}</i>}
         </button>
         <button type="button" className="cr-band odds"
@@ -377,14 +375,12 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
               : 'Höchstens das Dreifache der Passe.')}>
           Odds {punkt !== null && <i>hinter der {punkt} · zahlt {CR_ODDS[punkt][0]}:{CR_ODDS[punkt][1]}</i>}
           {punkt === null && <i>erst hinter einem Punkt</i>}
-          <span className="cr-quote gut">0 %</span>
           {wetten.odds > 0 && <i className="cr-jeton">{wetten.odds}</i>}
         </button>
         <button type="button" className={'cr-band pass' + (punkt !== null ? ' an' : '')}
           onClick={()=>setzen(w => { w.pass += jeton; }, kommenAus,
             'Die Passe wird nur vor dem Punkt gesetzt — dafür gibt es Come.')}>
           Pass-Linie <i>mit dem Werfer</i>
-          <span className="cr-quote">1,41 %</span>
           {wetten.pass > 0 && <i className="cr-jeton">{wetten.pass}</i>}
         </button>
       </div>

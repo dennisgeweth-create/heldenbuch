@@ -1003,7 +1003,6 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
           <button className="automat-tafel-kopf" onClick={()=>setTafelOffen(o=>!o)}
             aria-expanded={tafelOffen}>
             <span>{tafelOffen ? '▾' : '▸'} Auszahlungen</span>
-            <i>Quote {(quote * 100).toFixed(1).replace('.', ',')} %</i>
           </button>
           {tafelOffen && (
             <>
@@ -1058,19 +1057,19 @@ const TAVERNEN_TISCHE = [
    unter:'Drei Walzen, fünf Linien, Rad der Fortuna', rand:'Einsatz 5–50',
    da:true, breit:430, weit:520},
   {k:'blackjack', z:'🃏', name:'Blackjack',
-   unter:'Gegen den Wirt. Blackjack zahlt anderthalbfach', rand:'Bank ≈ 0,5 %',
+   unter:'Gegen den Wirt. Blackjack zahlt anderthalbfach',
    da:true, breit:470, weit:620},
   {k:'roulette',  z:'🎡', name:'Französisches Roulette',
-   unter:'Ein Zéro, La Partage — die mildeste Bank im Haus', rand:'Bank 1,35 %',
+   unter:'Ein Zéro, La Partage — bei der Null die Hälfte zurück',
    da:true, breit:600, weit:780},
   {k:'craps',     z:'🎲', name:'Craps',
-   unter:'Zwei Würfel, ein Punkt — und die Odds ohne Hausanteil', rand:'Bank 1,4 %',
+   unter:'Zwei Würfel, ein Punkt — und die Odds hinter der Passe',
    da:true, breit:560, weit:720},
   {k:'rennen',    z:'🐎', name:'Die Rennbahn vor dem Tor',
-   unter:'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf', rand:'Bank 12 %',
+   unter:'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf',
    da:true, breit:560, weit:700},
   {k:'poker',     z:'♟', name:'Ultimate Texas Hold’em',
-   unter:'Gegen das Haus. Wer früh erhöht, zahlt das Vierfache', rand:'Bank 2,2 %',
+   unter:'Gegen das Haus. Wer früh erhöht, zahlt das Vierfache',
    da:true, breit:520, weit:660},
 ];
 
@@ -1117,7 +1116,12 @@ const TavernenHalle = ({ tische, onWahl }) => (
           <span className="halle-name">{t.name}</span>
           <span className="halle-unter">{t.unter}</span>
         </span>
-        <span className="halle-rand">{t.da ? t.rand : 'im Bau'}</span>
+        {/* Rechts steht nur noch, was ein Tisch kostet, nicht was er
+            dem Haus bringt: der Hausvorteil interessiert die Rechnung
+            und nicht den, der sich hinsetzt. */}
+        {(t.da ? t.rand : 'im Bau') && (
+          <span className="halle-rand">{t.da ? t.rand : 'im Bau'}</span>
+        )}
       </button>
     ))}
   </div>
@@ -1340,7 +1344,7 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
             {waehrung.gold
               ? 'Gespielt wird mit echtem Gold aus dem Bogen — die Spielleitung hat es so eingestellt.'
               : 'Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden — nichts davon berührt einen Bogen.'}
-            {' '}Was das Haus an einem Tisch verdient, steht am Tisch.
+            {' '}Was ein Tisch zahlt, steht am Tisch.
           </div>
         </div>
       )}

@@ -103,34 +103,16 @@ const pkVergleich = (a, b) => {
 // wer eine Straße oder mehr hält und die Hand gewinnt, bekommt sie
 // bezahlt; darunter bleibt sie liegen, wie sie liegt.
 const PK_BLIND = {9: 500, 8: 50, 7: 10, 6: 3, 5: 1.5, 4: 1};
-const PK_BLIND_ZEILEN = [
-  ['Royal Flush', '500:1'], ['Straight Flush', '50:1'], ['Vierling', '10:1'],
-  ['Full House', '3:1'], ['Flush', '3:2'], ['Straße', '1:1'],
-];
 // Die Trips zahlt nach dem eigenen Blatt allein — auch wenn man passt
 // und auch, wenn der Geber gewinnt.
 // Die Tabelle, die in den meisten Haeusern haengt. Sie ist die
 // mildeste der gebraeuchlichen — was sie kostet, steht unten und wird
 // ausgerechnet, nicht abgeschrieben.
 const PK_TRIPS = {9: 50, 8: 40, 7: 30, 6: 9, 5: 7, 4: 4, 3: 3};
-const PK_TRIPS_ZEILEN = [
-  ['Royal Flush', '50:1'], ['Straight Flush', '40:1'], ['Vierling', '30:1'],
-  ['Full House', '9:1'], ['Flush', '7:1'], ['Straße', '4:1'], ['Drilling', '3:1'],
-];
-// Wie oft jede Kategorie unter sieben Karten vorkommt — die Zahlen sind
-// abzählbar und stehen deshalb als Zahlen da, nicht als Schätzung.
-// Zusammen sind es die 133.784.560 Blätter aus 52 Karten.
-const PK_HAEUFIG = {9: 4324, 8: 37260, 7: 224848, 6: 3473184,
-                    5: 4047644, 4: 6180020, 3: 6461620};
-const PK_ALLE_BLAETTER = 133784560;
-// Der Hausanteil der Trips, ausgerechnet statt abgeschrieben: so kann
-// er nicht von der Tafel abweichen, auf der er steht.
-const pkTripsAnteil = () => {
-  let zurueck = 0;
-  for (const k of Object.keys(PK_TRIPS))
-    zurueck += (PK_HAEUFIG[k] / PK_ALLE_BLAETTER) * (PK_TRIPS[k] + 1);
-  return 1 - zurueck;
-};
+// Diese Tabelle kostet 0,90 % — nachgerechnet aus den Haeufigkeiten der
+// Blaetter aus sieben Karten, als die Zahl noch am Tisch stand. Die
+// Rechnung hat sich gelohnt: die erste Tabelle, die hier stand, haette
+// zwoelf Prozent an den Spieler verschenkt.
 
 // ── Die Tafel ───────────────────────────────────────────────────
 // Vor dem Flop nach der Tabelle, die überall gedruckt steht: jedes Paar
@@ -432,12 +414,6 @@ const PokerTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             <span className="bj-druck klein">
               Vor dem Flop 4× oder 3× · nach dem Flop 2× · am River 1× oder passen
             </span>
-            {/* Zwei Zahlen, weil es zwei sind: je Ante ist der Anteil
-                gross, aber man setzt im Schnitt weit mehr als die Ante.
-                Wer nur eine nennt, nennt die falsche. */}
-            <span className="bj-druck klein">
-              2,2 % ans Haus je Ante · 0,5 % je gesetztem Stück
-            </span>
           </div>
         </div>
 
@@ -484,8 +460,7 @@ const PokerTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             <span>
               <b>Trips mitsetzen</b> — zahlt nach deinem Blatt allein, auch wenn
               der Geber gewinnt. Drilling 3:1 bis Royal Flush 50:1.
-              <i>{(pkTripsAnteil() * 100).toFixed(1).replace('.', ',')} % ans Haus —
-                mehr als der Tisch selbst.</i>
+              <i>Sie kostet mehr als der Tisch selbst.</i>
             </span>
           </label>
           <div className="rlt-tasten">

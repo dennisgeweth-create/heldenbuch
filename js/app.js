@@ -6869,7 +6869,7 @@ const AutomatTisch = ({
     className: "automat-tafel-kopf",
     onClick: () => setTafelOffen(o => !o),
     "aria-expanded": tafelOffen
-  }, /*#__PURE__*/React.createElement("span", null, tafelOffen ? '▾' : '▸', " Auszahlungen"), /*#__PURE__*/React.createElement("i", null, "Quote ", (quote * 100).toFixed(1).replace('.', ','), " %")), tafelOffen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
+  }, /*#__PURE__*/React.createElement("span", null, tafelOffen ? '▾' : '▸', " Auszahlungen")), tafelOffen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
     className: "automat-tabelle"
   }, /*#__PURE__*/React.createElement("tbody", null, [...symbole].reverse().map(s => /*#__PURE__*/React.createElement("tr", {
     key: s.k
@@ -6910,7 +6910,6 @@ const TAVERNEN_TISCHE = [{
   z: '🃏',
   name: 'Blackjack',
   unter: 'Gegen den Wirt. Blackjack zahlt anderthalbfach',
-  rand: 'Bank ≈ 0,5 %',
   da: true,
   breit: 470,
   weit: 620
@@ -6918,8 +6917,7 @@ const TAVERNEN_TISCHE = [{
   k: 'roulette',
   z: '🎡',
   name: 'Französisches Roulette',
-  unter: 'Ein Zéro, La Partage — die mildeste Bank im Haus',
-  rand: 'Bank 1,35 %',
+  unter: 'Ein Zéro, La Partage — bei der Null die Hälfte zurück',
   da: true,
   breit: 600,
   weit: 780
@@ -6927,8 +6925,7 @@ const TAVERNEN_TISCHE = [{
   k: 'craps',
   z: '🎲',
   name: 'Craps',
-  unter: 'Zwei Würfel, ein Punkt — und die Odds ohne Hausanteil',
-  rand: 'Bank 1,4 %',
+  unter: 'Zwei Würfel, ein Punkt — und die Odds hinter der Passe',
   da: true,
   breit: 560,
   weit: 720
@@ -6937,7 +6934,6 @@ const TAVERNEN_TISCHE = [{
   z: '🐎',
   name: 'Die Rennbahn vor dem Tor',
   unter: 'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf',
-  rand: 'Bank 12 %',
   da: true,
   breit: 560,
   weit: 700
@@ -6946,7 +6942,6 @@ const TAVERNEN_TISCHE = [{
   z: '♟',
   name: 'Ultimate Texas Hold’em',
   unter: 'Gegen das Haus. Wer früh erhöht, zahlt das Vierfache',
-  rand: 'Bank 2,2 %',
   da: true,
   breit: 520,
   weit: 660
@@ -7001,7 +6996,7 @@ const TavernenHalle = ({
   className: "halle-name"
 }, t.name), /*#__PURE__*/React.createElement("span", {
   className: "halle-unter"
-}, t.unter)), /*#__PURE__*/React.createElement("span", {
+}, t.unter)), (t.da ? t.rand : 'im Bau') && /*#__PURE__*/React.createElement("span", {
   className: "halle-rand"
 }, t.da ? t.rand : 'im Bau'))));
 const TaverneSchirm = ({
@@ -7282,7 +7277,7 @@ const TaverneSchirm = ({
     className: stat.zurueck - stat.gesetzt >= 0 ? 'gut' : 'schlecht'
   }, /*#__PURE__*/React.createElement("b", null, stat.zurueck - stat.gesetzt >= 0 ? '+' : '−', Math.abs(stat.zurueck - stat.gesetzt)), " unterm Strich"), /*#__PURE__*/React.createElement("span", null, "l\xE4ngste Serie ", /*#__PURE__*/React.createElement("b", null, stat.siegSerie), "\u2009\u2713 / ", /*#__PURE__*/React.createElement("b", null, stat.pechSerie), "\u2009\u2717")), /*#__PURE__*/React.createElement("div", {
     className: "halle-fuss"
-  }, waehrung.gold ? 'Gespielt wird mit echtem Gold aus dem Bogen — die Spielleitung hat es so eingestellt.' : 'Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden — nichts davon berührt einen Bogen.', ' ', "Was das Haus an einem Tisch verdient, steht am Tisch.")));
+  }, waehrung.gold ? 'Gespielt wird mit echtem Gold aus dem Bogen — die Spielleitung hat es so eingestellt.' : 'Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden — nichts davon berührt einen Bogen.', ' ', "Was ein Tisch zahlt, steht am Tisch.")));
 };
 
 // ==== js/src/2f2-blackjack.jsx ====
@@ -7907,7 +7902,9 @@ const BlackjackTisch = ({
 // Reihenfolge, und **La Partage** — fällt die Null, kommt bei den
 // einfachen Chancen die Hälfte zurück. Das drückt den Vorteil des
 // Hauses von 2,7 % auf 1,35 % und macht diesen Tisch zum mildesten im
-// Haus. Es steht am Tisch, nicht im Kleingedruckten.
+// Haus — das steht seit v4.9 nicht mehr am Tisch: was der Tisch dem
+// Haus bringt, interessiert die Rechnung und nicht den, der sich
+// hinsetzt. Die Regel selbst steht weiter da.
 //
 // Die Mehrfachwetten werden nicht über Ränder zwischen den Feldern
 // gelegt — auf einem Berührschirm trifft das niemand. Stattdessen sagt
@@ -8500,7 +8497,7 @@ const RouletteTisch = ({
     key: i
   }, n))), /*#__PURE__*/React.createElement("div", {
     className: "rlt-partage"
-  }, partage ? /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "La Partage"), " \u2014 bei der Null die H\xE4lfte zur\xFCck auf die einfachen Chancen. 1,35 % ans Haus.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "ohne La Partage"), " \u2014 bei der Null bleibt alles liegen. 2,7 % ans Haus."))), /*#__PURE__*/React.createElement("div", {
+  }, partage ? /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "La Partage"), " \u2014 bei der Null kommt auf den einfachen Chancen die H\xE4lfte zur\xFCck.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "ohne La Partage"), " \u2014 bei der Null bleibt alles liegen."))), /*#__PURE__*/React.createElement("div", {
     className: "rlt-aus"
   }, phase === 'aus' && abrechnung ? abrechnungZeigen() : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "rlt-lauf-titel"
@@ -8679,14 +8676,6 @@ const CR_PLACE = {
   9: [7, 5],
   6: [7, 6],
   8: [7, 6]
-};
-const CR_PLACE_RAND = {
-  4: '6,67 %',
-  10: '6,67 %',
-  5: '4 %',
-  9: '4 %',
-  6: '1,52 %',
-  8: '1,52 %'
 };
 const crLeer = () => ({
   pass: 0,
@@ -9080,7 +9069,7 @@ const CrapsTisch = ({
       onClick: () => setzen(w => {
         w.place[n] = (w.place[n] || 0) + jeton;
       }, punkt !== null, 'Place-Wetten ruhen, solange kein Punkt steht.'),
-      title: 'Place ' + n + ' zahlt ' + CR_PLACE[n][0] + ':' + CR_PLACE[n][1] + ' · ' + CR_PLACE_RAND[n] + ' ans Haus'
+      title: 'Place ' + n + ' zahlt ' + CR_PLACE[n][0] + ':' + CR_PLACE[n][1]
     }, /*#__PURE__*/React.createElement("b", null, n), /*#__PURE__*/React.createElement("i", null, CR_PLACE[n][0], " : ", CR_PLACE[n][1]), punkt === n && /*#__PURE__*/React.createElement("span", {
       className: "cr-puck"
     }, "ON"), place > 0 && /*#__PURE__*/React.createElement("i", {
@@ -9142,7 +9131,7 @@ const CrapsTisch = ({
     className: "cr-feld-zahlen"
   }, /*#__PURE__*/React.createElement("em", null, "2"), " 3 4 \xB7 9 10 11 ", /*#__PURE__*/React.createElement("em", null, "12")), /*#__PURE__*/React.createElement("span", {
     className: "cr-feld-hinweis"
-  }, "2 zahlt doppelt, 12 dreifach \xB7 5,6 % ans Haus"), wetten.feld > 0 && /*#__PURE__*/React.createElement("i", {
+  }, "2 zahlt doppelt, 12 dreifach"), wetten.feld > 0 && /*#__PURE__*/React.createElement("i", {
     className: "cr-jeton"
   }, wetten.feld)), mitte && /*#__PURE__*/React.createElement("div", {
     className: "cr-props"
@@ -9170,7 +9159,7 @@ const CrapsTisch = ({
       w.sieben += jeton;
     }, true),
     title: "Die teuerste Wette des Hauses"
-  }, /*#__PURE__*/React.createElement("b", null, "Jede 7"), /*#__PURE__*/React.createElement("i", null, "4 : 1 \xB7 16,7 %"), wetten.sieben > 0 && /*#__PURE__*/React.createElement("i", {
+  }, /*#__PURE__*/React.createElement("b", null, "Jede 7"), /*#__PURE__*/React.createElement("i", null, "4 : 1"), wetten.sieben > 0 && /*#__PURE__*/React.createElement("i", {
     className: "cr-jeton"
   }, wetten.sieben))), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -9178,9 +9167,7 @@ const CrapsTisch = ({
     onClick: () => setzen(w => {
       w.dont += jeton;
     }, kommenAus, 'Don’t Pass wird nur vor dem Punkt gesetzt.')
-  }, "Don\u2019t Pass ", /*#__PURE__*/React.createElement("i", null, "gegen den Werfer \xB7 Bar 12"), /*#__PURE__*/React.createElement("span", {
-    className: "cr-quote"
-  }, "1,36 %"), wetten.dont > 0 && /*#__PURE__*/React.createElement("i", {
+  }, "Don\u2019t Pass ", /*#__PURE__*/React.createElement("i", null, "gegen den Werfer \xB7 Bar 12"), wetten.dont > 0 && /*#__PURE__*/React.createElement("i", {
     className: "cr-jeton"
   }, wetten.dont)), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -9188,9 +9175,7 @@ const CrapsTisch = ({
     onClick: () => setzen(w => {
       w.odds += jeton;
     }, punkt !== null && wetten.pass > 0 && wetten.odds + jeton <= oddsMax, punkt === null ? 'Odds gibt es erst hinter einem Punkt.' : wetten.pass <= 0 ? 'Odds liegen hinter der Passe — ohne sie geht es nicht.' : 'Höchstens das Dreifache der Passe.')
-  }, "Odds ", punkt !== null && /*#__PURE__*/React.createElement("i", null, "hinter der ", punkt, " \xB7 zahlt ", CR_ODDS[punkt][0], ":", CR_ODDS[punkt][1]), punkt === null && /*#__PURE__*/React.createElement("i", null, "erst hinter einem Punkt"), /*#__PURE__*/React.createElement("span", {
-    className: "cr-quote gut"
-  }, "0 %"), wetten.odds > 0 && /*#__PURE__*/React.createElement("i", {
+  }, "Odds ", punkt !== null && /*#__PURE__*/React.createElement("i", null, "hinter der ", punkt, " \xB7 zahlt ", CR_ODDS[punkt][0], ":", CR_ODDS[punkt][1]), punkt === null && /*#__PURE__*/React.createElement("i", null, "erst hinter einem Punkt"), wetten.odds > 0 && /*#__PURE__*/React.createElement("i", {
     className: "cr-jeton"
   }, wetten.odds)), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -9198,9 +9183,7 @@ const CrapsTisch = ({
     onClick: () => setzen(w => {
       w.pass += jeton;
     }, kommenAus, 'Die Passe wird nur vor dem Punkt gesetzt — dafür gibt es Come.')
-  }, "Pass-Linie ", /*#__PURE__*/React.createElement("i", null, "mit dem Werfer"), /*#__PURE__*/React.createElement("span", {
-    className: "cr-quote"
-  }, "1,41 %"), wetten.pass > 0 && /*#__PURE__*/React.createElement("i", {
+  }, "Pass-Linie ", /*#__PURE__*/React.createElement("i", null, "mit dem Werfer"), wetten.pass > 0 && /*#__PURE__*/React.createElement("i", {
     className: "cr-jeton"
   }, wetten.pass))), /*#__PURE__*/React.createElement("div", {
     className: "automat-einsatz"
@@ -9882,7 +9865,6 @@ const PK_BLIND = {
   5: 1.5,
   4: 1
 };
-const PK_BLIND_ZEILEN = [['Royal Flush', '500:1'], ['Straight Flush', '50:1'], ['Vierling', '10:1'], ['Full House', '3:1'], ['Flush', '3:2'], ['Straße', '1:1']];
 // Die Trips zahlt nach dem eigenen Blatt allein — auch wenn man passt
 // und auch, wenn der Geber gewinnt.
 // Die Tabelle, die in den meisten Haeusern haengt. Sie ist die
@@ -9897,27 +9879,10 @@ const PK_TRIPS = {
   4: 4,
   3: 3
 };
-const PK_TRIPS_ZEILEN = [['Royal Flush', '50:1'], ['Straight Flush', '40:1'], ['Vierling', '30:1'], ['Full House', '9:1'], ['Flush', '7:1'], ['Straße', '4:1'], ['Drilling', '3:1']];
-// Wie oft jede Kategorie unter sieben Karten vorkommt — die Zahlen sind
-// abzählbar und stehen deshalb als Zahlen da, nicht als Schätzung.
-// Zusammen sind es die 133.784.560 Blätter aus 52 Karten.
-const PK_HAEUFIG = {
-  9: 4324,
-  8: 37260,
-  7: 224848,
-  6: 3473184,
-  5: 4047644,
-  4: 6180020,
-  3: 6461620
-};
-const PK_ALLE_BLAETTER = 133784560;
-// Der Hausanteil der Trips, ausgerechnet statt abgeschrieben: so kann
-// er nicht von der Tafel abweichen, auf der er steht.
-const pkTripsAnteil = () => {
-  let zurueck = 0;
-  for (const k of Object.keys(PK_TRIPS)) zurueck += PK_HAEUFIG[k] / PK_ALLE_BLAETTER * (PK_TRIPS[k] + 1);
-  return 1 - zurueck;
-};
+// Diese Tabelle kostet 0,90 % — nachgerechnet aus den Haeufigkeiten der
+// Blaetter aus sieben Karten, als die Zahl noch am Tisch stand. Die
+// Rechnung hat sich gelohnt: die erste Tabelle, die hier stand, haette
+// zwoelf Prozent an den Spieler verschenkt.
 
 // ── Die Tafel ───────────────────────────────────────────────────
 // Vor dem Flop nach der Tabelle, die überall gedruckt steht: jedes Paar
@@ -10309,9 +10274,7 @@ const PokerTisch = ({
     className: "bj-druck"
   }, "Der Geber \xF6ffnet mit einem Paar"), /*#__PURE__*/React.createElement("span", {
     className: "bj-druck klein"
-  }, "Vor dem Flop 4\xD7 oder 3\xD7 \xB7 nach dem Flop 2\xD7 \xB7 am River 1\xD7 oder passen"), /*#__PURE__*/React.createElement("span", {
-    className: "bj-druck klein"
-  }, "2,2 % ans Haus je Ante \xB7 0,5 % je gesetztem St\xFCck"))), /*#__PURE__*/React.createElement("div", {
+  }, "Vor dem Flop 4\xD7 oder 3\xD7 \xB7 nach dem Flop 2\xD7 \xB7 am River 1\xD7 oder passen"))), /*#__PURE__*/React.createElement("div", {
     className: "pk-seite dran"
   }, /*#__PURE__*/React.createElement("span", {
     className: "pk-wer"
@@ -10349,7 +10312,7 @@ const PokerTisch = ({
     type: "checkbox",
     checked: mitTrips,
     onChange: e => setMitTrips(e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Trips mitsetzen"), " \u2014 zahlt nach deinem Blatt allein, auch wenn der Geber gewinnt. Drilling 3:1 bis Royal Flush 50:1.", /*#__PURE__*/React.createElement("i", null, (pkTripsAnteil() * 100).toFixed(1).replace('.', ','), " % ans Haus \u2014 mehr als der Tisch selbst."))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Trips mitsetzen"), " \u2014 zahlt nach deinem Blatt allein, auch wenn der Geber gewinnt. Drilling 3:1 bis Royal Flush 50:1.", /*#__PURE__*/React.createElement("i", null, "Sie kostet mehr als der Tisch selbst."))), /*#__PURE__*/React.createElement("div", {
     className: "rlt-tasten"
   }, /*#__PURE__*/React.createElement("button", {
     className: "automat-hebel",
