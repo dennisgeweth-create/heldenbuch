@@ -597,6 +597,100 @@ const assistentPlan = (e) => {
   return {neu, zeilen, hinweise, fehlt};
 };
 
+// ── Eine Liste als Text ─────────────────────────────────────────
+// Beute entsteht am Tisch als Aufzählung — auf einem Zettel, in einer
+// Nachricht, aus einer KI. Sie dann Zeile für Zeile in Felder zu
+// tippen, ist die Art Arbeit, die man sich nicht antun sollte.
+//
+// Gelesen wird deshalb nachsichtig: Aufzählungszeichen dürfen davor
+// stehen, die Menge vorn oder hinten, die Notiz hinter einem Strich,
+// und Münzen erkennt die Zeile an ihren Wörtern. Was nicht aufgeht,
+// wird trotzdem zu einem Stück mit Namen — lieber eine Zeile zu viel
+// zum Nachbessern als eine verlorene.
+
+// Wie eine Münze heissen darf. Die kurzen Formen zuerst, damit „GM"
+// nicht als „Gold" mit Rest gelesen wird.
+const BEUTE_MUENZWORTE = [
+  {k: 'pp', w: ['platinmünzen', 'platinmünze', 'platin', 'pm', 'pp']},
+  {k: 'gp', w: ['goldmünzen', 'goldmünze', 'gold', 'gm', 'gp']},
+  {k: 'ep', w: ['elektrummünzen', 'elektrum', 'em', 'ep']},
+  {k: 'sp', w: ['silbermünzen', 'silbermünze', 'silber', 'sm', 'sp']},
+  {k: 'cp', w: ['kupfermünzen', 'kupfermünze', 'kupfer', 'km', 'cp']},
+];
+const beuteMuenzArt = (wort) => {
+  const w = String(wort || '').toLowerCase().replace(/[.,;:]+$/, '');
+  const t = BEUTE_MUENZWORTE.find(m => m.w.includes(w));
+  return t ? t.k : null;
+};
+
+// Eine Zeile, die nur aus Münzen besteht: „340 GM, 22 Silber und 15 KM".
+// Sie muss ganz aufgehen — sonst waere „12 Goldringe" eine Kasse.
+const beuteMuenzZeile = (zeile) => {
+  const teile = String(zeile || '')
+    .replace(/\bund\b/gi, ' ').split(/[,;·]+|\s+/).filter(Boolean);
+  const raus = {pp: 0, gp: 0, ep: 0, sp: 0, cp: 0};
+  let treffer = 0;
+  for (let i = 0; i < teile.length; i++) {
+    // Entweder „340 GM" als zwei Stuecke oder „340GM" als eines.
+    let zahl = null, wort = null;
+    const zusammen = /^(\d+)\s*([A-Za-zÄÖÜäöüß]+)$/.exec(teile[i]);
+    if (zusammen) { zahl = +zusammen[1]; wort = zusammen[2]; }
+    else if (/^\d+$/.test(teile[i]) && i + 1 < teile.length) {
+      zahl = +teile[i]; wort = teile[i + 1]; i++;
+    } else return null;
+    const art = beuteMuenzArt(wort);
+    if (art === null) return null;
+    raus[art] += zahl; treffer++;
+  }
+  return treffer ? raus : null;
+};
+
+const beuteAusText = (text) => {
+  const muenzen = {pp: 0, gp: 0, ep: 0, sp: 0, cp: 0};
+  const stuecke = [];
+  let titel = '';
+
+  String(text || '').split(/\r?\n/).forEach(roh => {
+    let z = String(roh || '').trim();
+    if (!z) return;
+    // Aufzaehlungszeichen und Nummerierung fallen weg — eine KI setzt
+    // sie gern davor.
+    z = z.replace(/^[-–—*•·]\s+/, '').replace(/^\d+[.)]\s+/, '').trim();
+    if (!z || z.startsWith('#')) return;
+
+    const t = /^(?:titel|woher|fund)\s*[:：]\s*(.+)$/i.exec(z);
+    if (t) { titel = t[1].trim(); return; }
+
+    const geld = beuteMuenzZeile(z);
+    if (geld) {
+      for (const k of ['pp', 'gp', 'ep', 'sp', 'cp']) muenzen[k] += geld[k];
+      return;
+    }
+
+    // Die Notiz steht hinter einem senkrechten Strich oder einem
+    // Gedankenstrich mit Luft davor. Ein blosser Bindestrich zaehlt
+    // nicht: „Zwei-Hand-Axt" ist ein Name.
+    let notiz = '';
+    const strich = /^(.*?)\s*(?:\||\s[–—]\s|\s--\s)\s*(.+)$/.exec(z);
+    if (strich) { z = strich[1].trim(); notiz = strich[2].trim(); }
+
+    // Die Menge darf vorn stehen („3× Fackel", „3 Fackeln") oder hinten
+    // („Fackel ×3").
+    let anzahl = 1;
+    const vorn = /^(\d+)\s*[×xX*]\s*(.+)$/.exec(z) || /^(\d+)\s+(.+)$/.exec(z);
+    const hinten = /^(.+?)\s*[×xX*]\s*(\d+)$/.exec(z);
+    if (vorn)        { anzahl = +vorn[1];   z = vorn[2].trim(); }
+    else if (hinten) { anzahl = +hinten[2]; z = hinten[1].trim(); }
+
+    z = z.replace(/[.,;]+$/, '').trim();
+    if (!z) return;
+    stuecke.push({name: z.slice(0, 80), anzahl: Math.max(1, Math.min(999, anzahl)),
+                  notiz: notiz.slice(0, 120)});
+  });
+
+  return {titel, muenzen, stuecke};
+};
+
 // ── Aus der Datenbank ───────────────────────────────────────────
 // Beute und Laden fuellen sich aus der Sammlung der Gruppe. Gesucht
 // wird nachsichtig: Grossschreibung und ein Leerzeichen zu viel sollen

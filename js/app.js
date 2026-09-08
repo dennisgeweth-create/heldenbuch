@@ -11181,6 +11181,11 @@ const beuteTeilen = (muenzen, zahl) => {
   return teile;
 };
 const beuteMuenzText = m => COINS.filter(c => (m || {})[c.key] > 0).map(c => m[c.key] + ' ' + c.label).join(' · ');
+
+// Was die Spielleitung einer KI vorlegt, damit hinten eine Liste
+// herauskommt, die dieses Fenster lesen kann. Der letzte Absatz bleibt
+// absichtlich offen — dort steht, was diesmal gefunden werden soll.
+const BEUTE_KI_ANWEISUNG = ['Erstelle mir eine Beuteliste für Dungeons & Dragons 5e auf Deutsch.', 'Antworte nur mit der Liste: keine Einleitung, keine Erklärung, keine', 'Tabelle, keine Überschriften, keine Fettschrift.', '', 'Eine Zeile je Eintrag, in dieser Form:', '  Titel: woher die Beute stammt        (höchstens einmal, ganz oben)', '  <Zahl> <Münzart>                     (nur Münzen in der Zeile; PM, GM, EM, SM, KM)', '  <Anzahl>x <Gegenstand> | <Notiz>     (Anzahl und Notiz darfst du weglassen)', '', 'Dabei gilt:', '- Gegenstände mit ihrem deutschen Namen, so wie er im Regelwerk steht:', '  „Ring des Schutzes", „Trank der Heilung", „Fackel".', '- Die Notiz hinter dem senkrechten Strich ist ein kurzer Satz für den', '  Tisch, kein Regeltext: „schimmert blau", „im Wert von 500 Gold".', '- Jede Münzart in eine eigene Zeile, ohne Punkt als Tausendertrennung.', '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.', '', 'Beispiel:', 'Titel: Aus der Truhe im Keller', '340 GM', '22 SM', 'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist', '8x Fackel', 'Schmuck | im Wert von 500 Gold', '', 'Und das soll gefunden werden:', ''].join('\n');
 const BeuteAnlegen = ({
   gegenstaende,
   onAbbrechen,
@@ -11199,11 +11204,77 @@ const BeuteAnlegen = ({
     anzahl: 1,
     notiz: ''
   }]);
+  const [einfuegen, setEinfuegen] = React.useState(false);
+  const [roh, setRoh] = React.useState('');
+  const [meldung, setMeldung] = React.useState('');
+  const [zeigAnweisung, setZeigAnweisung] = React.useState(false);
+  const [kopiert, setKopiert] = React.useState(false);
+  const anweisungFeld = React.useRef(null);
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {
     ...x,
     ...p
   } : x));
   const stuecke = zeilen.filter(z => z.name.trim());
+
+  // Der eingefügte Text wird zu Zeilen — nicht zu Beute. Hingelegt wird
+  // erst mit dem Knopf unten, und bis dahin steht alles zum Ändern da.
+  const uebernehmen = () => {
+    const g = beuteAusText(roh);
+    const geld = COINS.some(c => g.muenzen[c.key] > 0);
+    if (!g.stuecke.length && !geld) {
+      setMeldung('Daraus lässt sich nichts lesen. Eine Zeile je Gegenstand.');
+      return;
+    }
+    if (g.titel && !titel.trim()) setTitel(g.titel);
+    if (geld) setMuenzen(m => {
+      const n = {
+        ...m
+      };
+      COINS.forEach(c => {
+        n[c.key] = (n[c.key] || 0) + (g.muenzen[c.key] || 0);
+      });
+      return n;
+    });
+    if (g.stuecke.length) setZeilen(z => z.filter(x => x.name.trim()).concat(
+    // Steht der Name in der Datenbank, bringt er seine Beschreibung
+    // mit — aber nur, wo die Liste selbst keine Notiz mitgeliefert hat.
+    g.stuecke.map(st => {
+      const t = dbGegenstand(gegenstaende, st.name);
+      return {
+        name: st.name,
+        anzahl: st.anzahl,
+        notiz: st.notiz || (t ? dbKurz(t) : '')
+      };
+    }), [{
+      name: '',
+      anzahl: 1,
+      notiz: ''
+    }]));
+    const was = [];
+    if (g.stuecke.length) was.push(g.stuecke.length + (g.stuecke.length === 1 ? ' Stück' : ' Stücke'));
+    if (geld) was.push(beuteMuenzText(g.muenzen));
+    setMeldung('Übernommen: ' + was.join(' und ') + '. Sieh die Zeilen durch, bevor du hinlegst.');
+    setRoh('');
+    setEinfuegen(false);
+  };
+  const anweisungKopieren = () => {
+    const f = anweisungFeld.current;
+    if (f) {
+      f.focus();
+      f.select();
+    }
+    const fertig = () => {
+      setKopiert(true);
+      setTimeout(() => setKopiert(false), 2500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(BEUTE_KI_ANWEISUNG).then(fertig, () => {});
+    } else {
+      try {
+        if (document.execCommand('copy')) fertig();
+      } catch (e) {}
+    }
+  };
   const leer = !stuecke.length && !COINS.some(c => muenzen[c.key] > 0);
   return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
@@ -11214,6 +11285,47 @@ const BeuteAnlegen = ({
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
   }, "\uD83D\uDCB0 Beute hinlegen"), /*#__PURE__*/React.createElement("div", {
+    className: "beute-einfuegen"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste beute-einfuegen-auf",
+    onClick: () => {
+      setEinfuegen(e => !e);
+      setMeldung('');
+    }
+  }, "\uD83D\uDCCB ", einfuegen ? 'Liste zuklappen' : 'Liste einfügen'), einfuegen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input beute-roh",
+    value: roh,
+    rows: 7,
+    placeholder: 'Eine Zeile je Gegenstand:\n\n340 GM\n8x Fackel\nRing des Schutzes | schimmert blau',
+    onChange: e => {
+      setRoh(e.target.value);
+      setMeldung('');
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "beute-einfuegen-fuss"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: () => setZeigAnweisung(a => !a)
+  }, zeigAnweisung ? 'Anweisung zu' : 'Anweisung für eine KI'), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: !roh.trim(),
+    onClick: uebernehmen
+  }, "\xDCbernehmen")), zeigAnweisung && /*#__PURE__*/React.createElement("div", {
+    className: "beute-anweisung"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ass-warum"
+  }, "Diesen Text der KI vorlegen und unten anh\xE4ngen, was gefunden werden soll. Was zur\xFCckkommt, kommt hier oben hinein."), /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input beute-roh",
+    readOnly: true,
+    rows: 8,
+    ref: anweisungFeld,
+    value: BEUTE_KI_ANWEISUNG
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: anweisungKopieren
+  }, kopiert ? '✓ Kopiert' : 'Anweisung kopieren'))), meldung && /*#__PURE__*/React.createElement("div", {
+    className: "beute-meldung"
+  }, meldung)), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"

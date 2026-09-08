@@ -33,19 +33,135 @@ const beuteMuenzText = (m) => COINS
   .map(c => (m[c.key]) + ' ' + c.label)
   .join(' · ');
 
+// Was die Spielleitung einer KI vorlegt, damit hinten eine Liste
+// herauskommt, die dieses Fenster lesen kann. Der letzte Absatz bleibt
+// absichtlich offen — dort steht, was diesmal gefunden werden soll.
+const BEUTE_KI_ANWEISUNG = [
+  'Erstelle mir eine Beuteliste für Dungeons & Dragons 5e auf Deutsch.',
+  'Antworte nur mit der Liste: keine Einleitung, keine Erklärung, keine',
+  'Tabelle, keine Überschriften, keine Fettschrift.',
+  '',
+  'Eine Zeile je Eintrag, in dieser Form:',
+  '  Titel: woher die Beute stammt        (höchstens einmal, ganz oben)',
+  '  <Zahl> <Münzart>                     (nur Münzen in der Zeile; PM, GM, EM, SM, KM)',
+  '  <Anzahl>x <Gegenstand> | <Notiz>     (Anzahl und Notiz darfst du weglassen)',
+  '',
+  'Dabei gilt:',
+  '- Gegenstände mit ihrem deutschen Namen, so wie er im Regelwerk steht:',
+  '  „Ring des Schutzes", „Trank der Heilung", „Fackel".',
+  '- Die Notiz hinter dem senkrechten Strich ist ein kurzer Satz für den',
+  '  Tisch, kein Regeltext: „schimmert blau", „im Wert von 500 Gold".',
+  '- Jede Münzart in eine eigene Zeile, ohne Punkt als Tausendertrennung.',
+  '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.',
+  '',
+  'Beispiel:',
+  'Titel: Aus der Truhe im Keller',
+  '340 GM',
+  '22 SM',
+  'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist',
+  '8x Fackel',
+  'Schmuck | im Wert von 500 Gold',
+  '',
+  'Und das soll gefunden werden:',
+  '',
+].join('\n');
+
 const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
   const [titel, setTitel] = React.useState('');
   const [muenzen, setMuenzen] = React.useState({pp:0, gp:0, ep:0, sp:0, cp:0});
   const [zeilen, setZeilen] = React.useState([{name:'', anzahl:1, notiz:''}]);
 
+  const [einfuegen, setEinfuegen] = React.useState(false);
+  const [roh, setRoh] = React.useState('');
+  const [meldung, setMeldung] = React.useState('');
+  const [zeigAnweisung, setZeigAnweisung] = React.useState(false);
+  const [kopiert, setKopiert] = React.useState(false);
+  const anweisungFeld = React.useRef(null);
+
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {...x, ...p} : x));
   const stuecke = zeilen.filter(z => z.name.trim());
+
+  // Der eingefügte Text wird zu Zeilen — nicht zu Beute. Hingelegt wird
+  // erst mit dem Knopf unten, und bis dahin steht alles zum Ändern da.
+  const uebernehmen = () => {
+    const g = beuteAusText(roh);
+    const geld = COINS.some(c => g.muenzen[c.key] > 0);
+    if (!g.stuecke.length && !geld) {
+      setMeldung('Daraus lässt sich nichts lesen. Eine Zeile je Gegenstand.');
+      return;
+    }
+    if (g.titel && !titel.trim()) setTitel(g.titel);
+    if (geld) setMuenzen(m => {
+      const n = {...m};
+      COINS.forEach(c => { n[c.key] = (n[c.key] || 0) + (g.muenzen[c.key] || 0); });
+      return n;
+    });
+    if (g.stuecke.length) setZeilen(z => z.filter(x => x.name.trim()).concat(
+      // Steht der Name in der Datenbank, bringt er seine Beschreibung
+      // mit — aber nur, wo die Liste selbst keine Notiz mitgeliefert hat.
+      g.stuecke.map(st => {
+        const t = dbGegenstand(gegenstaende, st.name);
+        return {name: st.name, anzahl: st.anzahl, notiz: st.notiz || (t ? dbKurz(t) : '')};
+      }),
+      [{name:'', anzahl:1, notiz:''}]));
+
+    const was = [];
+    if (g.stuecke.length) was.push(g.stuecke.length + (g.stuecke.length === 1 ? ' Stück' : ' Stücke'));
+    if (geld) was.push(beuteMuenzText(g.muenzen));
+    setMeldung('Übernommen: ' + was.join(' und ') + '. Sieh die Zeilen durch, bevor du hinlegst.');
+    setRoh(''); setEinfuegen(false);
+  };
+
+  const anweisungKopieren = () => {
+    const f = anweisungFeld.current;
+    if (f) { f.focus(); f.select(); }
+    const fertig = () => { setKopiert(true); setTimeout(() => setKopiert(false), 2500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(BEUTE_KI_ANWEISUNG).then(fertig, () => {});
+    } else {
+      try { if (document.execCommand('copy')) fertig(); } catch (e) {}
+    }
+  };
   const leer = !stuecke.length && !COINS.some(c => muenzen[c.key] > 0);
 
   return (
     <Fenster>
       <div className="form-modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
         <div className="form-title">💰 Beute hinlegen</div>
+
+        <div className="beute-einfuegen">
+          <button className="bj-taste beute-einfuegen-auf"
+            onClick={()=>{ setEinfuegen(e => !e); setMeldung(''); }}>
+            📋 {einfuegen ? 'Liste zuklappen' : 'Liste einfügen'}
+          </button>
+          {einfuegen && (
+            <>
+              <textarea className="form-input beute-roh" value={roh} rows={7}
+                placeholder={'Eine Zeile je Gegenstand:\n\n340 GM\n8x Fackel\nRing des Schutzes | schimmert blau'}
+                onChange={e=>{ setRoh(e.target.value); setMeldung(''); }} />
+              <div className="beute-einfuegen-fuss">
+                <button className="bj-taste" onClick={()=>setZeigAnweisung(a => !a)}>
+                  {zeigAnweisung ? 'Anweisung zu' : 'Anweisung für eine KI'}
+                </button>
+                <button className="btn-save" disabled={!roh.trim()} onClick={uebernehmen}>
+                  Übernehmen
+                </button>
+              </div>
+              {zeigAnweisung && (
+                <div className="beute-anweisung">
+                  <div className="ass-warum">Diesen Text der KI vorlegen und unten anhängen,
+                    was gefunden werden soll. Was zurückkommt, kommt hier oben hinein.</div>
+                  <textarea className="form-input beute-roh" readOnly rows={8}
+                    ref={anweisungFeld} value={BEUTE_KI_ANWEISUNG} />
+                  <button className="bj-taste" onClick={anweisungKopieren}>
+                    {kopiert ? '✓ Kopiert' : 'Anweisung kopieren'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {meldung && <div className="beute-meldung">{meldung}</div>}
+        </div>
 
         <div className="form-group form-full">
           <div className="form-label">Woher</div>
