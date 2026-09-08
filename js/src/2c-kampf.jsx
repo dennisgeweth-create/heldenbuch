@@ -153,6 +153,12 @@ const protokollZeile = (e, mitZahlen) => {
                             + (e.wurf !== '' && e.wurf != null && e.sg
                                ? ' (' + e.wurf + ' gegen SG ' + e.sg + ')' : '');
     case 'platz':    return '   Zauberplatz ' + e.grad + '. Grad abgehakt';
+    // Die Erinnerung, die am Tisch am haeufigsten fehlt. Sie sagt nicht,
+    // wie es ausging — gewuerfelt wird mit der Hand.
+    case 'konz':     return '   ⚡ ' + e.wer + ' hält „' + e.was + '“ — '
+                            + 'Konstitutions-Rettungswurf gegen SG ' + e.sg;
+    case 'konzAus':  return '   ⚡ ' + e.wer + ': „' + e.was + '“ endet';
+    case 'konzAn':   return '   ⚡ ' + e.wer + ' hält jetzt „' + e.was + '“';
     // Ein Trank ist nach dem Zug leer. Was noch da ist, steht dabei —
     // sonst muesste man dafuer in den Bogen schauen.
     case 'verbrauch': return '   ' + e.was + ' verbraucht'
@@ -865,7 +871,18 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
         minderung: mind,
         teile: (n === voll && richtung === 'schaden') ? teile : null});
     });
-    return {eintraege, treffer, platz, verbrauch};
+    // Wer einen Zauber mit Konzentration wirkt, haelt ihn ab jetzt — und
+    // laesst den vorigen fallen. Beides steht im Protokoll, damit
+    // niemand spaeter zwei gleichzeitig zu halten glaubt.
+    let konz = null;
+    if (held && art === 'zauber' && gegenstand && brauchtKonzentration(gegenstand)) {
+      const alt = held.konzentration;
+      if (alt && alt.name && alt.name !== gegenstand.name)
+        eintraege.push({art: 'konzAus', wer: t.name, was: alt.name});
+      konz = {charId: held.id, wert: {id: gegenstand.id, name: gegenstand.name}};
+      eintraege.push({art: 'konzAn', wer: t.name, was: gegenstand.name});
+    }
+    return {eintraege, treffer, platz, verbrauch, konz};
   };
 
   const {eintraege, treffer} = bauen();
@@ -1766,6 +1783,17 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
         protokollieren({...eintrag, wer: t.name, von: (t.hp || 0), auf: (neu.hp || 0)});
       }
     }
+    // Wer einen Zauber hält und Schaden nimmt, muss ihn halten koennen.
+    // Die Zeile steht hier, weil hier jeder Schaden durchgeht — aus dem
+    // Zugfenster, von der Karte, aus dem Bogen.
+    if (t.art === 'held' && eintrag && eintrag.art === 'schaden' && (+eintrag.wert || 0) > 0) {
+      const held = (helden || []).find(h => h.id === t.charId);
+      const k = held && held.konzentration;
+      if (k && k.name) {
+        protokollieren({art: 'konz', wer: t.name, was: k.name,
+                        sg: konzentrationSG(eintrag.wert)});
+      }
+    }
     // Und die beiden Augenblicke, die man spaeter nachliest.
     if ((t.hp || 0) > 0 && (neu.hp || 0) <= 0) protokollieren({art: 'nieder', wer: t.name});
     if ((t.hp || 0) <= 0 && (neu.hp || 0) > 0) protokollieren({art: 'auf', wer: t.name, auf: neu.hp});
@@ -1776,6 +1804,15 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       if (neu.deathSaves !== undefined) p.deathSaves = neu.deathSaves;
       // Wer wieder ueber null steht, wuerfelt nicht mehr ums Ueberleben.
       if (neu.hp > 0) p.deathSaves = TODES_LEER;
+      // Wer umfällt, hält nichts mehr. Dafür gibt es keinen
+      // Rettungswurf — der Zauber ist einfach weg.
+      if ((t.hp || 0) > 0 && (neu.hp || 0) <= 0) {
+        const h = (helden || []).find(x => x.id === t.charId);
+        if (h && h.konzentration && h.konzentration.name) {
+          p.konzentration = null;
+          protokollieren({art: 'konzAus', wer: t.name, was: h.konzentration.name});
+        }
+      }
       onHeldAendern(t.charId, p, t.name);
     } else {
       aendernKampf(id, fn);
@@ -1801,7 +1838,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Was im Zugfenster steht, geht denselben Weg wie alles andere: erst die
   // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
-  const zugAnwenden = ({eintraege, treffer, platz, verbrauch}, weiter, ansageId) => {
+  const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz}, weiter, ansageId) => {
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
     if (!weiter) setZugFenster(null);
@@ -1809,6 +1846,12 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     (eintraege || []).forEach(e => protokollieren(e));
     (treffer || []).forEach(({id, modus, n, teile, minderung}) =>
       wertDirekt(id, modus, n, (teile || minderung) ? {teile, minderung} : null));
+    // Was gehalten wird, gehoert in den Bogen: es ueberlebt den Kampf,
+    // und der Bogen zeigt es an.
+    if (konz) {
+      const c = helden.find(h => h.id === konz.charId);
+      if (c) onHeldAendern(konz.charId, {konzentration: konz.wert}, c.name);
+    }
     // Der Zauberplatz gehoert in den Bogen, nicht in den Kampf.
     if (platz) {
       const c = helden.find(h => h.id === platz.charId);

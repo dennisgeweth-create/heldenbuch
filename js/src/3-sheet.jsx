@@ -505,6 +505,25 @@ const Sheet = () => {
             {/* Überblick: was gerade an den Werten dreht und woher es kommt.
                 Steht bewusst hier, weil direkt darunter die betroffenen
                 Zahlen mit ✦ markiert sind. */}
+            {/* Was gerade gehalten wird. Ein Zauber mit Konzentration
+                endet, wenn man einen zweiten wirkt oder einen
+                Rettungswurf nach einem Treffer nicht schafft — und
+                genau daran denkt am Tisch niemand. */}
+            {cur.konzentration && cur.konzentration.name && (
+              <div className="konz-zeile">
+                <span className="konz-zeichen">⚡</span>
+                <span className="konz-text">
+                  Hält <b>{cur.konzentration.name}</b>
+                  <i>Schaden verlangt einen Konstitutions-Rettungswurf gegen SG 10
+                    oder die Hälfte des Schadens — was größer ist.</i>
+                </span>
+                {darfBearbeiten && (
+                  <button className="konz-weg" title="Beenden"
+                    onClick={()=>patchCurrent(()=>({konzentration: null}))}>✕</button>
+                )}
+              </div>
+            )}
+
             {itemFx.length > 0 && (() => {
               const bySource = [];
               itemFx.forEach(e => {

@@ -597,6 +597,21 @@ const assistentPlan = (e) => {
   return {neu, zeilen, hinweise, fehlt};
 };
 
+// ── Konzentration ───────────────────────────────────────────────
+// Kein Tisch denkt daran, und niemand gibt es gern zu: ein Zauber mit
+// Konzentration endet, wenn man den Rettungswurf nach einem Treffer
+// nicht schafft — und wenn man einen zweiten wirkt.
+//
+// Ob ein Zauber sie verlangt, muss niemand eintragen: es steht in
+// seiner Wirkungsdauer. „Konzentration, bis zu 1 Minute“ — die Vorlagen
+// der SRD tragen es alle, und wer selbst tippt, tippt es auch.
+const brauchtKonzentration = (z) => !!(z && /konzentration/i.test(String(z.duration || '')));
+
+// Der Schwierigkeitsgrad: die Hälfte des Schadens, mindestens 10. So
+// steht es im Regelwerk, und es ist die Zahl, die am Tisch am
+// häufigsten falsch geraten wird.
+const konzentrationSG = (schaden) => Math.max(10, Math.floor((+schaden || 0) / 2));
+
 // ── Der Stufenaufstieg ──────────────────────────────────────────
 // Was eine Stufe am Bogen ändert, als Rechnung ohne Oberfläche: so
 // lässt sie sich von aussen prüfen, und die Vorschau zeigt später

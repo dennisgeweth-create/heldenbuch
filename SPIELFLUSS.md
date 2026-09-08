@@ -186,16 +186,31 @@ Angesagt wird auch auf **Rettungswürfe**, nicht nur auf Fertigkeiten —
 **Was sie nicht tut:** für den Spieler würfeln. Wer am Tisch sitzt,
 würfelt mit der Hand; das Feld nimmt die Zahl.
 
-## Stufe 4 · Konzentration
+## Stufe 4 · Konzentration ✓
 
-Kein Tisch denkt daran. Ein Zauber mit Konzentration steht als Zeile am
-Bogen — wer Schaden nimmt, bekommt im Zugfenster den
-Konstitutions-Rettungswurf mit dem richtigen Schwierigkeitsgrad
-vorgelegt (10 oder die Hälfte des Schadens, was größer ist).
+*Steht seit v4.9.* Kein Tisch denkt daran, und niemand gibt es gern zu.
 
-Klein, weil das Zugfenster Rettungswürfe schon kann und die Zauber
-bereits eine Wirkung tragen. Es fehlt ein Feld am Zauber und eine Zeile
-am Bogen.
+**Ob ein Zauber Konzentration verlangt, muss niemand eintragen:** es
+steht in seiner Wirkungsdauer. „Konzentration, bis zu 1 Minute“ — die
+Vorlagen der SRD tragen es alle. Damit gilt es rückwirkend für jeden
+Zauber, der schon im Bogen steht.
+
+Was daraus folgt, steht an den vier Stellen, an denen es am Tisch
+vergessen wird:
+
+- **Wer wirkt, hält.** Das Zugfenster trägt es in den Bogen ein — und
+  wenn schon etwas gehalten wurde, steht im Protokoll, dass es endet.
+  Zwei gleichzeitig gibt es nicht.
+- **Wer Schaden nimmt, muss halten können.** Im Protokoll steht die
+  Zeile mit dem richtigen Schwierigkeitsgrad: die Hälfte des Schadens,
+  mindestens 10. Das ist die Zahl, die am Tisch am häufigsten falsch
+  geraten wird. Sie steht bei jedem Schaden — aus dem Zugfenster, von
+  der Karte, aus dem Bogen.
+- **Wer umfällt, hält nichts mehr.** Dafür gibt es keinen Rettungswurf.
+- **Der Bogen zeigt es an**, mit einem Knopf zum Beenden.
+
+**Was es nicht tut:** den Rettungswurf würfeln oder entscheiden, ob er
+gelang. Es erinnert und nennt die Zahl; gewürfelt wird mit der Hand.
 
 ## Stufe 5 · Beute verteilen
 

@@ -2872,6 +2872,21 @@
   .bj-zeile.gut b { color:#56b183; }
   .bj-zeile.schlecht b { color:var(--gold); }
 
+  /* ── Konzentration ────────────────────────────── */
+  .konz-zeile { display:flex; align-items:flex-start; gap:9px; margin-bottom:10px;
+    padding:9px 11px; border-radius:7px; background:var(--bg-card);
+    border:1px solid var(--inspiration); }
+  .konz-zeichen { font-size:15px; line-height:1.2; }
+  .konz-text { flex:1; min-width:0; font-size:12.5px; line-height:1.5;
+    color:var(--text-secondary); }
+  .konz-text b { color:var(--inspiration); font-weight:400; }
+  .konz-text i { display:block; font-style:normal; font-size:11px;
+    color:var(--text-muted); margin-top:2px; }
+  .konz-weg { flex:0 0 auto; width:24px; height:24px; padding:0; border-radius:4px;
+    cursor:pointer; background:none; border:1px solid var(--border);
+    color:var(--text-muted); }
+  .konz-weg:hover { border-color:var(--gold); color:var(--gold); }
+
   /* ── Proben auf Ansage ──────────────────────────
      Ein Balken unten links, kein Fenster: der Bogen dahinter bleibt
      benutzbar, denn dort steht der Wert, um den es geht. */

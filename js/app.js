@@ -1726,6 +1726,14 @@ const protokollZeile = (e, mitZahlen) => {
       return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': Rettungswurf ' + (e.rw ? e.rw + ' ' : '') + (e.bestanden ? 'bestanden' : 'misslungen') + (e.wurf !== '' && e.wurf != null && e.sg ? ' (' + e.wurf + ' gegen SG ' + e.sg + ')' : '');
     case 'platz':
       return '   Zauberplatz ' + e.grad + '. Grad abgehakt';
+    // Die Erinnerung, die am Tisch am haeufigsten fehlt. Sie sagt nicht,
+    // wie es ausging — gewuerfelt wird mit der Hand.
+    case 'konz':
+      return '   ⚡ ' + e.wer + ' hält „' + e.was + '“ — ' + 'Konstitutions-Rettungswurf gegen SG ' + e.sg;
+    case 'konzAus':
+      return '   ⚡ ' + e.wer + ': „' + e.was + '“ endet';
+    case 'konzAn':
+      return '   ⚡ ' + e.wer + ' hält jetzt „' + e.was + '“';
     // Ein Trank ist nach dem Zug leer. Was noch da ist, steht dabei —
     // sonst muesste man dafuer in den Bogen schauen.
     case 'verbrauch':
@@ -2667,11 +2675,36 @@ const ZugFenster = ({
         teile: n === voll && richtung === 'schaden' ? teile : null
       });
     });
+    // Wer einen Zauber mit Konzentration wirkt, haelt ihn ab jetzt — und
+    // laesst den vorigen fallen. Beides steht im Protokoll, damit
+    // niemand spaeter zwei gleichzeitig zu halten glaubt.
+    let konz = null;
+    if (held && art === 'zauber' && gegenstand && brauchtKonzentration(gegenstand)) {
+      const alt = held.konzentration;
+      if (alt && alt.name && alt.name !== gegenstand.name) eintraege.push({
+        art: 'konzAus',
+        wer: t.name,
+        was: alt.name
+      });
+      konz = {
+        charId: held.id,
+        wert: {
+          id: gegenstand.id,
+          name: gegenstand.name
+        }
+      };
+      eintraege.push({
+        art: 'konzAn',
+        wer: t.name,
+        was: gegenstand.name
+      });
+    }
     return {
       eintraege,
       treffer,
       platz,
-      verbrauch
+      verbrauch,
+      konz
     };
   };
   const {
@@ -3877,6 +3910,21 @@ const KampfAnsicht = ({
         });
       }
     }
+    // Wer einen Zauber hält und Schaden nimmt, muss ihn halten koennen.
+    // Die Zeile steht hier, weil hier jeder Schaden durchgeht — aus dem
+    // Zugfenster, von der Karte, aus dem Bogen.
+    if (t.art === 'held' && eintrag && eintrag.art === 'schaden' && (+eintrag.wert || 0) > 0) {
+      const held = (helden || []).find(h => h.id === t.charId);
+      const k = held && held.konzentration;
+      if (k && k.name) {
+        protokollieren({
+          art: 'konz',
+          wer: t.name,
+          was: k.name,
+          sg: konzentrationSG(eintrag.wert)
+        });
+      }
+    }
     // Und die beiden Augenblicke, die man spaeter nachliest.
     if ((t.hp || 0) > 0 && (neu.hp || 0) <= 0) protokollieren({
       art: 'nieder',
@@ -3896,6 +3944,19 @@ const KampfAnsicht = ({
       if (neu.deathSaves !== undefined) p.deathSaves = neu.deathSaves;
       // Wer wieder ueber null steht, wuerfelt nicht mehr ums Ueberleben.
       if (neu.hp > 0) p.deathSaves = TODES_LEER;
+      // Wer umfällt, hält nichts mehr. Dafür gibt es keinen
+      // Rettungswurf — der Zauber ist einfach weg.
+      if ((t.hp || 0) > 0 && (neu.hp || 0) <= 0) {
+        const h = (helden || []).find(x => x.id === t.charId);
+        if (h && h.konzentration && h.konzentration.name) {
+          p.konzentration = null;
+          protokollieren({
+            art: 'konzAus',
+            wer: t.name,
+            was: h.konzentration.name
+          });
+        }
+      }
       onHeldAendern(t.charId, p, t.name);
     } else {
       aendernKampf(id, fn);
@@ -3942,7 +4003,8 @@ const KampfAnsicht = ({
     eintraege,
     treffer,
     platz,
-    verbrauch
+    verbrauch,
+    konz
   }, weiter, ansageId) => {
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
@@ -3960,6 +4022,14 @@ const KampfAnsicht = ({
       teile,
       minderung
     } : null));
+    // Was gehalten wird, gehoert in den Bogen: es ueberlebt den Kampf,
+    // und der Bogen zeigt es an.
+    if (konz) {
+      const c = helden.find(h => h.id === konz.charId);
+      if (c) onHeldAendern(konz.charId, {
+        konzentration: konz.wert
+      }, c.name);
+    }
     // Der Zauberplatz gehoert in den Bogen, nicht in den Kampf.
     if (platz) {
       const c = helden.find(h => h.id === platz.charId);
@@ -11895,7 +11965,19 @@ const Sheet = () => {
       setTransferMode(false);
       setTransferSel(new Set());
     }
-  }, l)), l))), tab === "stats" && /*#__PURE__*/React.createElement(React.Fragment, null, itemFx.length > 0 && (() => {
+  }, l)), l))), tab === "stats" && /*#__PURE__*/React.createElement(React.Fragment, null, cur.konzentration && cur.konzentration.name && /*#__PURE__*/React.createElement("div", {
+    className: "konz-zeile"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "konz-zeichen"
+  }, "\u26A1"), /*#__PURE__*/React.createElement("span", {
+    className: "konz-text"
+  }, "H\xE4lt ", /*#__PURE__*/React.createElement("b", null, cur.konzentration.name), /*#__PURE__*/React.createElement("i", null, "Schaden verlangt einen Konstitutions-Rettungswurf gegen SG 10 oder die H\xE4lfte des Schadens \u2014 was gr\xF6\xDFer ist.")), darfBearbeiten && /*#__PURE__*/React.createElement("button", {
+    className: "konz-weg",
+    title: "Beenden",
+    onClick: () => patchCurrent(() => ({
+      konzentration: null
+    }))
+  }, "\u2715")), itemFx.length > 0 && (() => {
     const bySource = [];
     itemFx.forEach(e => {
       let g = bySource.find(x => x.source === e.source && x.icon === e.icon);
