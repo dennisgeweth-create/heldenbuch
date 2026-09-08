@@ -74,8 +74,13 @@ Namen.
 
 **Hingelegt wird nichts von allein.** Der Text füllt die Zeilen, und
 davor sitzt weiter die Spielleitung — jede Zahl steht zum Ändern da.
-Namen, die in der Datenbank stehen, bringen ihre Beschreibung mit; wo
-die Liste selbst eine Notiz mitliefert, gilt die Liste.
+
+Jeder Name wird in der Datenbank nachgeschlagen. Wird er gefunden, gilt
+der Eintrag von dort: seine Schreibweise („8x fackel" wird zu Fackel),
+seine Beschreibung, und beim Eintragen in die Bögen alles Übrige —
+Gewicht, Seltenheit, Wirkung. Die Rückmeldung sagt, wie viele Stücke
+von dort kamen. Nur eine Notiz aus der Liste selbst sticht die
+Beschreibung: sie gilt für dieses eine Stück.
 
 Daneben steht eine **Anweisung zum Kopieren**, die einer KI sagt, in
 welcher Form die Liste zurückkommen soll. Unten hängt man an, was
@@ -100,8 +105,17 @@ Trefferpunkt und Rüstungsklasse zehn.
 
 Steht bei den Trefferpunkten ein **Würfel**, wird er für jeden einzeln
 geworfen — vier Goblins sind vier verschiedene Zahlen und nicht viermal
-dieselbe. Angelegt wird weiter aus dem Stegreif: nichts davon wandert
-in die Gegnersammlung, alles geht geradewegs in die Initiative.
+dieselbe.
+
+**Und was in der Gegnersammlung steht, kommt von dort.** Jeder Name
+wird nachgeschlagen — „goblin" findet den Goblin —, und dann bringt er
+mit, was dort hinterlegt ist: Trefferwürfel, Rüstungsklasse, Initiative
+nach seiner Geschicklichkeit, sein Bild und sein Blatt. Solche Zeilen
+stehen hervorgehoben da. Die Zahlen daneben bleiben trotzdem deine: wer
+„Wolf | 15 TP" schreibt, bekommt einen Wolf mit fünfzehn.
+
+Wen die Sammlung nicht kennt, entsteht wie bisher aus dem Stegreif.
+Geschrieben wird in die Sammlung dabei nie — gelesen schon.
 
 ### 🎒 Beute und Laden füllen sich aus der Datenbank
 

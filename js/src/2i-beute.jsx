@@ -88,19 +88,25 @@ const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
       COINS.forEach(c => { n[c.key] = (n[c.key] || 0) + (g.muenzen[c.key] || 0); });
       return n;
     });
-    if (g.stuecke.length) setZeilen(z => z.filter(x => x.name.trim()).concat(
-      // Steht der Name in der Datenbank, bringt er seine Beschreibung
-      // mit — aber nur, wo die Liste selbst keine Notiz mitgeliefert hat.
-      g.stuecke.map(st => {
-        const t = dbGegenstand(gegenstaende, st.name);
-        return {name: st.name, anzahl: st.anzahl, notiz: st.notiz || (t ? dbKurz(t) : '')};
-      }),
-      [{name:'', anzahl:1, notiz:''}]));
+    // Steht der Name in der Datenbank, gilt der Eintrag von dort: seine
+    // Schreibweise, seine Beschreibung, und beim Eintragen in die Bögen
+    // alles Übrige — Gewicht, Seltenheit, Wirkung. Nur eine Notiz aus
+    // der Liste selbst sticht die Beschreibung: sie gilt für dieses eine
+    // Stück („Schmuck im Wert von 500 Gold").
+    const reihen = g.stuecke.map(st => {
+      const t = dbGegenstand(gegenstaende, st.name);
+      return {name: (t && t.name) || st.name, anzahl: st.anzahl,
+              notiz: st.notiz || (t ? dbKurz(t) : ''), ausDb: !!t};
+    });
+    if (reihen.length) setZeilen(z => z.filter(x => x.name.trim())
+      .concat(reihen.map(({ausDb, ...r}) => r), [{name:'', anzahl:1, notiz:''}]));
 
     const was = [];
-    if (g.stuecke.length) was.push(g.stuecke.length + (g.stuecke.length === 1 ? ' Stück' : ' Stücke'));
+    if (reihen.length) was.push(reihen.length + (reihen.length === 1 ? ' Stück' : ' Stücke'));
     if (geld) was.push(beuteMuenzText(g.muenzen));
+    const ausDb = reihen.filter(r => r.ausDb).length;
     return {gut: true, meldung: 'Übernommen: ' + was.join(' und ')
+      + (ausDb ? ' — ' + ausDb + ' davon aus der Datenbank, mit allem, was dort steht' : '')
       + '. Sieh die Zeilen durch, bevor du hinlegst.'};
   };
 

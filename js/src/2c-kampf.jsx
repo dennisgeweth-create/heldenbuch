@@ -1487,10 +1487,28 @@ const KAMPF_KI_ANWEISUNG = [
   '',
 ].join('\n');
 
-const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
-  const [zeilen, setZeilen] = React.useState([{name:'', tp:'', ac:'', anzahl:1}]);
+// Eine Zeile aus einem Namen: steht er in der Gegnersammlung, kommt die
+// Vorlage mit — mit ihren Trefferwürfeln, ihrer Rüstungsklasse und der
+// Kennung, an der später das Blatt hängt. Was die Liste selbst
+// mitgebracht hat, sticht die Vorlage: wer „Goblin | 12 TP" schreibt,
+// meint zwölf.
+const gegnerZeile = (enemies, gelesen) => {
+  const v = dbEintrag(enemies, gelesen.name);
+  if (!v) return {...gelesen, ac: gelesen.ac === null ? '' : String(gelesen.ac), vorlageId: null};
+  return {
+    name: v.name,                               // Schreibweise der Sammlung
+    tp: gelesen.tp || String(v.hpDice || v.hpMax || ''),
+    ac: gelesen.ac === null ? String(v.ac || '') : String(gelesen.ac),
+    anzahl: gelesen.anzahl,
+    vorlageId: v.id,
+  };
+};
+
+const NothelferFenster = ({ enemies, onAnlegen, onAbbrechen }) => {
+  const [zeilen, setZeilen] = React.useState([{name:'', tp:'', ac:'', anzahl:1, vorlageId:null}]);
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {...x, ...p} : x));
   const gute = zeilen.filter(z => (z.name || '').trim());
+  const leerZeile = {name:'', tp:'', ac:'', anzahl:1, vorlageId:null};
 
   // Der eingefügte Text wird zu Zeilen — nicht zu Gegnern. In die
   // Initiative geht erst der Knopf unten, und bis dahin steht jede Zahl
@@ -1498,18 +1516,18 @@ const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
   const uebernehmen = (roh) => {
     const g = gegnerAusText(roh);
     if (!g.length) return {gut: false, meldung: 'Daraus lässt sich nichts lesen. Eine Zeile je Gegner.'};
-    setZeilen(z => z.filter(x => (x.name || '').trim()).concat(
-      g.map(x => ({name: x.name, tp: x.tp, ac: x.ac === null ? '' : String(x.ac),
-                   anzahl: x.anzahl})),
-      [{name:'', tp:'', ac:'', anzahl:1}]));
-    const summe = g.reduce((s, x) => s + x.anzahl, 0);
-    return {gut: true, meldung: 'Übernommen: ' + g.length + (g.length === 1 ? ' Zeile' : ' Zeilen')
-      + (summe !== g.length ? ', zusammen ' + summe + ' Gegner' : '')
+    const reihen = g.map(x => gegnerZeile(enemies, x));
+    setZeilen(z => z.filter(x => (x.name || '').trim()).concat(reihen, [leerZeile]));
+    const summe = reihen.reduce((s, x) => s + x.anzahl, 0);
+    const ausDb = reihen.filter(x => x.vorlageId).length;
+    return {gut: true, meldung: 'Übernommen: ' + reihen.length + (reihen.length === 1 ? ' Zeile' : ' Zeilen')
+      + (summe !== reihen.length ? ', zusammen ' + summe + ' Gegner' : '')
+      + (ausDb ? ' — ' + ausDb + ' davon aus der Sammlung, mit allem, was dort steht' : '')
       + '. Sieh sie durch, bevor sie in den Kampf gehen.'};
   };
 
   const fertig = () => onAnlegen(gute.map(z => ({
-    name: z.name.trim(), tp: z.tp, ac: z.ac,
+    name: z.name.trim(), tp: z.tp, ac: z.ac, vorlageId: z.vorlageId || null,
     anzahl: Math.max(1, Math.min(40, +z.anzahl || 1)),
   })));
   const taste = (e) => { if (e.key === 'Enter') fertig(); };
@@ -1528,6 +1546,11 @@ const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
           onText={uebernehmen}
           platzhalter={'Eine Zeile je Gegner:\n\n4x Goblin | 7 TP | RK 15\nGoblin-Boss | 21 TP | RK 17\nWächter am Tor | 2W6 | 13'} />
 
+        {/* Die Gegnersammlung als Vorschlagsliste — einmal für alle Zeilen. */}
+        <datalist id="hb-db-gegner">
+          {(enemies || []).map(e => <option key={e.id} value={e.name} />)}
+        </datalist>
+
         <div className="not-zeilen">
           {/* Ausgefüllt sagen drei Zahlen nebeneinander nicht mehr, welche
               welche ist — deshalb stehen die Spalten oben angeschrieben. */}
@@ -1536,10 +1559,20 @@ const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
             <span>TP</span><span>RK</span><span>Anz.</span><span></span>
           </div>
           {zeilen.map((z, i) => (
-            <div className="not-neu" key={i}>
+            <div className={'not-neu' + (z.vorlageId ? ' aus-sammlung' : '')} key={i}>
               <input className="form-input not-name" autoFocus={i === 0} maxLength={60}
-                placeholder="z.B. Wächter am Tor" value={z.name}
-                onChange={e=>setZeile(i, {name: e.target.value})} onKeyDown={taste} />
+                list="hb-db-gegner" value={z.name}
+                placeholder="z.B. Wächter am Tor"
+                title={z.vorlageId ? 'Aus der Gegnersammlung — kommt mit Blatt und Bild'
+                                   : 'Aus dem Stegreif'}
+                onChange={e=>{
+                  // Steht der Name in der Sammlung, kommt die Vorlage mit.
+                  // Was schon in der Zeile steht, bleibt stehen.
+                  const v = dbEintrag(enemies, e.target.value);
+                  setZeile(i, {name: e.target.value, vorlageId: v ? v.id : null,
+                    tp: z.tp || (v ? String(v.hpDice || v.hpMax || '') : ''),
+                    ac: z.ac || (v ? String(v.ac || '') : '')});
+                }} onKeyDown={taste} />
               {/* Trefferpunkte als Feld und nicht als Zahlenfeld: „2W6"
                   soll hier stehen dürfen, gewürfelt wird beim Anlegen. */}
               <input className="form-input" maxLength={12} placeholder="TP" value={z.tp}
@@ -1550,11 +1583,10 @@ const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
                 onChange={e=>setZeile(i, {anzahl: e.target.value})} onKeyDown={taste} />
               <button className="konz-weg" title="Zeile weg"
                 onClick={()=>setZeilen(z2 => z2.length > 1 ? z2.filter((_, j) => j !== i)
-                                                          : [{name:'', tp:'', ac:'', anzahl:1}])}>✕</button>
+                                                          : [leerZeile])}>✕</button>
             </div>
           ))}
-          <button className="bj-taste"
-            onClick={()=>setZeilen(z => [...z, {name:'', tp:'', ac:'', anzahl:1}])}>
+          <button className="bj-taste" onClick={()=>setZeilen(z => [...z, leerZeile])}>
             + Noch eine Zeile
           </button>
         </div>
@@ -1562,6 +1594,9 @@ const NothelferFenster = ({ onAnlegen, onAbbrechen }) => {
         <div className="einst-hinweis" style={{marginTop:10}}>
           Die Initiative wird gewürfelt. Leere Felder bedeuten 1 Trefferpunkt und
           Rüstungsklasse 10; „2W6" wird für jeden Gegner einzeln geworfen.
+          <b> Namen aus der Gegnersammlung</b> — hervorgehoben — bringen ihre Werte,
+          ihr Blatt und ihr Bild mit; wer die Zahlen daneben ändert, ändert sie
+          für diesen Kampf.
         </div>
         <div className="form-actions">
           <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
@@ -2339,18 +2374,32 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
         )}
 
         {nothelferOffen && (
-          <NothelferFenster
+          <NothelferFenster enemies={enemies}
             onAbbrechen={()=>setNothelferOffen(false)}
             onAnlegen={(reihen)=>{
               setNothelferOffen(false);
               const neue = [];
               reihen.forEach(z => {
+                const vorlage = z.vorlageId ? enemies.find(e => e.id === z.vorlageId) : null;
+                // Die Sammlung schreibt den Namen: „goblin" getippt oder
+                // eingefügt steht als Goblin in der Initiative. Ein
+                // wirklich anderer Name hätte die Vorlage gar nicht erst
+                // gefunden — dann gilt ohnehin, was dasteht.
+                const grund = vorlage ? vorlage.name : z.name;
                 for (let i = 0; i < z.anzahl; i++) {
+                  const name = z.anzahl > 1 ? grund + ' ' + (i+1) : grund;
                   // Eine Würfelangabe wird für jeden einzeln geworfen —
                   // vier Goblins sind vier verschiedene Zahlen.
                   const tp = /[dw]/i.test(z.tp) ? wuerfelTP({hpDice: z.tp, hpMax: 1}) : z.tp;
-                  neue.push(nothelferAnlegen(
-                    z.anzahl > 1 ? z.name + ' ' + (i+1) : z.name, tp, z.ac));
+                  if (!vorlage) { neue.push(nothelferAnlegen(name, tp, z.ac)); continue; }
+                  // Steht der Name in der Sammlung, kommt der ganze Gegner
+                  // von dort: Blatt, Bild, Initiative nach Geschicklichkeit.
+                  // Die Zahlen aus der Zeile gelten trotzdem — sie standen
+                  // der Spielleitung zum Ändern da.
+                  const g = gegnerAusVorlage(vorlage, name);
+                  if (String(z.tp).trim()) { g.hpMax = Math.max(1, Math.round(+tp) || 1); g.hp = g.hpMax; }
+                  if (String(z.ac).trim()) g.ac = Math.max(1, Math.round(+z.ac) || g.ac);
+                  neue.push(g);
                 }
               });
               if (neue.length) dazu(neue);

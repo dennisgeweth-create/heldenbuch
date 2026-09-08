@@ -764,11 +764,14 @@ const gegnerAusText = (text) => {
 // nicht dazu fuehren, dass ein Stueck ohne seine Werte im Bogen landet.
 const dbSchluessel = (n) => String(n || '').toLowerCase()
   .replace(/[\s,.·–—_-]+/g, ' ').trim();
-const dbGegenstand = (liste, name) => {
+const dbEintrag = (liste, name) => {
   const k = dbSchluessel(name);
   if (!k) return null;
   return (liste || []).find(x => x && dbSchluessel(x.name) === k) || null;
 };
+// Dieselbe Suche, unter dem Namen, der am jeweiligen Ort passt: in der
+// Beute und im Laden sind es Gegenstaende, im Kampf sind es Gegner.
+const dbGegenstand = dbEintrag;
 // Aus einem Datenbankeintrag ein Stueck fuers Inventar. Was jemand
 // dazugeschrieben hat — „im Wert von 500 Gold" — sticht die
 // Beschreibung aus der Datenbank: sie gilt fuer dieses eine Stueck.

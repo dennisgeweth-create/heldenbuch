@@ -3560,6 +3560,10 @@
     letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted);
     text-align:center; }
   .not-kopf span.not-name { text-align:left; }
+  /* Eine Zeile, die aus der Gegnersammlung stammt, bringt mehr mit als
+     drei Zahlen — das soll man ihr ansehen. */
+  .not-neu.aus-sammlung .not-name { border-color:var(--border-bright);
+    color:var(--inspiration); }
   @media (max-width:560px) {
     .not-neu { grid-template-columns:repeat(3, minmax(0,1fr)) 28px; }
     .not-neu .not-name { grid-column:1 / -1; }

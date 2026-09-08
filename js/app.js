@@ -3592,7 +3592,30 @@ const BegegnungWahl = ({
 // herauskommt, die dieses Fenster lesen kann. Der letzte Absatz bleibt
 // offen — dort steht, wer diesmal im Weg steht.
 const KAMPF_KI_ANWEISUNG = ['Erstelle mir eine Gegnerliste für einen Kampf in Dungeons & Dragons 5e', 'auf Deutsch. Antworte nur mit der Liste: keine Einleitung, keine', 'Erklärung, keine Tabelle, keine Überschriften, keine Werteblöcke.', '', 'Eine Zeile je Gegnerart, in dieser Form:', '  <Anzahl>x <Name> | <Trefferpunkte> TP | RK <Rüstungsklasse>', '', 'Dabei gilt:', '- Die Anzahl darfst du weglassen, wenn es nur einer ist.', '- Trefferpunkte als feste Zahl oder als Würfel: „7 TP" oder „2W6 TP".', '  Gewürfelt wird hier, für jeden Gegner einzeln.', '- Gegner mit ihrem deutschen Namen: „Goblin", „Wolf", „Skelett".', '- Nur Name, Trefferpunkte und Rüstungsklasse — alles Weitere', '  (Angriffe, Zauber, Fähigkeiten) bleibt beim Spielleiter.', '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.', '', 'Beispiel:', '4x Goblin | 7 TP | RK 15', 'Goblin-Boss | 21 TP | RK 17', '2x Wolf | 2W6+2 TP | RK 13', '', 'Und das soll im Weg stehen:', ''].join('\n');
+
+// Eine Zeile aus einem Namen: steht er in der Gegnersammlung, kommt die
+// Vorlage mit — mit ihren Trefferwürfeln, ihrer Rüstungsklasse und der
+// Kennung, an der später das Blatt hängt. Was die Liste selbst
+// mitgebracht hat, sticht die Vorlage: wer „Goblin | 12 TP" schreibt,
+// meint zwölf.
+const gegnerZeile = (enemies, gelesen) => {
+  const v = dbEintrag(enemies, gelesen.name);
+  if (!v) return {
+    ...gelesen,
+    ac: gelesen.ac === null ? '' : String(gelesen.ac),
+    vorlageId: null
+  };
+  return {
+    name: v.name,
+    // Schreibweise der Sammlung
+    tp: gelesen.tp || String(v.hpDice || v.hpMax || ''),
+    ac: gelesen.ac === null ? String(v.ac || '') : String(gelesen.ac),
+    anzahl: gelesen.anzahl,
+    vorlageId: v.id
+  };
+};
 const NothelferFenster = ({
+  enemies,
   onAnlegen,
   onAbbrechen
 }) => {
@@ -3600,13 +3623,21 @@ const NothelferFenster = ({
     name: '',
     tp: '',
     ac: '',
-    anzahl: 1
+    anzahl: 1,
+    vorlageId: null
   }]);
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {
     ...x,
     ...p
   } : x));
   const gute = zeilen.filter(z => (z.name || '').trim());
+  const leerZeile = {
+    name: '',
+    tp: '',
+    ac: '',
+    anzahl: 1,
+    vorlageId: null
+  };
 
   // Der eingefügte Text wird zu Zeilen — nicht zu Gegnern. In die
   // Initiative geht erst der Knopf unten, und bis dahin steht jede Zahl
@@ -3617,27 +3648,20 @@ const NothelferFenster = ({
       gut: false,
       meldung: 'Daraus lässt sich nichts lesen. Eine Zeile je Gegner.'
     };
-    setZeilen(z => z.filter(x => (x.name || '').trim()).concat(g.map(x => ({
-      name: x.name,
-      tp: x.tp,
-      ac: x.ac === null ? '' : String(x.ac),
-      anzahl: x.anzahl
-    })), [{
-      name: '',
-      tp: '',
-      ac: '',
-      anzahl: 1
-    }]));
-    const summe = g.reduce((s, x) => s + x.anzahl, 0);
+    const reihen = g.map(x => gegnerZeile(enemies, x));
+    setZeilen(z => z.filter(x => (x.name || '').trim()).concat(reihen, [leerZeile]));
+    const summe = reihen.reduce((s, x) => s + x.anzahl, 0);
+    const ausDb = reihen.filter(x => x.vorlageId).length;
     return {
       gut: true,
-      meldung: 'Übernommen: ' + g.length + (g.length === 1 ? ' Zeile' : ' Zeilen') + (summe !== g.length ? ', zusammen ' + summe + ' Gegner' : '') + '. Sieh sie durch, bevor sie in den Kampf gehen.'
+      meldung: 'Übernommen: ' + reihen.length + (reihen.length === 1 ? ' Zeile' : ' Zeilen') + (summe !== reihen.length ? ', zusammen ' + summe + ' Gegner' : '') + (ausDb ? ' — ' + ausDb + ' davon aus der Sammlung, mit allem, was dort steht' : '') + '. Sieh sie durch, bevor sie in den Kampf gehen.'
     };
   };
   const fertig = () => onAnlegen(gute.map(z => ({
     name: z.name.trim(),
     tp: z.tp,
     ac: z.ac,
+    vorlageId: z.vorlageId || null,
     anzahl: Math.max(1, Math.min(40, +z.anzahl || 1))
   })));
   const taste = e => {
@@ -3665,24 +3689,39 @@ const NothelferFenster = ({
     aufschrift: "Gegnerliste einf\xFCgen",
     onText: uebernehmen,
     platzhalter: 'Eine Zeile je Gegner:\n\n4x Goblin | 7 TP | RK 15\nGoblin-Boss | 21 TP | RK 17\nWächter am Tor | 2W6 | 13'
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("datalist", {
+    id: "hb-db-gegner"
+  }, (enemies || []).map(e => /*#__PURE__*/React.createElement("option", {
+    key: e.id,
+    value: e.name
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "not-zeilen"
   }, /*#__PURE__*/React.createElement("div", {
     className: "not-neu not-kopf"
   }, /*#__PURE__*/React.createElement("span", {
     className: "not-name"
   }, "Name"), /*#__PURE__*/React.createElement("span", null, "TP"), /*#__PURE__*/React.createElement("span", null, "RK"), /*#__PURE__*/React.createElement("span", null, "Anz."), /*#__PURE__*/React.createElement("span", null)), zeilen.map((z, i) => /*#__PURE__*/React.createElement("div", {
-    className: "not-neu",
+    className: 'not-neu' + (z.vorlageId ? ' aus-sammlung' : ''),
     key: i
   }, /*#__PURE__*/React.createElement("input", {
     className: "form-input not-name",
     autoFocus: i === 0,
     maxLength: 60,
-    placeholder: "z.B. W\xE4chter am Tor",
+    list: "hb-db-gegner",
     value: z.name,
-    onChange: e => setZeile(i, {
-      name: e.target.value
-    }),
+    placeholder: "z.B. W\xE4chter am Tor",
+    title: z.vorlageId ? 'Aus der Gegnersammlung — kommt mit Blatt und Bild' : 'Aus dem Stegreif',
+    onChange: e => {
+      // Steht der Name in der Sammlung, kommt die Vorlage mit.
+      // Was schon in der Zeile steht, bleibt stehen.
+      const v = dbEintrag(enemies, e.target.value);
+      setZeile(i, {
+        name: e.target.value,
+        vorlageId: v ? v.id : null,
+        tp: z.tp || (v ? String(v.hpDice || v.hpMax || '') : ''),
+        ac: z.ac || (v ? String(v.ac || '') : '')
+      });
+    },
     onKeyDown: taste
   }), /*#__PURE__*/React.createElement("input", {
     className: "form-input",
@@ -3714,26 +3753,16 @@ const NothelferFenster = ({
   }), /*#__PURE__*/React.createElement("button", {
     className: "konz-weg",
     title: "Zeile weg",
-    onClick: () => setZeilen(z2 => z2.length > 1 ? z2.filter((_, j) => j !== i) : [{
-      name: '',
-      tp: '',
-      ac: '',
-      anzahl: 1
-    }])
+    onClick: () => setZeilen(z2 => z2.length > 1 ? z2.filter((_, j) => j !== i) : [leerZeile])
   }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
     className: "bj-taste",
-    onClick: () => setZeilen(z => [...z, {
-      name: '',
-      tp: '',
-      ac: '',
-      anzahl: 1
-    }])
+    onClick: () => setZeilen(z => [...z, leerZeile])
   }, "+ Noch eine Zeile")), /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 10
     }
-  }, "Die Initiative wird gew\xFCrfelt. Leere Felder bedeuten 1 Trefferpunkt und R\xFCstungsklasse 10; \u201E2W6\" wird f\xFCr jeden Gegner einzeln geworfen."), /*#__PURE__*/React.createElement("div", {
+  }, "Die Initiative wird gew\xFCrfelt. Leere Felder bedeuten 1 Trefferpunkt und R\xFCstungsklasse 10; \u201E2W6\" wird f\xFCr jeden Gegner einzeln geworfen.", /*#__PURE__*/React.createElement("b", null, " Namen aus der Gegnersammlung"), " \u2014 hervorgehoben \u2014 bringen ihre Werte, ihr Blatt und ihr Bild mit; wer die Zahlen daneben \xE4ndert, \xE4ndert sie f\xFCr diesen Kampf."), /*#__PURE__*/React.createElement("div", {
     className: "form-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
@@ -4744,19 +4773,41 @@ const KampfAnsicht = ({
   }, /*#__PURE__*/React.createElement("b", null, "Vorbereitung."), " Gegner dazustellen, Initiativen eintragen, Helden ein- und ausladen. Die Runde l\xE4uft noch nicht \u2014 ins Protokoll kommt erst etwas, wenn der Kampf gestartet ist."), ohneIni > 0 && !vorbereitung && /*#__PURE__*/React.createElement("div", {
     className: "kampf-hinweis"
   }, ohneIni === 1 ? 'Bei einer Figur fehlt die Initiative' : 'Bei ' + ohneIni + ' Figuren fehlt die Initiative', " \u2014 sie stehen unten, bis die Zahl eingetragen ist. Links auf die Zahl tippen oder oben w\xFCrfeln lassen."), nothelferOffen && /*#__PURE__*/React.createElement(NothelferFenster, {
+    enemies: enemies,
     onAbbrechen: () => setNothelferOffen(false),
     onAnlegen: reihen => {
       setNothelferOffen(false);
       const neue = [];
       reihen.forEach(z => {
+        const vorlage = z.vorlageId ? enemies.find(e => e.id === z.vorlageId) : null;
+        // Die Sammlung schreibt den Namen: „goblin" getippt oder
+        // eingefügt steht als Goblin in der Initiative. Ein
+        // wirklich anderer Name hätte die Vorlage gar nicht erst
+        // gefunden — dann gilt ohnehin, was dasteht.
+        const grund = vorlage ? vorlage.name : z.name;
         for (let i = 0; i < z.anzahl; i++) {
+          const name = z.anzahl > 1 ? grund + ' ' + (i + 1) : grund;
           // Eine Würfelangabe wird für jeden einzeln geworfen —
           // vier Goblins sind vier verschiedene Zahlen.
           const tp = /[dw]/i.test(z.tp) ? wuerfelTP({
             hpDice: z.tp,
             hpMax: 1
           }) : z.tp;
-          neue.push(nothelferAnlegen(z.anzahl > 1 ? z.name + ' ' + (i + 1) : z.name, tp, z.ac));
+          if (!vorlage) {
+            neue.push(nothelferAnlegen(name, tp, z.ac));
+            continue;
+          }
+          // Steht der Name in der Sammlung, kommt der ganze Gegner
+          // von dort: Blatt, Bild, Initiative nach Geschicklichkeit.
+          // Die Zahlen aus der Zeile gelten trotzdem — sie standen
+          // der Spielleitung zum Ändern da.
+          const g = gegnerAusVorlage(vorlage, name);
+          if (String(z.tp).trim()) {
+            g.hpMax = Math.max(1, Math.round(+tp) || 1);
+            g.hp = g.hpMax;
+          }
+          if (String(z.ac).trim()) g.ac = Math.max(1, Math.round(+z.ac) || g.ac);
+          neue.push(g);
         }
       });
       if (neue.length) dazu(neue);
@@ -11413,27 +11464,35 @@ const BeuteAnlegen = ({
       });
       return n;
     });
-    if (g.stuecke.length) setZeilen(z => z.filter(x => x.name.trim()).concat(
-    // Steht der Name in der Datenbank, bringt er seine Beschreibung
-    // mit — aber nur, wo die Liste selbst keine Notiz mitgeliefert hat.
-    g.stuecke.map(st => {
+    // Steht der Name in der Datenbank, gilt der Eintrag von dort: seine
+    // Schreibweise, seine Beschreibung, und beim Eintragen in die Bögen
+    // alles Übrige — Gewicht, Seltenheit, Wirkung. Nur eine Notiz aus
+    // der Liste selbst sticht die Beschreibung: sie gilt für dieses eine
+    // Stück („Schmuck im Wert von 500 Gold").
+    const reihen = g.stuecke.map(st => {
       const t = dbGegenstand(gegenstaende, st.name);
       return {
-        name: st.name,
+        name: t && t.name || st.name,
         anzahl: st.anzahl,
-        notiz: st.notiz || (t ? dbKurz(t) : '')
+        notiz: st.notiz || (t ? dbKurz(t) : ''),
+        ausDb: !!t
       };
-    }), [{
+    });
+    if (reihen.length) setZeilen(z => z.filter(x => x.name.trim()).concat(reihen.map(({
+      ausDb,
+      ...r
+    }) => r), [{
       name: '',
       anzahl: 1,
       notiz: ''
     }]));
     const was = [];
-    if (g.stuecke.length) was.push(g.stuecke.length + (g.stuecke.length === 1 ? ' Stück' : ' Stücke'));
+    if (reihen.length) was.push(reihen.length + (reihen.length === 1 ? ' Stück' : ' Stücke'));
     if (geld) was.push(beuteMuenzText(g.muenzen));
+    const ausDb = reihen.filter(r => r.ausDb).length;
     return {
       gut: true,
-      meldung: 'Übernommen: ' + was.join(' und ') + '. Sieh die Zeilen durch, bevor du hinlegst.'
+      meldung: 'Übernommen: ' + was.join(' und ') + (ausDb ? ' — ' + ausDb + ' davon aus der Datenbank, mit allem, was dort steht' : '') + '. Sieh die Zeilen durch, bevor du hinlegst.'
     };
   };
   const leer = !stuecke.length && !COINS.some(c => muenzen[c.key] > 0);
