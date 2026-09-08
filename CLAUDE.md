@@ -21,6 +21,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2f3-roulette.jsx` | Französisches Roulette samt Rennbahn |
 | ↳ `2f4-craps.jsx` | Craps — Linien, Odds, Come, Place, Feld, Mitte |
 | ↳ `2f5-rennen.jsx` | Pferderennen — Simulation, und die Quoten daraus |
+| ↳ `2f6-poker.jsx` | Ultimate Texas Hold’em — Blattbewertung, Tafel, Abrechnung |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `4-app.jsx` | Zustand, Server-Sync, Seitenleiste, Dialoge |

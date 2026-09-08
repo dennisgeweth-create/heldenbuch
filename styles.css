@@ -2875,6 +2875,51 @@
   .bj-zeile.gut b { color:#56b183; }
   .bj-zeile.schlecht b { color:var(--gold); }
 
+  /* ── Ultimate Texas Hold'em ───────────────────────
+     Derselbe Filz wie am Kartentisch daneben. Oben der Geber, in der
+     Mitte die fuenf Plaetze, unten das eigene Blatt — so sitzt man am
+     Tisch, und so steht es hier. */
+  .pk-filz { display:flex; flex-direction:column; gap:12px; padding-top:34px; }
+  .pk-seite { display:flex; align-items:center; gap:12px; width:100%; }
+  .pk-seite.dran { outline:1px solid var(--inspiration); outline-offset:5px;
+    border-radius:6px; }
+  .pk-wer { flex:0 0 76px; font-family:'Roboto Condensed',sans-serif; font-size:10px;
+    letter-spacing:0.18em; text-transform:uppercase; color:#a8d8bd; }
+  .pk-blatt { display:flex; gap:6px; flex:0 0 auto; }
+  .pk-rang { flex:1; min-width:0; text-align:right; font-family:'Roboto Condensed',sans-serif;
+    font-size:12px; color:#dff0e6; }
+  .pk-rang.hell { color:var(--inspiration); font-size:14px; }
+
+  /* Die Mitte: fuenf Plaetze und der Aufdruck darunter. */
+  .pk-tuch { display:flex; flex-direction:column; align-items:center; gap:8px;
+    padding:9px 6px; border-top:1px solid rgba(216,240,226,0.30);
+    border-bottom:1px solid rgba(216,240,226,0.16); border-radius:50% / 22px; }
+  .pk-mitte-karten { display:flex; gap:6px; }
+  .pk-druck { display:flex; flex-direction:column; gap:2px; text-align:center; }
+
+  /* Was auf dem Tuch liegt. Drei bis vier Betraege — wer nicht
+     mitzaehlt, weiss am Ende nicht, warum es so viel war. */
+  .pk-satz { display:flex; flex-wrap:wrap; gap:4px 16px; padding:8px 11px;
+    border-radius:7px; background:var(--bg-panel); border:1px solid var(--border); }
+  .pk-satz span { display:flex; align-items:baseline; gap:6px; }
+  .pk-satz i { font-style:normal; font-family:'Roboto Condensed',sans-serif;
+    font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text-muted); }
+  .pk-satz b { font-family:'Roboto Condensed',sans-serif; font-size:14px;
+    font-weight:400; color:var(--text-primary); font-variant-numeric:tabular-nums; }
+  .pk-satz .leise b { color:var(--text-muted); }
+  .pk-satz-summe { margin-left:auto; }
+  .pk-satz-summe b { color:var(--inspiration); }
+
+  .pk-trips { display:flex; align-items:flex-start; gap:9px; padding:9px 11px;
+    border-radius:7px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border); }
+  .pk-trips input { width:16px; height:16px; margin-top:2px; flex-shrink:0;
+    cursor:pointer; accent-color:var(--inspiration); }
+  .pk-trips span { font-size:12px; line-height:1.55; color:var(--text-secondary); }
+  .pk-trips b { color:var(--text-primary); font-weight:400; }
+  .pk-trips i { display:block; font-style:normal; font-size:11px; color:var(--text-muted); }
+
   /* Ab Tabletbreite darf ein Tisch auch hoeher stehen — dort ist der
      Schirm da, und ein Roulettetapis mit zwoelf Spalten braucht ihn.
      Und was das Fenster an Breite dazubekommt, gehoert dem Spiel und
@@ -2902,6 +2947,11 @@
     .bj-kreis { width:44px; height:44px; flex-basis:44px; }
     .bj-kreis i { min-width:30px; height:30px; border-radius:15px; font-size:12px; }
     .bj-taste { min-height:44px; font-size:12.5px; }
+
+    /* Poker: sieben Karten auf dem Tuch, und alle sollen lesbar sein. */
+    .pk-blatt { gap:8px; }
+    .pk-mitte-karten { gap:8px; }
+    .pk-filz { gap:13px; }
 
     /* Craps: die beiden Wuerfel sind das, worauf alle schauen. */
     .cr-wuerfel { width:52px; height:52px; border-radius:8px; }

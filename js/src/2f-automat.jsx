@@ -299,6 +299,7 @@ const WIRT_GRUSS = {
   blackjack: 'Der Wirt klopft auf den Schlitten. „Setz, dann gebe ich.“',
   roulette:  'Der Wirt dreht den Kessel leer an. „Legen Sie, meine Herrschaften.“',
   craps:     'Der Wirt schiebt die Würfel herüber. „Deine Hand.“',
+  poker:     'Der Wirt klopft das Blatt auf. „Ante und Blind, dann sehen wir.“',
 };
 
 // Was gefallen ist, nicht nur wie es ausging.
@@ -355,6 +356,18 @@ const WIRT_FALL = {
   sofort: [
     '„Sofort durch. Das geht schnell hier.“',
     '„Der erste Wurf entscheidet. Heute für dich.“',
+  ],
+  straightflush: [
+    '„Das sieht dieser Tisch nicht jedes Jahr.“ Er zahlt und bleibt stehen.',
+    '„So eins hättest du vorm Flop setzen sollen.“',
+  ],
+  grossesBlatt: [
+    '„Dafür zahlt die Blind.“ Er legt zweimal nach.',
+    '„Gutes Blatt. Und du hast es früh bezahlt — richtig so.“',
+  ],
+  oeffnetNicht: [
+    '„Ich öffne nicht.“ Er schiebt die Ante zurück, ohne sie anzurühren.',
+    '„Nichts in der Hand. Die Ante bleibt bei dir.“',
   ],
 };
 
@@ -1056,6 +1069,9 @@ const TAVERNEN_TISCHE = [
   {k:'rennen',    z:'🐎', name:'Die Rennbahn vor dem Tor',
    unter:'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf', rand:'Bank 12 %',
    da:true, breit:560, weit:700},
+  {k:'poker',     z:'♟', name:'Ultimate Texas Hold’em',
+   unter:'Gegen das Haus. Wer früh erhöht, zahlt das Vierfache', rand:'Bank 2,2 %',
+   da:true, breit:520, weit:660},
 ];
 
 // Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
@@ -1303,6 +1319,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
         <CrapsTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'rennen' ? (
         <RennenTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+      ) : jetzt && jetzt.k === 'poker' ? (
+        <PokerTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />
