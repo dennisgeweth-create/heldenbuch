@@ -3211,6 +3211,15 @@
      steht, passiert nicht. Deshalb steht sie hell und die Wahl davor
      leise. */
   /* Ab der zweiten Klasse wird gewaehlt, welche aufsteigt. */
+  /* Die Attribute eines halben Talents: sechs Haken nebeneinander. */
+  .tal-attr { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; }
+  .tal-attr-feld { display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:5px;
+    cursor:pointer; background:var(--bg-card); border:1px solid var(--border);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); }
+  .tal-attr-feld.an { border-color:var(--gold-dim); color:var(--gold); }
+  .tal-attr-feld input { width:15px; height:15px; accent-color:var(--gold); cursor:pointer; }
+  @media (min-width:768px) { .tal-attr { grid-template-columns:repeat(6, minmax(0,1fr)); } }
+
   /* Die Merkmale, die eine Stufe mitbringt: ankreuzen, was in den Bogen
      soll. Was von der Unterklasse kommt, steht blasser da — es ist eine
      Erinnerung und kein Merkmal, das man schon kennt. */

@@ -25,7 +25,7 @@ const merkmaleLaden = () => {
     .catch(() => ({}));
 };
 
-const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
+const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
   // Wer mehrere Klassen hat, steigt in einer davon auf — und welche das
   // ist, entscheidet alles Weitere: den Trefferwürfel, die Stufe, die
   // Attributssteigerung. Die Gesamtstufe ist die Summe und traegt den
@@ -62,11 +62,16 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
   const [asiArt, setAsiArt] = React.useState(null);
   const [asiA, setAsiA] = React.useState('str');
   const [asiB, setAsiB] = React.useState('dex');
+  // Bei „Talent": welches, und — wenn es ein halbes ist — auf welches
+  // Attribut das +1 geht.
+  const [talName, setTalName] = React.useState('');
+  const [talAttr, setTalAttr] = React.useState('');
 
   // Ändert sich Klasse oder Ziel, stimmt der alte Betrag nicht mehr.
   React.useEffect(() => { setZiel(Math.min(20, von + 1)); }, [klasse]);
   React.useEffect(() => {
     setGewuerfelt(null); setArt('schnitt'); setAsiArt(null); setAus({});
+    setTalName(''); setTalAttr('');
     setTpPlus(regel ? schnitt * stufen : 0);
   }, [klasse, ziel]);
 
@@ -91,7 +96,13 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
   const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined
     ? !m.unter : !aus[m.stufe + ':' + m.name]);
 
-  const plan = aufstiegPlan(char, {klasse, ziel, tpPlus, asi, merkmale: gewaehlt});
+  const talEintrag = (talente || []).find(t => t.name === talName) || null;
+  const talHalb = talEintrag ? (talEintrag.halb || []) : [];
+  const talent = (asiStufen.length && asiArt === 'talent' && talEintrag)
+    ? {...talEintrag, attr: (talHalb.length ? (talHalb.includes(talAttr) ? talAttr : '') : '')}
+    : null;
+
+  const plan = aufstiegPlan(char, {klasse, ziel, tpPlus, asi, merkmale: gewaehlt, talent});
   const geht = ziel > von;
 
   return (
@@ -203,12 +214,46 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
                 )}
               </div>
             )}
-            {asiArt === 'talent' && (
+            {asiArt === 'talent' && ((talente || []).length === 0 ? (
               <div className="auf-hinweis">
-                Talente stehen nicht in den Tabellen — trag es als Merkmal ein.
-                Der Aufstieg lässt die Attribute dann in Ruhe.
+                In eurer Datenbank steht noch kein Talent. Leg sie unter
+                <b> 📚 Datenbank ▸ ⭐ Talente</b> an — dann stehen sie hier zur Wahl,
+                kommen mit ihrem Text in den Bogen und ihre Effekte wirken.
+                Bis dahin lässt der Aufstieg die Attribute in Ruhe.
               </div>
-            )}
+            ) : (
+              <>
+                <div className="auf-tp" style={{marginTop:6}}>
+                  <select className="form-select" value={talName}
+                    onChange={e=>{ setTalName(e.target.value); setTalAttr(''); }}>
+                    <option value="">Talent wählen…</option>
+                    {[...(talente || [])].sort((a, b) => a.name.localeCompare(b.name, 'de'))
+                      .map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                  </select>
+                </div>
+                {talEintrag && (
+                  <div className="auf-hinweis">
+                    {talEintrag.voraussetzung
+                      ? <><b>Voraussetzung:</b> {talEintrag.voraussetzung}<br/></> : null}
+                    {talEintrag.description || 'Ohne Beschreibung in der Datenbank.'}
+                  </div>
+                )}
+                {/* Ein halbes Talent steigert nebenbei ein Attribut. Welches,
+                    entscheidet niemand für dich — auch hier nicht. */}
+                {talHalb.length > 0 && (
+                  <div className="auf-tp" style={{marginTop:6}}>
+                    <span className="auf-hinweis" style={{alignSelf:'center'}}>+1 auf</span>
+                    {talHalb.map(k => (
+                      <button type="button" key={k}
+                        className={'bj-taste' + (talAttr === k ? ' haupt' : '')}
+                        onClick={()=>setTalAttr(k)}>
+                        {(ATTR_WAHL.find(a => a.k === k) || {}).l || k}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ))}
           </div>
         )}
 

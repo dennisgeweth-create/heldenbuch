@@ -15573,6 +15573,7 @@ const merkmaleLaden = () => {
 };
 const StufenAufstieg = ({
   char,
+  talente,
   onAbbrechen,
   onUebernehmen
 }) => {
@@ -15613,6 +15614,10 @@ const StufenAufstieg = ({
   const [asiArt, setAsiArt] = React.useState(null);
   const [asiA, setAsiA] = React.useState('str');
   const [asiB, setAsiB] = React.useState('dex');
+  // Bei „Talent": welches, und — wenn es ein halbes ist — auf welches
+  // Attribut das +1 geht.
+  const [talName, setTalName] = React.useState('');
+  const [talAttr, setTalAttr] = React.useState('');
 
   // Ändert sich Klasse oder Ziel, stimmt der alte Betrag nicht mehr.
   React.useEffect(() => {
@@ -15623,6 +15628,8 @@ const StufenAufstieg = ({
     setArt('schnitt');
     setAsiArt(null);
     setAus({});
+    setTalName('');
+    setTalAttr('');
     setTpPlus(regel ? schnitt * stufen : 0);
   }, [klasse, ziel]);
   const wuerfeln = () => {
@@ -15651,12 +15658,19 @@ const StufenAufstieg = ({
   };
   const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features);
   const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined ? !m.unter : !aus[m.stufe + ':' + m.name]);
+  const talEintrag = (talente || []).find(t => t.name === talName) || null;
+  const talHalb = talEintrag ? talEintrag.halb || [] : [];
+  const talent = asiStufen.length && asiArt === 'talent' && talEintrag ? {
+    ...talEintrag,
+    attr: talHalb.length ? talHalb.includes(talAttr) ? talAttr : '' : ''
+  } : null;
   const plan = aufstiegPlan(char, {
     klasse,
     ziel,
     tpPlus,
     asi,
-    merkmale: gewaehlt
+    merkmale: gewaehlt,
+    talent
   });
   const geht = ziel > von;
   return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
@@ -15775,9 +15789,43 @@ const StufenAufstieg = ({
   }, ATTR_WAHL.map(a => /*#__PURE__*/React.createElement("option", {
     key: a.k,
     value: a.k
-  }, a.l)))), asiArt === 'talent' && /*#__PURE__*/React.createElement("div", {
+  }, a.l)))), asiArt === 'talent' && ((talente || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "auf-hinweis"
-  }, "Talente stehen nicht in den Tabellen \u2014 trag es als Merkmal ein. Der Aufstieg l\xE4sst die Attribute dann in Ruhe.")), neueMerkmale.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "In eurer Datenbank steht noch kein Talent. Leg sie unter", /*#__PURE__*/React.createElement("b", null, " \uD83D\uDCDA Datenbank \u25B8 \u2B50 Talente"), " an \u2014 dann stehen sie hier zur Wahl, kommen mit ihrem Text in den Bogen und ihre Effekte wirken. Bis dahin l\xE4sst der Aufstieg die Attribute in Ruhe.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp",
+    style: {
+      marginTop: 6
+    }
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: talName,
+    onChange: e => {
+      setTalName(e.target.value);
+      setTalAttr('');
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Talent w\xE4hlen\u2026"), [...(talente || [])].sort((a, b) => a.name.localeCompare(b.name, 'de')).map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.name,
+    value: t.name
+  }, t.name)))), talEintrag && /*#__PURE__*/React.createElement("div", {
+    className: "auf-hinweis"
+  }, talEintrag.voraussetzung ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", null, "Voraussetzung:"), " ", talEintrag.voraussetzung, /*#__PURE__*/React.createElement("br", null)) : null, talEintrag.description || 'Ohne Beschreibung in der Datenbank.'), talHalb.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp",
+    style: {
+      marginTop: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "auf-hinweis",
+    style: {
+      alignSelf: 'center'
+    }
+  }, "+1 auf"), talHalb.map(k => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: k,
+    className: 'bj-taste' + (talAttr === k ? ' haupt' : ''),
+    onClick: () => setTalAttr(k)
+  }, (ATTR_WAHL.find(a => a.k === k) || {}).l || k)))))), neueMerkmale.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
@@ -17161,7 +17209,7 @@ function App() {
   // Die Inhalte der geteilten Bibliothek. Alles mit einem Unterstrich
   // davor — _adventures, _laeden — sind Einstellungen und keine
   // Sammlung.
-  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape'];
+  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape', 'talent'];
   // Die Schlüssel heissen englisch, seit es die Datei gibt. In einer
   // Rückfrage haben sie nichts verloren: „12 × spell" liest niemand.
   const LIB_WORT = {
@@ -17169,7 +17217,8 @@ function App() {
     weapon: ['Waffe', 'Waffen'],
     item: ['Gegenstand', 'Gegenstände'],
     set: ['Ausrüstungssatz', 'Ausrüstungssätze'],
-    wildshape: ['Tierverwandlung', 'Tierverwandlungen']
+    wildshape: ['Tierverwandlung', 'Tierverwandlungen'],
+    talent: ['Talent', 'Talente']
   };
   const libWort = (k, n) => (LIB_WORT[k] || [k, k])[n === 1 ? 0 : 1];
   const libZaehlen = l => LIB_INHALT.reduce((s, k) => s + ((l || {})[k] || []).length, 0);
@@ -17359,6 +17408,16 @@ function App() {
         teile: 2,
         effects: []
       }]
+    };
+    // Ein Talent: Voraussetzung, Beschreibung, Effekte — und die Liste
+    // der Attribute, von denen es eines um 1 steigert. Leer heisst: es
+    // ist ein ganzes Talent und ruehrt die Attribute nicht an.
+    if (type === 'talent') return {
+      name: '',
+      voraussetzung: '',
+      description: '',
+      halb: [],
+      effects: []
     };
     return {
       name: '',
@@ -23744,6 +23803,7 @@ function App() {
     onFertig: assistentFertig
   }), aufstieg && /*#__PURE__*/React.createElement(StufenAufstieg, {
     char: aufstieg,
+    talente: (userLibrary || {}).talent || [],
     onAbbrechen: () => setAufstieg(null),
     onUebernehmen: aufstiegUebernehmen
   }), patchnotesOffen && /*#__PURE__*/React.createElement(PatchnotesFenster, {
@@ -23771,6 +23831,10 @@ function App() {
       k: 'set',
       label: 'Sets',
       icon: '✦'
+    }, {
+      k: 'talent',
+      label: 'Talente',
+      icon: '⭐'
     }, ...(isDmMode ? [{
       k: 'enemy',
       label: 'Gegner',
@@ -24169,6 +24233,93 @@ function App() {
         ...f,
         description: e.target.value
       }))
+    }))), dbTab === 'talent' && /*#__PURE__*/React.createElement("div", {
+      className: "form-grid"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Name"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      value: dbForm.name,
+      autoFocus: true,
+      placeholder: "z.B. Aufmerksam",
+      onChange: e => setDbForm(f => ({
+        ...f,
+        name: e.target.value
+      }))
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Voraussetzung (optional)"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      value: dbForm.voraussetzung || '',
+      placeholder: "z.B. St\xE4rke 13 \xB7 nur Zwerge",
+      onChange: e => setDbForm(f => ({
+        ...f,
+        voraussetzung: e.target.value
+      }))
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        marginTop: 5
+      }
+    }, "Wird beim Aufstieg angezeigt, aber nicht gepr\xFCft \u2014 was am Tisch gilt, entscheidet der Tisch.")), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Beschreibung"), /*#__PURE__*/React.createElement("textarea", {
+      className: "form-input",
+      rows: 4,
+      style: {
+        resize: 'vertical'
+      },
+      value: dbForm.description || '',
+      placeholder: "Was das Talent kann \u2014 in deinen Worten.",
+      onChange: e => setDbForm(f => ({
+        ...f,
+        description: e.target.value
+      }))
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Halbes Talent: +1 auf eines dieser Attribute"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        marginBottom: 8
+      }
+    }, "Manche Talente steigern nebenbei ein Attribut um 1. H\xE4kchen setzen, welche zur Wahl stehen \u2014 der Aufstieg fragt dann danach und rechnet es mit. Nichts angehakt hei\xDFt: ein ganzes Talent."), /*#__PURE__*/React.createElement("div", {
+      className: "tal-attr"
+    }, ATTR_WAHL.map(a => {
+      const an = (dbForm.halb || []).includes(a.k);
+      return /*#__PURE__*/React.createElement("label", {
+        className: 'tal-attr-feld' + (an ? ' an' : ''),
+        key: a.k
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "checkbox",
+        checked: an,
+        onChange: () => setDbForm(f => ({
+          ...f,
+          halb: an ? (f.halb || []).filter(x => x !== a.k) : [...(f.halb || []), a.k]
+        }))
+      }), a.l);
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Effekte"), /*#__PURE__*/React.createElement(EffectEditor, {
+      effects: dbForm.effects || [],
+      onChange: v => setDbForm(f => ({
+        ...f,
+        effects: v
+      })),
+      hint: "Wirken, sobald das Talent im Bogen steht."
     }))), dbTab === 'set' && /*#__PURE__*/React.createElement("div", {
       className: "form-grid"
     }, /*#__PURE__*/React.createElement("div", {
@@ -25188,7 +25339,7 @@ function App() {
             color: 'var(--text-muted)',
             marginTop: 2
           }
-        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}${e.gearKind ? ' · ' + ((GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label || '') : ''}`, dbTab === 'set' && (() => {
+        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}${e.gearKind ? ' · ' + ((GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label || '') : ''}`, dbTab === 'talent' && (e.voraussetzung || 'Ohne Voraussetzung') + ((e.halb || []).length ? ' · +1 auf ' + (e.halb || []).map(k => (ATTR_WAHL.find(x => x.k === k) || {}).l || k).join(' oder ') : '') + ((e.effects || []).length ? ' · ' + e.effects.length + ' Effekt' + (e.effects.length === 1 ? '' : 'e') : ''), dbTab === 'set' && (() => {
           const st = (e.stufen || []).map(s => +s.teile || 0).sort((a, b) => a - b);
           const teile = (activeLib.item || []).filter(i => i.setName === e.name).length;
           return (st.length ? 'Stufen bei ' + st.join(', ') + ' Teilen' : 'Noch keine Stufen') + ' · ' + teile + ' Gegenstand' + (teile === 1 ? '' : 'e') + ' in der Datenbank';
@@ -25244,7 +25395,12 @@ function App() {
             marginTop: 6,
             whiteSpace: 'pre-wrap'
           }
-        }, e.description)), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'set' && /*#__PURE__*/React.createElement(React.Fragment, null, e.description && /*#__PURE__*/React.createElement("div", {
+        }, e.description)), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'talent' && /*#__PURE__*/React.createElement(React.Fragment, null, e.voraussetzung && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Voraussetzung:"), " ", e.voraussetzung), e.description && /*#__PURE__*/React.createElement("div", {
+          style: {
+            marginTop: 4,
+            whiteSpace: 'pre-wrap'
+          }
+        }, e.description)), dbTab === 'set' && /*#__PURE__*/React.createElement(React.Fragment, null, e.description && /*#__PURE__*/React.createElement("div", {
           style: {
             marginBottom: 6
           }

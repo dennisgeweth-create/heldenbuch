@@ -142,6 +142,31 @@ Unterklassen aus dem Spielerhandbuch, Tasha's Kessel und Xanathar's
 Ratgeber. Die stehen außerhalb der Lizenz; das SRD enthält genau ein
 Talent. Für alles Weitere ist die Datenbank der Gruppe da.
 
+### ⭐ Talente
+
+Die Datenbank hat eine sechste Art bekommen: **Talente**. Name,
+Voraussetzung, ein Text in euren Worten — und die beiden Haken, die das
+Heldenbuch selbst rechnen kann: die **Effekte** (dieselben wie bei
+Gegenständen und Sets) und das **halbe Talent**, das nebenbei ein
+Attribut um 1 steigert. Angehakt wird, welche Attribute zur Wahl
+stehen; nichts angehakt heißt ein ganzes Talent.
+
+Beim Aufstieg steht unter „Talent" jetzt die Liste statt eines
+Hinweises. Gewählt, und das Talent kommt als Merkmal in den Bogen — mit
+seinem Text, mit seiner Quelle und mit seinen Effekten, die dann auch
+wirken. Ist es ein halbes, fragt der Aufstieg, **wohin das +1 geht** —
+und wählt es nicht für dich, so wie die Attributssteigerung daneben
+auch nichts vorwählt.
+
+Die Voraussetzung wird angezeigt und nicht geprüft: was am Tisch gilt,
+entscheidet der Tisch.
+
+Gefüllt wird die Liste von euch. Das Regelwerk steht nicht im Programm —
+aus dem SRD wäre genau ein Talent zu holen —, aber eure Einträge liegen
+damit an derselben Stelle wie Zauber und Gegenstände: sie gehen in die
+Sicherung, das Einspielen filtert Doppelte, und der Riegel gegen das
+Leerschreiben gilt auch für sie.
+
 ### 💰 Der Beutel
 
 Fünf Münzsorten, jede mit eigenem Fenster, darin „Hinzufügen",

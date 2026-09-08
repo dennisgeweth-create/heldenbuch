@@ -1213,6 +1213,27 @@ const aufstiegPlan = (char, wahl) => {
       neu: m.name + ' (Stufe ' + m.stufe + ')'}));
   }
 
+  // Ein Talent statt der Attributssteigerung. Es kommt als Merkmal in
+  // den Bogen — samt seiner Effekte, damit es auch wirkt und nicht nur
+  // dasteht. Steigert es nebenbei ein Attribut, steht das mit in der
+  // Vorschau.
+  const talent = w.talent || null;
+  if (talent && talent.name) {
+    neu.features = [...(neu.features || (c.features) || []), {
+      id: 'tal' + Date.now().toString(36),
+      name: talent.name,
+      source: 'Talent · ' + name + ' ' + ziel,
+      description: talent.description || '',
+      effects: talent.effects || [], effectsActive: true,
+    }];
+    zeilen.push({was: 'Talent', alt: '—', neu: talent.name});
+    if (talent.attr) {
+      const alt2 = +c[talent.attr] || 10, jetzt = Math.min(20, alt2 + 1);
+      const wort = (ATTR_WAHL.find(a => a.k === talent.attr) || {}).l || talent.attr;
+      if (jetzt !== alt2) { neu[talent.attr] = jetzt; zeile(wort, alt2, jetzt); }
+    }
+  }
+
   // Was er nicht kann und was er nicht entscheidet, sagt er.
   if (!r) hinweise.push('Die Klasse „' + (name || '—') + '“ steht nicht in den Tabellen. '
     + 'Trefferwürfel, Zauberplätze und Attributssteigerung musst du selbst eintragen.');

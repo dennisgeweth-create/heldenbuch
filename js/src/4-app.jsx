@@ -832,12 +832,12 @@ function App() {
   // Die Inhalte der geteilten Bibliothek. Alles mit einem Unterstrich
   // davor — _adventures, _laeden — sind Einstellungen und keine
   // Sammlung.
-  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape'];
+  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape', 'talent'];
   // Die Schlüssel heissen englisch, seit es die Datei gibt. In einer
   // Rückfrage haben sie nichts verloren: „12 × spell" liest niemand.
   const LIB_WORT = {spell: ['Zauber', 'Zauber'], weapon: ['Waffe', 'Waffen'],
     item: ['Gegenstand', 'Gegenstände'], set: ['Ausrüstungssatz', 'Ausrüstungssätze'],
-    wildshape: ['Tierverwandlung', 'Tierverwandlungen']};
+    wildshape: ['Tierverwandlung', 'Tierverwandlungen'], talent: ['Talent', 'Talente']};
   const libWort = (k, n) => (LIB_WORT[k] || [k, k])[n === 1 ? 0 : 1];
   const libZaehlen = (l) => LIB_INHALT
     .reduce((s, k) => s + (((l || {})[k] || []).length), 0);
@@ -974,6 +974,10 @@ function App() {
     if (type==='weapon') return {name:'',damage:'1W6',damageType:'Hieb',range:'1,5 m',description:'',properties:[]};
     // stufen: ab wie vielen getragenen Teilen welche Effekte dazukommen.
     if (type==='set')    return {name:'',description:'',stufen:[{teile:2,effects:[]}]};
+    // Ein Talent: Voraussetzung, Beschreibung, Effekte — und die Liste
+    // der Attribute, von denen es eines um 1 steigert. Leer heisst: es
+    // ist ein ganzes Talent und ruehrt die Attribute nicht an.
+    if (type==='talent')  return {name:'',voraussetzung:'',description:'',halb:[],effects:[]};
     return {name:'',cr:'1/4',size:'Mittel',type:'Tier',ac:10,hp:10,speed:'9 m',str:10,dex:10,con:10,int:3,wis:12,cha:6,senses:'',skills:'',tagsStr:'',abilitiesStr:'',actions:[{name:'',desc:''}]};
   };
 
@@ -4587,7 +4591,7 @@ function App() {
       )}
 
       {aufstieg && (
-        <StufenAufstieg char={aufstieg}
+        <StufenAufstieg char={aufstieg} talente={(userLibrary || {}).talent || []}
           onAbbrechen={()=>setAufstieg(null)}
           onUebernehmen={aufstiegUebernehmen} />
       )}
@@ -4601,7 +4605,7 @@ function App() {
       {showDB && (() => {
         // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
         // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.
-        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'},
+        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'},{k:'talent',label:'Talente',icon:'⭐'},
           ...(isDmMode ? [{k:'enemy',label:'Gegner',icon:'💀'},{k:'encounter',label:'Begegnungen',icon:'⚔'}] : [])];
         // Reset search when tab changes
         const wkCurrent = '_dbSearch_'+dbTab;
@@ -4762,6 +4766,64 @@ function App() {
                   )}
 
                   {/* SET FORM */}
+                  {/* Ein Talent. Das Regelwerk der Gruppe steht nicht im
+                      Programm — hier steht, was ihr davon braucht: der
+                      Name, die Voraussetzung, ein Satz dazu, und die
+                      Haken, die das Heldenbuch selbst rechnen kann. */}
+                  {dbTab==='talent' && (
+                    <div className="form-grid">
+                      <div className="form-group form-full">
+                        <label className="form-label">Name</label>
+                        <input className="form-input" value={dbForm.name} autoFocus
+                          placeholder="z.B. Aufmerksam" onChange={e=>setDbForm(f=>({...f,name:e.target.value}))}/>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Voraussetzung (optional)</label>
+                        <input className="form-input" value={dbForm.voraussetzung||''}
+                          placeholder="z.B. Stärke 13 · nur Zwerge"
+                          onChange={e=>setDbForm(f=>({...f,voraussetzung:e.target.value}))}/>
+                        <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',marginTop:5}}>
+                          Wird beim Aufstieg angezeigt, aber nicht geprüft — was am Tisch gilt,
+                          entscheidet der Tisch.
+                        </div>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Beschreibung</label>
+                        <textarea className="form-input" rows={4} style={{resize:'vertical'}}
+                          value={dbForm.description||''} placeholder="Was das Talent kann — in deinen Worten."
+                          onChange={e=>setDbForm(f=>({...f,description:e.target.value}))}/>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Halbes Talent: +1 auf eines dieser Attribute</label>
+                        <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',marginBottom:8}}>
+                          Manche Talente steigern nebenbei ein Attribut um 1. Häkchen setzen, welche
+                          zur Wahl stehen — der Aufstieg fragt dann danach und rechnet es mit.
+                          Nichts angehakt heißt: ein ganzes Talent.
+                        </div>
+                        <div className="tal-attr">
+                          {ATTR_WAHL.map(a => {
+                            const an = (dbForm.halb||[]).includes(a.k);
+                            return (
+                              <label className={'tal-attr-feld' + (an ? ' an' : '')} key={a.k}>
+                                <input type="checkbox" checked={an}
+                                  onChange={()=>setDbForm(f=>({...f, halb: an
+                                    ? (f.halb||[]).filter(x=>x!==a.k)
+                                    : [...(f.halb||[]), a.k]}))} />
+                                {a.l}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Effekte</label>
+                        <EffectEditor effects={dbForm.effects||[]}
+                          onChange={v=>setDbForm(f=>({...f,effects:v}))}
+                          hint="Wirken, sobald das Talent im Bogen steht." />
+                      </div>
+                    </div>
+                  )}
+
                   {dbTab==='set' && (
                     <div className="form-grid">
                       <div className="form-group form-full">
@@ -5167,6 +5229,11 @@ function App() {
                                           {dbTab==='weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties||[]).join(', ')||'—'}`}
                                           {dbTab==='wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`}
                                           {dbTab==='item' && `${(RARITIES.find(r=>r.key===e.rarity)||RARITIES[0]).label}${e.weight?' · '+e.weight+' kg':''}${e.gearKind?' · '+((GEAR_KINDS.find(g=>g.key===e.gearKind)||{}).label||''):''}`}
+                                          {dbTab==='talent' && ((e.voraussetzung||'Ohne Voraussetzung')
+                                            + ((e.halb||[]).length ? ' · +1 auf ' + (e.halb||[])
+                                                .map(k=>(ATTR_WAHL.find(x=>x.k===k)||{}).l||k).join(' oder ') : '')
+                                            + ((e.effects||[]).length ? ' · ' + e.effects.length + ' Effekt'
+                                               + (e.effects.length===1?'':'e') : ''))}
                                           {dbTab==='set' && (() => {
                                             const st = (e.stufen||[]).map(s=>+s.teile||0).sort((a,b)=>a-b);
                                             const teile = (activeLib.item||[]).filter(i=>i.setName===e.name).length;
@@ -5192,6 +5259,10 @@ function App() {
                                         {dbTab==='wildshape' && (<>
                                           <div><strong>Bewegung:</strong> {e.speed||'—'} · <strong>Sinne:</strong> {e.senses||'—'}</div>
                                           {e.skills && <div><strong>Fertigk.:</strong> {e.skills}</div>}
+                                        </>)}
+                                        {dbTab==='talent' && (<>
+                                          {e.voraussetzung && <div><strong>Voraussetzung:</strong> {e.voraussetzung}</div>}
+                                          {e.description && <div style={{marginTop:4,whiteSpace:'pre-wrap'}}>{e.description}</div>}
                                         </>)}
                                         {dbTab==='set' && (<>
                                           {e.description && <div style={{marginBottom:6}}>{e.description}</div>}
