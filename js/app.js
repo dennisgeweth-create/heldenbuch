@@ -1796,6 +1796,7 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
     name: begegnung.name || 'Kampf',
     runde: 1,
     zug: 0,
+    zwischen: null,
     teilnehmer: sortiereNachIni(teilnehmer),
     log: []
   };
@@ -1859,6 +1860,8 @@ const protokollZeile = (e, mitZahlen) => {
     // wird als Ueberschrift gesetzt
     case 'zug':
       return '▸ ' + e.wer + ' ist am Zug';
+    case 'zwischen':
+      return '   ⚡ ' + e.wer + ' kommt dazwischen';
     // Die drei aus dem Zugfenster. Sie stehen zwischen dem Zug und seinen
     // Folgen: erst was jemand tut, dann was daraus wird.
     case 'frei':
@@ -3322,9 +3325,11 @@ const ZustandWahl = ({
 const KampfZeile = ({
   t,
   dran,
+  wartet,
   onWert,
   onFenster,
   onZug,
+  onDazwischen,
   onIni,
   onNotiz,
   onNotizFertig,
@@ -3357,7 +3362,7 @@ const KampfZeile = ({
   const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
   return /*#__PURE__*/React.createElement("div", {
     ref: eigen,
-    className: 'kampf-zeile' + (dran ? ' dran' : '') + (tot ? ' tot' : '') + (t.art === 'held' ? ' held' : ' gegner') + (auf ? ' auf' : ' zu')
+    className: 'kampf-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (tot ? ' tot' : '') + (t.art === 'held' ? ' held' : ' gegner') + (auf ? ' auf' : ' zu')
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-ini-feld"
   }, /*#__PURE__*/React.createElement("input", {
@@ -3417,7 +3422,11 @@ const KampfZeile = ({
     className: "kampf-zug-knopf",
     onClick: onZug,
     title: "Angriff, Zauber oder Beschreibung eintragen \u2014 die Trefferpunkte rechnet es mit"
-  }, "\u270D Zug eintragen")), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u270D Zug eintragen"), !dran && auf && onDazwischen && /*#__PURE__*/React.createElement("button", {
+    className: "kampf-zwischen-knopf",
+    onClick: onDazwischen,
+    title: "Dazwischen handeln \u2014 der unterbrochene Zug geht danach weiter"
+  }, "\u26A1 Dazwischen")), /*#__PURE__*/React.createElement("textarea", {
     className: "kampf-notiz",
     value: t.notiz || '',
     placeholder: "Notiz\u2026",
@@ -4112,7 +4121,18 @@ const KampfAnsicht = ({
       flags: w.flags.map(f => f.label)
     };
   });
-  const amZug = liste[kampf.zug] || null;
+  // In der Vorbereitung ist niemand am Zug. Die Reihe steht schon, aber
+  // gehandelt hat noch keiner — wer dort hervorgehoben ist, sieht aus,
+  // als warte die Gruppe auf ihn.
+  const amZug = inVorbereitung(kampf) ? null : liste[kampf.zug] || null;
+
+  // Dazwischen: eine legendäre Aktion, eine bereitgehaltene Aktion, ein
+  // Schauplatz, der sich rührt. Der Zug bleibt stehen, wo er steht —
+  // hier handelt nur jemand anders, und danach geht es weiter, wo es
+  // unterbrochen wurde. Steht die Kennung für niemanden mehr (der
+  // Gegner ist inzwischen weg), ist es keine Unterbrechung mehr.
+  const zwischen = !inVorbereitung(kampf) && kampf.zwischen ? liste.find(t => t.id === kampf.zwischen) || null : null;
+  const handelnd = zwischen || amZug;
   const imKampf = new Set(kampf.teilnehmer.filter(t => t.art === 'held').map(t => t.charId));
 
   // Was zum Kampf gehoert, bleibt im Kampf.
@@ -4513,6 +4533,7 @@ const KampfAnsicht = ({
       phase: 'kampf',
       runde: 1,
       zug: 0,
+      zwischen: null,
       teilnehmer: sortiereRoh(k.teilnehmer),
       log: [{
         art: 'start',
@@ -4550,12 +4571,32 @@ const KampfAnsicht = ({
     const naechsterZug = k.zug + 1;
     return naechsterZug >= k.teilnehmer.length ? {
       ...k,
+      zwischen: null,
       zug: 0,
       runde: k.runde + 1
     } : {
       ...k,
+      zwischen: null,
       zug: naechsterZug
     };
+  });
+
+  // Jemand kommt dazwischen — und danach geht es weiter, wo es
+  // unterbrochen wurde. Deshalb ruehrt das den Zug nicht an.
+  const dazwischen = t => {
+    setKampf(k => k && {
+      ...k,
+      zwischen: t.id
+    });
+    protokollieren({
+      art: 'zwischen',
+      id: t.id,
+      wer: t.name
+    });
+  };
+  const zwischenEnde = () => setKampf(k => k && {
+    ...k,
+    zwischen: null
   });
 
   // Wuerfelt nur fuer die, bei denen noch nichts steht — eine angesagte
@@ -4653,7 +4694,9 @@ const KampfAnsicht = ({
     className: "kampf-runde"
   }, /*#__PURE__*/React.createElement("span", null, "Runde"), /*#__PURE__*/React.createElement("b", null, kampf.runde)), /*#__PURE__*/React.createElement("div", {
     className: "kampf-dran"
-  }, vorbereitung ? /*#__PURE__*/React.createElement(React.Fragment, null, "Aufgestellt: ", /*#__PURE__*/React.createElement("b", null, zahlHelden), " ", zahlHelden === 1 ? 'Held' : 'Helden', ",", ' ', /*#__PURE__*/React.createElement("b", null, zahlGegner), " ", zahlGegner === 1 ? 'Gegner' : 'Gegner') : amZug ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, amZug.name)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
+  }, vorbereitung ? /*#__PURE__*/React.createElement(React.Fragment, null, "Aufgestellt: ", /*#__PURE__*/React.createElement("b", null, zahlHelden), " ", zahlHelden === 1 ? 'Held' : 'Helden', ",", ' ', /*#__PURE__*/React.createElement("b", null, zahlGegner), " ", zahlGegner === 1 ? 'Gegner' : 'Gegner') : zwischen ? /*#__PURE__*/React.createElement(React.Fragment, null, "\u26A1 Dazwischen: ", /*#__PURE__*/React.createElement("b", null, zwischen.name), amZug && /*#__PURE__*/React.createElement("span", {
+    className: "kampf-danach"
+  }, " \xB7 danach wieder ", amZug.name)) : amZug ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, amZug.name)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
     className: "kampf-mehr-knopf",
     onClick: () => setMehrOffen(o => !o),
     "aria-expanded": mehrOffen,
@@ -4699,10 +4742,17 @@ const KampfAnsicht = ({
     onClick: starten,
     disabled: !liste.length,
     title: liste.length ? 'Runde 1 beginnt — ab hier schreibt das Protokoll mit' : 'Erst jemanden aufstellen'
-  }, "\u25B6 Kampf starten") : /*#__PURE__*/React.createElement("button", {
+  }, "\u25B6 Kampf starten") :
+  // Nach der Unterbrechung führt der Knopf nicht weiter, sondern
+  // zurück: der Zug, der unterbrochen wurde, ist noch nicht vorbei.
+  zwischen ? /*#__PURE__*/React.createElement("button", {
+    className: "kampf-weiter zurueck",
+    onClick: zwischenEnde,
+    title: "Die Unterbrechung ist vorbei \u2014 weiter im Zug, der lief"
+  }, "\u21A9 Zur\xFCck", amZug ? ' zu ' + amZug.name : '') : /*#__PURE__*/React.createElement("button", {
     className: "kampf-weiter",
     onClick: naechster
-  }, "N\xE4chster Zug \u25B6"), /*#__PURE__*/React.createElement("button", {
+  }, "N\xE4chster \u25B6"), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter",
@@ -4863,7 +4913,9 @@ const KampfAnsicht = ({
   }, liste.map(t => /*#__PURE__*/React.createElement(KampfZeile, {
     key: t.id,
     t: t,
-    dran: amZug && amZug.id === t.id,
+    dran: !!handelnd && handelnd.id === t.id,
+    wartet: !!zwischen && !!amZug && amZug.id === t.id,
+    onDazwischen: !vorbereitung && (!handelnd || handelnd.id !== t.id) ? () => dazwischen(t) : undefined,
     zustandOffen: zustandOffen,
     setZustandOffen: setZustandOffen,
     detailOffen: detailOffen,
@@ -4890,7 +4942,7 @@ const KampfAnsicht = ({
     }),
     onEntfernen: () => entfernen(t.id),
     onBlatt: onGegnerBlatt,
-    auf: amZug && amZug.id === t.id || zeileOffen === t.id,
+    auf: handelnd && handelnd.id === t.id || zeileOffen === t.id,
     onAufklappen: () => setZeileOffen(o => o === t.id ? null : t.id)
   })))));
 };
@@ -10793,6 +10845,7 @@ const zustandFarbe = label => (TP_ZUSTAENDE.find(z => z.label === label) || TP_Z
 const KampfSichtZeile = ({
   t,
   dran,
+  wartet,
   helden,
   setDefs,
   tpOffen,
@@ -10813,7 +10866,7 @@ const KampfSichtZeile = ({
   const anteil = held ? w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0 : +t.balken || 0;
   const farbe = held && tpOffen && w ? anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a' : zustand ? zustand.color : 'var(--text-muted)';
   return /*#__PURE__*/React.createElement("div", {
-    className: 'ks-zeile' + (dran ? ' dran' : '') + (held ? ' held' : ' gegner') + (eigenerHeld ? ' eigen' : '')
+    className: 'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (held ? ' held' : ' gegner') + (eigenerHeld ? ' eigen' : '')
   }, /*#__PURE__*/React.createElement("div", {
     className: "ks-ini"
   }, t.ini === null || t.ini === undefined ? '—' : t.ini), /*#__PURE__*/React.createElement("div", {
@@ -11101,9 +11154,16 @@ const KampfSicht = ({
   };
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
-  const dranIdx = Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
-  const dran = liste[dranIdx] || null;
-  const dranName = dran ? dran.art === 'held' ? ((helden || []).find(h => h.id === dran.charId) || {}).name || 'Held' : dran.name || 'Gegner' : '';
+  // Solange nur aufgestellt wird, ist niemand am Zug — und wer dazwischen
+  // handelt, steht hier genauso wie am Tisch: er ist der, der gerade
+  // handelt, und der unterbrochene wartet.
+  const vorb = kampf.phase === 'vorbereitung';
+  const dranIdx = vorb ? -1 : Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
+  const zwIdx = !vorb && kampf.zwischen ? liste.findIndex(t => t.id === kampf.zwischen) : -1;
+  const aktivIdx = zwIdx >= 0 ? zwIdx : dranIdx;
+  const namensZug = t => !t ? '' : t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
+  const dranName = namensZug(liste[dranIdx]);
+  const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
   return /*#__PURE__*/React.createElement("div", {
     className: "ks-fenster",
     style: {
@@ -11124,7 +11184,7 @@ const KampfSicht = ({
     className: "ks-runde"
   }, /*#__PURE__*/React.createElement("span", null, "Runde"), /*#__PURE__*/React.createElement("b", null, kampf.runde || 1)), /*#__PURE__*/React.createElement("span", {
     className: "ks-dran-kopf"
-  }, dranName ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, dranName)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
+  }, zwName ? /*#__PURE__*/React.createElement(React.Fragment, null, "\u26A1 Dazwischen: ", /*#__PURE__*/React.createElement("b", null, zwName)) : dranName ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, dranName)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
     title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
@@ -11136,7 +11196,8 @@ const KampfSicht = ({
   }, "Noch steht niemand in der Reihe.") : liste.map((t, i) => /*#__PURE__*/React.createElement(KampfSichtZeile, {
     key: t.id || i,
     t: t,
-    dran: i === dranIdx,
+    dran: i === aktivIdx,
+    wartet: zwIdx >= 0 && i === dranIdx,
     helden: helden,
     setDefs: setDefs,
     tpOffen: tpOffen,

@@ -15,7 +15,7 @@
 const zustandFarbe = (label) =>
   (TP_ZUSTAENDE.find(z => z.label === label) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1]).color;
 
-const KampfSichtZeile = ({ t, dran, helden, setDefs, tpOffen, eigenerHeld }) => {
+const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHeld }) => {
   const held = t.art === 'held';
   const c    = held ? (helden || []).find(h => h.id === t.charId) : null;
   const w    = c ? charWerte(c, setDefs) : null;
@@ -34,7 +34,8 @@ const KampfSichtZeile = ({ t, dran, helden, setDefs, tpOffen, eigenerHeld }) => 
     : (zustand ? zustand.color : 'var(--text-muted)');
 
   return (
-    <div className={'ks-zeile' + (dran ? ' dran' : '') + (held ? ' held' : ' gegner')
+    <div className={'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '')
+                    + (held ? ' held' : ' gegner')
                     + (eigenerHeld ? ' eigen' : '')}>
       <div className="ks-ini">{t.ini === null || t.ini === undefined ? '—' : t.ini}</div>
       <div className="ks-name">
@@ -276,13 +277,20 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSc
 
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
-  const dranIdx = Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
-  const dran = liste[dranIdx] || null;
-  const dranName = dran
-    ? (dran.art === 'held'
-        ? ((helden || []).find(h => h.id === dran.charId) || {}).name || 'Held'
-        : (dran.name || 'Gegner'))
-    : '';
+  // Solange nur aufgestellt wird, ist niemand am Zug — und wer dazwischen
+  // handelt, steht hier genauso wie am Tisch: er ist der, der gerade
+  // handelt, und der unterbrochene wartet.
+  const vorb = kampf.phase === 'vorbereitung';
+  const dranIdx = vorb ? -1 : Math.max(0, Math.min(liste.length - 1, +kampf.zug || 0));
+  const zwIdx = (!vorb && kampf.zwischen)
+    ? liste.findIndex(t => t.id === kampf.zwischen) : -1;
+  const aktivIdx = zwIdx >= 0 ? zwIdx : dranIdx;
+  const namensZug = (t) => !t ? ''
+    : (t.art === 'held'
+        ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held'
+        : (t.name || 'Gegner'));
+  const dranName = namensZug(liste[dranIdx]);
+  const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
 
   return (
     <div className="ks-fenster" style={{left: pos.x, top: pos.y, width: KS_BREITE}}>
@@ -290,7 +298,10 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSc
           onPointerUp={zugEnde} onPointerCancel={zugEnde} title="Zum Verschieben ziehen">
           <span className="ks-titel">⚔ {kampf.name || 'Kampf'}</span>
           <span className="ks-runde"><span>Runde</span><b>{kampf.runde || 1}</b></span>
-          <span className="ks-dran-kopf">{dranName ? <>Am Zug: <b>{dranName}</b></> : 'Niemand am Zug'}</span>
+          <span className="ks-dran-kopf">
+            {zwName ? <>⚡ Dazwischen: <b>{zwName}</b></>
+              : dranName ? <>Am Zug: <b>{dranName}</b></> : 'Niemand am Zug'}
+          </span>
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Schließen — der Kampf läuft weiter" aria-label="Schließen">✕</button>
         </div>
@@ -299,7 +310,8 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSc
           {liste.length === 0
             ? <div className="ks-leer">Noch steht niemand in der Reihe.</div>
             : liste.map((t, i) => (
-                <KampfSichtZeile key={t.id || i} t={t} dran={i === dranIdx}
+                <KampfSichtZeile key={t.id || i} t={t} dran={i === aktivIdx}
+                  wartet={zwIdx >= 0 && i === dranIdx}
                   helden={helden} setDefs={setDefs} tpOffen={tpOffen}
                   eigenerHeld={t.art === 'held' && (eigeneIds || []).includes(t.charId)} />
               ))}

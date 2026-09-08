@@ -101,7 +101,7 @@ const kampfAufstellen = (begegnung, enemies, helden, setDefs) => {
 
   return {
     aktiv: true, phase: 'vorbereitung',
-    name: begegnung.name || 'Kampf', runde: 1, zug: 0,
+    name: begegnung.name || 'Kampf', runde: 1, zug: 0, zwischen: null,
     teilnehmer: sortiereNachIni(teilnehmer),
     log: [],
   };
@@ -152,6 +152,7 @@ const protokollZeile = (e, mitZahlen) => {
     case 'start':    return '⚔ ' + e.wer + ' beginnt';
     case 'runde':    return '';                       // wird als Ueberschrift gesetzt
     case 'zug':      return '▸ ' + e.wer + ' ist am Zug';
+    case 'zwischen': return '   ⚡ ' + e.wer + ' kommt dazwischen';
     // Die drei aus dem Zugfenster. Sie stehen zwischen dem Zug und seinen
     // Folgen: erst was jemand tut, dann was daraus wird.
     case 'frei':     return '   „' + e.text + '“';
@@ -1244,7 +1245,8 @@ const ZustandWahl = ({ t, onZustand, onErschoepfung, onMarke, onSchliessen }) =>
 );
 
 // ── Eine Karte ───────────────────────────────────────────────────
-const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotizFertig, onZustand, onMarke,
+const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, onIni, onNotiz,
+                      onNotizFertig, onZustand, onMarke,
                       onErschoepfung, onEntfernen, onBlatt, onTodes, auf, onAufklappen,
                       zustandOffen, setZustandOffen, detailOffen, setDetailOffen }) => {
   // Wer dran ist, rueckt ins Bild. Auf dem Telefon steht sonst nach
@@ -1261,7 +1263,8 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotiz
   const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
 
   return (
-    <div ref={eigen} className={'kampf-zeile' + (dran ? ' dran' : '') + (tot ? ' tot' : '')
+    <div ref={eigen} className={'kampf-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '')
+                    + (tot ? ' tot' : '')
                     + (t.art === 'held' ? ' held' : ' gegner')
                     + (auf ? ' auf' : ' zu')}>
 
@@ -1307,6 +1310,16 @@ const KampfZeile = ({ t, dran, onWert, onFenster, onZug, onIni, onNotiz, onNotiz
           <button className="kampf-zug-knopf" onClick={onZug}
             title="Angriff, Zauber oder Beschreibung eintragen — die Trefferpunkte rechnet es mit">
             ✍ Zug eintragen
+          </button>
+        )}
+        {/* Wer nicht an der Reihe ist, kann trotzdem handeln: eine
+            legendäre Aktion, eine bereitgehaltene, ein Schauplatz. Der
+            Knopf steht nur an der aufgeklappten Zeile — an acht Zeilen
+            zugleich wäre er Lärm. */}
+        {!dran && auf && onDazwischen && (
+          <button className="kampf-zwischen-knopf" onClick={onDazwischen}
+            title="Dazwischen handeln — der unterbrochene Zug geht danach weiter">
+            ⚡ Dazwischen
           </button>
         )}
       </div>
@@ -1885,7 +1898,19 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       flags: w.flags.map(f => f.label),
     };
   });
-  const amZug = liste[kampf.zug] || null;
+  // In der Vorbereitung ist niemand am Zug. Die Reihe steht schon, aber
+  // gehandelt hat noch keiner — wer dort hervorgehoben ist, sieht aus,
+  // als warte die Gruppe auf ihn.
+  const amZug = inVorbereitung(kampf) ? null : (liste[kampf.zug] || null);
+
+  // Dazwischen: eine legendäre Aktion, eine bereitgehaltene Aktion, ein
+  // Schauplatz, der sich rührt. Der Zug bleibt stehen, wo er steht —
+  // hier handelt nur jemand anders, und danach geht es weiter, wo es
+  // unterbrochen wurde. Steht die Kennung für niemanden mehr (der
+  // Gegner ist inzwischen weg), ist es keine Unterbrechung mehr.
+  const zwischen = (!inVorbereitung(kampf) && kampf.zwischen)
+    ? (liste.find(t => t.id === kampf.zwischen) || null) : null;
+  const handelnd = zwischen || amZug;
   const imKampf = new Set(kampf.teilnehmer.filter(t => t.art === 'held').map(t => t.charId));
 
   // Was zum Kampf gehoert, bleibt im Kampf.
@@ -2128,7 +2153,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Runde, und das Protokoll faengt an mitzuschreiben.
   const starten = () => {
     zuletztAmZug.current = null;          // der erste am Zug gehoert hinein
-    setKampf(k => ({...k, phase: 'kampf', runde: 1, zug: 0,
+    setKampf(k => ({...k, phase: 'kampf', runde: 1, zug: 0, zwischen: null,
       teilnehmer: sortiereRoh(k.teilnehmer),
       log: [{art: 'start', r: 1, wer: k.name || 'Kampf'}]}));
   };
@@ -2160,9 +2185,17 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
     return naechsterZug >= k.teilnehmer.length
-      ? {...k, zug: 0, runde: k.runde + 1}
-      : {...k, zug: naechsterZug};
+      ? {...k, zwischen: null, zug: 0, runde: k.runde + 1}
+      : {...k, zwischen: null, zug: naechsterZug};
   });
+
+  // Jemand kommt dazwischen — und danach geht es weiter, wo es
+  // unterbrochen wurde. Deshalb ruehrt das den Zug nicht an.
+  const dazwischen = (t) => {
+    setKampf(k => k && ({...k, zwischen: t.id}));
+    protokollieren({art: 'zwischen', id: t.id, wer: t.name});
+  };
+  const zwischenEnde = () => setKampf(k => k && ({...k, zwischen: null}));
 
   // Wuerfelt nur fuer die, bei denen noch nichts steht — eine angesagte
   // Zahl wird nicht ueberschrieben.
@@ -2236,6 +2269,9 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             {vorbereitung
               ? <>Aufgestellt: <b>{zahlHelden}</b> {zahlHelden === 1 ? 'Held' : 'Helden'},{' '}
                   <b>{zahlGegner}</b> {zahlGegner === 1 ? 'Gegner' : 'Gegner'}</>
+              : zwischen
+                ? <>⚡ Dazwischen: <b>{zwischen.name}</b>
+                    {amZug && <span className="kampf-danach"> · danach wieder {amZug.name}</span>}</>
               : amZug ? <>Am Zug: <b>{amZug.name}</b></> : 'Niemand am Zug'}
           </div>
           <button className="kampf-mehr-knopf" onClick={()=>setMehrOffen(o=>!o)}
@@ -2284,7 +2320,16 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               title={liste.length ? 'Runde 1 beginnt — ab hier schreibt das Protokoll mit'
                                   : 'Erst jemanden aufstellen'}>▶ Kampf starten</button>
           ) : (
-            <button className="kampf-weiter" onClick={naechster}>Nächster Zug ▶</button>
+            // Nach der Unterbrechung führt der Knopf nicht weiter, sondern
+            // zurück: der Zug, der unterbrochen wurde, ist noch nicht vorbei.
+            zwischen ? (
+              <button className="kampf-weiter zurueck" onClick={zwischenEnde}
+                title="Die Unterbrechung ist vorbei — weiter im Zug, der lief">
+                ↩ Zurück{amZug ? ' zu ' + amZug.name : ''}
+              </button>
+            ) : (
+              <button className="kampf-weiter" onClick={naechster}>Nächster ▶</button>
+            )
           )}
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
@@ -2443,7 +2488,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
 
         <div className="kampf-liste">
           {liste.map(t => (
-            <KampfZeile key={t.id} t={t} dran={amZug && amZug.id === t.id}
+            <KampfZeile key={t.id} t={t}
+              dran={!!handelnd && handelnd.id === t.id}
+              wartet={!!zwischen && !!amZug && amZug.id === t.id}
+              onDazwischen={!vorbereitung && (!handelnd || handelnd.id !== t.id)
+                ? ()=>dazwischen(t) : undefined}
               zustandOffen={zustandOffen} setZustandOffen={setZustandOffen}
               detailOffen={detailOffen} setDetailOffen={setDetailOffen}
               onWert={(modus,n)=>wertDirekt(t.id, modus, n)}
@@ -2455,7 +2504,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               onErschoepfung={st=>erschoepfung(t.id,st)}
               onTodes={(d)=>aendernWerte(t.id, alt => ({...alt, deathSaves:d}), {art:'todes'})}
               onEntfernen={()=>entfernen(t.id)} onBlatt={onGegnerBlatt}
-              auf={(amZug && amZug.id === t.id) || zeileOffen === t.id}
+              auf={(handelnd && handelnd.id === t.id) || zeileOffen === t.id}
               onAufklappen={()=>setZeileOffen(o => o === t.id ? null : t.id)} />
           ))}
         </div>

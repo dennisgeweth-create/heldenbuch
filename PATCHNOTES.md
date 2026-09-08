@@ -117,6 +117,31 @@ stehen hervorgehoben da. Die Zahlen daneben bleiben trotzdem deine: wer
 Wen die Sammlung nicht kennt, entsteht wie bisher aus dem Stegreif.
 Geschrieben wird in die Sammlung dabei nie — gelesen schon.
 
+### ⚡ Jemand kommt dazwischen
+
+Der Drache hat legendäre Aktionen, der Schurke hält eine Aktion bereit,
+der Schauplatz rührt sich auf Initiative 20. Bisher kannte die Reihe
+nur ein Nacheinander — wer dazwischen handelte, tat das im Kopf der
+Spielleitung.
+
+Jede Zeile hat aufgeklappt jetzt **⚡ Dazwischen**. Wer damit an die
+Reihe kommt, handelt sofort: seine Zeile ist hervorgehoben und bietet
+das Zugfenster an, im Kopf steht *„⚡ Dazwischen: Goblin 2 · danach
+wieder Drache"*, und die unterbrochene Zeile bleibt gestrichelt stehen
+— **ihr Zug ist nicht vorbei, er wartet.** Aus „Nächster" wird
+solange *„↩ Zurück zu Drache"*.
+
+Die Runde und die Reihenfolge rührt das nicht an. Im Protokoll steht
+eine Zeile dazu, und die Runde sieht es in der geteilten Ansicht
+genauso.
+
+Zwei Kleinigkeiten am selben Ort:
+
+- **In der Vorbereitung ist niemand mehr am Zug.** Die Reihe stand
+  schon da, und der erste war hervorgehoben, als warte die Gruppe auf
+  ihn — dabei hatte noch niemand gewürfelt.
+- Aus **„Nächster Zug ▶"** wurde **„Nächster ▶"**.
+
 ### 🎒 Beute und Laden füllen sich aus der Datenbank
 
 Beim Tippen schlägt die Sammlung der Gruppe vor, und was dahintersteht
