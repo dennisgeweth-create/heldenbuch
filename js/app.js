@@ -296,6 +296,14 @@ const Fenster = ({
     onPointerMove: zugBewegen,
     onPointerUp: zugEnde,
     onPointerCancel: zugEnde,
+    // Ein Klick im Fenster ist kein Klick auf den Hintergrund. Das
+    // stand bisher in jedem Dialog einzeln; wer es vergass, dessen
+    // Fenster schloss sich beim ersten Knopfdruck darin. Es gehoert
+    // hierher, weil es fuer jedes Fenster gilt.
+    onClick: e => {
+      if (kind.props.onClick) kind.props.onClick(e);
+      e.stopPropagation();
+    },
     children: innen
   });
 
@@ -557,7 +565,12 @@ const LogTab = ({
       code,
       pass
     } = serverCreds();
-    if (!url || !code || !pass) {
+    // Seit Stufe 7 gibt es kein Gruppenpasswort mehr — serverCreds gibt
+    // fuer pass immer einen leeren Text zurueck. Diese Zeile fragte
+    // danach und stieg jedes Mal aus: der Reiter war seitdem leer, ohne
+    // dass irgendwo ein Fehler stand. Die Kennung haengt apiRequest von
+    // selbst an; hier reicht, ob ueberhaupt ein Server dasteht.
+    if (!url || !code) {
       setLoading(false);
       return;
     }
@@ -20131,7 +20144,8 @@ function App() {
         code,
         pass
       } = serverCreds();
-      if (url && code && pass) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
+      // Dasselbe hier: pass ist seit Stufe 7 immer leer.
+      if (url && code) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
     }
   }, "\uD83D\uDCD6 Abenteuerlog"), (laden || isDmMode) && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",

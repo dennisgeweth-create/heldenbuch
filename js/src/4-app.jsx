@@ -3136,7 +3136,8 @@ function App() {
                 setAdventSearch(''); setAdventTabFilter([]);
                 setShowAdventLog(true);
                 const {url, code, pass} = serverCreds();
-                if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
+                // Dasselbe hier: pass ist seit Stufe 7 immer leer.
+                if(url&&code) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
               {/* Der Laden steht da, sobald die Spielleitung eine Auslage
                   hingelegt hat — vorher sieht ihn nur sie. */}

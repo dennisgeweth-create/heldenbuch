@@ -13,7 +13,12 @@ const LogTab = ({charId, isDmMode}) => {
     if (!charId) return;
     setLoading(true);
     const {url, code, pass} = serverCreds();
-    if (!url||!code||!pass) { setLoading(false); return; }
+    // Seit Stufe 7 gibt es kein Gruppenpasswort mehr — serverCreds gibt
+    // fuer pass immer einen leeren Text zurueck. Diese Zeile fragte
+    // danach und stieg jedes Mal aus: der Reiter war seitdem leer, ohne
+    // dass irgendwo ein Fehler stand. Die Kennung haengt apiRequest von
+    // selbst an; hier reicht, ob ueberhaupt ein Server dasteht.
+    if (!url || !code) { setLoading(false); return; }
     apiLoadLogs(url, code, pass, charId, {limit:100,offset:0,search:'',tabFilter:[]})
       .then(d => { setEntries(d.logs||[]); setLoading(false); })
       .catch(()=>setLoading(false));

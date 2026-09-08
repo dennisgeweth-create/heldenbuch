@@ -227,6 +227,14 @@ const Fenster = ({ onClick, children, ...rest }) => {
     onPointerMove: zugBewegen,
     onPointerUp: zugEnde,
     onPointerCancel: zugEnde,
+    // Ein Klick im Fenster ist kein Klick auf den Hintergrund. Das
+    // stand bisher in jedem Dialog einzeln; wer es vergass, dessen
+    // Fenster schloss sich beim ersten Knopfdruck darin. Es gehoert
+    // hierher, weil es fuer jedes Fenster gilt.
+    onClick: (e) => {
+      if (kind.props.onClick) kind.props.onClick(e);
+      e.stopPropagation();
+    },
     children: innen,
   });
 
