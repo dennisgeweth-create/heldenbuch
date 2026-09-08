@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -10935,6 +10935,576 @@ const PokerTisch = ({
   }, "N\xE4chste Hand"))), /*#__PURE__*/React.createElement("div", {
     className: 'rlt-hinweis' + (meldung ? ' wichtig' : '')
   }, meldung || (gibt ? 'Es wird gegeben…' : phase === 'vorflop' ? 'Zwei Karten. Jetzt ist die Erhöhung am teuersten — und das Blatt am wenigsten bekannt.' : phase === 'flop' ? 'Drei liegen. Wer jetzt erhöht, zahlt das Doppelte.' : phase === 'river' ? 'Alle fünf liegen. Einfach setzen oder passen — mehr gibt es nicht.' : phase === 'aus' ? rat ? '' : 'Der Geber deckt auf.' : ''), rat ? ' Die Tafel rät: ' + RAT_WORT[rat] + '.' : ''));
+};
+
+// ==== js/src/2f7-walzen.jsx ====
+// Heldenbuch — Das Fuenfwalzen-Geruest.
+//
+// Der bestehende Automat hat drei Walzen und fuenf feste Linien; seine
+// Quote ist eine geschlossene Formel. Fuer fuenf Walzen mit Wild-Ersatz,
+// verstreuten Zeichen und Freispielrunden geht das nicht mehr — und
+// deshalb steht hier ein anderes Geruest, kein groesseres.
+//
+// Drei Automaten setzen darauf auf. Sie unterscheiden sich einzig in der
+// Regel, die im Freispiel zusaetzlich gilt; alles andere — Bandlauf,
+// Linienwertung, Streuzeichen, Rechnung, Anzeige — steht hier einmal.
+//
+// Was hier NICHT steht: React-Zustand fuer ein bestimmtes Spiel. Der
+// obere Teil dieser Datei ist reine Rechnung ohne React und ohne JSX und
+// laesst sich deshalb einzeln pruefen (dev: bis zur Marke schneiden und
+// durch node schicken).
+
+const W_WALZEN = 5;
+const W_REIHEN = 3;
+const W_FELDER = W_WALZEN * W_REIHEN; // 0..4 oben, 5..9 Mitte, 10..14 unten
+
+// ── Die zehn Linien ──────────────────────────────────────────────
+// Zuschaltbar sind sie nicht. Im Original darf man Linien abwaehlen und
+// spielt damit einen schlechteren Automaten — diese Falle muss das
+// Heldenbuch nicht nachbauen. Zehn Linien, immer alle.
+const W_LINIEN = [{
+  name: 'Mitte',
+  felder: [5, 6, 7, 8, 9]
+}, {
+  name: 'Oben',
+  felder: [0, 1, 2, 3, 4]
+}, {
+  name: 'Unten',
+  felder: [10, 11, 12, 13, 14]
+}, {
+  name: 'V',
+  felder: [0, 6, 12, 8, 4]
+}, {
+  name: 'Λ',
+  felder: [10, 6, 2, 8, 14]
+}, {
+  name: 'Wanne oben',
+  felder: [0, 1, 7, 13, 14]
+}, {
+  name: 'Wanne unten',
+  felder: [10, 11, 7, 3, 4]
+}, {
+  name: 'Zacke oben',
+  felder: [5, 1, 2, 3, 9]
+}, {
+  name: 'Zacke unten',
+  felder: [5, 11, 12, 13, 9]
+}, {
+  name: 'Zickzack',
+  felder: [0, 6, 2, 8, 4]
+}];
+
+// Der Einsatz auf der Leiter ist der Gesamteinsatz; der Linieneinsatz ist
+// ein Zehntel davon. Gerechnet wird in Bruchzahlen und gerundet einmal am
+// Ende eines Drehs — nicht je Linie, sonst summieren sich zehn
+// Rundungsfehler zu einem sichtbaren.
+const wLinieneinsatz = einsatz => (+einsatz || 0) / W_LINIEN.length;
+
+// ── Zeichen ──────────────────────────────────────────────────────
+// Ein Zeichen hat drei Rollen, die sich nicht ausschliessen:
+//
+//   zahlt  — zahlt auf einer Linie, je Laenge. {3:x, 4:y, 5:z}
+//   wild   — ersetzt jedes andere Zeichen auf einer Linie.
+//   streu  — zaehlt irgendwo auf dem Feld und zahlt ueber den
+//            Gesamteinsatz. {3:x, …}
+//
+// Das Buch des ersten Automaten ist wild UND streu; die Klinge des
+// dritten ist wild und zahlt selbst; der Waechter des zweiten ist nur
+// wild und zahlt nichts. Alle drei Faelle fallen hier heraus, ohne dass
+// die Wertung sie kennt.
+const wZahlt = (sym, n) => sym && sym.zahlt && +sym.zahlt[n] || 0;
+const wStreut = (sym, n) => sym && sym.streu && +sym.streu[n] || 0;
+const wSymbol = (k, symbole) => symbole.find(s => s.k === k) || null;
+
+// ── Baender statt Wuerfeln ───────────────────────────────────────
+// Der bestehende Automat zieht jedes Feld einzeln. Fuer fuenf Walzen
+// taugt das nicht: dann liesse sich weder einstellen, dass ein Zeichen
+// nie auf der ersten Walze liegt, noch wie oft zwei gleiche uebereinander
+// stehen. Ein echtes Geraet hat je Walze ein Band; gezogen wird eine
+// Stelle darauf, sichtbar sind drei aufeinanderfolgende Eintraege.
+const wZiehen = (baender, zufall) => {
+  const r = zufall || Math.random;
+  const feld = new Array(W_FELDER);
+  for (let w = 0; w < W_WALZEN; w++) {
+    const band = baender[w];
+    const p = Math.floor(r() * band.length);
+    for (let z = 0; z < W_REIHEN; z++) feld[z * W_WALZEN + w] = band[(p + z) % band.length];
+  }
+  return feld;
+};
+
+// ── Eine Linie ───────────────────────────────────────────────────
+// Von links, ab Walze 1, ohne Luecke.
+//
+// Welches Zeichen ein Wild vertritt, entscheidet der Gewinn. Deshalb wird
+// jedes zahlende Zeichen durchprobiert und das beste genommen, statt das
+// erste Feld zu befragen. Das ist keine Feinheit: bei einem Automaten,
+// dessen Wild selbst zahlt, waere die Antwort sonst manchmal falsch —
+// zwei Klingen und drei Fechterinnen zahlen als Fechterinnen mehr, drei
+// Klingen und zwei Fechterinnen als Klingen.
+const wLinieWerten = (feld, linie, symbole, linieneinsatz) => {
+  let best = null;
+  for (const sym of symbole) {
+    if (!sym.zahlt) continue; // reine Streu- und Wildzeichen
+    let n = 0;
+    for (const f of linie.felder) {
+      const k = feld[f];
+      if (k === sym.k) {
+        n++;
+        continue;
+      }
+      const s2 = wSymbol(k, symbole);
+      if (s2 && s2.wild) {
+        n++;
+        continue;
+      }
+      break;
+    }
+    const betrag = wZahlt(sym, n) * linieneinsatz;
+    if (betrag <= 0) continue;
+    // Bei gleichem Betrag gewinnt die laengere Kette; bei gleicher Laenge
+    // das Zeichen, das wirklich auf Walze 1 liegt — damit die Meldung
+    // sagt, was man sieht.
+    const besser = !best || betrag > best.betrag || betrag === best.betrag && n > best.laenge || betrag === best.betrag && n === best.laenge && feld[linie.felder[0]] === sym.k;
+    if (besser) best = {
+      sym,
+      laenge: n,
+      betrag,
+      felder: linie.felder.slice(0, n)
+    };
+  }
+  return best;
+};
+
+// ── Streuzeichen ─────────────────────────────────────────────────
+// Sie zaehlen irgendwo, nicht auf einer Linie. Ein Zeichen darf dabei an
+// Walzen gebunden sein: die Hoerner des dritten Automaten zaehlen nur auf
+// Walze 1, 3 und 5, und dort je Walze hoechstens einmal. Das macht den
+// Ausloeser seltener, als er aussieht, und gehoert deshalb in die Regel
+// und nicht in die Baender.
+const wStreuWerten = (feld, sym, einsatz) => {
+  const wo = [];
+  const walzen = new Set();
+  for (let i = 0; i < W_FELDER; i++) {
+    if (feld[i] !== sym.k) continue;
+    const w = i % W_WALZEN;
+    if (sym.streuWalzen && !sym.streuWalzen.includes(w)) continue;
+    if (sym.streuWalzen && walzen.has(w)) continue; // je Walze zaehlt eine
+    walzen.add(w);
+    wo.push(i);
+  }
+  return {
+    sym,
+    anzahl: wo.length,
+    felder: wo,
+    betrag: wStreut(sym, wo.length) * einsatz
+  };
+};
+
+// ── Ein ganzer Dreh ──────────────────────────────────────────────
+// Der Gewinn kommt als Bruchzahl heraus. Gerundet wird beim Buchen, und
+// zwar einmal.
+const wWerten = (feld, symbole, einsatz) => {
+  const le = wLinieneinsatz(einsatz);
+  const treffer = [];
+  let gewinn = 0;
+  W_LINIEN.forEach((linie, nr) => {
+    const t = wLinieWerten(feld, linie, symbole, le);
+    if (!t) return;
+    gewinn += t.betrag;
+    treffer.push({
+      nr,
+      name: linie.name,
+      ...t
+    });
+  });
+  const streu = [];
+  symbole.filter(s => s.streu).forEach(s => {
+    const e = wStreuWerten(feld, s, einsatz);
+    if (e.anzahl <= 0) return;
+    gewinn += e.betrag;
+    streu.push(e);
+  });
+  return {
+    gewinn,
+    treffer,
+    streu
+  };
+};
+
+// Wie oft ein Streuzeichen liegt — die Frage, an der jede Freispielrunde
+// haengt. Ohne Wertung, weil der Ausloeser nichts kostet.
+const wStreuZahl = (feld, symbole, k) => {
+  const s = wSymbol(k, symbole);
+  return s ? wStreuWerten(feld, s, 0).anzahl : 0;
+};
+
+// Wo ein Zeichen ueberall liegt, egal auf welcher Linie. Das braucht die
+// Bonusrunde des ersten Automaten, deren Sonderzeichen sich ausdehnt.
+const wWalzenMit = (feld, k) => {
+  const raus = [];
+  for (let w = 0; w < W_WALZEN; w++) {
+    for (let z = 0; z < W_REIHEN; z++) {
+      if (feld[z * W_WALZEN + w] === k) {
+        raus.push(w);
+        break;
+      }
+    }
+  }
+  return raus;
+};
+
+// Eine Walze vollstaendig mit einem Zeichen fuellen. Der zweite Automat
+// tut das mit seinem Wild, der erste mit dem gelosten Sonderzeichen.
+const wWalzeFuellen = (feld, walze, k) => {
+  const neu = feld.slice();
+  for (let z = 0; z < W_REIHEN; z++) neu[z * W_WALZEN + walze] = k;
+  return neu;
+};
+
+// ── Die Rechnung ─────────────────────────────────────────────────
+// Bei fuenf Walzen mit Wild-Ersatz, Streuzeichen und Freispielen mit
+// eigener Regel gibt es keine Formel mehr, die noch jemand pruefen kann.
+// Der Ausweg steht schon im Haus: die Rennbahn rechnet 2500 stille
+// Rennen, bevor sie ihre Quoten hinschreibt.
+//
+// Hier eine Stelle klueger. Die Quote ist in den Auszahlungen linear —
+// das nutzt schon der bestehende Automat aus, wenn er seine Tafel auf ein
+// Ziel streckt. Also braucht die Messung die Auszahlungen gar nicht zu
+// kennen: sie zaehlt nur, wie oft was getroffen wird. Heraus kommt eine
+// Haeufigkeitstafel aus ein paar Dutzend Zahlen, und die Quote ist von da
+// an ein Skalarprodukt — sofort, im Browser, bei jeder Aenderung der
+// Spielleitung.
+//
+// Das gilt, solange keine Regel an einem Auszahlungsbetrag haengt. Beim
+// Wachsamen Auge haengt die Veredelungsleiter deshalb an der Reihenfolge
+// der Tafel und nicht an ihren Zahlen.
+const wZaehler = () => ({
+  drehungen: 0,
+  linie: {},
+  // k -> {laenge -> Zahl}
+  streu: {} // k -> {anzahl -> Zahl}
+});
+const wZaehlen = (z, feld, symbole, gewicht) => {
+  const g = gewicht === undefined ? 1 : gewicht;
+  W_LINIEN.forEach(linie => {
+    const t = wLinieWerten(feld, linie, symbole, 1);
+    if (!t) return;
+    const e = z.linie[t.sym.k] || (z.linie[t.sym.k] = {});
+    e[t.laenge] = (e[t.laenge] || 0) + g;
+  });
+  symbole.filter(s => s.streu).forEach(s => {
+    const n = wStreuWerten(feld, s, 0).anzahl;
+    if (!n) return;
+    const e = z.streu[s.k] || (z.streu[s.k] = {});
+    e[n] = (e[n] || 0) + g;
+  });
+};
+
+// Der Automat gibt eine Runde her, die aus einem Feld heraus laeuft; das
+// Geruest weiss nicht, was darin passiert, und muss es auch nicht. Es
+// reicht, dass sie zaehlt.
+const wMessen = (regeln, drehungen, zufall) => {
+  const r = zufall || Math.random;
+  const z = wZaehler();
+  const sym = regeln.symbole;
+  for (let i = 0; i < drehungen; i++) {
+    const feld = wZiehen(regeln.baender, r);
+    wZaehlen(z, feld, sym, 1);
+    if (regeln.freiLauf) regeln.freiLauf(feld, z, r);
+    z.drehungen++;
+  }
+  return z;
+};
+
+// Haeufigkeit mal Auszahlung, geteilt durch die Zahl der Drehungen. Die
+// Linien zahlen ueber den Linieneinsatz (ein Zehntel), die Streuzeichen
+// ueber den Gesamteinsatz — deshalb der Faktor.
+const wQuote = (z, symbole) => {
+  if (!z || !z.drehungen) return 0;
+  let summe = 0;
+  Object.keys(z.linie).forEach(k => {
+    const s = wSymbol(k, symbole);
+    Object.keys(z.linie[k]).forEach(n => {
+      summe += z.linie[k][n] * wZahlt(s, +n) / W_LINIEN.length;
+    });
+  });
+  Object.keys(z.streu).forEach(k => {
+    const s = wSymbol(k, symbole);
+    Object.keys(z.streu[k]).forEach(n => {
+      summe += z.streu[k][n] * wStreut(s, +n);
+    });
+  });
+  return summe / z.drehungen;
+};
+
+// Die Quote ist in den Auszahlungen linear, also trifft es genau, alle
+// mit demselben Faktor zu strecken. Nur das Runden verschiebt es wieder
+// ein wenig — und deshalb steht am Tisch danach die erreichte Zahl und
+// nicht die gewuenschte.
+const wRunden = x => x < 10 ? Math.max(0.05, Math.round(x * 100) / 100) : x < 100 ? Math.round(x * 10) / 10 : Math.round(x);
+const wEinregeln = (symbole, z, ziel) => {
+  const jetzt = wQuote(z, symbole);
+  if (!jetzt || !ziel) return symbole;
+  const f = ziel / jetzt;
+  const strecken = t => {
+    if (!t) return t;
+    const neu = {};
+    Object.keys(t).forEach(n => {
+      neu[n] = wRunden(+t[n] * f);
+    });
+    return neu;
+  };
+  return symbole.map(s => ({
+    ...s,
+    zahlt: strecken(s.zahlt),
+    streu: strecken(s.streu)
+  }));
+};
+
+// Die Auszahlungen der Spielleitung uebernehmen, den Rest vom Standard.
+// Wie beim bestehenden Automaten: Name und Zeichen stehen fest, die
+// Zahlen nicht. Die Reihenfolge steht ebenfalls fest — an ihr haengt beim
+// Wachsamen Auge die Veredelung.
+const wSymboleAus = (standard, eig) => {
+  if (!eig || !Array.isArray(eig)) return standard;
+  const liste = standard.map(s => {
+    const o = eig.find(x => x && x.k === s.k);
+    if (!o) return s;
+    const nimm = (alt, neu) => {
+      if (!alt || !neu) return alt;
+      const raus = {};
+      Object.keys(alt).forEach(n => {
+        raus[n] = Math.max(0, +neu[n] || 0);
+      });
+      return raus;
+    };
+    return {
+      ...s,
+      zahlt: nimm(s.zahlt, o.zahlt),
+      streu: nimm(s.streu, o.streu)
+    };
+  });
+  // Eine Tafel, auf der nichts mehr zahlt, waere kein Automat mehr.
+  const zahltWas = liste.some(s => s.zahlt && Object.keys(s.zahlt).some(n => +s.zahlt[n] > 0));
+  return zahltWas ? liste : standard;
+};
+
+// ══ Ende der reinen Rechnung ═══════════════════════════════════════
+// Alles darueber laeuft ohne React und ohne Browser und wird so geprueft.
+
+// ── Der Lauf der Baender ─────────────────────────────────────────
+// Fuenf Walzen, die nacheinander stehenbleiben. Wie beim bestehenden
+// Automaten ist das Band ein Vorlauf aus Zufallszeichen, an dessen Ende
+// die drei stehen, die stehenbleiben sollen.
+const W_BAND = 16;
+const W_DAUER = [800, 1000, 1200, 1400, 1600];
+const wBandBauen = (feld, walze, symbole, zufall) => {
+  const r = zufall || Math.random;
+  const vorlauf = Array.from({
+    length: W_BAND - W_REIHEN
+  }, () => symbole[Math.floor(r() * symbole.length)].k);
+  const sicht = [];
+  for (let z = 0; z < W_REIHEN; z++) sicht.push(feld[z * W_WALZEN + walze]);
+  return [...vorlauf, ...sicht];
+};
+
+// ── Sofort buchen, danach zeigen ─────────────────────────────────
+// Derselbe Grund wie beim bestehenden Automaten, hier noch dringender:
+// eine Freispielrunde sind zehn Laeufe hintereinander. Der Ausgang steht
+// fest, sobald gezogen wurde; der Lauf zeigt ihn nur. Haengt der
+// Zeitgeber im Hintergrund fest — und das darf ein Browser —, stuende
+// der Automat sonst auf „Laeuft…" und die Taste bliebe gesperrt.
+//
+// Deshalb loest jeder Weg auf: der Zeitgeber, das Zurueckkommen zum
+// Fenster, und das Verlassen der Seite.
+const useWalzenLauf = () => {
+  const [laeuft, setLaeuft] = React.useState(false);
+  const schwebend = React.useRef(null); // {fertig, faellig}
+  const uhr = React.useRef(null);
+  const reduziert = React.useMemo(() => {
+    try {
+      return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return false;
+    }
+  }, []);
+  const aufloesen = React.useCallback(() => {
+    const s = schwebend.current;
+    if (!s) return;
+    schwebend.current = null;
+    if (uhr.current) {
+      clearTimeout(uhr.current);
+      uhr.current = null;
+    }
+    setLaeuft(false);
+    s.fertig();
+  }, []);
+  React.useEffect(() => {
+    const wach = () => {
+      if (schwebend.current && (document.hidden || Date.now() >= schwebend.current.faellig)) aufloesen();
+    };
+    document.addEventListener('visibilitychange', wach);
+    return () => {
+      document.removeEventListener('visibilitychange', wach);
+      if (uhr.current) clearTimeout(uhr.current);
+    };
+  }, [aufloesen]);
+
+  // Wer Bewegung abgeschaltet hat, bekommt das Ergebnis sofort — auch
+  // eine ganze Freispielrunde, und nicht zwoelfmal hintereinander eine
+  // Sekunde Warten.
+  const starten = React.useCallback((fertig, dauer) => {
+    if (reduziert) {
+      fertig();
+      return;
+    }
+    const d = dauer || Math.max(...W_DAUER) + 60;
+    schwebend.current = {
+      fertig,
+      faellig: Date.now() + d
+    };
+    setLaeuft(true);
+    uhr.current = setTimeout(aufloesen, d);
+  }, [aufloesen, reduziert]);
+  return {
+    laeuft,
+    starten,
+    aufloesen,
+    reduziert
+  };
+};
+
+// Der Gewinn zaehlt hoch, statt dazustehen — kurz genug, dass niemand
+// wartet, lang genug, dass man es merkt.
+const useHochzaehler = ziel => {
+  const [n, setN] = React.useState(0);
+  React.useEffect(() => {
+    if (!ziel || ziel <= 0) {
+      setN(0);
+      return;
+    }
+    const start = Date.now(),
+      dauer = 520;
+    const takt = setInterval(() => {
+      const t = Math.min(1, (Date.now() - start) / dauer);
+      setN(Math.round(ziel * (1 - Math.pow(1 - t, 3))));
+      if (t >= 1) clearInterval(takt);
+    }, 40);
+    return () => clearInterval(takt);
+  }, [ziel]);
+  return n;
+};
+
+// Zehn Linien koennen zugleich treffen. Alle auf einmal leuchten zu
+// lassen hiesse: das halbe Feld leuchtet und man sieht nicht, woran es
+// lag. Also nacheinander.
+const useLinienWechsel = treffer => {
+  const [i, setI] = React.useState(-1);
+  const zahl = treffer ? treffer.length : 0;
+  React.useEffect(() => {
+    if (zahl < 2) {
+      setI(-1);
+      return;
+    }
+    let k = 0;
+    setI(0);
+    const takt = setInterval(() => {
+      k = (k + 1) % zahl;
+      setI(k);
+    }, 950);
+    return () => clearInterval(takt);
+  }, [zahl]);
+  return i;
+};
+
+// ── Der Schirm ───────────────────────────────────────────────────
+// Fuenf Walzen mit je einem Fenster von drei Zellen. Das Band ist 16
+// Zellen lang und faehrt auf die letzten drei — daher -81,25 % (13 von
+// 16), wie beim bestehenden Automaten.
+const WalzenSchirm = ({
+  baender,
+  symbole,
+  dreh,
+  laeuft,
+  leuchtet,
+  klebt,
+  gefuellt
+}) => /*#__PURE__*/React.createElement("div", {
+  className: 'walzen-feld' + (laeuft ? ' laeuft' : ''),
+  role: "group",
+  "aria-label": "Walzen"
+}, [0, 1, 2, 3, 4].map(walze => /*#__PURE__*/React.createElement("div", {
+  className: 'walzen-walze' + (gefuellt && gefuellt.includes(walze) ? ' voll' : ''),
+  key: walze
+}, /*#__PURE__*/React.createElement("div", {
+  className: "walzen-band",
+  key: dreh,
+  style: laeuft ? {
+    animationDuration: W_DAUER[walze] + 'ms'
+  } : {
+    transform: 'translateY(-81.25%)'
+  }
+}, baender[walze].map((k, i) => {
+  const reihe = i - (W_BAND - W_REIHEN);
+  const nr = reihe >= 0 ? reihe * W_WALZEN + walze : -1;
+  const s = wSymbol(k, symbole);
+  return /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: 'walzen-zelle' + (leuchtet && leuchtet.has(nr) ? ' treffer' : '') + (klebt && klebt.has(nr) ? ' klebt' : '')
+  }, /*#__PURE__*/React.createElement("span", null, s ? s.z : '·'));
+})))));
+
+// Welche Felder leuchten: ohne Ergebnis keins, bei einer Linie deren
+// Felder, bei mehreren die gerade gezeigte. Streuzeichen leuchten immer
+// mit — sie liegen nicht auf einer Linie und kaemen sonst nie dran.
+const wLeuchtet = (ergebnis, zeigeLinie) => {
+  const raus = new Set();
+  if (!ergebnis) return raus;
+  const gezeigt = ergebnis.treffer.length > 1 && zeigeLinie >= 0 ? [ergebnis.treffer[zeigeLinie]] : ergebnis.treffer;
+  gezeigt.forEach(t => t.felder.forEach(f => raus.add(f)));
+  (ergebnis.streu || []).forEach(e => e.felder.forEach(f => raus.add(f)));
+  return raus;
+};
+
+// ── Die Tafel ────────────────────────────────────────────────────
+// Sie steht unter jedem der drei Automaten und sieht ueberall gleich
+// aus. Was ein Zeichen kann, steht dabei — wild, verstreut, an Walzen
+// gebunden —, damit niemand die Regeln erraten muss.
+const wZahlSpalten = [5, 4, 3, 2];
+const WalzenTafel = ({
+  symbole,
+  quote,
+  kinder
+}) => {
+  const [offen, setOffen] = React.useState(false);
+  const zeigt = n => symbole.some(s => wZahlt(s, n) > 0 || wStreut(s, n) > 0);
+  const spalten = wZahlSpalten.filter(zeigt);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "automat-tafel"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "automat-tafel-kopf",
+    onClick: () => setOffen(o => !o),
+    "aria-expanded": offen
+  }, /*#__PURE__*/React.createElement("span", null, offen ? '▾' : '▸', " Auszahlungen"), quote > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "tafel-quote"
+  }, Math.round(quote * 1000) / 10, " %")), offen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
+    className: "automat-tabelle walzen-tabelle"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, symbole.map(s => /*#__PURE__*/React.createElement("tr", {
+    key: s.k
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "sym"
+  }, s.z), /*#__PURE__*/React.createElement("td", {
+    className: "nam"
+  }, s.name, s.wild && /*#__PURE__*/React.createElement("i", null, "ersetzt jedes Zeichen"), s.streu && /*#__PURE__*/React.createElement("i", null, "z\xE4hlt verstreut", s.streuWalzen ? ' — nur Walze ' + s.streuWalzen.map(w => w + 1).join(', ') : '')), spalten.map(n => {
+    const v = wZahlt(s, n) || wStreut(s, n);
+    return /*#__PURE__*/React.createElement("td", {
+      key: n,
+      className: "zahl"
+    }, v ? zahlText(v) + '×' : '–');
+  }))))), /*#__PURE__*/React.createElement("p", {
+    className: "automat-fussnote"
+  }, "Zehn Linien, immer alle. Gewertet wird von links ab der ersten Walze, ohne L\xFCcke; je Linie z\xE4hlt nur der beste Gewinn. Der Einsatz auf der Leiste ist der Gesamteinsatz \u2014 eine Linie bekommt ein Zehntel davon, und die Vielfachen oben beziehen sich darauf. Verstreute Zeichen z\xE4hlen irgendwo auf dem Feld und rechnen \xFCber den ganzen Einsatz."), kinder));
 };
 
 // ==== js/src/2g-kampfsicht.jsx ====
