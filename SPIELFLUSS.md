@@ -101,9 +101,9 @@ nicht in den Tabellen — er sagt nur, wenn eine Stufe eine
 Unterklassenwahl fällig macht. Die Namen kämen mit Stufe 2 dazu, wenn
 die Klassendaten ohnehin wachsen.
 
-## Stufe 2 · Der Charakterassistent
+## Stufe 2 · Der Charakterassistent ✓
 
-Heute ist „✶ Neuer Charakter" ein Formular mit fünf Feldern. Danach
+*Steht seit v4.9.* Bis dahin war „✶ Neuer Charakter" ein Formular mit fünf Feldern. Danach
 steht ein leerer Bogen da, und man trägt zwei Stunden lang ein, was
 eigentlich aus den Regeln folgt.
 
@@ -123,15 +123,29 @@ Am Ende rechnet er ab, was folgt: Trefferpunkte, Rüstungsklasse aus der
 getragenen Rüstung, Übungsbonus, Rettungswürfe, Initiative,
 Zauberplätze, Zahl der vorbereiteten Zauber.
 
-**Failsafes:** Der „Fertig"-Knopf sagt, *was* noch fehlt, statt nur grau
-zu werden. Nichts wird überschrieben, was schon dasteht, ohne dass es in
-der Vorschau steht. Er läuft auf einem fertigen Bogen erneut, ohne ihn
-zu zerlegen.
+**Failsafes, wie gebaut:**
 
-**Der ehrliche Haken:** Völker, Klassen und Hintergründe müssen als
-Daten da sein, auf Deutsch. Das ist die eigentliche Arbeit — nicht die
-Oberfläche. Deshalb erst die Tabellen aus Stufe 1, dann die Startpakete,
-und die Merkmalstexte wachsen über die Bibliothek mit.
+- **Kein Knopf wird nur grau.** „Weiter“ trägt den Grund als Aufschrift:
+  „Genau 2 Fertigkeiten — gewählt: 1.“ Unten steht die vollständige
+  Liste dessen, was noch fehlt.
+- **Die zwei Fertigkeiten des Hintergrunds sind gesperrt** und stehen mit
+  „vom Hintergrund“ da. Eine davon noch einmal zu wählen würde einen
+  Klassenplatz verschenken — es geht gar nicht erst.
+- Ist die Zahl der Klasse erreicht, lässt sich keine weitere anklicken.
+- Der Punktekauf zählt mit und wird rot, sobald 27 überschritten sind;
+  aus dem Standardsatz kann jede Zahl nur so oft kommen, wie sie darin
+  vorkommt.
+- Die Vorschau steht **immer** da, nicht erst am Ende, und zeigt die
+  Volksboni einzeln („17 (15 + 2)“).
+
+**Zwei Wege hinein:** der Assistent führt durch die Regeln, „✎ Von
+Hand“ fragt wie bisher nur nach fünf Feldern.
+
+**Der ehrliche Haken war die Datenpflege**, und sie ist zur Hälfte
+getan: neun Völker mit Untergruppen, zwölf Hintergründe und je Klasse
+die Fertigkeitsliste, die Übungen, das Startgold und ein Paket. Was
+fehlt, sind die **Texte** der Merkmale — angelegt werden sie mit Namen
+und Quelle, gefüllt werden sie aus der Bibliothek der Gruppe.
 
 ## Stufe 3 · Proben auf Ansage
 
