@@ -588,12 +588,7 @@ const LogTab = ({
     hour: '2-digit',
     minute: '2-digit'
   });
-  const tabColor = t => ({
-    'zauber': '#c060a0',
-    'inventar': '#e0a030',
-    'waffen': '#c84040',
-    'charakter': 'var(--gold)'
-  })[t] || 'var(--border-bright)';
+  const tabColor = t => LOG_TAB_FARBEN[t] || 'var(--border-bright)';
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "section-title",
     style: {
@@ -18357,7 +18352,7 @@ function App() {
   const tavernenAbend = (charId, gesetzt, zurueck) => {
     const c = charsRef.current.find(x => x.id === charId);
     const rest = zurueck - gesetzt;
-    addLog(charId, (c || {}).name, 'inventar', 'In der Taverne: ' + gesetzt + ' gesetzt, ' + zurueck + ' zurück — ' + (rest >= 0 ? '+' + rest : '−' + Math.abs(rest)) + ' ' + (tavernenGold ? 'Goldmünzen' : 'Marken'), {
+    addLog(charId, (c || {}).name, 'taverne', 'In der Taverne: ' + gesetzt + ' gesetzt, ' + zurueck + ' zurück — ' + (rest >= 0 ? '+' + rest : '−' + Math.abs(rest)) + ' ' + (tavernenGold ? 'Goldmünzen' : 'Marken'), {
       gesetzt,
       zurueck,
       waehrung: tavernenGold ? 'gold' : 'marken'
@@ -19433,14 +19428,9 @@ function App() {
       hour: '2-digit',
       minute: '2-digit'
     });
-    const tabColor = t => ({
-      'zauber': '#c060a0',
-      'inventar': '#e0a030',
-      'waffen': '#c84040',
-      'charakter': 'var(--gold)'
-    })[t] || 'var(--border-bright)';
+    const tabColor = t => LOG_TAB_FARBEN[t] || 'var(--border-bright)';
     const TAB_ICONS2 = LOG_TAB_ICONS; // wortgleiche Kopie, jetzt nur noch ein Ort
-    const TABS2 = ['charakter', 'zauber', 'inventar', 'waffen', 'attribute', 'rüst', 'notizen'];
+    const TABS2 = LOG_TABS; // eine Liste, nicht zwei
     const dmCharIds = new Set(JSON.parse(localStorage.getItem('dnd_chars') || '[]').filter(c => c.dmOnly === true).map(c => c.id));
     const [alEntries, setAlEntries] = useState([]);
     const [alLoading, setAlLoading] = useState(false);
@@ -19516,7 +19506,12 @@ function App() {
     const loadMore = () => {
       if (!alLoading && alHasMore) fetchPage(alEntries.length, alSearchRef.current, alTabsRef.current, false);
     };
-    return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
+
+    // Das Kreuz stellt das Fenster selbst hin — zusammen mit dem Knopf
+    // zum Zuklappen. Ein zweites daneben war eines zu viel.
+    return /*#__PURE__*/React.createElement(Fenster, {
+      onClick: onClose
+    }, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
         maxWidth: 640,
@@ -19546,10 +19541,7 @@ function App() {
         margin: 0,
         flex: 1
       }
-    }, "\uD83D\uDCD6 Abenteuerlog"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-cancel",
-      onClick: onClose
-    }, "\u2715")), /*#__PURE__*/React.createElement("input", {
+    }, "\uD83D\uDCD6 Abenteuerlog")), /*#__PURE__*/React.createElement("input", {
       className: "form-input",
       style: {
         marginBottom: 8,

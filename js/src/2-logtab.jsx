@@ -34,7 +34,7 @@ const LogTab = ({charId, isDmMode}) => {
   });
 
   const fmt = ts => new Date(ts.replace(' ','T')+'Z').toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const tabColor = t => ({'zauber':'#c060a0','inventar':'#e0a030','waffen':'#c84040','charakter':'var(--gold)'}[t]||'var(--border-bright)');
+  const tabColor = t => LOG_TAB_FARBEN[t] || 'var(--border-bright)';
 
   return (
     <div>

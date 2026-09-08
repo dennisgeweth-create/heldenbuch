@@ -401,5 +401,10 @@ const CONDITIONS = ['Geblendet','Betäubt','Bezaubert','Erschöpft','Verängstig
   'Festgesetzt','Bewusstlos','Taub'];
 
 // Reiter des Abenteuerlogs.
-const LOG_TABS = ['charakter','zauber','inventar','waffen','attribute','rüst','notizen'];
-const LOG_TAB_ICONS = {'charakter':'👤','zauber':'✨','inventar':'🎒','waffen':'⚔','attribute':'📊','rüst':'🛡','notizen':'📜'};
+const LOG_TABS = ['charakter','zauber','inventar','waffen','attribute','rüst','notizen','taverne'];
+const LOG_TAB_ICONS = {'charakter':'👤','zauber':'✨','inventar':'🎒','waffen':'⚔','attribute':'📊','rüst':'🛡','notizen':'📜','taverne':'🎰'};
+// Der Streifen links an jeder Logzeile. Die Taverne bekommt Bernstein,
+// wie alles, was Geld ist — und einen eigenen Tag, damit ein Abend am
+// Automaten nicht zwischen den Gegenständen steht.
+const LOG_TAB_FARBEN = {'zauber':'#c060a0', 'inventar':'#e0a030', 'waffen':'#c84040',
+                        'charakter':'var(--gold)', 'taverne':'var(--inspiration)'};
