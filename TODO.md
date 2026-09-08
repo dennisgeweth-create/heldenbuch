@@ -3,26 +3,17 @@
 Offene Vorhaben, in der Reihenfolge, in der sie besprochen wurden.
 Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 
-## Früher angeboten, noch nicht bestellt
-
-- **Tränke mit Wirkung.** Heil- und Manatrank mit eigenem Würfel, damit
-  das Zugfenster auch hier rechnet statt nur zu protokollieren. Wählen
-  und Abziehen steht schon, den Würfel trägt die Spielleitung noch von
-  Hand ein.
-- **Schnellerer Abgleich (Stufe 4).** Zwei Sekunden statt der jetzigen
-  Wartezeit, damit „du bist dran" beim Spieler ankommt, solange es noch
-  stimmt.
-
-## Die Taverne
-
-- **Der Kopf des Roulettetisches.** Rechts vom Kessel stehen 596 × 77
-  Punkte leer, während die Abrechnung darunter das Fenster verlängert.
-  Sie könnte dort hinein — der Croupier sagt es am Tisch auch neben dem
-  Kessel an. Nur am Telefon muss sie unten bleiben, dort ist der Kopf
-  gestapelt.
+Zurzeit steht nichts offen.
 
 ## Erledigt
 
+- ~~Tränke mit Wirkung~~ — ein Gegenstand trägt dieselben Wirkungsfelder
+  wie ein Zauber; das Zugfenster rechnet und stellt sich bei einem
+  Heiltrank selbst auf Heilung.
+- ~~Schnellerer Abgleich (Stufe 4)~~ — zwei Sekunden im Kampf statt vier,
+  und wer zum Fenster zurückkommt, sieht sofort den Stand von jetzt.
+- ~~Der Kopf des Roulettetisches~~ — neben dem Kessel steht jetzt der
+  Zettel: vorher, was auf dem Tapis liegt, danach, was es gebracht hat.
 - ~~Sprüche des Wirts bei Gewinn und Verlust~~ — an den drei Tischen, an
   denen jemand gibt; er antwortet auf das, was gefallen ist, und
   schweigt, wenn nichts entschieden wurde.
