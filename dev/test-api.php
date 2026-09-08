@@ -598,6 +598,8 @@ $r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 's
 pruefe('der Besitzer sagt an (200)', $r['status'] === 200, kurz($r));
 pruefe('und bekommt sie zurueck', ($r['body']['ansage']['was'] ?? '') === 'Feuerball');
 pruefe('mit eigener Kennung', strlen((string)($r['body']['ansage']['id'] ?? '')) > 6);
+pruefe('und als Aktion, wenn nichts dabeisteht', ($r['body']['ansage']['typ'] ?? '') === 'aktion');
+
 pruefe('die Ziele stehen mit Namen drin', ($r['body']['ansage']['ziele'][0] ?? '') === 'Ork');
 pruefe('und mit Kennung, damit die Spielleitung sie nicht sucht',
        ($r['body']['ansage']['zielIds'][0] ?? '') === 'g9');
@@ -671,6 +673,22 @@ foreach ([['gegenstand', 'Trank der Heilung'], ['merkmal', 'Zweiter Atem']] as $
            (string)($r['body']['ansage']['art'] ?? ''));
     pruefe('und seinen Namen', ($r['body']['ansage']['was'] ?? '') === $paar[1]);
 }
+
+// Aktion, Bonusaktion, Reaktion — und mehrere davon nebeneinander.
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'ansage' => ['typ' => 'bonus', 'art' => 'gegenstand',
+                                                           'was' => 'Heiltrank']]);
+pruefe('eine Bonusaktion behaelt ihre Art', ($r['body']['ansage']['typ'] ?? '') === 'bonus', kurz($r));
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'ansage' => ['typ' => 'erfunden', 'art' => 'frei',
+                                                           'text' => 'Ich winke.']]);
+pruefe('eine erfundene Art wird zur Aktion', ($r['body']['ansage']['typ'] ?? '') === 'aktion', kurz($r));
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'nur' => 'ansagen']);
+$alle = (array)($r['body']['ansagen'] ?? []);
+pruefe('mehrere Ansagen desselben Helden stehen nebeneinander', count($alle) === 4,
+       'Ansagen: ' . count($alle));
+pruefe('und jede weiss, was sie ist', count(array_filter($alle,
+       fn($a) => in_array($a['typ'] ?? '', ['aktion','bonus','reaktion'], true))) === 4);
 
 ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => null]);
 

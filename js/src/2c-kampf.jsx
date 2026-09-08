@@ -132,6 +132,16 @@ const sortiereNachIni = (liste) => [...liste].sort((a,b) => {
 // Was die Anwendung nicht weiss, steht auch nicht drin: wer den Schaden
 // ausgeteilt hat. Sie kennt nur, wer ihn bekommt und wer gerade am Zug
 // ist. Die Verbindung stellt der Leser her, so wie am Tisch auch.
+// Aktion, Bonusaktion, Reaktion. Ein Zug ist selten eine Sache — und
+// wer drei Ansagen bekommt, muss sehen koennen, was wovon ist.
+const ANSAGE_TYPEN = [
+  {k: 'aktion',   l: 'Aktion',      kurz: 'A'},
+  {k: 'bonus',    l: 'Bonusaktion', kurz: 'B'},
+  {k: 'reaktion', l: 'Reaktion',    kurz: 'R'},
+];
+const ansageTyp = (a) => ANSAGE_TYPEN.find(x => x.k === ((a || {}).typ || 'aktion'))
+                         || ANSAGE_TYPEN[0];
+
 const AKTION_WORT = {zauber: 'Zauber', angriff: 'Angriff',
                      gegenstand: 'Gegenstand', merkmal: 'Merkmal'};
 
@@ -689,6 +699,7 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
 //   Waffenliste, nur seinen Bogen aus der Sammlung — also nur Ziele, Werte
 //   und die Beschreibung.
 const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
+                      schlangeRest, onSchlange,
                       ansagen, onAnsageWeg, onAbbrechen, onAnwenden }) => {
   const held   = t.art === 'held' ? (helden || []).find(h => h.id === t.charId) : null;
   const waffen = (held && held.weapons) || [];
@@ -731,6 +742,14 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
 
   // Eine Ansage in die Felder holen. Dasselbe, was beim Aufmachen ueber
   // "Eintragen" passiert — nur ohne das Fenster zu schliessen.
+  // Mehrere auswählen und nacheinander abarbeiten. Die Reihe selbst
+  // führt der Tracker: dieses Fenster wird für jede Ansage neu
+  // aufgebaut — daran hängt das Vorausfüllen —, und was hier steht,
+  // wäre danach weg.
+  const [gewaehlt, setGewaehlt] = React.useState([]);
+  const waehlenUm = (id) => setGewaehlt(g =>
+    g.includes(id) ? g.filter(x => x !== id) : [...g, id]);
+
   const ansageNehmen = (a) => {
     const q = aktionsQuelle(held, a.art);
     const i = q.findIndex(g => (g.name || '') === (a.was || ''));
@@ -936,8 +955,15 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
             <div className="zug-block">
               <div className="zug-label">📣 Angesagt</div>
               {meineAnsagen.map(a => (
-                <div className={'zug-ansage' + (genommen === a.id ? ' an' : '')} key={a.id}>
-                  <span className="za-was">
+                <div className={'zug-ansage' + (genommen === a.id ? ' an' : '')
+                                + (gewaehlt.includes(a.id) ? ' gewaehlt' : '')
+                                + ((schlangeRest || []).includes(a.id) ? ' wartet' : '')} key={a.id}>
+                  {/* Antippen wählt aus — mehrere gehen, und dann werden
+                      sie nacheinander abgearbeitet. */}
+                  <button type="button" className={'an-typ ' + ((a.typ) || 'aktion')}
+                    title={ansageTyp(a).l + ' — auswählen'}
+                    onClick={()=>waehlenUm(a.id)}>{ansageTyp(a).kurz}</button>
+                  <span className="za-was" onClick={()=>waehlenUm(a.id)}>
                     {a.was ? <b>{(AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
                       {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
                     {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
@@ -949,10 +975,28 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                     onClick={()=>onAnsageWeg && onAnsageWeg(a.id)}>✕</button>
                 </div>
               ))}
+              {(gewaehlt.length > 1 || (schlangeRest || []).length > 0) && (
+                <div className="an-schlange">
+                  {(schlangeRest || []).length > 0 ? (
+                    <span>Noch <b>{schlangeRest.length}</b> in der Reihe — nach dem
+                      Eintragen kommt die nächste von selbst.</span>
+                  ) : (
+                    <>
+                      <span><b>{gewaehlt.length}</b> ausgewählt</span>
+                      <button type="button" className="btn-icon"
+                        onClick={()=>{ onSchlange(gewaehlt); setGewaehlt([]); }}>
+                        ↧ nacheinander abarbeiten</button>
+                      <button type="button" className="fx-del" title="Auswahl aufheben"
+                        onClick={()=>setGewaehlt([])}>✕</button>
+                    </>
+                  )}
+                </div>
+              )}
               {andereAnsagen.map(a => {
                 const wer = (helden || []).find(h => h.id === a.charId);
                 return (
                   <div className="zug-ansage fremd" key={a.id}>
+                    <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
                     <span className="za-was">
                       <b>{wer ? wer.name : 'Jemand'}</b>
                       {a.was ? <span> · {a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
@@ -1841,7 +1885,14 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz}, weiter, ansageId) => {
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
-    if (!weiter) setZugFenster(null);
+    // Steht noch etwas in der Reihe, wird nicht zugemacht: es geht
+    // gleich mit der naechsten Ansage weiter, und die fuellt das
+    // Fenster selbst — samt Waffe, Zielen und Text.
+    const naechste = schlange.length
+      ? (ansagen || []).find(a => a.id === schlange[0]) : null;
+    if (schlange.length) setSchlange(schlange.slice(1));
+    if (naechste) zugFuerAnsage(naechste);
+    else if (!weiter) setZugFenster(null);
     else setZugFenster(z => z && ({id: z.id}));
     (eintraege || []).forEach(e => protokollieren(e));
     (treffer || []).forEach(({id, modus, n, teile, minderung}) =>
@@ -2031,6 +2082,22 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
 
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
+  // Die Reihe der Ansagen, die noch abzuarbeiten sind. Sie steht hier
+  // und nicht im Zugfenster: das wird fuer jede Ansage neu aufgebaut,
+  // weil daran das Vorausfuellen haengt.
+  const [schlange, setSchlange] = React.useState([]);
+  const zugFuerAnsage = (a) => {
+    const ziel = (liste || []).find(x => x.art === 'held' && x.charId === a.charId);
+    if (!ziel) return;
+    setZugFenster({id: ziel.id, ansage: a});
+  };
+  const schlangeStarten = (ids) => {
+    const gewaehlt = (ansagen || []).filter(a => ids.includes(a.id));
+    if (!gewaehlt.length) return;
+    setSchlange(gewaehlt.slice(1).map(a => a.id));
+    zugFuerAnsage(gewaehlt[0]);
+  };
+
   const zugZiel = zugFenster && liste.find(t => t.id === zugFenster.id);
   // Alles, was seit dem letzten Zugwechsel im Protokoll steht — das
   // Fenster zeigt es an, damit man den ganzen Zug vor sich hat.
@@ -2256,6 +2323,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             klassen={advKlassen(advObj)} runde={kampf.runde} bisher={bisherImZug}
             ansage={zugFenster.ansage} key={(zugFenster.ansage || {}).id || zugFenster.id}
             ansagen={ansagen} onAnsageWeg={onAnsageWeg}
+            schlangeRest={schlange} onSchlange={schlangeStarten}
             onAbbrechen={()=>setZugFenster(null)} onAnwenden={zugAnwenden} />
         )}
 

@@ -2872,6 +2872,37 @@
   .bj-zeile.gut b { color:#56b183; }
   .bj-zeile.schlecht b { color:var(--gold); }
 
+  /* ── Ansagen: Aktion, Bonusaktion, Reaktion ─────────────
+     Ein Buchstabe reicht, wenn er immer an derselben Stelle steht und
+     immer dieselbe Farbe hat. */
+  .an-typ { flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:4px; padding:0;
+    font-family:'Roboto Condensed',sans-serif; font-size:10px; font-weight:700;
+    border:1px solid; background:transparent; cursor:inherit; }
+  .an-typ.aktion   { color:var(--inspiration); border-color:var(--inspiration); }
+  .an-typ.bonus    { color:#7bb0e0; border-color:#7bb0e0; }
+  .an-typ.reaktion { color:#c090d0; border-color:#c090d0; }
+  button.an-typ { cursor:pointer; }
+  .an-typen { display:flex; gap:5px; flex-wrap:wrap; }
+
+  /* Die Zusammenfassung im Ansagefenster des Spielers. */
+  .an-liste { display:flex; flex-direction:column; gap:4px; }
+  .an-zeile { display:flex; align-items:flex-start; gap:7px; padding:5px 8px;
+    border-radius:5px; background:var(--bg-card); border:1px solid var(--border); }
+  .an-was { flex:1; min-width:0; font-size:12px; line-height:1.45;
+    color:var(--text-secondary); }
+  .an-was b { color:var(--text-primary); font-weight:400; }
+  .an-was i { display:block; font-style:italic; color:var(--text-muted); }
+
+  /* Ausgewählt und in der Reihe — bei der Spielleitung. */
+  .zug-ansage.gewaehlt { border-color:var(--inspiration); background:var(--bg-hover); }
+  .zug-ansage.wartet { opacity:0.62; }
+  .an-schlange { display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+    margin-top:5px; padding:6px 9px; border-radius:6px; font-size:12px;
+    background:var(--bg-panel); border:1px solid var(--inspiration);
+    color:var(--text-secondary); }
+  .an-schlange b { color:var(--inspiration); font-weight:400; }
+
   /* ── Traglast ────────────────────────────────
      Nur da, wenn ein Abenteuer sie einschaltet. Die zwei Striche im
      Balken sind die Grenzen — man soll sehen, wie weit es noch ist. */

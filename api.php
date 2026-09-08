@@ -1791,6 +1791,12 @@ switch ($action) {
             'art'    => in_array((string)($a['art'] ?? ''),
                                  ['angriff','zauber','gegenstand','merkmal','frei'], true)
                         ? (string)$a['art'] : 'frei',
+            // Aktion, Bonusaktion oder Reaktion. Ein Zug ist selten eine
+            // Sache, und die Spielleitung muss sehen koennen, was wovon
+            // ist — sonst zaehlt am Ende niemand mit.
+            'typ'    => in_array((string)($a['typ'] ?? ''),
+                                 ['aktion','bonus','reaktion'], true)
+                        ? (string)$a['typ'] : 'aktion',
             'was'    => mb_substr(trim((string)($a['was'] ?? '')), 0, 80),
             'grad'   => max(0, min(9, (int)($a['grad'] ?? 0))),
             'text'   => mb_substr(trim((string)($a['text'] ?? '')), 0, 500),

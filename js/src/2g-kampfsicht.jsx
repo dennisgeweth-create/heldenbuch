@@ -81,6 +81,15 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
   const [ziele, setZiele] = React.useState({});
   const [text, setText]   = React.useState('');
   const [laeuft, setLaeuft] = React.useState(false);
+  // Aktion, Bonusaktion oder Reaktion. Ein Zug ist selten eine Sache:
+  // Angriff und Bonusaktion, Zauber und Trank, und dazwischen eine
+  // Reaktion. Wer alles in einen Satz schreibt, macht der Spielleitung
+  // Arbeit — also drei Knöpfe und so viele Ansagen, wie man will.
+  const [typ, setTyp] = React.useState('aktion');
+  // Was dieses Fenster schon abgeschickt hat. Der Abgleich braucht ein
+  // paar Sekunden; solange steht es hier, damit die Zusammenfassung
+  // sofort stimmt.
+  const [eigene, setEigene] = React.useState([]);
 
   const {gegenstand, grundGrad, grad, wurf} = aktionsStand(held, wahl);
   const liste = (kampf && kampf.teilnehmer) || [];
@@ -93,10 +102,19 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
     ? (((helden || []).find(h => h.id === t.charId) || {}).name || 'Held')
     : (t.name || 'Gegner');
 
+  // Angesagt ist, was der Server schon hat, plus was gerade hinausging.
+  const angesagt = (() => {
+    const vomServer = ((kampf && kampf.ansagen) || [])
+      .filter(a => held && a.charId === held.id);
+    const drin = new Set(vomServer.map(a => a.id));
+    return [...vomServer, ...eigene.filter(a => !drin.has(a.id))];
+  })();
+
   const etwasDa = !!gegenstand || !!text.trim() || Object.keys(ziele).length > 0;
   const senden = async () => {
     setLaeuft(true);
-    await onSenden({
+    const raus = await onSenden({
+      typ,
       art: wahl.art,
       was: gegenstand ? (gegenstand.name || '') : '',
       grad: (wahl.art === 'zauber' && grad > grundGrad) ? grad : 0,
@@ -107,6 +125,11 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
       zielIds: Object.keys(ziele),
       text: text.trim(),
     });
+    // Das Fenster bleibt offen: die nächste Ansage kommt meistens
+    // gleich hinterher. Was gewählt war, bleibt stehen — der zweite
+    // Hieb ist derselbe —, Ziele und Beschreibung werden frei.
+    if (raus) setEigene(e => [...e, raus]);
+    setZiele({}); setText('');
     setLaeuft(false);
   };
 
@@ -119,6 +142,37 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
         </div>
 
         <div className="zug-leib">
+          {/* Oben steht, was schon draußen ist — sonst sagt man dieselbe
+              Sache zweimal an oder vergisst die Bonusaktion. */}
+          {angesagt.length > 0 && (
+            <div className="zug-block">
+              <div className="zug-label">Schon angesagt</div>
+              <div className="an-liste">
+                {angesagt.map(a => (
+                  <div className="an-zeile" key={a.id}>
+                    <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
+                    <span className="an-was">
+                      {a.was ? <b>{a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+                      {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
+                      {a.text ? <i>„{a.text}“</i> : null}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="zug-block">
+            <div className="zug-label">Was davon</div>
+            <div className="an-typen">
+              {ANSAGE_TYPEN.map(x => (
+                <button type="button" key={x.k}
+                  className={'bj-taste' + (typ === x.k ? ' haupt' : '')}
+                  onClick={()=>setTyp(x.k)}>{x.l}</button>
+              ))}
+            </div>
+          </div>
+
           <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer="du" />
 
           <div className="zug-block">
@@ -164,10 +218,18 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
         </div>
 
         <div className="zug-fuss">
-          <span className="zug-hinweis">Wie viel ankommt, trägt die Spielleitung ein.</span>
-          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          <span className="zug-hinweis">
+            {angesagt.length > 0
+              ? angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen')
+                + ' — noch eine geht.'
+              : 'Wie viel ankommt, trägt die Spielleitung ein.'}
+          </span>
+          <button className="btn-cancel" onClick={onAbbrechen}>
+            {angesagt.length > 0 ? 'Fertig' : 'Abbrechen'}
+          </button>
           <button className="btn-save" disabled={!etwasDa || laeuft} onClick={senden}>
-            {laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung'}
+            {laeuft ? 'Wird gesendet…'
+              : angesagt.length > 0 ? '📣 Noch eine' : '📣 An die Spielleitung'}
           </button>
         </div>
       </div>
@@ -248,6 +310,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSc
             <div className="ks-ansagen-titel">📣 Angesagt</div>
             {(kampf.ansagen || []).slice(-6).map(a => (
               <div className="ks-ansage" key={a.id}>
+                <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
                 <b>{((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'}</b>
                 {a.was ? <span>{a.art === 'zauber' ? ' zaubert ' : ' greift an mit '}{a.was}
                   {a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}

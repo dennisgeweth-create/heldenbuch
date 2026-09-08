@@ -2159,9 +2159,11 @@ function App() {
     const creds = serverCreds();
     if (!verbunden(creds) || !ansageFuer) return;
     try {
-      await apiKampfAnsage(creds.url, creds.code, advId, ansageFuer, ansage);
-      setAnsageFuer(null);
+      const d = await apiKampfAnsage(creds.url, creds.code, advId, ansageFuer, ansage);
+      // Das Fenster bleibt offen — wer eine Bonusaktion hat, sagt sie
+      // gleich hinterher an. Zugemacht wird mit „Fertig“.
       kampfStandRef.current = -1;        // beim naechsten Blick alles neu holen
+      return (d && d.ansage) || null;
     } catch (e) {
       appAlert('Die Ansage kam nicht an: ' + (e.message || 'unbekannter Fehler'));
     }
