@@ -87,11 +87,18 @@ const LogTab = ({charId, isDmMode}) => {
               <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-primary)',lineHeight:1.3}}>{e.action}</div>
               {e.details && Object.keys(e.details).length>0 && (
                 <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>
-                  {Object.entries(e.details).map(([k,v])=>k+': '+v).join(' · ')}
+                  {logEinzelheiten(e.details).join(' · ')}
                 </div>
               )}
             </div>
-            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0}}>{fmt(e.created_at)}</div>
+            {/* Rechts steht, wann — und darunter, wer. Die Kennung stand
+                seit jeher in der Zeile, herausgegeben wurde sie nie.
+                Fehlt sie, ist die Zeile aelter als die Konten oder das
+                Konto ist geloescht; dann bleibt der Platz leer. */}
+            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0,textAlign:'right'}}>
+              <div>{fmt(e.created_at)}</div>
+              {e.user_name && <div style={{color:'var(--gold-dim)',marginTop:2}}>{e.user_name}</div>}
+            </div>
           </div>
         ))}
       </div>

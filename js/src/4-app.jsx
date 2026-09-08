@@ -2100,16 +2100,20 @@ function App() {
     save(exists ? charsRef.current.map(c=>c.id===ec.id?ec:c) : [...charsRef.current,ec]);
     if (exists) {
       const prev = charsRef.current.find(c=>c.id===ec.id);
-      const charChanges = {};
-      if (prev) {
-        if (prev.name !== ec.name) charChanges['Name'] = `${prev.name}→${ec.name}`;
-        if (prev.charClass !== ec.charClass) charChanges['Klasse'] = `${prev.charClass}→${ec.charClass}`;
-        if (prev.level !== ec.level) charChanges['Stufe'] = `${prev.level}→${ec.level}`;
-        if (prev.race !== ec.race) charChanges['Rasse'] = `${prev.race}→${ec.race}`;
-        if (prev.hp !== ec.hp) charChanges['Max HP'] = `${prev.hp}→${ec.hp}`;
-        if (prev.ac !== ec.ac) charChanges['RK'] = `${prev.ac}→${ec.ac}`;
-        if (prev.speed !== ec.speed) charChanges['Bewegung'] = `${prev.speed}→${ec.speed}`;
-      }
+      // Verglichen wird, was dieses Formular ändern kann — nicht mehr
+      // und nicht weniger. Vorher standen hier TP, Rüstungsklasse und
+      // Bewegung, die es gar nicht anfasst: die Zeilen kamen nie.
+      const nebenklassen = (c) => ((c && c.multiclasses) || [])
+        .map(m => (m.name || '') + ' ' + (m.level || 1)).join(', ');
+      const charChanges = prev ? logDiff(prev, ec, [
+        ['Name',        (c) => c.name],
+        ['Volk',        (c) => c.race],
+        ['Hintergrund', (c) => c.background],
+        ['Klasse',      (c) => c.charClass],
+        ['Stufe',       (c) => c.level],
+        ['Nebenklassen',nebenklassen],
+        ['Nur Spielleitung', (c) => c.dmOnly ? 'ja' : 'nein'],
+      ]) : {};
       addLog(ec.id, ec.name, 'charakter', 'Charakter bearbeitet',
         Object.keys(charChanges).length > 0 ? charChanges : {klasse:ec.charClass,stufe:ec.level});
     } else {
@@ -2126,8 +2130,20 @@ function App() {
     if (!wf.name.trim()) return;
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     if (wfEditId) {
+      // Was an der Waffe jetzt anders ist — "bearbeitet" allein war die
+      // Zeile nicht wert, die sie kostet.
+      const alt = ((cur2 && cur2.weapons) || []).find(w => w.id === wfEditId);
+      const anders = logDiff(alt, wf, [
+        ['Name',       (w) => w.name],
+        ['Schaden',    (w) => w.damage],
+        ['Art',        (w) => w.damageType],
+        ['Reichweite', (w) => w.range],
+        ['Bonus',      (w) => w.attackBonus],
+        ['Geübt',      (w) => w.proficient ? 'ja' : 'nein'],
+      ]);
       patchCurrent(c=>({weapons:c.weapons.map(w=>w.id===wfEditId?{...wf,id:wfEditId}:w)}));
-      addLog(selRef.current, cur2?.name, 'waffen', `Waffe bearbeitet: ${wf.name}`, {schaden:wf.damage});
+      addLog(selRef.current, cur2?.name, 'waffen', `Waffe bearbeitet: ${wf.name}`,
+        Object.keys(anders).length ? anders : {schaden:wf.damage});
     } else {
       patchCurrent(c=>({weapons:[...c.weapons,{...wf,id:Date.now().toString()}]}));
       addLog(selRef.current, cur2?.name, 'waffen', `Waffe hinzugefügt: ${wf.name}`, {schaden:wf.damage});
@@ -2140,13 +2156,28 @@ function App() {
     if (!sf.name.trim()) return;
     const curSel = selRef.current;
     const curChars = charsRef.current;
+    const altZauber = ((curChars.find(c=>c.id===curSel) || {}).spells || [])
+      .find(x => x.id === sfEditId);
     if (sfEditId) {
       save(curChars.map(c=>c.id===curSel?{...c,spells:c.spells.map(s=>s.id===sfEditId?{...sf,id:sfEditId}:s)}:c));
     } else {
       save(curChars.map(c=>c.id===curSel?{...c,spells:[...c.spells,{...sf,id:Date.now().toString()}]}:c));
     }
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
-    if (sfEditId) addLog(selRef.current, cur2?.name, 'zauber', `Zauber bearbeitet: ${sf.name}`, {grad:sf.level,schule:sf.school});
+    if (sfEditId) {
+      const anders = logDiff(altZauber, sf, [
+        ['Name',        (z) => z.name],
+        ['Grad',        (z) => z.level],
+        ['Schule',      (z) => z.school],
+        ['Zeitaufwand', (z) => z.castingTime],
+        ['Reichweite',  (z) => z.range],
+        ['Dauer',       (z) => z.duration],
+        ['Wirkung',     (z) => (z.wirkung || {}).wuerfel],
+        ['Vorbereitet', (z) => z.prepared === false ? 'nein' : 'ja'],
+      ]);
+      addLog(selRef.current, cur2?.name, 'zauber', `Zauber bearbeitet: ${sf.name}`,
+        Object.keys(anders).length ? anders : {grad:sf.level,schule:sf.school});
+    }
     else addLog(selRef.current, cur2?.name, 'zauber', `Zauber hinzugefügt: ${sf.name}`, {grad:sf.level,schule:sf.school});
     setSf(newSpell()); setSfEditId(null); setShowSF(false);
   };
@@ -2180,8 +2211,20 @@ function App() {
     if (!itf.name.trim()) return;
     const cur2 = charsRef.current.find(c=>c.id===selRef.current);
     if (itfEditId) {
+      // Beim Inventar ist die Menge die Frage: wer hat den letzten Trank
+      // genommen? Bisher stand da nur, wie viele es hinterher waren.
+      const alt = ((cur2 && cur2.inventory) || []).find(i => i.id === itfEditId);
+      const anders = logDiff(alt, itf, [
+        ['Name',       (i) => i.name],
+        ['Menge',      (i) => i.qty],
+        ['Seltenheit', (i) => i.rarity],
+        ['Gewicht',    (i) => i.weight],
+        ['Im Kampf',   (i) => i.kampf ? 'ja' : 'nein'],
+        ['Wirkung',    (i) => (i.wirkung || {}).wuerfel],
+      ]);
       patchCurrent(c=>({inventory:(c.inventory||[]).map(i=>i.id===itfEditId?{...itf,id:itfEditId}:i)}));
-      addLog(selRef.current, cur2?.name, 'inventar', `Gegenstand bearbeitet: ${itf.name}`, {seltenheit:itf.rarity,menge:itf.qty});
+      addLog(selRef.current, cur2?.name, 'inventar', `Gegenstand bearbeitet: ${itf.name}`,
+        Object.keys(anders).length ? anders : {seltenheit:itf.rarity,menge:itf.qty});
     } else {
       patchCurrent(c=>({inventory:[...(c.inventory||[]),{...itf,id:Date.now().toString()}]}));
       addLog(selRef.current, cur2?.name, 'inventar', `Gegenstand hinzugefügt: ${itf.name}`, {seltenheit:itf.rarity,menge:itf.qty});
@@ -2480,6 +2523,13 @@ function App() {
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
   const AdventureLog = ({onClose, isDmMode}) => {
+    // Bei einer Gruppe mit einem Abenteuer sagt der Name nichts, was
+    // man nicht schon weiss — dann bleibt er weg.
+    const advName = (id) => {
+      if (!id || abenteuer.length < 2) return '';
+      const a = abenteuer.find(x => x.id === id);
+      return a ? a.name : '';
+    };
     const fmt = ts => new Date(ts.replace(' ','T')+'Z').toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const tabColor = t => ({'zauber':'#c060a0','inventar':'#e0a030','waffen':'#c84040','charakter':'var(--gold)'}[t]||'var(--border-bright)');
     const TAB_ICONS2 = LOG_TAB_ICONS;   // wortgleiche Kopie, jetzt nur noch ein Ort
@@ -2593,15 +2643,29 @@ function App() {
                   borderLeft:'3px solid '+tabColor(e.tab),alignItems:'flex-start'}}>
                   <div style={{fontSize:13,flexShrink:0}}>{TAB_ICONS2[e.tab]||'📌'}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    {e.char_name && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--gold-dim)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:2}}>{e.char_name}</div>}
+                    {/* Oben: an wem, in welchem Abenteuer. Das Log zeigt
+                        alle Abenteuer nebeneinander — ohne den Namen
+                        weiss man bei einer Gruppe mit zweien nicht,
+                        wohin die Zeile gehört. */}
+                    {(e.char_name || advName(e.adv_id)) && (
+                      <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--gold-dim)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:2}}>
+                        {e.char_name}
+                        {e.char_name && advName(e.adv_id) ? ' · ' : ''}
+                        {advName(e.adv_id)}
+                      </div>
+                    )}
                     <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--text-primary)',lineHeight:1.3}}>{e.action}</div>
                     {e.details && Object.keys(e.details).length>0 && (
                       <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>
-                        {Object.entries(e.details).map(([k,v])=>k+': '+v).join(' · ')}
+                        {logEinzelheiten(e.details).join(' · ')}
                       </div>
                     )}
                   </div>
-                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0}}>{fmt(e.created_at)}</div>
+                  {/* Rechts steht, wann — und darunter, wer. */}
+                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',whiteSpace:'nowrap',flexShrink:0,textAlign:'right'}}>
+                    <div>{fmt(e.created_at)}</div>
+                    {e.user_name && <div style={{color:'var(--gold-dim)',marginTop:2}}>{e.user_name}</div>}
+                  </div>
                 </div>
               ))}
             </div>

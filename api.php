@@ -1141,7 +1141,12 @@ switch ($action) {
         $where = ['session_code = ?'];
         $params = [$code];
         if ($charId) { $where[] = 'char_id = ?'; $params[] = $charId; }
-        if ($search) { $where[] = '(action LIKE ? OR char_name LIKE ?)'; $params[] = '%'.$search.'%'; $params[] = '%'.$search.'%'; }
+        // Gesucht wird auch nach dem, der es getan hat: "wer hat den
+        // Trank genommen" ist die haeufigere Frage als "was hiess er".
+        if ($search) {
+            $where[] = '(l.action LIKE ? OR l.char_name LIKE ? OR u.name LIKE ?)';
+            $params[] = '%'.$search.'%'; $params[] = '%'.$search.'%'; $params[] = '%'.$search.'%';
+        }
         if (!empty($tabFilter)) {
             $ph = implode(',', array_fill(0, count($tabFilter), '?'));
             $where[] = "tab IN ($ph)";
@@ -1182,7 +1187,13 @@ switch ($action) {
             }
         }
 
-        $sql = 'SELECT id, char_id, char_name, tab, action, details, created_at, user_id, adv_id FROM hb_logs WHERE '.implode(' AND ', $where).' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        // Der Name des Kontos kommt mit. LEFT JOIN mit Absicht: ein
+        // geloeschtes Konto nimmt seine Zeilen nicht mit, sie verlieren
+        // nur den Namen.
+        $sql = 'SELECT l.id, l.char_id, l.char_name, l.tab, l.action, l.details, l.created_at,
+                       l.user_id, l.adv_id, u.name AS user_name
+                FROM hb_logs l LEFT JOIN hb_users u ON u.id = l.user_id
+                WHERE '.implode(' AND ', $where).' ORDER BY l.created_at DESC LIMIT ? OFFSET ?';
         $params[] = $limit;
         $params[] = $offset;
 

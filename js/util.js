@@ -459,6 +459,47 @@ const newChar   = () => ({
   adventure:"",
   spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
 });
+// ── Die Einzelheiten einer Logzeile ────────────────────
+// Unter jeder Zeile im Log stand bisher, was der Code sich gemerkt
+// hatte: "grad: 3 · schule: Hervorrufung". Das sind Feldnamen, keine
+// Woerter — sie waren nie zum Lesen gedacht. Hier bekommen sie welche.
+//
+// Was nicht in der Liste steht, wird gross geschrieben und
+// durchgereicht: eine neue Angabe soll im Log auftauchen, auch wenn
+// niemand daran gedacht hat, sie hier einzutragen.
+const LOG_WORTE = {
+  grad: 'Grad', schule: 'Schule', schaden: 'Schaden', seltenheit: 'Seltenheit',
+  menge: 'Menge', quelle: 'Quelle', klasse: 'Klasse', stufe: 'Stufe',
+  rasse: 'Volk', hintergrund: 'Hintergrund', kampf: 'Kampf', wirkt: 'Wirkt',
+  ziel: 'Ziel', von: 'Von', an: 'An', gesetzt: 'Gesetzt', zurueck: 'Zurück',
+  strich: 'Unterm Strich', spiel: 'Tisch', wer: 'Wer', grund: 'Grund',
+};
+// Ein Pfeil zwischen zwei Staenden bekommt Luft: "3→5" liest sich
+// schlechter als "3 → 5", und im Log steht fast nur Vorher/Nachher.
+const logWert = (v) => {
+  const t = (v === true) ? 'ja' : (v === false) ? 'nein' : String(v);
+  return t.includes('→') ? t.split('→').map(x => x.trim()).join(' → ') : t;
+};
+// Was sich zwischen zwei Staenden geaendert hat, als Einzelheiten fuer
+// das Log. "Waffe bearbeitet" allein sagt nichts — die Frage am Tisch
+// ist immer, was daran jetzt anders ist.
+const logDiff = (alt, neu, felder) => {
+  const raus = {};
+  for (const [wort, lesen] of felder) {
+    const a = lesen(alt || {}), b = lesen(neu || {});
+    if (String(a === undefined || a === null ? '' : a)
+        !== String(b === undefined || b === null ? '' : b))
+      raus[wort] = (a === '' || a === undefined || a === null ? '—' : a)
+                 + '→' + (b === '' || b === undefined || b === null ? '—' : b);
+  }
+  return raus;
+};
+
+const logEinzelheiten = (d) => Object.entries(d || {})
+  .filter(([, v]) => v !== undefined && v !== null && v !== '')
+  .map(([k, v]) => (LOG_WORTE[k] || (k.charAt(0).toUpperCase() + k.slice(1)))
+                   + ': ' + logWert(v));
+
 const newWeapon = () => ({id:Date.now().toString(),name:"",attrKey:"str",proficient:true,range:"1,5m",attackBonus:0,damage:"1W6",damageType:"Hieb",description:"",properties:[],equipped:false,imageData:"",effects:[]});
 // ── Die Wirkung eines Zaubers ────────────────────────────────────
 // Am Zauber steht sonst nur, was er ist — nicht, was er tut. Fuer das
