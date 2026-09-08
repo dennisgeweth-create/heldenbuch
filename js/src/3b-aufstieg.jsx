@@ -29,9 +29,16 @@ let MERKMAL_DATEN = null;
 //   {quelle:"PHB", merkmale:{Kämpfer:[…]}, unterklassen:{…}, talente:[…]}
 const EIGEN_DATEI = 'data-eigen.json';
 
-const holen = (datei) => fetch(datei)
-  .then(r => r.ok ? r.json() : null)
-  .catch(() => null);
+// Mit derselben Ausgabe-Nummer wie die uebrigen Dateien. Ohne sie
+// behaelt der Browser die Fassung von gestern — und wer seine Sammlung
+// gerade erst hochgeladen hat, sieht sie nicht.
+const holen = (datei) => {
+  const s = document.querySelector('script[src*="app.js"]');
+  const v = s ? ((s.getAttribute('src') || '').split('?')[1] || '') : '';
+  return fetch(datei + (v ? '?' + v : ''))
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null);
+};
 
 // Zwei Sammlungen werden eine. **Die eigene gewinnt:** wer die Bücher
 // besitzt und ihre Merkmale hinlegt, will deren Wortlaut sehen und nicht
