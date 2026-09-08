@@ -25,12 +25,15 @@ jobs:
         run: node build.js --check
 
       # Die Dateiliste ist bewusst ausgeschrieben statt "alles kopieren":
-      # so landen PATCHNOTES.md, .git, .github, js/src/ und vendor/babel
-      # nie im Webroot.
+      # so landen .git, .github, js/src/ und vendor/babel nie im Webroot.
+      # Die PATCHNOTES.md geht seit v5.0 mit: die Ausgabe-Nummer in der
+      # Heldenleiste oeffnet sie, und eine zweite Fassung im Programm
+      # waere nach der ersten Auslieferung veraltet.
       - name: Prepare deploy files
         run: |
           mkdir -p deploy/js deploy/vendor
           cp .htaccess api.php apple-touch-icon.png favicon.png logo.png index.html styles.css deploy/
+          cp PATCHNOTES.md deploy/
           cp data-spells.json data-weapons.json data-wildshapes.json deploy/
           cp js/data.js js/util.js js/app.js deploy/js/
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
@@ -69,7 +72,7 @@ jobs:
       - name: Verify deployed files
         run: |
           FAIL=0
-          FILES="index.html styles.css js/data.js js/util.js js/app.js data-spells.json data-weapons.json data-wildshapes.json vendor/react.production.min.js vendor/react-dom.production.min.js"
+          FILES="index.html styles.css PATCHNOTES.md js/data.js js/util.js js/app.js data-spells.json data-weapons.json data-wildshapes.json vendor/react.production.min.js vendor/react-dom.production.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

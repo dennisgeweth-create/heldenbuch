@@ -691,6 +691,104 @@ const beuteAusText = (text) => {
   return {titel, muenzen, stuecke};
 };
 
+// ── Die Patchnotes lesen ────────────────────────────────────────
+// Sie stehen als Markdown in der PATCHNOTES.md und werden dort auch
+// geschrieben — eine zweite Fassung fürs Programm wäre nach der ersten
+// Auslieferung veraltet. Gelesen wird deshalb die Datei selbst, und
+// zwar nur so viel Markdown, wie darin wirklich vorkommt:
+// Überschriften, Absätze, Aufzählungen, Tabellen, Codeblöcke, fett und
+// `Code`. Was nicht erkannt wird, bleibt Text — eine Notiz mit einem
+// Sternchen zu viel soll nicht als leere Seite enden.
+const patchnotesInline = (text) => String(text === undefined || text === null ? '' : text)
+  .split(/(\*\*[^*]+\*\*|`[^`]+`)/)
+  .filter(s => s !== '')
+  .map(s => (s.length > 4 && s.startsWith('**') && s.endsWith('**'))
+              ? {art: 'fett', text: s.slice(2, -2)}
+          : (s.length > 2 && s.startsWith('`') && s.endsWith('`'))
+              ? {art: 'code', text: s.slice(1, -1)}
+          : {art: 'text', text: s});
+
+const patchnotesLesen = (text) => {
+  const zeilen = String(text || '').replace(/\r/g, '').split('\n');
+  const raus = [];
+  let absatz = [];
+  const absatzSchliessen = () => {
+    if (absatz.length) { raus.push({art: 'absatz', text: absatz.join(' ')}); absatz = []; }
+  };
+
+  let i = 0;
+  while (i < zeilen.length) {
+    const roh = zeilen[i].trim();
+    if (!roh) { absatzSchliessen(); i++; continue; }
+
+    if (roh.startsWith('```')) {
+      absatzSchliessen();
+      const block = [];
+      i++;
+      while (i < zeilen.length && !zeilen[i].trim().startsWith('```')) { block.push(zeilen[i]); i++; }
+      i++;                                          // die schliessende Zeile
+      raus.push({art: 'code', zeilen: block});
+      continue;
+    }
+
+    const h = /^(#{1,3})\s+(.*)$/.exec(roh);
+    if (h) {
+      absatzSchliessen();
+      raus.push({art: h[1].length === 1 ? 'titel' : h[1].length === 2 ? 'version' : 'kopf',
+                 text: h[2].trim()});
+      i++; continue;
+    }
+
+    if (roh.startsWith('|')) {
+      absatzSchliessen();
+      const reihen = [];
+      while (i < zeilen.length && zeilen[i].trim().startsWith('|')) {
+        reihen.push(zeilen[i].trim().replace(/^\|/, '').replace(/\|$/, '')
+                    .split('|').map(s => s.trim()));
+        i++;
+      }
+      // Die Trennzeile aus Strichen gehoert zur Schreibweise, nicht zum Inhalt.
+      const inhalt = reihen.filter(r => !r.every(s => /^:?-{2,}:?$/.test(s)));
+      if (inhalt.length) raus.push({art: 'tabelle', kopf: inhalt[0], reihen: inhalt.slice(1)});
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(roh)) {
+      absatzSchliessen();
+      const punkte = [];
+      while (i < zeilen.length) {
+        const t = zeilen[i].trim();
+        if (/^[-*]\s+/.test(t)) { punkte.push(t.replace(/^[-*]\s+/, '')); i++; continue; }
+        // Eingerueckt und nicht leer: dieselbe Aufzaehlung, naechste Zeile.
+        if (t && /^\s\s+/.test(zeilen[i]) && punkte.length) {
+          punkte[punkte.length - 1] += ' ' + t; i++; continue;
+        }
+        break;
+      }
+      raus.push({art: 'punkte', zeilen: punkte});
+      continue;
+    }
+
+    absatz.push(roh);
+    i++;
+  }
+  absatzSchliessen();
+  return raus;
+};
+
+// Nach Ausgaben getrennt: die neueste steht oben und geht offen auf, die
+// aelteren stehen zugeklappt darunter. Alles auf einmal waeren tausend
+// Zeilen, durch die niemand rollt.
+const patchnotesAusgaben = (text) => {
+  const raus = [];
+  patchnotesLesen(text).forEach(b => {
+    if (b.art === 'titel') return;                  // die Ueberschrift der Datei
+    if (b.art === 'version') { raus.push({name: b.text, bloecke: []}); return; }
+    if (raus.length) raus[raus.length - 1].bloecke.push(b);
+  });
+  return raus;
+};
+
 // ── Gegner als Text ─────────────────────────────────────────────
 // Dasselbe für den Kampf. Was hier herauskommt, wandert nicht in die
 // Gegnersammlung, sondern geradewegs in die Initiative — der Wächter am

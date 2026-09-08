@@ -343,3 +343,91 @@ const Fenster = ({ onClick, onZu, children, ...rest }) => {
     </div>
   );
 };
+
+// ── Was sich geändert hat ───────────────────────────────────────
+// Die Ausgabe-Nummer war bisher eine Aufschrift. Sie ist der Ort, an
+// dem man nachsieht, was neu ist — also führt sie jetzt dorthin.
+//
+// Gelesen wird die PATCHNOTES.md selbst, und zwar erst beim Öffnen:
+// tausend Zeilen bei jedem Start zu laden, um sie einmal im Monat zu
+// zeigen, wäre verkehrt. Eine zweite Fassung der Notizen im Programm
+// gäbe es nicht — die wäre nach der ersten Auslieferung veraltet.
+const PatchnotesStuecke = ({ text }) => (
+  <>{patchnotesInline(text).map((s, i) =>
+    s.art === 'fett' ? <b key={i}>{s.text}</b>
+    : s.art === 'code' ? <code key={i}>{s.text}</code>
+    : <React.Fragment key={i}>{s.text}</React.Fragment>)}</>
+);
+
+const PatchnotesBlock = ({ b }) => {
+  if (b.art === 'kopf')   return <h4 className="pn-kopf"><PatchnotesStuecke text={b.text} /></h4>;
+  if (b.art === 'absatz') return <p className="pn-absatz"><PatchnotesStuecke text={b.text} /></p>;
+  if (b.art === 'punkte') return (
+    <ul className="pn-punkte">
+      {b.zeilen.map((z, i) => <li key={i}><PatchnotesStuecke text={z} /></li>)}
+    </ul>
+  );
+  if (b.art === 'code') return <pre className="pn-code">{b.zeilen.join('\n')}</pre>;
+  if (b.art === 'tabelle') return (
+    // Eine Tabelle rollt in ihrem eigenen Rahmen zur Seite; das Fenster
+    // selbst soll dabei stehen bleiben.
+    <div className="pn-tabelle-rahmen">
+      <table className="pn-tabelle">
+        <thead><tr>{b.kopf.map((z, i) => <th key={i}><PatchnotesStuecke text={z} /></th>)}</tr></thead>
+        <tbody>
+          {b.reihen.map((r, i) => (
+            <tr key={i}>{r.map((z, j) => <td key={j}><PatchnotesStuecke text={z} /></td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+  return null;
+};
+
+const PatchnotesFenster = ({ onSchliessen }) => {
+  const [text, setText] = useState(null);        // null = lädt, '' = ging nicht
+
+  useEffect(() => {
+    // Mit derselben Ausgabe-Nummer wie die übrigen Dateien: ohne sie käme
+    // nach einer Auslieferung der Stand von gestern aus dem Zwischenspeicher.
+    const s = document.querySelector('script[src*="app.js"]');
+    const v = s ? ((s.getAttribute('src') || '').split('?')[1] || '') : '';
+    let weg = false;
+    fetch('PATCHNOTES.md' + (v ? '?' + v : ''))
+      .then(r => r.ok ? r.text() : Promise.reject(new Error(r.status)))
+      .then(t => { if (!weg) setText(t); }, () => { if (!weg) setText(''); });
+    return () => { weg = true; };
+  }, []);
+
+  const ausgaben = text ? patchnotesAusgaben(text) : [];
+
+  return (
+    <Fenster onClick={onSchliessen}>
+      <div className="form-modal pn-fenster">
+        <div className="form-title">📜 Was sich geändert hat</div>
+        <div className="pn-inhalt">
+          {text === null && <div className="probe-leer">Wird geladen…</div>}
+          {text === '' && (
+            <div className="probe-leer">
+              Die Patchnotes konnten nicht geladen werden — liegt die
+              PATCHNOTES.md neben der index.html?
+            </div>
+          )}
+          {/* Die neueste Ausgabe geht offen auf, die älteren stehen
+              zugeklappt darunter: vierzehn Ausgaben am Stück liest
+              niemand, aber nachschlagen will man sie können. */}
+          {ausgaben.map((a, i) => (
+            <EinstBlock key={a.name} titel={a.name} offenStart={i === 0}
+              kurz={i === 0 ? 'diese Ausgabe' : ''}>
+              {a.bloecke.map((b, j) => <PatchnotesBlock key={j} b={b} />)}
+            </EinstBlock>
+          ))}
+        </div>
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onSchliessen}>Schließen</button>
+        </div>
+      </div>
+    </Fenster>
+  );
+};

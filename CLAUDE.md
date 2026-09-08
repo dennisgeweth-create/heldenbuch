@@ -37,7 +37,8 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
 | `api.php` | Server-Sync, braucht `config.php` (nicht im Repo) |
 | `TAVERNE.md` | Stufenplan der Taverne — alle Stufen gebaut |
-| `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — offen |
+| `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — alle Stufen gebaut |
+| `PATCHNOTES.md` | wird **ausgeliefert**: die Ausgabe-Nummer in der Heldenleiste öffnet sie |
 | `dev/` | oertliche Serverseite zum Testen — wird nie ausgeliefert |
 
 ## Nach jeder Änderung in `js/src/`

@@ -171,6 +171,7 @@ function App() {
   const [mitglieder, setMitglieder] = useState([]);
   const [showSetup,  setShowSetup]  = useState(false);
   const [showDB,     setShowDB]     = useState(false);
+  const [patchnotesOffen, setPatchnotesOffen] = useState(false);
   const [confirmDlg, setConfirmDlg] = useState(null); // {msg, onOk}
   const appConfirm = (msg, onOk, okLabel) => setConfirmDlg({msg, onOk, okLabel});
   // Hinweis ohne Rueckfrage — nutzt denselben Dialog, damit Meldungen im
@@ -3185,7 +3186,8 @@ function App() {
             <img className="hb-logo" src="logo.png" alt="Heldenbuch"
               width={280} height={280} />
             <div className="sidebar-wort">Heldenbuch
-              <span className="app-version">{HB_VERSION}</span></div>
+              <button className="app-version" onClick={()=>setPatchnotesOffen(true)}
+                title="Was sich geändert hat">{HB_VERSION}</button></div>
           </div>
           <div className="char-list">
             <div style={{padding:'6px 8px 0'}}>
@@ -3360,7 +3362,8 @@ function App() {
                 <img className="hb-logo schmal" src="logo.png" alt="Heldenbuch"
                   width={280} height={280} />
                 <div className="sidebar-wort">Heldenbuch
-                  <span className="app-version">{HB_VERSION}</span></div>
+                  <button className="app-version" onClick={()=>setPatchnotesOffen(true)}
+                title="Was sich geändert hat">{HB_VERSION}</button></div>
                 {/* Sync status on mobile list */}
                 {svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && (
                   <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:6}}>
@@ -4677,6 +4680,9 @@ function App() {
 
 
       {/* Server Setup Modal */}
+      {/* Die Ausgabe-Nummer in der Heldenleiste führt hierher. */}
+      {patchnotesOffen && <PatchnotesFenster onSchliessen={()=>setPatchnotesOffen(false)} />}
+
       {showDB && (() => {
         // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
         // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.

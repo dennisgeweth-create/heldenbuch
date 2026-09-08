@@ -10,7 +10,7 @@ Options -Indexes
 # Komprimierung. js/app.js ist unkomprimiert rund 345 KB und ging bisher
 # ungepackt über die Leitung; Text komprimiert sich um etwa 80 %.
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css text/plain
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/markdown
   AddOutputFilterByType DEFLATE application/javascript text/javascript
   AddOutputFilterByType DEFLATE application/json
   AddOutputFilterByType DEFLATE image/svg+xml

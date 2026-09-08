@@ -435,6 +435,117 @@ const Fenster = ({
   }, rest), gehaeuse);
 };
 
+// ── Was sich geändert hat ───────────────────────────────────────
+// Die Ausgabe-Nummer war bisher eine Aufschrift. Sie ist der Ort, an
+// dem man nachsieht, was neu ist — also führt sie jetzt dorthin.
+//
+// Gelesen wird die PATCHNOTES.md selbst, und zwar erst beim Öffnen:
+// tausend Zeilen bei jedem Start zu laden, um sie einmal im Monat zu
+// zeigen, wäre verkehrt. Eine zweite Fassung der Notizen im Programm
+// gäbe es nicht — die wäre nach der ersten Auslieferung veraltet.
+const PatchnotesStuecke = ({
+  text
+}) => /*#__PURE__*/React.createElement(React.Fragment, null, patchnotesInline(text).map((s, i) => s.art === 'fett' ? /*#__PURE__*/React.createElement("b", {
+  key: i
+}, s.text) : s.art === 'code' ? /*#__PURE__*/React.createElement("code", {
+  key: i
+}, s.text) : /*#__PURE__*/React.createElement(React.Fragment, {
+  key: i
+}, s.text)));
+const PatchnotesBlock = ({
+  b
+}) => {
+  if (b.art === 'kopf') return /*#__PURE__*/React.createElement("h4", {
+    className: "pn-kopf"
+  }, /*#__PURE__*/React.createElement(PatchnotesStuecke, {
+    text: b.text
+  }));
+  if (b.art === 'absatz') return /*#__PURE__*/React.createElement("p", {
+    className: "pn-absatz"
+  }, /*#__PURE__*/React.createElement(PatchnotesStuecke, {
+    text: b.text
+  }));
+  if (b.art === 'punkte') return /*#__PURE__*/React.createElement("ul", {
+    className: "pn-punkte"
+  }, b.zeilen.map((z, i) => /*#__PURE__*/React.createElement("li", {
+    key: i
+  }, /*#__PURE__*/React.createElement(PatchnotesStuecke, {
+    text: z
+  }))));
+  if (b.art === 'code') return /*#__PURE__*/React.createElement("pre", {
+    className: "pn-code"
+  }, b.zeilen.join('\n'));
+  if (b.art === 'tabelle') return (
+    /*#__PURE__*/
+    // Eine Tabelle rollt in ihrem eigenen Rahmen zur Seite; das Fenster
+    // selbst soll dabei stehen bleiben.
+    React.createElement("div", {
+      className: "pn-tabelle-rahmen"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "pn-tabelle"
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, b.kopf.map((z, i) => /*#__PURE__*/React.createElement("th", {
+      key: i
+    }, /*#__PURE__*/React.createElement(PatchnotesStuecke, {
+      text: z
+    }))))), /*#__PURE__*/React.createElement("tbody", null, b.reihen.map((r, i) => /*#__PURE__*/React.createElement("tr", {
+      key: i
+    }, r.map((z, j) => /*#__PURE__*/React.createElement("td", {
+      key: j
+    }, /*#__PURE__*/React.createElement(PatchnotesStuecke, {
+      text: z
+    }))))))))
+  );
+  return null;
+};
+const PatchnotesFenster = ({
+  onSchliessen
+}) => {
+  const [text, setText] = useState(null); // null = lädt, '' = ging nicht
+
+  useEffect(() => {
+    // Mit derselben Ausgabe-Nummer wie die übrigen Dateien: ohne sie käme
+    // nach einer Auslieferung der Stand von gestern aus dem Zwischenspeicher.
+    const s = document.querySelector('script[src*="app.js"]');
+    const v = s ? (s.getAttribute('src') || '').split('?')[1] || '' : '';
+    let weg = false;
+    fetch('PATCHNOTES.md' + (v ? '?' + v : '')).then(r => r.ok ? r.text() : Promise.reject(new Error(r.status))).then(t => {
+      if (!weg) setText(t);
+    }, () => {
+      if (!weg) setText('');
+    });
+    return () => {
+      weg = true;
+    };
+  }, []);
+  const ausgaben = text ? patchnotesAusgaben(text) : [];
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onClick: onSchliessen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal pn-fenster"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDCDC Was sich ge\xE4ndert hat"), /*#__PURE__*/React.createElement("div", {
+    className: "pn-inhalt"
+  }, text === null && /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Wird geladen\u2026"), text === '' && /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Die Patchnotes konnten nicht geladen werden \u2014 liegt die PATCHNOTES.md neben der index.html?"), ausgaben.map((a, i) => /*#__PURE__*/React.createElement(EinstBlock, {
+    key: a.name,
+    titel: a.name,
+    offenStart: i === 0,
+    kurz: i === 0 ? 'diese Ausgabe' : ''
+  }, a.bloecke.map((b, j) => /*#__PURE__*/React.createElement(PatchnotesBlock, {
+    key: j,
+    b: b
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onSchliessen
+  }, "Schlie\xDFen"))));
+};
+
 // ==== js/src/1-editors.jsx ====
 // Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
 // Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
@@ -16219,6 +16330,7 @@ function App() {
   const [mitglieder, setMitglieder] = useState([]);
   const [showSetup, setShowSetup] = useState(false);
   const [showDB, setShowDB] = useState(false);
+  const [patchnotesOffen, setPatchnotesOffen] = useState(false);
   const [confirmDlg, setConfirmDlg] = useState(null); // {msg, onOk}
   const appConfirm = (msg, onOk, okLabel) => setConfirmDlg({
     msg,
@@ -20666,8 +20778,10 @@ function App() {
     height: 280
   }), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-wort"
-  }, "Heldenbuch", /*#__PURE__*/React.createElement("span", {
-    className: "app-version"
+  }, "Heldenbuch", /*#__PURE__*/React.createElement("button", {
+    className: "app-version",
+    onClick: () => setPatchnotesOffen(true),
+    title: "Was sich ge\xE4ndert hat"
   }, HB_VERSION))), /*#__PURE__*/React.createElement("div", {
     className: "char-list"
   }, /*#__PURE__*/React.createElement("div", {
@@ -20862,8 +20976,10 @@ function App() {
     height: 280
   }), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-wort"
-  }, "Heldenbuch", /*#__PURE__*/React.createElement("span", {
-    className: "app-version"
+  }, "Heldenbuch", /*#__PURE__*/React.createElement("button", {
+    className: "app-version",
+    onClick: () => setPatchnotesOffen(true),
+    title: "Was sich ge\xE4ndert hat"
   }, HB_VERSION)), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -23794,6 +23910,8 @@ function App() {
     char: aufstieg,
     onAbbrechen: () => setAufstieg(null),
     onUebernehmen: aufstiegUebernehmen
+  }), patchnotesOffen && /*#__PURE__*/React.createElement(PatchnotesFenster, {
+    onSchliessen: () => setPatchnotesOffen(false)
   }), showDB && (() => {
     // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
     // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.
