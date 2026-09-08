@@ -153,8 +153,12 @@ const StufenAufstieg = ({ char, talente, eigeneMerkmale, onAbbrechen, onUeberneh
 
   const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features,
                                    unterWahl, eigeneMerkmale);
-  const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined
-    ? !m.unter : !aus[m.stufe + ':' + m.name]);
+  // Vorgewählt ist, was die Klasse einfach gibt. Eine Erinnerung an die
+  // Unterklasse und eine **optionale** Regel aus einem Buch sind es
+  // nicht — die nimmt man bewusst oder gar nicht.
+  const vorgewaehlt = (m) => !m.unter && !m.optional;
+  const gewaehlt = neueMerkmale.filter(m => aus[m.stufe + ':' + m.name] === undefined
+    ? vorgewaehlt(m) : !aus[m.stufe + ':' + m.name]);
 
   // Talente aus zwei Quellen: was neben der index.html liegt, gilt für
   // die ganze Gruppe; was in der Datenbank steht, habt ihr euch selbst
@@ -379,16 +383,20 @@ const StufenAufstieg = ({ char, talente, eigeneMerkmale, onAbbrechen, onUeberneh
             <div className="auf-merkmale">
               {neueMerkmale.map(m => {
                 const k = m.stufe + ':' + m.name;
-                const an = aus[k] === undefined ? !m.unter : !aus[k];
+                const an = aus[k] === undefined ? vorgewaehlt(m) : !aus[k];
                 return (
-                  <label className={'auf-merkmal' + (an ? ' an' : '') + (m.unter ? ' unter' : '')} key={k}>
+                  <label className={'auf-merkmal' + (an ? ' an' : '')
+                    + (m.unter || m.optional ? ' unter' : '')} key={k}>
                     <input type="checkbox" checked={an}
                       onChange={()=>setAus(a => ({...a, [k]: an}))} />
                     <span className="auf-merkmal-kopf">
                       <b>{m.name}</b>
                       <i>Stufe {m.stufe}{m.quelle ? ' · ' + m.quelle
                         : m.unter ? ' · Unterklasse' : ''}
-                        {m.herkunft === 'Eigen' ? ' · aus eurer Datenbank' : ''}</i>
+                        {m.optional ? ' · optional' : ''}
+                        {m.herkunft && m.herkunft !== 'SRD 5.1'
+                          ? ' · ' + (m.herkunft === 'Eigen' ? 'aus eurer Datenbank' : m.herkunft)
+                          : ''}</i>
                     </span>
                     <span className="auf-merkmal-text">{m.text}</span>
                   </label>
