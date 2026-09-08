@@ -3422,7 +3422,7 @@ const KampfZeile = ({
     className: "kampf-zug-knopf",
     onClick: onZug,
     title: "Angriff, Zauber oder Beschreibung eintragen \u2014 die Trefferpunkte rechnet es mit"
-  }, "\u270D Zug eintragen"), !dran && auf && onDazwischen && /*#__PURE__*/React.createElement("button", {
+  }, "\u270D Zug eintragen"), !dran && onDazwischen && /*#__PURE__*/React.createElement("button", {
     className: "kampf-zwischen-knopf",
     onClick: onDazwischen,
     title: "Dazwischen handeln \u2014 der unterbrochene Zug geht danach weiter"

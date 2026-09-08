@@ -1314,9 +1314,10 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
         )}
         {/* Wer nicht an der Reihe ist, kann trotzdem handeln: eine
             legendäre Aktion, eine bereitgehaltene, ein Schauplatz. Der
-            Knopf steht nur an der aufgeklappten Zeile — an acht Zeilen
-            zugleich wäre er Lärm. */}
-        {!dran && auf && onDazwischen && (
+            Knopf steht an derselben Stelle wie „Zug eintragen" — die
+            beiden schliessen einander aus. Am Telefon nimmt ihn das
+            Zuklappen mit, wie alles andere unter dem Namen auch. */}
+        {!dran && onDazwischen && (
           <button className="kampf-zwischen-knopf" onClick={onDazwischen}
             title="Dazwischen handeln — der unterbrochene Zug geht danach weiter">
             ⚡ Dazwischen

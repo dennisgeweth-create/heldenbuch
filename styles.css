@@ -2271,7 +2271,8 @@
     .kampf-zeile.zu .kampf-tasten,
     .kampf-zeile.zu .kampf-detail,
     .kampf-zeile.zu .kampf-hp-unter { display:none; }
-    .kampf-zeile.zu .kampf-zug-knopf { display:none; }
+    .kampf-zeile.zu .kampf-zug-knopf,
+    .kampf-zeile.zu .kampf-zwischen-knopf { display:none; }
     /* Zugeklappt stehen Name und Trefferpunkte nebeneinander statt
        untereinander — sonst braucht eine stille Zeile so viel Platz wie
        eine, an der gerade gearbeitet wird. */
