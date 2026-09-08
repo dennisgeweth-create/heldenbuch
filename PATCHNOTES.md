@@ -142,6 +142,30 @@ Unterklassen aus dem Spielerhandbuch, Tasha's Kessel und Xanathar's
 Ratgeber. Die stehen außerhalb der Lizenz; das SRD enthält genau ein
 Talent. Für alles Weitere ist die Datenbank der Gruppe da.
 
+### 🎓 Unterklassen
+
+„Auf Stufe 3 wird die Unterklasse gewählt" stand bisher als Hinweis da,
+und was sie dann gibt, hat man im Buch nachgeschlagen.
+
+Jetzt fragt der Aufstieg auf der richtigen Stufe — bei jeder Klasse auf
+ihrer eigenen, und bei mehreren Klassen für jede getrennt. Zur Wahl
+steht die Unterklasse aus dem SRD und **Eigene…** für alles andere; der
+Name kommt in den Bogen und steht dort klein unter der Klasse im Schild.
+
+Ist es eine hinterlegte, kommen **ihre Merkmale** von da an mit — an den
+Stufen, an denen bisher nur „Merkmal des Archetyps" als Erinnerung
+stand. Genau diese Erinnerung fällt dann weg: sie stand ja nur da, weil
+niemand wusste, was dort kommt. Bei einer eigenen bleibt sie stehen.
+
+**56 Unterklassenmerkmale, zwölf Unterklassen** — eine je Klasse, mehr
+enthält das SRD nicht. Auch sie sind Eintrag für Eintrag gegen die
+Quelle geprüft.
+
+Eine bestehende Unterklasse rührt der Aufstieg nie an — einen Schwur
+wechselt man nicht beim Stufenanstieg. Wer sich vertan hat, ändert sie
+im Bearbeiten-Formular, wo jetzt neben Klasse und Stufe auch ein Feld
+dafür steht.
+
 ### ⭐ Talente
 
 Die Datenbank hat eine sechste Art bekommen: **Talente**. Name,

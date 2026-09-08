@@ -12587,7 +12587,9 @@ const Sheet = () => {
       borderColor: cc.border,
       color: cc.text
     }
-  }, cur.charClass, " ", cur.level), (cur.multiclasses || []).map((mc, i) => {
+  }, cur.charClass, " ", cur.level, cur.subclass ? /*#__PURE__*/React.createElement("i", {
+    className: "class-badge-unter"
+  }, cur.subclass) : null), (cur.multiclasses || []).map((mc, i) => {
     const mcc = klassenStil(mc.charClass || 'Kämpfer', klassen);
     return /*#__PURE__*/React.createElement("div", {
       key: i,
@@ -12597,7 +12599,9 @@ const Sheet = () => {
         borderColor: mcc.border,
         color: mcc.text
       }
-    }, mc.charClass, " ", mc.level);
+    }, mc.charClass, " ", mc.level, mc.subclass ? /*#__PURE__*/React.createElement("i", {
+      className: "class-badge-unter"
+    }, mc.subclass) : null);
   })), /*#__PURE__*/React.createElement("div", {
     className: "header-actions"
   }, darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
@@ -15567,7 +15571,7 @@ let MERKMAL_DATEN = null;
 const merkmaleLaden = () => {
   if (MERKMAL_DATEN) return Promise.resolve(MERKMAL_DATEN);
   return fetch('data-merkmale.json').then(r => r.ok ? r.json() : Promise.reject(new Error(r.status))).then(d => {
-    MERKMAL_DATEN = d && d.merkmale || {};
+    MERKMAL_DATEN = d || {};
     return MERKMAL_DATEN;
   }).catch(() => ({}));
 };
@@ -15619,6 +15623,11 @@ const StufenAufstieg = ({
   const [talName, setTalName] = React.useState('');
   const [talAttr, setTalAttr] = React.useState('');
 
+  // Die Unterklasse. Steht schon eine im Bogen, ist hier nichts zu
+  // wählen — den Schwur wechselt man nicht beim Aufstieg.
+  const [unter, setUnter] = React.useState('');
+  const [unterEigen, setUnterEigen] = React.useState('');
+
   // Ändert sich Klasse oder Ziel, stimmt der alte Betrag nicht mehr.
   React.useEffect(() => {
     setZiel(Math.min(20, von + 1));
@@ -15630,6 +15639,8 @@ const StufenAufstieg = ({
     setAus({});
     setTalName('');
     setTalAttr('');
+    setUnter('');
+    setUnterEigen('');
     setTpPlus(regel ? schnitt * stufen : 0);
   }, [klasse, ziel]);
   const wuerfeln = () => {
@@ -15656,7 +15667,15 @@ const StufenAufstieg = ({
     [asiA]: 1,
     [asiB]: 1
   };
-  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features);
+
+  // Die Unterklasse wird auf einer bestimmten Stufe gewählt. Erreicht
+  // der Aufstieg sie und steht noch keine im Bogen, fragt das Fenster.
+  const unterSchon = unterVon(char, klasse);
+  const unterListe = unterklassenFuer(merkmalDaten, klasse);
+  const unterStufe = regel ? regel.unter : 0;
+  const unterFaellig = !unterSchon && unterStufe > 0 && ziel >= unterStufe && von < unterStufe;
+  const unterWahl = unterSchon || (unter === '_eigen' ? unterEigen.trim() : unter);
+  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features, unterWahl);
   const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined ? !m.unter : !aus[m.stufe + ':' + m.name]);
   const talEintrag = (talente || []).find(t => t.name === talName) || null;
   const talHalb = talEintrag ? talEintrag.halb || [] : [];
@@ -15670,7 +15689,8 @@ const StufenAufstieg = ({
     tpPlus,
     asi,
     merkmale: gewaehlt,
-    talent
+    talent,
+    unterklasse: unterWahl
   });
   const geht = ziel > von;
   return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
@@ -15716,7 +15736,44 @@ const StufenAufstieg = ({
     value: st
   }, st))), eigene.length > 1 && /*#__PURE__*/React.createElement("span", {
     className: "auf-gesamt"
-  }, "Gesamt ", gesamtStufe(char), " \u2192 ", gesamtStufe(char) + stufen)), /*#__PURE__*/React.createElement("div", {
+  }, "Gesamt ", gesamtStufe(char), " \u2192 ", gesamtStufe(char) + stufen)), unterFaellig && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Unterklasse \u2014 ", klasse, " Stufe ", unterStufe), /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp"
+  }, unterListe.map(u => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: u.name,
+    className: 'bj-taste' + (unter === u.name ? ' haupt' : ''),
+    onClick: () => setUnter(u.name)
+  }, u.name)), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'bj-taste' + (unter === '_eigen' ? ' haupt' : ''),
+    onClick: () => setUnter('_eigen')
+  }, "Eigene\u2026")), unter === '_eigen' && /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp",
+    style: {
+      marginTop: 6
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: unterEigen,
+    maxLength: 60,
+    autoFocus: true,
+    placeholder: "z.B. Pfad des Totems",
+    onChange: e => setUnterEigen(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "auf-hinweis"
+  }, unter === '_eigen' ? 'Der Name kommt in den Bogen; ihre Merkmale trägst du selbst ein.' : unterListe.length ? 'Aus dem SRD 5.1 — mehr als eine je Klasse steht dort nicht. Ihre Merkmale kommen dann unten mit.' : 'Für diese Klasse ist keine hinterlegt — trag den Namen selbst ein.')), !unterFaellig && unterSchon && /*#__PURE__*/React.createElement("div", {
+    className: "auf-hinweis",
+    style: {
+      marginTop: 10
+    }
+  }, klasse, ": ", /*#__PURE__*/React.createElement("b", null, unterSchon)), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full",
     style: {
       marginTop: 14
@@ -15846,7 +15903,7 @@ const StufenAufstieg = ({
       }))
     }), /*#__PURE__*/React.createElement("span", {
       className: "auf-merkmal-kopf"
-    }, /*#__PURE__*/React.createElement("b", null, m.name), /*#__PURE__*/React.createElement("i", null, "Stufe ", m.stufe, m.unter ? ' · Unterklasse' : '')), /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("b", null, m.name), /*#__PURE__*/React.createElement("i", null, "Stufe ", m.stufe, m.quelle ? ' · ' + m.quelle : m.unter ? ' · Unterklasse' : '')), /*#__PURE__*/React.createElement("span", {
       className: "auf-merkmal-text"
     }, m.text));
   })), /*#__PURE__*/React.createElement("div", {
@@ -21364,7 +21421,24 @@ function App() {
       whiteSpace: "nowrap",
       alignSelf: "center"
     }
-  }, "Hauptklasse")), (ec.multiclasses || []).map((mc, i) => /*#__PURE__*/React.createElement("div", {
+  }, "Hauptklasse")), /*#__PURE__*/React.createElement("div", {
+    className: "multiclass-row",
+    style: {
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    style: {
+      flex: 1
+    },
+    value: ec.subclass || '',
+    maxLength: 60,
+    placeholder: "Unterklasse (optional)",
+    onChange: e => setEc({
+      ...ec,
+      subclass: e.target.value
+    })
+  })), (ec.multiclasses || []).map((mc, i) => /*#__PURE__*/React.createElement("div", {
     className: "multiclass-row",
     key: i,
     style: {
@@ -21402,6 +21476,21 @@ function App() {
       textAlign: "center"
     },
     placeholder: "Stufe"
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    style: {
+      flex: 1
+    },
+    value: mc.subclass || '',
+    maxLength: 60,
+    placeholder: "Unterklasse",
+    onChange: e => setEc({
+      ...ec,
+      multiclasses: ec.multiclasses.map((m, j) => j === i ? {
+        ...m,
+        subclass: e.target.value
+      } : m)
+    })
   }), /*#__PURE__*/React.createElement("button", {
     className: "btn-sm-del",
     onClick: () => setEc({

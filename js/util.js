@@ -1091,13 +1091,42 @@ const mischenGeht = (char, klasse) => {
 // Was die Unterklasse gibt, steht als Erinnerung dabei ("unter") und
 // wird nicht vorgewaehlt: welches Merkmal es ist, weiss nur der Bogen.
 // Und was schon im Bogen steht, kommt nicht ein zweites Mal.
-const merkmaleFuer = (daten, klasse, von, bis, schon) => {
-  const liste = ((daten || {})[klasse] || []);
+const merkmaleFuer = (daten, klasse, von, bis, schon, unterName) => {
+  const d = daten || {};
   const da = new Set((schon || []).map(f => dbSchluessel(f && f.name)));
-  return liste
-    .filter(m => m.stufe > von && m.stufe <= bis)
-    .filter(m => !da.has(dbSchluessel(m.name + ' ' + m.stufe)) && !da.has(dbSchluessel(m.name)))
+  const passt = (m) => m.stufe > von && m.stufe <= bis && !da.has(dbSchluessel(m.name));
+
+  // Die Unterklasse zuerst: wo sie selbst etwas beisteuert, faellt die
+  // Erinnerung der Klasse weg — sie stand ja nur da, weil niemand wusste,
+  // was dort kommt.
+  const u = unterName
+    ? ((d.unterklassen || {})[klasse] || [])
+        .find(x => dbSchluessel(x.name) === dbSchluessel(unterName))
+    : null;
+  const ausUnter = (u ? (u.merkmale || []) : []).filter(passt)
+    .map(m => ({...m, klasse, quelle: u.name}));
+  const belegt = new Set(ausUnter.map(m => m.stufe));
+
+  const ausKlasse = ((d.merkmale || {})[klasse] || [])
+    .filter(passt)
+    .filter(m => !(m.unter && belegt.has(m.stufe)))
     .map(m => ({...m, klasse}));
+
+  return [...ausKlasse, ...ausUnter].sort((a, b) => a.stufe - b.stufe
+    || (a.quelle ? 1 : 0) - (b.quelle ? 1 : 0));
+};
+
+// Welche Unterklassen fuer eine Klasse hinterlegt sind. Das SRD hat je
+// Klasse genau eine — eigene traegt die Gruppe als Namen ein.
+const unterklassenFuer = (daten, klasse) =>
+  (((daten || {}).unterklassen || {})[klasse] || []);
+
+// Welche Unterklasse dieser Bogen fuer eine Klasse fuehrt.
+const unterVon = (c, klasse) => {
+  const k = c || {};
+  if (!klasse || klasse === k.charClass) return k.subclass || '';
+  const m = (k.multiclasses || []).find(x => x && x.charClass === klasse);
+  return (m && m.subclass) || '';
 };
 
 // Was der Aufstieg vorhat. Er schreibt nichts — er sagt nur, was er
@@ -1135,17 +1164,28 @@ const aufstiegPlan = (char, wahl) => {
     ? alle.map(k => k.charClass === name ? {...k, level: ziel} : k)
     : [...alle, {charClass: name, level: ziel}];
 
+  // Die Unterklasse gehoert an dieselbe Stelle wie die Stufe: bei der
+  // Hauptklasse in den Bogen, sonst in ihren Eintrag. Sie wird nur
+  // geschrieben, wenn dort noch keine steht — eine bestehende
+  // umzuwerfen ist keine Sache des Aufstiegs.
+  const unterAlt = unterVon(c, name);
+  const unterNeu = (!unterAlt && w.unterklasse) ? String(w.unterklasse).trim() : '';
+
   if (!dabei) {
-    neu.multiclasses = [...((c.multiclasses) || []), {charClass: name, level: ziel}];
+    neu.multiclasses = [...((c.multiclasses) || []),
+      {charClass: name, level: ziel, ...(unterNeu ? {subclass: unterNeu} : {})}];
     zeilen.push({was: 'Neue Klasse', alt: '—', neu: name + ' ' + ziel});
   } else if (dabei.haupt) {
     neu.level = ziel;
     zeile(name, von, ziel);
+    if (unterNeu) neu.subclass = unterNeu;
   } else {
     neu.multiclasses = ((c.multiclasses) || []).map(m =>
-      (m && m.charClass === name) ? {...m, level: ziel} : m);
+      (m && m.charClass === name)
+        ? {...m, level: ziel, ...(unterNeu ? {subclass: unterNeu} : {})} : m);
     zeile(name, von, ziel);
   }
+  if (unterNeu) zeilen.push({was: 'Unterklasse', alt: '—', neu: unterNeu});
 
   // Die Gesamtstufe traegt den Uebungsbonus — nicht die Stufe einer
   // einzelnen Klasse. Ein Magier 5 / Kleriker 3 ist Stufe 8.
@@ -1205,7 +1245,9 @@ const aufstiegPlan = (char, wahl) => {
     neu.features = [...((c.features) || []), ...merkmale.map((m, i) => ({
       id: 'srd' + jetzt + i,
       name: m.name,
-      source: 'SRD 5.1 · ' + (m.klasse || name) + ' ' + m.stufe,
+      // Bei einem Merkmal der Unterklasse steht deren Name da — im
+      // Bogen soll man sehen, woher es kommt.
+      source: 'SRD 5.1 · ' + (m.quelle || m.klasse || name) + ' ' + m.stufe,
       description: m.text || '',
       effects: [], effectsActive: true,
     }))];
@@ -1263,7 +1305,10 @@ const aufstiegPlan = (char, wahl) => {
     for (let st = von + 1; st <= ziel; st++) {
       if (r.asi.includes(st) && !asi) hinweise.push(name + ' Stufe ' + st + ' gibt eine '
         + 'Attributssteigerung (+2 auf eines oder +1 auf zwei) — oder ein Talent.');
-      if (st === r.unter) hinweise.push('Auf ' + name + ' Stufe ' + st + ' wird die Unterklasse gewählt.');
+      if (st === r.unter && !unterAlt && !unterNeu) {
+        hinweise.push('Auf ' + name + ' Stufe ' + st + ' wird die Unterklasse gewählt — '
+          + 'oben im Fenster.');
+      }
     }
   }
   return {neu, zeilen, hinweise};

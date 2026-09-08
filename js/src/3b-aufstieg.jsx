@@ -21,7 +21,7 @@ const merkmaleLaden = () => {
   if (MERKMAL_DATEN) return Promise.resolve(MERKMAL_DATEN);
   return fetch('data-merkmale.json')
     .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)))
-    .then(d => { MERKMAL_DATEN = (d && d.merkmale) || {}; return MERKMAL_DATEN; })
+    .then(d => { MERKMAL_DATEN = d || {}; return MERKMAL_DATEN; })
     .catch(() => ({}));
 };
 
@@ -67,11 +67,16 @@ const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
   const [talName, setTalName] = React.useState('');
   const [talAttr, setTalAttr] = React.useState('');
 
+  // Die Unterklasse. Steht schon eine im Bogen, ist hier nichts zu
+  // wählen — den Schwur wechselt man nicht beim Aufstieg.
+  const [unter, setUnter] = React.useState('');
+  const [unterEigen, setUnterEigen] = React.useState('');
+
   // Ändert sich Klasse oder Ziel, stimmt der alte Betrag nicht mehr.
   React.useEffect(() => { setZiel(Math.min(20, von + 1)); }, [klasse]);
   React.useEffect(() => {
     setGewuerfelt(null); setArt('schnitt'); setAsiArt(null); setAus({});
-    setTalName(''); setTalAttr('');
+    setTalName(''); setTalAttr(''); setUnter(''); setUnterEigen('');
     setTpPlus(regel ? schnitt * stufen : 0);
   }, [klasse, ziel]);
 
@@ -92,7 +97,15 @@ const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
     : asiArt === 'zwei' ? {[asiA]: 2}
     : (asiA === asiB ? {[asiA]: 2} : {[asiA]: 1, [asiB]: 1});
 
-  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features);
+  // Die Unterklasse wird auf einer bestimmten Stufe gewählt. Erreicht
+  // der Aufstieg sie und steht noch keine im Bogen, fragt das Fenster.
+  const unterSchon = unterVon(char, klasse);
+  const unterListe = unterklassenFuer(merkmalDaten, klasse);
+  const unterStufe = regel ? regel.unter : 0;
+  const unterFaellig = !unterSchon && unterStufe > 0 && ziel >= unterStufe && von < unterStufe;
+  const unterWahl = unterSchon || (unter === '_eigen' ? unterEigen.trim() : unter);
+
+  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features, unterWahl);
   const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined
     ? !m.unter : !aus[m.stufe + ':' + m.name]);
 
@@ -102,7 +115,8 @@ const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
     ? {...talEintrag, attr: (talHalb.length ? (talHalb.includes(talAttr) ? talAttr : '') : '')}
     : null;
 
-  const plan = aufstiegPlan(char, {klasse, ziel, tpPlus, asi, merkmale: gewaehlt, talent});
+  const plan = aufstiegPlan(char,
+    {klasse, ziel, tpPlus, asi, merkmale: gewaehlt, talent, unterklasse: unterWahl});
   const geht = ziel > von;
 
   return (
@@ -145,6 +159,48 @@ const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
             </span>
           )}
         </div>
+
+        {/* ── Die Unterklasse ─────────────────────────────────── */}
+        {unterFaellig && (
+          <div className="form-group form-full" style={{marginTop:14}}>
+            <div className="form-label">
+              Unterklasse — {klasse} Stufe {unterStufe}
+            </div>
+            <div className="auf-tp">
+              {unterListe.map(u => (
+                <button type="button" key={u.name}
+                  className={'bj-taste' + (unter === u.name ? ' haupt' : '')}
+                  onClick={()=>setUnter(u.name)}>
+                  {u.name}
+                </button>
+              ))}
+              <button type="button"
+                className={'bj-taste' + (unter === '_eigen' ? ' haupt' : '')}
+                onClick={()=>setUnter('_eigen')}>
+                Eigene…
+              </button>
+            </div>
+            {unter === '_eigen' && (
+              <div className="auf-tp" style={{marginTop:6}}>
+                <input className="form-input" value={unterEigen} maxLength={60} autoFocus
+                  placeholder="z.B. Pfad des Totems"
+                  onChange={e=>setUnterEigen(e.target.value)} />
+              </div>
+            )}
+            <div className="auf-hinweis">
+              {unter === '_eigen'
+                ? 'Der Name kommt in den Bogen; ihre Merkmale trägst du selbst ein.'
+                : unterListe.length
+                  ? 'Aus dem SRD 5.1 — mehr als eine je Klasse steht dort nicht. Ihre Merkmale kommen dann unten mit.'
+                  : 'Für diese Klasse ist keine hinterlegt — trag den Namen selbst ein.'}
+            </div>
+          </div>
+        )}
+        {!unterFaellig && unterSchon && (
+          <div className="auf-hinweis" style={{marginTop:10}}>
+            {klasse}: <b>{unterSchon}</b>
+          </div>
+        )}
 
         {/* ── Trefferpunkte ────────────────────────────────────── */}
         <div className="form-group form-full" style={{marginTop:14}}>
@@ -273,7 +329,8 @@ const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
                       onChange={()=>setAus(a => ({...a, [k]: an}))} />
                     <span className="auf-merkmal-kopf">
                       <b>{m.name}</b>
-                      <i>Stufe {m.stufe}{m.unter ? ' · Unterklasse' : ''}</i>
+                      <i>Stufe {m.stufe}{m.quelle ? ' · ' + m.quelle
+                        : m.unter ? ' · Unterklasse' : ''}</i>
                     </span>
                     <span className="auf-merkmal-text">{m.text}</span>
                   </label>

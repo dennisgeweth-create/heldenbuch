@@ -1,6 +1,6 @@
 {
  "version": "SRD 5.1 – Creative Commons Attribution 4.0",
- "hinweis": "Stufen und englische Namen aus dem SRD 5.1. Die deutschen Namen und die Sätze sind kurze eigene Zusammenfassungen und ersetzen das Regelwerk nicht.",
+ "hinweis": "Stufen und englische Namen aus dem SRD 5.1. Die deutschen Namen und die Sätze sind kurze eigene Zusammenfassungen und ersetzen das Regelwerk nicht. Je Klasse enthält das SRD genau eine Unterklasse — eigene trägt die Gruppe beim Aufstieg mit ihrem Namen ein.",
  "merkmale": {
   "Barbar": [
    {
@@ -1256,6 +1256,440 @@
     "name": "Signaturzauber",
     "en": "Signature Spell",
     "text": "Zwei Zauber 3. Grades sind immer vorbereitet und einmal je kurzer Rast ohne Platz wirkbar."
+   }
+  ]
+ },
+ "unterklassen": {
+  "Barbar": [
+   {
+    "name": "Pfad des Berserkers",
+    "en": "Path of the Berserker",
+    "merkmale": [
+     {
+      "stufe": 3,
+      "name": "Raserei",
+      "en": "Frenzy",
+      "text": "Im Kampfrausch greifst du jede Runde zusätzlich als Bonusaktion mit einer Nahkampfwaffe an. Danach bist du erschöpft."
+     },
+     {
+      "stufe": 6,
+      "name": "Geistloser Zorn",
+      "en": "Mindless Rage",
+      "text": "Im Kampfrausch kannst du nicht bezaubert oder verängstigt werden."
+     },
+     {
+      "stufe": 10,
+      "name": "Einschüchternde Gegenwart",
+      "en": "Intimidating Presence",
+      "text": "Als Aktion verängstigst du eine Kreatur, die einen Weisheitsrettungswurf nicht besteht."
+     },
+     {
+      "stufe": 14,
+      "name": "Vergeltung",
+      "en": "Retaliation",
+      "text": "Trifft dich jemand in Reichweite im Nahkampf, greifst du als Reaktion zurück."
+     }
+    ]
+   }
+  ],
+  "Barde": [
+   {
+    "name": "Kolleg des Wissens",
+    "en": "College of Lore",
+    "merkmale": [
+     {
+      "stufe": 3,
+      "name": "Zusätzliche Übungen",
+      "en": "Bonus Proficiencies",
+      "text": "Du wirst in drei weiteren Fertigkeiten deiner Wahl geübt."
+     },
+     {
+      "stufe": 3,
+      "name": "Schneidende Worte",
+      "en": "Cutting Words",
+      "text": "Als Reaktion ziehst du einen Inspirationswürfel von einem fremden Angriff, Schadenswurf oder Attributswurf ab."
+     },
+     {
+      "stufe": 6,
+      "name": "Weitere magische Geheimnisse",
+      "en": "Additional Magical Secrets",
+      "text": "Zwei Zauber aus einer beliebigen Klasse zählen für dich als Bardenzauber."
+     },
+     {
+      "stufe": 14,
+      "name": "Unvergleichliches Können",
+      "en": "Peerless Skill",
+      "text": "Du darfst einen Inspirationswürfel auf deinen eigenen Attributswurf zählen."
+     }
+    ]
+   }
+  ],
+  "Kleriker": [
+   {
+    "name": "Domäne des Lebens",
+    "en": "Life Domain",
+    "merkmale": [
+     {
+      "stufe": 1,
+      "name": "Zusätzliche Übung",
+      "en": "Bonus Proficiency",
+      "text": "Du wirst in schwerer Rüstung geübt."
+     },
+     {
+      "stufe": 1,
+      "name": "Jünger des Lebens",
+      "en": "Disciple of Life",
+      "text": "Deine Heilzauber geben zusätzlich 2 + den Grad des Zaubers an Trefferpunkten."
+     },
+     {
+      "stufe": 2,
+      "name": "Göttliche Macht: Leben bewahren",
+      "en": "Channel Divinity: Preserve Life",
+      "text": "Du verteilst Heilung in Höhe des Fünffachen deiner Stufe an Kreaturen in der Nähe — bis höchstens zur Hälfte ihrer Trefferpunkte."
+     },
+     {
+      "stufe": 6,
+      "name": "Gesegneter Heiler",
+      "en": "Blessed Healer",
+      "text": "Heilst du einen anderen, heilst du auch dich selbst um 2 + den Grad des Zaubers."
+     },
+     {
+      "stufe": 8,
+      "name": "Göttlicher Schlag",
+      "en": "Divine Strike",
+      "text": "Einmal je Zug verursacht dein Waffenangriff zusätzlich 1W8 Strahlenschaden (ab Stufe 14: 2W8)."
+     },
+     {
+      "stufe": 17,
+      "name": "Höchste Heilung",
+      "en": "Supreme Healing",
+      "text": "Statt zu würfeln, nimmst du bei Heilzaubern immer das Höchstergebnis."
+     }
+    ]
+   }
+  ],
+  "Druide": [
+   {
+    "name": "Zirkel des Landes",
+    "en": "Circle of the Land",
+    "merkmale": [
+     {
+      "stufe": 2,
+      "name": "Zusätzlicher Zaubertrick",
+      "en": "Bonus Cantrip",
+      "text": "Du lernst einen weiteren Druidenzaubertrick."
+     },
+     {
+      "stufe": 2,
+      "name": "Natürliche Erholung",
+      "en": "Natural Recovery",
+      "text": "Bei einer kurzen Rast bekommst du Zauberplätze bis zur Hälfte deiner Stufe zurück. Einmal am Tag."
+     },
+     {
+      "stufe": 6,
+      "name": "Schritt des Landes",
+      "en": "Land's Stride",
+      "text": "Schwieriges Gelände aus Pflanzen kostet dich nichts, und du hast Vorteil gegen magische Ranken."
+     },
+     {
+      "stufe": 10,
+      "name": "Schutz der Natur",
+      "en": "Nature's Ward",
+      "text": "Du bist immun gegen Krankheit und Gift und kannst von Elementaren und Feen nicht bezaubert oder verängstigt werden."
+     },
+     {
+      "stufe": 14,
+      "name": "Zuflucht der Natur",
+      "en": "Nature's Sanctuary",
+      "text": "Tiere und Pflanzenwesen müssen einen Rettungswurf bestehen, um dich überhaupt angreifen zu können."
+     }
+    ]
+   }
+  ],
+  "Kämpfer": [
+   {
+    "name": "Champion",
+    "en": "Champion",
+    "merkmale": [
+     {
+      "stufe": 3,
+      "name": "Verbesserter kritischer Treffer",
+      "en": "Improved Critical",
+      "text": "Deine Waffenangriffe sind schon bei einer 19 kritisch."
+     },
+     {
+      "stufe": 7,
+      "name": "Bemerkenswerter Athlet",
+      "en": "Remarkable Athlete",
+      "text": "Auf Stärke-, Geschicklichkeits- und Konstitutionswürfe ohne Übung zählt der halbe Übungsbonus; dein Anlauf-Weitsprung ist länger."
+     },
+     {
+      "stufe": 10,
+      "name": "Zusätzlicher Kampfstil",
+      "en": "Additional Fighting Style",
+      "text": "Du wählst einen zweiten Kampfstil."
+     },
+     {
+      "stufe": 15,
+      "name": "Überlegener kritischer Treffer",
+      "en": "Superior Critical",
+      "text": "Deine Waffenangriffe sind schon bei einer 18 kritisch."
+     },
+     {
+      "stufe": 18,
+      "name": "Überlebender",
+      "en": "Survivor",
+      "text": "Zu Beginn jedes deiner Züge heilst du dich, solange du nicht mehr als die Hälfte deiner Trefferpunkte hast."
+     }
+    ]
+   }
+  ],
+  "Mönch": [
+   {
+    "name": "Weg der Offenen Hand",
+    "en": "Way of the Open Hand",
+    "merkmale": [
+     {
+      "stufe": 3,
+      "name": "Technik der Offenen Hand",
+      "en": "Open Hand Technique",
+      "text": "Triffst du mit Schlaghagel, kannst du das Ziel umwerfen, wegstoßen oder ihm die Reaktion nehmen."
+     },
+     {
+      "stufe": 6,
+      "name": "Ganzheit des Körpers",
+      "en": "Wholeness of Body",
+      "text": "Als Aktion heilst du dich um das Dreifache deiner Stufe. Einmal je lange Rast."
+     },
+     {
+      "stufe": 11,
+      "name": "Gelassenheit",
+      "en": "Tranquility",
+      "text": "Nach einer langen Rast umgibt dich ein Heiligtum, bis du angreifst oder jemand deinen Rettungswurf besteht."
+     },
+     {
+      "stufe": 17,
+      "name": "Bebende Handfläche",
+      "en": "Quivering Palm",
+      "text": "Für 3 Ki setzt du in einer Kreatur eine Schwingung, die du binnen Tagen auslösen kannst — mit tödlicher Wirkung."
+     }
+    ]
+   }
+  ],
+  "Paladin": [
+   {
+    "name": "Schwur der Hingabe",
+    "en": "Oath of Devotion",
+    "merkmale": [
+     {
+      "stufe": 3,
+      "name": "Göttliche Macht: Heilige Waffe",
+      "en": "Channel Divinity: Sacred Weapon",
+      "text": "Eine Minute lang zählst du Charisma auf Angriffswürfe mit einer Waffe, und sie leuchtet und gilt als magisch."
+     },
+     {
+      "stufe": 3,
+      "name": "Göttliche Macht: Die Unheiligen vertreiben",
+      "en": "Channel Divinity: Turn the Unholy",
+      "text": "Unholde und Untote in der Nähe fliehen, wenn sie einen Weisheitsrettungswurf nicht bestehen."
+     },
+     {
+      "stufe": 7,
+      "name": "Aura der Hingabe",
+      "en": "Aura of Devotion",
+      "text": "Du und Verbündete in 3 Metern können nicht bezaubert werden."
+     },
+     {
+      "stufe": 15,
+      "name": "Reinheit des Geistes",
+      "en": "Purity of Spirit",
+      "text": "Du stehst dauerhaft unter Schutz vor Bösem und Gutem."
+     },
+     {
+      "stufe": 20,
+      "name": "Heiliger Nimbus",
+      "en": "Holy Nimbus",
+      "text": "Eine Minute lang leuchtest du, verbrennst Unholde und Untote in der Nähe und hast Vorteil gegen ihre Zauber."
+     }
+    ]
+   }
+  ],
+  "Waldläufer": [
+   {
+    "name": "Jäger",
+    "en": "Hunter",
+    "merkmale": [
+     {
+      "stufe": 3,
+      "name": "Beute des Jägers",
+      "en": "Hunter's Prey",
+      "text": "Du wählst eine Art zu jagen: mehr Schaden gegen große Gegner, gegen verwundete oder ein Streifschlag auf einen zweiten Feind."
+     },
+     {
+      "stufe": 7,
+      "name": "Verteidigungstaktik",
+      "en": "Defensive Tactics",
+      "text": "Du wählst eine Verteidigung: gegen Gelegenheitsangriffe, gegen Mehrfachangriffe oder gegen Angst."
+     },
+     {
+      "stufe": 11,
+      "name": "Mehrfachangriff",
+      "en": "Multiattack",
+      "text": "Du greifst mehrere Ziele auf einmal an — als Pfeilhagel oder als Wirbelangriff."
+     },
+     {
+      "stufe": 15,
+      "name": "Überlegene Jägerverteidigung",
+      "en": "Superior Hunter's Defense",
+      "text": "Als Reaktion halbierst du Schaden, weichst aus oder machst dich unangreifbar — je nach gewählter Art."
+     }
+    ]
+   }
+  ],
+  "Schurke": [
+   {
+    "name": "Dieb",
+    "en": "Thief",
+    "merkmale": [
+     {
+      "stufe": 3,
+      "name": "Flinke Hände",
+      "en": "Fast Hands",
+      "text": "Mit deiner gerissenen Aktion nutzt du Diebeswerkzeug, taschendiebst oder benutzt einen Gegenstand."
+     },
+     {
+      "stufe": 3,
+      "name": "Einbruch im ersten Stock",
+      "en": "Second-Story Work",
+      "text": "Klettern kostet dich keine zusätzliche Bewegung, und deine Sprünge sind weiter."
+     },
+     {
+      "stufe": 9,
+      "name": "Überlegene Heimlichkeit",
+      "en": "Supreme Sneak",
+      "text": "Bewegst du dich höchstens halb so schnell, hast du Vorteil auf Heimlichkeit."
+     },
+     {
+      "stufe": 13,
+      "name": "Magische Gegenstände benutzen",
+      "en": "Use Magic Device",
+      "text": "Klassen-, Volks- und Stufenbeschränkungen magischer Gegenstände gelten für dich nicht."
+     },
+     {
+      "stufe": 17,
+      "name": "Diebesreflexe",
+      "en": "Thief's Reflexes",
+      "text": "In der ersten Kampfrunde handelst du zweimal — der zweite Zug kommt bei Initiative minus 10."
+     }
+    ]
+   }
+  ],
+  "Zauberer": [
+   {
+    "name": "Drachenblut",
+    "en": "Draconic Bloodline",
+    "merkmale": [
+     {
+      "stufe": 1,
+      "name": "Drachenahn",
+      "en": "Dragon Ancestor",
+      "text": "Du wählst eine Drachenart. Charismawürfe im Umgang mit Drachen zählen den doppelten Übungsbonus."
+     },
+     {
+      "stufe": 1,
+      "name": "Drachenhafte Widerstandskraft",
+      "en": "Draconic Resilience",
+      "text": "Deine Trefferpunkte steigen um 1 je Stufe, und ohne Rüstung ist deine Rüstungsklasse 13 + Geschicklichkeitsmodifikator."
+     },
+     {
+      "stufe": 6,
+      "name": "Elementare Verbundenheit",
+      "en": "Elemental Affinity",
+      "text": "Zauber mit dem Schadenstyp deines Ahnen zählen deinen Charismamodifikator dazu; für 1 Zauberpunkt bekommst du Resistenz."
+     },
+     {
+      "stufe": 14,
+      "name": "Drachenschwingen",
+      "en": "Dragon Wings",
+      "text": "Als Bonusaktion wachsen dir Flügel — Flugbewegung wie deine normale Bewegungsrate."
+     },
+     {
+      "stufe": 18,
+      "name": "Drachenhafte Gegenwart",
+      "en": "Draconic Presence",
+      "text": "Für 5 Zauberpunkte verbreitest du eine Minute lang Ehrfurcht oder Angst im Umkreis von 18 Metern."
+     }
+    ]
+   }
+  ],
+  "Hexenmeister": [
+   {
+    "name": "Der Unhold",
+    "en": "The Fiend",
+    "merkmale": [
+     {
+      "stufe": 1,
+      "name": "Segen des Dunklen",
+      "en": "Dark One's Blessing",
+      "text": "Bringst du eine Kreatur auf 0 Trefferpunkte, bekommst du temporäre Trefferpunkte."
+     },
+     {
+      "stufe": 6,
+      "name": "Glück des Dunklen",
+      "en": "Dark One's Own Luck",
+      "text": "Einmal je Rast würfelst du 1W10 auf einen Attributswurf oder Rettungswurf dazu."
+     },
+     {
+      "stufe": 10,
+      "name": "Unholdische Widerstandskraft",
+      "en": "Fiendish Resilience",
+      "text": "Nach einer Rast wählst du einen Schadenstyp, gegen den du resistent bist."
+     },
+     {
+      "stufe": 14,
+      "name": "Durch die Hölle schleudern",
+      "en": "Hurl Through Hell",
+      "text": "Einmal am Tag schickst du ein getroffenes Ziel eine Runde lang durch die Unteren Ebenen."
+     }
+    ]
+   }
+  ],
+  "Magier": [
+   {
+    "name": "Schule der Hervorrufung",
+    "en": "School of Evocation",
+    "merkmale": [
+     {
+      "stufe": 2,
+      "name": "Kenner der Hervorrufung",
+      "en": "Evocation Savant",
+      "text": "Zauber der Hervorrufung ins Zauberbuch zu schreiben kostet dich die Hälfte an Zeit und Gold."
+     },
+     {
+      "stufe": 2,
+      "name": "Zauber formen",
+      "en": "Sculpt Spells",
+      "text": "Verbündete im Wirkungsbereich deiner Hervorrufungen bestehen ihren Rettungswurf automatisch und nehmen keinen Schaden."
+     },
+     {
+      "stufe": 6,
+      "name": "Mächtiger Zaubertrick",
+      "en": "Potent Cantrip",
+      "text": "Wer den Rettungswurf gegen deinen Zaubertrick besteht, nimmt trotzdem den halben Schaden."
+     },
+     {
+      "stufe": 10,
+      "name": "Verstärkte Hervorrufung",
+      "en": "Empowered Evocation",
+      "text": "Du zählst deinen Intelligenzmodifikator auf den Schaden deiner Hervorrufungszauber."
+     },
+     {
+      "stufe": 14,
+      "name": "Überladen",
+      "en": "Overchannel",
+      "text": "Bei einem Zauber bis zum 5. Grad nimmst du den Höchstschaden — ab dem zweiten Mal je Rast auf eigene Kosten."
+     }
+    ]
    }
   ]
  }

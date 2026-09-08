@@ -3545,6 +3545,14 @@ function App() {
                 style={{maxWidth:64,textAlign:"center"}} placeholder="Stufe"/>
               <div style={{fontSize:10,color:"var(--text-muted)",fontFamily:"'Roboto Condensed',sans-serif",whiteSpace:"nowrap",alignSelf:"center"}}>Hauptklasse</div>
             </div>
+            {/* Die Unterklasse waehlt sonst der Aufstieg, und er ueberschreibt
+                keine, die schon dasteht. Hier ist die Stelle, an der man sie
+                gerade rueckt. */}
+            <div className="multiclass-row" style={{marginBottom:8}}>
+              <input className="form-input" style={{flex:1}} value={ec.subclass||''}
+                maxLength={60} placeholder="Unterklasse (optional)"
+                onChange={e=>setEc({...ec,subclass:e.target.value})}/>
+            </div>
             {(ec.multiclasses||[]).map((mc,i)=>(
               <div className="multiclass-row" key={i} style={{marginBottom:8}}>
                 <select className="form-select" style={{flex:1}} value={mc.charClass}
@@ -3554,6 +3562,9 @@ function App() {
                 <ZahlFeld className="form-input" min="1" max="20" wert={mc.level}
                   onWert={v =>setEc({...ec,multiclasses:ec.multiclasses.map((m,j)=>j===i?{...m,level:v}:m)})}
                   style={{maxWidth:64,textAlign:"center"}} placeholder="Stufe"/>
+                <input className="form-input" style={{flex:1}} value={mc.subclass||''}
+                  maxLength={60} placeholder="Unterklasse"
+                  onChange={e=>setEc({...ec,multiclasses:ec.multiclasses.map((m,j)=>j===i?{...m,subclass:e.target.value}:m)})}/>
                 <button className="btn-sm-del"
                   onClick={()=>setEc({...ec,multiclasses:ec.multiclasses.filter((_,j)=>j!==i)})}>&#x2715;</button>
               </div>

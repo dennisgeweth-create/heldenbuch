@@ -231,12 +231,20 @@ const Sheet = () => {
           </div>
           <div className="sheet-header-right" style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0}}>
             <div className="class-badges">
+              {/* Die Unterklasse steht unter der Klasse — sie gehoert
+                  dorthin und nicht in eine eigene Zeile. */}
               <div className="class-badge" style={{backgroundColor:cc.bg,borderColor:cc.border,color:cc.text}}>
                 {cur.charClass} {cur.level}
+                {cur.subclass ? <i className="class-badge-unter">{cur.subclass}</i> : null}
               </div>
               {(cur.multiclasses||[]).map((mc,i)=>{
                 const mcc = klassenStil(mc.charClass || 'Kämpfer', klassen);
-                return <div key={i} className="class-badge" style={{backgroundColor:mcc.bg,borderColor:mcc.border,color:mcc.text}}>{mc.charClass} {mc.level}</div>;
+                return (
+                  <div key={i} className="class-badge" style={{backgroundColor:mcc.bg,borderColor:mcc.border,color:mcc.text}}>
+                    {mc.charClass} {mc.level}
+                    {mc.subclass ? <i className="class-badge-unter">{mc.subclass}</i> : null}
+                  </div>
+                );
               })}
             </div>
             {/* Wer den Bogen nicht aendern darf, bekommt die Knoepfe nicht

@@ -3212,6 +3212,10 @@
      leise. */
   /* Ab der zweiten Klasse wird gewaehlt, welche aufsteigt. */
   /* Die Attribute eines halben Talents: sechs Haken nebeneinander. */
+  /* Die Unterklasse steht klein unter der Klasse in ihrem Schild. */
+  .class-badge-unter { display:block; font-style:normal; font-size:9px; letter-spacing:0.08em;
+    text-transform:uppercase; opacity:0.75; margin-top:2px; }
+
   .tal-attr { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; }
   .tal-attr-feld { display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:5px;
     cursor:pointer; background:var(--bg-card); border:1px solid var(--border);
