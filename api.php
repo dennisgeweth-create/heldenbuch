@@ -143,6 +143,16 @@ $pdo->exec("
         CONSTRAINT fk_hbk_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    CREATE TABLE IF NOT EXISTS hb_proben (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        probe_json   TEXT        NOT NULL,
+        stand        BIGINT      NOT NULL DEFAULT 1,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_code, adv_id),
+        CONSTRAINT fk_hbp_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_vitals (
         session_code VARCHAR(20)  NOT NULL,
         char_id      VARCHAR(50)  NOT NULL,
@@ -418,6 +428,10 @@ function advDmKarte(PDO $pdo, string $code): array {
     foreach ($st->fetchAll() as $r) $karte[(string)$r['adv_id']][] = (int)$r['user_id'];
     return $karte;
 }
+// Wie lange eine Probe auf Ansage offen steht, bevor sie von selbst
+// verschwindet. Eine Viertelstunde: laenger wuerfelt niemand nach.
+const PROBE_FRIST = 900;
+
 function istDmVon(PDO $pdo, array $z, string $code, string $advId): bool {
     if (!$z['user']) return true;                       // der alte Weg leitet alles
     if ($z['rolle'] === 'admin') return true;
@@ -1204,6 +1218,102 @@ switch ($action) {
             if ($l['details']) $l['details'] = json_decode($l['details'], true);
         }
         respond(200, 'OK', ['logs' => $logs, 'has_more' => count($logs) >= $limit, 'offset' => $offset]);
+
+    // ── Proben auf Ansage ───────────────────────────────────────
+    // "Alle einen Wurf auf Wahrnehmung." Bis hierher hiess das: reihum
+    // fragen, Zahlen sammeln, im Kopf vergleichen. Eine Ansage steht je
+    // Abenteuer, und es gibt immer nur eine — die naechste loest die
+    // vorige ab. Wer eine liegen laesst, blockiert damit niemanden: nach
+    // einer Viertelstunde ist sie von selbst weg.
+    case 'probe_setzen':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $roh = $body['probe'] ?? null;
+        if ($roh === null) {
+            // Abräumen ist erlaubt und der zweite Weg, eine Ansage
+            // loszuwerden.
+            $pdo->prepare("DELETE FROM hb_proben WHERE session_code=? AND adv_id=?")
+                ->execute([$code, $advId]);
+            respond(200, 'Abgeräumt.');
+        }
+        if (!is_array($roh)) respond(400, 'Fehlende Ansage.');
+        $probe = [
+            'id'   => bin2hex(random_bytes(6)),
+            'art'  => in_array((string)($roh['art'] ?? ''), ['fert','rw'], true) ? (string)$roh['art'] : 'fert',
+            'wert' => mb_substr(trim((string)($roh['wert'] ?? '')), 0, 30),
+            'sg'   => max(0, min(40, (int)($roh['sg'] ?? 0))),
+            'verdeckt' => !empty($roh['verdeckt']),
+            'text' => mb_substr(trim((string)($roh['text'] ?? '')), 0, 160),
+            'zeit' => time(),
+            'antworten' => [],
+        ];
+        if ($probe['wert'] === '') respond(400, 'Worauf denn?');
+        $pdo->prepare("INSERT INTO hb_proben (session_code, adv_id, probe_json, stand)
+                       VALUES(?,?,?,1)
+                       ON DUPLICATE KEY UPDATE probe_json=VALUES(probe_json), stand=stand+1")
+            ->execute([$code, $advId, json_encode($probe, JSON_UNESCAPED_UNICODE)]);
+        respond(201, 'Angesagt.', ['probe' => $probe]);
+
+    case 'probe_antwort':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId  = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $charId = mb_substr((string)($body['char_id'] ?? ''), 0, 50);
+        if ($advId === '' || $charId === '') respond(400, 'Fehlende Daten.');
+        // Antworten darf nur, wem der Bogen gehoert — sonst wuerfelte
+        // einer fuer alle.
+        besitzPruefen($pdo, $z, $code, $charId);
+        $st = $pdo->prepare("SELECT probe_json FROM hb_proben WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(404, 'Es steht keine Probe an.');
+        $probe = json_decode($row['probe_json'], true);
+        if (!is_array($probe)) respond(404, 'Es steht keine Probe an.');
+        if ((string)($body['probe_id'] ?? '') !== (string)$probe['id'])
+            respond(409, 'Die Ansage hat sich geändert. Bitte neu ansehen.');
+        $antwort = [
+            'charId' => $charId,
+            'name'   => mb_substr(trim((string)($body['name'] ?? '')), 0, 60),
+            'wurf'   => max(-40, min(99, (int)($body['wurf'] ?? 0))),
+            'bonus'  => max(-20, min(40, (int)($body['bonus'] ?? 0))),
+            'zeit'   => time(),
+        ];
+        // Wer zweimal antwortet, ersetzt sich selbst. Ein Zahlendreher
+        // soll nicht als zweite Zeile stehenbleiben.
+        $liste = [];
+        foreach ((array)($probe['antworten'] ?? []) as $a) {
+            if (is_array($a) && (string)($a['charId'] ?? '') !== $charId) $liste[] = $a;
+        }
+        $liste[] = $antwort;
+        if (count($liste) > 24) $liste = array_slice($liste, -24);
+        $probe['antworten'] = $liste;
+        $pdo->prepare("UPDATE hb_proben SET probe_json=?, stand=stand+1
+                       WHERE session_code=? AND adv_id=?")
+            ->execute([json_encode($probe, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        respond(200, 'Notiert.', ['antwort' => $antwort]);
+
+    case 'probe_stand':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
+        $st = $pdo->prepare("SELECT probe_json, stand FROM hb_proben WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(200, 'OK', ['stand' => 0, 'probe' => null]);
+        $stand = (int)$row['stand'];
+        $probe = json_decode($row['probe_json'], true);
+        // Der Failsafe: eine Ansage, die eine Viertelstunde offen steht,
+        // hat sich erledigt. Sie verschwindet von selbst, damit ein
+        // vergessener Wurf niemandem den Bildschirm belegt.
+        if (is_array($probe) && (time() - (int)($probe['zeit'] ?? 0)) > PROBE_FRIST) $probe = null;
+        // Nur wenn sich etwas getan hat, geht die ganze Ansage hinaus.
+        $seit = (int)($body['seit'] ?? -1);
+        if ($seit >= 0 && $seit === $stand) respond(200, 'OK', ['stand' => $stand]);
+        respond(200, 'OK', ['stand' => $stand, 'probe' => $probe]);
 
     // ── Konten ──────────────────────────────────────────────────
     // Ab hier gilt nicht mehr "wer das Gruppenpasswort hat, ist die

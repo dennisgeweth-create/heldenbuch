@@ -124,6 +124,15 @@
     const apiKampfStand  = (url, code, advId, seit)       => apiRequest(url, 'kampf_stand',  { code, adv_id: advId, seit });
     const apiKampfAnsage  = (url, code, advId, charId, ansage) => apiRequest(url, 'kampf_eintrag', { code, adv_id: advId, char_id: charId, ansage });
     const apiKampfAnsagen = (url, code, advId)                 => apiRequest(url, 'kampf_stand',   { code, adv_id: advId, nur: 'ansagen' });
+    // ── Proben auf Ansage ───────────────────────────────────────
+    const apiProbeSetzen  = (url, code, pass, advId, probe) =>
+      apiRequest(url, 'probe_setzen',  { code, password: pass, adv_id: advId, probe });
+    const apiProbeAntwort = (url, code, pass, advId, charId, probeId, name, wurf, bonus) =>
+      apiRequest(url, 'probe_antwort', { code, password: pass, adv_id: advId, char_id: charId,
+                                         probe_id: probeId, name, wurf, bonus });
+    const apiProbeStand   = (url, code, pass, advId, seit) =>
+      apiRequest(url, 'probe_stand',   { code, password: pass, adv_id: advId, seit });
+
     // ── Konten ──────────────────────────────────────────────────
     // Alles hier traegt die Kennung von selbst, ausser login und dem
     // allerersten Konto — da gibt es noch keine.

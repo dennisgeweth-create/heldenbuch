@@ -680,6 +680,63 @@ foreach ($advs as $i => $a) if (($a['id'] ?? '') === 'strahd') $advs[$i]['hpVerd
 $lib['_adventures'] = $advs;
 ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $lib]);
 
+abschnitt('Proben auf Ansage');
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('ohne Ansage steht nichts an (200)', $r['status'] === 200
+       && array_key_exists('probe', $r['body']) && $r['body']['probe'] === null, kurz($r));
+
+$r = ruf('probe_setzen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                          'probe' => ['art' => 'fert', 'wert' => 'aufmerksamkeit', 'sg' => 15]]);
+pruefe('ein Spieler darf nicht ansagen (403)', $r['status'] === 403, kurz($r));
+
+$r = ruf('probe_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'probe' => ['art' => 'fert', 'wert' => 'aufmerksamkeit', 'sg' => 15,
+                                      'text' => 'Ist hier jemand durchgegangen?']]);
+pruefe('die Spielleitung sagt an (201)', $r['status'] === 201, kurz($r));
+$probeId = (string)($r['body']['probe']['id'] ?? '');
+pruefe('die Ansage hat eine Kennung', strlen($probeId) > 6);
+
+$r = ruf('probe_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'probe' => ['art' => 'fert', 'wert' => '', 'sg' => 15]]);
+pruefe('eine Ansage ohne Gegenstand wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('der Spieler sieht sie (200)', $r['status'] === 200, kurz($r));
+pruefe('und worauf gewuerfelt wird', ($r['body']['probe']['wert'] ?? '') === 'aufmerksamkeit');
+$stand = (int)($r['body']['stand'] ?? 0);
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'seit' => $stand]);
+pruefe('bei gleichem Stand kommt die Ansage nicht noch einmal',
+       !array_key_exists('probe', $r['body']), kurz($r));
+
+$r = ruf('probe_antwort', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'probe_id' => $probeId, 'name' => 'Armin',
+                           'wurf' => 14, 'bonus' => 4]);
+pruefe('der Besitzer meldet seinen Wurf (200)', $r['status'] === 200, kurz($r));
+
+$r = ruf('probe_antwort', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'probe_id' => 'falschefalsche', 'name' => 'Armin',
+                           'wurf' => 20, 'bonus' => 4]);
+pruefe('ein Wurf auf eine alte Ansage wird abgelehnt (409)', $r['status'] === 409, kurz($r));
+
+$r = ruf('probe_antwort', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'd1', 'probe_id' => $probeId, 'name' => 'Fremd',
+                           'wurf' => 20, 'bonus' => 4]);
+pruefe('fuer einen fremden Bogen darf niemand wuerfeln (403)', $r['status'] === 403, kurz($r));
+
+$r = ruf('probe_antwort', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'probe_id' => $probeId, 'name' => 'Armin',
+                           'wurf' => 17, 'bonus' => 4]);
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$antw = (array)($r['body']['probe']['antworten'] ?? []);
+pruefe('zweimal melden ersetzt sich selbst', count($antw) === 1, 'Antworten: ' . count($antw));
+pruefe('und zwar durch den neuen Wurf', (int)($antw[0]['wurf'] ?? 0) === 17);
+
+$r = ruf('probe_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'probe' => null]);
+pruefe('die Spielleitung raeumt ab (200)', $r['status'] === 200, kurz($r));
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('danach steht nichts mehr an',
+       array_key_exists('probe', $r['body']) && $r['body']['probe'] === null, kurz($r));
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

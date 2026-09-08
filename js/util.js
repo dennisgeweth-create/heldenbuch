@@ -304,9 +304,24 @@ const charWerte = (c, setDefs) => {
     saves[a] = anw('save_'+a, anw('saveAll', mod(eff[a]) + (isP ? eff.profBonus : 0)));
   });
 
+  // ── Die Fertigkeiten, alle achtzehn ───────────────────
+  // Bisher wurde nur die passive Wahrnehmung hier gerechnet und der Rest
+  // im Bogen noch einmal. Eine Probe auf Ansage braucht sie fuer jeden
+  // Helden — und zwar nach denselben Regeln, nicht nach nachgebauten.
+  const skills = {};
+  for (const sk of SKILLS) {
+    const isP = (c.skillProfs||[]).includes(sk.key);
+    const isE = (c.expertiseProfs||[]).includes(sk.key);
+    const joat = c.jackOfAllTrades && !isP && !isE;
+    const b = isE ? eff.profBonus*2 : isP ? eff.profBonus
+            : joat ? Math.floor(eff.profBonus/2) : 0;
+    skills[sk.key] = anw('skill_'+sk.key, anw('skillAll', mod(eff[sk.attr]) + b));
+  }
+
   return {
     effekte: effs,
     eff,
+    skills,
     ac,
     maxHp: eff.maxHp,
     hp: +c.hp || 0,

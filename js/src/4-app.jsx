@@ -1776,12 +1776,73 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Proben auf Ansage ──────────────────────────────────────────
+  // Eine je Abenteuer, und alle sehen dieselbe. Gefragt wird alle drei
+  // Sekunden, solange eine offen steht, sonst alle neun — und gar
+  // nicht, solange niemand hinsieht.
+  const [probe, setProbe] = useState(null);
+  const [probeAnsagen, setProbeAnsagen] = useState(false);
+  const probeRef = useRef(null);
+  const probeStandRef = useRef(-1);
+  useEffect(() => { probeRef.current = probe; }, [probe]);
+
+  useEffect(() => {
+    const creds = serverCreds();
+    if (!advId || !verbunden(creds)) { setProbe(null); return; }
+    let lebt = true, uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          const d = await apiProbeStand(creds.url, creds.code, creds.pass, advId, probeStandRef.current);
+          if (!lebt) return;
+          if (Object.prototype.hasOwnProperty.call(d, 'probe')) {
+            probeRef.current = d.probe || null;
+            setProbe(d.probe || null);
+          }
+          probeStandRef.current = +d.stand || 0;
+        } catch { /* der naechste Versuch kommt gleich */ }
+      }
+      uhr = setTimeout(frage, document.hidden ? 15000 : (probeRef.current ? 3000 : 9000));
+    };
+    frage();
+    const wach = () => { if (!document.hidden && lebt) { clearTimeout(uhr); frage(); } };
+    document.addEventListener('visibilitychange', wach);
+    return () => {
+      lebt = false; clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
+    };
+  }, [advId, svCode, konto]);
+
+  const probeSetzen = async (p) => {
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiProbeSetzen(url, code, pass, advId, p);
+      probeStandRef.current = -1;
+      setProbeAnsagen(false);
+    } catch (e) { appAlert('Die Ansage kam nicht durch: ' + (e.message || 'unbekannter Fehler')); }
+  };
+  const probeAbraeumen = async () => {
+    const {url, code, pass} = serverCreds();
+    try { await apiProbeSetzen(url, code, pass, advId, null); setProbe(null); probeStandRef.current = -1; }
+    catch {}
+  };
+  const probeAntworten = async (c, wurf, bonus) => {
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiProbeAntwort(url, code, pass, advId, c.id, probe.id, c.name, wurf, bonus);
+      probeStandRef.current = -1;
+    } catch (e) { appAlert('Der Wurf kam nicht durch: ' + (e.message || 'unbekannter Fehler')); }
+  };
+
   // Beim Wechsel des Abenteuers faengt das Zusehen von vorn an.
   useEffect(() => {
     kampfStandRef.current = -1;
     kampfSichtRef.current = null;
     setKampfSichtDaten(null);
     setShowKampfSicht(false);
+    probeStandRef.current = -1;
+    probeRef.current = null;
+    setProbe(null);
   }, [advId]);
 
   // Die eigenen Helden werden in der Liste hervorgehoben.
@@ -2929,6 +2990,11 @@ function App() {
                 const {url, code, pass} = serverCreds();
                 if(url&&code&&pass) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
+              {/* Eine Probe geht auch ohne Kampf — die meisten sogar. */}
+              {isDmMode && (
+                <button className="btn-tool" onClick={()=>setProbeAnsagen(true)}
+                  title="Alle würfeln auf dieselbe Fertigkeit">🎲 Probe</button>
+              )}
               {isDmMode && (
                 <button className="btn-tool" onClick={()=>setShowKampf(true)}>
                   ⚔ Kampf{!kampf || !kampf.aktiv ? ''
@@ -4278,6 +4344,16 @@ function App() {
 
       {/* Adventure Log Modal */}
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
+
+      {probe && (
+        <ProbenBalken probe={probe} isDmMode={isDmMode} setDefs={setDefs}
+          meine={chars.filter(c => !c.archived && (c.adventure || advId) === advId
+            && (isDmMode ? c.id === sel : darfSchreiben(c)))}
+          onAntwort={probeAntworten} onAbraeumen={probeAbraeumen} />
+      )}
+      {probeAnsagen && (
+        <ProbenAnsage onAbbrechen={()=>setProbeAnsagen(false)} onAnsagen={probeSetzen} />
+      )}
 
       {assistent && (
         <CharakterAssistent klassen={klassen}

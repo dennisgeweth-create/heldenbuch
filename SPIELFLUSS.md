@@ -147,7 +147,7 @@ die Fertigkeitsliste, die Übungen, das Startgold und ein Paket. Was
 fehlt, sind die **Texte** der Merkmale — angelegt werden sie mit Namen
 und Quelle, gefüllt werden sie aus der Bibliothek der Gruppe.
 
-## Stufe 3 · Proben auf Ansage
+## Stufe 3 · Proben auf Ansage ✓
 
 „Alle einen Wurf auf Wahrnehmung." Heute: reihum fragen, Zahlen
 sammeln, im Kopf vergleichen. Dabei liegt die Maschinerie schon da — der
@@ -158,8 +158,30 @@ verdeckt. Bei jedem Spieler erscheint eine Zeile mit **seinem**
 Modifikator; er trägt seinen Wurf ein. Die Spielleitung sieht eine
 Liste: wer bestanden hat, wer nicht, wer noch fehlt.
 
-**Failsafe:** Eine Ansage verfällt von selbst. Eine offene Probe, die
-niemand mehr beantwortet, darf den Tisch nicht blockieren.
+*Steht seit v4.9.*
+
+**Failsafes, wie gebaut:**
+
+- **Eine Ansage verfällt nach einer Viertelstunde**, vom Server aus. Eine
+  offene Probe, die niemand mehr beantwortet, blockiert den Tisch nicht.
+- Es gibt **immer nur eine** je Abenteuer; die nächste löst die vorige ab.
+- **Würfeln darf nur, wem der Bogen gehört** — der Server prüft es mit
+  derselben Besitzregel wie beim Speichern. Sonst würfelte einer für
+  alle.
+- **Zweimal melden ersetzt sich selbst.** Ein Zahlendreher bleibt nicht
+  als zweite Zeile stehen.
+- Ein Wurf auf eine Ansage, die inzwischen abgelöst wurde, wird
+  abgelehnt statt der neuen zugeschlagen.
+- **Verdeckt** heißt wirklich verdeckt: der Schwierigkeitsgrad geht nicht
+  an die Spieler, und niemand erfährt, ob er bestanden hat.
+
+Der Modifikator kommt aus dem Bogen — mit Übung, Expertise und allem,
+was daran hängt. Dafür rechnet `charWerte` jetzt alle achtzehn
+Fertigkeiten statt nur die passive Wahrnehmung; die Zahl im Balken ist
+dieselbe wie die im Bogen und keine nachgebaute.
+
+Angesagt wird auch auf **Rettungswürfe**, nicht nur auf Fertigkeiten —
+„alle einen KON-Rettungswurf“ ist am Tisch genauso häufig.
 
 **Was sie nicht tut:** für den Spieler würfeln. Wer am Tisch sitzt,
 würfelt mit der Hand; das Feld nimmt die Zahl.

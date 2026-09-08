@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -10708,6 +10708,222 @@ const KampfSicht = ({
   }, "\u270D Ansagen, was du tust") : null, /*#__PURE__*/React.createElement("span", null, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")));
 };
 
+// ==== js/src/2h-proben.jsx ====
+// Heldenbuch — Proben auf Ansage.
+//
+// „Alle einen Wurf auf Wahrnehmung." Bis hierher hiess das: reihum
+// fragen, Zahlen sammeln, im Kopf vergleichen. Dabei lag die Maschinerie
+// schon da — der Kampf sagt seit v4.8 in zwei Sekunden „du bist dran".
+//
+// Es gibt immer nur **eine** Ansage je Abenteuer; die nächste löst die
+// vorige ab. Und sie verfällt nach einer Viertelstunde von selbst: eine
+// offene Probe, die niemand mehr beantwortet, darf den Tisch nicht
+// blockieren.
+//
+// Gewürfelt wird nicht hier. Wer am Tisch sitzt, würfelt mit der Hand;
+// das Feld nimmt die Zahl. Was das Heldenbuch beiträgt, ist der
+// Modifikator — und zwar der aus dem Bogen, mit Übung, Expertise und
+// allem, was daran hängt.
+
+const ProbenAnsage = ({
+  onAbbrechen,
+  onAnsagen
+}) => {
+  const [art, setArt] = React.useState('fert');
+  const [wert, setWert] = React.useState('aufmerksamkeit');
+  const [sg, setSg] = React.useState(15);
+  const [verdeckt, setVerdeckt] = React.useState(false);
+  const [text, setText] = React.useState('');
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 440
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83C\uDFB2 Probe ansagen"), /*#__PURE__*/React.createElement("div", {
+    className: "ass-tasten"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'bj-taste' + (art === 'fert' ? ' haupt' : ''),
+    onClick: () => {
+      setArt('fert');
+      setWert('aufmerksamkeit');
+    }
+  }, "Fertigkeit"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'bj-taste' + (art === 'rw' ? ' haupt' : ''),
+    onClick: () => {
+      setArt('rw');
+      setWert('dex');
+    }
+  }, "Rettungswurf")), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, art === 'fert' ? 'Worauf' : 'Welcher Rettungswurf'), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: wert,
+    onChange: e => setWert(e.target.value)
+  }, art === 'fert' ? SKILLS.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s.key,
+    value: s.key
+  }, s.label)) : ATTR_WAHL.map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.k,
+    value: a.k
+  }, a.l)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Schwierigkeitsgrad"), /*#__PURE__*/React.createElement("div", {
+    className: "ass-tasten"
+  }, [5, 10, 15, 20, 25].map(n => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: n,
+    className: 'bj-taste' + (sg === n ? ' haupt' : ''),
+    onClick: () => setSg(n)
+  }, n)), /*#__PURE__*/React.createElement("label", {
+    className: "auf-zahl"
+  }, /*#__PURE__*/React.createElement("span", null, "SG"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    wert: sg,
+    onWert: v => setSg(v)
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Wozu (steht bei den Spielern dabei)"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: text,
+    maxLength: 160,
+    placeholder: "z.B. Ist hier jemand vor uns durchgegangen?",
+    onChange: e => setText(e.target.value)
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "pk-trips",
+    style: {
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: verdeckt,
+    onChange: e => setVerdeckt(e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Verdeckt"), " \u2014 der Schwierigkeitsgrad steht nicht dabei, und niemand erf\xE4hrt, ob er bestanden hat.", /*#__PURE__*/React.createElement("i", null, "F\xFCr alles, wo schon das Ergebnis etwas verr\xE4t."))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: () => onAnsagen({
+      art,
+      wert,
+      sg,
+      verdeckt,
+      text
+    })
+  }, "Ansagen"))));
+};
+
+// Was in der Ansage steht, in Worten.
+const probeWort = p => {
+  if (!p) return '';
+  return p.art === 'rw' ? ((ATTR_WAHL.find(a => a.k === p.wert) || {}).l || p.wert) + '-Rettungswurf' : (SKILLS.find(s => s.key === p.wert) || {}).label || p.wert;
+};
+const ProbenBalken = ({
+  probe,
+  meine,
+  isDmMode,
+  setDefs,
+  onAntwort,
+  onAbraeumen
+}) => {
+  const [wuerfe, setWuerfe] = React.useState({});
+  const [zu, setZu] = React.useState(false);
+  React.useEffect(() => {
+    setWuerfe({});
+    setZu(false);
+  }, [probe && probe.id]);
+  if (!probe) return null;
+  const bonusVon = c => {
+    const w = charWerte(c, setDefs);
+    if (!w) return 0;
+    return probe.art === 'rw' ? w.saves[probe.wert] || 0 : w.skills[probe.wert] || 0;
+  };
+  const antwortVon = id => (probe.antworten || []).find(a => a.charId === id) || null;
+  if (zu) {
+    return /*#__PURE__*/React.createElement("button", {
+      className: "probe-knopf",
+      onClick: () => setZu(false)
+    }, "\uD83C\uDFB2 ", probeWort(probe));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "probe-balken"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "probe-kopf"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "probe-titel"
+  }, "\uD83C\uDFB2 ", probeWort(probe)), (!probe.verdeckt || isDmMode) && /*#__PURE__*/React.createElement("span", {
+    className: "probe-sg"
+  }, "SG ", probe.sg), probe.verdeckt && /*#__PURE__*/React.createElement("span", {
+    className: "probe-sg verdeckt"
+  }, "verdeckt"), /*#__PURE__*/React.createElement("button", {
+    className: "automat-x",
+    onClick: () => setZu(true),
+    title: "Einklappen"
+  }, "\u25BE")), probe.text && /*#__PURE__*/React.createElement("div", {
+    className: "probe-text"
+  }, probe.text), meine.map(c => {
+    const a = antwortVon(c.id);
+    const b = bonusVon(c);
+    const gesamt = a ? a.wurf + a.bonus : null;
+    const gut = a && !probe.verdeckt ? gesamt >= probe.sg : null;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "probe-zeile",
+      key: c.id
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "probe-name"
+    }, c.name), /*#__PURE__*/React.createElement("span", {
+      className: "probe-bonus"
+    }, b >= 0 ? '+' + b : b), a ? /*#__PURE__*/React.createElement("span", {
+      className: 'probe-erg' + (gut === null ? '' : gut ? ' gut' : ' schlecht')
+    }, a.wurf, " ", a.bonus >= 0 ? '+' : '−', " ", Math.abs(a.bonus), " = ", /*#__PURE__*/React.createElement("b", null, gesamt), gut === null ? '' : gut ? ' ✓' : ' ✗') : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(ZahlFeld, {
+      className: "form-input probe-feld",
+      sofort: true,
+      wert: wuerfe[c.id] || '',
+      min: -20,
+      max: 99,
+      onWert: v => setWuerfe(w => ({
+        ...w,
+        [c.id]: v
+      }))
+    }), /*#__PURE__*/React.createElement("button", {
+      className: "btn-save probe-melden",
+      disabled: !wuerfe[c.id],
+      onClick: () => onAntwort(c, wuerfe[c.id], b)
+    }, "Melden")));
+  }), isDmMode && /*#__PURE__*/React.createElement("div", {
+    className: "probe-liste"
+  }, (probe.antworten || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Noch hat niemand gew\xFCrfelt.") : (probe.antworten || []).map((a, i) => {
+    const g = a.wurf + a.bonus;
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'probe-erg-zeile' + (g >= probe.sg ? ' gut' : ' schlecht'),
+      key: i
+    }, /*#__PURE__*/React.createElement("span", null, a.name || '—'), /*#__PURE__*/React.createElement("b", null, g, g >= probe.sg ? ' ✓' : ' ✗'));
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    style: {
+      marginTop: 6
+    },
+    onClick: onAbraeumen
+  }, "Abr\xE4umen")));
+};
+
 // ==== js/src/3-sheet.jsx ====
 // Heldenbuch — der Charakterbogen mit seinen sieben Reitern.
 
@@ -17072,12 +17288,102 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Proben auf Ansage ──────────────────────────────────────────
+  // Eine je Abenteuer, und alle sehen dieselbe. Gefragt wird alle drei
+  // Sekunden, solange eine offen steht, sonst alle neun — und gar
+  // nicht, solange niemand hinsieht.
+  const [probe, setProbe] = useState(null);
+  const [probeAnsagen, setProbeAnsagen] = useState(false);
+  const probeRef = useRef(null);
+  const probeStandRef = useRef(-1);
+  useEffect(() => {
+    probeRef.current = probe;
+  }, [probe]);
+  useEffect(() => {
+    const creds = serverCreds();
+    if (!advId || !verbunden(creds)) {
+      setProbe(null);
+      return;
+    }
+    let lebt = true,
+      uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          const d = await apiProbeStand(creds.url, creds.code, creds.pass, advId, probeStandRef.current);
+          if (!lebt) return;
+          if (Object.prototype.hasOwnProperty.call(d, 'probe')) {
+            probeRef.current = d.probe || null;
+            setProbe(d.probe || null);
+          }
+          probeStandRef.current = +d.stand || 0;
+        } catch {/* der naechste Versuch kommt gleich */}
+      }
+      uhr = setTimeout(frage, document.hidden ? 15000 : probeRef.current ? 3000 : 9000);
+    };
+    frage();
+    const wach = () => {
+      if (!document.hidden && lebt) {
+        clearTimeout(uhr);
+        frage();
+      }
+    };
+    document.addEventListener('visibilitychange', wach);
+    return () => {
+      lebt = false;
+      clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
+    };
+  }, [advId, svCode, konto]);
+  const probeSetzen = async p => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiProbeSetzen(url, code, pass, advId, p);
+      probeStandRef.current = -1;
+      setProbeAnsagen(false);
+    } catch (e) {
+      appAlert('Die Ansage kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
+    }
+  };
+  const probeAbraeumen = async () => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiProbeSetzen(url, code, pass, advId, null);
+      setProbe(null);
+      probeStandRef.current = -1;
+    } catch {}
+  };
+  const probeAntworten = async (c, wurf, bonus) => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiProbeAntwort(url, code, pass, advId, c.id, probe.id, c.name, wurf, bonus);
+      probeStandRef.current = -1;
+    } catch (e) {
+      appAlert('Der Wurf kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
+    }
+  };
+
   // Beim Wechsel des Abenteuers faengt das Zusehen von vorn an.
   useEffect(() => {
     kampfStandRef.current = -1;
     kampfSichtRef.current = null;
     setKampfSichtDaten(null);
     setShowKampfSicht(false);
+    probeStandRef.current = -1;
+    probeRef.current = null;
+    setProbe(null);
   }, [advId]);
 
   // Die eigenen Helden werden in der Liste hervorgehoben.
@@ -18988,6 +19294,10 @@ function App() {
       if (url && code && pass) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
     }
   }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setProbeAnsagen(true),
+    title: "Alle w\xFCrfeln auf dieselbe Fertigkeit"
+  }, "\uD83C\uDFB2 Probe"), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setShowKampf(true)
   }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
@@ -21953,6 +22263,16 @@ function App() {
   }, "\u2715 Schlie\xDFen"))), showAdventLog && /*#__PURE__*/React.createElement(AdventureLog, {
     onClose: () => setShowAdventLog(false),
     isDmMode: isDmMode
+  }), probe && /*#__PURE__*/React.createElement(ProbenBalken, {
+    probe: probe,
+    isDmMode: isDmMode,
+    setDefs: setDefs,
+    meine: chars.filter(c => !c.archived && (c.adventure || advId) === advId && (isDmMode ? c.id === sel : darfSchreiben(c))),
+    onAntwort: probeAntworten,
+    onAbraeumen: probeAbraeumen
+  }), probeAnsagen && /*#__PURE__*/React.createElement(ProbenAnsage, {
+    onAbbrechen: () => setProbeAnsagen(false),
+    onAnsagen: probeSetzen
   }), assistent && /*#__PURE__*/React.createElement(CharakterAssistent, {
     klassen: klassen,
     onAbbrechen: () => setAssistent(false),
