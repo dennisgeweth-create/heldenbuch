@@ -1,5 +1,220 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v4.9
+
+Der Abend selbst war gut abgedeckt — Kampf, Zauberplätze, Rasten,
+Zustände, Kalender. Nicht abgedeckt war alles davor und danach, und
+dort steckt die Arbeit, die niemand gern macht: einen Charakter bauen,
+ihn aufsteigen lassen, Proben einsammeln, Beute verteilen, einkaufen.
+
+Sieben Stufen, jede für sich fertig; der Plan dazu steht in der
+`SPIELFLUSS.md`. Dazu ein sechster Tisch in der Taverne und ein Log,
+das endlich sagt, wer etwas getan hat.
+
+**Ein Grundsatz trägt alles davon: erst zeigen, dann ändern.** Kein
+Assistent schreibt in einen Bogen, ohne vorher hinzuschreiben, was er
+ändern wird. Und gerechnet wird nicht in der Oberfläche, sondern in
+einer Funktion daneben — das Übernehmen schreibt genau deren Ergebnis.
+Die Vorschau *kann* deshalb nicht von dem abweichen, was danach im
+Bogen steht.
+
+### ⇧ Der Stufenaufstieg
+
+Ein Charakter wird einmal erstellt und fünfzehnmal aufgestiegen. Bis
+hierher war jeder Aufstieg Handarbeit: Trefferpunkte rechnen,
+Übungsbonus nachschlagen, Zauberplätze umstellen — zehn Minuten, in
+denen vier Leute warten.
+
+Der Knopf steht oben am Bogen, neben dem Stift. Stufe wählen,
+Trefferpunkte würfeln oder den Durchschnitt nehmen, bei einer
+Attributssteigerung entscheiden — dann steht im Kasten, was sich
+ändert, und erst dann der Knopf.
+
+**Nichts ist vorgewählt.** Die Attributssteigerung fängt ohne Wahl an:
+eine vorgewählte Stärke landete sonst im Bogen eines Magiers, weil
+jemand nur auf Übernehmen drückt.
+
+Dazu: die Trefferpunkte sind **tippbar** — damit geht der Aufstieg auch
+rückwärts, ohne dass jemand raten muss, was damals fiel. Verbrauchte
+Zauberplätze bleiben verbraucht; das Auffüllen ist Sache der langen
+Rast. Und was er nicht kann, sagt er: eine eigene Klasse steht nicht in
+den Tabellen, dann rechnet er Stufe und Übungsbonus und lässt den Rest.
+Bei mehreren Klassen lässt er die Zauberplätze stehen — eine falsche
+Zahl wäre schlimmer als gar keine.
+
+### ✶ Der Charakterassistent
+
+„Neuer Charakter" war ein Formular mit fünf Feldern. Danach stand ein
+leerer Bogen da, und man trug zwei Stunden lang ein, was eigentlich aus
+den Regeln folgt.
+
+Jetzt sechs Schritte — Volk, Klasse, Attribute, Hintergrund,
+Fertigkeiten, Ausrüstung —, jeder mit einem Satz Regelinfo. Das ist der
+halbe Nutzen für jemanden, der neu ist. Am Ende steht ein Bogen mit
+allem, was daraus folgt: Trefferpunkte, Rüstungsklasse, Übungsbonus,
+Rettungswürfe, Initiative, Sprachen, Zauberplätze, die Merkmale des
+Volkes mit Namen und Quelle, und das Startpaket im Inventar.
+
+Die Attribute gehen auf drei Wegen: **Standardsatz**, **Punktekauf**
+(27, wird rot bei 28) oder **4W6, schlechtester weg**.
+
+**Kein Knopf wird nur grau.** „Weiter" trägt den Grund als Aufschrift:
+*„Genau 2 Fertigkeiten — gewählt: 1."* Die zwei Fertigkeiten des
+Hintergrunds sind gesperrt und stehen mit „vom Hintergrund" da — eine
+davon noch einmal zu wählen würde einen Klassenplatz verschenken, und
+es geht gar nicht erst.
+
+**Von Hand geht es weiter wie bisher:** daneben steht „✎ Von Hand" und
+fragt nur nach den fünf Feldern.
+
+### 🎲 Proben auf Ansage
+
+„Alle einen Wurf auf Wahrnehmung." Bisher: reihum fragen, Zahlen
+sammeln, im Kopf vergleichen.
+
+Die Spielleitung sagt Fertigkeit **oder Rettungswurf** und einen
+Schwierigkeitsgrad an, wahlweise verdeckt. Bei jedem Spieler erscheint
+ein Balken mit **seinem** Modifikator — dem aus dem Bogen, mit Übung,
+Expertise und allem, was daran hängt. Er trägt seinen Wurf ein; die
+Spielleitung sieht die Liste: wer bestanden hat, wer nicht, wer fehlt.
+
+Gewürfelt wird nicht. Wer am Tisch sitzt, würfelt mit der Hand; das
+Feld nimmt die Zahl.
+
+Eine Ansage **verfällt nach einer Viertelstunde** von selbst — eine
+offene Probe darf den Tisch nicht blockieren. Es gibt immer nur eine je
+Abenteuer. Würfeln darf nur, wem der Bogen gehört, und zweimal melden
+ersetzt sich selbst.
+
+### ⚡ Konzentration
+
+Kein Tisch denkt daran. **Und niemand muss etwas eintragen:** ob ein
+Zauber Konzentration verlangt, steht in seiner Wirkungsdauer, und die
+Vorlagen tragen es alle. Es gilt damit rückwirkend für jeden Zauber,
+der schon in einem Bogen steht.
+
+- Wer wirkt, hält — und wenn schon etwas gehalten wurde, steht im
+  Protokoll, dass es endet. Zwei gleichzeitig gibt es nicht.
+- Wer Schaden nimmt, muss halten können: die Zeile steht dort, wo jeder
+  Schaden durchgeht, mit dem richtigen Schwierigkeitsgrad — die Hälfte
+  des Schadens, mindestens 10. Das ist die Zahl, die am Tisch am
+  häufigsten falsch geraten wird.
+- Wer umfällt, hält nichts mehr. Dafür gibt es keinen Rettungswurf.
+- Der Bogen zeigt es an, mit einem Knopf zum Beenden.
+
+### 💰 Beute verteilen
+
+Gab es gar nicht. Gefunden wurde am Tisch, verteilt im Kopf,
+eingetragen hinterher von jedem selbst — oder von niemandem. Am
+nächsten Abend weiß dann keiner mehr, wer den Ring hat.
+
+Die Spielleitung legt einen Fund hin, **jeder sieht ihn**, und genommen
+wird durch Antippen des Helden. Die Münzen teilt das Programm
+gleichmäßig durch die Helden des Abenteuers, den Rest an den ersten —
+und es steht vorher da, wer wie viel bekommt.
+
+**Ein Fund ist erst verteilt, wenn nichts mehr offen liegt.** *In die
+Bögen eintragen* bleibt gesperrt, solange ein Stück daliegt, und
+darüber steht, wie viele es sind. Erst dann wandert alles hinüber —
+Stücke ins Inventar, Münzen in den Beutel, je Held eine Zeile ins
+Abenteuerlog. Beute, die halb verteilt in einem Fenster verschwindet,
+ist am nächsten Abend Streit.
+
+### 🏪 Der Laden
+
+Kaufen hieß: im Inventar eine Zeile anlegen, im Beutel eine Zahl
+herunterrechnen, beides von Hand in zwei Reitern. Verkaufen dasselbe
+rückwärts. Deshalb wurde beides selten richtig gemacht.
+
+Die Spielleitung stellt zusammen, was ein Ort führt und zu welchem Teil
+er zurückkauft — der übliche halbe. Der Rest ist Rechnen: **bezahlt
+wird aus dem Kleingeld zuerst**, wer mit Kupfer zahlen kann, behält sein
+Gold, und was zu viel hingelegt wurde, kommt als Wechselgeld zurück.
+Der Beutel wird dabei nicht umgerechnet — wer Platin hat, hat es
+hinterher noch.
+
+Kaufen ist gesperrt, wenn es nicht reicht. Verkaufen ist gesperrt,
+solange kein Preis dasteht.
+
+### 🎒 Traglast — je Abenteuer, von Haus aus **aus**
+
+Die Gewichte standen schon an den Gegenständen; es fehlte die Grenze.
+Aber Traglast ist Buchführung, und die meisten Runden wollen sie nicht:
+deshalb ein Schalter in den Einstellungen des Abenteuers, und
+**standardmäßig aus**. Ist er aus, ändert sich nichts.
+
+Ist er an: belastet ab Stärke × 2,5 kg, stark belastet ab × 5, Schluss
+bei × 7,5 — gerechnet mit der wirksamen Stärke, samt Effekten.
+
+**Sie verbietet nichts** und ändert auch die Bewegungsrate nicht von
+selbst. Sie zeigt an und schreibt hin, was es bedeutet; was die Runde
+daraus macht, ist ihre Sache. Ein Heldenbuch, das das Aufheben eines
+Seils verweigert, wird ausgeschaltet.
+
+### 📖 Das Log sagt, wer es war
+
+Wer eine Zeile geschrieben hat, stand seit Stufe 7 in der Datenbank —
+herausgegeben wurde es nie und angezeigt schon gar nicht. Beide
+Ansichten zeigen den Namen jetzt unter der Uhrzeit, und **gesucht wird
+auch danach**: „wer hat den Trank genommen" ist die häufigere Frage als
+„wie hieß er".
+
+Wird ein Konto gelöscht, bleibt die Zeile stehen und verliert nur den
+Namen. Die Kampagnenhistorie gehört der Runde.
+
+Dazu sagen die Zeilen jetzt, **was** passiert ist statt nur, dass etwas
+passiert ist. Unter jeder standen die Feldnamen aus dem Code —
+„grad: 3 · schule: Hervorrufung"; die haben jetzt Wörter, ja/nein statt
+true/false, und ein Pfeil zwischen zwei Ständen bekommt Luft. „Waffe
+bearbeitet" nannte nur den Namen; jetzt steht daneben, was sich
+geändert hat — beim Inventar vor allem die Menge: *wer hat den letzten
+Trank genommen?*
+
+### ♟ Ultimate Texas Hold'em
+
+Der sechste Tisch der Taverne, und Poker gegen die Bank statt
+gegeneinander: am Heldenbuch sitzt selten die ganze Runde gleichzeitig
+vor demselben Gerät.
+
+Nicht der Einsatz wird kleiner, je länger man wartet, sondern die
+Erhöhung — vor dem Flop das Vierfache, nach dem Flop das Doppelte, am
+River das Einfache oder passen. Wer ein Blatt hat, muss früh dafür
+bezahlen; das ist die ganze Spannung.
+
+Die Tafel rät auch hier mit, und **am River rechnet sie**: es sind 45
+Karten übrig und damit 990 Blätter, die der Geber haben kann. Die
+werden alle durchgerechnet und der Ertrag des Erhöhens gegen die Kosten
+des Passens gestellt. Die übliche Faustregel wäre schneller und
+falscher.
+
+Drin ist alles: Ante und Blind, die Blind zahlt nach dem eigenen Blatt
+bis 500:1, der Geber öffnet mit einem Paar, und die Trips-Nebenwette
+zahlt nach dem eigenen Blatt allein.
+
+### 🧾 Was sonst noch anders ist
+
+- **Der Hausvorteil steht nicht mehr in der Taverne.** Er stand an sechs
+  Stellen — als Spalte in der Halle, auf dem Filz, an den Crapsfeldern,
+  unter der Trips-Wette, über der Tafel des Automaten. Gedacht war er
+  als Ehrlichkeit; nur sitzt am Tisch keine Statistik, sondern ein Held.
+  Die Auszahlungen bleiben: 35 zu 1 und 9 zu 5 braucht man zum Setzen.
+- **Der Fuß des Roulettetisches endet mit den Knöpfen.** Darunter stand
+  ein leerer Streifen: eine Meldezeile, die fast immer leer war, und 40
+  Punkte Polster. Die Meldung steht jetzt in der Hinweiszeile über dem
+  Tapis — die sagt ohnehin, was zu tun ist. Das Fenster ist 714 statt
+  792 Punkte hoch und rollt nicht mehr.
+
+### 🩹 Behoben
+
+- Der Vergleich am Charakter sah beim Bearbeiten nach Trefferpunkten,
+  Rüstungsklasse und Bewegung — Felder, die dieses Formular gar nicht
+  anfasst. Die Zeilen kamen also nie. Er sieht jetzt nach dem, was es
+  dort gibt, samt dem Schalter, der einen Bogen vor den Spielern
+  verbirgt.
+- Dieselbe Reihenfolgenfalle wie bei der Breite der Tische: die
+  Tablet-Regel für die Mitte stand in der Datei **vor** ihrer
+  Grundregel und kam nie an.
+
 ## v4.8
 
 Nachschlag zur Taverne — und zwei Sachen aus dem Kampf, die lange auf
