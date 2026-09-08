@@ -170,6 +170,8 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const [rollt, setRollt] = React.useState(false);
   const [zeilen, setZeilen] = React.useState([]);
   const [wirtWort, wirtSagen] = useWirt('craps');
+  // Der Verlauf haelt nur zehn Wuerfe; die Serie kann laenger werden.
+  const serie = React.useRef(0);
   const [ruf, setRuf] = React.useState('Der erste Wurf setzt den Punkt.');
   const [meldung, setMeldung] = React.useState('');
   const [verlauf, setVerlauf] = React.useState([]);
@@ -180,6 +182,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
 
   const imSpiel = crSumme(wetten);
   const kommenAus = punkt === null;
+  const seitSieben = serie.current;
 
   const setzen = (pfad, erlaubt, name) => {
     if (rollt) return;
@@ -214,6 +217,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         setWetten(e.wetten); setPunkt(e.punkt);
         setZeilen(e.zeilen.filter(z => !z.still || true));
         setVerlauf(v => [{s: a + b, a, b}, ...v].slice(0, 10));
+        serie.current = (a + b === 7) ? 0 : serie.current + 1;
         setRuf(
           e.punkt === null
             ? (punkt === null
@@ -292,6 +296,14 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <span className="cr-stand">
           <b>{augen ? augen[0] + augen[1] : '—'}</b>
           <i>{ruf}</i>
+        </span>
+        {/* Was am Crapstisch jeder mitzaehlt: wie lange der Schuetze
+            schon haelt. Die Sieben beendet jede Serie — deshalb wird
+            nicht nach Wuerfen gezaehlt, sondern nach der letzten Sieben.
+            Der Balken hatte hier bisher nichts stehen. */}
+        <span className="cr-serie">
+          <b>{seitSieben}</b>
+          <i>{seitSieben === 1 ? 'Wurf seit der 7' : 'Würfe seit der 7'}</i>
         </span>
         <span className="cr-verlauf">
           {verlauf.map((v, i) => (

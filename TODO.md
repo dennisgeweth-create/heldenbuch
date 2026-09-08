@@ -15,10 +15,11 @@ Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 
 ## Die Taverne
 
-- **Der Rest des Aufbaus.** Die Breite stimmt jetzt, aber zwei Stellen
-  tragen noch Luft: der Würfelbalken bei Craps ist rechts leer, und der
-  Kopf des Roulettetisches könnte die Abrechnung neben sich nehmen
-  statt unter sich.
+- **Der Kopf des Roulettetisches.** Rechts vom Kessel stehen 596 × 77
+  Punkte leer, während die Abrechnung darunter das Fenster verlängert.
+  Sie könnte dort hinein — der Croupier sagt es am Tisch auch neben dem
+  Kessel an. Nur am Telefon muss sie unten bleiben, dort ist der Kopf
+  gestapelt.
 
 ## Erledigt
 

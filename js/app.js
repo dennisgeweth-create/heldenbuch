@@ -8911,6 +8911,8 @@ const CrapsTisch = ({
   const [rollt, setRollt] = React.useState(false);
   const [zeilen, setZeilen] = React.useState([]);
   const [wirtWort, wirtSagen] = useWirt('craps');
+  // Der Verlauf haelt nur zehn Wuerfe; die Serie kann laenger werden.
+  const serie = React.useRef(0);
   const [ruf, setRuf] = React.useState('Der erste Wurf setzt den Punkt.');
   const [meldung, setMeldung] = React.useState('');
   const [verlauf, setVerlauf] = React.useState([]);
@@ -8921,6 +8923,7 @@ const CrapsTisch = ({
   React.useEffect(() => () => clearTimeout(uhr.current), []);
   const imSpiel = crSumme(wetten);
   const kommenAus = punkt === null;
+  const seitSieben = serie.current;
   const setzen = (pfad, erlaubt, name) => {
     if (rollt) return;
     if (!erlaubt) {
@@ -8969,6 +8972,7 @@ const CrapsTisch = ({
           a,
           b
         }, ...v].slice(0, 10));
+        serie.current = a + b === 7 ? 0 : serie.current + 1;
         setRuf(e.punkt === null ? punkt === null ? e.summe === 7 || e.summe === 11 ? 'Sofort gewonnen — ' + e.summe + '.' : 'Craps, ' + e.summe + '. Neuer Wurf.' : e.summe === 7 ? 'Sieben raus. Der Punkt ist weg.' : 'Der Punkt ' + e.summe + ' ist gefallen!' : punkt === null ? 'Punkt steht auf der ' + e.punkt + ' — jetzt gilt: die ' + e.punkt + ' vor der 7.' : e.summe + ' — weiter.');
         // Der Wirt am Crapstisch redet ueber den Wurf, nicht ueber das
         // Geld: die Sieben nach einem Punkt und der gefallene Punkt sind
@@ -9051,6 +9055,8 @@ const CrapsTisch = ({
   }), /*#__PURE__*/React.createElement("span", {
     className: "cr-stand"
   }, /*#__PURE__*/React.createElement("b", null, augen ? augen[0] + augen[1] : '—'), /*#__PURE__*/React.createElement("i", null, ruf)), /*#__PURE__*/React.createElement("span", {
+    className: "cr-serie"
+  }, /*#__PURE__*/React.createElement("b", null, seitSieben), /*#__PURE__*/React.createElement("i", null, seitSieben === 1 ? 'Wurf seit der 7' : 'Würfe seit der 7')), /*#__PURE__*/React.createElement("span", {
     className: "cr-verlauf"
   }, verlauf.map((v, i) => /*#__PURE__*/React.createElement("em", {
     key: i,
