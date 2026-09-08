@@ -16644,35 +16644,61 @@ function App() {
     if (ergebnis.libGeaendert) saveLibrary(ergebnis.lib);
     if (ergebnis.charsGeaendert) save(ergebnis.chars);
   }, [gearReady, chars, userLibrary]);
-  const saveLibrary = lib => {
+
+  // Die Inhalte der geteilten Bibliothek. Alles mit einem Unterstrich
+  // davor — _adventures, _laeden — sind Einstellungen und keine
+  // Sammlung.
+  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape'];
+  const libZaehlen = l => LIB_INHALT.reduce((s, k) => s + ((l || {})[k] || []).length, 0);
+
+  // saveLibrary nimmt eine Bibliothek oder eine Funktion, die aus der
+  // gerade geltenden eine neue macht. Die Funktion ist der sichere Weg:
+  // wer {...userLibrary, x} schreibt, schreibt den Stand, den sein Bild
+  // gerade kannte — und der kann aelter sein als der auf dem Server.
+  const saveLibrary = libOderFn => {
     // Setzt bewusst nicht libGeladen: hier kommt auch die
     // Abenteuer-Umstellung durch, die ein Abenteuer ohne Einstellungen
     // erfindet. Das darf nicht als "Einstellungen bekannt" gelten, sonst
     // stuenden verdeckte Trefferpunkte doch wieder offen da.
-    setUserLibrary(lib);
-    safeSetItem('hb_library', JSON.stringify(lib));
-    const zug = serverCreds();
-    if (!verbunden(zug)) return;
-    apiSaveLibrary(zug.url, zug.code, zug.pass, lib).catch(() => {});
+    setUserLibrary(prev => {
+      const lib = typeof libOderFn === 'function' ? libOderFn(prev) : libOderFn;
+      // Das Netz darunter: eine Einstellung darf keine Sammlung
+      // ausloeschen. Wer 200 Zauber hatte und ploetzlich keinen mehr
+      // schreiben will, hat sich verrechnet — dann wird nicht
+      // geschrieben, sondern gesagt.
+      if (libZaehlen(prev) > 0 && libZaehlen(lib) === 0) {
+        appAlert('Abgebrochen: dieser Schritt hätte die Datenbank geleert. ' + 'Es wurde nichts gespeichert. Bitte einmal neu laden.');
+        return prev;
+      }
+      safeSetItem('hb_library', JSON.stringify(lib));
+      const zug = serverCreds();
+      if (verbunden(zug)) {
+        apiSaveLibrary(zug.url, zug.code, zug.pass, lib)
+        // Frueher verschwand ein Fehler hier lautlos — die Bibliothek
+        // stand dann oertlich anders da als auf dem Server.
+        .catch(e => appAlert('Die Datenbank konnte nicht gespeichert werden: ' + (e.message || 'unbekannter Fehler')));
+      }
+      return lib;
+    });
   };
   const addToLibrary = (type, entry) => {
-    const lib = {
-      ...userLibrary
-    };
-    lib[type] = [...(lib[type] || [])];
-    const exists = lib[type].some(e => e.name === entry.name);
-    if (!exists) lib[type].push({
-      ...entry,
-      _custom: true
+    saveLibrary(alt => {
+      const lib = {
+        ...alt
+      };
+      lib[type] = [...(lib[type] || [])];
+      if (!lib[type].some(e => e.name === entry.name)) lib[type].push({
+        ...entry,
+        _custom: true
+      });
+      return lib;
     });
-    saveLibrary(lib);
   };
   const removeFromLibrary = (type, name) => {
-    const lib = {
-      ...userLibrary,
-      [type]: (userLibrary[type] || []).filter(e => e.name !== name)
-    };
-    saveLibrary(lib);
+    saveLibrary(alt => ({
+      ...alt,
+      [type]: (alt[type] || []).filter(e => e.name !== name)
+    }));
   };
   const newDbEntry = type => {
     if (type === 'spell') return {
@@ -18043,13 +18069,13 @@ function App() {
   const [ladenBearbeiten, setLadenBearbeiten] = useState(false);
   const laden = ((userLibrary || {})._laeden || {})[advId] || null;
   const ladenSpeichern = l => {
-    saveLibrary({
-      ...userLibrary,
+    saveLibrary(alt => ({
+      ...alt,
       _laeden: {
-        ...((userLibrary || {})._laeden || {}),
+        ...((alt || {})._laeden || {}),
         [advId]: l
       }
-    });
+    }));
     setLadenBearbeiten(false);
   };
 
@@ -18705,10 +18731,10 @@ function App() {
   // taucht im ersten Abenteuer auf, damit nichts unsichtbar wird.
   const imAbenteuer = c => !advId || (c.adventure || (abenteuer[0] || {}).id) === advId;
   const advChars = chars.filter(imAbenteuer);
-  const advSpeichern = liste => saveLibrary({
-    ...userLibrary,
+  const advSpeichern = liste => saveLibrary(alt => ({
+    ...alt,
     _adventures: liste
-  });
+  }));
   const switchList = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
   const switchIndex = switchList.findIndex(c => c.id === sel);
 
