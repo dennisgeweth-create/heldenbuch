@@ -13,7 +13,14 @@ $hbEigen = (PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server') ? (string)getenv('H
 require_once ($hbEigen !== '' && is_file($hbEigen)) ? $hbEigen : __DIR__ . '/config.php';
 define('MAX_CHAR_BYTES',  500000);   // 500KB pro Char (ohne Items)
 define('MAX_ITEM_BYTES',  2000000);  // 2MB pro Item (Bild!)
-define('MAX_LIB_BYTES',   2000000);  // 2MB Bibliothek
+// Die Bibliothek einer Runde waechst ueber Jahre und wird als Ganzes
+// geschrieben. 2 MB waren nach der Wiederherstellung der Sammlung —
+// 288 Zauber, 208 Gegenstaende, 85 Tierverwandlungen — auf 60 KB genau
+// erreicht: der naechste Gegenstand ging nicht mehr durch. Die Spalte
+// ist LONGTEXT und traegt Groesseres muehelos; die Grenze steht gegen
+// Unfug, nicht gegen Wachstum. 6 MB bleiben unter dem, was PHP an einer
+// Anfrage ueblicherweise durchlaesst (post_max_size, meist 8 MB).
+define('MAX_LIB_BYTES',   6000000);  // 6MB Bibliothek
 define('MAX_ENEMY_BYTES', 2000000);  // 2MB pro Gegner (Bild!)
 define('MAX_KAMPF_BYTES',  300000);   // 300KB je Kampf — er wird oft geschrieben
 define('RATE_LIMIT_ATTEMPTS',   1000);
@@ -31,7 +38,30 @@ if ($origin === ALLOWED_ORIGIN) {
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST')    { respond(405, 'Nur POST-Anfragen erlaubt.'); }
 
+// Faellt irgendwo eine Ausnahme durch, kam bisher eine HTML-Fehlerseite
+// mit Status 200 zurueck. Der Client liest daraus kein JSON, meldet
+// „unbekannter Fehler" und laesst jeden im Dunkeln — genau so ist eine
+// zu grosse Bibliothek als raetselhafter Fehlschlag geendet statt als
+// Satz, der sagt, woran es lag. Die Meldung steht mit drin: dies ist der
+// Server der eigenen Runde, und ohne sie sucht man Stunden.
+set_exception_handler(function (Throwable $e) {
+    if (!headers_sent()) http_response_code(500);
+    echo json_encode(['ok' => false, 'message' => 'Serverfehler: ' . $e->getMessage()],
+                     JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
 $raw  = file_get_contents('php://input');
+// Eine Anfrage, die groesser ist als post_max_size, kommt leer oder
+// abgeschnitten an. „Ungültiges JSON" waere dann die falsche Auskunft
+// und schickt jeden in die falsche Richtung — der Vergleich mit der
+// angekuendigten Laenge sagt, was wirklich los ist.
+$angekuendigt = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+if ($angekuendigt > 0 && strlen($raw) < $angekuendigt) {
+    respond(413, 'Die Anfrage kam abgeschnitten an: ' . strlen($raw) . ' von '
+        . $angekuendigt . ' Bytes. Der Server nimmt keine so große Anfrage an '
+        . '(post_max_size in der PHP-Konfiguration).');
+}
 $body = json_decode($raw, true);
 if (!is_array($body)) respond(400, 'Ungültiges JSON.');
 
@@ -667,6 +697,34 @@ function zugangDm(PDO $pdo, string $code, string $pass, string $dmPass, array $b
 
 function validateCode(string $c): bool { $l=strlen($c); return $l>=3&&$l<=20&&preg_match('/^[A-Za-z0-9_\-]+$/',$c); }
 function validatePassword(string $p): bool { $l=strlen($p); return $l>=6&&$l<=128; }
+// Wie gross eine einzelne Anweisung an die Datenbank sein darf,
+// entscheidet nicht diese Datei, sondern der Datenbankserver:
+// max_allowed_packet. Ist der kleiner als unsere eigene Grenze, ist er
+// die Grenze — und dann soll das dastehen und nicht als Absturz enden.
+function paketGrenze(PDO $pdo): int {
+    static $wert = null;
+    if ($wert === null) {
+        try { $wert = (int)$pdo->query('SELECT @@max_allowed_packet')->fetchColumn(); }
+        catch (Throwable $e) { $wert = 0; }
+    }
+    return $wert;
+}
+// Was neben der Bibliothek noch im Paket steckt — die Anweisung selbst,
+// der Rest der Anfrage. 64 KB sind reichlich gerechnet.
+function libGrenze(PDO $pdo): int {
+    $paket = paketGrenze($pdo);
+    return ($paket > 131072) ? min(MAX_LIB_BYTES, $paket - 65536) : MAX_LIB_BYTES;
+}
+// „Zu gross" allein sagt niemandem, ob zwei Zeilen fehlen oder das
+// Doppelte — und schon gar nicht, wer die Grenze gesetzt hat.
+function zuGross(string $was, int $ist, int $grenze): never {
+    $mb = fn(int $n) => number_format($n / 1048576, 2, ',', '') . ' MB';
+    respond(413, $was . ' zu groß: ' . $mb($ist) . ', erlaubt sind ' . $mb($grenze) . '.'
+        . ($grenze < MAX_LIB_BYTES
+            ? ' Diese Grenze setzt die Datenbank (max_allowed_packet), nicht das Heldenbuch.'
+            : ''),
+        ['grenze' => $grenze, 'groesse' => $ist]);
+}
 function respond(int $status, string $message, array $extra=[]): never {
     http_response_code($status);
     echo json_encode(array_merge(['ok'=>$status<400,'message'=>$message],$extra), JSON_UNESCAPED_UNICODE);
@@ -945,8 +1003,8 @@ switch ($action) {
         $library = $body['library'] ?? null;
         if ($library === null) respond(400, 'Fehlende Daten.');
         $libJson = json_encode($library, JSON_UNESCAPED_UNICODE);
-        if (strlen($libJson) > MAX_LIB_BYTES) respond(413, 'Bibliothek zu groß.');
         zugang($pdo, $code, $pass, $body);
+        if (strlen($libJson) > libGrenze($pdo)) zuGross('Bibliothek', strlen($libJson), libGrenze($pdo));
         $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$libJson, $code]);
         revHoch($pdo, $code);
         respond(200, 'Bibliothek gespeichert.', ['rev' => revStand($pdo, $code)]);
@@ -962,8 +1020,8 @@ switch ($action) {
         $dmLibrary = $body['dm_library'] ?? null;
         if ($dmLibrary === null) respond(400, 'Fehlende Daten.');
         $json = json_encode($dmLibrary, JSON_UNESCAPED_UNICODE);
-        if (strlen($json) > MAX_LIB_BYTES) respond(413, 'DM-Bibliothek zu groß.');
         zugangDm($pdo, $code, $pass, $dmPass, $body);
+        if (strlen($json) > libGrenze($pdo)) zuGross('DM-Bibliothek', strlen($json), libGrenze($pdo));
         $pdo->prepare("UPDATE hb_sessions SET dm_library_json=? WHERE code=?")->execute([$json, $code]);
         respond(200, 'DM-Bibliothek gespeichert.');
 

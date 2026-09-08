@@ -16925,8 +16925,11 @@ function App() {
       if (verbunden(zug)) {
         apiSaveLibrary(zug.url, zug.code, zug.pass, lib)
         // Frueher verschwand ein Fehler hier lautlos — die Bibliothek
-        // stand dann oertlich anders da als auf dem Server.
-        .catch(e => appAlert('Die Datenbank konnte nicht gespeichert werden: ' + (e.message || 'unbekannter Fehler')));
+        // stand dann oertlich anders da als auf dem Server. Gesagt wird
+        // deshalb auch, was das bedeutet: oertlich ist es geschrieben,
+        // auf dem Server nicht, und der naechste Ladevorgang holt den
+        // alten Stand. Wer jetzt sichert, verliert nichts.
+        .catch(e => appAlert('Die Datenbank konnte nicht gespeichert werden: ' + (e.message || 'unbekannter Fehler') + ' — auf diesem Gerät steht sie damit anders da als auf dem Server. ' + 'Mach eine Sicherung (⬇ unten im Datenbankfenster), bevor du neu lädst.'));
       }
       return lib;
     });

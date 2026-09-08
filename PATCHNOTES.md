@@ -151,6 +151,21 @@ Spielgeld jetzt an einer Stelle.
 - **Die Werkbank unter `dev/` lief nicht mehr**: zwei Hilfsfunktionen
   stehen in der `index.html` und nicht in den Quellen. Betrifft nur das
   Testen, aber ohne sie prüft man nichts.
+- **Die Datenbank ließ sich nicht mehr speichern**, sobald sie über 2 MB
+  wuchs — genau das passierte beim Einspielen der Gegenstände. Die
+  Grenze lag bei 2 MB und stand seit Jahren da, ohne Grund: die Spalte
+  ist LONGTEXT. Sie liegt jetzt bei 6 MB, und daneben steht die Grenze,
+  die wirklich zählt — die des Datenbankservers selbst
+  (`max_allowed_packet`). Ist die kleiner, sagt die Meldung das, statt
+  den Fehler in einen Absturz laufen zu lassen.
+- **Ein Fehler auf dem Server kam als HTML-Seite zurück**, mit Status
+  200 obendrein. Der Client las daraus kein JSON und meldete
+  „unbekannter Fehler" — bei genau dieser Sache. Jetzt antwortet auch
+  ein Absturz in JSON und sagt, was passiert ist.
+- **Und wenn Speichern fehlschlägt, sagt die Meldung, was das
+  bedeutet:** auf diesem Gerät steht die Datenbank dann anders da als
+  auf dem Server, und eine Sicherung vor dem nächsten Laden rettet die
+  Arbeit.
 
 ## v4.9
 

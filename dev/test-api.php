@@ -235,6 +235,54 @@ $r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
 pruefe('die Abenteuerliste kommt zurueck',
        (($r['body']['library']['_adventures'][0]['name'] ?? '') === 'Strahd'));
 
+// Die Bibliothek einer gewachsenen Runde liegt bei gut 2 MB, und genau
+// dort stand die Grenze. Wie hoch sie hier steht, sagt der Server selbst
+// — auf diesem Rechner ist es max_allowed_packet, auf einem anderen die
+// Grenze aus der api.php. Geprueft wird deshalb gegen seine Antwort und
+// nicht gegen eine Zahl, die woanders gilt.
+function fuellung(int $stueck): array {
+    $raus = ['item' => []];
+    for ($i = 0; $i < $stueck; $i++) {
+        $raus['item'][] = ['id' => 'i' . $i, 'name' => 'Gegenstand ' . $i,
+                           'description' => str_repeat('Beschreibung. ', 250)];
+    }
+    return $raus;
+}
+$riesig = fuellung(2000);                       // gut 7 MB, mehr als jede Grenze
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $riesig]);
+pruefe('eine masslose Bibliothek wird abgelehnt (413)', $r['status'] === 413, kurz($r));
+pruefe('die Meldung nennt beide Zahlen',
+       strpos((string)($r['body']['message'] ?? ''), 'erlaubt sind') !== false,
+       (string)($r['body']['message'] ?? ''));
+$grenze = (int)($r['body']['grenze'] ?? 0);
+pruefe('und die Antwort sagt, wo die Grenze liegt', $grenze > 100000, kurz($r));
+
+// Knapp darunter muss durchgehen — und vollstaendig zurueckkommen. Ein
+// Stueck wiegt rund 3,6 KB.
+$dick = fuellung(max(1, (int)($grenze * 0.8 / 3600)));
+$zahl = count($dick['item']);
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $dick]);
+pruefe('knapp unter der Grenze geht durch (200)', $r['status'] === 200, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+pruefe('und kommt vollstaendig zurueck',
+       count($r['body']['library']['item'] ?? []) === $zahl,
+       'erwartet ' . $zahl . ', bekommen ' . count($r['body']['library']['item'] ?? []));
+
+// Was abgelehnt wurde, darf nichts angefasst haben.
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $riesig]);
+pruefe('die Ablehnung kommt auch beim zweiten Mal (413)', $r['status'] === 413, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+pruefe('der abgelehnte Stand hat nichts angefasst',
+       count($r['body']['library']['item'] ?? []) === $zahl);
+
+// Wieder aufraeumen, damit die folgenden Pruefungen ihre eigene Lage
+// vorfinden und nicht die Gegenstaende von hier.
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm,
+                          'library' => ['_adventures' => [
+                              ['id' => 'strahd',  'name' => 'Strahd'],
+                              ['id' => 'eberron', 'name' => 'Eberron']]]]);
+pruefe('die Abenteuerliste steht wieder allein da', $r['status'] === 200, kurz($r));
+
 abschnitt('Die Sachen der Spielleitung');
 $r = ruf('dm_load', ['code' => $code, 'token' => $tSpieler]);
 pruefe('ein Spieler bekommt die DM-Bibliothek nicht (403)', $r['status'] === 403, kurz($r));
