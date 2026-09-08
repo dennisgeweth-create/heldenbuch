@@ -8419,6 +8419,23 @@ const RouletteTisch = ({
   }, name, aufAussen[name] ? /*#__PURE__*/React.createElement("i", {
     className: "rlt-turm"
   }, aufAussen[name]) : null);
+
+  // Der Zettel steht ab Tabletbreite neben dem Kessel und am Telefon
+  // unter dem Tapis — derselbe Inhalt, zwei Plaetze. Deshalb einmal
+  // geschrieben und zweimal gerufen.
+  const abrechnungZeigen = () => /*#__PURE__*/React.createElement("div", {
+    className: "rlt-abrechnung"
+  }, abrechnung.zeilen.filter(z => z.gewinn > 0).map((z, i) => {
+    // La Partage steht auch hier — sie zahlt etwas zurück, ist
+    // aber kein Gewinn und wird deshalb nicht grün.
+    const d = z.gewinn - z.betrag;
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'rlt-zeile' + (d > 0 ? ' gut' : ''),
+      key: i
+    }, /*#__PURE__*/React.createElement("span", null, z.name, " \xB7 ", z.text), /*#__PURE__*/React.createElement("b", null, d >= 0 ? '+' + d : '−' + Math.abs(d)));
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "rlt-zeile summe"
+  }, /*#__PURE__*/React.createElement("span", null, abrechnung.aus >= abrechnung.einsatz ? 'Gewonnen' : 'Verloren'), /*#__PURE__*/React.createElement("b", null, abrechnung.aus - abrechnung.einsatz >= 0 ? '+' : '−', Math.abs(abrechnung.aus - abrechnung.einsatz))));
   const spalten = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   const colonne = r => spalten.map(c => c * 3 + (3 - r));
   return /*#__PURE__*/React.createElement("div", {
@@ -8452,7 +8469,18 @@ const RouletteTisch = ({
     key: i
   }, n))), /*#__PURE__*/React.createElement("div", {
     className: "rlt-partage"
-  }, partage ? /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "La Partage"), " \u2014 bei der Null die H\xE4lfte zur\xFCck auf die einfachen Chancen. 1,35 % ans Haus.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "ohne La Partage"), " \u2014 bei der Null bleibt alles liegen. 2,7 % ans Haus.")))), /*#__PURE__*/React.createElement("div", {
+  }, partage ? /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "La Partage"), " \u2014 bei der Null die H\xE4lfte zur\xFCck auf die einfachen Chancen. 1,35 % ans Haus.") : /*#__PURE__*/React.createElement(React.Fragment, null, "Ein Z\xE9ro \xB7 ", /*#__PURE__*/React.createElement("b", null, "ohne La Partage"), " \u2014 bei der Null bleibt alles liegen. 2,7 % ans Haus."))), /*#__PURE__*/React.createElement("div", {
+    className: "rlt-aus"
+  }, phase === 'aus' && abrechnung ? abrechnungZeigen() : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "rlt-lauf-titel"
+  }, "Auf dem Tapis"), wetten.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "rlt-leer"
+  }, "Noch nichts gesetzt.") : /*#__PURE__*/React.createElement("div", {
+    className: "rlt-liste"
+  }, wetten.map((w, i) => /*#__PURE__*/React.createElement("div", {
+    className: "rlt-zeile",
+    key: i
+  }, /*#__PURE__*/React.createElement("span", null, w.name), /*#__PURE__*/React.createElement("b", null, w.betrag))))))), /*#__PURE__*/React.createElement("div", {
     className: "rlt-modi"
   }, RLT_MODI.map(m => /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -8511,18 +8539,8 @@ const RouletteTisch = ({
   }, n)), /*#__PURE__*/React.createElement("span", {
     className: "rlt-summe"
   }, "Im Spiel ", /*#__PURE__*/React.createElement("b", null, imSpiel))), phase === 'aus' && abrechnung && /*#__PURE__*/React.createElement("div", {
-    className: "rlt-abrechnung"
-  }, abrechnung.zeilen.filter(z => z.gewinn > 0).map((z, i) => {
-    // La Partage steht auch hier — sie zahlt etwas zurück, ist
-    // aber kein Gewinn und wird deshalb nicht grün.
-    const d = z.gewinn - z.betrag;
-    return /*#__PURE__*/React.createElement("div", {
-      className: 'rlt-zeile' + (d > 0 ? ' gut' : ''),
-      key: i
-    }, /*#__PURE__*/React.createElement("span", null, z.name, " \xB7 ", z.text), /*#__PURE__*/React.createElement("b", null, d >= 0 ? '+' + d : '−' + Math.abs(d)));
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "rlt-zeile summe"
-  }, /*#__PURE__*/React.createElement("span", null, abrechnung.aus >= abrechnung.einsatz ? 'Gewonnen' : 'Verloren'), /*#__PURE__*/React.createElement("b", null, abrechnung.aus - abrechnung.einsatz >= 0 ? '+' : '−', Math.abs(abrechnung.aus - abrechnung.einsatz)))), /*#__PURE__*/React.createElement(WirtSagt, {
+    className: "rlt-unten"
+  }, abrechnungZeigen()), /*#__PURE__*/React.createElement(WirtSagt, {
     spruch: wirtWort
   }), /*#__PURE__*/React.createElement("div", {
     className: "rlt-tasten"

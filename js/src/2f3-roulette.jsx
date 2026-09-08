@@ -319,6 +319,30 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     </button>
   );
 
+  // Der Zettel steht ab Tabletbreite neben dem Kessel und am Telefon
+  // unter dem Tapis — derselbe Inhalt, zwei Plaetze. Deshalb einmal
+  // geschrieben und zweimal gerufen.
+  const abrechnungZeigen = () => (
+    <div className="rlt-abrechnung">
+      {abrechnung.zeilen.filter(z => z.gewinn > 0).map((z, i) => {
+        // La Partage steht auch hier — sie zahlt etwas zurück, ist
+        // aber kein Gewinn und wird deshalb nicht grün.
+        const d = z.gewinn - z.betrag;
+        return (
+          <div className={'rlt-zeile' + (d > 0 ? ' gut' : '')} key={i}>
+            <span>{z.name} · {z.text}</span>
+            <b>{d >= 0 ? '+' + d : '−' + Math.abs(d)}</b>
+          </div>
+        );
+      })}
+      <div className="rlt-zeile summe">
+        <span>{abrechnung.aus >= abrechnung.einsatz ? 'Gewonnen' : 'Verloren'}</span>
+        <b>{abrechnung.aus - abrechnung.einsatz >= 0 ? '+' : '−'}
+          {Math.abs(abrechnung.aus - abrechnung.einsatz)}</b>
+      </div>
+    </div>
+  );
+
   const spalten = [0,1,2,3,4,5,6,7,8,9,10,11];
   const colonne = (r) => spalten.map(c => c*3 + (3 - r));
 
@@ -356,6 +380,32 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
                 liegen. 2,7 % ans Haus.</>
             )}
           </div>
+        </div>
+
+        {/* Der Zettel. Rechts vom Kessel standen 596 × 77 Punkte leer,
+            waehrend die Abrechnung darunter das Fenster verlaengerte.
+            Jetzt steht dort vor dem Wurf, was auf dem Tapis liegt, und
+            danach, was es gebracht hat — so wie es der Croupier neben
+            dem Kessel ansagt. Die Spalte ist immer da und immer gleich
+            hoch: dadurch waechst das Fenster beim Wurf nicht mehr.
+            Am Telefon gibt es sie nicht, dort ist kein Platz daneben. */}
+        <div className="rlt-aus">
+          {phase === 'aus' && abrechnung ? abrechnungZeigen() : (
+            <>
+              <div className="rlt-lauf-titel">Auf dem Tapis</div>
+              {wetten.length === 0
+                ? <div className="rlt-leer">Noch nichts gesetzt.</div>
+                : (
+                  <div className="rlt-liste">
+                    {wetten.map((w, i) => (
+                      <div className="rlt-zeile" key={i}>
+                        <span>{w.name}</span><b>{w.betrag}</b>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </>
+          )}
         </div>
       </div>
 
@@ -423,24 +473,7 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       </div>
 
       {phase === 'aus' && abrechnung && (
-          <div className="rlt-abrechnung">
-            {abrechnung.zeilen.filter(z => z.gewinn > 0).map((z, i) => {
-              // La Partage steht auch hier — sie zahlt etwas zurück, ist
-              // aber kein Gewinn und wird deshalb nicht grün.
-              const d = z.gewinn - z.betrag;
-              return (
-                <div className={'rlt-zeile' + (d > 0 ? ' gut' : '')} key={i}>
-                  <span>{z.name} · {z.text}</span>
-                  <b>{d >= 0 ? '+' + d : '−' + Math.abs(d)}</b>
-                </div>
-              );
-            })}
-            <div className="rlt-zeile summe">
-              <span>{abrechnung.aus >= abrechnung.einsatz ? 'Gewonnen' : 'Verloren'}</span>
-              <b>{abrechnung.aus - abrechnung.einsatz >= 0 ? '+' : '−'}
-                {Math.abs(abrechnung.aus - abrechnung.einsatz)}</b>
-            </div>
-          </div>
+        <div className="rlt-unten">{abrechnungZeigen()}</div>
       )}
 
       {/* Ein Fuss, nicht zwei: der Hauptknopf wechselt sein Wort. Zwei
