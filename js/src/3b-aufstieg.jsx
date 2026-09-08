@@ -33,27 +33,29 @@ const holen = (datei) => fetch(datei)
   .then(r => r.ok ? r.json() : null)
   .catch(() => null);
 
-// Zwei Sammlungen werden eine. Die eigene steht hinten an: bei gleichem
-// Namen gewinnt, was zuerst da war.
+// Zwei Sammlungen werden eine. **Die eigene gewinnt:** wer die Bücher
+// besitzt und ihre Merkmale hinlegt, will deren Wortlaut sehen und nicht
+// meine Zusammenfassung. Was das SRD darüber hinaus kennt, bleibt
+// stehen — so fehlt nichts, was schon da war.
+const listeMischen = (eigen, srd) => {
+  const da = new Set((eigen || []).map(x => dbSchluessel(x.name)));
+  return [...(eigen || []), ...(srd || []).filter(x => !da.has(dbSchluessel(x.name)))];
+};
+
 const merkmaleMischen = (srd, eigen) => {
   if (!eigen) return srd;
-  const raus = {...srd, merkmale: {...(srd.merkmale || {})},
-                unterklassen: {...(srd.unterklassen || {})}};
   const quelle = eigen.quelle || 'Eigene Sammlung';
   const stempeln = (liste) => (liste || []).map(m => ({...m, herkunft: m.herkunft || quelle}));
+  const raus = {...srd, merkmale: {...(srd.merkmale || {})},
+                unterklassen: {...(srd.unterklassen || {})}};
 
   Object.keys(eigen.merkmale || {}).forEach(kl => {
-    const da = new Set((raus.merkmale[kl] || []).map(m => dbSchluessel(m.name)));
-    raus.merkmale[kl] = [...(raus.merkmale[kl] || []),
-      ...stempeln(eigen.merkmale[kl]).filter(m => !da.has(dbSchluessel(m.name)))];
+    raus.merkmale[kl] = listeMischen(stempeln(eigen.merkmale[kl]), raus.merkmale[kl]);
   });
   Object.keys(eigen.unterklassen || {}).forEach(kl => {
-    const da = new Set((raus.unterklassen[kl] || []).map(u => dbSchluessel(u.name)));
-    raus.unterklassen[kl] = [...(raus.unterklassen[kl] || []),
-      ...(eigen.unterklassen[kl] || [])
-        .filter(u => !da.has(dbSchluessel(u.name)))
-        .map(u => ({...u, herkunft: u.herkunft || quelle,
-                    merkmale: stempeln(u.merkmale)}))];
+    const meine = (eigen.unterklassen[kl] || []).map(u => ({
+      ...u, herkunft: u.herkunft || quelle, merkmale: stempeln(u.merkmale)}));
+    raus.unterklassen[kl] = listeMischen(meine, raus.unterklassen[kl]);
   });
   raus.talente = stempeln(eigen.talente);
   return raus;
