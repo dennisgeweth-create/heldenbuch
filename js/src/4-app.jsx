@@ -2094,6 +2094,26 @@ function App() {
   };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
 
+  // ── Der Stufenaufstieg ────────────────────────────
+  // Das Fenster rechnet nichts selbst — es zeigt, was `aufstiegPlan`
+  // ergibt, und hier wird genau dasselbe geschrieben. Die Vorschau kann
+  // deshalb nicht von dem abweichen, was danach im Bogen steht, und die
+  // Zeile im Log ist dieselbe Liste noch einmal.
+  const [aufstieg, setAufstieg] = useState(null);
+  const openAufstieg = () => { if (cur) setAufstieg({...cur}); };
+  const aufstiegUebernehmen = (plan) => {
+    const c = charsRef.current.find(x => x.id === (aufstieg || {}).id);
+    if (!c) { setAufstieg(null); return; }
+    save(charsRef.current.map(x => x.id === c.id ? {...x, ...plan.neu} : x));
+    // Die Stufe steht schon in der Zeile selbst; darunter das übrige.
+    const einzeln = {};
+    plan.zeilen.filter(z => z.was !== 'Stufe')
+      .forEach(z => { einzeln[z.was] = z.alt + '→' + z.neu; });
+    addLog(c.id, c.name, 'charakter',
+      'Stufenaufstieg: ' + (+c.level || 1) + ' → ' + plan.neu.level, einzeln);
+    setAufstieg(null);
+  };
+
   const saveChar = () => {
     if (!ec.name.trim()) return;
     const exists = charsRef.current.find(c=>c.id===ec.id);
@@ -2778,7 +2798,7 @@ function App() {
     gearWornList, initTotal, insp, inspMax, invRarity, invTagFilter,
     isDmMode, itemFx, klassen, languages, nhGesperrt, notesList, noteTagFilter,
     darfBearbeiten,
-    openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
+    openAufstieg, openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
     setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
     setExNote, setExSpell, setFf, setFfEditId, setGearPick, setGearSlot,
@@ -4234,6 +4254,12 @@ function App() {
 
       {/* Adventure Log Modal */}
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
+
+      {aufstieg && (
+        <StufenAufstieg char={aufstieg}
+          onAbbrechen={()=>setAufstieg(null)}
+          onUebernehmen={aufstiegUebernehmen} />
+      )}
 
 
 

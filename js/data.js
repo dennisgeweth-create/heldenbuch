@@ -162,6 +162,53 @@ EFFECT_GROUPS.forEach(g=>g.items.forEach(i=>{
 const isFlagEffect = (t) => EFFECT_FLAGS.has(t);
 
 const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachengeborener","Gnom","Halbelf","Anderes"];
+// ── Was eine Klasse je Stufe mitbringt ──────────────────────────
+// Nur Tabellen, kein Text: Trefferwürfel, welche Stufen eine
+// Attributssteigerung geben, auf welcher die Unterklasse gewählt wird,
+// welche zwei Rettungswürfe geübt sind, und ob und wie die Klasse
+// zaubert. Aus diesen fünf Zahlen folgt alles, was ein Aufstieg am
+// Bogen ändert.
+//
+// Wer eine eigene Klasse einträgt, steht hier nicht — der Aufstieg
+// sagt das dann und rechnet nur, was er ohne die Tabelle kann.
+const KLASSEN_REGELN = {
+  Barbar:       {tw:12, zauber:null,   asi:[4,8,12,16,19],          unter:3, rw:['str','con']},
+  Barde:        {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:3, rw:['dex','cha']},
+  Kleriker:     {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:1, rw:['wis','cha']},
+  Druide:       {tw:8,  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis']},
+  'Kämpfer':    {tw:10, zauber:null,   asi:[4,6,8,12,14,16,19],     unter:3, rw:['str','con']},
+  'Mönch':      {tw:8,  zauber:null,   asi:[4,8,12,16,19],          unter:3, rw:['str','dex']},
+  Paladin:      {tw:10, zauber:'halb', asi:[4,8,12,16,19],          unter:3, rw:['wis','cha']},
+  'Waldläufer': {tw:10, zauber:'halb', asi:[4,8,12,16,19],          unter:3, rw:['str','dex']},
+  Schurke:      {tw:8,  zauber:null,   asi:[4,8,10,12,16,19],       unter:3, rw:['dex','int']},
+  Zauberer:     {tw:6,  zauber:'voll', asi:[4,8,12,16,19],          unter:1, rw:['con','cha']},
+  Hexenmeister: {tw:8,  zauber:'pakt', asi:[4,8,12,16,19],          unter:1, rw:['wis','cha']},
+  Magier:       {tw:6,  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis']},
+};
+
+// Die Zauberplätze, Stufe 1 bis 20. Je Zeile die Plätze vom 1. bis zum
+// 9. Grad; was fehlt, ist null. Voll zaubern Barde, Kleriker, Druide,
+// Zauberer und Magier; halb Paladin und Waldläufer (und die fangen erst
+// auf Stufe 2 an).
+const ZAUBER_VOLL = [
+  [2],[3],[4,2],[4,3],[4,3,2],[4,3,3],[4,3,3,1],[4,3,3,2],[4,3,3,3,1],[4,3,3,3,2],
+  [4,3,3,3,2,1],[4,3,3,3,2,1],[4,3,3,3,2,1,1],[4,3,3,3,2,1,1],[4,3,3,3,2,1,1,1],
+  [4,3,3,3,2,1,1,1],[4,3,3,3,2,1,1,1,1],[4,3,3,3,3,1,1,1,1],[4,3,3,3,3,2,1,1,1],
+  [4,3,3,3,3,2,2,1,1],
+];
+const ZAUBER_HALB = [
+  [],[2],[3],[3],[4,2],[4,2],[4,3],[4,3],[4,3,2],[4,3,2],
+  [4,3,3],[4,3,3],[4,3,3,1],[4,3,3,1],[4,3,3,2],[4,3,3,2],[4,3,3,3,1],[4,3,3,3,1],
+  [4,3,3,3,2],[4,3,3,3,2],
+];
+// Der Hexenmeister zählt anders: wenige Plätze, aber alle auf demselben
+// Grad, und sie kommen schon nach einer kurzen Rast zurück.
+const PAKT_PLAETZE = [
+  {n:1,g:1},{n:2,g:1},{n:2,g:2},{n:2,g:2},{n:2,g:3},{n:2,g:3},{n:2,g:4},{n:2,g:4},
+  {n:2,g:5},{n:2,g:5},{n:3,g:5},{n:3,g:5},{n:3,g:5},{n:3,g:5},{n:3,g:5},{n:3,g:5},
+  {n:4,g:5},{n:4,g:5},{n:4,g:5},{n:4,g:5},
+];
+
 const CLASSES = Object.keys(CC);
 const SCHOOLS = Object.keys(SC);
 const SPELL_ATTR = {Barde:"cha",Kleriker:"wis",Druide:"wis",Paladin:"cha",Waldläufer:"wis",Zauberer:"int",Hexenmeister:"cha",Magier:"int",Schurke:"int"};

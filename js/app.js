@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2g-kampfsicht.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -10772,6 +10772,7 @@ const Sheet = () => {
     languages,
     notesList,
     noteTagFilter,
+    openAufstieg,
     openEdit,
     openNew,
     openTpl,
@@ -11156,6 +11157,28 @@ const Sheet = () => {
   })), /*#__PURE__*/React.createElement("div", {
     className: "header-actions"
   }, darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    title: "Stufenaufstieg",
+    onClick: openAufstieg,
+    style: {
+      padding: "4px 8px",
+      background: "none",
+      border: "1px solid transparent",
+      borderRadius: 3,
+      color: "var(--text-muted)",
+      fontSize: 14,
+      cursor: "pointer",
+      opacity: 0.55,
+      transition: "opacity 0.15s,border-color 0.15s"
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.opacity = "1";
+      e.currentTarget.style.borderColor = "var(--border-bright)";
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.opacity = "0.55";
+      e.currentTarget.style.borderColor = "transparent";
+    }
+  }, "\u21E7"), /*#__PURE__*/React.createElement("button", {
     title: "Bearbeiten",
     onClick: openEdit,
     style: {
@@ -14132,6 +14155,213 @@ const AusruestungsPuppe = () => {
   }, "Schlie\xDFen")))));
 };
 
+// ==== js/src/3b-aufstieg.jsx ====
+// Heldenbuch — der Stufenaufstieg.
+//
+// Ein Charakter wird einmal erstellt und fünfzehnmal aufgestiegen. Bis
+// hierher war jeder Aufstieg Handarbeit: Trefferpunkte rechnen,
+// Übungsbonus nachschlagen, Zauberplätze umstellen — zehn Minuten, in
+// denen vier Leute warten, und regelmäßig wird etwas vergessen.
+//
+// Der Grundsatz des ganzen Fensters steht in der Vorschau: **erst
+// zeigen, dann ändern.** Was nicht im Kasten steht, passiert nicht.
+// Gerechnet wird dabei nicht hier, sondern in `aufstiegPlan` — dieselbe
+// Funktion, die das Übernehmen benutzt. Die Vorschau kann deshalb nicht
+// von dem abweichen, was danach im Bogen steht.
+
+const AUFSTIEG_ASI = ['zwei', 'eins', 'talent'];
+const StufenAufstieg = ({
+  char,
+  onAbbrechen,
+  onUebernehmen
+}) => {
+  const regel = KLASSEN_REGELN[char.charClass] || null;
+  const von = Math.max(1, Math.min(20, +char.level || 1));
+  const [ziel, setZiel] = React.useState(Math.min(20, von + 1));
+  const stufen = ziel - von;
+
+  // Der Durchschnitt eines Trefferwürfels ist die Hälfte plus eins —
+  // beim W10 also 6. So steht es im Regelwerk, und die meisten Runden
+  // nehmen ihn, weil ein schlechter Wurf eine ganze Stufe lang wehtut.
+  const kon = mod(+char.con || 10);
+  const schnitt = regel ? Math.max(1, Math.floor(regel.tw / 2) + 1 + kon) : 0;
+  const [art, setArt] = React.useState('schnitt'); // schnitt | wurf
+  const [tpPlus, setTpPlus] = React.useState(schnitt * Math.max(1, stufen));
+  const [gewuerfelt, setGewuerfelt] = React.useState(null);
+
+  // Nichts ist vorgewählt. Eine vorgewählte Stärke landet sonst im
+  // Bogen eines Magiers, weil jemand nur auf Übernehmen gedrückt hat —
+  // der Assistent darf diese Wahl nicht für jemanden treffen.
+  const [asiArt, setAsiArt] = React.useState(null);
+  const [asiA, setAsiA] = React.useState('str');
+  const [asiB, setAsiB] = React.useState('dex');
+
+  // Ändert sich das Ziel, stimmt der alte Betrag nicht mehr.
+  React.useEffect(() => {
+    setGewuerfelt(null);
+    setArt('schnitt');
+    setAsiArt(null);
+    setTpPlus(regel ? schnitt * stufen : 0);
+  }, [ziel]);
+  const wuerfeln = () => {
+    let summe = 0;
+    const einzeln = [];
+    for (let i = 0; i < Math.max(1, stufen); i++) {
+      const w = 1 + Math.floor(Math.random() * regel.tw);
+      einzeln.push(w);
+      summe += Math.max(1, w + kon);
+    }
+    setGewuerfelt(einzeln);
+    setArt('wurf');
+    setTpPlus(summe);
+  };
+
+  // Gibt eine der gewonnenen Stufen eine Attributssteigerung?
+  const asiStufen = [];
+  if (regel) for (let s = von + 1; s <= ziel; s++) if (regel.asi.includes(s)) asiStufen.push(s);
+  const asi = !asiStufen.length || !asiArt || asiArt === 'talent' ? null : asiArt === 'zwei' ? {
+    [asiA]: 2
+  } : asiA === asiB ? {
+    [asiA]: 2
+  } : {
+    [asiA]: 1,
+    [asiB]: 1
+  };
+  const plan = aufstiegPlan(char, {
+    ziel,
+    tpPlus,
+    asi
+  });
+  const geht = ziel !== von;
+  return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 460
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\u21E7 Stufenaufstieg \u2014 ", char.name), /*#__PURE__*/React.createElement("div", {
+    className: "auf-kopf"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "auf-klasse"
+  }, char.charClass), /*#__PURE__*/React.createElement("span", {
+    className: "auf-pfeil"
+  }, "Stufe ", von, " \u2192"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select auf-ziel",
+    value: ziel,
+    onChange: e => setZiel(+e.target.value)
+  }, Array.from({
+    length: 20
+  }, (_, i) => i + 1).filter(s => s !== von).map(s => /*#__PURE__*/React.createElement("option", {
+    key: s,
+    value: s
+  }, s)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Trefferpunkte"), regel ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'bj-taste' + (art === 'schnitt' ? ' haupt' : ''),
+    onClick: () => {
+      setArt('schnitt');
+      setGewuerfelt(null);
+      setTpPlus(schnitt * stufen);
+    }
+  }, "Durchschnitt"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'bj-taste' + (art === 'wurf' ? ' haupt' : ''),
+    onClick: wuerfeln,
+    disabled: stufen < 1
+  }, gewuerfelt ? 'Nochmal würfeln' : 'Würfeln', " \xB7 W", regel.tw), /*#__PURE__*/React.createElement("label", {
+    className: "auf-zahl"
+  }, /*#__PURE__*/React.createElement("span", null, tpPlus >= 0 ? '+' : '−'), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    wert: Math.abs(tpPlus),
+    onWert: v => setTpPlus(tpPlus < 0 ? -v : v)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "auf-hinweis"
+  }, "W", regel.tw, " ", kon >= 0 ? '+ ' + kon : '− ' + Math.abs(kon), " (Konstitution)", stufen > 1 ? ' · ' + stufen + ' Stufen' : '', gewuerfelt ? ' · gewürfelt: ' + gewuerfelt.join(', ') : '', ' — die Zahl lässt sich ändern.')) : /*#__PURE__*/React.createElement("div", {
+    className: "auf-hinweis"
+  }, "Ohne Trefferw\xFCrfel in den Tabellen rechnet hier niemand. Trag die Punkte ein, die dazukommen sollen.", /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp",
+    style: {
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "auf-zahl"
+  }, /*#__PURE__*/React.createElement("span", null, "+"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    wert: Math.abs(tpPlus),
+    onWert: v => setTpPlus(v)
+  }))))), asiStufen.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Attributssteigerung \u2014 Stufe ", asiStufen.join(' und ')), /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp"
+  }, AUFSTIEG_ASI.map(k => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: k,
+    className: 'bj-taste' + (asiArt === k ? ' haupt' : ''),
+    onClick: () => setAsiArt(k)
+  }, k === 'zwei' ? '+2 auf eines' : k === 'eins' ? '+1 auf zwei' : 'Talent'))), asiArt && asiArt !== 'talent' && /*#__PURE__*/React.createElement("div", {
+    className: "auf-tp",
+    style: {
+      marginTop: 6
+    }
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: asiA,
+    onChange: e => setAsiA(e.target.value)
+  }, ATTR_WAHL.map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.k,
+    value: a.k
+  }, a.l))), asiArt === 'eins' && /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: asiB,
+    onChange: e => setAsiB(e.target.value)
+  }, ATTR_WAHL.map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.k,
+    value: a.k
+  }, a.l)))), asiArt === 'talent' && /*#__PURE__*/React.createElement("div", {
+    className: "auf-hinweis"
+  }, "Talente stehen nicht in den Tabellen \u2014 trag es als Merkmal ein. Der Aufstieg l\xE4sst die Attribute dann in Ruhe.")), /*#__PURE__*/React.createElement("div", {
+    className: "form-label",
+    style: {
+      marginTop: 4
+    }
+  }, "Das \xE4ndert sich"), /*#__PURE__*/React.createElement("div", {
+    className: "auf-vorschau"
+  }, plan.zeilen.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "auf-nichts"
+  }, "Nichts \u2014 die Stufe steht schon so da.") : plan.zeilen.map((z, i) => /*#__PURE__*/React.createElement("div", {
+    className: "auf-zeile",
+    key: i
+  }, /*#__PURE__*/React.createElement("span", null, z.was), /*#__PURE__*/React.createElement("b", null, z.alt, " ", /*#__PURE__*/React.createElement("i", null, "\u2192"), " ", z.neu)))), plan.hinweise.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "auf-warnung"
+  }, plan.hinweise.map((h, i) => /*#__PURE__*/React.createElement("div", {
+    key: i
+  }, "\u26A0 ", h))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: !geht || plan.zeilen.length === 0,
+    onClick: () => onUebernehmen(plan)
+  }, "\xDCbernehmen"))));
+};
+
 // ==== js/src/4-app.jsx ====
 // Heldenbuch — Wurzelkomponente: Zustand, Server-Sync, Seitenleiste,
 // Dialoge. Haelt alles, was der Bogen ueber SheetCtx bekommt.
@@ -16910,6 +17140,36 @@ function App() {
     });
     setShowCF(true);
   };
+
+  // ── Der Stufenaufstieg ────────────────────────────
+  // Das Fenster rechnet nichts selbst — es zeigt, was `aufstiegPlan`
+  // ergibt, und hier wird genau dasselbe geschrieben. Die Vorschau kann
+  // deshalb nicht von dem abweichen, was danach im Bogen steht, und die
+  // Zeile im Log ist dieselbe Liste noch einmal.
+  const [aufstieg, setAufstieg] = useState(null);
+  const openAufstieg = () => {
+    if (cur) setAufstieg({
+      ...cur
+    });
+  };
+  const aufstiegUebernehmen = plan => {
+    const c = charsRef.current.find(x => x.id === (aufstieg || {}).id);
+    if (!c) {
+      setAufstieg(null);
+      return;
+    }
+    save(charsRef.current.map(x => x.id === c.id ? {
+      ...x,
+      ...plan.neu
+    } : x));
+    // Die Stufe steht schon in der Zeile selbst; darunter das übrige.
+    const einzeln = {};
+    plan.zeilen.filter(z => z.was !== 'Stufe').forEach(z => {
+      einzeln[z.was] = z.alt + '→' + z.neu;
+    });
+    addLog(c.id, c.name, 'charakter', 'Stufenaufstieg: ' + (+c.level || 1) + ' → ' + plan.neu.level, einzeln);
+    setAufstieg(null);
+  };
   const saveChar = () => {
     if (!ec.name.trim()) return;
     const exists = charsRef.current.find(c => c.id === ec.id);
@@ -18175,6 +18435,7 @@ function App() {
     notesList,
     noteTagFilter,
     darfBearbeiten,
+    openAufstieg,
     openEdit,
     openNew,
     openTpl,
@@ -21353,6 +21614,10 @@ function App() {
   }, "\u2715 Schlie\xDFen"))), showAdventLog && /*#__PURE__*/React.createElement(AdventureLog, {
     onClose: () => setShowAdventLog(false),
     isDmMode: isDmMode
+  }), aufstieg && /*#__PURE__*/React.createElement(StufenAufstieg, {
+    char: aufstieg,
+    onAbbrechen: () => setAufstieg(null),
+    onUebernehmen: aufstiegUebernehmen
   }), showDB && (() => {
     // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
     // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.

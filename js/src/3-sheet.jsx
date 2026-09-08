@@ -21,7 +21,7 @@ const Sheet = () => {
     delResource, delSpell, delToolProf, delWeaponProf, displayAC,
     effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
     initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
-    klassen, languages, notesList, noteTagFilter, openEdit, openNew, openTpl,
+    klassen, languages, notesList, noteTagFilter, openAufstieg, openEdit, openNew, openTpl,
     openUnprepared, patchChar, patchCurrent, resEdit, resetAll, resources, save, sel,
     selectChar, setCharMenuOpen, setCoinDelta, setCoinPopover,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
@@ -222,6 +222,16 @@ const Sheet = () => {
                 anzubieten, die zu ist, waere nur aergerlich. */}
             <div className="header-actions">
               {darfBearbeiten ? <>
+                {/* Der Aufstieg steht neben dem Stift, weil er dorthin
+                    gehört: beides ändert den Bogen selbst. */}
+                <button title="Stufenaufstieg"
+                  onClick={openAufstieg}
+                  style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
+                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.55,transition:"opacity 0.15s,border-color 0.15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border-bright)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.borderColor="transparent";}}>
+                  ⇧
+                </button>
                 <button title="Bearbeiten"
                   onClick={openEdit}
                   style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,

@@ -52,9 +52,9 @@ wird nie gebraucht.
 
 ---
 
-## Stufe 1 · Der Stufenaufstieg
+## Stufe 1 · Der Stufenaufstieg ✓
 
-**Zuerst, weil er sich wiederholt.** Ein Charakter wird einmal erstellt
+*Steht seit v4.9.* **Zuerst, weil er sich wiederholt.** Ein Charakter wird einmal erstellt
 und fünfzehnmal aufgestiegen. Heute ist jeder Aufstieg Handarbeit:
 Trefferpunkte rechnen, Übungsbonus nachschlagen, Merkmale eintippen,
 Zauberplätze umstellen, ab Stufe 3 die Unterklasse. Das dauert am Tisch
@@ -75,16 +75,31 @@ Der Ablauf: Stufe wählen → Trefferpunkte (würfeln oder Durchschnitt) →
 Attributssteigerung oder Talent, wenn diese Stufe eine gibt →
 Unterklasse, wenn sie fällig ist → **Vorschau** → Übernehmen.
 
-**Failsafes:** Der Vorschaukasten ist die ganze Sicherung — was nicht
-darin steht, passiert nicht. Er fasst nur an, was er selbst gesetzt
-hat. Er rechnet Trefferpunkte aus dem Konstitutionsmodifikator, der
-gerade gilt, und sagt es, wenn der sich seit dem letzten Aufstieg
-geändert hat. Und er läuft rückwärts: eine Stufe zurück nimmt genau
-das wieder weg, was sie hinzugefügt hat.
+**Failsafes, wie gebaut:**
 
-**Was er nicht tut:** die Texte der Klassenmerkmale mitbringen. Er legt
-sie als Merkmal mit Namen und Quelle an; der Text kommt aus der
-Bibliothek der Gruppe, wenn er dort steht.
+- Der Vorschaukasten ist die ganze Sicherung — was nicht darin steht,
+  passiert nicht. Gerechnet wird in `aufstiegPlan`, und das Übernehmen
+  schreibt genau dessen Ergebnis: die Vorschau *kann* nicht abweichen.
+- **Nichts ist vorgewählt.** Die Attributssteigerung fängt ohne Wahl an
+  — eine vorgewählte Stärke landete sonst im Bogen eines Magiers, weil
+  jemand nur auf Übernehmen gedrückt hat.
+- **Die Trefferpunkte sind änderbar.** Durchschnitt oder Würfeln setzen
+  die Zahl, tippen darf man sie trotzdem. Damit geht der Aufstieg auch
+  rückwärts, ohne dass jemand raten muss, was damals fiel.
+- **Verbrauchte Zauberplätze bleiben verbraucht.** Der Aufstieg füllt
+  sie nicht auf; das tut die lange Rast.
+- **Was er nicht kann, sagt er.** Eine eigene Klasse steht nicht in den
+  Tabellen — dann rechnet er Stufe und Übungsbonus und lässt den Rest.
+  Bei mehreren Klassen lässt er die Zauberplätze stehen: die folgen
+  einer eigenen Tabelle, und eine falsche Zahl wäre schlimmer als gar
+  keine.
+- Im Log steht dieselbe Liste noch einmal, mit dem, der sie ausgelöst
+  hat.
+
+**Was er nicht tut:** Klassenmerkmale anlegen. Ihre Namen stehen noch
+nicht in den Tabellen — er sagt nur, wenn eine Stufe eine
+Unterklassenwahl fällig macht. Die Namen kämen mit Stufe 2 dazu, wenn
+die Klassendaten ohnehin wachsen.
 
 ## Stufe 2 · Der Charakterassistent
 

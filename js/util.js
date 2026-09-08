@@ -435,6 +435,115 @@ const fmod = v => { const m=mod(v); return (m>=0?"+":"")+m; };
 // Formatiert einen bereits fertigen Modifikator (nicht den Attributswert).
 const fnum = n => (n>=0?"+":"")+n;
 
+// ── Der Stufenaufstieg ──────────────────────────────────────────
+// Was eine Stufe am Bogen ändert, als Rechnung ohne Oberfläche: so
+// lässt sie sich von aussen prüfen, und die Vorschau zeigt später
+// genau das, was das Übernehmen schreibt — es ist dasselbe Ergebnis.
+
+// 2 auf Stufe 1 bis 4, dann alle vier Stufen einer mehr.
+const uebungsbonus = (stufe) => 2 + Math.floor((Math.max(1, Math.min(20, stufe)) - 1) / 4);
+
+// Die Zauberplätze einer Klasse auf einer Stufe, als {1..9}. Null heisst
+// nicht "keine Plätze", sondern "diese Klasse zaubert nicht" — der
+// Unterschied entscheidet, ob der Aufstieg die Plätze anfasst.
+const zauberPlaetze = (klasse, stufe) => {
+  const r = KLASSEN_REGELN[klasse];
+  if (!r || !r.zauber) return null;
+  const i = Math.max(1, Math.min(20, stufe)) - 1;
+  const leer = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0};
+  if (r.zauber === 'pakt') {
+    const p = PAKT_PLAETZE[i];
+    return {...leer, [p.g]: p.n};
+  }
+  const zeile = (r.zauber === 'halb' ? ZAUBER_HALB : ZAUBER_VOLL)[i] || [];
+  const raus = {...leer};
+  zeile.forEach((n, g) => { raus[g + 1] = n; });
+  return raus;
+};
+
+// Was der Aufstieg vorhat. Er schreibt nichts — er sagt nur, was er
+// schreiben würde, und genau das steht dann in der Vorschau.
+//
+//   char   der Bogen, wie er ist
+//   wahl   {ziel, tpPlus, asi:{str:1,...}}
+//
+// Zurück kommt {neu, zeilen, hinweise}: neu sind die Felder für den
+// Bogen, zeilen sind die Vorher/Nachher-Paare fuer die Vorschau, und
+// die Hinweise sind das, was der Aufstieg nicht selbst erledigt.
+const aufstiegPlan = (char, wahl) => {
+  const c = char || {};
+  const r = KLASSEN_REGELN[c.charClass];
+  const von  = Math.max(1, Math.min(20, +c.level || 1));
+  const ziel = Math.max(1, Math.min(20, +(wahl && wahl.ziel) || von + 1));
+  const zeilen = [], hinweise = [];
+  const neu = {level: ziel};
+
+  const zeile = (was, alt, jetzt) => {
+    if (String(alt) !== String(jetzt)) zeilen.push({was, alt, neu: jetzt});
+  };
+  zeile('Stufe', von, ziel);
+
+  // Trefferpunkte. Die Zahl steht in der Vorschau und ist dort
+  // aenderbar — beim Wuerfeln stimmt kein Durchschnitt, und wer eine
+  // Stufe zuruecknimmt, weiss selbst am besten, was damals fiel.
+  const plus = Math.round(+(wahl && wahl.tpPlus) || 0);
+  if (plus) {
+    neu.maxHp = Math.max(1, (+c.maxHp || 0) + plus);
+    neu.hp    = Math.max(0, (+c.hp || 0) + plus);
+    zeile('Trefferpunkte', (+c.maxHp || 0), neu.maxHp);
+  }
+
+  const pb = uebungsbonus(ziel);
+  if (pb !== (+c.profBonus || 0)) { neu.profBonus = pb; zeile('Übungsbonus', '+' + (+c.profBonus || 0), '+' + pb); }
+
+  // Attributssteigerung, wenn die Stufe eine gibt und eine gewählt wurde.
+  const asi = (wahl && wahl.asi) || null;
+  if (asi) {
+    for (const k of Object.keys(asi)) {
+      const alt = +c[k] || 10, jetzt = Math.min(20, alt + (+asi[k] || 0));
+      const wort = (ATTR_WAHL.find(a => a.k === k) || {}).l || k;
+      if (jetzt !== alt) { neu[k] = jetzt; zeile(wort, alt, jetzt); }
+    }
+  }
+
+  // Zauberplätze. Nur bei einer Klasse ohne Nebenklassen: die Plätze
+  // eines gemischten Zauberers folgen einer eigenen Tabelle, und eine
+  // falsche Zahl waere schlimmer als gar keine.
+  const gemischt = ((c.multiclasses || []).length > 0);
+  const plaetze = gemischt ? null : zauberPlaetze(c.charClass, ziel);
+  if (plaetze) {
+    const alt = c.spellSlots || {};
+    const raus = {};
+    let anders = false;
+    for (let g = 1; g <= 9; g++) {
+      const a = (alt[g] || alt[String(g)] || {});
+      const max = plaetze[g] || 0;
+      // Verbrauchte Plätze bleiben verbraucht — der Aufstieg füllt sie
+      // nicht auf. Das tut die lange Rast.
+      raus[g] = {max, used: Math.min(+a.used || 0, max)};
+      if (max !== (+a.max || 0)) {
+        anders = true;
+        zeile((g === 1 ? '1.' : g + '.') + ' Grad', (+a.max || 0), max);
+      }
+    }
+    if (anders) neu.spellSlots = raus;
+  }
+
+  // Was er nicht kann, sagt er.
+  if (!r) hinweise.push('Die Klasse „' + (c.charClass || '—') + '“ steht nicht in den Tabellen. '
+    + 'Trefferwürfel, Zauberplätze und Attributssteigerung musst du selbst eintragen.');
+  if (gemischt && r && r.zauber) hinweise.push('Mehrere Klassen: die Zauberplätze folgen dann einer '
+    + 'eigenen Tabelle. Der Aufstieg lässt sie stehen.');
+  if (r && ziel > von) {
+    for (let st = von + 1; st <= ziel; st++) {
+      if (r.asi.includes(st) && !asi) hinweise.push('Stufe ' + st + ' gibt eine Attributssteigerung '
+        + '(+2 auf eines oder +1 auf zwei) — oder ein Talent.');
+      if (st === r.unter) hinweise.push('Auf Stufe ' + st + ' wird die Unterklasse gewählt.');
+    }
+  }
+  return {neu, zeilen, hinweise};
+};
+
 const newChar   = () => ({
   id:Date.now().toString(), name:"", race:"Mensch", charClass:"Kämpfer", level:1,
   multiclasses:[],
