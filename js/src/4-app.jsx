@@ -3023,6 +3023,7 @@ function App() {
     isDmMode, itemFx, klassen, languages, nhGesperrt, notesList, noteTagFilter,
     darfBearbeiten,
     openAssistent, openAufstieg, openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
+    traglastAn: !!(advObj && advObj.traglast),
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
     setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
     setExNote, setExSpell, setFf, setFfEditId, setGearPick, setGearSlot,

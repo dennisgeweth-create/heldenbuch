@@ -597,6 +597,34 @@ const assistentPlan = (e) => {
   return {neu, zeilen, hinweise, fehlt};
 };
 
+// ── Traglast ────────────────────────────────────────────────────
+// Die Gewichte stehen seit jeher an den Gegenständen; es fehlte die
+// Summe und die Grenze. Beides ist Buchführung, und die meisten Runden
+// wollen sie nicht — deshalb steht das hier bereit und wird nur
+// gerechnet, wenn ein Abenteuer es einschaltet.
+//
+// Die Werte sind die Variante aus dem Regelwerk, in Kilo: belastet ab
+// Stärke × 2,5, stark belastet ab × 5, und bei × 7,5 ist Schluss.
+const TRAGLAST_STUFEN = [
+  {ab: 0,   wort: '',               folge: ''},
+  {ab: 2.5, wort: 'belastet',       folge: '3 m weniger Bewegung'},
+  {ab: 5,   wort: 'stark belastet', folge: '6 m weniger · Nachteil auf Angriffe, Attributsproben und Rettungswürfe'},
+  {ab: 7.5, wort: 'überladen',      folge: 'mehr geht nicht'},
+];
+const traglast = (c, staerke) => {
+  const st = Math.max(1, +staerke || +((c || {}).str) || 10);
+  const inv = ((c || {}).inventory) || [];
+  const getragen = inv.reduce((s, i) => s + (parseFloat(i.weight) || 0) * (+i.qty || 1), 0);
+  const grenzen = TRAGLAST_STUFEN.map(x => Math.round(x.ab * st * 10) / 10);
+  let stufe = 0;
+  for (let i = TRAGLAST_STUFEN.length - 1; i > 0; i--) {
+    if (getragen >= grenzen[i]) { stufe = i; break; }
+  }
+  return {getragen: Math.round(getragen * 100) / 100, grenzen, stufe,
+          wort: TRAGLAST_STUFEN[stufe].wort, folge: TRAGLAST_STUFEN[stufe].folge,
+          hoechstens: grenzen[3]};
+};
+
 // ── Geld ────────────────────────────────────────────────────────
 // Der Laden braucht, was am Tisch der Wirt macht: herausgeben. Alles
 // in Kupfer gerechnet, gezahlt wird aus dem Kleingeld zuerst — wer mit

@@ -21,7 +21,7 @@ const Sheet = () => {
     delResource, delSpell, delToolProf, delWeaponProf, displayAC,
     effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
     initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
-    klassen, languages, notesList, noteTagFilter, openAufstieg, openEdit, openNew, openTpl,
+    klassen, languages, notesList, noteTagFilter, openAufstieg, openEdit, openNew, openTpl, traglastAn,
     openUnprepared, patchChar, patchCurrent, resEdit, resetAll, resources, save, sel,
     selectChar, setCharMenuOpen, setCoinDelta, setCoinPopover,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
@@ -1577,7 +1577,33 @@ const Sheet = () => {
                     </div>
                   </div>
                   <div style={{marginTop:10,display:'flex',gap:12,flexWrap:'wrap'}}>
-                    {totalWeight>0 && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>Gesamtgewicht: <span style={{color:"var(--text-secondary)"}}>{totalWeight.toFixed(2)} kg</span></div>}
+                    {/* Ohne die Abenteueroption bleibt es bei der Summe,
+                        wie sie immer dastand. Mit ihr kommt die Grenze
+                        dazu — und was sie bedeutet. */}
+                    {totalWeight>0 && !traglastAn && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>Gesamtgewicht: <span style={{color:"var(--text-secondary)"}}>{totalWeight.toFixed(2)} kg</span></div>}
+                    {traglastAn && (() => {
+                      const t = traglast(cur, effCur.str);
+                      return (
+                        <div className={'traglast st' + t.stufe}>
+                          <div className="traglast-zahl">
+                            <b>{t.getragen.toFixed(2)} kg</b>
+                            <span>von {t.hoechstens} kg</span>
+                            {t.wort && <i>{t.wort}</i>}
+                          </div>
+                          <div className="traglast-balken">
+                            <span style={{width: Math.min(100, (t.getragen / (t.hoechstens || 1)) * 100) + '%'}} />
+                            <em style={{left: (t.grenzen[1] / (t.hoechstens || 1)) * 100 + '%'}} />
+                            <em style={{left: (t.grenzen[2] / (t.hoechstens || 1)) * 100 + '%'}} />
+                          </div>
+                          <div className="traglast-folge">
+                            {t.folge
+                              ? t.folge
+                              : 'Belastet ab ' + t.grenzen[1] + ' kg, stark belastet ab '
+                                + t.grenzen[2] + ' kg.'}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {(such||invRarity!=='all'||invTagFilter.length>0) && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>{filtered.length} von {inv.length} Gegenständen</div>}
                   </div>
                 </div>

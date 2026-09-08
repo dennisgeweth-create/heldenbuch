@@ -5424,6 +5424,25 @@ const AbenteuerEinstellungen = ({
     }),
     placeholder: "z.B. Strahd"
   })), /*#__PURE__*/React.createElement(EinstBlock, {
+    titel: "\uD83C\uDF92 Traglast",
+    kurz: adv.traglast ? 'An' : 'Aus'
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "einst-wahl"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (!adv.traglast ? ' aktiv' : ''),
+    onClick: () => setzen({
+      traglast: false
+    })
+  }, /*#__PURE__*/React.createElement("b", null, "Aus"), /*#__PURE__*/React.createElement("i", null, "Wie bisher. Im Inventar steht das Gesamtgewicht, sonst nichts.")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (adv.traglast ? ' aktiv' : ''),
+    onClick: () => setzen({
+      traglast: true
+    })
+  }, /*#__PURE__*/React.createElement("b", null, "An"), /*#__PURE__*/React.createElement("i", null, "Der Bogen zeigt, wie viel getragen wird und ab wann es bremst \u2014 belastet ab St\xE4rke \xD7 2,5 kg, stark belastet ab \xD7 5, Schluss bei \xD7 7,5."))), adv.traglast && /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis"
+  }, "Sie verbietet nichts. Sie zeigt an, dass die Grenze \xFCberschritten ist, und schreibt hin, was das nach dem Regelwerk bedeutet \u2014 was die Runde daraus macht, ist ihre Sache. Ein Heldenbuch, das das Aufheben eines Seils verweigert, wird ausgeschaltet.", /*#__PURE__*/React.createElement("br", null), "M\xFCnzen z\xE4hlen nicht mit; wer das will, tr\xE4gt sie als Gegenstand mit Gewicht ein.")), /*#__PURE__*/React.createElement(EinstBlock, {
     titel: "\u2764 Trefferpunkte",
     kurz: adv.hpVerdeckt ? 'Verdeckt' : 'Offen'
   }, /*#__PURE__*/React.createElement("div", {
@@ -11556,6 +11575,7 @@ const Sheet = () => {
     openEdit,
     openNew,
     openTpl,
+    traglastAn,
     openUnprepared,
     patchChar,
     patchCurrent,
@@ -14409,7 +14429,7 @@ const Sheet = () => {
         gap: 12,
         flexWrap: 'wrap'
       }
-    }, totalWeight > 0 && /*#__PURE__*/React.createElement("div", {
+    }, totalWeight > 0 && !traglastAn && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 11,
@@ -14419,7 +14439,30 @@ const Sheet = () => {
       style: {
         color: "var(--text-secondary)"
       }
-    }, totalWeight.toFixed(2), " kg")), (such || invRarity !== 'all' || invTagFilter.length > 0) && /*#__PURE__*/React.createElement("div", {
+    }, totalWeight.toFixed(2), " kg")), traglastAn && (() => {
+      const t = traglast(cur, effCur.str);
+      return /*#__PURE__*/React.createElement("div", {
+        className: 'traglast st' + t.stufe
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "traglast-zahl"
+      }, /*#__PURE__*/React.createElement("b", null, t.getragen.toFixed(2), " kg"), /*#__PURE__*/React.createElement("span", null, "von ", t.hoechstens, " kg"), t.wort && /*#__PURE__*/React.createElement("i", null, t.wort)), /*#__PURE__*/React.createElement("div", {
+        className: "traglast-balken"
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          width: Math.min(100, t.getragen / (t.hoechstens || 1) * 100) + '%'
+        }
+      }), /*#__PURE__*/React.createElement("em", {
+        style: {
+          left: t.grenzen[1] / (t.hoechstens || 1) * 100 + '%'
+        }
+      }), /*#__PURE__*/React.createElement("em", {
+        style: {
+          left: t.grenzen[2] / (t.hoechstens || 1) * 100 + '%'
+        }
+      })), /*#__PURE__*/React.createElement("div", {
+        className: "traglast-folge"
+      }, t.folge ? t.folge : 'Belastet ab ' + t.grenzen[1] + ' kg, stark belastet ab ' + t.grenzen[2] + ' kg.'));
+    })(), (such || invRarity !== 'all' || invTagFilter.length > 0) && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 11,
@@ -19888,6 +19931,7 @@ function App() {
     patchChar,
     patchCurrent,
     resEdit,
+    traglastAn: !!(advObj && advObj.traglast),
     resetAll,
     resources,
     save,

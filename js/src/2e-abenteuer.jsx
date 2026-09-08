@@ -51,6 +51,37 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               onChange={e=>setzen({name:e.target.value})} placeholder="z.B. Strahd" />
           </div>
 
+          {/* ── Traglast ──
+              Buchführung, und die meisten Runden wollen sie nicht.
+              Deshalb ein Schalter, und von Haus aus aus: ist er aus,
+              ändert sich nichts — kein Balken, keine Warnung, kein Feld. */}
+          <EinstBlock titel="🎒 Traglast" kurz={adv.traglast ? 'An' : 'Aus'}>
+            <div className="einst-wahl">
+              <button type="button" className={'einst-option' + (!adv.traglast ? ' aktiv' : '')}
+                onClick={()=>setzen({traglast:false})}>
+                <b>Aus</b>
+                <i>Wie bisher. Im Inventar steht das Gesamtgewicht, sonst nichts.</i>
+              </button>
+              <button type="button" className={'einst-option' + (adv.traglast ? ' aktiv' : '')}
+                onClick={()=>setzen({traglast:true})}>
+                <b>An</b>
+                <i>Der Bogen zeigt, wie viel getragen wird und ab wann es
+                   bremst — belastet ab Stärke × 2,5 kg, stark belastet ab × 5,
+                   Schluss bei × 7,5.</i>
+              </button>
+            </div>
+            {adv.traglast && (
+              <div className="einst-hinweis">
+                Sie verbietet nichts. Sie zeigt an, dass die Grenze überschritten
+                ist, und schreibt hin, was das nach dem Regelwerk bedeutet — was
+                die Runde daraus macht, ist ihre Sache. Ein Heldenbuch, das das
+                Aufheben eines Seils verweigert, wird ausgeschaltet.
+                <br />Münzen zählen nicht mit; wer das will, trägt sie als
+                Gegenstand mit Gewicht ein.
+              </div>
+            )}
+          </EinstBlock>
+
           {/* ── Trefferpunkte ── */}
           <EinstBlock titel="❤ Trefferpunkte" kurz={adv.hpVerdeckt ? 'Verdeckt' : 'Offen'}>
             <div className="einst-wahl">

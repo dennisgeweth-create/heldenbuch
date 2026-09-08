@@ -4,10 +4,11 @@ Das Heldenbuch trägt den Abend selbst gut: Kampf, Zauberplätze, Rasten,
 Zustände, Kalender, Log. Was es nicht trägt, ist alles davor und
 danach — und dort steckt die Arbeit, die niemand gern macht.
 
-Der Plan steht hier, weil die Reihenfolge zählt: jede Stufe ist für sich
-fertig und benutzbar, und keine verlangt Arbeit, die eine spätere wieder
-wegwirft. Die Stufen 3 bis 7 hängen an keiner davor — wenn eine davon
-am Tisch dringender wird, kommt sie vor.
+**Alle sieben Stufen stehen seit v4.9.**
+
+Der Plan steht hier, weil die Reihenfolge zählte: jede Stufe war für
+sich fertig und benutzbar, und keine verlangte Arbeit, die eine spätere
+wieder wegwirft.
 
 **Nicht in diesem Plan:** ein Sitzungsknopf mit Anfang und Ende. Der
 wird nie gebraucht.
@@ -262,27 +263,38 @@ Stück, das der Ort nicht führt, muss jemand eine Zahl hinschreiben.
 Beutel und Inventar ändern sich in einem Zug, damit nicht das eine ohne
 das andere passiert. Und jede Zeile geht ins Log, mit Preis und Ort.
 
-## Stufe 7 · Traglast — je Abenteuer, von Haus aus **aus**
+## Stufe 7 · Traglast ✓ — je Abenteuer, von Haus aus **aus**
 
-Die Gewichte stehen schon an den Gegenständen; es fehlt die Summe und
-die Grenze. Aber Traglast ist Buchführung, und die meisten Runden wollen
-sie nicht: deshalb eine Abenteueroption, und **standardmäßig aus**. Ist
-sie aus, ändert sich nichts — kein Balken, keine Warnung, kein Feld.
+*Steht seit v4.9.* Die Gewichte standen schon an den Gegenständen, und
+das Inventar zeigte die Summe. Es fehlte die Grenze.
+
+Aber Traglast ist Buchführung, und die meisten Runden wollen sie nicht:
+deshalb eine Abenteueroption, und **standardmäßig aus**. Ist sie aus,
+ändert sich nichts — kein Balken, keine Warnung, kein Feld, und im
+Inventar steht die Summe wie eh und je.
 
 Ist sie an, gilt die Variante aus dem Regelwerk:
 
 | Ab | Was |
 |---|---|
 | Stärke × 2,5 kg | belastet — 3 m weniger Bewegung |
-| Stärke × 5 kg | stark belastet — 6 m weniger, Nachteil auf Angriffe und Rettungswürfe |
+| Stärke × 5 kg | stark belastet — 6 m weniger, Nachteil auf Angriffe, Attributsproben und Rettungswürfe |
 | Stärke × 7,5 kg | mehr geht nicht |
 
-**Failsafe:** Sie verbietet nichts. Sie zeigt, dass die Grenze
-überschritten ist, und trägt den Zustand ein — was die Gruppe daraus
-macht, ist ihre Sache. Ein Heldenbuch, das das Aufheben eines Seils
-verweigert, wird ausgeschaltet.
+Gerechnet wird mit der **wirksamen** Stärke, also mit dem, was am Bogen
+steht, samt Effekten. Nachgerechnet bei Stärke 14: die Grenzen liegen
+auf 35, 70 und 105 kg und greifen genau dort; Mengen zählen mit.
 
----
+**Failsafe:** Sie verbietet nichts. Sie zeigt an, dass die Grenze
+überschritten ist, und schreibt hin, was das nach dem Regelwerk
+bedeutet — was die Runde daraus macht, ist ihre Sache. Ein Heldenbuch,
+das das Aufheben eines Seils verweigert, wird ausgeschaltet. Deshalb
+ändert sie auch die Bewegungsrate im Bogen **nicht** von selbst: eine
+Zahl, die sich hinter dem Rücken ändert, ist schlimmer als eine, die
+man selbst setzt.
+
+Münzen zählen nicht mit. Wer das will, trägt sie als Gegenstand mit
+Gewicht ein.
 
 ## Reihenfolge, kurz begründet
 
