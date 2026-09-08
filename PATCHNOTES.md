@@ -162,6 +162,15 @@ Spielgeld jetzt an einer Stelle.
   200 obendrein. Der Client las daraus kein JSON und meldete
   „unbekannter Fehler" — bei genau dieser Sache. Jetzt antwortet auch
   ein Absturz in JSON und sagt, was passiert ist.
+- **Das ✕ am Fensterrahmen konnte statt zu schließen etwas löschen.**
+  Es sucht sich seinen Ausgang selbst — und ein blosses ✕ galt als
+  Ausgang. In einer Liste ist das erste ✕ aber der Löschknopf der ersten
+  Zeile: wer das Datenbankfenster zumachen wollte, wurde gefragt, ob die
+  Adamantrüstung aus der Sammlung soll. Gesucht wird jetzt nur noch, wo
+  ein Wort dransteht — Abbrechen, Schließen, Fertig, Verstanden —, und
+  zuerst im Fuß des Fensters. Wo es gar nichts findet, bietet der Rahmen
+  kein Kreuz mehr an, statt aufs Geratewohl zu klicken. Das Datenbank‑
+  fenster sagt ihm jetzt selbst, wie es zugeht.
 - **Und wenn Speichern fehlschlägt, sagt die Meldung, was das
   bedeutet:** auf diesem Gerät steht die Datenbank dann anders da als
   auf dem Server, und eine Sicherung vor dem nächsten Laden rettet die

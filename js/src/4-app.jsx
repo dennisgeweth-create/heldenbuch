@@ -4692,7 +4692,7 @@ function App() {
         const DMG_TYPES = ['Hieb','Stich','Wucht','Feuer','Kälte','Blitz','Säure','Gift','Nekro','Psycho','Energie','Kraft'];
         const WPN_PROPS = ['Finesse','Weit','Leicht','Schwer','Werfbar','Zweihändig','Vielseitig','Ladezeit','Besondere'];
         return (
-          <Fenster>
+          <Fenster onZu={()=>setShowDB(false)}>
             <div className="form-modal" style={{maxWidth:600,height:'85vh',display:'flex',flexDirection:'column'}}>
               <div className="form-title">📚 Datenbank verwalten {isDmMode && <span style={{fontSize:11,color:'#c060a0',fontFamily:"'Roboto Condensed',sans-serif",marginLeft:8}}>🔮 DM-Modus</span>}</div>
 

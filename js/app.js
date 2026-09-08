@@ -260,9 +260,27 @@ const FENSTER_RAND = 12; // so viel Abstand bleibt, wenn es hereingeholt wird
 // Nicht jeder Dialog kennt einen Weg hinaus, den wir kennen: manche
 // schliessen per Klick auf den Hintergrund, andere nur ueber ihren
 // eigenen Abbrechen-Knopf. Das Kreuz nimmt, was da ist.
-const fensterAusgang = el => el && [...el.querySelectorAll('button')].find(b => !b.classList.contains('fenster-knopf') && /^(abbrechen|schlie(ss|ß)en|fertig|verstanden|✕|✕ .*)$/i.test((b.textContent || '').trim()));
+//
+// **Nur was ein Wort dransteht.** Ein blosses ✕ galt frueher auch als
+// Ausgang — und in einer Liste ist das erste ✕ der Loeschknopf der
+// ersten Zeile. Wer das Fenster zumachen wollte, wurde stattdessen
+// gefragt, ob die Adamantruestung aus der Datenbank soll. Gesucht wird
+// zuerst im Fuss, denn dort steht der Weg hinaus, wenn es einen gibt.
+const FENSTER_AUSGANG = /^(abbrechen|schlie(ss|ß)en|fertig|verstanden)$/i;
+const fensterAusgang = el => {
+  if (!el) return null;
+  const passt = b => !b.classList.contains('fenster-knopf') && FENSTER_AUSGANG.test((b.textContent || '').trim());
+  return [...el.querySelectorAll('.form-actions button')].find(passt) || [...el.querySelectorAll('button')].find(passt) || null;
+};
+
+// onZu sagt dem Rahmen, wie dieses Fenster zugeht — für die Fälle, in
+// denen Suchen die falsche Antwort gibt: das Datenbankfenster hat im
+// Fuss mal "Schließen" und mal "Abbrechen", je nachdem, ob gerade ein
+// Eintrag bearbeitet wird, und das Kreuz soll beide Male dasselbe tun.
+// onClick bleibt, was es war: der Klick auf den Hintergrund.
 const Fenster = ({
   onClick,
+  onZu,
   children,
   ...rest
 }) => {
@@ -272,9 +290,13 @@ const Fenster = ({
   const haus = useRef(null);
   const zug = useRef(null);
   useEffect(() => {
-    setAusgang(!!onClick || !!fensterAusgang(haus.current));
-  }, [onClick]);
+    setAusgang(!!onZu || !!onClick || !!fensterAusgang(haus.current));
+  }, [onClick, onZu]);
   const schliessen = () => {
+    if (onZu) {
+      onZu();
+      return;
+    }
     if (onClick) {
       onClick({
         stopPropagation: () => {}
@@ -23693,7 +23715,9 @@ function App() {
     const SCHOOLS = ['Verzauberung', 'Beschwörung', 'Verwandlung', 'Nekromantie', 'Hervorrufung', 'Illusion', 'Erkenntnis', 'Bann'];
     const DMG_TYPES = ['Hieb', 'Stich', 'Wucht', 'Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekro', 'Psycho', 'Energie', 'Kraft'];
     const WPN_PROPS = ['Finesse', 'Weit', 'Leicht', 'Schwer', 'Werfbar', 'Zweihändig', 'Vielseitig', 'Ladezeit', 'Besondere'];
-    return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement(Fenster, {
+      onZu: () => setShowDB(false)
+    }, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
         maxWidth: 600,
