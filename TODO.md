@@ -15,17 +15,21 @@ Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 
 ## Die Taverne
 
-- **Der Wirt sagt etwas dazu.** Sprüche zu Gewinn und Verlust, nur an
-  den Tischen — Roulette, Blackjack, Craps. Der Automat und die Rennbahn
-  bleiben still: dort steht der Wirt nicht daneben. Er soll auf das
-  antworten, was gerade gefallen ist, und nicht nach zwei Abenden alles
-  schon gesagt haben.
-- **Fenstergröße und Aufbau der Tische.** Während des Spiels und bei der
-  Gewinnanzeige steht Platz leer, der etwas tragen könnte. Der Aufbau
-  darf dafür neu gedacht werden, nicht nur die Maße.
+- **Der Rest des Aufbaus.** Die Breite stimmt jetzt, aber zwei Stellen
+  tragen noch Luft: der Würfelbalken bei Craps ist rechts leer, und der
+  Kopf des Roulettetisches könnte die Abrechnung neben sich nehmen
+  statt unter sich.
 
 ## Erledigt
 
+- ~~Sprüche des Wirts bei Gewinn und Verlust~~ — an den drei Tischen, an
+  denen jemand gibt; er antwortet auf das, was gefallen ist, und
+  schweigt, wenn nichts entschieden wurde.
+- ~~Die Rennbahn war nicht immer gleich breit~~ — `.automat-mitte` stand
+  mit `align-items:center` hinter allen Tischen; der Filz war so breit
+  wie sein längster Satz.
+- ~~Fenster verschwanden beim Verkleinern des Browserfensters~~ — beide
+  Fensterarten holen sich zurück ins Bild.
 - ~~Gegenstände im Kampf benutzen, Menge abziehen, Merkmale benutzen~~ —
   siehe Zugfenster: ⚔ Angriff · ✨ Zauber · 🧪 Gegenstand · ⭐ Merkmal.
 - ~~Patchnotes ab v4.4~~ — stehen als **v4.5** in der `PATCHNOTES.md`.
