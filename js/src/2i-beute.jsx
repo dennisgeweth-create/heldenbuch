@@ -33,7 +33,7 @@ const beuteMuenzText = (m) => COINS
   .map(c => (m[c.key]) + ' ' + c.label)
   .join(' · ');
 
-const BeuteAnlegen = ({ onAbbrechen, onHinlegen }) => {
+const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
   const [titel, setTitel] = React.useState('');
   const [muenzen, setMuenzen] = React.useState({pp:0, gp:0, ep:0, sp:0, cp:0});
   const [zeilen, setZeilen] = React.useState([{name:'', anzahl:1, notiz:''}]);
@@ -65,12 +65,28 @@ const BeuteAnlegen = ({ onAbbrechen, onHinlegen }) => {
           ))}
         </div>
 
+        {/* Die Sammlung der Gruppe als Vorschlagsliste — einmal fuer
+            alle Zeilen. */}
+        <datalist id="hb-db-gegenstaende">
+          {(gegenstaende || []).map(g => <option key={g.name} value={g.name} />)}
+        </datalist>
+
         <div className="form-label" style={{marginTop:12}}>Stücke</div>
         <div className="beute-zeilen">
           {zeilen.map((z, i) => (
             <div className="beute-neu" key={i}>
-              <input className="form-input" value={z.name} maxLength={80} placeholder="z.B. Ring des Schutzes"
-                onChange={e=>setZeile(i, {name: e.target.value})} />
+              {/* Aus der Datenbank: der Name schlägt vor, und was
+                  dahintersteht — Beschreibung, Seltenheit, Gewicht —
+                  kommt beim Eintragen von selbst mit. */}
+              <input className="form-input" value={z.name} maxLength={80} list="hb-db-gegenstaende"
+                placeholder="z.B. Ring des Schutzes"
+                onChange={e=>{
+                  const v = e.target.value;
+                  const t = dbGegenstand(gegenstaende, v);
+                  // Die Notiz nur vorschlagen, solange keine dasteht —
+                  // wer selbst etwas geschrieben hat, behaelt es.
+                  setZeile(i, {name: v, notiz: (z.notiz || (t ? dbKurz(t) : ''))});
+                }} />
               <ZahlFeld className="form-input beute-anzahl" min={1} wert={z.anzahl}
                 onWert={v=>setZeile(i, {anzahl: v})} />
               <input className="form-input" value={z.notiz} maxLength={120} placeholder="Notiz"

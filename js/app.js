@@ -11182,6 +11182,7 @@ const beuteTeilen = (muenzen, zahl) => {
 };
 const beuteMuenzText = m => COINS.filter(c => (m || {})[c.key] > 0).map(c => m[c.key] + ' ' + c.label).join(' · ');
 const BeuteAnlegen = ({
+  gegenstaende,
   onAbbrechen,
   onHinlegen
 }) => {
@@ -11241,7 +11242,12 @@ const BeuteAnlegen = ({
       ...m,
       [c.key]: v
     }))
-  })))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("datalist", {
+    id: "hb-db-gegenstaende"
+  }, (gegenstaende || []).map(g => /*#__PURE__*/React.createElement("option", {
+    key: g.name,
+    value: g.name
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "form-label",
     style: {
       marginTop: 12
@@ -11255,10 +11261,18 @@ const BeuteAnlegen = ({
     className: "form-input",
     value: z.name,
     maxLength: 80,
+    list: "hb-db-gegenstaende",
     placeholder: "z.B. Ring des Schutzes",
-    onChange: e => setZeile(i, {
-      name: e.target.value
-    })
+    onChange: e => {
+      const v = e.target.value;
+      const t = dbGegenstand(gegenstaende, v);
+      // Die Notiz nur vorschlagen, solange keine dasteht —
+      // wer selbst etwas geschrieben hat, behaelt es.
+      setZeile(i, {
+        name: v,
+        notiz: z.notiz || (t ? dbKurz(t) : '')
+      });
+    }
   }), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input beute-anzahl",
     min: 1,
@@ -11408,6 +11422,7 @@ const goldZuKupfer = t => {
 const kupferZuGold = k => String(Math.round(+k || 0) / 100).replace('.', ',');
 const LadenBearbeiten = ({
   laden,
+  gegenstaende,
   onAbbrechen,
   onSpeichern
 }) => {
@@ -11464,7 +11479,12 @@ const LadenBearbeiten = ({
     onWert: setKauf
   }), /*#__PURE__*/React.createElement("span", null, "%"))), /*#__PURE__*/React.createElement("div", {
     className: "ass-warum"
-  }, "Preise in Gold \u2014 \u201E2,5\" sind zwei Gold und f\xFCnf Silber. Eine Zeile ohne Namen f\xE4llt weg."), /*#__PURE__*/React.createElement("div", {
+  }, "Preise in Gold \u2014 \u201E2,5\" sind zwei Gold und f\xFCnf Silber. Eine Zeile ohne Namen f\xE4llt weg. Was in der Datenbank steht, wird beim Tippen vorgeschlagen und bringt seine Werte mit."), /*#__PURE__*/React.createElement("datalist", {
+    id: "hb-db-waren"
+  }, (gegenstaende || []).map(g => /*#__PURE__*/React.createElement("option", {
+    key: g.name,
+    value: g.name
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "beute-zeilen laden-bearbeiten"
   }, waren.map((w, i) => /*#__PURE__*/React.createElement("div", {
     className: "beute-neu",
@@ -11473,10 +11493,16 @@ const LadenBearbeiten = ({
     className: "form-input",
     value: w.name,
     maxLength: 80,
+    list: "hb-db-waren",
     placeholder: "Ware",
-    onChange: e => setZeile(i, {
-      name: e.target.value
-    })
+    onChange: e => {
+      const v = e.target.value;
+      const t = dbGegenstand(gegenstaende, v);
+      setZeile(i, {
+        name: v,
+        notiz: w.notiz || (t ? dbKurz(t) : '')
+      });
+    }
   }), /*#__PURE__*/React.createElement("input", {
     className: "form-input laden-preis",
     value: w.gold,
@@ -18182,13 +18208,7 @@ function App() {
     if (i >= 0) inv[i] = {
       ...inv[i],
       qty: (+inv[i].qty || 1) + 1
-    };else inv.push({
-      ...newItem(),
-      id: 'kauf' + Date.now(),
-      name: ware.name,
-      qty: 1,
-      description: ware.notiz || ''
-    });
+    };else inv.push(dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, ware.name), ware.name, 1, ware.notiz));
     save(charsRef.current.map(x => x.id === c.id ? {
       ...x,
       currency: beutel,
@@ -18332,13 +18352,11 @@ function App() {
     const neu = charsRef.current.map(c => {
       const t = nach[c.id];
       if (!t) return c;
-      const inv = [...(c.inventory || []), ...t.stuecke.map((st, i) => ({
-        ...newItem(),
-        id: 'beu' + Date.now() + i,
-        name: st.name,
-        qty: st.anzahl || 1,
-        description: st.notiz || ''
-      }))];
+      // Steht das Stueck in der Datenbank, kommt es mit allem, was dort
+      // haengt — Seltenheit, Gewicht, Ausruestungsplatz, Effekte. Die
+      // Notiz vom Fund sticht die Beschreibung: sie gilt fuer dieses
+      // eine Stueck.
+      const inv = [...(c.inventory || []), ...t.stuecke.map(st => dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name), st.name, st.anzahl, st.notiz))];
       const w = {
         ...(c.currency || {
           pp: 0,
@@ -23373,9 +23391,11 @@ function App() {
     onSchliessen: () => setLadenOffen(false)
   }), ladenBearbeiten && /*#__PURE__*/React.createElement(LadenBearbeiten, {
     laden: laden,
+    gegenstaende: (userLibrary || {}).item || [],
     onAbbrechen: () => setLadenBearbeiten(false),
     onSpeichern: ladenSpeichern
   }), beuteAnlegen && /*#__PURE__*/React.createElement(BeuteAnlegen, {
+    gegenstaende: (userLibrary || {}).item || [],
     onAbbrechen: () => setBeuteAnlegen(false),
     onHinlegen: beuteHinlegen
   }), beute && beuteOffen && /*#__PURE__*/React.createElement(BeuteFenster, {

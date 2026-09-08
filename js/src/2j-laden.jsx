@@ -16,7 +16,7 @@ const goldZuKupfer = (t) => {
 };
 const kupferZuGold = (k) => String(Math.round((+k || 0)) / 100).replace('.', ',');
 
-const LadenBearbeiten = ({ laden, onAbbrechen, onSpeichern }) => {
+const LadenBearbeiten = ({ laden, gegenstaende, onAbbrechen, onSpeichern }) => {
   const [name, setName] = React.useState((laden && laden.name) || 'Der Laden');
   const [kauf, setKauf] = React.useState(Math.round(((laden && laden.kauf) || 0.5) * 100));
   const [waren, setWaren] = React.useState(
@@ -48,12 +48,23 @@ const LadenBearbeiten = ({ laden, onAbbrechen, onSpeichern }) => {
         </div>
 
         <div className="ass-warum">Preise in Gold — „2,5" sind zwei Gold und fünf Silber.
-          Eine Zeile ohne Namen fällt weg.</div>
+          Eine Zeile ohne Namen fällt weg. Was in der Datenbank steht, wird beim
+          Tippen vorgeschlagen und bringt seine Werte mit.</div>
+        <datalist id="hb-db-waren">
+          {(gegenstaende || []).map(g => <option key={g.name} value={g.name} />)}
+        </datalist>
         <div className="beute-zeilen laden-bearbeiten">
           {waren.map((w, i) => (
             <div className="beute-neu" key={i}>
-              <input className="form-input" value={w.name} maxLength={80} placeholder="Ware"
-                onChange={e=>setZeile(i, {name: e.target.value})} />
+              {/* Dieselbe Vorschlagsliste wie bei der Beute. Was der Ort
+                  führt, steht meistens schon in der Datenbank. */}
+              <input className="form-input" value={w.name} maxLength={80} list="hb-db-waren"
+                placeholder="Ware"
+                onChange={e=>{
+                  const v = e.target.value;
+                  const t = dbGegenstand(gegenstaende, v);
+                  setZeile(i, {name: v, notiz: (w.notiz || (t ? dbKurz(t) : ''))});
+                }} />
               <input className="form-input laden-preis" value={w.gold} placeholder="GM"
                 onChange={e=>setZeile(i, {gold: e.target.value})} />
               <input className="form-input" value={w.notiz || ''} maxLength={120} placeholder="Notiz"

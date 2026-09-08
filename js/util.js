@@ -597,6 +597,39 @@ const assistentPlan = (e) => {
   return {neu, zeilen, hinweise, fehlt};
 };
 
+// ── Aus der Datenbank ───────────────────────────────────────────
+// Beute und Laden fuellen sich aus der Sammlung der Gruppe. Gesucht
+// wird nachsichtig: Grossschreibung und ein Leerzeichen zu viel sollen
+// nicht dazu fuehren, dass ein Stueck ohne seine Werte im Bogen landet.
+const dbSchluessel = (n) => String(n || '').toLowerCase()
+  .replace(/[\s,.·–—_-]+/g, ' ').trim();
+const dbGegenstand = (liste, name) => {
+  const k = dbSchluessel(name);
+  if (!k) return null;
+  return (liste || []).find(x => x && dbSchluessel(x.name) === k) || null;
+};
+// Aus einem Datenbankeintrag ein Stueck fuers Inventar. Was jemand
+// dazugeschrieben hat — „im Wert von 500 Gold" — sticht die
+// Beschreibung aus der Datenbank: sie gilt fuer dieses eine Stueck.
+const dbAlsGegenstand = (eintrag, name, anzahl, notiz) => ({
+  ...newItem(),
+  ...(eintrag || {}),
+  id: 'db' + Date.now() + Math.floor(Math.random() * 1000),
+  name: (eintrag && eintrag.name) || name,
+  qty: Math.max(1, +anzahl || 1),
+  description: (notiz && notiz.trim())
+    ? notiz.trim()
+    : ((eintrag && eintrag.description) || ''),
+});
+// Der lange Beschreibungstext der Datenbank taugt nicht als Notiz an
+// einem Fundstueck: er traegt Auszeichnungen und ist zu lang.
+const dbKurz = (eintrag, laenge) => {
+  const roh = String((eintrag && eintrag.description) || '')
+    .replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  const max = laenge || 110;
+  return roh.length > max ? roh.slice(0, max - 1).trimEnd() + '…' : roh;
+};
+
 // ── Traglast ────────────────────────────────────────────────────
 // Die Gewichte stehen seit jeher an den Gegenständen; es fehlte die
 // Summe und die Grenze. Beides ist Buchführung, und die meisten Runden

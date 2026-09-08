@@ -1901,8 +1901,8 @@ function App() {
     const inv = [...(c.inventory || [])];
     const i = inv.findIndex(x => (x.name || '').toLowerCase() === ware.name.toLowerCase());
     if (i >= 0) inv[i] = {...inv[i], qty: (+inv[i].qty || 1) + 1};
-    else inv.push({...newItem(), id: 'kauf' + Date.now(), name: ware.name,
-                   qty: 1, description: ware.notiz || ''});
+    else inv.push(dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, ware.name),
+                                  ware.name, 1, ware.notiz));
     save(charsRef.current.map(x => x.id === c.id ? {...x, currency: beutel, inventory: inv} : x));
     addLog(c.id, c.name, 'inventar', 'Gekauft: ' + ware.name,
       {preis: preisText(ware.preis), laden: (laden && laden.name) || undefined});
@@ -1998,10 +1998,13 @@ function App() {
     const neu = charsRef.current.map(c => {
       const t = nach[c.id];
       if (!t) return c;
-      const inv = [...(c.inventory || []), ...t.stuecke.map((st, i) => ({
-        ...newItem(), id: 'beu' + Date.now() + i, name: st.name,
-        qty: st.anzahl || 1, description: st.notiz || '',
-      }))];
+      // Steht das Stueck in der Datenbank, kommt es mit allem, was dort
+      // haengt — Seltenheit, Gewicht, Ausruestungsplatz, Effekte. Die
+      // Notiz vom Fund sticht die Beschreibung: sie gilt fuer dieses
+      // eine Stueck.
+      const inv = [...(c.inventory || []), ...t.stuecke.map(st =>
+        dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name),
+                        st.name, st.anzahl, st.notiz))];
       const w = {...(c.currency || {pp:0,gp:0,ep:0,sp:0,cp:0})};
       if (t.muenzen) for (const m of ['pp','gp','ep','sp','cp']) w[m] = (+w[m] || 0) + (t.muenzen[m] || 0);
       return {...c, inventory: inv, currency: w};
@@ -4623,12 +4626,13 @@ function App() {
           onSchliessen={()=>setLadenOffen(false)} />
       )}
       {ladenBearbeiten && (
-        <LadenBearbeiten laden={laden}
+        <LadenBearbeiten laden={laden} gegenstaende={(userLibrary || {}).item || []}
           onAbbrechen={()=>setLadenBearbeiten(false)} onSpeichern={ladenSpeichern} />
       )}
 
       {beuteAnlegen && (
-        <BeuteAnlegen onAbbrechen={()=>setBeuteAnlegen(false)} onHinlegen={beuteHinlegen} />
+        <BeuteAnlegen gegenstaende={(userLibrary || {}).item || []}
+          onAbbrechen={()=>setBeuteAnlegen(false)} onHinlegen={beuteHinlegen} />
       )}
       {beute && beuteOffen && (
         <BeuteFenster beute={beute} helden={beuteHelden} isDmMode={isDmMode}
