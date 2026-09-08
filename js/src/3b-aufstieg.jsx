@@ -25,7 +25,7 @@ const merkmaleLaden = () => {
     .catch(() => ({}));
 };
 
-const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
+const StufenAufstieg = ({ char, talente, eigeneMerkmale, onAbbrechen, onUebernehmen }) => {
   // Wer mehrere Klassen hat, steigt in einer davon auf — und welche das
   // ist, entscheidet alles Weitere: den Trefferwürfel, die Stufe, die
   // Attributssteigerung. Die Gesamtstufe ist die Summe und traegt den
@@ -105,7 +105,8 @@ const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
   const unterFaellig = !unterSchon && unterStufe > 0 && ziel >= unterStufe && von < unterStufe;
   const unterWahl = unterSchon || (unter === '_eigen' ? unterEigen.trim() : unter);
 
-  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features, unterWahl);
+  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features,
+                                   unterWahl, eigeneMerkmale);
   const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined
     ? !m.unter : !aus[m.stufe + ':' + m.name]);
 
@@ -330,7 +331,8 @@ const StufenAufstieg = ({ char, talente, onAbbrechen, onUebernehmen }) => {
                     <span className="auf-merkmal-kopf">
                       <b>{m.name}</b>
                       <i>Stufe {m.stufe}{m.quelle ? ' · ' + m.quelle
-                        : m.unter ? ' · Unterklasse' : ''}</i>
+                        : m.unter ? ' · Unterklasse' : ''}
+                        {m.herkunft === 'Eigen' ? ' · aus eurer Datenbank' : ''}</i>
                     </span>
                     <span className="auf-merkmal-text">{m.text}</span>
                   </label>

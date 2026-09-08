@@ -1091,7 +1091,7 @@ const mischenGeht = (char, klasse) => {
 // Was die Unterklasse gibt, steht als Erinnerung dabei ("unter") und
 // wird nicht vorgewaehlt: welches Merkmal es ist, weiss nur der Bogen.
 // Und was schon im Bogen steht, kommt nicht ein zweites Mal.
-const merkmaleFuer = (daten, klasse, von, bis, schon, unterName) => {
+const merkmaleFuer = (daten, klasse, von, bis, schon, unterName, eigene) => {
   const d = daten || {};
   const da = new Set((schon || []).map(f => dbSchluessel(f && f.name)));
   const passt = (m) => m.stufe > von && m.stufe <= bis && !da.has(dbSchluessel(m.name));
@@ -1104,15 +1104,30 @@ const merkmaleFuer = (daten, klasse, von, bis, schon, unterName) => {
         .find(x => dbSchluessel(x.name) === dbSchluessel(unterName))
     : null;
   const ausUnter = (u ? (u.merkmale || []) : []).filter(passt)
-    .map(m => ({...m, klasse, quelle: u.name}));
-  const belegt = new Set(ausUnter.map(m => m.stufe));
+    .map(m => ({...m, klasse, quelle: u.name, herkunft: 'SRD 5.1'}));
 
+  // Was die Gruppe selbst hinterlegt hat. Ein Eintrag ohne Klasse gilt
+  // fuer alle; einer mit Unterklasse nur, wenn genau die im Bogen steht.
+  // Auch er kann eine Erinnerung ersetzen — dafuer ist er ja da.
+  const ausEigen = (eigene || [])
+    .filter(m => m && m.name)
+    .filter(m => !m.klasse || dbSchluessel(m.klasse) === dbSchluessel(klasse))
+    .filter(m => !m.unterklasse || (unterName
+      && dbSchluessel(m.unterklasse) === dbSchluessel(unterName)))
+    .map(m => ({
+      stufe: Math.max(1, Math.min(20, +m.stufe || 1)),
+      name: m.name, text: m.description || '', effects: m.effects || [],
+      klasse: m.klasse || klasse, quelle: m.unterklasse || '', herkunft: 'Eigen',
+    }))
+    .filter(passt);
+
+  const belegt = new Set([...ausUnter, ...ausEigen].map(m => m.stufe));
   const ausKlasse = ((d.merkmale || {})[klasse] || [])
     .filter(passt)
     .filter(m => !(m.unter && belegt.has(m.stufe)))
-    .map(m => ({...m, klasse}));
+    .map(m => ({...m, klasse, herkunft: 'SRD 5.1'}));
 
-  return [...ausKlasse, ...ausUnter].sort((a, b) => a.stufe - b.stufe
+  return [...ausKlasse, ...ausUnter, ...ausEigen].sort((a, b) => a.stufe - b.stufe
     || (a.quelle ? 1 : 0) - (b.quelle ? 1 : 0));
 };
 
@@ -1245,11 +1260,11 @@ const aufstiegPlan = (char, wahl) => {
     neu.features = [...((c.features) || []), ...merkmale.map((m, i) => ({
       id: 'srd' + jetzt + i,
       name: m.name,
-      // Bei einem Merkmal der Unterklasse steht deren Name da — im
-      // Bogen soll man sehen, woher es kommt.
-      source: 'SRD 5.1 · ' + (m.quelle || m.klasse || name) + ' ' + m.stufe,
+      // Woher es kommt, steht im Bogen: die Ausgabe des Regelwerks oder
+      // die eigene Datenbank, und dahinter Klasse oder Unterklasse.
+      source: (m.herkunft || 'SRD 5.1') + ' · ' + (m.quelle || m.klasse || name) + ' ' + m.stufe,
       description: m.text || '',
-      effects: [], effectsActive: true,
+      effects: m.effects || [], effectsActive: true,
     }))];
     merkmale.forEach(m => zeilen.push({was: 'Merkmal', alt: '—',
       neu: m.name + ' (Stufe ' + m.stufe + ')'}));

@@ -142,6 +142,30 @@ Unterklassen aus dem Spielerhandbuch, Tasha's Kessel und Xanathar's
 Ratgeber. Die stehen außerhalb der Lizenz; das SRD enthält genau ein
 Talent. Für alles Weitere ist die Datenbank der Gruppe da.
 
+### 📜 Eigene Merkmale
+
+Was das SRD liefern darf, liefert es — der Rest kommt jetzt von euch.
+Die Datenbank hat eine siebte Art bekommen: **Merkmale**, und ein
+Eintrag weiß, wohin er gehört.
+
+| | |
+|---|---|
+| **Klasse** | oder „Alle Klassen" für Hausregeln, die für jeden gelten |
+| **Ab Stufe** | dort bietet der Aufstieg es an |
+| **Unterklasse** | leer heißt: bei jeder. Steht ein Name da, nur bei der |
+| **Beschreibung + Effekte** | wie bei Gegenständen — sie wirken, sobald es im Bogen steht |
+
+Beim Aufstieg stehen sie in derselben Liste wie die aus dem SRD, mit dem
+Zusatz **„aus eurer Datenbank"**, und sind wie diese vorgewählt und
+abwählbar. Im Bogen steht ihre Herkunft: `Eigen · Kämpfer 5`.
+
+Ein Merkmal, das an eine Unterklasse gebunden ist, **ersetzt die
+Erinnerung** „Merkmal der Unterklasse" auf seiner Stufe — genau wie eine
+hinterlegte Unterklasse es tut. Damit lässt sich eine eigene Unterklasse
+vollständig nachbauen: den Namen beim Aufstieg unter „Eigene…"
+eintragen, ihre Merkmale hier hinterlegen, und der nächste Aufstieg
+weiß Bescheid.
+
 ### 🎓 Unterklassen
 
 „Auf Stufe 3 wird die Unterklasse gewählt" stand bisher als Hinweis da,

@@ -832,12 +832,13 @@ function App() {
   // Die Inhalte der geteilten Bibliothek. Alles mit einem Unterstrich
   // davor — _adventures, _laeden — sind Einstellungen und keine
   // Sammlung.
-  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape', 'talent'];
+  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape', 'talent', 'merkmal'];
   // Die Schlüssel heissen englisch, seit es die Datei gibt. In einer
   // Rückfrage haben sie nichts verloren: „12 × spell" liest niemand.
   const LIB_WORT = {spell: ['Zauber', 'Zauber'], weapon: ['Waffe', 'Waffen'],
     item: ['Gegenstand', 'Gegenstände'], set: ['Ausrüstungssatz', 'Ausrüstungssätze'],
-    wildshape: ['Tierverwandlung', 'Tierverwandlungen'], talent: ['Talent', 'Talente']};
+    wildshape: ['Tierverwandlung', 'Tierverwandlungen'], talent: ['Talent', 'Talente'],
+    merkmal: ['Merkmal', 'Merkmale']};
   const libWort = (k, n) => (LIB_WORT[k] || [k, k])[n === 1 ? 0 : 1];
   const libZaehlen = (l) => LIB_INHALT
     .reduce((s, k) => s + (((l || {})[k] || []).length), 0);
@@ -978,6 +979,10 @@ function App() {
     // der Attribute, von denen es eines um 1 steigert. Leer heisst: es
     // ist ein ganzes Talent und ruehrt die Attribute nicht an.
     if (type==='talent')  return {name:'',voraussetzung:'',description:'',halb:[],effects:[]};
+    // Ein Merkmal der Gruppe: es haengt an einer Klasse und einer Stufe,
+    // wahlweise auch an einer Unterklasse. Der Aufstieg bietet es dann
+    // dort an, wo es hingehoert.
+    if (type==='merkmal') return {name:'',klasse:'',unterklasse:'',stufe:1,description:'',effects:[]};
     return {name:'',cr:'1/4',size:'Mittel',type:'Tier',ac:10,hp:10,speed:'9 m',str:10,dex:10,con:10,int:3,wis:12,cha:6,senses:'',skills:'',tagsStr:'',abilitiesStr:'',actions:[{name:'',desc:''}]};
   };
 
@@ -4603,6 +4608,7 @@ function App() {
 
       {aufstieg && (
         <StufenAufstieg char={aufstieg} talente={(userLibrary || {}).talent || []}
+          eigeneMerkmale={(userLibrary || {}).merkmal || []}
           onAbbrechen={()=>setAufstieg(null)}
           onUebernehmen={aufstiegUebernehmen} />
       )}
@@ -4616,7 +4622,7 @@ function App() {
       {showDB && (() => {
         // Gegner nur im DM-Modus: sie liegen in einer eigenen Tabelle
         // hinter dem DM-Passwort, damit Spieler die Werte nicht abrufen.
-        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'},{k:'talent',label:'Talente',icon:'⭐'},
+        const types = [{k:'spell',label:'Zauber',icon:'📖'},{k:'weapon',label:'Waffen',icon:'⚔'},{k:'wildshape',label:'Tiere',icon:'🐺'},{k:'item',label:'Gegenstände',icon:'🎒'},{k:'set',label:'Sets',icon:'✦'},{k:'talent',label:'Talente',icon:'⭐'},{k:'merkmal',label:'Merkmale',icon:'📜'},
           ...(isDmMode ? [{k:'enemy',label:'Gegner',icon:'💀'},{k:'encounter',label:'Begegnungen',icon:'⚔'}] : [])];
         // Reset search when tab changes
         const wkCurrent = '_dbSearch_'+dbTab;
@@ -4777,6 +4783,57 @@ function App() {
                   )}
 
                   {/* SET FORM */}
+                  {/* Ein eigenes Merkmal. Das SRD liefert, was es liefern
+                      darf — alles andere kommt von hier, und der Aufstieg
+                      bietet es auf der Stufe an, die hier steht. */}
+                  {dbTab==='merkmal' && (
+                    <div className="form-grid">
+                      <div className="form-group form-full">
+                        <label className="form-label">Name</label>
+                        <input className="form-input" value={dbForm.name} autoFocus
+                          placeholder="z.B. Taktischer Verstand"
+                          onChange={e=>setDbForm(f=>({...f,name:e.target.value}))}/>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Klasse</label>
+                        <select className="form-select" value={dbForm.klasse||''}
+                          onChange={e=>setDbForm(f=>({...f,klasse:e.target.value}))}>
+                          <option value="">Alle Klassen</option>
+                          {klassenWahl(dbForm.klasse).map(c=><option key={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Ab Stufe</label>
+                        <ZahlFeld className="form-input" min={1} max={20} wert={dbForm.stufe||1}
+                          onWert={v=>setDbForm(f=>({...f,stufe:v}))}
+                          style={{textAlign:'center'}}/>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Nur bei dieser Unterklasse (optional)</label>
+                        <input className="form-input" value={dbForm.unterklasse||''} maxLength={60}
+                          placeholder="z.B. Champion — leer heißt: bei jeder"
+                          onChange={e=>setDbForm(f=>({...f,unterklasse:e.target.value}))}/>
+                        <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',marginTop:5}}>
+                          Steht hier ein Name, taucht das Merkmal nur auf, wenn genau diese
+                          Unterklasse im Bogen steht. Es ersetzt dann die Erinnerung
+                          „Merkmal der Unterklasse" auf seiner Stufe.
+                        </div>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Beschreibung</label>
+                        <textarea className="form-input" rows={4} style={{resize:'vertical'}}
+                          value={dbForm.description||''} placeholder="Was das Merkmal kann — in deinen Worten."
+                          onChange={e=>setDbForm(f=>({...f,description:e.target.value}))}/>
+                      </div>
+                      <div className="form-group form-full">
+                        <label className="form-label">Effekte</label>
+                        <EffectEditor effects={dbForm.effects||[]}
+                          onChange={v=>setDbForm(f=>({...f,effects:v}))}
+                          hint="Wirken, sobald das Merkmal im Bogen steht." />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Ein Talent. Das Regelwerk der Gruppe steht nicht im
                       Programm — hier steht, was ihr davon braucht: der
                       Name, die Voraussetzung, ein Satz dazu, und die
@@ -5240,6 +5297,11 @@ function App() {
                                           {dbTab==='weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties||[]).join(', ')||'—'}`}
                                           {dbTab==='wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`}
                                           {dbTab==='item' && `${(RARITIES.find(r=>r.key===e.rarity)||RARITIES[0]).label}${e.weight?' · '+e.weight+' kg':''}${e.gearKind?' · '+((GEAR_KINDS.find(g=>g.key===e.gearKind)||{}).label||''):''}`}
+                                          {dbTab==='merkmal' && ((e.klasse || 'Alle Klassen')
+                                            + ' · ab Stufe ' + (e.stufe || 1)
+                                            + (e.unterklasse ? ' · ' + e.unterklasse : '')
+                                            + ((e.effects||[]).length ? ' · ' + e.effects.length + ' Effekt'
+                                               + (e.effects.length===1?'':'e') : ''))}
                                           {dbTab==='talent' && ((e.voraussetzung||'Ohne Voraussetzung')
                                             + ((e.halb||[]).length ? ' · +1 auf ' + (e.halb||[])
                                                 .map(k=>(ATTR_WAHL.find(x=>x.k===k)||{}).l||k).join(' oder ') : '')
@@ -5271,6 +5333,9 @@ function App() {
                                           <div><strong>Bewegung:</strong> {e.speed||'—'} · <strong>Sinne:</strong> {e.senses||'—'}</div>
                                           {e.skills && <div><strong>Fertigk.:</strong> {e.skills}</div>}
                                         </>)}
+                                        {dbTab==='merkmal' && e.description && (
+                                          <div style={{whiteSpace:'pre-wrap'}}>{e.description}</div>
+                                        )}
                                         {dbTab==='talent' && (<>
                                           {e.voraussetzung && <div><strong>Voraussetzung:</strong> {e.voraussetzung}</div>}
                                           {e.description && <div style={{marginTop:4,whiteSpace:'pre-wrap'}}>{e.description}</div>}

@@ -15578,6 +15578,7 @@ const merkmaleLaden = () => {
 const StufenAufstieg = ({
   char,
   talente,
+  eigeneMerkmale,
   onAbbrechen,
   onUebernehmen
 }) => {
@@ -15675,7 +15676,7 @@ const StufenAufstieg = ({
   const unterStufe = regel ? regel.unter : 0;
   const unterFaellig = !unterSchon && unterStufe > 0 && ziel >= unterStufe && von < unterStufe;
   const unterWahl = unterSchon || (unter === '_eigen' ? unterEigen.trim() : unter);
-  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features, unterWahl);
+  const neueMerkmale = merkmaleFuer(merkmalDaten, klasse, von, ziel, char.features, unterWahl, eigeneMerkmale);
   const gewaehlt = neueMerkmale.filter((m, i) => aus[m.stufe + ':' + m.name] === undefined ? !m.unter : !aus[m.stufe + ':' + m.name]);
   const talEintrag = (talente || []).find(t => t.name === talName) || null;
   const talHalb = talEintrag ? talEintrag.halb || [] : [];
@@ -15903,7 +15904,7 @@ const StufenAufstieg = ({
       }))
     }), /*#__PURE__*/React.createElement("span", {
       className: "auf-merkmal-kopf"
-    }, /*#__PURE__*/React.createElement("b", null, m.name), /*#__PURE__*/React.createElement("i", null, "Stufe ", m.stufe, m.quelle ? ' · ' + m.quelle : m.unter ? ' · Unterklasse' : '')), /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("b", null, m.name), /*#__PURE__*/React.createElement("i", null, "Stufe ", m.stufe, m.quelle ? ' · ' + m.quelle : m.unter ? ' · Unterklasse' : '', m.herkunft === 'Eigen' ? ' · aus eurer Datenbank' : '')), /*#__PURE__*/React.createElement("span", {
       className: "auf-merkmal-text"
     }, m.text));
   })), /*#__PURE__*/React.createElement("div", {
@@ -17266,7 +17267,7 @@ function App() {
   // Die Inhalte der geteilten Bibliothek. Alles mit einem Unterstrich
   // davor — _adventures, _laeden — sind Einstellungen und keine
   // Sammlung.
-  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape', 'talent'];
+  const LIB_INHALT = ['spell', 'weapon', 'item', 'set', 'wildshape', 'talent', 'merkmal'];
   // Die Schlüssel heissen englisch, seit es die Datei gibt. In einer
   // Rückfrage haben sie nichts verloren: „12 × spell" liest niemand.
   const LIB_WORT = {
@@ -17275,7 +17276,8 @@ function App() {
     item: ['Gegenstand', 'Gegenstände'],
     set: ['Ausrüstungssatz', 'Ausrüstungssätze'],
     wildshape: ['Tierverwandlung', 'Tierverwandlungen'],
-    talent: ['Talent', 'Talente']
+    talent: ['Talent', 'Talente'],
+    merkmal: ['Merkmal', 'Merkmale']
   };
   const libWort = (k, n) => (LIB_WORT[k] || [k, k])[n === 1 ? 0 : 1];
   const libZaehlen = l => LIB_INHALT.reduce((s, k) => s + ((l || {})[k] || []).length, 0);
@@ -17474,6 +17476,17 @@ function App() {
       voraussetzung: '',
       description: '',
       halb: [],
+      effects: []
+    };
+    // Ein Merkmal der Gruppe: es haengt an einer Klasse und einer Stufe,
+    // wahlweise auch an einer Unterklasse. Der Aufstieg bietet es dann
+    // dort an, wo es hingehoert.
+    if (type === 'merkmal') return {
+      name: '',
+      klasse: '',
+      unterklasse: '',
+      stufe: 1,
+      description: '',
       effects: []
     };
     return {
@@ -23893,6 +23906,7 @@ function App() {
   }), aufstieg && /*#__PURE__*/React.createElement(StufenAufstieg, {
     char: aufstieg,
     talente: (userLibrary || {}).talent || [],
+    eigeneMerkmale: (userLibrary || {}).merkmal || [],
     onAbbrechen: () => setAufstieg(null),
     onUebernehmen: aufstiegUebernehmen
   }), patchnotesOffen && /*#__PURE__*/React.createElement(PatchnotesFenster, {
@@ -23924,6 +23938,10 @@ function App() {
       k: 'talent',
       label: 'Talente',
       icon: '⭐'
+    }, {
+      k: 'merkmal',
+      label: 'Merkmale',
+      icon: '📜'
     }, ...(isDmMode ? [{
       k: 'enemy',
       label: 'Gegner',
@@ -24322,6 +24340,99 @@ function App() {
         ...f,
         description: e.target.value
       }))
+    }))), dbTab === 'merkmal' && /*#__PURE__*/React.createElement("div", {
+      className: "form-grid"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Name"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      value: dbForm.name,
+      autoFocus: true,
+      placeholder: "z.B. Taktischer Verstand",
+      onChange: e => setDbForm(f => ({
+        ...f,
+        name: e.target.value
+      }))
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Klasse"), /*#__PURE__*/React.createElement("select", {
+      className: "form-select",
+      value: dbForm.klasse || '',
+      onChange: e => setDbForm(f => ({
+        ...f,
+        klasse: e.target.value
+      }))
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "Alle Klassen"), klassenWahl(dbForm.klasse).map(c => /*#__PURE__*/React.createElement("option", {
+      key: c
+    }, c)))), /*#__PURE__*/React.createElement("div", {
+      className: "form-group"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Ab Stufe"), /*#__PURE__*/React.createElement(ZahlFeld, {
+      className: "form-input",
+      min: 1,
+      max: 20,
+      wert: dbForm.stufe || 1,
+      onWert: v => setDbForm(f => ({
+        ...f,
+        stufe: v
+      })),
+      style: {
+        textAlign: 'center'
+      }
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Nur bei dieser Unterklasse (optional)"), /*#__PURE__*/React.createElement("input", {
+      className: "form-input",
+      value: dbForm.unterklasse || '',
+      maxLength: 60,
+      placeholder: "z.B. Champion \u2014 leer hei\xDFt: bei jeder",
+      onChange: e => setDbForm(f => ({
+        ...f,
+        unterklasse: e.target.value
+      }))
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic',
+        marginTop: 5
+      }
+    }, "Steht hier ein Name, taucht das Merkmal nur auf, wenn genau diese Unterklasse im Bogen steht. Es ersetzt dann die Erinnerung \u201EMerkmal der Unterklasse\" auf seiner Stufe.")), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Beschreibung"), /*#__PURE__*/React.createElement("textarea", {
+      className: "form-input",
+      rows: 4,
+      style: {
+        resize: 'vertical'
+      },
+      value: dbForm.description || '',
+      placeholder: "Was das Merkmal kann \u2014 in deinen Worten.",
+      onChange: e => setDbForm(f => ({
+        ...f,
+        description: e.target.value
+      }))
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "form-group form-full"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Effekte"), /*#__PURE__*/React.createElement(EffectEditor, {
+      effects: dbForm.effects || [],
+      onChange: v => setDbForm(f => ({
+        ...f,
+        effects: v
+      })),
+      hint: "Wirken, sobald das Merkmal im Bogen steht."
     }))), dbTab === 'talent' && /*#__PURE__*/React.createElement("div", {
       className: "form-grid"
     }, /*#__PURE__*/React.createElement("div", {
@@ -25428,7 +25539,7 @@ function App() {
             color: 'var(--text-muted)',
             marginTop: 2
           }
-        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}${e.gearKind ? ' · ' + ((GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label || '') : ''}`, dbTab === 'talent' && (e.voraussetzung || 'Ohne Voraussetzung') + ((e.halb || []).length ? ' · +1 auf ' + (e.halb || []).map(k => (ATTR_WAHL.find(x => x.k === k) || {}).l || k).join(' oder ') : '') + ((e.effects || []).length ? ' · ' + e.effects.length + ' Effekt' + (e.effects.length === 1 ? '' : 'e') : ''), dbTab === 'set' && (() => {
+        }, dbTab === 'spell' && `Grad ${e.level} · ${e.school} · ${e.castingTime}`, dbTab === 'weapon' && `${e.damage} ${e.damageType}schaden · ${(e.properties || []).join(', ') || '—'}`, dbTab === 'wildshape' && `CR ${e.cr} · ${e.size} · RK ${e.ac} · TP ${e.hp}`, dbTab === 'item' && `${(RARITIES.find(r => r.key === e.rarity) || RARITIES[0]).label}${e.weight ? ' · ' + e.weight + ' kg' : ''}${e.gearKind ? ' · ' + ((GEAR_KINDS.find(g => g.key === e.gearKind) || {}).label || '') : ''}`, dbTab === 'merkmal' && (e.klasse || 'Alle Klassen') + ' · ab Stufe ' + (e.stufe || 1) + (e.unterklasse ? ' · ' + e.unterklasse : '') + ((e.effects || []).length ? ' · ' + e.effects.length + ' Effekt' + (e.effects.length === 1 ? '' : 'e') : ''), dbTab === 'talent' && (e.voraussetzung || 'Ohne Voraussetzung') + ((e.halb || []).length ? ' · +1 auf ' + (e.halb || []).map(k => (ATTR_WAHL.find(x => x.k === k) || {}).l || k).join(' oder ') : '') + ((e.effects || []).length ? ' · ' + e.effects.length + ' Effekt' + (e.effects.length === 1 ? '' : 'e') : ''), dbTab === 'set' && (() => {
           const st = (e.stufen || []).map(s => +s.teile || 0).sort((a, b) => a - b);
           const teile = (activeLib.item || []).filter(i => i.setName === e.name).length;
           return (st.length ? 'Stufen bei ' + st.join(', ') + ' Teilen' : 'Noch keine Stufen') + ' · ' + teile + ' Gegenstand' + (teile === 1 ? '' : 'e') + ' in der Datenbank';
@@ -25484,7 +25595,11 @@ function App() {
             marginTop: 6,
             whiteSpace: 'pre-wrap'
           }
-        }, e.description)), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'talent' && /*#__PURE__*/React.createElement(React.Fragment, null, e.voraussetzung && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Voraussetzung:"), " ", e.voraussetzung), e.description && /*#__PURE__*/React.createElement("div", {
+        }, e.description)), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'merkmal' && e.description && /*#__PURE__*/React.createElement("div", {
+          style: {
+            whiteSpace: 'pre-wrap'
+          }
+        }, e.description), dbTab === 'talent' && /*#__PURE__*/React.createElement(React.Fragment, null, e.voraussetzung && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Voraussetzung:"), " ", e.voraussetzung), e.description && /*#__PURE__*/React.createElement("div", {
           style: {
             marginTop: 4,
             whiteSpace: 'pre-wrap'
