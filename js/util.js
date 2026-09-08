@@ -1012,6 +1012,77 @@ const zauberPlaetze = (klasse, stufe) => {
   return raus;
 };
 
+// ── Mehrere Klassen ─────────────────────────────────────────────
+// Hauptklasse und Nebenklassen sind dieselbe Sache, nur an zwei Stellen
+// gespeichert. Wer rechnen will, braucht sie als eine Liste.
+const charKlassen = (c) => {
+  const k = c || {};
+  return [
+    {charClass: k.charClass || '', level: Math.max(1, Math.min(20, +k.level || 1)), haupt: true},
+    ...((k.multiclasses || []).filter(m => m && m.charClass).map(m => ({
+      charClass: m.charClass, level: Math.max(1, Math.min(20, +m.level || 1)), haupt: false,
+    }))),
+  ];
+};
+const gesamtStufe = (c) => charKlassen(c).reduce((s, k) => s + k.level, 0);
+
+// Die Zauberplätze über mehrere Klassen hinweg. Wer nur eine zaubernde
+// Klasse hat, rechnet nach deren eigener Tabelle — so steht es im
+// Regelwerk. Erst ab der zweiten wird eine Zaubererstufe gebildet: volle
+// Klassen ganz, halbe zur Hälfte und abgerundet. Ein Paladin 1 bringt
+// also nichts mit, ein Paladin 2 eine Stufe.
+//
+// Der Paktmagier zählt dabei nie mit; seine Plätze folgen einer eigenen
+// Tabelle und kommen hier oben drauf. Das Heldenbuch führt eine Liste
+// und nicht zwei — dass sie schon nach einer kurzen Rast zurückkommen,
+// sagt der Aufstieg als Hinweis.
+const ZAUBER_ART = (name) => (KLASSEN_REGELN[name] || {}).zauber || null;
+const zauberStufe = (klassen) => (klassen || []).reduce((s, k) => {
+  const art = ZAUBER_ART(k.charClass);
+  const st = Math.max(0, +k.level || 0);
+  return s + (art === 'voll' ? st : art === 'halb' ? Math.floor(st / 2) : 0);
+}, 0);
+
+const zauberPlaetzeGemischt = (klassen) => {
+  const liste = (klassen || []).filter(k => k && k.charClass);
+  const zauber = liste.filter(k => ['voll', 'halb'].includes(ZAUBER_ART(k.charClass)));
+  const pakt   = liste.filter(k => ZAUBER_ART(k.charClass) === 'pakt');
+  if (!zauber.length && !pakt.length) return null;
+
+  const raus = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0};
+  if (zauber.length === 1) {
+    const eigen = zauberPlaetze(zauber[0].charClass, zauber[0].level) || {};
+    for (let g = 1; g <= 9; g++) raus[g] = eigen[g] || 0;
+  } else if (zauber.length > 1) {
+    const stufe = zauberStufe(zauber);
+    if (stufe >= 1) {
+      (ZAUBER_VOLL[Math.min(20, stufe) - 1] || []).forEach((n, g) => { raus[g + 1] = n; });
+    }
+  }
+  pakt.forEach(k => {
+    const p = zauberPlaetze('Hexenmeister', k.level) || {};
+    for (let g = 1; g <= 9; g++) raus[g] = (raus[g] || 0) + (p[g] || 0);
+  });
+  return raus;
+};
+
+// Ob die Attribute fürs Mischen reichen. Zurück kommt null, wenn sie es
+// tun — sonst der Satz, der fehlt. Geprüft wird nicht verboten: eine
+// Runde, die es anders hält, soll nicht am Programm scheitern.
+const ATTR_NAME = {str:'Stärke', dex:'Geschicklichkeit', con:'Konstitution',
+                   int:'Intelligenz', wis:'Weisheit', cha:'Charisma'};
+const mischenGeht = (char, klasse) => {
+  const r = KLASSEN_REGELN[klasse];
+  if (!r || !r.mc) return null;
+  const c = char || {};
+  const reicht = (gruppe) => gruppe.every(a => (+c[a] || 0) >= 13);
+  if (r.mc.some(reicht)) return null;
+  const wege = r.mc.map(g => g.map(a => ATTR_NAME[a] + ' 13').join(' und ')).join(' oder ');
+  const habe = [...new Set(r.mc.flat())]
+    .map(a => ATTR_NAME[a] + ' ' + (+c[a] || 0)).join(', ');
+  return 'Für ' + klasse + ' verlangt das Regelwerk ' + wege + ' — hier steht ' + habe + '.';
+};
+
 // Was der Aufstieg vorhat. Er schreibt nichts — er sagt nur, was er
 // schreiben würde, und genau das steht dann in der Vorschau.
 //
@@ -1023,54 +1094,82 @@ const zauberPlaetze = (klasse, stufe) => {
 // die Hinweise sind das, was der Aufstieg nicht selbst erledigt.
 const aufstiegPlan = (char, wahl) => {
   const c = char || {};
-  const r = KLASSEN_REGELN[c.charClass];
-  const von  = Math.max(1, Math.min(20, +c.level || 1));
-  const ziel = Math.max(1, Math.min(20, +(wahl && wahl.ziel) || von + 1));
-  const zeilen = [], hinweise = [];
-  const neu = {level: ziel};
+  const w = wahl || {};
+  const alle = charKlassen(c);
 
-  const zeile = (was, alt, jetzt) => {
-    if (String(alt) !== String(jetzt)) zeilen.push({was, alt, neu: jetzt});
+  // Welche Klasse steigt auf? Ohne Angabe die Hauptklasse — so war es,
+  // bevor es Nebenklassen gab, und so bleibt es fuer jeden Bogen mit nur
+  // einer Klasse.
+  const name = w.klasse || c.charClass;
+  const dabei = alle.find(k => k.charClass === name) || null;
+  const r = KLASSEN_REGELN[name];
+  const von = dabei ? dabei.level : 0;
+  const ziel = Math.max(1, Math.min(20, +(w.ziel) || von + 1));
+
+  const zeilen = [], hinweise = [];
+  const neu = {};
+  const zeile = (was, alt2, jetzt) => {
+    if (String(alt2) !== String(jetzt)) zeilen.push({was, alt: alt2, neu: jetzt});
   };
-  zeile('Stufe', von, ziel);
+
+  // Die Klassenliste, wie sie nachher aussieht — daraus folgt alles
+  // Weitere, und sie ist auch das, was geschrieben wird.
+  const nachher = dabei
+    ? alle.map(k => k.charClass === name ? {...k, level: ziel} : k)
+    : [...alle, {charClass: name, level: ziel}];
+
+  if (!dabei) {
+    neu.multiclasses = [...((c.multiclasses) || []), {charClass: name, level: ziel}];
+    zeilen.push({was: 'Neue Klasse', alt: '—', neu: name + ' ' + ziel});
+  } else if (dabei.haupt) {
+    neu.level = ziel;
+    zeile(name, von, ziel);
+  } else {
+    neu.multiclasses = ((c.multiclasses) || []).map(m =>
+      (m && m.charClass === name) ? {...m, level: ziel} : m);
+    zeile(name, von, ziel);
+  }
+
+  // Die Gesamtstufe traegt den Uebungsbonus — nicht die Stufe einer
+  // einzelnen Klasse. Ein Magier 5 / Kleriker 3 ist Stufe 8.
+  const gesamtVor  = alle.reduce((s2, k) => s2 + k.level, 0);
+  const gesamtNach = nachher.reduce((s2, k) => s2 + k.level, 0);
+  if (nachher.length > 1) zeile('Gesamtstufe', gesamtVor, gesamtNach);
 
   // Trefferpunkte. Die Zahl steht in der Vorschau und ist dort
   // aenderbar — beim Wuerfeln stimmt kein Durchschnitt, und wer eine
   // Stufe zuruecknimmt, weiss selbst am besten, was damals fiel.
-  const plus = Math.round(+(wahl && wahl.tpPlus) || 0);
+  const plus = Math.round(+(w.tpPlus) || 0);
   if (plus) {
     neu.maxHp = Math.max(1, (+c.maxHp || 0) + plus);
     neu.hp    = Math.max(0, (+c.hp || 0) + plus);
     zeile('Trefferpunkte', (+c.maxHp || 0), neu.maxHp);
   }
 
-  const pb = uebungsbonus(ziel);
+  const pb = uebungsbonus(gesamtNach);
   if (pb !== (+c.profBonus || 0)) { neu.profBonus = pb; zeile('Übungsbonus', '+' + (+c.profBonus || 0), '+' + pb); }
 
   // Attributssteigerung, wenn die Stufe eine gibt und eine gewählt wurde.
-  const asi = (wahl && wahl.asi) || null;
+  const asi = w.asi || null;
   if (asi) {
     for (const k of Object.keys(asi)) {
-      const alt = +c[k] || 10, jetzt = Math.min(20, alt + (+asi[k] || 0));
+      const alt2 = +c[k] || 10, jetzt = Math.min(20, alt2 + (+asi[k] || 0));
       const wort = (ATTR_WAHL.find(a => a.k === k) || {}).l || k;
-      if (jetzt !== alt) { neu[k] = jetzt; zeile(wort, alt, jetzt); }
+      if (jetzt !== alt2) { neu[k] = jetzt; zeile(wort, alt2, jetzt); }
     }
   }
 
-  // Zauberplätze. Nur bei einer Klasse ohne Nebenklassen: die Plätze
-  // eines gemischten Zauberers folgen einer eigenen Tabelle, und eine
-  // falsche Zahl waere schlimmer als gar keine.
-  const gemischt = ((c.multiclasses || []).length > 0);
-  const plaetze = gemischt ? null : zauberPlaetze(c.charClass, ziel);
+  // Zauberplätze — jetzt auch über mehrere Klassen. Die Regel dafür
+  // steht in zauberPlaetzeGemischt; hier wird nur eingetragen, was sie
+  // sagt, und verbrauchte Plätze bleiben verbraucht.
+  const plaetze = zauberPlaetzeGemischt(nachher);
   if (plaetze) {
-    const alt = c.spellSlots || {};
+    const altSlots = c.spellSlots || {};
     const raus = {};
     let anders = false;
     for (let g = 1; g <= 9; g++) {
-      const a = (alt[g] || alt[String(g)] || {});
+      const a = (altSlots[g] || altSlots[String(g)] || {});
       const max = plaetze[g] || 0;
-      // Verbrauchte Plätze bleiben verbraucht — der Aufstieg füllt sie
-      // nicht auf. Das tut die lange Rast.
       raus[g] = {max, used: Math.min(+a.used || 0, max)};
       if (max !== (+a.max || 0)) {
         anders = true;
@@ -1080,16 +1179,36 @@ const aufstiegPlan = (char, wahl) => {
     if (anders) neu.spellSlots = raus;
   }
 
-  // Was er nicht kann, sagt er.
-  if (!r) hinweise.push('Die Klasse „' + (c.charClass || '—') + '“ steht nicht in den Tabellen. '
+  // Was er nicht kann und was er nicht entscheidet, sagt er.
+  if (!r) hinweise.push('Die Klasse „' + (name || '—') + '“ steht nicht in den Tabellen. '
     + 'Trefferwürfel, Zauberplätze und Attributssteigerung musst du selbst eintragen.');
-  if (gemischt && r && r.zauber) hinweise.push('Mehrere Klassen: die Zauberplätze folgen dann einer '
-    + 'eigenen Tabelle. Der Aufstieg lässt sie stehen.');
+
+  if (!dabei && r) {
+    const fehlt = mischenGeht(c, name);
+    if (fehlt) hinweise.push(fehlt);
+    const eigen = mischenGeht(c, c.charClass);
+    if (eigen) hinweise.push('Und zum Mischen muss auch die bisherige Klasse reichen: ' + eigen);
+    hinweise.push('Eine neue Klasse bringt nur die Übung mit, die im Mischen erlaubt ist — '
+      + 'nicht die volle Ausbildung. Rüstungen, Waffen und Fertigkeiten also nachsehen.');
+  }
+
+  const zauberKlassen = nachher.filter(k => ['voll', 'halb'].includes(ZAUBER_ART(k.charClass)));
+  if (zauberKlassen.length > 1) {
+    hinweise.push('Zauberplätze über ' + zauberKlassen.length + ' Klassen: gerechnet mit '
+      + 'Zaubererstufe ' + zauberStufe(zauberKlassen) + ' (volle Klassen ganz, halbe zur Hälfte). '
+      + 'Welche Zauber du kennst, richtet sich weiter nach jeder Klasse einzeln.');
+  }
+  if (nachher.some(k => ZAUBER_ART(k.charClass) === 'pakt')
+      && (zauberKlassen.length > 0 || nachher.length > 1)) {
+    hinweise.push('Die Plätze des Paktmagiers stehen mit in der Liste, kommen aber schon '
+      + 'nach einer kurzen Rast zurück.');
+  }
+
   if (r && ziel > von) {
     for (let st = von + 1; st <= ziel; st++) {
-      if (r.asi.includes(st) && !asi) hinweise.push('Stufe ' + st + ' gibt eine Attributssteigerung '
-        + '(+2 auf eines oder +1 auf zwei) — oder ein Talent.');
-      if (st === r.unter) hinweise.push('Auf Stufe ' + st + ' wird die Unterklasse gewählt.');
+      if (r.asi.includes(st) && !asi) hinweise.push(name + ' Stufe ' + st + ' gibt eine '
+        + 'Attributssteigerung (+2 auf eines oder +1 auf zwei) — oder ein Talent.');
+      if (st === r.unter) hinweise.push('Auf ' + name + ' Stufe ' + st + ' wird die Unterklasse gewählt.');
     }
   }
   return {neu, zeilen, hinweise};

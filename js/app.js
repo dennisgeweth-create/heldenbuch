@@ -12207,8 +12207,6 @@ const Sheet = () => {
     sel,
     selectChar,
     setCharMenuOpen,
-    setCoinDelta,
-    setCoinPopover,
     setCollapsedLevels,
     setExFeature,
     setExNote,
@@ -12289,6 +12287,8 @@ const Sheet = () => {
   const [nachgetragen, setNachgetragen] = useState(null); // Rueckmeldung des Einlesers
   const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
+  const [betrag, setBetrag] = useState(""); // Gold, ausgeben oder einnehmen
+  const [beutelMeldung, setBeutelMeldung] = useState("");
   const invSucheRef = useRef(null);
   // Nach dem Zuruecksetzen steht der Zeiger wieder im Feld: der haeufigste
   // naechste Schritt ist eine neue Suche, nicht das Blaettern.
@@ -12328,7 +12328,30 @@ const Sheet = () => {
     sp: 0,
     cp: 0
   };
-  const totalGp = currency.pp * 10 + currency.gp + currency.ep * 0.5 + currency.sp * 0.1 + currency.cp * 0.01;
+
+  // Ausgeben und Einnehmen rechnen den ganzen Beutel um, nicht eine
+  // einzelne Münzsorte — dieselben Funktionen, die auch der Laden
+  // benutzt.
+  const beutelKupfer = goldZuKupfer(betrag);
+  const beutelGeben = () => {
+    const neu = muenzenZahlen(currency, beutelKupfer);
+    if (!neu) {
+      setBeutelMeldung("Dafür reicht der Beutel nicht — darin sind " + preisText(muenzenSumme(currency)) + ".");
+      return;
+    }
+    patchCurrent(() => ({
+      currency: neu
+    }));
+    setBeutelMeldung(preisText(beutelKupfer) + " ausgegeben.");
+    setBetrag("");
+  };
+  const beutelNehmen = () => {
+    patchCurrent(() => ({
+      currency: muenzenDazu(currency, beutelKupfer)
+    }));
+    setBeutelMeldung(preisText(beutelKupfer) + " eingenommen.");
+    setBetrag("");
+  };
   const totalWeight = inv.reduce((s, i) => s + (parseFloat(i.weight) || 0) * i.qty, 0);
 
   // ── Werte fuer die mitscrollende Leiste ──────────────────────────
@@ -12578,117 +12601,46 @@ const Sheet = () => {
   })), /*#__PURE__*/React.createElement("div", {
     className: "header-actions"
   }, darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    className: "kopf-knopf auf",
     title: "Stufenaufstieg",
-    onClick: openAufstieg,
-    style: {
-      padding: "4px 8px",
-      background: "none",
-      border: "1px solid transparent",
-      borderRadius: 3,
-      color: "var(--text-muted)",
-      fontSize: 14,
-      cursor: "pointer",
-      opacity: 0.55,
-      transition: "opacity 0.15s,border-color 0.15s"
-    },
-    onMouseEnter: e => {
-      e.currentTarget.style.opacity = "1";
-      e.currentTarget.style.borderColor = "var(--border-bright)";
-    },
-    onMouseLeave: e => {
-      e.currentTarget.style.opacity = "0.55";
-      e.currentTarget.style.borderColor = "transparent";
-    }
-  }, "\u21E7"), /*#__PURE__*/React.createElement("button", {
+    onClick: openAufstieg
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kopf-zeichen"
+  }, "\u21E7"), /*#__PURE__*/React.createElement("span", {
+    className: "kopf-wort"
+  }, "Aufstieg")), /*#__PURE__*/React.createElement("button", {
+    className: "kopf-knopf",
     title: "Bearbeiten",
-    onClick: openEdit,
-    style: {
-      padding: "4px 8px",
-      background: "none",
-      border: "1px solid transparent",
-      borderRadius: 3,
-      color: "var(--text-muted)",
-      fontSize: 14,
-      cursor: "pointer",
-      opacity: 0.55,
-      transition: "opacity 0.15s,border-color 0.15s"
-    },
-    onMouseEnter: e => {
-      e.currentTarget.style.opacity = "1";
-      e.currentTarget.style.borderColor = "var(--border-bright)";
-    },
-    onMouseLeave: e => {
-      e.currentTarget.style.opacity = "0.55";
-      e.currentTarget.style.borderColor = "transparent";
-    }
-  }, "\u270E"), cur.archived ? /*#__PURE__*/React.createElement("button", {
+    onClick: openEdit
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kopf-zeichen"
+  }, "\u270E"), /*#__PURE__*/React.createElement("span", {
+    className: "kopf-wort"
+  }, "Bearbeiten")), cur.archived ? /*#__PURE__*/React.createElement("button", {
+    className: "kopf-knopf aktiv",
     title: "Reaktivieren",
-    onClick: () => unarchiveChar(cur.id),
-    style: {
-      padding: "4px 10px",
-      background: "none",
-      border: "1px solid var(--gold-dim)",
-      borderRadius: 3,
-      color: "var(--gold-dim)",
-      fontSize: 12,
-      fontFamily: "'Roboto Condensed',sans-serif",
-      cursor: "pointer",
-      opacity: 0.8,
-      letterSpacing: "0.05em"
-    },
-    onMouseEnter: e => {
-      e.currentTarget.style.opacity = "1";
-    },
-    onMouseLeave: e => {
-      e.currentTarget.style.opacity = "0.8";
-    }
-  }, "\u21A9 aktiv") : /*#__PURE__*/React.createElement("button", {
+    onClick: () => unarchiveChar(cur.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kopf-zeichen"
+  }, "\u21A9"), /*#__PURE__*/React.createElement("span", {
+    className: "kopf-wort"
+  }, "Aktiv")) : /*#__PURE__*/React.createElement("button", {
+    className: "kopf-knopf",
     title: "Archivieren",
-    onClick: () => appConfirm("Charakter \"" + cur.name + "\" archivieren?", archiveChar, "Archivieren"),
-    style: {
-      padding: "4px 8px",
-      background: "none",
-      border: "1px solid transparent",
-      borderRadius: 3,
-      color: "var(--text-muted)",
-      fontSize: 14,
-      cursor: "pointer",
-      opacity: 0.45,
-      transition: "opacity 0.15s,border-color 0.15s"
-    },
-    onMouseEnter: e => {
-      e.currentTarget.style.opacity = "1";
-      e.currentTarget.style.borderColor = "var(--border)";
-    },
-    onMouseLeave: e => {
-      e.currentTarget.style.opacity = "0.45";
-      e.currentTarget.style.borderColor = "transparent";
-    }
-  }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => appConfirm("Charakter \"" + cur.name + "\" archivieren?", archiveChar, "Archivieren")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kopf-zeichen"
+  }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("span", {
+    className: "kopf-wort"
+  }, "Archiv")), /*#__PURE__*/React.createElement("button", {
+    className: "kopf-knopf weg",
     title: "L\xF6schen",
-    onClick: deleteChar,
-    style: {
-      padding: "4px 8px",
-      background: "none",
-      border: "1px solid transparent",
-      borderRadius: 3,
-      color: "var(--text-muted)",
-      fontSize: 14,
-      cursor: "pointer",
-      opacity: 0.45,
-      transition: "opacity 0.15s,border-color 0.15s,color 0.15s"
-    },
-    onMouseEnter: e => {
-      e.currentTarget.style.opacity = "1";
-      e.currentTarget.style.color = "var(--crimson-bright)";
-      e.currentTarget.style.borderColor = "var(--crimson)";
-    },
-    onMouseLeave: e => {
-      e.currentTarget.style.opacity = "0.45";
-      e.currentTarget.style.color = "var(--text-muted)";
-      e.currentTarget.style.borderColor = "transparent";
-    }
-  }, "\u2715")) : /*#__PURE__*/React.createElement("span", {
+    onClick: deleteChar
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kopf-zeichen"
+  }, "\u2715"), /*#__PURE__*/React.createElement("span", {
+    className: "kopf-wort"
+  }, "L\xF6schen"))) : /*#__PURE__*/React.createElement("span", {
     className: "fremder-bogen",
     title: "Dieser Bogen geh\xF6rt jemand anderem \u2014 \xE4ndern darf ihn sein Konto und die Spielleitung"
   }, "\uD83D\uDD12")))), /*#__PURE__*/React.createElement("div", {
@@ -14391,6 +14343,7 @@ const Sheet = () => {
           }
         })), /*#__PURE__*/React.createElement("button", {
           className: "spell-edit-btn",
+          title: "Zauber bearbeiten",
           onClick: e => {
             e.stopPropagation();
             setSf({
@@ -14398,15 +14351,6 @@ const Sheet = () => {
             });
             setSfEditId(s.id);
             setShowSF(true);
-          },
-          style: {
-            background: 'rgba(0,0,0,0.12)',
-            border: 'none',
-            color: 'rgba(0,0,0,0.5)',
-            cursor: 'pointer',
-            fontSize: 10,
-            padding: '2px 5px',
-            borderRadius: 3
           }
         }, "\u270E"), /*#__PURE__*/React.createElement("button", {
           className: "spell-delete",
@@ -14616,63 +14560,52 @@ const Sheet = () => {
     style: {
       marginBottom: 12
     }
-  }, "\uD83D\uDCB0 W\xE4hrung"), /*#__PURE__*/React.createElement("div", {
-    className: "currency-row"
-  }, COINS.map(c => {
-    const val = currency[c.key] || 0;
-    return /*#__PURE__*/React.createElement("div", {
-      className: "currency-box",
-      key: c.key,
-      style: {
-        borderColor: c.color + '40',
-        cursor: 'pointer',
-        userSelect: 'none'
-      },
-      onClick: e => {
-        setCoinDelta('');
-        setCoinPopover({
-          key: c.key,
-          label: c.label,
-          color: c.color,
-          val
-        });
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "currency-icon",
-      style: {
-        color: c.color
-      }
-    }, "\uD83E\uDE99"), /*#__PURE__*/React.createElement("div", {
-      className: "currency-label",
-      style: {
-        color: c.color
-      }
-    }, c.label), /*#__PURE__*/React.createElement("div", {
-      className: "currency-input",
-      style: {
-        color: c.color,
-        borderColor: c.color + '40',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 16,
-        minHeight: 32
-      }
-    }, val));
-  })), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCB0 Beutel"), /*#__PURE__*/React.createElement("div", {
+    className: "beutel-muenzen"
+  }, COINS.map(c => /*#__PURE__*/React.createElement("div", {
+    className: "beutel-muenze",
+    key: c.key,
     style: {
-      fontFamily: "'Roboto Condensed',sans-serif",
-      fontSize: 10,
-      color: "var(--text-muted)",
-      textAlign: "right",
-      marginBottom: 20
+      borderColor: c.color + '40'
     }
-  }, "Gesamtwert: ", /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "beutel-zahl",
     style: {
-      color: "var(--gold)"
+      color: c.color
     }
-  }, totalGp.toFixed(2), " GM")), /*#__PURE__*/React.createElement("div", {
+  }, currency[c.key] || 0), /*#__PURE__*/React.createElement("span", {
+    className: "beutel-name",
+    style: {
+      color: c.color
+    }
+  }, c.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "beutel-summe"
+  }, "Zusammen ", /*#__PURE__*/React.createElement("b", null, preisText(muenzenSumme(currency)))), darfBearbeiten && /*#__PURE__*/React.createElement("div", {
+    className: "beutel-kasse"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input beutel-betrag",
+    value: betrag,
+    maxLength: 9,
+    placeholder: "Betrag in Gold",
+    inputMode: "decimal",
+    onChange: e => {
+      setBetrag(e.target.value);
+      setBeutelMeldung("");
+    },
+    onKeyDown: e => {
+      if (e.key === "Enter" && beutelKupfer) beutelGeben();
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste beutel-aus",
+    disabled: !beutelKupfer,
+    onClick: beutelGeben
+  }, "\u2212 Ausgeben"), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste beutel-ein",
+    disabled: !beutelKupfer,
+    onClick: beutelNehmen
+  }, "+ Einnehmen")), /*#__PURE__*/React.createElement("div", {
+    className: "beutel-hinweis"
+  }, beutelMeldung || "Beträge in Gold — „2,5“ sind zwei Gold und fünf Silber. Gewechselt wird von selbst."), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -15631,10 +15564,18 @@ const StufenAufstieg = ({
   onAbbrechen,
   onUebernehmen
 }) => {
-  const regel = KLASSEN_REGELN[char.charClass] || null;
-  const von = Math.max(1, Math.min(20, +char.level || 1));
+  // Wer mehrere Klassen hat, steigt in einer davon auf — und welche das
+  // ist, entscheidet alles Weitere: den Trefferwürfel, die Stufe, die
+  // Attributssteigerung. Die Gesamtstufe ist die Summe und traegt den
+  // Übungsbonus; das rechnet aufstiegPlan.
+  const eigene = charKlassen(char);
+  const [klasse, setKlasse] = React.useState(char.charClass);
+  const dabei = eigene.find(k => k.charClass === klasse) || null;
+  const regel = KLASSEN_REGELN[klasse] || null;
+  const von = dabei ? dabei.level : 0;
   const [ziel, setZiel] = React.useState(Math.min(20, von + 1));
-  const stufen = ziel - von;
+  const stufen = Math.max(0, ziel - von);
+  const weitere = Object.keys(KLASSEN_REGELN).filter(n => !eigene.some(k => k.charClass === n));
 
   // Der Durchschnitt eines Trefferwürfels ist die Hälfte plus eins —
   // beim W10 also 6. So steht es im Regelwerk, und die meisten Runden
@@ -15652,13 +15593,16 @@ const StufenAufstieg = ({
   const [asiA, setAsiA] = React.useState('str');
   const [asiB, setAsiB] = React.useState('dex');
 
-  // Ändert sich das Ziel, stimmt der alte Betrag nicht mehr.
+  // Ändert sich Klasse oder Ziel, stimmt der alte Betrag nicht mehr.
+  React.useEffect(() => {
+    setZiel(Math.min(20, von + 1));
+  }, [klasse]);
   React.useEffect(() => {
     setGewuerfelt(null);
     setArt('schnitt');
     setAsiArt(null);
     setTpPlus(regel ? schnitt * stufen : 0);
-  }, [ziel]);
+  }, [klasse, ziel]);
   const wuerfeln = () => {
     let summe = 0;
     const einzeln = [];
@@ -15684,11 +15628,12 @@ const StufenAufstieg = ({
     [asiB]: 1
   };
   const plan = aufstiegPlan(char, {
+    klasse,
     ziel,
     tpPlus,
     asi
   });
-  const geht = ziel !== von;
+  const geht = ziel > von;
   return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
@@ -15697,22 +15642,42 @@ const StufenAufstieg = ({
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
-  }, "\u21E7 Stufenaufstieg \u2014 ", char.name), /*#__PURE__*/React.createElement("div", {
+  }, "\u21E7 Stufenaufstieg \u2014 ", char.name), (eigene.length > 1 || weitere.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "auf-klassen"
+  }, eigene.map(k => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: k.charClass,
+    className: 'bj-taste' + (klasse === k.charClass ? ' haupt' : ''),
+    onClick: () => setKlasse(k.charClass)
+  }, k.charClass, " ", k.level)), /*#__PURE__*/React.createElement("select", {
+    className: "form-select auf-dazu",
+    value: dabei ? '' : klasse,
+    onChange: e => {
+      if (e.target.value) setKlasse(e.target.value);
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "+ Neue Klasse\u2026"), weitere.map(n => /*#__PURE__*/React.createElement("option", {
+    key: n,
+    value: n
+  }, n)))), /*#__PURE__*/React.createElement("div", {
     className: "auf-kopf"
   }, /*#__PURE__*/React.createElement("span", {
     className: "auf-klasse"
-  }, char.charClass), /*#__PURE__*/React.createElement("span", {
+  }, klasse), /*#__PURE__*/React.createElement("span", {
     className: "auf-pfeil"
-  }, "Stufe ", von, " \u2192"), /*#__PURE__*/React.createElement("select", {
+  }, dabei ? 'Stufe ' + von + ' →' : 'neu, auf Stufe'), /*#__PURE__*/React.createElement("select", {
     className: "form-select auf-ziel",
     value: ziel,
     onChange: e => setZiel(+e.target.value)
   }, Array.from({
     length: 20
-  }, (_, i) => i + 1).filter(s => s !== von).map(s => /*#__PURE__*/React.createElement("option", {
-    key: s,
-    value: s
-  }, s)))), /*#__PURE__*/React.createElement("div", {
+  }, (_, i) => i + 1).filter(st => st > von).map(st => /*#__PURE__*/React.createElement("option", {
+    key: st,
+    value: st
+  }, st))), eigene.length > 1 && /*#__PURE__*/React.createElement("span", {
+    className: "auf-gesamt"
+  }, "Gesamt ", gesamtStufe(char), " \u2192 ", gesamtStufe(char) + stufen)), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full",
     style: {
       marginTop: 14
@@ -15759,7 +15724,7 @@ const StufenAufstieg = ({
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, "Attributssteigerung \u2014 Stufe ", asiStufen.join(' und ')), /*#__PURE__*/React.createElement("div", {
+  }, "Attributssteigerung \u2014 ", klasse, " Stufe ", asiStufen.join(' und ')), /*#__PURE__*/React.createElement("div", {
     className: "auf-tp"
   }, AUFSTIEG_ASI.map(k => /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -15836,7 +15801,8 @@ const ASS_SCHRITTE = ['Volk', 'Klasse', 'Attribute', 'Hintergrund', 'Fertigkeite
 const CharakterAssistent = ({
   klassen,
   onAbbrechen,
-  onFertig
+  onFertig,
+  onVonHand
 }) => {
   const [schritt, setSchritt] = React.useState(0);
   const [e, setE] = React.useState({
@@ -16113,7 +16079,11 @@ const CharakterAssistent = ({
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: onAbbrechen
-  }, "Abbrechen"), schritt > 0 && /*#__PURE__*/React.createElement("button", {
+  }, "Abbrechen"), onVonHand && schritt === 0 && /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onVonHand,
+    title: "Nur Name, Volk, Hintergrund und Klasse \u2014 den Rest tr\xE4gst du selbst ein"
+  }, "\u270E Lieber von Hand"), schritt > 0 && /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: () => setSchritt(schritt - 1)
   }, "Zur\xFCck"), schritt < ASS_SCHRITTE.length - 1 ? /*#__PURE__*/React.createElement("button", {
@@ -16161,7 +16131,6 @@ function App() {
   // Nur die id: die Waffe wird beim Rendern frisch aus cur geholt, damit die
   // Detailansicht nach einer Bearbeitung nicht auf einer Kopie stehen bleibt.
   const [weaponViewer, setWeaponViewer] = useState(null);
-  const [coinPopover, setCoinPopover] = useState(null);
   const [showLog, setShowLog] = useState(false);
   const [logEntries, setLogEntries] = useState([]);
   const [logLoading, setLogLoading] = useState(false);
@@ -16169,7 +16138,6 @@ function App() {
   const [adventEntries, setAdventEntries] = useState([]);
   const [adventSearch, setAdventSearch] = useState('');
   const [adventTabFilter, setAdventTabFilter] = useState([]);
-  const [coinDelta, setCoinDelta] = useState('');
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [invTagFilter, setInvTagFilter] = useState([]);
   const [showNF, setShowNF] = useState(false);
@@ -19701,12 +19669,6 @@ function App() {
       }));
     });
   };
-  const updCurrency = (k, v) => patchCurrent(c => ({
-    currency: {
-      ...(c.currency || {}),
-      [k]: Math.max(0, +v || 0)
-    }
-  }));
   const toggleSkill = key => {
     const profs = cur.skillProfs || [];
     const exp = cur.expertiseProfs || [];
@@ -20677,8 +20639,6 @@ function App() {
     sel,
     selectChar,
     setCharMenuOpen,
-    setCoinDelta,
-    setCoinPopover,
     setCollapsedLevels,
     setExFeature,
     setExNote,
@@ -20856,11 +20816,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-new",
     onClick: openAssistent
-  }, "\u2726 Neuer Charakter"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-new schlicht",
-    onClick: openNew,
-    title: "Nur Name, Volk, Hintergrund und Klasse \u2014 den Rest tr\xE4gst du selbst ein"
-  }, "\u270E Von Hand"), /*#__PURE__*/React.createElement("div", {
+  }, "\u2726 Neuer Charakter"), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-tools"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
@@ -23118,181 +23074,6 @@ function App() {
       },
       onClick: () => setShowTransfer(false)
     }, "Abbrechen")));
-  })(), coinPopover && (() => {
-    const cur = coinPopover.val || 0;
-    const delta = parseInt(coinDelta) || 0;
-    const apply = sign => {
-      const newVal = Math.max(0, cur + sign * Math.abs(delta || 0));
-      updCurrency(coinPopover.key, newVal);
-      setCoinPopover(prev => ({
-        ...prev,
-        val: newVal
-      }));
-      setCoinDelta('');
-    };
-    return /*#__PURE__*/React.createElement("div", {
-      className: "form-overlay",
-      style: {
-        background: 'rgba(0,0,0,0.6)'
-      },
-      onClick: () => setCoinPopover(null)
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: 'var(--bg-panel)',
-        borderRadius: 8,
-        padding: '18px 20px',
-        border: `2px solid ${coinPopover.color}60`,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
-        minWidth: 220,
-        maxWidth: 280
-      },
-      onClick: e => e.stopPropagation()
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 14
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 28
-      }
-    }, "\uD83E\uDE99"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 14,
-        color: coinPopover.color,
-        fontWeight: 700,
-        letterSpacing: '0.08em'
-      }
-    }, coinPopover.label), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 20,
-        color: 'var(--text-primary)',
-        lineHeight: 1
-      }
-    }, cur))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginBottom: 12
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        color: 'var(--text-muted)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.1em',
-        marginBottom: 5
-      }
-    }, "Betrag"), /*#__PURE__*/React.createElement("input", {
-      autoFocus: true,
-      type: "number",
-      min: "0",
-      value: coinDelta,
-      onChange: e => setCoinDelta(e.target.value),
-      onKeyDown: e => {
-        if (e.key === 'Enter' && coinDelta) apply(1);
-        if (e.key === 'Escape') setCoinPopover(null);
-      },
-      style: {
-        width: '100%',
-        boxSizing: 'border-box',
-        background: 'var(--bg-void)',
-        border: `1px solid ${coinPopover.color}60`,
-        borderRadius: 4,
-        color: 'var(--text-primary)',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 18,
-        textAlign: 'center',
-        padding: '8px 4px',
-        outline: 'none'
-      },
-      placeholder: "0"
-    })), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 8,
-        marginBottom: 10
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => apply(1),
-      style: {
-        padding: '10px',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 13,
-        fontWeight: 700,
-        background: `${coinPopover.color}25`,
-        border: `1px solid ${coinPopover.color}80`,
-        color: coinPopover.color,
-        borderRadius: 5,
-        cursor: 'pointer',
-        letterSpacing: '0.05em'
-      }
-    }, "+ Hinzuf\xFCgen"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => apply(-1),
-      style: {
-        padding: '10px',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 13,
-        fontWeight: 700,
-        background: 'rgba(180,60,60,0.15)',
-        border: '1px solid rgba(180,60,60,0.5)',
-        color: '#e07070',
-        borderRadius: 5,
-        cursor: 'pointer',
-        letterSpacing: '0.05em'
-      }
-    }, "\u2212 Wegnehmen")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        borderTop: '1px solid var(--border)',
-        paddingTop: 10,
-        display: 'flex',
-        gap: 8,
-        alignItems: 'center'
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        color: 'var(--text-muted)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        whiteSpace: 'nowrap'
-      }
-    }, "Direkt setzen"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        if (coinDelta !== '') {
-          updCurrency(coinPopover.key, Math.max(0, parseInt(coinDelta) || 0));
-          setCoinPopover(null);
-        }
-      },
-      style: {
-        flex: 1,
-        padding: '5px',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 11,
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        color: 'var(--text-muted)',
-        borderRadius: 4,
-        cursor: 'pointer'
-      }
-    }, "= Setzen"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setCoinPopover(null),
-      style: {
-        padding: '5px 10px',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 11,
-        background: 'none',
-        border: '1px solid var(--border)',
-        color: 'var(--text-muted)',
-        borderRadius: 4,
-        cursor: 'pointer'
-      }
-    }, "\u2715"))));
   })(), itemViewer && (() => {
     const item = itemViewer;
     const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
@@ -23905,6 +23686,10 @@ function App() {
   }), assistent && /*#__PURE__*/React.createElement(CharakterAssistent, {
     klassen: klassen,
     onAbbrechen: () => setAssistent(false),
+    onVonHand: () => {
+      setAssistent(false);
+      openNew();
+    },
     onFertig: assistentFertig
   }), aufstieg && /*#__PURE__*/React.createElement(StufenAufstieg, {
     char: aufstieg,

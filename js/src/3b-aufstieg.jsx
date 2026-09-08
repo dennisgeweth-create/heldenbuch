@@ -14,10 +14,19 @@
 const AUFSTIEG_ASI = ['zwei', 'eins', 'talent'];
 
 const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
-  const regel = KLASSEN_REGELN[char.charClass] || null;
-  const von   = Math.max(1, Math.min(20, +char.level || 1));
+  // Wer mehrere Klassen hat, steigt in einer davon auf — und welche das
+  // ist, entscheidet alles Weitere: den Trefferwürfel, die Stufe, die
+  // Attributssteigerung. Die Gesamtstufe ist die Summe und traegt den
+  // Übungsbonus; das rechnet aufstiegPlan.
+  const eigene = charKlassen(char);
+  const [klasse, setKlasse] = React.useState(char.charClass);
+  const dabei = eigene.find(k => k.charClass === klasse) || null;
+  const regel = KLASSEN_REGELN[klasse] || null;
+  const von   = dabei ? dabei.level : 0;
   const [ziel, setZiel] = React.useState(Math.min(20, von + 1));
-  const stufen = ziel - von;
+  const stufen = Math.max(0, ziel - von);
+  const weitere = Object.keys(KLASSEN_REGELN)
+    .filter(n => !eigene.some(k => k.charClass === n));
 
   // Der Durchschnitt eines Trefferwürfels ist die Hälfte plus eins —
   // beim W10 also 6. So steht es im Regelwerk, und die meisten Runden
@@ -35,11 +44,12 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
   const [asiA, setAsiA] = React.useState('str');
   const [asiB, setAsiB] = React.useState('dex');
 
-  // Ändert sich das Ziel, stimmt der alte Betrag nicht mehr.
+  // Ändert sich Klasse oder Ziel, stimmt der alte Betrag nicht mehr.
+  React.useEffect(() => { setZiel(Math.min(20, von + 1)); }, [klasse]);
   React.useEffect(() => {
     setGewuerfelt(null); setArt('schnitt'); setAsiArt(null);
     setTpPlus(regel ? schnitt * stufen : 0);
-  }, [ziel]);
+  }, [klasse, ziel]);
 
   const wuerfeln = () => {
     let summe = 0; const einzeln = [];
@@ -58,23 +68,48 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
     : asiArt === 'zwei' ? {[asiA]: 2}
     : (asiA === asiB ? {[asiA]: 2} : {[asiA]: 1, [asiB]: 1});
 
-  const plan = aufstiegPlan(char, {ziel, tpPlus, asi});
-  const geht = ziel !== von;
+  const plan = aufstiegPlan(char, {klasse, ziel, tpPlus, asi});
+  const geht = ziel > von;
 
   return (
     <Fenster>
       <div className="form-modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
         <div className="form-title">⇧ Stufenaufstieg — {char.name}</div>
 
+        {/* Welche Klasse steigt auf? Bei einer einzigen steht sie nur
+            da; ab der zweiten wird sie gewählt, und eine neue kommt aus
+            der Liste daneben. */}
+        {(eigene.length > 1 || weitere.length > 0) && (
+          <div className="auf-klassen">
+            {eigene.map(k => (
+              <button type="button" key={k.charClass}
+                className={'bj-taste' + (klasse === k.charClass ? ' haupt' : '')}
+                onClick={()=>setKlasse(k.charClass)}>
+                {k.charClass} {k.level}
+              </button>
+            ))}
+            <select className="form-select auf-dazu" value={dabei ? '' : klasse}
+              onChange={e=>{ if (e.target.value) setKlasse(e.target.value); }}>
+              <option value="">+ Neue Klasse…</option>
+              {weitere.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+        )}
+
         <div className="auf-kopf">
-          <span className="auf-klasse">{char.charClass}</span>
-          <span className="auf-pfeil">Stufe {von} →</span>
+          <span className="auf-klasse">{klasse}</span>
+          <span className="auf-pfeil">{dabei ? 'Stufe ' + von + ' →' : 'neu, auf Stufe'}</span>
           <select className="form-select auf-ziel" value={ziel}
             onChange={e=>setZiel(+e.target.value)}>
             {Array.from({length:20}, (_, i) => i + 1)
-              .filter(s => s !== von)
-              .map(s => <option key={s} value={s}>{s}</option>)}
+              .filter(st => st > von)
+              .map(st => <option key={st} value={st}>{st}</option>)}
           </select>
+          {eigene.length > 1 && (
+            <span className="auf-gesamt">
+              Gesamt {gesamtStufe(char)} → {gesamtStufe(char) + stufen}
+            </span>
+          )}
         </div>
 
         {/* ── Trefferpunkte ────────────────────────────────────── */}
@@ -123,7 +158,7 @@ const StufenAufstieg = ({ char, onAbbrechen, onUebernehmen }) => {
         {asiStufen.length > 0 && (
           <div className="form-group form-full">
             <div className="form-label">
-              Attributssteigerung — Stufe {asiStufen.join(' und ')}
+              Attributssteigerung — {klasse} Stufe {asiStufen.join(' und ')}
             </div>
             <div className="auf-tp">
               {AUFSTIEG_ASI.map(k => (

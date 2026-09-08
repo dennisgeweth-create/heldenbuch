@@ -177,7 +177,24 @@
   .btn-sm-add { padding:5px 10px; background:none; border:1px dashed var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; width:100%; margin-top:4px; }
   .btn-sm-add:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
   .class-badge { padding:6px 14px; border-radius:3px; font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; border:1px solid; }
-  .header-actions { display:flex; gap:8px; }
+  .header-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  /* Die Knoepfe am Kopf des Bogens. Sie waren blasse Zeichen ohne
+     Rahmen — sichtbar erst, wenn die Maus daraufstand, und am Finger
+     also gar nicht. Jetzt tragen sie Rand und Wort. */
+  .kopf-knopf { display:inline-flex; align-items:center; gap:6px; padding:6px 11px;
+    min-height:34px; border-radius:4px; cursor:pointer;
+    background:var(--bg-panel); border:1px solid var(--border); color:var(--text-secondary);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; letter-spacing:0.04em;
+    transition:background 0.12s, color 0.12s, border-color 0.12s; }
+  .kopf-knopf:hover { border-color:var(--border-bright); color:var(--text-primary);
+    background:var(--bg-card); }
+  .kopf-zeichen { font-size:14px; line-height:1; }
+  /* Der Aufstieg ist der Knopf, den man sucht — er darf golden sein. */
+  .kopf-knopf.auf { border-color:var(--gold-dim); color:var(--gold); }
+  .kopf-knopf.auf:hover { background:var(--gold-dim); color:var(--gold-bright); }
+  .kopf-knopf.aktiv { border-color:var(--gold-dim); color:var(--gold-dim); }
+  .kopf-knopf.weg:hover { border-color:var(--crimson); color:var(--crimson-bright);
+    background:rgba(180,60,60,0.12); }
   .btn-icon { padding:7px 12px; border-radius:3px; font-size:12px; cursor:pointer; border:1px solid var(--border); background:var(--bg-panel); color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; }
   .btn-icon:hover { border-color:var(--border-bright); color:var(--text-primary); }
   .btn-delete:hover { border-color:var(--crimson); color:var(--crimson-bright); }
@@ -386,12 +403,18 @@
   .spell-card-footer { display:flex; align-items:center; justify-content:space-between; padding:3px 7px; border-top:1px solid rgba(255,255,255,0.09); }
   .spell-card-school-footer { font-family:'Roboto Condensed',sans-serif; font-size:8px; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; }
   /* Actions */
-  .spell-actions { display:flex; gap:2px; }
-  .spell-delete { background:rgba(255,255,255,0.10); border:none; color:var(--text-muted); cursor:pointer; font-size:10px; padding:2px 5px; border-radius:3px; }
-  .spell-card:hover .spell-delete { color:var(--text-primary); }
-  .spell-edit-btn { background:rgba(0,0,0,0.5); border:none; color:var(--text-secondary); cursor:pointer; font-size:11px; padding:2px 5px; border-radius:3px; font-family:'Roboto Condensed',sans-serif; }
-  .spell-delete:hover { color:var(--crimson-bright); background:rgba(255,255,255,0.16); }
-  .spell-edit-btn:hover { color:var(--gold); background:rgba(0,0,0,0.7); }
+  /* Die beiden Knoepfe an einer Zauberkarte sitzen auf der farbigen
+     Fusszeile ihrer Schule — dunkles Grau auf Violett liest sich nicht.
+     Sie bekommen deshalb einen eigenen dunklen Grund, einen Rand und
+     helle Schrift: dieselbe Karte, aber man sieht, dass da etwas ist. */
+  .spell-actions { display:flex; gap:4px; }
+  .spell-delete, .spell-edit-btn { cursor:pointer; font-size:12px; line-height:1;
+    padding:3px 7px; border-radius:4px; background:rgba(0,0,0,0.55);
+    border:1px solid rgba(255,255,255,0.22); color:#e8e6e3;
+    font-family:'Roboto Condensed',sans-serif;
+    transition:background 0.12s, color 0.12s, border-color 0.12s; }
+  .spell-edit-btn:hover { color:var(--gold-bright); border-color:var(--gold); background:rgba(0,0,0,0.75); }
+  .spell-delete:hover { color:var(--crimson-bright); border-color:var(--crimson); background:rgba(0,0,0,0.75); }
   .features-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; align-items:start; }
   .profs-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:8px; }
   .feature-card { border-radius:8px; cursor:pointer; position:relative; overflow:hidden; border:1px solid var(--gold-dim); background:var(--bg-deep); display:flex; flex-direction:column; transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
@@ -541,13 +564,29 @@
   .note-del { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; padding:2px 6px; opacity:0.5; }
   .note-del:hover { color:var(--crimson-bright); opacity:1; }
 
-  .currency-row { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:20px; }
-  .currency-box { background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:10px 8px; text-align:center; }
-  .currency-box:hover { border-color:var(--border-bright); }
-  .currency-icon { font-size:20px; line-height:1; margin-bottom:4px; }
-  .currency-label { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:6px; }
-  .currency-input { width:100%; background:var(--bg-void); border:1px solid var(--border); border-radius:3px; color:var(--text-primary); font-family:'Roboto Condensed',sans-serif; font-size:16px; text-align:center; padding:4px 2px; outline:none; }
-  .currency-input:focus { border-color:var(--gold-dim); }
+  /* Der Beutel: was drin ist, steht da — geaendert wird darunter, in
+     Gold, mit zwei Knoepfen. Die Muenzsorten sind eine Anzeige und kein
+     Bedienelement mehr. */
+  .beutel-muenzen { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .beutel-muenze { display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:9px 6px; border-radius:6px; background:var(--bg-card); border:1px solid var(--border); }
+  .beutel-zahl { font-family:'Roboto Condensed',sans-serif; font-size:19px; line-height:1.1;
+    font-variant-numeric:tabular-nums; }
+  .beutel-name { font-family:'Roboto Condensed',sans-serif; font-size:9px; letter-spacing:0.15em;
+    text-transform:uppercase; opacity:0.8; }
+  .beutel-summe { margin-top:7px; text-align:right; font-family:'Roboto Condensed',sans-serif;
+    font-size:11px; color:var(--text-muted); }
+  .beutel-summe b { color:var(--gold); font-weight:400; font-size:13px; }
+  .beutel-kasse { display:flex; gap:7px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+  .beutel-betrag { flex:1 1 130px; min-width:0; text-align:center;
+    font-variant-numeric:tabular-nums; }
+  .beutel-kasse .bj-taste { flex:0 0 auto; min-height:38px; padding:0 14px; }
+  .beutel-aus { border-color:rgba(180,60,60,0.55) !important; color:#e07070 !important; }
+  .beutel-aus:hover:not(:disabled) { background:rgba(180,60,60,0.18) !important; }
+  .beutel-ein { border-color:#3d6a99 !important; color:#9cccf7 !important; }
+  .beutel-ein:hover:not(:disabled) { background:rgba(74,144,217,0.18) !important; }
+  .beutel-hinweis { margin:8px 0 20px; font-size:11.5px; line-height:1.55;
+    color:var(--text-muted); }
   /* Inventory card grid - same layout as spell cards */
   .inv-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:start; }
   .inv-card { border-radius:6px; cursor:pointer; overflow:hidden; border:2px solid; background:var(--bg-panel); display:flex; flex-direction:column; box-shadow:0 3px 10px rgba(0,0,0,0.5); transition:transform 0.15s,box-shadow 0.15s; touch-action:manipulation; }
@@ -824,8 +863,10 @@
     .inv-grid { grid-template-columns:repeat(3,1fr); }
     .weapon-grid { grid-template-columns:repeat(2,1fr); }
     .icon-picker-grid { grid-template-columns:repeat(7,1fr); }
+    .kopf-wort { display:none; }
+    .kopf-knopf { padding:6px 9px; }
     .slot-pip { width:22px; height:22px; }
-    .currency-row { grid-template-columns:repeat(3,1fr); }
+    .beutel-muenzen { grid-template-columns:repeat(3,1fr); }
     .form-overlay { padding:0; align-items:flex-end; }
     /* Der Dialog kommt von unten — zugeklappt bleibt er dort liegen und
        gibt den Bogen darueber wieder frei. Die Reiterleiste bleibt dabei
@@ -864,7 +905,7 @@
     .inv-grid { grid-template-columns:repeat(4,1fr); }
     .weapon-grid { grid-template-columns:repeat(3,1fr); }
     .slots-grid { grid-template-columns:repeat(3,1fr); }
-    .currency-row { grid-template-columns:repeat(5,1fr); }
+    .beutel-muenzen { grid-template-columns:repeat(5,1fr); }
     .form-grid { grid-template-columns:1fr 1fr; }
     .form-full { grid-column:1 / -1; }
     .form-overlay { padding:24px; align-items:center; }
@@ -986,7 +1027,7 @@
     .spell-card-school-footer,
     .spell-card-stat-label,
     .combat-label,
-    .currency-label,
+    .beutel-name,
     .inv-tag,
     .res-mini-label,
     .stat-label,
@@ -3164,14 +3205,16 @@
   .ass-attr-summe i { font-style:normal; font-size:10.5px; color:var(--text-muted); }
   .ass-vorschau { max-height:150px; overflow-y:auto; overflow-x:hidden; }
   /* Der zweite Weg hinein steht leiser da als der erste. */
-  .btn-new.schlicht { margin-top:6px; background:var(--bg-card);
-    border:1px solid var(--border); color:var(--text-muted); font-weight:400; }
-  .btn-new.schlicht:hover { border-color:var(--border-bright); color:var(--text-secondary); }
 
   /* ── Der Stufenaufstieg ─────────────────────────
      Die Vorschau ist der wichtigste Kasten im Fenster: was nicht darin
      steht, passiert nicht. Deshalb steht sie hell und die Wahl davor
      leise. */
+  /* Ab der zweiten Klasse wird gewaehlt, welche aufsteigt. */
+  .auf-klassen { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .auf-dazu { flex:0 0 auto; width:auto; min-height:36px; padding:0 8px; font-size:12px; }
+  .auf-gesamt { margin-left:auto; font-family:'Roboto Condensed',sans-serif; font-size:11px;
+    color:var(--text-muted); white-space:nowrap; }
   .auf-kopf { display:flex; align-items:center; gap:9px; flex-wrap:wrap;
     padding:9px 11px; border-radius:7px;
     background:var(--bg-panel); border:1px solid var(--border); }

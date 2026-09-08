@@ -117,6 +117,63 @@ stehen hervorgehoben da. Die Zahlen daneben bleiben trotzdem deine: wer
 Wen die Sammlung nicht kennt, entsteht wie bisher aus dem Stegreif.
 Geschrieben wird in die Sammlung dabei nie — gelesen schon.
 
+### 💰 Der Beutel
+
+Fünf Münzsorten, jede mit eigenem Fenster, darin „Hinzufügen",
+„Wegnehmen" und „Setzen" — drei Wege für eine Sache, und der dritte
+hiess anders, als er tat. Am Tisch wird aber ausgegeben und
+eingenommen, und gerechnet wird in Gold.
+
+Jetzt steht da, was drin ist, und darunter ein Feld und zwei Knöpfe:
+**− Ausgeben** und **+ Einnehmen**, Beträge in Gold. „2,5" sind zwei
+Gold und fünf Silber. Das Wechseln macht das Programm — bezahlt wird
+aus dem Kleingeld zuerst, und was zu viel hingelegt wurde, kommt als
+Wechselgeld zurück. Dieselbe Rechnung wie im Laden. Reicht der Beutel
+nicht, sagt es das und rührt nichts an.
+
+### 👁 Knöpfe, die man sieht
+
+Drei Stellen, an denen etwas da war, das man nicht fand:
+
+- **Am Kopf des Bogens** standen Aufstieg, Bearbeiten, Archiv und
+  Löschen als blasse Zeichen ohne Rahmen — 55 % Deckkraft, Umriss erst
+  beim Darüberfahren, und am Finger gibt es kein Darüberfahren. Jetzt
+  sind es Knöpfe mit Rand und Wort; der Aufstieg trägt Gold, weil er
+  der ist, den man sucht. Eng wird es, bleibt das Zeichen allein.
+- **Der Stift an einer Zauberkarte** war schwarz auf der farbigen
+  Fusszeile seiner Schule: ein eingetragener Stil hatte die Klasse
+  überschrieben, die es richtig machte. Er und das Kreuz daneben haben
+  jetzt einen dunklen Grund, einen Rand und helle Schrift.
+- **„Von Hand"** stand in der Heldenleiste neben „Neuer Charakter" — an
+  einer Stelle, an der man wählen musste, bevor man wusste, was der
+  Assistent überhaupt fragt. Er steht jetzt im Assistenten selbst, im
+  ersten Schritt: dort weiss man, wovon man sich verabschiedet.
+
+### ⇧ Der Aufstieg kennt mehrere Klassen
+
+Der Stufenaufstieg konnte nur die Hauptklasse. Wer gemischt hatte, bekam
+den Übungsbonus aus **ihrer** Stufe statt aus der Summe — ein Magier 4 /
+Kleriker 1 stand auf +2, richtig sind +3. Und die Zauberplätze liess er
+ganz stehen.
+
+Jetzt wird gewählt, welche Klasse aufsteigt — die vorhandenen stehen als
+Knöpfe da, eine neue kommt aus der Liste daneben. Daraus folgt alles
+Übrige: der Trefferwürfel dieser Klasse, ihre Attributssteigerung, ihre
+Unterklassenstufe. Der Übungsbonus folgt der Gesamtstufe.
+
+**Die Zauberplätze rechnet er jetzt auch gemischt.** Volle Klassen
+zählen ganz, halbe zur Hälfte und abgerundet — ein Paladin 1 bringt
+nichts mit, ein Paladin 2 eine Stufe. Wer nur eine zaubernde Klasse hat,
+rechnet weiter nach deren eigener Tabelle, so wie es das Regelwerk
+sagt. Die Plätze des Paktmagiers kommen oben drauf, mit dem Hinweis,
+dass sie schon nach einer kurzen Rast zurückkommen.
+
+Dazu die Failsafes, die beim Mischen am meisten fehlen: **die
+Voraussetzungen.** Wer einen Paladin dazunimmt, liest *„Für Paladin
+verlangt das Regelwerk Stärke 13 und Charisma 13 — hier steht Stärke 10,
+Charisma 12."* Verboten wird nichts; eine Runde, die es anders hält,
+soll nicht am Programm scheitern.
+
 ### ⚡ Jemand kommt dazwischen
 
 Der Drache hat legendäre Aktionen, der Schurke hält eine Aktion bereit,

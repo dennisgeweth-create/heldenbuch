@@ -23,7 +23,7 @@ const Sheet = () => {
     initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
     klassen, languages, notesList, noteTagFilter, openAufstieg, openEdit, openNew, openTpl, traglastAn,
     openUnprepared, patchChar, patchCurrent, resEdit, resetAll, resources, save, sel,
-    selectChar, setCharMenuOpen, setCoinDelta, setCoinPopover,
+    selectChar, setCharMenuOpen,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
     setFfEditId, setImgViewer, setInsp, setInspMax, setInvRarity,
     setInvTagFilter, setItemViewer, setItf, setItfEditId, setNf,
@@ -50,6 +50,8 @@ const Sheet = () => {
   const [nachgetragen, setNachgetragen] = useState(null);   // Rueckmeldung des Einlesers
   const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
+  const [betrag, setBetrag] = useState("");            // Gold, ausgeben oder einnehmen
+  const [beutelMeldung, setBeutelMeldung] = useState("");
   const invSucheRef = useRef(null);
   // Nach dem Zuruecksetzen steht der Zeiger wieder im Feld: der haeufigste
   // naechste Schritt ist eine neue Suche, nicht das Blaettern.
@@ -73,7 +75,27 @@ const Sheet = () => {
     const sls = Object.keys(sbl).map(Number).sort((a,b)=>a-b);
     const inv = cur.inventory || [];
     const currency = cur.currency || {pp:0,gp:0,ep:0,sp:0,cp:0};
-    const totalGp = (currency.pp*10)+(currency.gp)+(currency.ep*0.5)+(currency.sp*0.1)+(currency.cp*0.01);
+
+    // Ausgeben und Einnehmen rechnen den ganzen Beutel um, nicht eine
+    // einzelne Münzsorte — dieselben Funktionen, die auch der Laden
+    // benutzt.
+    const beutelKupfer = goldZuKupfer(betrag);
+    const beutelGeben = () => {
+      const neu = muenzenZahlen(currency, beutelKupfer);
+      if (!neu) {
+        setBeutelMeldung("Dafür reicht der Beutel nicht — darin sind "
+          + preisText(muenzenSumme(currency)) + ".");
+        return;
+      }
+      patchCurrent(() => ({currency: neu}));
+      setBeutelMeldung(preisText(beutelKupfer) + " ausgegeben.");
+      setBetrag("");
+    };
+    const beutelNehmen = () => {
+      patchCurrent(() => ({currency: muenzenDazu(currency, beutelKupfer)}));
+      setBeutelMeldung(preisText(beutelKupfer) + " eingenommen.");
+      setBetrag("");
+    };
     const totalWeight = inv.reduce((s,i)=>s+(parseFloat(i.weight)||0)*i.qty, 0);
 
     // ── Werte fuer die mitscrollende Leiste ──────────────────────────
@@ -222,50 +244,31 @@ const Sheet = () => {
                 anzubieten, die zu ist, waere nur aergerlich. */}
             <div className="header-actions">
               {darfBearbeiten ? <>
-                {/* Der Aufstieg steht neben dem Stift, weil er dorthin
-                    gehört: beides ändert den Bogen selbst. */}
-                <button title="Stufenaufstieg"
-                  onClick={openAufstieg}
-                  style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
-                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.55,transition:"opacity 0.15s,border-color 0.15s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border-bright)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.borderColor="transparent";}}>
-                  ⇧
+                {/* Diese vier waren blasse Zeichen ohne Rahmen: 55 %
+                    Deckkraft, Umriss erst beim Darüberfahren, kein Wort
+                    dabei. Wer nicht wusste, dass es sie gibt, fand sie
+                    nicht — und am Finger gibt es kein Darüberfahren.
+                    Jetzt sind es Knöpfe mit Rand und Aufschrift; eng
+                    wird es, bleibt das Zeichen allein stehen. */}
+                <button className="kopf-knopf auf" title="Stufenaufstieg" onClick={openAufstieg}>
+                  <span className="kopf-zeichen">⇧</span><span className="kopf-wort">Aufstieg</span>
                 </button>
-                <button title="Bearbeiten"
-                  onClick={openEdit}
-                  style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
-                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.55,transition:"opacity 0.15s,border-color 0.15s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border-bright)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.borderColor="transparent";}}>
-                  ✎
+                <button className="kopf-knopf" title="Bearbeiten" onClick={openEdit}>
+                  <span className="kopf-zeichen">✎</span><span className="kopf-wort">Bearbeiten</span>
                 </button>
                 {cur.archived ? (
-                  <button title="Reaktivieren"
-                    onClick={()=>unarchiveChar(cur.id)}
-                    style={{padding:"4px 10px",background:"none",border:"1px solid var(--gold-dim)",borderRadius:3,
-                      color:"var(--gold-dim)",fontSize:12,fontFamily:"'Roboto Condensed',sans-serif",cursor:"pointer",opacity:0.8,letterSpacing:"0.05em"}}
-                    onMouseEnter={e=>{e.currentTarget.style.opacity="1";}}
-                    onMouseLeave={e=>{e.currentTarget.style.opacity="0.8";}}>
-                    ↩ aktiv
+                  <button className="kopf-knopf aktiv" title="Reaktivieren"
+                    onClick={()=>unarchiveChar(cur.id)}>
+                    <span className="kopf-zeichen">↩</span><span className="kopf-wort">Aktiv</span>
                   </button>
                 ) : (
-                  <button title="Archivieren"
-                    onClick={()=>appConfirm("Charakter \""+cur.name+"\" archivieren?", archiveChar, "Archivieren")}
-                    style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
-                      color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s"}}
-                    onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.borderColor="var(--border)"}}
-                    onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.borderColor="transparent"}}>
-                    📦
+                  <button className="kopf-knopf" title="Archivieren"
+                    onClick={()=>appConfirm("Charakter \""+cur.name+"\" archivieren?", archiveChar, "Archivieren")}>
+                    <span className="kopf-zeichen">📦</span><span className="kopf-wort">Archiv</span>
                   </button>
                 )}
-                <button title="Löschen"
-                  onClick={deleteChar}
-                  style={{padding:"4px 8px",background:"none",border:"1px solid transparent",borderRadius:3,
-                    color:"var(--text-muted)",fontSize:14,cursor:"pointer",opacity:0.45,transition:"opacity 0.15s,border-color 0.15s,color 0.15s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.color="var(--crimson-bright)";e.currentTarget.style.borderColor="var(--crimson)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.45";e.currentTarget.style.color="var(--text-muted)";e.currentTarget.style.borderColor="transparent";}}>
-                  ✕
+                <button className="kopf-knopf weg" title="Löschen" onClick={deleteChar}>
+                  <span className="kopf-zeichen">✕</span><span className="kopf-wort">Löschen</span>
                 </button>
               </> : (
                 <span className="fremder-bogen" title="Dieser Bogen gehört jemand anderem — ändern darf ihn sein Konto und die Spielleitung">🔒</span>
@@ -1269,7 +1272,12 @@ const Sheet = () => {
                                     boxShadow:s.prepared===false?'0 0 4px #e0c040aa':'0 0 6px #3aaa5caa',
                                     transition:'all 0.2s'}} />
                                 </button>
-                                <button className="spell-edit-btn" onClick={e=>{e.stopPropagation();setSf({...s});setSfEditId(s.id);setShowSF(true);}}                                  style={{background:'rgba(0,0,0,0.12)',border:'none',color:'rgba(0,0,0,0.5)',cursor:'pointer',fontSize:10,padding:'2px 5px',borderRadius:3}}>✎</button>
+                                {/* Der Stift stand schwarz auf der farbigen
+                                    Fusszeile und war praktisch unsichtbar —
+                                    der eingetragene Stil schlug die Klasse.
+                                    Jetzt gilt die Klasse. */}
+                                <button className="spell-edit-btn" title="Zauber bearbeiten"
+                                  onClick={e=>{e.stopPropagation();setSf({...s});setSfEditId(s.id);setShowSF(true);}}>✎</button>
                                 <button className="spell-delete" onClick={e=>{e.stopPropagation();delSpell(s.id);}}>✕</button>
                               </div>
                             </div>
@@ -1375,30 +1383,39 @@ const Sheet = () => {
 
         {tab==="inventar" && (
           <>
-            <div className="section-title" style={{marginBottom:12}}>💰 Währung</div>
-            <div className="currency-row">
-              {COINS.map(c => {
-                const val = currency[c.key]||0;
-                return (
-                  <div className="currency-box" key={c.key}
-                    style={{borderColor:c.color+'40', cursor:'pointer', userSelect:'none'}}
-                    onClick={e=>{
-                      setCoinDelta('');
-                      setCoinPopover({key:c.key, label:c.label, color:c.color, val});
-                    }}>
-                    <div className="currency-icon" style={{color:c.color}}>🪙</div>
-                    <div className="currency-label" style={{color:c.color}}>{c.label}</div>
-                    <div className="currency-input" style={{color:c.color,borderColor:c.color+'40',
-                      display:'flex',alignItems:'center',justifyContent:'center',
-                      fontFamily:"'Roboto Condensed',sans-serif",fontSize:16,minHeight:32}}>
-                      {val}
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Der Beutel. Er hatte fünf Münzsorten, jede mit eigenem
+                Fenster, darin "Hinzufügen", "Wegnehmen" und "Setzen" —
+                drei Wege für eine Sache, und der dritte hiess anders,
+                als er tat. Am Tisch wird ausgegeben und eingenommen, und
+                gerechnet wird in Gold. Das Wechseln kann das Programm:
+                bezahlt wird aus dem Kleingeld zuerst, und was zu viel
+                hingelegt wurde, kommt als Wechselgeld zurück. */}
+            <div className="section-title" style={{marginBottom:12}}>💰 Beutel</div>
+            <div className="beutel-muenzen">
+              {COINS.map(c => (
+                <div className="beutel-muenze" key={c.key} style={{borderColor:c.color+'40'}}>
+                  <span className="beutel-zahl" style={{color:c.color}}>{currency[c.key]||0}</span>
+                  <span className="beutel-name" style={{color:c.color}}>{c.label}</span>
+                </div>
+              ))}
             </div>
-            <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,color:"var(--text-muted)",textAlign:"right",marginBottom:20}}>
-              Gesamtwert: <span style={{color:"var(--gold)"}}>{totalGp.toFixed(2)} GM</span>
+            <div className="beutel-summe">
+              Zusammen <b>{preisText(muenzenSumme(currency))}</b>
+            </div>
+            {darfBearbeiten && (
+              <div className="beutel-kasse">
+                <input className="form-input beutel-betrag" value={betrag} maxLength={9}
+                  placeholder="Betrag in Gold" inputMode="decimal"
+                  onChange={e=>{ setBetrag(e.target.value); setBeutelMeldung(""); }}
+                  onKeyDown={e=>{ if (e.key === "Enter" && beutelKupfer) beutelGeben(); }} />
+                <button className="bj-taste beutel-aus" disabled={!beutelKupfer}
+                  onClick={beutelGeben}>− Ausgeben</button>
+                <button className="bj-taste beutel-ein" disabled={!beutelKupfer}
+                  onClick={beutelNehmen}>+ Einnehmen</button>
+              </div>
+            )}
+            <div className="beutel-hinweis">
+              {beutelMeldung || "Beträge in Gold — „2,5“ sind zwei Gold und fünf Silber. Gewechselt wird von selbst."}
             </div>
 
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>

@@ -13,7 +13,7 @@
 
 const ASS_SCHRITTE = ['Volk', 'Klasse', 'Attribute', 'Hintergrund', 'Fertigkeiten', 'Ausrüstung'];
 
-const CharakterAssistent = ({ klassen, onAbbrechen, onFertig }) => {
+const CharakterAssistent = ({ klassen, onAbbrechen, onFertig, onVonHand }) => {
   const [schritt, setSchritt] = React.useState(0);
   const [e, setE] = React.useState({
     name: '', volk: '', untervolk: '', klasse: '', hintergrund: '',
@@ -320,6 +320,18 @@ const CharakterAssistent = ({ klassen, onAbbrechen, onFertig }) => {
 
         <div className="form-actions" style={{marginTop:14}}>
           <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          {/* Der Weg von Hand stand in der Heldenleiste neben „Neuer
+              Charakter" — an einer Stelle, an der man ihn wählen musste,
+              bevor man wusste, was der Assistent überhaupt fragt. Hier
+              steht er da, wo man ihn braucht: wenn er einem zu langsam
+              geht. Eingetragenes bleibt dabei zurück, deshalb nur im
+              ersten Schritt. */}
+          {onVonHand && schritt === 0 && (
+            <button className="btn-cancel" onClick={onVonHand}
+              title="Nur Name, Volk, Hintergrund und Klasse — den Rest trägst du selbst ein">
+              ✎ Lieber von Hand
+            </button>
+          )}
           {schritt > 0 && (
             <button className="btn-cancel" onClick={()=>setSchritt(schritt - 1)}>Zurück</button>
           )}

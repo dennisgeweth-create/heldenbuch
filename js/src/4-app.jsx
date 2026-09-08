@@ -24,7 +24,6 @@ function App() {
   // Nur die id: die Waffe wird beim Rendern frisch aus cur geholt, damit die
   // Detailansicht nach einer Bearbeitung nicht auf einer Kopie stehen bleibt.
   const [weaponViewer,  setWeaponViewer]  = useState(null);
-  const [coinPopover,   setCoinPopover]   = useState(null);
   const [showLog,      setShowLog]      = useState(false);
   const [logEntries,   setLogEntries]   = useState([]);
   const [logLoading,   setLogLoading]   = useState(false);
@@ -32,7 +31,6 @@ function App() {
   const [adventEntries,setAdventEntries]= useState([]);
   const [adventSearch, setAdventSearch] = useState('');
   const [adventTabFilter,setAdventTabFilter] = useState([]);
-  const [coinDelta,     setCoinDelta]     = useState('');
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [invTagFilter, setInvTagFilter] = useState([]);
   const [showNF,     setShowNF]     = useState(false);
@@ -2657,7 +2655,6 @@ function App() {
       patchCurrent(c=>({notesList:updated,notes:''}));
     });
   };
-  const updCurrency = (k,v) => patchCurrent(c=>({currency:{...(c.currency||{}), [k]:Math.max(0,+v||0)}}));
   const toggleSkill = key => {
     const profs = cur.skillProfs||[];
     const exp   = cur.expertiseProfs||[];
@@ -3145,7 +3142,7 @@ function App() {
     openAssistent, openAufstieg, openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
     traglastAn: !!(advObj && advObj.traglast),
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
-    setCoinDelta, setCoinPopover, setCollapsedLevels, setExFeature,
+    setCollapsedLevels, setExFeature,
     setExNote, setExSpell, setFf, setFfEditId, setGearPick, setGearSlot,
     setImgViewer, setInsp, setInspMax, setInvRarity, setInvTagFilter,
     setItemViewer, setItf, setItfEditId, setNf, setNfEditId,
@@ -3242,14 +3239,10 @@ function App() {
             </div>
           )}
           <div className="sidebar-footer">
-            {/* Zwei Wege hinein: der Assistent führt durch die Regeln,
-                das Formular fragt nur nach fünf Feldern. Wer weiß, was er
-                tut, ist mit dem zweiten schneller. */}
+            {/* Ein Weg hinein. Der zweite — das blosse Formular — steht
+                im Assistenten selbst: dort weiss man, wovon man sich
+                verabschiedet. */}
             <button className="btn-new" onClick={openAssistent}>✦ Neuer Charakter</button>
-            <button className="btn-new schlicht" onClick={openNew}
-              title="Nur Name, Volk, Hintergrund und Klasse — den Rest trägst du selbst ein">
-              ✎ Von Hand
-            </button>
             <div className="sidebar-tools">
               <button className="btn-tool" onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
               <button className="btn-tool" onClick={()=>{
@@ -4350,85 +4343,6 @@ function App() {
       })()}
 
       {/* Coin Popover */}
-      {coinPopover && (() => {
-        const cur = coinPopover.val || 0;
-        const delta = parseInt(coinDelta)||0;
-        const apply = (sign) => {
-          const newVal = Math.max(0, cur + sign * Math.abs(delta||0));
-          updCurrency(coinPopover.key, newVal);
-          setCoinPopover(prev => ({...prev, val: newVal}));
-          setCoinDelta('');
-        };
-        return (
-          <div className="form-overlay" style={{background:'rgba(0,0,0,0.6)'}} onClick={()=>setCoinPopover(null)}>
-            <div style={{background:'var(--bg-panel)',borderRadius:8,padding:'18px 20px',
-              border:`2px solid ${coinPopover.color}60`,boxShadow:'0 8px 32px rgba(0,0,0,0.7)',
-              minWidth:220,maxWidth:280}} onClick={e=>e.stopPropagation()}>
-              {/* Header */}
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                <span style={{fontSize:28}}>🪙</span>
-                <div>
-                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14,color:coinPopover.color,fontWeight:700,letterSpacing:'0.08em'}}>{coinPopover.label}</div>
-                  <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:20,color:'var(--text-primary)',lineHeight:1}}>{cur}</div>
-                </div>
-              </div>
-              {/* Input */}
-              <div style={{marginBottom:12}}>
-                <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:5}}>Betrag</div>
-                <input
-                  autoFocus
-                  type="number" min="0"
-                  value={coinDelta}
-                  onChange={e=>setCoinDelta(e.target.value)}
-                  onKeyDown={e=>{
-                    if(e.key==='Enter' && coinDelta) apply(1);
-                    if(e.key==='Escape') setCoinPopover(null);
-                  }}
-                  style={{width:'100%',boxSizing:'border-box',background:'var(--bg-void)',
-                    border:`1px solid ${coinPopover.color}60`,borderRadius:4,
-                    color:'var(--text-primary)',fontFamily:"'Roboto Condensed',sans-serif",
-                    fontSize:18,textAlign:'center',padding:'8px 4px',outline:'none'}}
-                  placeholder="0"
-                />
-              </div>
-              {/* Buttons */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
-                <button
-                  onClick={()=>apply(1)}
-                  style={{padding:'10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,fontWeight:700,
-                    background:`${coinPopover.color}25`,border:`1px solid ${coinPopover.color}80`,
-                    color:coinPopover.color,borderRadius:5,cursor:'pointer',letterSpacing:'0.05em'}}>
-                  + Hinzufügen
-                </button>
-                <button
-                  onClick={()=>apply(-1)}
-                  style={{padding:'10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:13,fontWeight:700,
-                    background:'rgba(180,60,60,0.15)',border:'1px solid rgba(180,60,60,0.5)',
-                    color:'#e07070',borderRadius:5,cursor:'pointer',letterSpacing:'0.05em'}}>
-                  − Wegnehmen
-                </button>
-              </div>
-              {/* Direct set */}
-              <div style={{borderTop:'1px solid var(--border)',paddingTop:10,display:'flex',gap:8,alignItems:'center'}}>
-                <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',whiteSpace:'nowrap'}}>Direkt setzen</span>
-                <button
-                  onClick={()=>{ if(coinDelta!=='') { updCurrency(coinPopover.key, Math.max(0,parseInt(coinDelta)||0)); setCoinPopover(null); }}}
-                  style={{flex:1,padding:'5px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,
-                    background:'var(--bg-card)',border:'1px solid var(--border)',
-                    color:'var(--text-muted)',borderRadius:4,cursor:'pointer'}}>
-                  = Setzen
-                </button>
-                <button onClick={()=>setCoinPopover(null)}
-                  style={{padding:'5px 10px',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,
-                    background:'none',border:'1px solid var(--border)',
-                    color:'var(--text-muted)',borderRadius:4,cursor:'pointer'}}>
-                  ✕
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Item Detail Modal */}
       {itemViewer && (() => {
@@ -4668,6 +4582,7 @@ function App() {
       {assistent && (
         <CharakterAssistent klassen={klassen}
           onAbbrechen={()=>setAssistent(false)}
+          onVonHand={()=>{ setAssistent(false); openNew(); }}
           onFertig={assistentFertig} />
       )}
 
