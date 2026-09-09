@@ -72,7 +72,7 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
 // dabei nicht vorkommt, ist eine Zahl: wie viel ankommt, weiss er
 // nicht, und die Trefferpunkte der Gegner gehen ihn nichts an. Er sagt
 // an, die Spielleitung traegt ein.
-const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) => {
+const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPlatz }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
   const [wahl, setWahl] = React.useState({
@@ -91,6 +91,10 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
   // paar Sekunden; solange steht es hier, damit die Zusammenfassung
   // sofort stimmt.
   const [eigene, setEigene] = React.useState([]);
+  // Was der letzte abgeschickte Zauber den Vorrat gekostet hat. Steht
+  // einen Augenblick da, damit man es merkt — und damit man es merkt,
+  // wenn nichts mehr da war.
+  const [platz, setPlatz] = React.useState(null);
 
   const {gegenstand, grundGrad, grad, wurf} = aktionsStand(held, wahl);
   const liste = (kampf && kampf.teilnehmer) || [];
@@ -125,11 +129,22 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
       ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
       zielIds: Object.keys(ziele),
       text: text.trim(),
+      // Auf welchem Grad wirklich gezaubert wird. „grad" oben steht nur
+      // beim Hochzaubern da; hier steht er immer, denn daran haengt der
+      // Platz.
+      stufe: (wahl.art === 'zauber' && gegenstand) ? grad : 0,
     });
     // Das Fenster bleibt offen: die nächste Ansage kommt meistens
     // gleich hinterher. Was gewählt war, bleibt stehen — der zweite
     // Hieb ist derselbe —, Ziele und Beschreibung werden frei.
     if (raus) setEigene(e => [...e, raus]);
+    // Der Platz geht erst ab, wenn die Ansage durch ist. Wer sie nicht
+    // losbekommt, soll nicht trotzdem bezahlt haben.
+    if (raus && onPlatz && wahl.art === 'zauber' && gegenstand && grad > 0) {
+      setPlatz(onPlatz(grad));
+    } else if (raus) {
+      setPlatz(null);
+    }
     setZiele({}); setText('');
     setLaeuft(false);
   };
@@ -216,6 +231,18 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden }) =>
               {!etwasDa && <i>Wähle etwas aus oder schreib einen Satz.</i>}
             </div>
           </div>
+
+          {/* Was der Vorrat dazu gesagt hat. */}
+          {platz && (
+            <div className={'zug-platz' + (platz.gestrichen ? '' : ' leer')}>
+              {platz.gestrichen
+                ? '◈ Zauberplatz gestrichen — noch ' + platz.frei
+                  + ' vom ' + platz.grad + '. Grad.'
+                : platz.hat
+                  ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.'
+                  : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.'}
+            </div>
+          )}
         </div>
 
         <div className="zug-fuss">

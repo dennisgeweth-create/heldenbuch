@@ -185,13 +185,55 @@ const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
   );
 };
 
+// ── Wenn nicht gleichmaessig geteilt werden soll ──────────────
+// Gleiche Teile sind der Normalfall und bleiben es. Aber nicht jeder
+// Fund wird gleich geteilt: die Kriegskasse geht an den, der die Truppe
+// bezahlt, der Anteil des Gefallenen an seine Familie, und wer den
+// Drachen allein erlegt hat, bekommt eben mehr. Von Hand heisst deshalb
+// wirklich von Hand — je Held und Muenzart eine Zahl.
+//
+// Aufgehen muss es trotzdem: der Fund wird danach weggeraeumt, und was
+// nicht zugeteilt ist, waere weg. Deshalb steht daneben, was noch offen
+// ist, und der Knopf bleibt zu, solange es nicht null ist.
+const beuteHandRest = (muenzen, hand) => {
+  const rest = {};
+  COINS.forEach(c => {
+    const ganz = Math.max(0, Math.round((muenzen || {})[c.key] || 0));
+    let weg = 0;
+    Object.keys(hand || {}).forEach(id => { weg += Math.max(0, Math.round((hand[id] || {})[c.key] || 0)); });
+    rest[c.key] = ganz - weg;
+  });
+  return rest;
+};
+const beuteHandStimmt = (muenzen, hand) => {
+  const r = beuteHandRest(muenzen, hand);
+  return COINS.every(c => r[c.key] === 0);
+};
+// Der Anfangsvorschlag der Handverteilung ist die gleichmaessige — von
+// einem leeren Raster aus faengt niemand gern an.
+const beuteHandStart = (muenzen, helden) => {
+  const teile = beuteTeilen(muenzen, helden.length);
+  const raus = {};
+  helden.forEach((h, i) => { raus[h.id] = {...(teile[i] || {})}; });
+  return raus;
+};
+
 const BeuteFenster = ({ beute, helden, isDmMode, darfNehmen, onNehmen, onSchliessen,
                         onAbschliessen, onAbraeumen }) => {
-  if (!beute) return null;
-  const stuecke = beute.stuecke || [];
+  // Die Haken muessen vor jedem vorzeitigen Ende stehen.
+  const [hand, setHand] = React.useState(null);   // null = gleichmaessig
+  const stuecke = (beute && beute.stuecke) || [];
   const offen = stuecke.filter(s => !s.an);
-  const teile = beuteTeilen(beute.muenzen, helden.length);
-  const muenzText = beuteMuenzText(beute.muenzen);
+  const teile = beuteTeilen(beute && beute.muenzen, helden.length);
+  const muenzText = beuteMuenzText(beute && beute.muenzen);
+  // Nur die Muenzarten, die wirklich im Fund liegen — fuenf Spalten fuer
+  // dreissig Goldstuecke waeren vier Spalten Nichts.
+  const arten = COINS.filter(c => ((beute && beute.muenzen) || {})[c.key] > 0);
+  const rest = hand ? beuteHandRest(beute && beute.muenzen, hand) : null;
+  const stimmt = !hand || beuteHandStimmt(beute && beute.muenzen, hand);
+  const handSetzen = (id, key, v) => setHand(h => ({
+    ...h, [id]: {...(h[id] || {}), [key]: Math.max(0, Math.round(+v || 0))}}));
+  if (!beute) return null;
 
   return (
     <Fenster onClick={onSchliessen}>
@@ -201,14 +243,68 @@ const BeuteFenster = ({ beute, helden, isDmMode, darfNehmen, onNehmen, onSchlies
         {muenzText && (
           <div className="beute-kasse">
             <div className="beute-kasse-summe">{muenzText}</div>
-            {helden.length > 0 ? (
+            {helden.length === 0 ? (
+              <div className="beute-kasse-teil">Kein Held im Abenteuer — die Münzen bleiben liegen.</div>
+            ) : !hand ? (
               <div className="beute-kasse-teil">
                 Geteilt durch {helden.length}: je <b>{beuteMuenzText(teile[1] || teile[0]) || 'nichts'}</b>
                 {beuteMuenzText(teile[0]) !== beuteMuenzText(teile[1] || teile[0])
                   ? ' · der Rest an ' + helden[0].name : ''}
+                {isDmMode && (
+                  <button type="button" className="btn-icon" style={{marginLeft:10}}
+                    onClick={()=>setHand(beuteHandStart(beute.muenzen, helden))}>
+                    Anders verteilen
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="beute-kasse-teil">Kein Held im Abenteuer — die Münzen bleiben liegen.</div>
+              <div className="beute-hand">
+                <div className="beute-hand-kopf">
+                  <span>Von Hand</span>
+                  <button type="button" className="btn-icon" onClick={()=>setHand(null)}>
+                    ↺ Gleichmäßig
+                  </button>
+                </div>
+                <table className="beute-hand-tafel">
+                  <thead>
+                    <tr>
+                      <th />
+                      {arten.map(c => <th key={c.key} style={{color:c.color}}>{c.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {helden.map(h => (
+                      <tr key={h.id}>
+                        <td className="beute-hand-name">{h.name}</td>
+                        {arten.map(c => (
+                          <td key={c.key}>
+                            <ZahlFeld className="form-input" min={0}
+                              aria-label={c.label + ' für ' + h.name}
+                              wert={(hand[h.id] || {})[c.key] || 0}
+                              onWert={v => handSetzen(h.id, c.key, v)} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className={stimmt ? '' : 'offen'}>
+                      <td className="beute-hand-name">{stimmt ? 'Geht auf' : 'Noch offen'}</td>
+                      {arten.map(c => (
+                        <td key={c.key} className="beute-hand-rest">
+                          {rest[c.key] === 0 ? '✓' : rest[c.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
+                {!stimmt && (
+                  <div className="beute-hand-warnung">
+                    Der Fund wird danach weggeräumt — was hier offen bleibt, wäre weg.
+                    {COINS.some(c => rest[c.key] < 0) && ' Und mehr als da ist, geht auch nicht.'}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -252,9 +348,10 @@ const BeuteFenster = ({ beute, helden, isDmMode, darfNehmen, onNehmen, onSchlies
             <div className="form-actions" style={{marginTop:12}}>
               <button className="btn-cancel" onClick={onAbraeumen}>Wegräumen</button>
               <button className="btn-cancel" onClick={onSchliessen}>Später</button>
-              <button className="btn-save" disabled={offen.length > 0}
-                onClick={onAbschliessen}
-                title={offen.length ? 'Erst muss alles vergeben sein' : ''}>
+              <button className="btn-save" disabled={offen.length > 0 || !stimmt}
+                onClick={()=>onAbschliessen(hand)}
+                title={offen.length ? 'Erst muss alles vergeben sein'
+                     : !stimmt ? 'Die Münzen gehen noch nicht auf' : ''}>
                 In die Bögen eintragen
               </button>
             </div>

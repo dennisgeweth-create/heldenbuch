@@ -5837,6 +5837,10 @@ const AbenteuerEinstellungen = ({
   const klassenSetzen = liste => setzen({
     klassen: liste
   });
+  // Was das Regelwerk kennt und diese Liste nicht. Verglichen wird ueber
+  // den zusammengezogenen Namen, damit „Waldläufer" und „waldlaeufer"
+  // nicht zweimal dastehen.
+  const fehlende = KLASSEN_STANDARD.filter(st => !klassen.some(k => dbSchluessel(k.name) === dbSchluessel(st.name)));
   const kampfSicht = KAMPF_SICHT.some(x => x.k === adv.kampfSicht) ? adv.kampfSicht : 'auto';
 
   // Fuer die Zeile, die zugeklappt neben dem Titel steht.
@@ -6279,7 +6283,22 @@ const AbenteuerEinstellungen = ({
       title: genutzt ? 'Wird noch gespielt — entfernen lässt die Klasse im Bogen stehen' : 'Entfernen',
       onClick: () => entfernen(i)
     }, "\u2715"));
-  }), /*#__PURE__*/React.createElement("div", {
+  }), eigene && fehlende.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 10,
+      marginBottom: 0
+    }
+  }, "Aus dem Regelwerk ", fehlende.length === 1 ? 'fehlt' : 'fehlen', " hier", ' ', /*#__PURE__*/React.createElement("b", null, fehlende.map(k => k.name).join(', ')), ". Gestrichen? Dann lass es so. Sonst:", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    style: {
+      marginLeft: 8
+    },
+    onClick: () => klassenSetzen([...klassen, ...fehlende.map(k => ({
+      ...k
+    }))])
+  }, "+ ", fehlende.length === 1 ? 'Dazulegen' : 'Alle dazulegen')), /*#__PURE__*/React.createElement("div", {
     className: "einst-klassen-fuss"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -6291,12 +6310,12 @@ const AbenteuerEinstellungen = ({
     onClick: () => klassenSetzen(KLASSEN_STANDARD.map(k => ({
       ...k
     })))
-  }, "\u21BA Die zw\xF6lf des Regelwerks"), !eigene && /*#__PURE__*/React.createElement("span", {
+  }, "\u21BA Die ", KLASSEN_STANDARD.length, " des Regelwerks"), !eigene && /*#__PURE__*/React.createElement("span", {
     className: "einst-hinweis",
     style: {
       margin: 0
     }
-  }, "Noch unver\xE4ndert \u2014 das sind die zw\xF6lf des Regelwerks.")))), /*#__PURE__*/React.createElement("div", {
+  }, "Noch unver\xE4ndert \u2014 das sind die ", KLASSEN_STANDARD.length, " des Regelwerks.")))), /*#__PURE__*/React.createElement("div", {
     className: "form-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
@@ -13335,7 +13354,8 @@ const AnsageFenster = ({
   helden,
   runde,
   onAbbrechen,
-  onSenden
+  onSenden,
+  onPlatz
 }) => {
   const waffen = held && held.weapons || [];
   const sprueche = sortierteSprueche(held);
@@ -13357,6 +13377,10 @@ const AnsageFenster = ({
   // paar Sekunden; solange steht es hier, damit die Zusammenfassung
   // sofort stimmt.
   const [eigene, setEigene] = React.useState([]);
+  // Was der letzte abgeschickte Zauber den Vorrat gekostet hat. Steht
+  // einen Augenblick da, damit man es merkt — und damit man es merkt,
+  // wenn nichts mehr da war.
+  const [platz, setPlatz] = React.useState(null);
   const {
     gegenstand,
     grundGrad,
@@ -13398,12 +13422,23 @@ const AnsageFenster = ({
       // der Spieler zielt.
       ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
       zielIds: Object.keys(ziele),
-      text: text.trim()
+      text: text.trim(),
+      // Auf welchem Grad wirklich gezaubert wird. „grad" oben steht nur
+      // beim Hochzaubern da; hier steht er immer, denn daran haengt der
+      // Platz.
+      stufe: wahl.art === 'zauber' && gegenstand ? grad : 0
     });
     // Das Fenster bleibt offen: die nächste Ansage kommt meistens
     // gleich hinterher. Was gewählt war, bleibt stehen — der zweite
     // Hieb ist derselbe —, Ziele und Beschreibung werden frei.
     if (raus) setEigene(e => [...e, raus]);
+    // Der Platz geht erst ab, wenn die Ansage durch ist. Wer sie nicht
+    // losbekommt, soll nicht trotzdem bezahlt haben.
+    if (raus && onPlatz && wahl.art === 'zauber' && gegenstand && grad > 0) {
+      setPlatz(onPlatz(grad));
+    } else if (raus) {
+      setPlatz(null);
+    }
     setZiele({});
     setText('');
     setLaeuft(false);
@@ -13490,7 +13525,9 @@ const AnsageFenster = ({
     className: "pr-zeile"
   }, "   auf ", Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')), text.trim() && /*#__PURE__*/React.createElement("div", {
     className: "pr-zeile frei"
-  }, "   \u201E", text.trim(), "\u201C"), !etwasDa && /*#__PURE__*/React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz.")))), /*#__PURE__*/React.createElement("div", {
+  }, "   \u201E", text.trim(), "\u201C"), !etwasDa && /*#__PURE__*/React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz."))), platz && /*#__PURE__*/React.createElement("div", {
+    className: 'zug-platz' + (platz.gestrichen ? '' : ' leer')
+  }, platz.gestrichen ? '◈ Zauberplatz gestrichen — noch ' + platz.frei + ' vom ' + platz.grad + '. Grad.' : platz.hat ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.' : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.')), /*#__PURE__*/React.createElement("div", {
     className: "zug-fuss"
   }, /*#__PURE__*/React.createElement("span", {
     className: "zug-hinweis"
@@ -14088,6 +14125,45 @@ const BeuteAnlegen = ({
     })
   }, leer ? 'Da ist noch nichts' : 'Hinlegen'))));
 };
+
+// ── Wenn nicht gleichmaessig geteilt werden soll ──────────────
+// Gleiche Teile sind der Normalfall und bleiben es. Aber nicht jeder
+// Fund wird gleich geteilt: die Kriegskasse geht an den, der die Truppe
+// bezahlt, der Anteil des Gefallenen an seine Familie, und wer den
+// Drachen allein erlegt hat, bekommt eben mehr. Von Hand heisst deshalb
+// wirklich von Hand — je Held und Muenzart eine Zahl.
+//
+// Aufgehen muss es trotzdem: der Fund wird danach weggeraeumt, und was
+// nicht zugeteilt ist, waere weg. Deshalb steht daneben, was noch offen
+// ist, und der Knopf bleibt zu, solange es nicht null ist.
+const beuteHandRest = (muenzen, hand) => {
+  const rest = {};
+  COINS.forEach(c => {
+    const ganz = Math.max(0, Math.round((muenzen || {})[c.key] || 0));
+    let weg = 0;
+    Object.keys(hand || {}).forEach(id => {
+      weg += Math.max(0, Math.round((hand[id] || {})[c.key] || 0));
+    });
+    rest[c.key] = ganz - weg;
+  });
+  return rest;
+};
+const beuteHandStimmt = (muenzen, hand) => {
+  const r = beuteHandRest(muenzen, hand);
+  return COINS.every(c => r[c.key] === 0);
+};
+// Der Anfangsvorschlag der Handverteilung ist die gleichmaessige — von
+// einem leeren Raster aus faengt niemand gern an.
+const beuteHandStart = (muenzen, helden) => {
+  const teile = beuteTeilen(muenzen, helden.length);
+  const raus = {};
+  helden.forEach((h, i) => {
+    raus[h.id] = {
+      ...(teile[i] || {})
+    };
+  });
+  return raus;
+};
 const BeuteFenster = ({
   beute,
   helden,
@@ -14098,11 +14174,25 @@ const BeuteFenster = ({
   onAbschliessen,
   onAbraeumen
 }) => {
-  if (!beute) return null;
-  const stuecke = beute.stuecke || [];
+  // Die Haken muessen vor jedem vorzeitigen Ende stehen.
+  const [hand, setHand] = React.useState(null); // null = gleichmaessig
+  const stuecke = beute && beute.stuecke || [];
   const offen = stuecke.filter(s => !s.an);
-  const teile = beuteTeilen(beute.muenzen, helden.length);
-  const muenzText = beuteMuenzText(beute.muenzen);
+  const teile = beuteTeilen(beute && beute.muenzen, helden.length);
+  const muenzText = beuteMuenzText(beute && beute.muenzen);
+  // Nur die Muenzarten, die wirklich im Fund liegen — fuenf Spalten fuer
+  // dreissig Goldstuecke waeren vier Spalten Nichts.
+  const arten = COINS.filter(c => (beute && beute.muenzen || {})[c.key] > 0);
+  const rest = hand ? beuteHandRest(beute && beute.muenzen, hand) : null;
+  const stimmt = !hand || beuteHandStimmt(beute && beute.muenzen, hand);
+  const handSetzen = (id, key, v) => setHand(h => ({
+    ...h,
+    [id]: {
+      ...(h[id] || {}),
+      [key]: Math.max(0, Math.round(+v || 0))
+    }
+  }));
+  if (!beute) return null;
   return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onSchliessen
   }, /*#__PURE__*/React.createElement("div", {
@@ -14117,11 +14207,54 @@ const BeuteFenster = ({
     className: "beute-kasse"
   }, /*#__PURE__*/React.createElement("div", {
     className: "beute-kasse-summe"
-  }, muenzText), helden.length > 0 ? /*#__PURE__*/React.createElement("div", {
+  }, muenzText), helden.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "beute-kasse-teil"
-  }, "Geteilt durch ", helden.length, ": je ", /*#__PURE__*/React.createElement("b", null, beuteMuenzText(teile[1] || teile[0]) || 'nichts'), beuteMuenzText(teile[0]) !== beuteMuenzText(teile[1] || teile[0]) ? ' · der Rest an ' + helden[0].name : '') : /*#__PURE__*/React.createElement("div", {
+  }, "Kein Held im Abenteuer \u2014 die M\xFCnzen bleiben liegen.") : !hand ? /*#__PURE__*/React.createElement("div", {
     className: "beute-kasse-teil"
-  }, "Kein Held im Abenteuer \u2014 die M\xFCnzen bleiben liegen.")), /*#__PURE__*/React.createElement("div", {
+  }, "Geteilt durch ", helden.length, ": je ", /*#__PURE__*/React.createElement("b", null, beuteMuenzText(teile[1] || teile[0]) || 'nichts'), beuteMuenzText(teile[0]) !== beuteMuenzText(teile[1] || teile[0]) ? ' · der Rest an ' + helden[0].name : '', isDmMode && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    style: {
+      marginLeft: 10
+    },
+    onClick: () => setHand(beuteHandStart(beute.muenzen, helden))
+  }, "Anders verteilen")) : /*#__PURE__*/React.createElement("div", {
+    className: "beute-hand"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "beute-hand-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "Von Hand"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => setHand(null)
+  }, "\u21BA Gleichm\xE4\xDFig")), /*#__PURE__*/React.createElement("table", {
+    className: "beute-hand-tafel"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null), arten.map(c => /*#__PURE__*/React.createElement("th", {
+    key: c.key,
+    style: {
+      color: c.color
+    }
+  }, c.label)))), /*#__PURE__*/React.createElement("tbody", null, helden.map(h => /*#__PURE__*/React.createElement("tr", {
+    key: h.id
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "beute-hand-name"
+  }, h.name), arten.map(c => /*#__PURE__*/React.createElement("td", {
+    key: c.key
+  }, /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: 0,
+    "aria-label": c.label + ' für ' + h.name,
+    wert: (hand[h.id] || {})[c.key] || 0,
+    onWert: v => handSetzen(h.id, c.key, v)
+  })))))), /*#__PURE__*/React.createElement("tfoot", null, /*#__PURE__*/React.createElement("tr", {
+    className: stimmt ? '' : 'offen'
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "beute-hand-name"
+  }, stimmt ? 'Geht auf' : 'Noch offen'), arten.map(c => /*#__PURE__*/React.createElement("td", {
+    key: c.key,
+    className: "beute-hand-rest"
+  }, rest[c.key] === 0 ? '✓' : rest[c.key]))))), !stimmt && /*#__PURE__*/React.createElement("div", {
+    className: "beute-hand-warnung"
+  }, "Der Fund wird danach wegger\xE4umt \u2014 was hier offen bleibt, w\xE4re weg.", COINS.some(c => rest[c.key] < 0) && ' Und mehr als da ist, geht auch nicht.'))), /*#__PURE__*/React.createElement("div", {
     className: "beute-liste"
   }, stuecke.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "probe-leer"
@@ -14159,9 +14292,9 @@ const BeuteFenster = ({
     onClick: onSchliessen
   }, "Sp\xE4ter"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
-    disabled: offen.length > 0,
-    onClick: onAbschliessen,
-    title: offen.length ? 'Erst muss alles vergeben sein' : ''
+    disabled: offen.length > 0 || !stimmt,
+    onClick: () => onAbschliessen(hand),
+    title: offen.length ? 'Erst muss alles vergeben sein' : !stimmt ? 'Die Münzen gehen noch nicht auf' : ''
   }, "In die B\xF6gen eintragen"))) : /*#__PURE__*/React.createElement("div", {
     className: "form-actions",
     style: {
@@ -18826,6 +18959,10 @@ function App() {
   const [verwaltung, setVerwaltung] = useState(null); // {laedt, users, mitglied, err, …}
   const [mitglieder, setMitglieder] = useState([]);
   const [showSetup, setShowSetup] = useState(false);
+  // Ob dieser Server sein erstes Konto noch braucht. null heisst „noch
+  // nicht gefragt" — dann steht der Weg dorthin auch nicht da. Gefragt
+  // wird einmal, wenn die Maske aufgeht.
+  const [setupLeer, setSetupLeer] = useState(null);
   const [showDB, setShowDB] = useState(false);
   const [patchnotesOffen, setPatchnotesOffen] = useState(false);
   const [confirmDlg, setConfirmDlg] = useState(null); // {msg, onOk}
@@ -20616,6 +20753,12 @@ function App() {
     ...c,
     ...fn(c)
   } : c), true);
+  // Wie patchCurrent, aber fuer einen bestimmten Bogen: der Kampf sagt
+  // an, wer handelt, und das muss nicht der offene Bogen sein.
+  const patchCharById = (id, fn) => save(charsRef.current.map(c => c.id === id ? {
+    ...c,
+    ...fn(c)
+  } : c), true);
 
   // Logging helper — fire-and-forget, never blocks UI
   const addLog = (charId, charName, tab, action, details) => {
@@ -20654,6 +20797,24 @@ function App() {
   // Ohne diesen Knopf war der Server in der Lage dazu und die Anwendung
   // bot es nirgends an: anmelden konnte sich niemand, weil es nichts gab,
   // womit man sich anmelden koennte.
+  // Wo schon Konten stehen, hat „Erstes Konto anlegen" nichts mehr zu
+  // suchen: der Knopf kann dort nur noch eine Fehlermeldung erzeugen.
+  // Gefragt wird beim Oeffnen der Maske, einmal.
+  useEffect(() => {
+    if (!showSetup || setupLeer !== null) return;
+    let weg = false;
+    apiSetupNoetig(serverCreds().url).then(d => {
+      if (!weg) setSetupLeer(!!(d && d.leer));
+    })
+    // Antwortet der Server nicht, wird nichts angeboten. Ein Knopf, der
+    // vielleicht geht, ist schlechter als keiner.
+    .catch(() => {
+      if (!weg) setSetupLeer(false);
+    });
+    return () => {
+      weg = true;
+    };
+  }, [showSetup]);
   const erstesKontoAnlegen = async () => {
     const url = serverCreds().url;
     const name = (setupForm.name || '').trim();
@@ -21334,14 +21495,17 @@ function App() {
   // Abschliessen: alles wandert in die Boegen. Erst hier — solange der
   // Fund liegt, hat niemand etwas bekommen, und ein halb verteilter
   // Fund laesst sich noch umverteilen.
-  const beuteAbschliessen = async () => {
+  // `hand` ist die Verteilung, die die Spielleitung von Hand gesetzt hat:
+  // je Held ein Satz Muenzen. Nichts uebergeben heisst gleichmaessig, wie
+  // bisher.
+  const beuteAbschliessen = async hand => {
     if (!beute) return;
     const teile = beuteTeilen(beute.muenzen, beuteHelden.length);
     const nach = {};
     beuteHelden.forEach((h, i) => {
       nach[h.id] = {
         stuecke: [],
-        muenzen: teile[i] || null
+        muenzen: hand && hand[h.id] || teile[i] || null
       };
     });
     (beute.stuecke || []).forEach(st => {
@@ -21707,6 +21871,47 @@ function App() {
     } catch (e) {
       appAlert('Die Ansage kam nicht an: ' + (e.message || 'unbekannter Fehler'));
     }
+  };
+
+  // Ein angesagter Zauber mit Grad kostet einen Platz. Bis v5.1 musste
+  // man ihn von Hand streichen, und wer das im Kampf vergisst, zaubert
+  // den Abend zu Ende aus einem Vorrat, den es nicht mehr gibt.
+  //
+  // Gestrichen wird nur, wenn auch einer da ist. Angesagt wird trotzdem:
+  // es gibt Wege zu zaubern, die keinen Platz kosten — Rituale,
+  // Zaubereipunkte, ein Merkmal einmal am Tag —, und der Tisch
+  // entscheidet das, nicht der Bogen.
+  const zauberplatzStreichen = (charId, grad) => {
+    const g = Math.round(+grad || 0);
+    if (!charId || g < 1 || g > 9) return null;
+    const c = charsRef.current.find(x => x.id === charId);
+    if (!c) return null;
+    const platz = (c.spellSlots || {})[g] || {
+      max: 0,
+      used: 0
+    };
+    const frei = Math.max(0, (+platz.max || 0) - (+platz.used || 0));
+    if (frei <= 0) return {
+      grad: g,
+      frei: 0,
+      gestrichen: false,
+      hat: (+platz.max || 0) > 0
+    };
+    patchCharById(charId, ch => ({
+      spellSlots: {
+        ...(ch.spellSlots || {}),
+        [g]: {
+          ...platz,
+          used: (+platz.used || 0) + 1
+        }
+      }
+    }));
+    return {
+      grad: g,
+      frei: frei - 1,
+      gestrichen: true,
+      hat: true
+    };
   };
 
   // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
@@ -28506,7 +28711,8 @@ function App() {
     helden: advChars,
     runde: kampfSichtDaten.runde || 1,
     onAbbrechen: () => setAnsageFuer(null),
-    onSenden: ansageSenden
+    onSenden: ansageSenden,
+    onPlatz: grad => zauberplatzStreichen(ansageFuer, grad)
   }), showKampf && isDmMode && /*#__PURE__*/React.createElement(KampfAnsicht, {
     kampf: kampf,
     setKampf: setKampf,
@@ -28741,7 +28947,7 @@ function App() {
     },
     onClick: applyKontoSetup,
     disabled: setupBusy
-  }, setupBusy ? "Verbinde..." : "👤 Anmelden")), /*#__PURE__*/React.createElement("div", {
+  }, setupBusy ? "Verbinde..." : "👤 Anmelden")), setupLeer === true && /*#__PURE__*/React.createElement("div", {
     className: "einst-hinweis",
     style: {
       marginTop: 14,

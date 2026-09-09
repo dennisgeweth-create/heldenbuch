@@ -1521,6 +1521,15 @@ switch ($action) {
             ->execute([(int)$u['id'], (string)$body['token']]);
         respond(200, 'Passwort geändert.');
 
+    // Ob dieser Server ueberhaupt noch ein erstes Konto braucht. Ohne
+    // Kennung beantwortbar — es gibt ja noch keine —, und die Antwort
+    // ist ein einzelnes Ja/Nein. Mehr steht nicht drin: der Name der
+    // Verwaltung bleibt drin, wo er steht.
+    case 'setup_noetig': {
+        $anzahl = (int)$pdo->query("SELECT COUNT(*) AS n FROM hb_users")->fetch()['n'];
+        respond(200, 'ok', ['leer' => $anzahl === 0]);
+    }
+
     case 'user_create': {
         $name = trim((string)($body['name'] ?? ''));
         $neu  = (string)($body['neu'] ?? $pass);

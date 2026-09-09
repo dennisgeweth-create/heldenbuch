@@ -168,6 +168,10 @@ function App() {
   const [verwaltung, setVerwaltung] = useState(null);   // {laedt, users, mitglied, err, …}
   const [mitglieder, setMitglieder] = useState([]);
   const [showSetup,  setShowSetup]  = useState(false);
+  // Ob dieser Server sein erstes Konto noch braucht. null heisst „noch
+  // nicht gefragt" — dann steht der Weg dorthin auch nicht da. Gefragt
+  // wird einmal, wenn die Maske aufgeht.
+  const [setupLeer,  setSetupLeer]  = useState(null);
   const [showDB,     setShowDB]     = useState(false);
   const [patchnotesOffen, setPatchnotesOffen] = useState(false);
   const [confirmDlg, setConfirmDlg] = useState(null); // {msg, onOk}
@@ -1513,6 +1517,10 @@ function App() {
   // zu lesen. Genau daran hing der Datenverlust-Fehler.
   const patchCurrent = fn => save(charsRef.current.map(c =>
     c.id === selRef.current ? {...c, ...fn(c)} : c), true);
+  // Wie patchCurrent, aber fuer einen bestimmten Bogen: der Kampf sagt
+  // an, wer handelt, und das muss nicht der offene Bogen sein.
+  const patchCharById = (id, fn) => save(charsRef.current.map(c =>
+    c.id === id ? {...c, ...fn(c)} : c), true);
 
   // Logging helper — fire-and-forget, never blocks UI
   const addLog = (charId, charName, tab, action, details) => {
@@ -1535,6 +1543,20 @@ function App() {
   // Ohne diesen Knopf war der Server in der Lage dazu und die Anwendung
   // bot es nirgends an: anmelden konnte sich niemand, weil es nichts gab,
   // womit man sich anmelden koennte.
+  // Wo schon Konten stehen, hat „Erstes Konto anlegen" nichts mehr zu
+  // suchen: der Knopf kann dort nur noch eine Fehlermeldung erzeugen.
+  // Gefragt wird beim Oeffnen der Maske, einmal.
+  useEffect(() => {
+    if (!showSetup || setupLeer !== null) return;
+    let weg = false;
+    apiSetupNoetig(serverCreds().url)
+      .then(d => { if (!weg) setSetupLeer(!!(d && d.leer)); })
+      // Antwortet der Server nicht, wird nichts angeboten. Ein Knopf, der
+      // vielleicht geht, ist schlechter als keiner.
+      .catch(() => { if (!weg) setSetupLeer(false); });
+    return () => { weg = true; };
+  }, [showSetup]);
+
   const erstesKontoAnlegen = async () => {
     const url  = serverCreds().url;
     const name = (setupForm.name || '').trim();
@@ -2005,11 +2027,16 @@ function App() {
   // Abschliessen: alles wandert in die Boegen. Erst hier — solange der
   // Fund liegt, hat niemand etwas bekommen, und ein halb verteilter
   // Fund laesst sich noch umverteilen.
-  const beuteAbschliessen = async () => {
+  // `hand` ist die Verteilung, die die Spielleitung von Hand gesetzt hat:
+  // je Held ein Satz Muenzen. Nichts uebergeben heisst gleichmaessig, wie
+  // bisher.
+  const beuteAbschliessen = async (hand) => {
     if (!beute) return;
     const teile = beuteTeilen(beute.muenzen, beuteHelden.length);
     const nach = {};
-    beuteHelden.forEach((h, i) => { nach[h.id] = {stuecke: [], muenzen: teile[i] || null}; });
+    beuteHelden.forEach((h, i) => {
+      nach[h.id] = {stuecke: [], muenzen: (hand && hand[h.id]) || teile[i] || null};
+    });
     (beute.stuecke || []).forEach(st => {
       if (st.an && nach[st.an]) nach[st.an].stuecke.push(st);
       else if (st.an) nach[st.an] = {stuecke: [st], muenzen: null};
@@ -2291,6 +2318,29 @@ function App() {
     } catch (e) {
       appAlert('Die Ansage kam nicht an: ' + (e.message || 'unbekannter Fehler'));
     }
+  };
+
+  // Ein angesagter Zauber mit Grad kostet einen Platz. Bis v5.1 musste
+  // man ihn von Hand streichen, und wer das im Kampf vergisst, zaubert
+  // den Abend zu Ende aus einem Vorrat, den es nicht mehr gibt.
+  //
+  // Gestrichen wird nur, wenn auch einer da ist. Angesagt wird trotzdem:
+  // es gibt Wege zu zaubern, die keinen Platz kosten — Rituale,
+  // Zaubereipunkte, ein Merkmal einmal am Tag —, und der Tisch
+  // entscheidet das, nicht der Bogen.
+  const zauberplatzStreichen = (charId, grad) => {
+    const g = Math.round(+grad || 0);
+    if (!charId || g < 1 || g > 9) return null;
+    const c = charsRef.current.find(x => x.id === charId);
+    if (!c) return null;
+    const platz = ((c.spellSlots || {})[g]) || {max: 0, used: 0};
+    const frei = Math.max(0, (+platz.max || 0) - (+platz.used || 0));
+    if (frei <= 0) return {grad: g, frei: 0, gestrichen: false, hat: (+platz.max || 0) > 0};
+    patchCharById(charId, (ch) => ({
+      spellSlots: {...(ch.spellSlots || {}),
+                   [g]: {...platz, used: (+platz.used || 0) + 1}},
+    }));
+    return {grad: g, frei: frei - 1, gestrichen: true, hat: true};
   };
 
   // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
@@ -5759,7 +5809,8 @@ function App() {
       {ansageFuer && kampfSichtDaten && (
         <AnsageFenster held={chars.find(c => c.id === ansageFuer)} kampf={kampfSichtDaten}
           helden={advChars} runde={kampfSichtDaten.runde || 1}
-          onAbbrechen={()=>setAnsageFuer(null)} onSenden={ansageSenden} />
+          onAbbrechen={()=>setAnsageFuer(null)} onSenden={ansageSenden}
+          onPlatz={(grad)=>zauberplatzStreichen(ansageFuer, grad)} />
       )}
 
       {showKampf && isDmMode && (
@@ -5910,17 +5961,19 @@ function App() {
                 {setupBusy ? "Verbinde..." : "👤 Anmelden"}
               </button>
             </div>
-            {/* Nur beim allerersten Start eines eigenen Servers. Wo es schon
-                Konten gibt, sagt der Server das auch so. */}
-            <div className="einst-hinweis" style={{marginTop:14,marginBottom:0}}>
-              Ganz frischer Server? Das <b>allererste</b> Konto legt sich hier selbst an —
-              unter dem Namen, der als <code>ADMIN_USER</code> in der <code>config.php</code>
-              steht. Alle weiteren macht danach die Verwaltung.
-              <button type="button" className="btn-icon" style={{marginLeft:8}}
-                disabled={setupBusy} onClick={erstesKontoAnlegen}>
-                Erstes Konto anlegen
-              </button>
-            </div>
+            {/* Nur beim allerersten Start eines eigenen Servers, und nur
+                solange es noch kein Konto gibt. Der Server sagt es. */}
+            {setupLeer === true && (
+              <div className="einst-hinweis" style={{marginTop:14,marginBottom:0}}>
+                Ganz frischer Server? Das <b>allererste</b> Konto legt sich hier selbst an —
+                unter dem Namen, der als <code>ADMIN_USER</code> in der <code>config.php</code>
+                steht. Alle weiteren macht danach die Verwaltung.
+                <button type="button" className="btn-icon" style={{marginLeft:8}}
+                  disabled={setupBusy} onClick={erstesKontoAnlegen}>
+                  Erstes Konto anlegen
+                </button>
+              </div>
+            )}
           </div>
         </Fenster>
       )}

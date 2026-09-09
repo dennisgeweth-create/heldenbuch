@@ -149,6 +149,9 @@
     const apiLogout     = (url, token)             => apiRequest(url, 'logout', { token });
     const apiMe         = (url)                    => apiRequest(url, 'me', {});
     const apiPassAendern= (url, alt, neu)          => apiRequest(url, 'password_change', { alt, neu });
+    // Braucht dieser Server noch sein erstes Konto? Nur danach fragt die
+    // Anmeldemaske, ob sie den Weg dorthin ueberhaupt anbieten soll.
+    const apiSetupNoetig= (url)                    => apiRequest(url, 'setup_noetig', {});
     const apiKontoNeu   = (url, name, neu, admin)  => apiRequest(url, 'user_create',
                                                        { name, neu, ist_admin: !!admin });
     const apiKontoListe = (url)                    => apiRequest(url, 'user_list', {});

@@ -18,6 +18,11 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
   });
 
   const klassenSetzen = (liste) => setzen({klassen: liste});
+  // Was das Regelwerk kennt und diese Liste nicht. Verglichen wird ueber
+  // den zusammengezogenen Namen, damit „Waldläufer" und „waldlaeufer"
+  // nicht zweimal dastehen.
+  const fehlende = KLASSEN_STANDARD.filter(
+    st => !klassen.some(k => dbSchluessel(k.name) === dbSchluessel(st.name)));
 
   const kampfSicht = KAMPF_SICHT.some(x => x.k === adv.kampfSicht) ? adv.kampfSicht : 'auto';
 
@@ -433,17 +438,35 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               );
             })}
 
+            {/* Eine Liste, die vor dem Artifizienten angelegt wurde, kennt
+                ihn nicht — und dann fehlt er im Bogen, im Assistenten und
+                im Aufstieg, ohne dass irgendwo stuende warum. Von allein
+                dazulegen waere trotzdem falsch: wer eine Klasse streicht,
+                meint das. Also steht hier, was fehlt, und ein Griff legt
+                es dazu. */}
+            {eigene && fehlende.length > 0 && (
+              <div className="einst-hinweis" style={{marginTop:10,marginBottom:0}}>
+                Aus dem Regelwerk {fehlende.length === 1 ? 'fehlt' : 'fehlen'} hier
+                {' '}<b>{fehlende.map(k => k.name).join(', ')}</b>. Gestrichen? Dann
+                lass es so. Sonst:
+                <button type="button" className="btn-icon" style={{marginLeft:8}}
+                  onClick={()=>klassenSetzen([...klassen, ...fehlende.map(k=>({...k}))])}>
+                  + {fehlende.length === 1 ? 'Dazulegen' : 'Alle dazulegen'}
+                </button>
+              </div>
+            )}
+
             <div className="einst-klassen-fuss">
               <button type="button" className="btn-icon" onClick={hinzu}>+ Klasse</button>
               {eigene && (
                 <button type="button" className="btn-icon"
                   onClick={()=>klassenSetzen(KLASSEN_STANDARD.map(k=>({...k})))}>
-                  ↺ Die zwölf des Regelwerks
+                  ↺ Die {KLASSEN_STANDARD.length} des Regelwerks
                 </button>
               )}
               {!eigene && (
                 <span className="einst-hinweis" style={{margin:0}}>
-                  Noch unverändert — das sind die zwölf des Regelwerks.
+                  Noch unverändert — das sind die {KLASSEN_STANDARD.length} des Regelwerks.
                 </span>
               )}
             </div>
