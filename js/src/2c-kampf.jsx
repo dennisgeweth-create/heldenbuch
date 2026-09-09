@@ -156,8 +156,11 @@ const protokollZeile = (e, mitZahlen) => {
     case 'karte':    return '';                       // ein Block, keine Zeile
     // Wohin jemand gezogen ist. Ohne diese Zeile stuende im Protokoll
     // nur, wer angegriffen hat, und nie, wie er dorthin kam.
+    // Die Meter stehen nur dort, wo sie mitgeschrieben wurden — aeltere
+    // Verlaeufe aus dem Archiv kennen sie nicht.
     case 'bewegung': return '   ' + e.wer + ' zieht ' + e.von + ' → ' + e.auf
-                            + ' · ' + e.felder + (e.felder === 1 ? ' Feld' : ' Felder');
+                            + ' · ' + e.felder + (e.felder === 1 ? ' Feld' : ' Felder')
+                            + (e.meter ? ' (' + e.meter + ')' : '');
     // Die drei aus dem Zugfenster. Sie stehen zwischen dem Zug und seinen
     // Folgen: erst was jemand tut, dann was daraus wird.
     case 'frei':     return '   „' + e.text + '“';

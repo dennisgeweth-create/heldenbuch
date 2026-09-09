@@ -421,13 +421,56 @@ mal vier Absätze wären im Protokollfenster nicht mehr zu überblicken.
 Was der Verlauf ausgibt, liest der Leser aus Stufe 1 wieder ein — der
 Kreis ist geschlossen und wird als Prüfung mitgeführt.
 
-### Stufe 5 · Sicht und Reichweite
+### Stufe 5 · Sicht und Reichweite ✓
 
-Bresenham für „steht etwas dazwischen", und im Text eine Zeile je Paar,
-wo es blockiert ist. Mit dem Hinweis, dass es eine Näherung ist.
+Eine Linie von Feldmitte zu Feldmitte (Bresenham) und die Frage, ob
+unterwegs etwas steht. **Start- und Zielfeld zählen nicht mit:** wer
+selbst im Baum sitzt, ist dadurch nicht blind, und wer hinter der Wand
+steht, wird durch sie nicht unsichtbar — auf ihn zu zielen ist eine
+andere Frage.
 
-Dazu die Anzeige beim Ziehen: wie weit ist es bis hierher, und ist der
-Weg frei.
+Im Textblock ein eigener Absatz, und darin **nur die Paare, bei denen
+etwas dazwischensteht.** Alle aufzulisten wäre bei acht Figuren eine
+Wand aus Zeilen, in der die drei wichtigen untergehen; „frei" ist der
+Normalfall. Steht nirgends etwas, sagt der Absatz auch das — sonst wäre
+unklar, ob überhaupt geprüft wurde.
+
+```
+SICHT (Näherung: Linie Mitte zu Mitte, keine Deckungsgrade —
+       im Zweifel entscheidet die Spielleitung)
+  Br → g1  Wand auf C2
+  Th → g1  Wand auf C3
+```
+
+Der Hinweis steht auch dann da, wenn nichts verstellt ist. Er sagt, wie
+genau die Angabe ist, und das gilt in beide Richtungen — es ist **keine
+Regel des Grundregelwerks**, das von Ecke zu Ecke prüft und Deckung in
+Stufen kennt.
+
+**Beim Setzen misst eine Zeile unter der Werkzeugleiste mit:**
+
+```
+G2 · 5 Felder · 7,5 m · Wand auf C2 im Blick · Weg versperrt: Wand auf C2
+E4 · 1 Feld · 1,5 m · Sicht frei · 1 Feld schwierig
+C5 · 2 Felder · 3 m · Sicht frei · Weg frei
+```
+
+Sicht und Weg stehen getrennt, weil sie es sind: durch Wasser sieht man
+und kommt langsamer voran, eine Wand tut beides. Was gesperrt ist,
+steht hervorgehoben da.
+
+Der Weg ist die **gerade Strecke**, keine Wegfindung — wer um die Wand
+herumläuft, geht weiter als dort steht. Die Zeile beantwortet „geht das
+geradeaus", nicht „wie komme ich hin". Anders als bei der Sicht zählt
+das Zielfeld mit: darauf steht man am Ende.
+
+Am Tablet gibt es keinen Zeiger und damit keine Anzeige in der Leiste —
+im Titel jedes Feldes steht dasselbe, und langes Antippen zeigt ihn.
+
+Dazu tragen die Bewegungszeilen jetzt die Meter: `zieht B3 → E4 ·
+3 Felder (4,5 m)`. Reichweiten sind in Metern angegeben; „3 Felder"
+müsste sonst jeder im Kopf umrechnen. Ältere Verläufe aus dem Archiv
+kennen die Angabe nicht und bleiben ohne sie.
 
 ### Stufe 6 · Die Spielersicht
 
@@ -492,7 +535,9 @@ Beschreibung des Kartenblocks mit seinen Regeln — Spalten, Feldgröße,
 diagonal zählt eins — und ein Satz in der Vorlage, der der KI sagt, dass
 sie damit rechnen darf.
 
-Zwei Punkte bleiben stehen, und das ist Absicht: **Sichtlinien** und
-**Deckung** entscheidet weiter die Spielleitung. Das Raster zeigt, dass
-eine Wand dazwischenliegt; ob sie den Schuss sperrt, steht dort nicht.
-Stufe 5 nähert sich dem an und wird es ebenso ausdrücklich sagen.
+Mit Stufe 5 kam die Sichttafel dazu — und mit ihr der Satz, dass sie
+eine Näherung ist. **Deckungsgrade** entscheidet weiter die
+Spielleitung: das Raster sagt, dass eine Wand dazwischenliegt, nicht ob
+sie halbe oder drei viertel Deckung gibt. Das steht jetzt an drei
+Stellen ausdrücklich da — im Textblock selbst, in der Liste dessen, was
+nicht drinsteht, und in der Vorlage für die KI.

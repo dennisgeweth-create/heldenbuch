@@ -205,6 +205,72 @@ const karteAufraeumen = (karte, teilnehmer) => {
 const karteWeit = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 const karteMeter = (felder, karte) =>
   felder * ((karte && +karte.feldMeter) || K_METER);
+// Eine Nachkommastelle reicht — 4,5 m, nicht 4,5000000000000004 m, und
+// das Komma gehoert an die deutsche Stelle.
+const karteMeterText = (felder, karte) =>
+  String(Math.round(karteMeter(felder, karte) * 10) / 10).replace('.', ',') + ' m';
+
+// ── Sicht ────────────────────────────────────────────────────────
+// Eine Linie von Feldmitte zu Feldmitte (Bresenham) und die Frage, ob
+// unterwegs etwas steht. Das ist eine **Naeherung**, keine Regel: das
+// Grundregelwerk prueft von Ecke zu Ecke und kennt Deckung in Stufen —
+// halb, drei viertel, ganz. Hier gibt es nur frei oder nicht.
+//
+// Sie steht trotzdem hier, weil die Frage am Tisch fast immer die
+// einfache ist: steht die Wand dazwischen oder nicht. Wo es darauf
+// ankommt, entscheidet die Spielleitung — und der Textblock sagt das
+// ausdruecklich, damit es auch eine KI nicht fuer einen Regelentscheid
+// haelt.
+//
+// Start- und Zielfeld zaehlen nicht mit. Wer selbst im Baum sitzt, ist
+// dadurch nicht blind, und wer hinter der Wand steht, wird durch sie
+// nicht unsichtbar — auf ihn zu zielen ist eine andere Frage.
+const kLinie = (a, b) => {
+  const felder = [];
+  let x = a.x, y = a.y;
+  const dx = Math.abs(b.x - x), dy = Math.abs(b.y - y);
+  const sx = a.x < b.x ? 1 : -1, sy = a.y < b.y ? 1 : -1;
+  let fehler = dx - dy;
+  for (let schutz = 0; schutz < K_MAX_B + K_MAX_H + 2; schutz++) {
+    if (x === b.x && y === b.y) break;
+    const e2 = 2 * fehler;
+    if (e2 > -dy) { fehler -= dy; x += sx; }
+    if (e2 <  dx) { fehler += dx; y += sy; }
+    if (x === b.x && y === b.y) break;
+    felder.push({x, y});
+  }
+  return felder;
+};
+
+// Was zwischen zwei Feldern steht. Gibt das erste blockierende Feld
+// zurueck oder null — der Name des Zeichens reicht fuer die Meldung
+// („eine Wand auf D3"), und mehr als das erste braucht niemand.
+const karteSicht = (karte, a, b) => {
+  for (const f of kLinie(a, b)) {
+    const art = kArt(karteFeld(karte, f.x, f.y));
+    if (art.sicht === 'blockiert') return {frei: false, art, x: f.x, y: f.y};
+  }
+  return {frei: true, art: null};
+};
+
+// Und dasselbe fuer die Bewegung: wie viele der Felder unterwegs kosten
+// mehr oder gehen gar nicht. Das ist keine Wegfindung — die Linie ist
+// die gerade Strecke, und wer um die Wand herumlaeuft, geht weiter als
+// hier steht. Es beantwortet nur „geht das ueberhaupt geradeaus".
+const karteWeg = (karte, a, b) => {
+  let schwierig = 0;
+  for (const f of kLinie(a, b)) {
+    const art = kArt(karteFeld(karte, f.x, f.y));
+    if (art.bewegung === 'blockiert') return {frei: false, schwierig, art, x: f.x, y: f.y};
+    if (art.bewegung === 'schwierig') schwierig++;
+  }
+  // Das Zielfeld selbst zaehlt mit: darauf steht man am Ende.
+  const ziel = kArt(karteFeld(karte, b.x, b.y));
+  if (ziel.bewegung === 'blockiert')
+    return {frei: false, schwierig, art: ziel, x: b.x, y: b.y};
+  if (ziel.bewegung === 'schwierig') schwierig++;
+  return {frei: true, schwierig, art: null};
+};
 
 // ── Der Textblock ────────────────────────────────────────────────
 // Das eigentliche Ergebnis. Drei Zeichen je Spalte: zwei fuer den
@@ -289,6 +355,22 @@ const karteText = (karte, teilnehmer, opts) => {
       t.push('  ' + gegner.map(g =>
         h.f.k + ' → ' + g.f.k + ' ' + String(karteWeit(h.f, g.f)).padStart(2)).join('   '));
     });
+
+    // Nur die Paare, bei denen etwas dazwischensteht. Alle aufzulisten
+    // waere bei acht Figuren eine Wand aus Zeilen, in der die drei
+    // wichtigen untergehen — und „frei" ist der Normalfall.
+    const verstellt = [];
+    helden.forEach(h => gegner.forEach(g => {
+      const s = karteSicht(karte, h.f, g.f);
+      if (!s.frei) verstellt.push('  ' + h.f.k + ' → ' + g.f.k + '  '
+        + s.art.name + ' auf ' + karteName(s.x, s.y));
+    }));
+    // Der Hinweis steht auch dann da, wenn nichts verstellt ist. Er
+    // sagt, wie genau die Angabe ist, und das gilt in beide Richtungen.
+    t.push('', 'SICHT (Näherung: Linie Mitte zu Mitte, keine Deckungsgrade —',
+           '       im Zweifel entscheidet die Spielleitung)');
+    if (verstellt.length) verstellt.forEach(z => t.push(z));
+    else t.push('  Zwischen keinem Paar steht etwas.');
   }
   return t.join('\n');
 };
@@ -300,7 +382,7 @@ const karteText = (karte, teilnehmer, opts) => {
 // Zerlegt wird an Leerraeumen, nicht nach Spaltenbreite — dann ist es
 // gleich, ob zwischen den Feldern ein Leerzeichen steht oder drei.
 const K_KOPF   = /^\s*(?:[A-Z]{1,2}\s+){3,}[A-Z]{1,2}\s*$/;
-const K_ABSATZ = /^\s*(FIGUREN|GEL[ÄA]NDE|ENTFERNUNGEN)\b/i;
+const K_ABSATZ = /^\s*(FIGUREN|GEL[ÄA]NDE|ENTFERNUNGEN|SICHT)\b/i;
 
 // Ist das eine Rasterzeile? „nur Gerede" zerfaellt auch in zwei
 // Wortgruppen und waere sonst eine Karte von zwei Feldern. Also zwei
@@ -504,18 +586,26 @@ const K_PLATZHALTER = '    A  B  C  D\n 1  .  .  #  .\n 2  .  #  #  .';
 
 // Ein Feld auf dem Schirm. Es zeigt entweder eine Figur oder sein
 // Gelände; beides gleichzeitig gibt es nicht, und die Figur gewinnt.
-const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, onKlick }) => (
-  <button type="button"
-    className={'kk-feld'
-      + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner')
-               : ' g' + K_ZEICHEN.indexOf(zeichen))
-      + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : '')}
-    title={karteName(x, y) + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name)}
-    aria-label={karteName(x, y) + (figur ? ', ' + figur.name : ', ' + kArt(zeichen).name)}
-    onClick={()=>onKlick(x, y)}>
-    {figur ? figur.k : (zeichen === K_BODEN ? '' : zeichen)}
-  </button>
-);
+const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, mass, onKlick, onZeigen }) => {
+  const was = karteName(x, y)
+    + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name)
+    // Am Tablet gibt es keinen Zeiger und damit keine Anzeige in der
+    // Leiste — im Titel steht dasselbe, und langes Antippen zeigt ihn.
+    + (mass ? ' · ' + mass.weite + ' · ' + mass.sicht + ' · ' + mass.weg : '');
+  return (
+    <button type="button"
+      className={'kk-feld'
+        + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner')
+                 : ' g' + K_ZEICHEN.indexOf(zeichen))
+        + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : '')}
+      title={was} aria-label={was.replace(/ · /g, ', ')}
+      onMouseEnter={onZeigen ? ()=>onZeigen(x, y) : undefined}
+      onFocus={onZeigen ? ()=>onZeigen(x, y) : undefined}
+      onClick={()=>onKlick(x, y)}>
+      {figur ? figur.k : (zeichen === K_BODEN ? '' : zeichen)}
+    </button>
+  );
+};
 
 const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
   const karte = kampf.karte || null;
@@ -525,6 +615,9 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
   const [werkzeug, setWerkzeug] = React.useState(null);
   const [masze, setMasze] = React.useState(null);
   const [kopiert, setKopiert] = React.useState(false);
+  // Wo der Zeiger gerade steht. Nur fuers Messen — am Tablet gibt es
+  // ihn nicht, deshalb steht dasselbe auch im Titel jedes Feldes.
+  const [zeiger, setZeiger] = React.useState(null);
 
   const schreiben = (neu) =>
     setKampf(k => k && ({...k, karte: karteAufraeumen(neu, k.teilnehmer)}));
@@ -583,8 +676,12 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
       // Eine Bewegung gehört ins Protokoll — sie ist das, was im Zug
       // passiert ist, und ohne sie steht dort nur, wer angegriffen hat.
       if (alt && onLog && (alt.x !== x || alt.y !== y)) {
+        const weit = karteWeit(alt, {x, y});
+        // Die Meter stehen dabei, weil Reichweiten in Metern angegeben
+        // sind — „3 Felder" muesste sonst jeder im Kopf umrechnen.
         onLog({art: 'bewegung', wer: t.name, von: karteName(alt.x, alt.y),
-               auf: karteName(x, y), felder: karteWeit(alt, {x, y})});
+               auf: karteName(x, y), felder: weit,
+               meter: karteMeterText(weit, karte)});
       }
       schreiben(neu);
       setWerkzeug(null);
@@ -620,6 +717,34 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
   const wz = masze || {b: karte.breite, h: karte.hoehe};
   const inHand = werkzeug && werkzeug.art === 'figur' ? nachId.get(werkzeug.id) : null;
 
+  // ── Messen ─────────────────────────────────────────────────────
+  // Gemessen wird von der Figur in der Hand aus. Eine, die noch nirgends
+  // steht, hat kein Von — dann gibt es nichts zu messen.
+  const vonFeld = inHand ? (karte.figuren || {})[werkzeug.id] : null;
+  const messen = (x, y) => {
+    if (!vonFeld || (vonFeld.x === x && vonFeld.y === y)) return null;
+    const felder = karteWeit(vonFeld, {x, y});
+    const sicht = karteSicht(karte, vonFeld, {x, y});
+    const weg = karteWeg(karte, vonFeld, {x, y});
+    return {
+      felder,
+      weite: felder + (felder === 1 ? ' Feld' : ' Felder')
+             + ' · ' + karteMeterText(felder, karte),
+      // Zwei getrennte Aussagen, weil sie es sind: Wasser laesst sehen
+      // und haelt auf, eine Wand tut beides.
+      sicht: sicht.frei ? 'Sicht frei'
+        : sicht.art.name + ' auf ' + karteName(sicht.x, sicht.y) + ' im Blick',
+      weg: !weg.frei
+        ? 'Weg versperrt: ' + weg.art.name + ' auf ' + karteName(weg.x, weg.y)
+        : weg.schwierig
+          ? weg.schwierig + (weg.schwierig === 1 ? ' Feld' : ' Felder') + ' schwierig'
+          : 'Weg frei',
+      frei: sicht.frei, gehbar: weg.frei,
+    };
+  };
+  const gemessen = zeiger ? messen(zeiger.x, zeiger.y) : null;
+  const zeigen = (x, y) => setZeiger(z => (z && z.x === x && z.y === y) ? z : {x, y});
+
   return (
     <div className="kk">
 
@@ -634,12 +759,6 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
             {a.z === K_BODEN ? '·' : a.z}
           </button>
         ))}
-        <span className="kk-hinweis">
-          {werkzeug && werkzeug.art === 'gelaende'
-            ? 'Felder antippen zum Malen — noch einmal auf den Pinsel legt ihn weg'
-            : inHand ? inHand.name + ' — wohin?'
-            : 'Eine Figur antippen nimmt sie auf'}
-        </span>
         {/* Wer in der Hand ist, kann auch wieder herunter. Ohne das ginge
             eine einzelne Figur nur ueber „alle herunternehmen" weg. */}
         {inHand && (karte.figuren || {})[werkzeug.id] && (
@@ -658,8 +777,26 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
         </button>
       </div>
 
+      {/* Die Zeile darunter misst beim Setzen mit: wie weit ist es bis
+          dahin, steht etwas im Blick, kommt man geradeaus hin. Sie steht
+          fuer sich, weil sie mit jedem Feld ihre Laenge aendert — in der
+          Werkzeugleiste haette sie die Knoepfe vor sich hergeschoben. */}
+      <div className={'kk-hinweis' + (gemessen ? ' kk-mass' : '')}>
+        {werkzeug && werkzeug.art === 'gelaende'
+          ? 'Felder antippen zum Malen — noch einmal auf den Pinsel legt ihn weg'
+          : gemessen ? (
+            <>
+              {karteName(zeiger.x, zeiger.y)} · {gemessen.weite}
+              <b className={gemessen.frei ? 'kk-frei' : 'kk-zu'}> · {gemessen.sicht}</b>
+              <b className={gemessen.gehbar ? 'kk-frei' : 'kk-zu'}> · {gemessen.weg}</b>
+            </>)
+          : inHand ? inHand.name + ' — wohin? Ein Feld antippen setzt sie ab.'
+          : 'Eine Figur antippen nimmt sie auf'}
+      </div>
+
       <div className="kk-mitte">
-        <div className="kk-raster-kasten">
+        <div className="kk-raster-kasten"
+          onMouseLeave={()=>setZeiger(null)}>
           <div className="kk-raster"
             style={{gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'}}>
             <span className="kk-ecke" />
@@ -676,7 +813,8 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
                       zeichen={karteFeld(karte, x, y)} figur={f}
                       dran={!!(f && amZug && f.id === amZug.id)}
                       gewaehlt={!!(werkzeug && werkzeug.art === 'figur' && f && f.id === werkzeug.id)}
-                      onKlick={klick} />
+                      mass={vonFeld ? messen(x, y) : null}
+                      onKlick={klick} onZeigen={vonFeld ? zeigen : null} />
                   );
                 })}
               </React.Fragment>

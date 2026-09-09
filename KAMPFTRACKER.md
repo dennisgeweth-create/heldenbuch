@@ -104,7 +104,7 @@ Eingerückte Zeilen gehören zum Zug darüber.
 | `⚔ … beginnt` | der Kampf startet, diese Figur hat die höchste Initiative |
 | `▸ … ist am Zug` | Zugwechsel |
 | `⚡ … kommt dazwischen` | eingeschoben; der Unterbrochene ist danach wieder dran |
-| `… zieht B3 → E4 · 3 Felder` | Bewegung auf der Karte. Felder, nicht Meter — ein Feld sind 1,5 m, diagonal zählt eins |
+| `… zieht B3 → E4 · 3 Felder (4,5 m)` | Bewegung auf der Karte, diagonal zählt eins. Ältere Verläufe haben die Meter noch nicht |
 | `Angriff:` / `Zauber:` / `Gegenstand:` / `Merkmal:` | was angesagt bzw. eingetragen wurde, ggf. mit Rang und Würfel |
 | `… → Ziel: Treffer (18 gegen RK 15)` | Angriffswurf gegen ein Ziel |
 | `… → Ziel: Rettungswurf GES misslungen (9 gegen SG 15)` | Rettungswurf |
@@ -166,6 +166,11 @@ GELÄNDE
 ENTFERNUNGEN (Felder, diagonal zählt eins)
   Br → g1  5   Br → g2  6
   Th → g1  6   Th → g2  7
+
+SICHT (Näherung: Linie Mitte zu Mitte, keine Deckungsgrade —
+       im Zweifel entscheidet die Spielleitung)
+  Br → g1  Wand auf C2
+  Th → g1  Wand auf C3
 ```
 
 Was darin gilt:
@@ -181,9 +186,14 @@ Was darin gilt:
   nicht in der Geländetafel steht, weiß sie nicht.
 - **Die Entfernungstafel steht nur zwischen den Seiten** — Held gegen
   Gegner. Held zu Held und Gegner zu Gegner muss man abzählen.
-- **Sichtlinien stehen nicht drin.** Dass eine Wand zwischen zwei
-  Figuren *liegt*, lässt sich am Raster ablesen; ob sie den Schuss
-  wirklich sperrt, entscheidet die Spielleitung.
+- **Die Sichttafel nennt nur, wo etwas dazwischensteht.** Ein Paar, das
+  dort nicht auftaucht, sieht sich. Steht nirgends etwas, sagt die
+  Tafel das in einer Zeile.
+- **Sicht ist eine Näherung, kein Regelentscheid.** Gerechnet wird eine
+  Linie von Feldmitte zu Feldmitte; Start- und Zielfeld zählen nicht
+  mit. Das Grundregelwerk prüft von Ecke zu Ecke und kennt Deckung in
+  Stufen — halb, drei viertel, ganz. Davon steht hier nichts.
+  **Deckungsgrade und Grenzfälle entscheidet die Spielleitung.**
 
 ---
 
@@ -229,9 +239,11 @@ WAS DU BEKOMMST
 WAS ZUR STELLUNG GILT
 Steht im Protokoll ein Block „🗺 KARTE", ist das die Stellung: Raster
 mit Spalten A, B, C … und Zeilen ab 1, ein Feld 1,5 m, diagonal zählt
-eins. Die Geländetafel sagt, was Bewegung oder Sicht blockiert. Rechne
-damit, aber nur damit — Höhe, Deckungsgrade und Sichtlinien stehen
-nicht drin, die entscheide ich.
+eins. Die Geländetafel sagt, was Bewegung oder Sicht blockiert; die
+Sichttafel nennt die Paare, zwischen denen etwas steht — wer dort nicht
+steht, sieht sich. Rechne damit, aber nur damit: die Sicht ist eine
+Näherung von Feldmitte zu Feldmitte, und Höhe, Deckungsgrade und
+Grenzfälle entscheide ich.
 
 Steht kein solcher Block da, gibt es keine Stellung und keine
 Entfernungen. Frag danach, statt sie anzunehmen. Wenn ein Vorschlag von
@@ -280,11 +292,12 @@ Stellung: die Goblins am Wasser, der Hauptmann fünf Meter dahinter.
 - Wer in Reichweite ist, wer wegziehen müsste, wohin es einen Schritt
   weit lohnt.
 - Ob ein Flächenzauber mehrere trifft — abgezählt am Raster.
+- Ob eine Wand oder ein Baum zwischen zwei Figuren steht.
 
 **Nur mit zusätzlicher Angabe:**
 
 - Ohne Karte alles, was von Stellung oder Reichweite abhängt.
-- Sichtlinien und Deckung, auch mit Karte.
+- Deckungsgrade und Sicht-Grenzfälle, auch mit Karte.
 - Alles, was aus dem Werteblock der Kreatur kommt.
 
 **Gar nicht:**

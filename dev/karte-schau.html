@@ -21,6 +21,9 @@
       </div>
       <div class="kampf-protokoll-text" id="wbText"></div>
     </div>
+
+    <h2 class="wb-titel" style="margin-top:22px">Das Feld</h2>
+    <div class="kampf-karte" id="wbFeld"></div>
   </div>
 
   <script>
@@ -129,6 +132,29 @@
     document.getElementById('wbZahlen').addEventListener('change', wbZeichnen);
     document.getElementById('wbKarte').addEventListener('change', wbZeichnen);
     wbZeichnen();
+
+    // Das Feld selbst — mit einem erfundenen Kampf, damit Setzen,
+    // Messen und Malen ohne Anmeldung zu pruefen sind.
+    var wbKampf = {
+      aktiv: true, phase: 'kampf', runde: 1, zug: 0, name: 'Werkbank',
+      teilnehmer: wbListe, log: [],
+      karte: wbKarte({h1:{x:1,y:1,k:'Br'}, g1:{x:6,y:1,k:'g1'}, g2:{x:7,y:4,k:'g2'}})
+    };
+    var wbFeldWurzel = ReactDOM.createRoot(document.getElementById('wbFeld'));
+    window.wbLog = [];
+    function wbFeldZeichnen() {
+      wbFeldWurzel.render(React.createElement(KarteFeld, {
+        kampf: wbKampf, liste: wbListe, amZug: wbListe[0],
+        setKampf: function (fn) {
+          wbKampf = typeof fn === 'function' ? fn(wbKampf) : fn;
+          wbFeldZeichnen();
+        },
+        onFrage: function (text, tun) { console.log('Frage: ' + text); tun(); },
+        onLog: function (e) { window.wbLog.push(e); console.log('Log', JSON.stringify(e)); }
+      }));
+    }
+    wbFeldZeichnen();
+    window.wbStand = function () { return wbKampf.karte; };
 
     // Was der Kopierknopf in die Zwischenablage legt.
     window.wbText = function (mitKarte, jetzt) {
