@@ -1534,8 +1534,13 @@ switch ($action) {
         // etwas wert, wenn sie gar nicht erst hinausgehen. Der Client
         // koennte sie nur verschweigen — und wer die Konsole aufmacht,
         // sieht sie trotzdem. Also entscheidet das hier.
-        $istDm = istDmVon($pdo, $z2, $code, $advId);
-        if (is_array($probe) && !$istDm) {
+        // Die Besitzabfrage kostet eine Zeile Datenbank je Abruf — und
+        // abgefragt wird im Spiel jede gute Sekunde. Sie laeuft deshalb
+        // nur, wenn an dieser Probe ueberhaupt etwas zu verbergen ist.
+        $heikel = is_array($probe)
+            && (!empty($probe['geheim']) || !empty($probe['nachrichten']));
+        $istDm = $heikel ? istDmVon($pdo, $z2, $code, $advId) : true;
+        if ($heikel && !$istDm) {
             $meine = [];
             if ($z2['user']) {
                 $q = $pdo->prepare("SELECT char_id FROM hb_chars

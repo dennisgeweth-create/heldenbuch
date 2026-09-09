@@ -21561,6 +21561,34 @@ function App() {
   // etwas kommt, entscheidet er auch — nach der Einstellung des
   // Abenteuers und danach, ob die Spielleitung freigegeben hat.
   const [kampfSichtDaten, setKampfSichtDaten] = useState(null);
+  // ── Wie schnell sich das Spiel anfuehlt ────────────────────
+  // Gemessen, nicht geraten: eine Anfrage an den Server dauert etwa
+  // zwanzig Millisekunden. Der Verzug beim Spielen kam also nirgends aus
+  // der Leitung — er kam aus dem Takt, in dem gefragt wird, und daraus,
+  // dass die eigene Handlung erst mit der naechsten Antwort sichtbar
+  // wurde. Wer wuerfelt, sah seinen eigenen Wurf bis zu drei Sekunden
+  // spaeter.
+  //
+  // Zwei Griffe dagegen. Erstens: die eigene Handlung steht sofort da —
+  // der Server schickt sie in seiner Antwort ohnehin zurueck, sie muss
+  // nur benutzt werden. Zweitens: nach einer eigenen Handlung wird
+  // sofort neu gefragt, statt den Takt abzuwarten.
+  //
+  // Und der Takt selbst ist kuerzer, solange etwas offen steht. Teuer
+  // ist das nicht: eine Anfrage, deren Stand sich nicht bewegt hat,
+  // bekommt eine Zeile zurueck und sonst nichts.
+  const TAKT_KAMPF = 1200; // solange ein Kampf laeuft (war 2000)
+  const TAKT_PROBE = 1200; // solange eine Probe offen steht (war 3000)
+  const TAKT_BEUTE = 2500; // solange ein Fund daliegt (war 5000)
+
+  // Jede Schleife legt hier ihr „frag jetzt sofort" ab. Wer etwas
+  // abgeschickt hat, ruft es auf — dann steht der neue Stand nach einem
+  // Hin und Her da und nicht nach dem naechsten Takt.
+  const jetztFragen = useRef({});
+  const gleichFragen = was => {
+    const f = jetztFragen.current[was];
+    if (f) f();
+  };
   const [showKampfSicht, setShowKampfSicht] = useState(false);
   const kampfStandRef = useRef(-1);
   const kampfSichtRef = useRef(null);
@@ -21605,10 +21633,16 @@ function App() {
       // Wer nicht hinsieht, bekommt auch nichts: ein verstecktes
       // Fenster fragt gar nicht erst, und dann muss die Uhr auch nicht
       // schnell schlagen.
-      const takt = document.hidden ? 12000 : kampfSichtRef.current ? 2000 : 12000;
+      const takt = document.hidden ? 12000 : kampfSichtRef.current ? TAKT_KAMPF : 12000;
       uhr = setTimeout(frage, takt);
     };
     frage();
+    // Wer gerade etwas abgeschickt hat, wartet nicht auf den Takt.
+    jetztFragen.current.kampf = () => {
+      if (!lebt || document.hidden) return;
+      clearTimeout(uhr);
+      frage();
+    };
     // Und wer zurueckkommt, sieht sofort den Stand von jetzt und nicht
     // den von vor zwoelf Sekunden.
     const wach = () => {
@@ -21719,9 +21753,14 @@ function App() {
           beuteStandRef.current = +d.stand || 0;
         } catch {/* der naechste Versuch kommt gleich */}
       }
-      uhr = setTimeout(frage, document.hidden ? 20000 : beuteRef.current ? 5000 : 12000);
+      uhr = setTimeout(frage, document.hidden ? 20000 : beuteRef.current ? TAKT_BEUTE : 12000);
     };
     frage();
+    jetztFragen.current.beute = () => {
+      if (!lebt || document.hidden) return;
+      clearTimeout(uhr);
+      frage();
+    };
     const wach = () => {
       if (!document.hidden && lebt) {
         clearTimeout(uhr);
@@ -21744,6 +21783,7 @@ function App() {
     try {
       await apiBeuteSetzen(url, code, pass, advId, b);
       beuteStandRef.current = -1;
+      gleichFragen('beute');
       setBeuteAnlegen(false);
       setBeuteOffen(true);
     } catch (e) {
@@ -21759,6 +21799,7 @@ function App() {
     try {
       await apiBeuteNehmen(url, code, pass, advId, stueck.id, held ? held.id : '', held ? held.name : '');
       beuteStandRef.current = -1;
+      gleichFragen('beute');
     } catch (e) {
       appAlert('Das ging nicht: ' + (e.message || 'unbekannter Fehler'));
     }
@@ -21774,6 +21815,7 @@ function App() {
       setBeute(null);
       setBeuteOffen(false);
       beuteStandRef.current = -1;
+      gleichFragen('beute');
     } catch {}
   };
 
@@ -21874,9 +21916,14 @@ function App() {
           probeStandRef.current = +d.stand || 0;
         } catch {/* der naechste Versuch kommt gleich */}
       }
-      uhr = setTimeout(frage, document.hidden ? 15000 : probeRef.current ? 3000 : 9000);
+      uhr = setTimeout(frage, document.hidden ? 15000 : probeRef.current ? TAKT_PROBE : 9000);
     };
     frage();
+    jetztFragen.current.probe = () => {
+      if (!lebt || document.hidden) return;
+      clearTimeout(uhr);
+      frage();
+    };
     const wach = () => {
       if (!document.hidden && lebt) {
         clearTimeout(uhr);
@@ -21897,9 +21944,17 @@ function App() {
       pass
     } = serverCreds();
     try {
-      await apiProbeSetzen(url, code, pass, advId, p);
+      // Der Server schickt die fertige Ansage zurueck. Sie sofort zu
+      // nehmen spart der Spielleitung den Takt: die eigene Ansage steht
+      // da, sobald sie durch ist, und nicht erst beim naechsten Blick.
+      const d = await apiProbeSetzen(url, code, pass, advId, p);
+      if (d && d.probe) {
+        probeRef.current = d.probe;
+        setProbe(d.probe);
+      }
       probeStandRef.current = -1;
       setProbeAnsagen(false);
+      gleichFragen('probe');
     } catch (e) {
       appAlert('Die Ansage kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
     }
@@ -21912,8 +21967,10 @@ function App() {
     } = serverCreds();
     try {
       await apiProbeSetzen(url, code, pass, advId, null);
+      probeRef.current = null;
       setProbe(null);
       probeStandRef.current = -1;
+      gleichFragen('probe');
     } catch {}
   };
   // Die Post an einzelne. Wer sie bekommt, entscheidet der Server —
@@ -21927,6 +21984,7 @@ function App() {
     try {
       await apiProbeNachricht(url, code, pass, advId, an, text, bild);
       probeStandRef.current = -1;
+      gleichFragen('probe');
       return true;
     } catch (e) {
       appAlert('Das kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
@@ -21939,10 +21997,35 @@ function App() {
       code,
       pass
     } = serverCreds();
+    // Der eigene Wurf steht sofort da. Er ist schon geworfen — auf die
+    // Antwort des Servers zu warten hiesse, dem Spieler drei Sekunden
+    // lang eine leere Zeile zu zeigen, in der laengst eine Zahl steht.
+    const sofort = {
+      charId: c.id,
+      name: c.name,
+      wurf,
+      bonus,
+      zeit: Math.floor(Date.now() / 1000)
+    };
+    setProbe(p => {
+      if (!p) return p;
+      const rest = (p.antworten || []).filter(a => a.charId !== c.id);
+      const neu = {
+        ...p,
+        antworten: [...rest, sofort]
+      };
+      probeRef.current = neu;
+      return neu;
+    });
     try {
       await apiProbeAntwort(url, code, pass, advId, c.id, probe.id, c.name, wurf, bonus);
       probeStandRef.current = -1;
+      gleichFragen('probe');
     } catch (e) {
+      // Kam er nicht durch, hat der naechste Blick recht und nicht die
+      // Anzeige. Also den Stand vergessen und neu holen.
+      probeStandRef.current = -1;
+      gleichFragen('probe');
       appAlert('Der Wurf kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
     }
   };
@@ -22173,6 +22256,22 @@ function App() {
       // Das Fenster bleibt offen — wer eine Bonusaktion hat, sagt sie
       // gleich hinterher an. Zugemacht wird mit „Fertig“.
       kampfStandRef.current = -1; // beim naechsten Blick alles neu holen
+      // Und die eigene Ansage steht sofort in der Liste. Sie hat den
+      // Server erreicht; sie erst beim naechsten Takt zu zeigen waere
+      // nur Warten auf eine Zahl, die schon feststeht.
+      if (d && d.ansage) {
+        setKampfSichtDaten(k => {
+          if (!k) return k;
+          const drin = (k.ansagen || []).some(a => a.id === d.ansage.id);
+          const neu = drin ? k : {
+            ...k,
+            ansagen: [...(k.ansagen || []), d.ansage]
+          };
+          kampfSichtRef.current = neu;
+          return neu;
+        });
+      }
+      gleichFragen('kampf');
       return d && d.ansage || null;
     } catch (e) {
       appAlert('Die Ansage kam nicht an: ' + (e.message || 'unbekannter Fehler'));
