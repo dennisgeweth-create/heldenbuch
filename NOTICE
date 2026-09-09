@@ -1,0 +1,69 @@
+Heldenbuch — Herkunft der mitgelieferten Inhalte
+================================================
+
+Der Code steht unter der MIT-Lizenz (siehe LICENSE). Für die Regeldaten
+gilt das nicht — sie haben eine eigene Herkunft und eine eigene Auflage.
+
+
+Regeldaten aus dem SRD 5.1
+--------------------------
+
+Die Dateien
+
+    data-spells.json      Zauber
+    data-weapons.json     Waffen
+    data-wildshapes.json  Tiergestalten
+    data-merkmale.json    Klassen- und Unterklassenmerkmale
+
+und die Regeltabellen in js/data.js enthalten Material aus dem
+
+    System Reference Document 5.1 ("SRD 5.1")
+    © Wizards of the Coast LLC
+
+lizenziert unter der Creative Commons Attribution 4.0 International
+License (CC-BY-4.0):
+
+    https://creativecommons.org/licenses/by/4.0/legalcode
+
+Die deutschen Namen und Beschreibungen sind eigene Übersetzungen und
+Zusammenfassungen dieses Materials. Sie sind eine Bearbeitung im Sinne
+der Lizenz und stehen unter denselben Bedingungen.
+
+Wer diese Dateien weitergibt — verändert oder unverändert —, muss diesen
+Vermerk mitgeben.
+
+
+Was NICHT dabei ist
+-------------------
+
+Text aus dem Spielerhandbuch, Tashas Kessel oder Xanathars Ratgeber ist
+**nicht** Teil dieses Repos und wird auch nicht ausgeliefert. Diese Bücher
+stehen nicht unter einer freien Lizenz.
+
+Das Heldenbuch kann solches Material zwar führen: es liest beim Start eine
+Datei `data-eigen.json` neben der `index.html`, wenn eine da ist. Diese
+Datei legt jede Gruppe selbst an, aus ihren eigenen Büchern, auf ihrem
+eigenen Server. Sie steht in der `.gitignore` und wird beim Ausliefern
+nicht angefasst.
+
+Diese Grenze ist Absicht und soll so bleiben.
+
+
+Fremde Bibliotheken
+-------------------
+
+    vendor/react.production.min.js
+    vendor/react-dom.production.min.js
+    vendor/babel.min.js
+
+React und Babel, © Meta Platforms, Inc. und Mitwirkende, MIT-Lizenz.
+Sie liegen als Datei bei, damit das Heldenbuch ohne Paketverwaltung und
+ohne Netzzugang beim Bauen auskommt.
+
+
+Marken
+------
+
+Dungeons & Dragons und D&D sind Marken von Wizards of the Coast LLC.
+Das Heldenbuch ist ein unabhängiges Werkzeug und steht in keiner
+Verbindung zu Wizards of the Coast.

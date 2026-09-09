@@ -21,4 +21,4 @@ define('ALLOWED_ORIGIN', 'http://localhost:8777');
 // Anwendung: wer den Namen aendern will, braucht Zugriff auf die Datei
 // mit den Datenbank-Zugangsdaten. Ohne diesen Eintrag laesst sich kein
 // erstes Konto anlegen.
-define('ADMIN_USER', 'dennis');
+define('ADMIN_USER', 'admin');

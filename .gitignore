@@ -4,3 +4,9 @@ config.php
 # nicht in die Auslieferung gehoert. Sie liegt auf dem Server neben der
 # index.html und ueberlebt jeden Upload, weil der dort nichts loescht.
 data-eigen.json
+
+# Was beim Arbeiten anfaellt und niemanden sonst angeht.
+scratchpad/
+*.log
+.DS_Store
+Thumbs.db

@@ -48,12 +48,21 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `KAMPFKARTE.md` | Konzept und Stufenplan der Rasterkarte im Kampf |
 | `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — alle Stufen gebaut |
 | `PATCHNOTES.md` | wird **ausgeliefert**: die Ausgabe-Nummer in der Heldenleiste öffnet sie |
-| `dev/` | oertliche Serverseite zum Testen — wird nie ausgeliefert |
+| `dev/` | oertliche Serverseite und Werkbankseiten zum Testen — wird nie ausgeliefert |
+| ↳ `dev/pruefungen/` | die Rechnungspruefungen, alle auf einmal mit `node dev/pruefen.js` |
+| `README.md` | was das Heldenbuch ist — die Seite fuer Besucher des Repos |
+| `LICENSE`, `NOTICE` | MIT fuer den Code, CC-BY fuer die SRD-Daten |
 
 ## Nach jeder Änderung in `js/src/`
 
 ```bash
 node build.js
+```
+
+Und was die Rechnung angeht:
+
+```bash
+node dev/pruefen.js
 ```
 
 Sonst schlägt der Deploy fehl — die Action prüft mit `node build.js --check`,

@@ -58,7 +58,7 @@ function kurz(array $a): string {
     return $a['status'] . ' ' . mb_substr((string)($a['body']['message'] ?? ''), 0, 70);
 }
 
-$admin     = 'dennis';                 // muss zu ADMIN_USER passen
+$admin     = 'admin';                  // muss zu ADMIN_USER passen
 $adminPass = 'adminpasswort';
 $code      = 'T' . substr((string)time(), -6) . rand(10, 99);
 $gruppePw  = 'gruppenpasswort';

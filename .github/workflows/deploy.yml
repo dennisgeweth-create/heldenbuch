@@ -4,14 +4,28 @@ on:
   push:
     branches: [master]
 
-env:
-  SFTP_HOST: access-5019959932.webspace-host.com
-  SFTP_USER: su533209
-  REMOTE_DIR: /codevermittler/heldenbuch2
-
+# Wohin ausgeliefert wird, steht in den Secrets des Repos und nicht hier:
+# das Repo ist oeffentlich, und Adresse, Benutzername und Zielpfad sind die
+# halbe Zugangsangabe. Anzulegen unter Settings > Secrets and variables >
+# Actions:
+#
+#   SFTP_HOST      Adresse des Webspace
+#   SFTP_USER      Benutzername dort
+#   SFTP_PASSWORD  dessen Passwort
+#   REMOTE_DIR     Zielverzeichnis, ohne Schraegstrich am Ende
+#   SITE_URL       oeffentliche Adresse desselben Verzeichnisses,
+#                  ohne Schraegstrich am Ende
+#
+# Wer das Heldenbuch nur nachbaut, legt keine an: die Pruefschritte laufen
+# trotzdem, die Auslieferung wird uebersprungen.
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      SFTP_HOST:  ${{ secrets.SFTP_HOST }}
+      SFTP_USER:  ${{ secrets.SFTP_USER }}
+      REMOTE_DIR: ${{ secrets.REMOTE_DIR }}
+      SITE_URL:   ${{ secrets.SITE_URL }}
     steps:
       # v5 laeuft auf Node 24. v4 zielte auf Node 20, das GitHub abkuendigt
       # und auf den Laeufern schon zwangsweise auf 24 hob — jeder Lauf
@@ -53,12 +67,14 @@ jobs:
           find deploy -type f | sort
 
       - name: Install lftp
+        if: env.SFTP_HOST != ''
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       # lftp statt einer fertigen Action, weil diese still fehlschlagen kann:
       # mirror meldet jede Datei einzeln und der Exit-Code bricht den Lauf ab.
       # --env-password hält das Passwort aus der Prozessliste heraus.
       - name: Upload via SFTP
+        if: env.SFTP_HOST != ''
         env:
           LFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
         run: |
@@ -73,12 +89,13 @@ jobs:
       # mehr, nur index.html zu prüfen: bliebe eine der anderen zurück, wäre
       # die App kaputt und der Lauf trotzdem grün.
       - name: Verify deployed files
+        if: env.SFTP_HOST != ''
         run: |
           FAIL=0
           FILES="index.html styles.css PATCHNOTES.md js/data.js js/util.js js/app.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
-            REMOTE=$(curl -fsSL "https://codevermittler.net/heldenbuch2/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
+            REMOTE=$(curl -fsSL "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
             if [ "$LOCAL" = "$REMOTE" ]; then
               echo "OK      $f  ($LOCAL)"
             else
