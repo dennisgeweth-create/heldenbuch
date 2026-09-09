@@ -44,6 +44,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `TAVERNE.md` | Stufenplan der Taverne — alle Stufen gebaut |
 | `TAVERNE-WALZEN.md` | Konzept und Stufenplan der drei Fünfwalzenautomaten |
 | `KAMPFTRACKER.md` | Was der Tracker führt und ausgibt — zum Vorlegen an eine KI |
+| `KAMPFKARTE.md` | Konzept und Stufenplan der Rasterkarte im Kampf |
 | `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — alle Stufen gebaut |
 | `PATCHNOTES.md` | wird **ausgeliefert**: die Ausgabe-Nummer in der Heldenleiste öffnet sie |
 | `dev/` | oertliche Serverseite zum Testen — wird nie ausgeliefert |
