@@ -156,15 +156,22 @@ Automaten, der nichts auszahlt.
 *Ein Zauberbuch in einer versunkenen Bibliothek.* Das Buch schlägt sich
 auf und bestimmt, welches Zeichen diese Runde regiert.
 
+So gebaut (Vielfaches des **Linien**einsatzes, und der ist ein Zehntel
+dessen, was auf der Leiste steht):
+
 | Zeichen | 2 | 3 | 4 | 5 |
 |---|--:|--:|--:|--:|
-| 🧭 Der Gräber | 5 | 100 | 1.000 | 5.000 |
-| 👑 Die Drachenkrone | – | 100 | 750 | 2.000 |
-| 🗿 Der steinerne Wächter | – | 40 | 400 | 1.000 |
-| 🪲 Der Grabkäfer | – | 40 | 400 | 1.000 |
-| 🜂 Feuer · 🜁 Luft | – | 5 | 40 | 150 |
-| 🜃 Erde · 🜄 Wasser | – | 5 | 25 | 100 |
-| 📜 **Das Buch** — Wild und verstreut | 1 | 2 | 20 | 200 |
+| 🧭 Der Gräber | 2 | 40 | 400 | 2.000 |
+| 👑 Die Drachenkrone | – | 40 | 300 | 800 |
+| 🗿 Der steinerne Wächter | – | 16 | 160 | 400 |
+| 🪲 Der Grabkäfer | – | 16 | 160 | 400 |
+| 🔥 Feuer · 🌬️ Luft | – | 2 | 16 | 55 |
+| ⛰️ Erde · 💧 Wasser | – | 2 | 10 | 35 |
+| 📜 **Das Buch** — Wild und verstreut (Gesamteinsatz) | 0,5 | 1 | 10 | 100 |
+
+Bänder von sechzig Plätzen mit je zwei Büchern; die Runde fällt damit
+etwa jede **117. Drehung** und trägt **45 %** der Auszahlung. Gemessen mit
+fünfzehn Millionen stillen Drehungen: **95,2 %**.
 
 Drei Bücher → zehn Freispiele. Vorher blättert das Buch sichtbar durch
 die Tafel und bleibt bei einem Zeichen stehen — **das aufgeschlagene
@@ -218,9 +225,9 @@ Runde, nicht die Linie.
 
 ---
 
-## Stufe 8 · Das Fünfwalzen-Gerüst
+## Stufe 8 · Das Fünfwalzen-Gerüst ✓
 
-Die eigentliche Arbeit. `js/src/2f7-walzen.jsx`, reine Rechnung und ein
+*Steht.* Die eigentliche Arbeit. `js/src/2f7-walzen.jsx`, reine Rechnung und ein
 Anzeigebauteil, beides von den drei Automaten geteilt.
 
 **Bänder statt Würfeln.** Der bestehende Automat zieht jedes der neun
@@ -270,9 +277,9 @@ also nach Zeichen. `2f10-…` stünde damit **vor** `2f2-…`. Deshalb
 `2f7-walzen.jsx`, `2f8-buch.jsx`, `2f9-auge.jsx` und `2fa-arena.jsx` —
 „2fa" steht nach „2f9" und vor „2g".
 
-## Stufe 9 · 🕮 Das Verschollene Kapitel
+## Stufe 9 · 🕮 Das Verschollene Kapitel ✓
 
-Der erste der drei, weil seine Bonusrunde die einfachste ist: ein
+*Steht.* Der erste der drei, weil seine Bonusrunde die einfachste ist: ein
 gelostes Zeichen, ein Zähler, eine Ausdehnungsregel. An ihm zeigt sich,
 ob das Gerüst trägt. Neu dazu nur: das Blättern vor der Runde, die
 gefüllte Walze, und die Wertung ohne Nachbarschaft.
@@ -331,6 +338,16 @@ Die Häufigkeitstafeln liegen als Konstanten in der jeweiligen Datei,
 danebengeschrieben, mit wie vielen Drehungen sie gemessen wurden. Das
 Messprogramm kommt nach `dev/` und läuft mit `node` — es gehört nicht in
 die Anwendung, sondern in die Werkstatt.
+
+**Warum nicht im Browser messen.** Der erste Versuch tat genau das:
+zwanzigtausend stille Drehungen beim Öffnen des Tisches. Das ging
+schief. Die Freispielrunde fällt jede 117. Drehung und trägt fast die
+Hälfte der Auszahlung, und die großen Beträge darin kommen einmal in
+Zehntausenden — zwanzigtausend Drehungen schwankten um sechs
+Prozentpunkte, und der Tisch schrieb bei jedem Öffnen eine andere Quote
+hin. Eine Zahl, die sich beim Hinsehen ändert, ist keine. Also einmal
+mit fünfzehn Millionen in der Werkbank, und im Browser nur noch das
+Skalarprodukt.
 
 ---
 

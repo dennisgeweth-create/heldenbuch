@@ -1071,6 +1071,9 @@ const TAVERNEN_TISCHE = [
   {k:'poker',     z:'♟', name:'Ultimate Texas Hold’em',
    unter:'Gegen das Haus. Wer früh erhöht, zahlt das Vierfache',
    da:true, breit:520, weit:660},
+  {k:'buch',      z:'🕮', name:'Das Verschollene Kapitel',
+   unter:'Fünf Walzen, zehn Linien — drei Bücher schlagen ein Kapitel auf',
+   walze:true, da:true, breit:460, weit:560},
 ];
 
 // Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
@@ -1101,31 +1104,50 @@ const tavernenZu = (cfg) => {
   return TAVERNEN_TISCHE.filter(t => !l.includes(t.k));
 };
 
-const TavernenHalle = ({ tische, onWahl }) => (
-  <div className="halle">
-    {tische.length === 0 ? (
-      <div className="halle-leer">Heute ist geschlossen — die Spielleitung hat
-        alle Tische abgeraeumt.</div>
-    ) : tische.map(t => (
-      <button type="button" key={t.k}
-        className={'halle-tisch' + (t.da ? '' : ' spaeter')}
-        disabled={!t.da} onClick={()=>t.da && onWahl(t.k)}
-        title={t.da ? t.name : 'Dieser Tisch wird noch gebaut'}>
-        <span className="halle-zeichen">{t.z}</span>
-        <span className="halle-text">
-          <span className="halle-name">{t.name}</span>
-          <span className="halle-unter">{t.unter}</span>
-        </span>
-        {/* Rechts steht nur noch, was ein Tisch kostet, nicht was er
-            dem Haus bringt: der Hausvorteil interessiert die Rechnung
-            und nicht den, der sich hinsetzt. */}
-        {(t.da ? t.rand : 'im Bau') && (
-          <span className="halle-rand">{t.da ? t.rand : 'im Bau'}</span>
-        )}
-      </button>
-    ))}
-  </div>
+const HalleTisch = ({ t, onWahl }) => (
+  <button type="button"
+    className={'halle-tisch' + (t.da ? '' : ' spaeter')}
+    disabled={!t.da} onClick={()=>t.da && onWahl(t.k)}
+    title={t.da ? t.name : 'Dieser Tisch wird noch gebaut'}>
+    <span className="halle-zeichen">{t.z}</span>
+    <span className="halle-text">
+      <span className="halle-name">{t.name}</span>
+      <span className="halle-unter">{t.unter}</span>
+    </span>
+    {/* Rechts steht nur noch, was ein Tisch kostet, nicht was er
+        dem Haus bringt: der Hausvorteil interessiert die Rechnung
+        und nicht den, der sich hinsetzt. */}
+    {(t.da ? t.rand : 'im Bau') && (
+      <span className="halle-rand">{t.da ? t.rand : 'im Bau'}</span>
+    )}
+  </button>
 );
+
+// Seit die Walzen dazugekommen sind, ist die Liste zu lang fuer eine
+// Liste. Zwei Ueberschriften: an einem Tisch gibt jemand, an einem
+// Automaten nicht. Die Ueberschriften stehen nur da, wenn beides da ist
+// — bei einer geschlossenen Haelfte waere eine Ueberschrift ueber einer
+// einzigen Gruppe nur Ballast.
+const TavernenHalle = ({ tische, onWahl }) => {
+  const walzen = tische.filter(t => t.walze);
+  const tafeln = tische.filter(t => !t.walze);
+  const geteilt = walzen.length > 0 && tafeln.length > 0;
+  return (
+    <div className="halle">
+      {tische.length === 0 ? (
+        <div className="halle-leer">Heute ist geschlossen — die Spielleitung hat
+          alle Tische abgeraeumt.</div>
+      ) : (
+        <>
+          {geteilt && <div className="halle-gruppe">Tische</div>}
+          {tafeln.map(t => <HalleTisch key={t.k} t={t} onWahl={onWahl} />)}
+          {geteilt && <div className="halle-gruppe">Walzen</div>}
+          {walzen.map(t => <HalleTisch key={t.k} t={t} onWahl={onWahl} />)}
+        </>
+      )}
+    </div>
+  );
+};
 
 const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }) => {
   // Marken oder Gold, Bogen oder Geraet — die Tische merken davon nichts.
@@ -1325,6 +1347,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
         <RennenTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'poker' ? (
         <PokerTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+      ) : jetzt && jetzt.k === 'buch' ? (
+        <BuchTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />

@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -7515,6 +7515,15 @@ const TAVERNEN_TISCHE = [{
   da: true,
   breit: 520,
   weit: 660
+}, {
+  k: 'buch',
+  z: '🕮',
+  name: 'Das Verschollene Kapitel',
+  unter: 'Fünf Walzen, zehn Linien — drei Bücher schlagen ein Kapitel auf',
+  walze: true,
+  da: true,
+  breit: 460,
+  weit: 560
 }];
 
 // Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
@@ -7544,16 +7553,11 @@ const tavernenZu = cfg => {
   const l = cfg && Array.isArray(cfg.zu) ? cfg.zu : [];
   return TAVERNEN_TISCHE.filter(t => !l.includes(t.k));
 };
-const TavernenHalle = ({
-  tische,
+const HalleTisch = ({
+  t,
   onWahl
-}) => /*#__PURE__*/React.createElement("div", {
-  className: "halle"
-}, tische.length === 0 ? /*#__PURE__*/React.createElement("div", {
-  className: "halle-leer"
-}, "Heute ist geschlossen \u2014 die Spielleitung hat alle Tische abgeraeumt.") : tische.map(t => /*#__PURE__*/React.createElement("button", {
+}) => /*#__PURE__*/React.createElement("button", {
   type: "button",
-  key: t.k,
   className: 'halle-tisch' + (t.da ? '' : ' spaeter'),
   disabled: !t.da,
   onClick: () => t.da && onWahl(t.k),
@@ -7568,7 +7572,38 @@ const TavernenHalle = ({
   className: "halle-unter"
 }, t.unter)), (t.da ? t.rand : 'im Bau') && /*#__PURE__*/React.createElement("span", {
   className: "halle-rand"
-}, t.da ? t.rand : 'im Bau'))));
+}, t.da ? t.rand : 'im Bau'));
+
+// Seit die Walzen dazugekommen sind, ist die Liste zu lang fuer eine
+// Liste. Zwei Ueberschriften: an einem Tisch gibt jemand, an einem
+// Automaten nicht. Die Ueberschriften stehen nur da, wenn beides da ist
+// — bei einer geschlossenen Haelfte waere eine Ueberschrift ueber einer
+// einzigen Gruppe nur Ballast.
+const TavernenHalle = ({
+  tische,
+  onWahl
+}) => {
+  const walzen = tische.filter(t => t.walze);
+  const tafeln = tische.filter(t => !t.walze);
+  const geteilt = walzen.length > 0 && tafeln.length > 0;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "halle"
+  }, tische.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "halle-leer"
+  }, "Heute ist geschlossen \u2014 die Spielleitung hat alle Tische abgeraeumt.") : /*#__PURE__*/React.createElement(React.Fragment, null, geteilt && /*#__PURE__*/React.createElement("div", {
+    className: "halle-gruppe"
+  }, "Tische"), tafeln.map(t => /*#__PURE__*/React.createElement(HalleTisch, {
+    key: t.k,
+    t: t,
+    onWahl: onWahl
+  })), geteilt && /*#__PURE__*/React.createElement("div", {
+    className: "halle-gruppe"
+  }, "Walzen"), walzen.map(t => /*#__PURE__*/React.createElement(HalleTisch, {
+    key: t.k,
+    t: t,
+    onWahl: onWahl
+  }))));
+};
 const TaverneSchirm = ({
   cfg,
   helden,
@@ -7830,6 +7865,11 @@ const TaverneSchirm = ({
     zahlen: zahlen,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'poker' ? /*#__PURE__*/React.createElement(PokerTisch, {
+    cfg: cfgTisch,
+    marken: marken,
+    zahlen: zahlen,
+    onLaeuft: setLaeuft
+  }) : jetzt && jetzt.k === 'buch' ? /*#__PURE__*/React.createElement(BuchTisch, {
     cfg: cfgTisch,
     marken: marken,
     zahlen: zahlen,
@@ -11033,6 +11073,40 @@ const wZiehen = (baender, zufall) => {
   return feld;
 };
 
+// Ein Band von Hand hinzuschreiben waere fuer fuenf Walzen eine Liste von
+// dreihundert Eintraegen, in der niemand mehr sieht, was gemeint ist —
+// und in der beim Abtippen genau die Klumpen entstehen, die ein Band
+// nicht haben soll. Also steht da, wie oft ein Zeichen auf dem Band
+// liegt, und die Plaetze werden gleichmaessig verteilt: haeufige zuerst,
+// jedes im gleichen Abstand, der Versatz je Walze anders.
+const wBandAusAnzahlen = (anzahlen, laenge, versatz) => {
+  const band = new Array(laenge).fill(null);
+  const liste = Object.keys(anzahlen).map(k => [k, +anzahlen[k] || 0]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  if (!liste.length) return band;
+  liste.forEach((paar, idx) => {
+    const k = paar[0],
+      c = paar[1];
+    // Der Bruchteil verschiebt die Reihe gegen die vorige, damit nicht
+    // alle Zeichen auf denselben Plaetzen anfangen.
+    const anfang = ((versatz || 0) + idx * 0.37) % 1;
+    for (let j = 0; j < c; j++) {
+      let p = Math.round((j + anfang) * laenge / c) % laenge;
+      let n = 0;
+      while (band[p] !== null && n < laenge) {
+        p = (p + 1) % laenge;
+        n++;
+      }
+      if (band[p] === null) band[p] = k;
+    }
+  });
+  // Was die Rundung uebriglaesst, bekommt das haeufigste Zeichen.
+  for (let i = 0; i < laenge; i++) if (band[i] === null) band[i] = liste[0][0];
+  return band;
+};
+
+// Fuenf Baender aus denselben Anzahlen, je Walze anders versetzt.
+const wBaenderAus = (anzahlen, laenge) => [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(anzahlen, laenge, w * 0.2 + 0.05));
+
 // ── Eine Linie ───────────────────────────────────────────────────
 // Von links, ab Walze 1, ohne Luecke.
 //
@@ -11185,7 +11259,11 @@ const wZaehler = () => ({
   // k -> {laenge -> Zahl}
   streu: {} // k -> {anzahl -> Zahl}
 });
-const wZaehlen = (z, feld, symbole, gewicht) => {
+
+// Linien und Streuzeichen getrennt, weil eine Bonusrunde sie oft
+// getrennt braucht: das Verschollene Kapitel wertet die Linien auf dem
+// ausgefuellten Feld und die Buecher auf dem gezogenen.
+const wZaehlenLinien = (z, feld, symbole, gewicht) => {
   const g = gewicht === undefined ? 1 : gewicht;
   W_LINIEN.forEach(linie => {
     const t = wLinieWerten(feld, linie, symbole, 1);
@@ -11193,12 +11271,27 @@ const wZaehlen = (z, feld, symbole, gewicht) => {
     const e = z.linie[t.sym.k] || (z.linie[t.sym.k] = {});
     e[t.laenge] = (e[t.laenge] || 0) + g;
   });
+};
+const wZaehlenStreu = (z, feld, symbole, gewicht) => {
+  const g = gewicht === undefined ? 1 : gewicht;
   symbole.filter(s => s.streu).forEach(s => {
     const n = wStreuWerten(feld, s, 0).anzahl;
     if (!n) return;
     const e = z.streu[s.k] || (z.streu[s.k] = {});
     e[n] = (e[n] || 0) + g;
   });
+};
+// Ein ganzer Treffer, so wie ihn der Grunddreh macht.
+const wZaehlen = (z, feld, symbole, gewicht) => {
+  wZaehlenLinien(z, feld, symbole, gewicht);
+  wZaehlenStreu(z, feld, symbole, gewicht);
+};
+// Eine Kette, die nicht auf einer Linie steht — die Ausdehnung des
+// Sonderzeichens zahlt ueber alle zehn Linien auf einmal, ohne dass
+// eine davon getroffen sein muesste.
+const wZaehlenFrei = (z, k, laenge, wieoft) => {
+  const e = z.linie[k] || (z.linie[k] = {});
+  e[laenge] = (e[laenge] || 0) + wieoft;
 };
 
 // Der Automat gibt eine Runde her, die aus einem Feld heraus laeuft; das
@@ -11472,6 +11565,8 @@ const wLeuchtet = (ergebnis, zeigeLinie) => {
 // aus. Was ein Zeichen kann, steht dabei — wild, verstreut, an Walzen
 // gebunden —, damit niemand die Regeln erraten muss.
 const wZahlSpalten = [5, 4, 3, 2];
+// Eine Nachkommastelle, mit Komma. „94.4 %" liest hier niemand.
+const wProzent = q => (Math.round(q * 1000) / 10).toFixed(1).replace('.', ',') + ' %';
 const WalzenTafel = ({
   symbole,
   quote,
@@ -11488,7 +11583,7 @@ const WalzenTafel = ({
     "aria-expanded": offen
   }, /*#__PURE__*/React.createElement("span", null, offen ? '▾' : '▸', " Auszahlungen"), quote > 0 && /*#__PURE__*/React.createElement("span", {
     className: "tafel-quote"
-  }, Math.round(quote * 1000) / 10, " %")), offen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
+  }, wProzent(quote))), offen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
     className: "automat-tabelle walzen-tabelle"
   }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, symbole.map(s => /*#__PURE__*/React.createElement("tr", {
     key: s.k
@@ -11505,6 +11600,578 @@ const WalzenTafel = ({
   }))))), /*#__PURE__*/React.createElement("p", {
     className: "automat-fussnote"
   }, "Zehn Linien, immer alle. Gewertet wird von links ab der ersten Walze, ohne L\xFCcke; je Linie z\xE4hlt nur der beste Gewinn. Der Einsatz auf der Leiste ist der Gesamteinsatz \u2014 eine Linie bekommt ein Zehntel davon, und die Vielfachen oben beziehen sich darauf. Verstreute Zeichen z\xE4hlen irgendwo auf dem Feld und rechnen \xFCber den ganzen Einsatz."), kinder));
+};
+
+// ==== js/src/2f8-buch.jsx ====
+// Heldenbuch — „Das Verschollene Kapitel", der erste der drei
+// Fuenfwalzenautomaten.
+//
+// Ein Zauberbuch in einer versunkenen Bibliothek. Drei Buecher oeffnen
+// zehn Freispiele; vorher blaettert das Buch und bleibt bei einem Zeichen
+// stehen. Faellt dieses Zeichen im Freispiel mindestens dreimal, fuellt
+// es die Walzen, auf denen es liegt, und zahlt ueber alle zehn Linien —
+// und zwar, ohne nebeneinander liegen zu muessen. Ein Sonderzeichen auf
+// Walze 1, 3 und 5 zahlt wie drei nebeneinander. Das ist die ganze Regel,
+// und sie traegt den Automaten.
+//
+// Das Buch ist dabei Wild und Streuzeichen zugleich: es ersetzt jedes
+// Zeichen auf einer Linie und zaehlt gleichzeitig verstreut. Wird es
+// selbst zum Sonderzeichen gelost, ist das der beste Fall — dann fuellen
+// sich Walzen mit einem Zeichen, das alles ersetzt.
+
+const BUCH_FREISPIELE = 10;
+const BUCH_AUSLOESER = 3; // so viele Buecher oeffnen die Runde
+const BUCH_MINDEST = 3; // so oft muss das Sonderzeichen liegen
+
+// ── Die Tafel ────────────────────────────────────────────────────
+// Die Form ist die des Vorbilds: ein Zeichen, das schon zu zweit zahlt,
+// darunter drei hohe, dann vier billige in zwei Stufen — und ein steiler
+// Sprung vom Vierer zum Fuenfer, der die Schwankung macht.
+//
+// Die Zahlen sind Vielfache des LINIENeinsatzes, und der ist ein Zehntel
+// dessen, was auf der Leiste steht. Sie stehen so da, wie sie gemessen
+// wurden: 800.000 stille Drehungen ergeben 94,9 % Auszahlung, davon 45 %
+// aus der Freispielrunde. Die Runde faellt etwa jede 117. Drehung.
+//
+// Wer sie verstellt, verstellt die Quote — sie steht am Tisch, und zwar
+// die erreichte und nicht die gewuenschte.
+const BUCH_SYMBOLE = [{
+  k: 'graeber',
+  z: '🧭',
+  name: 'Der Gräber',
+  zahlt: {
+    2: 2,
+    3: 40,
+    4: 400,
+    5: 2000
+  }
+}, {
+  k: 'krone',
+  z: '👑',
+  name: 'Die Drachenkrone',
+  zahlt: {
+    3: 40,
+    4: 300,
+    5: 800
+  }
+}, {
+  k: 'waechter',
+  z: '🗿',
+  name: 'Der steinerne Wächter',
+  zahlt: {
+    3: 16,
+    4: 160,
+    5: 400
+  }
+}, {
+  k: 'kaefer',
+  z: '🪲',
+  name: 'Der Grabkäfer',
+  zahlt: {
+    3: 16,
+    4: 160,
+    5: 400
+  }
+}, {
+  k: 'feuer',
+  z: '🔥',
+  name: 'Feuer',
+  zahlt: {
+    3: 2,
+    4: 16,
+    5: 55
+  }
+}, {
+  k: 'luft',
+  z: '🌬️',
+  name: 'Luft',
+  zahlt: {
+    3: 2,
+    4: 16,
+    5: 55
+  }
+}, {
+  k: 'erde',
+  z: '⛰️',
+  name: 'Erde',
+  zahlt: {
+    3: 2,
+    4: 10,
+    5: 35
+  }
+}, {
+  k: 'wasser',
+  z: '💧',
+  name: 'Wasser',
+  zahlt: {
+    3: 2,
+    4: 10,
+    5: 35
+  }
+}, {
+  k: 'buch',
+  z: '📜',
+  name: 'Das Buch der Tiefe',
+  wild: true,
+  streu: {
+    2: 0.5,
+    3: 1,
+    4: 10,
+    5: 100
+  }
+}];
+
+// ── Die Baender ──────────────────────────────────────────────────
+// Zwei Buecher auf sechzig Plaetzen heisst: jede Walze zeigt mit
+// Wahrscheinlichkeit 1/10 eines. Drei auf fuenf Walzen kommen damit etwa
+// jede hundertzwanzigste Drehung — nah an dem, was das Vorbild tut. Ein
+// Buch mehr je Band, und die Runde faellt achtmal so oft; eins weniger,
+// und niemand bekommt sie je zu sehen.
+const BUCH_BANDLAENGE = 60;
+const BUCH_ANZAHLEN = {
+  graeber: 3,
+  krone: 4,
+  waechter: 6,
+  kaefer: 6,
+  feuer: 8,
+  luft: 8,
+  erde: 11,
+  wasser: 12,
+  buch: 2
+};
+const BUCH_BAENDER = wBaenderAus(BUCH_ANZAHLEN, BUCH_BANDLAENGE);
+
+// ── Ein Dreh ─────────────────────────────────────────────────────
+// Im Grundspiel ist es der gewoehnliche: Linien, dann die Buecher.
+//
+// Im Freispiel kommt die eine Regel dazu. Das Sonderzeichen zahlt dann
+// NICHT ueber die Linien, sondern ueber seine Ausdehnung — sonst zaehlte
+// derselbe Treffer zweimal, einmal als Kette und einmal als gefuellte
+// Walze. Deshalb wird ihm fuer die Linienwertung die Auszahlung
+// weggenommen; wild und verstreut bleibt es, falls es das Buch ist.
+const buchOhne = (symbole, k) => symbole.map(s => s.k === k ? {
+  ...s,
+  zahlt: null
+} : s);
+const buchDreh = (feld, symbole, einsatz, sonderK) => {
+  const le = wLinieneinsatz(einsatz);
+  const streu = [];
+  // Die Buecher zaehlen immer auf dem gezogenen Feld, nie auf dem
+  // ausgefuellten: sonst zaehlte eine mit Buechern gefuellte Walze neun
+  // Buecher, und dafuer steht in der Tafel nichts.
+  symbole.filter(s => s.streu).forEach(s => {
+    const e = wStreuWerten(feld, s, einsatz);
+    if (e.anzahl > 0) streu.push(e);
+  });
+  const walzen = sonderK ? wWalzenMit(feld, sonderK) : [];
+  const dehnt = walzen.length >= BUCH_MINDEST;
+  const bild = dehnt ? walzen.reduce((f, w) => wWalzeFuellen(f, w, sonderK), feld) : feld;
+  const tafel = dehnt ? buchOhne(symbole, sonderK) : symbole;
+  const treffer = [];
+  let gewinn = streu.reduce((s, e) => s + e.betrag, 0);
+  W_LINIEN.forEach((linie, nr) => {
+    const t = wLinieWerten(bild, linie, tafel, le);
+    if (!t) return;
+    gewinn += t.betrag;
+    treffer.push({
+      nr,
+      name: linie.name,
+      ...t
+    });
+  });
+  let ausdehnung = null;
+  if (dehnt) {
+    const sonder = wSymbol(sonderK, symbole);
+    const betrag = wZahlt(sonder, walzen.length) * le * W_LINIEN.length;
+    gewinn += betrag;
+    ausdehnung = {
+      sym: sonder,
+      walzen,
+      betrag
+    };
+  }
+  return {
+    feld: bild,
+    roh: feld,
+    gewinn,
+    treffer,
+    streu,
+    ausdehnung,
+    walzen: dehnt ? walzen : []
+  };
+};
+
+// Wie viele Buecher liegen — daran haengt das Oeffnen und das Nachladen.
+const buchZahl = (feld, symbole) => wStreuZahl(feld, symbole, 'buch');
+
+// ── Die Rechnung ─────────────────────────────────────────────────
+// Gemessen wird die Haeufigkeit, nicht die Quote: die ist in den
+// Auszahlungen linear und danach ein Skalarprodukt. Die Freispielrunde
+// zaehlt mit, und ihre Ausdehnung zaehlt als das, was sie ist — zehn
+// Ketten der Laenge n auf einmal.
+const buchZaehlenDreh = (z, feld, symbole, sonderK) => {
+  wZaehlenStreu(z, feld, symbole);
+  const walzen = sonderK ? wWalzenMit(feld, sonderK) : [];
+  if (walzen.length >= BUCH_MINDEST) {
+    const bild = walzen.reduce((f, w) => wWalzeFuellen(f, w, sonderK), feld);
+    wZaehlenLinien(z, bild, buchOhne(symbole, sonderK));
+    wZaehlenFrei(z, sonderK, walzen.length, W_LINIEN.length);
+  } else {
+    wZaehlenLinien(z, feld, symbole);
+  }
+};
+
+// Die ganze Freispielrunde, still. Nachladen eingeschlossen — sonst
+// faehlte der Quote genau der Teil, der sie interessant macht.
+const buchFreiLauf = (symbole, baender, zufall) => (feld, z) => {
+  const r = zufall || Math.random;
+  if (buchZahl(feld, symbole) < BUCH_AUSLOESER) return;
+  const sonderK = symbole[Math.floor(r() * symbole.length)].k;
+  let uebrig = BUCH_FREISPIELE;
+  let schutz = 0;
+  while (uebrig > 0 && schutz++ < 500) {
+    uebrig--;
+    const f = wZiehen(baender, r);
+    buchZaehlenDreh(z, f, symbole, sonderK);
+    if (buchZahl(f, symbole) >= BUCH_AUSLOESER) uebrig += BUCH_FREISPIELE;
+  }
+};
+const buchMessen = (symbole, baender, drehungen, zufall) => wMessen({
+  symbole,
+  baender,
+  freiLauf: buchFreiLauf(symbole, baender, zufall)
+}, drehungen, zufall);
+
+// ── Die gemessene Tafel ──────────────────────────────────────────
+// Sie steht hier als Konstante und wird nicht im Browser gemessen.
+// Der Versuch, das dort zu tun, ging schief: die Freispielrunde faellt
+// jede 117. Drehung und traegt fast die Haelfte der Auszahlung, und die
+// grossen Betraege darin kommen einmal in Zehntausenden. Zwanzigtausend
+// Drehungen — mehr sind im Browser nicht zumutbar — schwankten damit um
+// sechs Prozentpunkte, und der Tisch schrieb jedes Mal eine andere Quote
+// hin. Eine Zahl, die bei jedem Oeffnen anders dasteht, ist keine.
+//
+// Also einmal gemessen, in der Werkbank, mit fuenfzehn Millionen. Der
+// Browser rechnet daraus nur noch das Skalarprodukt — sofort, und bei
+// jeder Aenderung der Spielleitung neu. Wer die Baender aendert, muss
+// neu messen; wer die Auszahlungen aendert, nicht.
+//
+// Gemessen mit 15.000.000 stillen Drehungen; die Zahlen sind Treffer je
+// Drehung. Erreichte Quote mit der Tafel oben: 95,2 %.
+const BUCH_HAEUFIGKEIT = {
+  drehungen: 1,
+  linie: {
+    buch: {
+      3: 0.00084,
+      4: 0.00003533
+    },
+    erde: {
+      3: 0.1205,
+      4: 0.04,
+      5: 0.01038
+    },
+    feuer: {
+      3: 0.06511,
+      4: 0.01495,
+      5: 0.00245
+    },
+    graeber: {
+      2: 0.05763,
+      3: 0.008117,
+      4: 0.0007053,
+      5: 0.0000564
+    },
+    kaefer: {
+      3: 0.03563,
+      4: 0.005932,
+      5: 0.0007368
+    },
+    krone: {
+      3: 0.01461,
+      4: 0.001633,
+      5: 0.0001375
+    },
+    luft: {
+      3: 0.0652,
+      4: 0.01492,
+      5: 0.002407
+    },
+    waechter: {
+      3: 0.03547,
+      4: 0.005834,
+      5: 0.0007257
+    },
+    wasser: {
+      3: 0.1399,
+      4: 0.05132,
+      5: 0.01549
+    }
+  },
+  streu: {
+    buch: {
+      1: 0.3588,
+      2: 0.07974,
+      3: 0.008905,
+      4: 0.000487,
+      5: 0.000009667
+    }
+  }
+};
+
+// ── Der Tisch ────────────────────────────────────────────────────
+const BUCH_BLAETTER_TAKT = 130;
+const BUCH_BLAETTER_ZUEGE = 11;
+const BuchTisch = ({
+  cfg,
+  marken,
+  zahlen,
+  onLaeuft
+}) => {
+  const symbole = React.useMemo(() => wSymboleAus(BUCH_SYMBOLE, cfg && cfg.buchSymbole), [cfg]);
+  const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  const [einsatz, setEinsatz] = React.useState(() => einsaetze[Math.min(1, einsaetze.length - 1)]);
+  const [feld, setFeld] = React.useState(() => wZiehen(BUCH_BAENDER, Math.random));
+  const [baender, setBaender] = React.useState(() => [0, 1, 2, 3, 4].map(w => wBandBauen(feld, w, symbole, Math.random)));
+  const [dreh, setDreh] = React.useState(0);
+  const [ergebnis, setErgebnis] = React.useState(null);
+  const [frei, setFrei] = React.useState(null); // {uebrig, sonderK, gesamt, neu}
+  const [blaettert, setBlaettert] = React.useState(null); // {zeigt, fertig}
+  const [riskierbar, setRiskierbar] = React.useState(0);
+  const [risiko, setRisiko] = React.useState(null);
+  const {
+    laeuft,
+    starten,
+    reduziert
+  } = useWalzenLauf();
+  const zeigeLinie = useLinienWechsel(ergebnis && ergebnis.treffer);
+  const zaehler = useHochzaehler(ergebnis ? Math.round(ergebnis.gewinn) : 0);
+  React.useEffect(() => {
+    if (onLaeuft) onLaeuft(laeuft || !!blaettert);
+  }, [laeuft, blaettert]);
+  React.useEffect(() => {
+    if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
+  }, [einsaetze]);
+
+  // Gemessen wurde in der Werkbank, gerechnet wird hier — ein
+  // Skalarprodukt aus der Haeufigkeitstafel und der Tafel, die gerade
+  // gilt. Stellt die Spielleitung eine Auszahlung um, stimmt die Zahl
+  // sofort wieder.
+  const quote = React.useMemo(() => wQuote(BUCH_HAEUFIGKEIT, symbole), [symbole]);
+  const imFrei = !!(frei && frei.uebrig > 0);
+  const kannDrehen = !laeuft && !blaettert && !risiko && (imFrei || marken >= einsatz);
+  const drehen = () => {
+    if (!kannDrehen) return;
+    const neuesFeld = wZiehen(BUCH_BAENDER, Math.random);
+    const sonderK = imFrei ? frei.sonderK : null;
+    const e = buchDreh(neuesFeld, symbole, einsatz, sonderK);
+    const buecher = buchZahl(neuesFeld, symbole);
+
+    // Gebucht wird sofort: der Ausgang steht fest, sobald gezogen wurde.
+    // Der Lauf zeigt ihn nur — und ein Zeitgeber, den der Browser im
+    // Hintergrund aufschiebt, darf niemandem das Ergebnis vorenthalten.
+    const gewinn = Math.round(e.gewinn);
+    zahlen((imFrei ? 0 : -einsatz) + gewinn);
+    setFeld(e.feld);
+    setBaender([0, 1, 2, 3, 4].map(w => wBandBauen(e.feld, w, symbole, Math.random)));
+    setErgebnis(null);
+    setRiskierbar(0);
+    setRisiko(null);
+    setDreh(d => d + 1);
+    starten(() => {
+      setErgebnis({
+        ...e,
+        gewinn
+      });
+      setRiskierbar(imFrei ? 0 : gewinn);
+      if (imFrei) {
+        // Nachladen: drei Buecher im Freispiel legen zehn drauf.
+        const dazu = buecher >= BUCH_AUSLOESER ? BUCH_FREISPIELE : 0;
+        setFrei(f => f && {
+          ...f,
+          uebrig: f.uebrig - 1 + dazu,
+          gesamt: f.gesamt + gewinn,
+          neu: dazu
+        });
+      } else if (buecher >= BUCH_AUSLOESER) {
+        blaettern();
+      }
+    });
+  };
+
+  // Das Blaettern: das Buch laeuft durch die Tafel und bleibt stehen.
+  // Gelost wird vorher — was durchlaeuft, ist Anzeige.
+  const blaettern = () => {
+    const sonderK = symbole[Math.floor(Math.random() * symbole.length)].k;
+    if (reduziert) {
+      setFrei({
+        uebrig: BUCH_FREISPIELE,
+        sonderK,
+        gesamt: 0,
+        neu: 0
+      });
+      return;
+    }
+    let i = 0;
+    setBlaettert({
+      zeigt: symbole[0].k,
+      sonderK,
+      steht: false
+    });
+    const takt = setInterval(() => {
+      i++;
+      if (i >= BUCH_BLAETTER_ZUEGE) {
+        clearInterval(takt);
+        setBlaettert({
+          zeigt: sonderK,
+          sonderK,
+          steht: true
+        });
+        return;
+      }
+      setBlaettert({
+        zeigt: symbole[i % symbole.length].k,
+        sonderK,
+        steht: false
+      });
+    }, BUCH_BLAETTER_TAKT);
+  };
+  const rundeStarten = () => {
+    const sonderK = blaettert.sonderK;
+    setBlaettert(null);
+    setFrei({
+      uebrig: BUCH_FREISPIELE,
+      sonderK,
+      gesamt: 0,
+      neu: 0
+    });
+  };
+
+  // Setzen statt einstecken — dieselben zwei Spiele wie am dreiwalzigen
+  // Automaten. Waehrend der Freispiele nicht: dort gehoert der Gewinn der
+  // Runde und nicht dem einzelnen Dreh.
+  const risikoStarten = (art, halb) => {
+    const gesamt = riskierbar;
+    if (gesamt <= 0 || risiko) return;
+    const setzen = halb ? Math.floor(gesamt / 2) : gesamt;
+    if (setzen <= 0) return;
+    zahlen(-setzen);
+    setRiskierbar(0);
+    setRisiko({
+      art,
+      betrag: setzen,
+      stufe: 0,
+      aus: false,
+      letztes: null,
+      laeuft: art === 'leiter',
+      pos: 0,
+      ziel: Math.floor(Math.random() * LEITER_FELDER),
+      gezogen: null
+    });
+  };
+  const leuchtet = laeuft ? new Set() : wLeuchtet(ergebnis, zeigeLinie);
+  const gefuellt = !laeuft && ergebnis && ergebnis.walzen || [];
+  const sonder = frei ? wSymbol(frei.sonderK, symbole) : null;
+  return /*#__PURE__*/React.createElement(React.Fragment, null, risiko && /*#__PURE__*/React.createElement(RisikoFenster, {
+    risiko: risiko,
+    setRisiko: setRisiko,
+    onNehmen: b => {
+      zahlen(b);
+      setRisiko(null);
+    },
+    onSchliessen: () => setRisiko(null)
+  }), blaettert && /*#__PURE__*/React.createElement("div", {
+    className: "rad-huelle"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rad-fenster"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rad-titel"
+  }, "Das Kapitel schl\xE4gt sich auf"), /*#__PURE__*/React.createElement("div", {
+    className: "rad-unter"
+  }, "Ein Zeichen regiert die n\xE4chsten ", BUCH_FREISPIELE, " Freispiele. Liegt es dreimal, f\xFCllt es seine Walzen \u2014 nebeneinander oder nicht."), /*#__PURE__*/React.createElement("div", {
+    className: 'buch-blatt' + (blaettert.steht ? ' steht' : '')
+  }, /*#__PURE__*/React.createElement("span", null, wSymbol(blaettert.zeigt, symbole).z)), /*#__PURE__*/React.createElement("div", {
+    className: "rad-stand"
+  }, blaettert.steht ? /*#__PURE__*/React.createElement("b", {
+    className: "rad-gut"
+  }, wSymbol(blaettert.sonderK, symbole).name) : /*#__PURE__*/React.createElement("b", {
+    className: "leise"
+  }, "\u2026")), /*#__PURE__*/React.createElement("div", {
+    className: "rad-tasten"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "automat-hebel",
+    disabled: !blaettert.steht,
+    onClick: rundeStarten
+  }, blaettert.steht ? BUCH_FREISPIELE + ' Freispiele' : 'Das Buch blättert…')))), /*#__PURE__*/React.createElement("div", {
+    className: "automat-mitte aut-mitte"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "automat-kasten walzen-kasten"
+  }, frei && /*#__PURE__*/React.createElement("div", {
+    className: "frei-leiste"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "frei-zeichen"
+  }, sonder ? sonder.z : ''), /*#__PURE__*/React.createElement("span", {
+    className: "frei-text"
+  }, /*#__PURE__*/React.createElement("b", null, sonder ? sonder.name : ''), /*#__PURE__*/React.createElement("i", null, "Sonderzeichen dieser Runde")), /*#__PURE__*/React.createElement("span", {
+    className: "frei-zahl"
+  }, frei.uebrig > 0 ? frei.uebrig : 0, /*#__PURE__*/React.createElement("i", null, frei.uebrig === 1 ? 'Freispiel' : 'Freispiele'))), /*#__PURE__*/React.createElement(WalzenSchirm, {
+    baender: baender,
+    symbole: symbole,
+    dreh: dreh,
+    laeuft: laeuft,
+    leuchtet: leuchtet,
+    gefuellt: gefuellt
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "automat-meldung",
+    "aria-live": "polite"
+  }, laeuft ? /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, "\u2026") : !ergebnis ? /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, "Einsatz w\xE4hlen und drehen.") : ergebnis.gewinn > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", {
+    className: "gewinn"
+  }, "+", zaehler), /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, ergebnis.ausdehnung ? ergebnis.ausdehnung.sym.name + ' auf ' + ergebnis.ausdehnung.walzen.length + ' Walzen · alle zehn Linien' : ergebnis.treffer.length > 1 && zeigeLinie >= 0 ? ergebnis.treffer[zeigeLinie].name + ' · ' + ergebnis.treffer[zeigeLinie].sym.name + ' ×' + ergebnis.treffer[zeigeLinie].laenge + '  (' + (zeigeLinie + 1) + ' von ' + ergebnis.treffer.length + ')' : ergebnis.treffer.map(t => t.name + ' · ' + t.sym.name).join('   '))) : /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, "Nichts. Nochmal."), ergebnis && ergebnis.streu.length > 0 && !laeuft && /*#__PURE__*/React.createElement("span", {
+    className: "vollbild"
+  }, ergebnis.streu[0].anzahl, " B\xFCcher"), frei && frei.neu > 0 && !laeuft && /*#__PURE__*/React.createElement("span", {
+    className: "freidreh"
+  }, "+", frei.neu, " nachgelegt")), frei && frei.uebrig <= 0 && /*#__PURE__*/React.createElement("div", {
+    className: "frei-schluss"
+  }, "Die Runde ist zu Ende. Zusammen ", /*#__PURE__*/React.createElement("b", null, frei.gesamt), ".", /*#__PURE__*/React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => setFrei(null)
+  }, "Verstanden")), /*#__PURE__*/React.createElement("div", {
+    className: "automat-einsatz"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "automat-label"
+  }, "Einsatz"), einsaetze.map(n => /*#__PURE__*/React.createElement("button", {
+    key: n,
+    className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
+    disabled: imFrei,
+    onClick: () => setEinsatz(n)
+  }, n))), /*#__PURE__*/React.createElement("button", {
+    className: 'automat-hebel' + (imFrei ? ' frei' : ''),
+    disabled: !kannDrehen,
+    onClick: drehen
+  }, laeuft ? 'Läuft…' : imFrei ? '📜 Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig ' + (marken >= 0 ? 'im Beutel' : '')), riskierbar > 0 && !laeuft && !risiko && !imFrei && /*#__PURE__*/React.createElement("div", {
+    className: "risiko-angebot"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "risiko-angebot-text"
+  }, riskierbar, " setzen?"), /*#__PURE__*/React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => risikoStarten('leiter', false)
+  }, "\uD83E\uDE9C Leiter"), /*#__PURE__*/React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => risikoStarten('karte', false)
+  }, "\uD83C\uDCA0 Rabe oder Rose"))), /*#__PURE__*/React.createElement(WalzenTafel, {
+    symbole: symbole,
+    quote: quote,
+    kinder: /*#__PURE__*/React.createElement("p", {
+      className: "automat-fussnote"
+    }, /*#__PURE__*/React.createElement("b", null, "Das Kapitel"), " \u2014 ", BUCH_AUSLOESER, " B\xFCcher irgendwo auf dem Feld \xF6ffnen", ' ', BUCH_FREISPIELE, " Freispiele. Vorher bl\xE4ttert das Buch und bleibt bei einem Zeichen stehen. Liegt dieses Zeichen im Freispiel auf ", BUCH_MINDEST, ' ', "Walzen oder mehr, f\xFCllt es sie ganz aus und zahlt \xFCber alle zehn Linien \u2014 auch dann, wenn die Walzen nicht nebeneinander liegen. Drei B\xFCcher im Freispiel legen ", BUCH_FREISPIELE, " nach.")
+  })));
 };
 
 // ==== js/src/2g-kampfsicht.jsx ====

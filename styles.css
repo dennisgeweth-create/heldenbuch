@@ -3813,3 +3813,50 @@
   .walzen-tabelle .zahl:last-child { color:var(--text-secondary); }
   .tafel-quote { font-family:'Roboto Condensed',sans-serif; font-size:12px;
     color:var(--text-secondary); letter-spacing:0.06em; }
+
+  /* Die Überschriften der Halle, seit es Tische und Walzen gibt. */
+  .halle-gruppe { margin:12px 2px 2px; font-family:'Roboto Condensed',sans-serif;
+    font-size:11px; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--text-muted); }
+  .halle-gruppe:first-child { margin-top:0; }
+
+  /* Ein Fünfwalzer ist breiter als der dreiwalzige Automat — sonst
+     stünden fünf Zeichen auf der Breite von dreien. */
+  .automat-kasten.walzen-kasten { max-width:520px; }
+
+  /* Die Leiste über den Walzen, solange die Freispiele laufen: welches
+     Zeichen die Runde regiert und wie viele Drehungen noch kommen. */
+  .frei-leiste { display:flex; align-items:center; gap:11px; margin-bottom:12px;
+    padding:8px 12px; border-radius:8px; background:var(--bg-void);
+    border:1px solid var(--inspiration); }
+  .frei-zeichen { font-size:26px; line-height:1; }
+  .frei-text { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .frei-text b { font-family:'Roboto Condensed',sans-serif; font-weight:400;
+    font-size:14px; color:var(--inspiration); }
+  .frei-text i { font-style:normal; font-size:10.5px; color:var(--text-muted);
+    letter-spacing:0.06em; }
+  .frei-zahl { display:flex; flex-direction:column; align-items:flex-end;
+    font-family:'Roboto Condensed',sans-serif; font-size:22px; line-height:1.05;
+    color:var(--inspiration); font-variant-numeric:tabular-nums; }
+  .frei-zahl i { font-style:normal; font-size:10.5px; color:var(--text-muted);
+    letter-spacing:0.06em; }
+
+  .frei-schluss { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    margin-top:12px; padding:9px 12px; border-radius:8px;
+    background:var(--bg-void); border:1px solid var(--border-bright);
+    font-size:12.5px; color:var(--text-secondary); }
+  .frei-schluss b { font-family:'Roboto Condensed',sans-serif; font-size:17px;
+    font-weight:400; color:var(--inspiration); }
+  .frei-schluss .risiko-knopf { margin-left:auto; }
+
+  /* Das Buch blättert: ein Zeichen nach dem anderen, bis eines stehen
+     bleibt. Der Halt ist die einzige Bewegung, die auffallen soll. */
+  .buch-blatt { width:104px; height:104px; margin:18px auto 0; border-radius:10px;
+    display:flex; align-items:center; justify-content:center; font-size:52px;
+    background:var(--bg-void); border:1px solid var(--border-bright);
+    transition:border-color .2s, box-shadow .2s, transform .2s; }
+  .buch-blatt.steht { border-color:var(--inspiration); transform:scale(1.06);
+    box-shadow:0 0 0 3px var(--bg-void), 0 0 26px rgba(217,164,65,0.34); }
+  @media (prefers-reduced-motion: reduce) {
+    .buch-blatt, .buch-blatt.steht { transition:none; transform:none; }
+  }

@@ -74,6 +74,38 @@ const wZiehen = (baender, zufall) => {
   return feld;
 };
 
+// Ein Band von Hand hinzuschreiben waere fuer fuenf Walzen eine Liste von
+// dreihundert Eintraegen, in der niemand mehr sieht, was gemeint ist —
+// und in der beim Abtippen genau die Klumpen entstehen, die ein Band
+// nicht haben soll. Also steht da, wie oft ein Zeichen auf dem Band
+// liegt, und die Plaetze werden gleichmaessig verteilt: haeufige zuerst,
+// jedes im gleichen Abstand, der Versatz je Walze anders.
+const wBandAusAnzahlen = (anzahlen, laenge, versatz) => {
+  const band = new Array(laenge).fill(null);
+  const liste = Object.keys(anzahlen).map(k => [k, +anzahlen[k] || 0])
+    .filter(x => x[1] > 0).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  if (!liste.length) return band;
+  liste.forEach((paar, idx) => {
+    const k = paar[0], c = paar[1];
+    // Der Bruchteil verschiebt die Reihe gegen die vorige, damit nicht
+    // alle Zeichen auf denselben Plaetzen anfangen.
+    const anfang = ((versatz || 0) + idx * 0.37) % 1;
+    for (let j = 0; j < c; j++) {
+      let p = Math.round((j + anfang) * laenge / c) % laenge;
+      let n = 0;
+      while (band[p] !== null && n < laenge) { p = (p + 1) % laenge; n++; }
+      if (band[p] === null) band[p] = k;
+    }
+  });
+  // Was die Rundung uebriglaesst, bekommt das haeufigste Zeichen.
+  for (let i = 0; i < laenge; i++) if (band[i] === null) band[i] = liste[0][0];
+  return band;
+};
+
+// Fuenf Baender aus denselben Anzahlen, je Walze anders versetzt.
+const wBaenderAus = (anzahlen, laenge) =>
+  [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(anzahlen, laenge, w * 0.2 + 0.05));
+
 // ── Eine Linie ───────────────────────────────────────────────────
 // Von links, ab Walze 1, ohne Luecke.
 //
@@ -201,7 +233,10 @@ const wZaehler = () => ({
   streu: {},          // k -> {anzahl -> Zahl}
 });
 
-const wZaehlen = (z, feld, symbole, gewicht) => {
+// Linien und Streuzeichen getrennt, weil eine Bonusrunde sie oft
+// getrennt braucht: das Verschollene Kapitel wertet die Linien auf dem
+// ausgefuellten Feld und die Buecher auf dem gezogenen.
+const wZaehlenLinien = (z, feld, symbole, gewicht) => {
   const g = gewicht === undefined ? 1 : gewicht;
   W_LINIEN.forEach(linie => {
     const t = wLinieWerten(feld, linie, symbole, 1);
@@ -209,12 +244,27 @@ const wZaehlen = (z, feld, symbole, gewicht) => {
     const e = z.linie[t.sym.k] || (z.linie[t.sym.k] = {});
     e[t.laenge] = (e[t.laenge] || 0) + g;
   });
+};
+const wZaehlenStreu = (z, feld, symbole, gewicht) => {
+  const g = gewicht === undefined ? 1 : gewicht;
   symbole.filter(s => s.streu).forEach(s => {
     const n = wStreuWerten(feld, s, 0).anzahl;
     if (!n) return;
     const e = z.streu[s.k] || (z.streu[s.k] = {});
     e[n] = (e[n] || 0) + g;
   });
+};
+// Ein ganzer Treffer, so wie ihn der Grunddreh macht.
+const wZaehlen = (z, feld, symbole, gewicht) => {
+  wZaehlenLinien(z, feld, symbole, gewicht);
+  wZaehlenStreu(z, feld, symbole, gewicht);
+};
+// Eine Kette, die nicht auf einer Linie steht — die Ausdehnung des
+// Sonderzeichens zahlt ueber alle zehn Linien auf einmal, ohne dass
+// eine davon getroffen sein muesste.
+const wZaehlenFrei = (z, k, laenge, wieoft) => {
+  const e = z.linie[k] || (z.linie[k] = {});
+  e[laenge] = (e[laenge] || 0) + wieoft;
 };
 
 // Der Automat gibt eine Runde her, die aus einem Feld heraus laeuft; das
@@ -447,6 +497,8 @@ const wLeuchtet = (ergebnis, zeigeLinie) => {
 // aus. Was ein Zeichen kann, steht dabei — wild, verstreut, an Walzen
 // gebunden —, damit niemand die Regeln erraten muss.
 const wZahlSpalten = [5, 4, 3, 2];
+// Eine Nachkommastelle, mit Komma. „94.4 %" liest hier niemand.
+const wProzent = (q) => (Math.round(q * 1000) / 10).toFixed(1).replace('.', ',') + ' %';
 
 const WalzenTafel = ({ symbole, quote, kinder }) => {
   const [offen, setOffen] = React.useState(false);
@@ -456,7 +508,7 @@ const WalzenTafel = ({ symbole, quote, kinder }) => {
     <div className="automat-tafel">
       <button className="automat-tafel-kopf" onClick={()=>setOffen(o=>!o)} aria-expanded={offen}>
         <span>{offen ? '▾' : '▸'} Auszahlungen</span>
-        {quote > 0 && <span className="tafel-quote">{Math.round(quote * 1000) / 10} %</span>}
+        {quote > 0 && <span className="tafel-quote">{wProzent(quote)}</span>}
       </button>
       {offen && (
         <>
