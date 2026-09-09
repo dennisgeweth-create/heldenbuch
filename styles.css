@@ -3339,7 +3339,7 @@
     /* Ab hier ist Platz da, aber nicht endlos: 40 Punkte Polster
        unter dem letzten Knopf sind auf dem Telefon Rollraum und auf
        dem Schreibtisch nur ein leerer Streifen. */
-    .automat-mitte { padding:16px 16px 16px; gap:12px; }
+    .automat-mitte { padding:18px 18px 22px; gap:14px; }
 
     /* Blackjack: Karten in Handgroesse. */
     .bj-karte, .bj-platz { width:58px; height:83px; }
@@ -3873,3 +3873,17 @@
     top:50%; height:1px; background:var(--text-muted); }
   .auge-sprosse.unten { opacity:1;
     text-shadow:0 0 9px rgba(217,164,65,0.75); }
+
+  /* ── Was im Tavernenfenster nicht schrumpfen darf ──────────
+     Der Rumpf ist eine Flex-Spalte, und Flex-Kinder schrumpfen von
+     selbst. Die Auszahlungstafel hat dazu `overflow:hidden` für ihre
+     runden Ecken — zusammen hiess das: sie wurde auf die Resthöhe
+     gestaucht und der Rest einfach abgeschnitten. Beim Verschollenen
+     Kapitel fehlten so die letzten zwei Zeichen und beide Fussnoten,
+     ohne dass irgendwo etwas zu rollen gewesen wäre.
+     Nichts schrumpft; gerollt wird im Rumpf, der das kann. */
+  .automat-mitte > * { flex-shrink:0; }
+
+  /* Die Tafel eines Fünfwalzers ist so breit wie er selbst — 430 war
+     die Breite des dreiwalzigen Automaten. */
+  .automat-tafel.walzen-breit { max-width:520px; }

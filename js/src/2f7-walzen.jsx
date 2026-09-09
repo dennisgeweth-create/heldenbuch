@@ -508,7 +508,7 @@ const WalzenTafel = ({ symbole, quote, kinder }) => {
   const zeigt = (n) => symbole.some(s => wZahlt(s, n) > 0 || wStreut(s, n) > 0);
   const spalten = wZahlSpalten.filter(zeigt);
   return (
-    <div className="automat-tafel">
+    <div className="automat-tafel walzen-breit">
       <button className="automat-tafel-kopf" onClick={()=>setOffen(o=>!o)} aria-expanded={offen}>
         <span>{offen ? '▾' : '▸'} Auszahlungen</span>
         {quote > 0 && <span className="tafel-quote">{wProzent(quote)}</span>}
@@ -516,9 +516,6 @@ const WalzenTafel = ({ symbole, quote, kinder }) => {
       {offen && (
         <>
           <table className="automat-tabelle walzen-tabelle">
-            <thead>
-              <tr><th /><th /><th /><th /></tr>
-            </thead>
             <tbody>
               {symbole.map(s => (
                 <tr key={s.k}>

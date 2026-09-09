@@ -7466,19 +7466,16 @@ const AutomatTisch = ({
 // Was hier oben liegt und alle Tische benutzen: das Fenster, der Kopf
 // mit Beutel und Beutelwechsler, das Schieben, das Schliessen. Ein
 // zweiter Tisch braucht davon nichts noch einmal zu bauen.
+// Drei Sorten, und sie stehen in der Halle getrennt: an einem TISCH gibt
+// jemand, eine WALZE laeuft von allein, und eine WETTE geht auf etwas,
+// das ohne den Spieler passiert. Das „Dreifache Glueck" stand bis v5.1
+// bei den Tischen — es ist aber ein Automat, und die Rennbahn ist keiner
+// von beiden.
 const TAVERNEN_TISCHE = [{
-  k: 'automat',
-  z: '🎰',
-  name: 'Dreifaches Glück',
-  unter: 'Drei Walzen, fünf Linien, Rad der Fortuna',
-  rand: 'Einsatz 5–50',
-  da: true,
-  breit: 430,
-  weit: 520
-}, {
   k: 'blackjack',
   z: '🃏',
   name: 'Blackjack',
+  gruppe: 'tisch',
   unter: 'Gegen den Wirt. Blackjack zahlt anderthalbfach',
   da: true,
   breit: 470,
@@ -7487,6 +7484,7 @@ const TAVERNEN_TISCHE = [{
   k: 'roulette',
   z: '🎡',
   name: 'Französisches Roulette',
+  gruppe: 'tisch',
   unter: 'Ein Zéro, La Partage — bei der Null die Hälfte zurück',
   da: true,
   breit: 600,
@@ -7495,41 +7493,45 @@ const TAVERNEN_TISCHE = [{
   k: 'craps',
   z: '🎲',
   name: 'Craps',
+  gruppe: 'tisch',
   unter: 'Zwei Würfel, ein Punkt — und die Odds hinter der Passe',
   da: true,
   breit: 560,
   weit: 720
 }, {
-  k: 'rennen',
-  z: '🐎',
-  name: 'Die Rennbahn vor dem Tor',
-  unter: 'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf',
-  da: true,
-  breit: 560,
-  weit: 700
-}, {
   k: 'poker',
-  z: '♟',
+  z: '♠️',
   name: 'Ultimate Texas Hold’em',
+  gruppe: 'tisch',
   unter: 'Gegen das Haus. Wer früh erhöht, zahlt das Vierfache',
   da: true,
   breit: 520,
   weit: 660
 }, {
+  k: 'automat',
+  z: '🎰',
+  name: 'Dreifaches Glück',
+  gruppe: 'walze',
+  unter: 'Drei Walzen, fünf Linien, Rad der Fortuna',
+  rand: 'Einsatz 5–50',
+  da: true,
+  breit: 430,
+  weit: 520
+}, {
   k: 'buch',
-  z: '🕮',
+  z: '📖',
   name: 'Das Verschollene Kapitel',
+  gruppe: 'walze',
   unter: 'Fünf Walzen, zehn Linien — drei Bücher schlagen ein Kapitel auf',
-  walze: true,
   da: true,
   breit: 460,
   weit: 560
 }, {
   k: 'arena',
-  z: '🗡',
+  z: '⚔️',
   name: 'Klinge und Hörner',
+  gruppe: 'walze',
   unter: 'Die Arena unter der Stadt — im Freispiel bleibt jede Klinge stecken',
-  walze: true,
   da: true,
   breit: 460,
   weit: 560
@@ -7537,11 +7539,32 @@ const TAVERNEN_TISCHE = [{
   k: 'auge',
   z: '👁️',
   name: 'Das Wachsame Auge',
+  gruppe: 'walze',
   unter: 'Der Wächter füllt die Walze — und veredelt, was auf ihr liegt',
-  walze: true,
   da: true,
   breit: 460,
   weit: 560
+}, {
+  k: 'rennen',
+  z: '🐎',
+  name: 'Die Rennbahn vor dem Tor',
+  gruppe: 'wette',
+  unter: 'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf',
+  da: true,
+  breit: 560,
+  weit: 700
+}];
+
+// Die Reihenfolge der Gruppen und wie sie heissen.
+const TAVERNEN_GRUPPEN = [{
+  k: 'tisch',
+  name: 'Tische'
+}, {
+  k: 'walze',
+  name: 'Walzen'
+}, {
+  k: 'wette',
+  name: 'Wetten'
 }];
 
 // Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
@@ -7601,26 +7624,26 @@ const TavernenHalle = ({
   tische,
   onWahl
 }) => {
-  const walzen = tische.filter(t => t.walze);
-  const tafeln = tische.filter(t => !t.walze);
-  const geteilt = walzen.length > 0 && tafeln.length > 0;
+  const gruppen = TAVERNEN_GRUPPEN.map(g => ({
+    ...g,
+    liste: tische.filter(t => (t.gruppe || 'tisch') === g.k)
+  })).filter(g => g.liste.length);
+  // Ueberschriften nur, wenn es etwas zu unterscheiden gibt. Eine
+  // Ueberschrift ueber der einzigen Gruppe ist Ballast.
+  const zeigen = gruppen.length > 1;
   return /*#__PURE__*/React.createElement("div", {
     className: "halle"
   }, tische.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "halle-leer"
-  }, "Heute ist geschlossen \u2014 die Spielleitung hat alle Tische abgeraeumt.") : /*#__PURE__*/React.createElement(React.Fragment, null, geteilt && /*#__PURE__*/React.createElement("div", {
+  }, "Heute ist geschlossen \u2014 die Spielleitung hat alle Tische abger\xE4umt.") : gruppen.map(g => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: g.k
+  }, zeigen && /*#__PURE__*/React.createElement("div", {
     className: "halle-gruppe"
-  }, "Tische"), tafeln.map(t => /*#__PURE__*/React.createElement(HalleTisch, {
+  }, g.name), g.liste.map(t => /*#__PURE__*/React.createElement(HalleTisch, {
     key: t.k,
     t: t,
     onWahl: onWahl
-  })), geteilt && /*#__PURE__*/React.createElement("div", {
-    className: "halle-gruppe"
-  }, "Walzen"), walzen.map(t => /*#__PURE__*/React.createElement(HalleTisch, {
-    key: t.k,
-    t: t,
-    onWahl: onWahl
-  }))));
+  })))));
 };
 const TaverneSchirm = ({
   cfg,
@@ -11607,7 +11630,7 @@ const WalzenTafel = ({
   const zeigt = n => symbole.some(s => wZahlt(s, n) > 0 || wStreut(s, n) > 0);
   const spalten = wZahlSpalten.filter(zeigt);
   return /*#__PURE__*/React.createElement("div", {
-    className: "automat-tafel"
+    className: "automat-tafel walzen-breit"
   }, /*#__PURE__*/React.createElement("button", {
     className: "automat-tafel-kopf",
     onClick: () => setOffen(o => !o),
@@ -11616,7 +11639,7 @@ const WalzenTafel = ({
     className: "tafel-quote"
   }, wProzent(quote))), offen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
     className: "automat-tabelle walzen-tabelle"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, symbole.map(s => /*#__PURE__*/React.createElement("tr", {
+  }, /*#__PURE__*/React.createElement("tbody", null, symbole.map(s => /*#__PURE__*/React.createElement("tr", {
     key: s.k
   }, /*#__PURE__*/React.createElement("td", {
     className: "sym"
