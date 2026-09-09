@@ -13,8 +13,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # v5 laeuft auf Node 24. v4 zielte auf Node 20, das GitHub abkuendigt
+      # und auf den Laeufern schon zwangsweise auf 24 hob — jeder Lauf
+      # meldete das als Warnung.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # js/app.js wird mitcommittet, damit die Seite auch lokal ohne Bauschritt
       # laeuft und der Prueflauf weiter eine Datei aus dem Repo vergleicht.
