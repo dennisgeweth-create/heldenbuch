@@ -5538,6 +5538,42 @@ const karteAufraeumen = (karte, teilnehmer) => {
   };
 };
 
+// ── Was die Runde sieht ──────────────────────────────────────────
+// Zwei Schalter, und beide muessen an sein. Der eine gilt der ganzen
+// Karte: eine Aufstellung, die vor dem Kampf schon steht, gehoert
+// niemandem ausser der Spielleitung. Der andere gilt einzelnen Figuren
+// — der Hinterhalt, der Unsichtbare, der noch nicht gefundene Wolf.
+//
+// Verborgen heisst verborgen, nicht ausgegraut: die Figur wird
+// herausgenommen, bevor irgendetwas das Geraet verlaesst. Eine Marke,
+// die nur nicht gezeichnet wird, stuende trotzdem in der Antwort.
+const karteIstVerborgen = (karte, id) => ((karte || {}).verborgen || []).includes(id);
+const karteVerbergen = (karte, id) => {
+  if (!karte || !id) return karte;
+  const alt = karte.verborgen || [];
+  return {
+    ...karte,
+    verborgen: alt.includes(id) ? alt.filter(x => x !== id) : [...alt, id]
+  };
+};
+const karteFuerSpieler = karte => {
+  if (!karte || !karte.zeigen) return null;
+  const figuren = {};
+  Object.keys(karte.figuren || {}).forEach(id => {
+    if (!karteIstVerborgen(karte, id)) figuren[id] = karte.figuren[id];
+  });
+  // Das Gelaende geht ganz mit. Wer die Wand sieht, sieht sie auch am
+  // Tisch — und eine Karte mit Loechern waere keine.
+  return {
+    breite: karte.breite,
+    hoehe: karte.hoehe,
+    feldMeter: karte.feldMeter,
+    gelaende: karte.gelaende,
+    figuren,
+    zeigen: true
+  };
+};
+
 // ── Entfernung ───────────────────────────────────────────────────
 // Diagonal zaehlt wie gerade — die Regel des Grundregelwerks. Die
 // Variante 5-10-5 waere eine Zeile mehr und steht bewusst nicht hier:
@@ -5993,17 +6029,18 @@ const KarteZelle = ({
   figur,
   dran,
   gewaehlt,
+  versteckt,
   mass,
   onKlick,
   onZeigen
 }) => {
-  const was = karteName(x, y) + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name)
+  const was = karteName(x, y) + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name) + (versteckt ? ' · verborgen, die Runde sieht sie nicht' : '')
   // Am Tablet gibt es keinen Zeiger und damit keine Anzeige in der
   // Leiste — im Titel steht dasselbe, und langes Antippen zeigt ihn.
   + (mass ? ' · ' + mass.weite + ' · ' + mass.sicht + ' · ' + mass.weg : '');
   return /*#__PURE__*/React.createElement("button", {
     type: "button",
-    className: 'kk-feld' + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner') : ' g' + K_ZEICHEN.indexOf(zeichen)) + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : ''),
+    className: 'kk-feld' + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner') : ' g' + K_ZEICHEN.indexOf(zeichen)) + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : '') + (versteckt ? ' versteckt' : ''),
     title: was,
     "aria-label": was.replace(/ · /g, ', '),
     onMouseEnter: onZeigen ? () => onZeigen(x, y) : undefined,
@@ -6197,6 +6234,9 @@ const KarteFeld = ({
     x,
     y
   });
+  // Nur die, die auch draufstehen — eine Figur, die vom Feld genommen
+  // wurde, waere sonst weiter als „verborgen" gezaehlt.
+  const versteckte = (karte.verborgen || []).filter(id => (karte.figuren || {})[id]).length;
   return /*#__PURE__*/React.createElement("div", {
     className: "kk"
   }, /*#__PURE__*/React.createElement("div", {
@@ -6219,13 +6259,25 @@ const KarteFeld = ({
       schreiben(karteFigurWeg(karte, werkzeug.id));
       setWerkzeug(null);
     }
-  }, "\u21A9 Herunternehmen"), inHand && /*#__PURE__*/React.createElement("button", {
+  }, "\u21A9 Herunternehmen"), inHand && (karte.figuren || {})[werkzeug.id] && karte.zeigen && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    onClick: () => schreiben(karteVerbergen(karte, werkzeug.id))
+  }, karteIstVerborgen(karte, werkzeug.id) ? '👁 Wieder zeigen' : '🚫 Verbergen'), inHand && /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "bj-taste",
     onClick: () => setWerkzeug(null)
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
     type: "button",
-    className: "bj-taste kk-rechts",
+    className: 'bj-taste kk-zeigen kk-rechts' + (karte.zeigen ? ' an' : ''),
+    title: karte.zeigen ? 'Die Runde sieht die Karte in ihrer Kampfsicht. Noch einmal drücken nimmt sie zurück.' : 'Nur du siehst die Karte. Drücken zeigt sie der Runde — verborgene Figuren bleiben draußen.',
+    onClick: () => schreiben({
+      ...karte,
+      zeigen: !karte.zeigen
+    })
+  }, !karte.zeigen ? '🚫 Nur für dich' : versteckte === 0 ? '👁 Die Runde sieht mit' : '👁 Die Runde sieht mit · ' + versteckte + ' verborgen'), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
     onClick: kopieren
   }, kopiert ? '✓ Kopiert' : '🗺 Karte kopieren')), /*#__PURE__*/React.createElement("div", {
     className: 'kk-hinweis' + (gemessen ? ' kk-mass' : '')
@@ -6268,6 +6320,7 @@ const KarteFeld = ({
       figur: f,
       dran: !!(f && amZug && f.id === amZug.id),
       gewaehlt: !!(werkzeug && werkzeug.art === 'figur' && f && f.id === werkzeug.id),
+      versteckt: !!(f && karte.zeigen && karteIstVerborgen(karte, f.id)),
       mass: vonFeld ? messen(x, y) : null,
       onKlick: klick,
       onZeigen: vonFeld ? zeigen : null
@@ -6359,6 +6412,64 @@ const KarteFeld = ({
     platzhalter: K_PLATZHALTER,
     onText: einfuegen
   }));
+};
+
+// ── Dieselbe Karte, nur zum Ansehen ──────────────────────────────
+// Was in der Kampfsicht der Runde steht. Keine Knoepfe, keine Pinsel,
+// keine Ablage: hier wird nichts gesetzt, hier wird geschaut. Die
+// Felder sind kleiner, weil das Fenster der Runde schmaler ist als der
+// Tracker — laesst sich das Raster nicht unterbringen, rollt es in sich
+// selbst, statt zu schrumpfen.
+const KarteSchau = ({
+  karte,
+  wer
+}) => {
+  if (!karte || !karte.breite) return null;
+  const belegt = new Map();
+  Object.keys(karte.figuren || {}).forEach(id => {
+    const f = karte.figuren[id];
+    const t = (wer || {})[id] || {};
+    belegt.set(f.y * karte.breite + f.x, {
+      ...f,
+      name: t.name || f.k,
+      art: t.art || 'gegner'
+    });
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "kk-schau"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-raster-kasten"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-raster",
+    style: {
+      gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-ecke"
+  }), Array.from({
+    length: karte.breite
+  }, (_, x) => /*#__PURE__*/React.createElement("span", {
+    className: "kk-spalte",
+    key: 's' + x
+  }, kSpalte(x))), Array.from({
+    length: karte.hoehe
+  }, (_, y) => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: 'z' + y
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-zeile"
+  }, y + 1), Array.from({
+    length: karte.breite
+  }, (_, x) => {
+    const f = belegt.get(y * karte.breite + x);
+    const z = karteFeld(karte, x, y);
+    return /*#__PURE__*/React.createElement("span", {
+      key: x + ':' + y,
+      className: 'kk-feld' + (f ? ' figur ' + (f.art === 'held' ? 'held' : 'gegner') : ' g' + K_ZEICHEN.indexOf(z)),
+      title: karteName(x, y) + ' · ' + (f ? f.name : kArt(z).name)
+    }, f ? f.k : z === K_BODEN ? '' : z);
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-schau-fuss"
+  }, "1 Feld = ", String(karte.feldMeter || K_METER).replace('.', ','), " m \xB7 diagonal z\xE4hlt eins. Was die Spielleitung nicht zeigt, steht hier nicht."));
 };
 
 // ==== js/src/2d-chronik.jsx ====
@@ -14958,7 +15069,13 @@ const KampfSicht = ({
     onClick: onSchliessen,
     title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
     "aria-label": "Schlie\xDFen"
-  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), kampf.karte && /*#__PURE__*/React.createElement(KarteSchau, {
+    karte: kampf.karte,
+    wer: Object.fromEntries(liste.map(t => [t.id, {
+      name: namensZug(t),
+      art: t.art
+    }]))
+  }), /*#__PURE__*/React.createElement("div", {
     className: "ks-liste"
   }, liste.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "ks-leer"
@@ -22761,6 +22878,11 @@ function App() {
       runde: kampf.runde,
       zug: kampf.zug,
       gezeigt: !!kampf.gezeigt,
+      // Die Karte geht schon hier durch den Filter: was verborgen ist,
+      // verlaesst dieses Geraet gar nicht erst. Der Server prueft es
+      // noch einmal — aber eine Marke, die nie gesendet wurde, kann
+      // auch keine spaetere Nachlaessigkeit verraten.
+      karte: karteFuerSpieler(kampf.karte),
       teilnehmer: (kampf.teilnehmer || []).map(t => {
         const {
           bild,
@@ -23473,6 +23595,7 @@ function App() {
       runde: kampf.runde,
       zug: kampf.zug,
       gezeigt: !!kampf.gezeigt,
+      karte: karteFuerSpieler(kampf.karte),
       teilnehmer: (kampf.teilnehmer || []).map(t => {
         const {
           bild,

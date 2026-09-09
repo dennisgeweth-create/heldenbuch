@@ -198,6 +198,37 @@ const karteAufraeumen = (karte, teilnehmer) => {
   return {...karte, figuren, verborgen};
 };
 
+// ── Was die Runde sieht ──────────────────────────────────────────
+// Zwei Schalter, und beide muessen an sein. Der eine gilt der ganzen
+// Karte: eine Aufstellung, die vor dem Kampf schon steht, gehoert
+// niemandem ausser der Spielleitung. Der andere gilt einzelnen Figuren
+// — der Hinterhalt, der Unsichtbare, der noch nicht gefundene Wolf.
+//
+// Verborgen heisst verborgen, nicht ausgegraut: die Figur wird
+// herausgenommen, bevor irgendetwas das Geraet verlaesst. Eine Marke,
+// die nur nicht gezeichnet wird, stuende trotzdem in der Antwort.
+const karteIstVerborgen = (karte, id) =>
+  (((karte || {}).verborgen) || []).includes(id);
+
+const karteVerbergen = (karte, id) => {
+  if (!karte || !id) return karte;
+  const alt = karte.verborgen || [];
+  return {...karte, verborgen: alt.includes(id)
+    ? alt.filter(x => x !== id) : [...alt, id]};
+};
+
+const karteFuerSpieler = (karte) => {
+  if (!karte || !karte.zeigen) return null;
+  const figuren = {};
+  Object.keys(karte.figuren || {}).forEach(id => {
+    if (!karteIstVerborgen(karte, id)) figuren[id] = karte.figuren[id];
+  });
+  // Das Gelaende geht ganz mit. Wer die Wand sieht, sieht sie auch am
+  // Tisch — und eine Karte mit Loechern waere keine.
+  return {breite: karte.breite, hoehe: karte.hoehe, feldMeter: karte.feldMeter,
+          gelaende: karte.gelaende, figuren, zeigen: true};
+};
+
 // ── Entfernung ───────────────────────────────────────────────────
 // Diagonal zaehlt wie gerade — die Regel des Grundregelwerks. Die
 // Variante 5-10-5 waere eine Zeile mehr und steht bewusst nicht hier:
@@ -586,9 +617,10 @@ const K_PLATZHALTER = '    A  B  C  D\n 1  .  .  #  .\n 2  .  #  #  .';
 
 // Ein Feld auf dem Schirm. Es zeigt entweder eine Figur oder sein
 // Gelände; beides gleichzeitig gibt es nicht, und die Figur gewinnt.
-const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, mass, onKlick, onZeigen }) => {
+const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, versteckt, mass, onKlick, onZeigen }) => {
   const was = karteName(x, y)
     + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name)
+    + (versteckt ? ' · verborgen, die Runde sieht sie nicht' : '')
     // Am Tablet gibt es keinen Zeiger und damit keine Anzeige in der
     // Leiste — im Titel steht dasselbe, und langes Antippen zeigt ihn.
     + (mass ? ' · ' + mass.weite + ' · ' + mass.sicht + ' · ' + mass.weg : '');
@@ -597,7 +629,8 @@ const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, mass, onKlick, onZei
       className={'kk-feld'
         + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner')
                  : ' g' + K_ZEICHEN.indexOf(zeichen))
-        + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : '')}
+        + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : '')
+        + (versteckt ? ' versteckt' : '')}
       title={was} aria-label={was.replace(/ · /g, ', ')}
       onMouseEnter={onZeigen ? ()=>onZeigen(x, y) : undefined}
       onFocus={onZeigen ? ()=>onZeigen(x, y) : undefined}
@@ -744,6 +777,10 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
   };
   const gemessen = zeiger ? messen(zeiger.x, zeiger.y) : null;
   const zeigen = (x, y) => setZeiger(z => (z && z.x === x && z.y === y) ? z : {x, y});
+  // Nur die, die auch draufstehen — eine Figur, die vom Feld genommen
+  // wurde, waere sonst weiter als „verborgen" gezaehlt.
+  const versteckte = (karte.verborgen || [])
+    .filter(id => (karte.figuren || {})[id]).length;
 
   return (
     <div className="kk">
@@ -767,12 +804,34 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
             ↩ Herunternehmen
           </button>
         )}
+        {/* Einzelne verbergen: der Hinterhalt, der Unsichtbare, der
+            Wolf, den noch keiner gesehen hat. Nur sinnvoll, solange die
+            Karte ueberhaupt gezeigt wird. */}
+        {inHand && (karte.figuren || {})[werkzeug.id] && karte.zeigen && (
+          <button type="button" className="bj-taste"
+            onClick={()=>schreiben(karteVerbergen(karte, werkzeug.id))}>
+            {karteIstVerborgen(karte, werkzeug.id) ? '👁 Wieder zeigen' : '🚫 Verbergen'}
+          </button>
+        )}
         {inHand && (
           <button type="button" className="bj-taste" onClick={()=>setWerkzeug(null)}>
             Abbrechen
           </button>
         )}
-        <button type="button" className="bj-taste kk-rechts" onClick={kopieren}>
+        {/* Der Schalter fuer die ganze Karte. Er steht aus, bis jemand
+            ihn umlegt: eine Aufstellung, die vor dem Kampf schon steht,
+            gehoert niemandem ausser der Spielleitung. */}
+        <button type="button"
+          className={'bj-taste kk-zeigen kk-rechts' + (karte.zeigen ? ' an' : '')}
+          title={karte.zeigen
+            ? 'Die Runde sieht die Karte in ihrer Kampfsicht. Noch einmal drücken nimmt sie zurück.'
+            : 'Nur du siehst die Karte. Drücken zeigt sie der Runde — verborgene Figuren bleiben draußen.'}
+          onClick={()=>schreiben({...karte, zeigen: !karte.zeigen})}>
+          {!karte.zeigen ? '🚫 Nur für dich'
+            : versteckte === 0 ? '👁 Die Runde sieht mit'
+            : '👁 Die Runde sieht mit · ' + versteckte + ' verborgen'}
+        </button>
+        <button type="button" className="bj-taste" onClick={kopieren}>
           {kopiert ? '✓ Kopiert' : '🗺 Karte kopieren'}
         </button>
       </div>
@@ -813,6 +872,7 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
                       zeichen={karteFeld(karte, x, y)} figur={f}
                       dran={!!(f && amZug && f.id === amZug.id)}
                       gewaehlt={!!(werkzeug && werkzeug.art === 'figur' && f && f.id === werkzeug.id)}
+                      versteckt={!!(f && karte.zeigen && karteIstVerborgen(karte, f.id))}
                       mass={vonFeld ? messen(x, y) : null}
                       onKlick={klick} onZeigen={vonFeld ? zeigen : null} />
                   );
@@ -880,6 +940,58 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
       <ListeEinfuegen anweisung={KARTE_KI_ANWEISUNG}
         aufschrift="Andere Karte einfügen"
         platzhalter={K_PLATZHALTER} onText={einfuegen} />
+    </div>
+  );
+};
+
+// ── Dieselbe Karte, nur zum Ansehen ──────────────────────────────
+// Was in der Kampfsicht der Runde steht. Keine Knoepfe, keine Pinsel,
+// keine Ablage: hier wird nichts gesetzt, hier wird geschaut. Die
+// Felder sind kleiner, weil das Fenster der Runde schmaler ist als der
+// Tracker — laesst sich das Raster nicht unterbringen, rollt es in sich
+// selbst, statt zu schrumpfen.
+const KarteSchau = ({ karte, wer }) => {
+  if (!karte || !karte.breite) return null;
+  const belegt = new Map();
+  Object.keys(karte.figuren || {}).forEach(id => {
+    const f = karte.figuren[id];
+    const t = (wer || {})[id] || {};
+    belegt.set(f.y * karte.breite + f.x,
+      {...f, name: t.name || f.k, art: t.art || 'gegner'});
+  });
+  return (
+    <div className="kk-schau">
+      <div className="kk-raster-kasten">
+        <div className="kk-raster"
+          style={{gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'}}>
+          <span className="kk-ecke" />
+          {Array.from({length: karte.breite}, (_, x) => (
+            <span className="kk-spalte" key={'s' + x}>{kSpalte(x)}</span>
+          ))}
+          {Array.from({length: karte.hoehe}, (_, y) => (
+            <React.Fragment key={'z' + y}>
+              <span className="kk-zeile">{y + 1}</span>
+              {Array.from({length: karte.breite}, (_, x) => {
+                const f = belegt.get(y * karte.breite + x);
+                const z = karteFeld(karte, x, y);
+                return (
+                  <span key={x + ':' + y}
+                    className={'kk-feld' + (f
+                      ? ' figur ' + (f.art === 'held' ? 'held' : 'gegner')
+                      : ' g' + K_ZEICHEN.indexOf(z))}
+                    title={karteName(x, y) + ' · ' + (f ? f.name : kArt(z).name)}>
+                    {f ? f.k : (z === K_BODEN ? '' : z)}
+                  </span>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+      <div className="kk-schau-fuss">
+        1 Feld = {String(karte.feldMeter || K_METER).replace('.', ',')} m ·
+        diagonal zählt eins. Was die Spielleitung nicht zeigt, steht hier nicht.
+      </div>
     </div>
   );
 };

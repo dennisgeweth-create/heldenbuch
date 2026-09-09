@@ -24,6 +24,9 @@
 
     <h2 class="wb-titel" style="margin-top:22px">Das Feld</h2>
     <div class="kampf-karte" id="wbFeld"></div>
+
+    <h2 class="wb-titel" style="margin-top:22px">Was die Runde sieht</h2>
+    <div class="ks-fenster" style="position:static;width:460px" id="wbRunde"></div>
   </div>
 
   <script>
@@ -147,7 +150,7 @@
         kampf: wbKampf, liste: wbListe, amZug: wbListe[0],
         setKampf: function (fn) {
           wbKampf = typeof fn === 'function' ? fn(wbKampf) : fn;
-          wbFeldZeichnen();
+          wbFeldZeichnen(); wbRundeZeichnen();
         },
         onFrage: function (text, tun) { console.log('Frage: ' + text); tun(); },
         onLog: function (e) { window.wbLog.push(e); console.log('Log', JSON.stringify(e)); }
@@ -155,6 +158,21 @@
     }
     wbFeldZeichnen();
     window.wbStand = function () { return wbKampf.karte; };
+
+    // Und dieselbe Karte durch den Filter — genau das, was beim Spieler
+    // ankaeme. Sie zeichnet mit, sobald sich am Feld etwas aendert.
+    var wbRundeWurzel = ReactDOM.createRoot(document.getElementById('wbRunde'));
+    function wbRundeZeichnen() {
+      var fuer = karteFuerSpieler(wbKampf.karte);
+      var wer = {};
+      wbListe.forEach(function (t) { wer[t.id] = {name: t.name, art: t.art}; });
+      wbRundeWurzel.render(fuer
+        ? React.createElement(KarteSchau, {karte: fuer, wer: wer})
+        : React.createElement('div', {className: 'ks-leer'},
+            'Die Spielleitung zeigt die Karte nicht.'));
+    }
+    window.wbFuerSpieler = function () { return karteFuerSpieler(wbKampf.karte); };
+    wbRundeZeichnen();
 
     // Was der Kopierknopf in die Zwischenablage legt.
     window.wbText = function (mitKarte, jetzt) {

@@ -347,6 +347,13 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
             title="Schließen — der Kampf läuft weiter" aria-label="Schließen">✕</button>
         </div>
 
+        {/* Die Karte, wenn die Spielleitung sie zeigt. Sie steht ueber
+            der Reihe: wer wo steht, ist beim Ansagen die erste Frage. */}
+        {kampf.karte && (
+          <KarteSchau karte={kampf.karte} wer={Object.fromEntries(liste.map(t =>
+            [t.id, {name: namensZug(t), art: t.art}]))} />
+        )}
+
         <div className="ks-liste">
           {liste.length === 0
             ? <div className="ks-leer">Noch steht niemand in der Reihe.</div>

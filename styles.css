@@ -4127,6 +4127,26 @@
   .kk-feld.figur.gegner { background:rgba(197,49,49,0.20);  color:var(--gold-bright); }
   .kk-feld.dran { box-shadow:inset 0 0 0 2px var(--inspiration); }
   .kk-feld.gewaehlt { box-shadow:inset 0 0 0 2px var(--parchment); }
+  /* Verborgen: die Runde sieht diese Figur nicht. Gestrichelt und
+     blasser — sie steht ja da, nur nicht fuer alle. */
+  .kk-feld.versteckt { opacity:0.55; outline:1px dashed var(--text-muted);
+    outline-offset:-3px; }
+
+  /* Der Schalter fuer die ganze Karte. Aus ist der Normalfall und
+     sieht auch so aus; an traegt die Farbe der Freigabe. */
+  .kk-zeigen.an { border-color:var(--inspiration); color:var(--inspiration);
+    background:rgba(232,184,75,0.12); }
+
+  /* ── Und dieselbe Karte in der Kampfsicht der Runde ──────────── */
+  .kk-schau { margin:0 0 9px; }
+  .kk-schau .kk-raster { --kk-feld:22px; }
+  .kk-schau .kk-feld { font-size:10.5px; cursor:default; }
+  .kk-schau .kk-feld.figur { font-size:10px; }
+  .kk-schau .kk-feld:hover { outline:none; }
+  .kk-schau .kk-spalte { height:14px; font-size:9px; }
+  .kk-schau .kk-zeile { width:18px; font-size:9px; }
+  .kk-schau-fuss { font-size:10.5px; color:var(--text-muted); margin-top:5px;
+    line-height:1.5; }
 
   .kk-ablage { width:190px; flex-shrink:0; display:flex; flex-direction:column; gap:5px; }
   .kk-marke { text-align:left; padding:6px 9px; border-radius:5px; cursor:pointer;

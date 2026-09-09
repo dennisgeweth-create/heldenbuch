@@ -1826,6 +1826,11 @@ function App() {
     const schlank = (darf && laeuft) ? {
       name: kampf.name, phase: kampf.phase || 'kampf', aktiv: true,
       runde: kampf.runde, zug: kampf.zug, gezeigt: !!kampf.gezeigt,
+      // Die Karte geht schon hier durch den Filter: was verborgen ist,
+      // verlaesst dieses Geraet gar nicht erst. Der Server prueft es
+      // noch einmal — aber eine Marke, die nie gesendet wurde, kann
+      // auch keine spaetere Nachlaessigkeit verraten.
+      karte: karteFuerSpieler(kampf.karte),
       teilnehmer: (kampf.teilnehmer || []).map(t => {
         const {bild, ...rest} = t;
         return rest;
@@ -2386,6 +2391,7 @@ function App() {
     apiKampfSetzen(creds.url, creds.code, advId, {
       name: kampf.name, phase: kampf.phase || 'kampf', aktiv: true,
       runde: kampf.runde, zug: kampf.zug, gezeigt: !!kampf.gezeigt,
+      karte: karteFuerSpieler(kampf.karte),
       teilnehmer: (kampf.teilnehmer || []).map(t => { const {bild, ...r} = t; return r; }),
       log: kampf.log || [],
       ansagen: rest,

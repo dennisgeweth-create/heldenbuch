@@ -594,6 +594,30 @@ function kampfFuerSpieler(array $k, bool $hpOffen): array {
         $teil[] = $e;
     }
     $raus['teilnehmer'] = $teil;
+    // Die Karte, wenn die Spielleitung sie zeigt. Der Tracker filtert
+    // die verborgenen Figuren schon vor dem Senden heraus; hier steht
+    // dieselbe Grenze noch einmal, damit eine aeltere Fassung des
+    // Browsers nichts durchlaesst, was sie nicht durchlassen soll.
+    $karte = $k['karte'] ?? null;
+    if (is_array($karte) && !empty($karte['zeigen'])
+        && (int)($karte['breite'] ?? 0) > 0 && (int)($karte['hoehe'] ?? 0) > 0) {
+        $weg = array_flip(array_map('strval', (array)($karte['verborgen'] ?? [])));
+        $figuren = [];
+        foreach ((array)($karte['figuren'] ?? []) as $id => $f) {
+            if (!is_array($f) || isset($weg[(string)$id])) continue;
+            $figuren[(string)$id] = ['x' => (int)($f['x'] ?? 0),
+                                     'y' => (int)($f['y'] ?? 0),
+                                     'k' => (string)($f['k'] ?? '??')];
+        }
+        $raus['karte'] = [
+            'breite'     => (int)$karte['breite'],
+            'hoehe'      => (int)$karte['hoehe'],
+            'feldMeter'  => (float)($karte['feldMeter'] ?? 1.5),
+            'gelaende'   => (string)($karte['gelaende'] ?? ''),
+            'figuren'    => $figuren,
+            'zeigen'     => true,
+        ];
+    }
     // Die Ansagen gehen an alle zurueck: der Spieler soll sehen, dass
     // seine angekommen ist, und die Runde sieht, wer schon angesagt hat.
     $ans = [];

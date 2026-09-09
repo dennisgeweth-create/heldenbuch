@@ -472,10 +472,43 @@ Dazu tragen die Bewegungszeilen jetzt die Meter: `zieht B3 → E4 ·
 müsste sonst jeder im Kopf umrechnen. Ältere Verläufe aus dem Archiv
 kennen die Angabe nicht und bleiben ohne sie.
 
-### Stufe 6 · Die Spielersicht
+### Stufe 6 · Die Spielersicht ✓
 
-Karte in `kampfFuerSpieler()`, verborgene Figuren heraus, der zweite
-Zeigen-Schalter, und die Anzeige in der Kampfsicht.
+**Zwei Schalter, und beide müssen an sein.**
+
+Der eine gilt der ganzen Karte: `🚫 Nur für dich` / `👁 Die Runde sieht
+mit`. Er steht **aus**, bis jemand ihn umlegt — eine Aufstellung, die
+vor dem Kampf schon steht, gehört niemandem außer der Spielleitung, und
+ein Standard, der den Hinterhalt verrät, ist keiner.
+
+Der andere gilt einzelnen Figuren: der Hinterhalt, der Unsichtbare, der
+Wolf, den noch keiner gesehen hat. Figur aufnehmen, `🚫 Verbergen`. Am
+Schalter oben steht dann, wie viele es sind — `👁 Die Runde sieht mit ·
+2 verborgen` —, damit niemand vergisst, dass er etwas versteckt hat.
+Auf dem Feld der Spielleitung bleibt die Figur stehen, gestrichelt und
+blasser.
+
+**Verborgen heißt verborgen, nicht ausgegraut.** Die Figur wird
+herausgenommen, bevor irgendetwas das Gerät verlässt: `karteFuerSpieler`
+filtert schon in der Spiegelung. Eine Marke, die nur nicht gezeichnet
+wird, stünde trotzdem in der Antwort, und wer die Antwort liest, sieht
+sie.
+
+Dieselbe Grenze steht ein zweites Mal in `kampfFuerSpieler()` auf dem
+Server — für den Fall, dass eine ältere Fassung des Browsers etwas
+sendet, was sie nicht senden soll. Das Gelände geht immer ganz mit: wer
+die Wand sieht, sieht sie auch am Tisch, und eine Karte mit Löchern
+wäre keine.
+
+**Im Fenster der Runde** steht die Karte über der Reihe — wer wo steht,
+ist beim Ansagen die erste Frage. Sie ist nur zum Ansehen: keine
+Knöpfe, keine Pinsel, keine Ablage. Die Felder sind kleiner, weil das
+Fenster schmaler ist als der Tracker; passt das Raster trotzdem nicht,
+rollt es in sich selbst, statt zu schrumpfen.
+
+**Das Protokoll bleibt vollständig.** Die Aufnahmen im Verlauf kennen
+auch die verborgenen Figuren — der Verlauf gehört der Spielleitung, und
+einer, der die Hälfte verschweigt, wäre hinterher gelogen.
 
 ### Stufe 7 · Ein Bild darunter *(später, wenn überhaupt)*
 

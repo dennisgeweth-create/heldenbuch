@@ -605,6 +605,57 @@ $r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']
 pruefe('die Spielleitung sieht weiter die Zahlen',
        ($r['body']['kampf']['teilnehmer'][1]['hp'] ?? null) === 4);
 
+abschnitt('Die Karte, und was die Runde davon sieht');
+// Der Tracker filtert schon vor dem Senden. Hier steht die zweite
+// Grenze: was ohne Freigabe ankommt, geht trotzdem nicht hinaus.
+$mitKarte = $kampf;
+$mitKarte['karte'] = [
+    'breite' => 5, 'hoehe' => 3, 'feldMeter' => 1.5,
+    'gelaende' => '.......#.........',
+    'figuren' => [
+        'held-h1' => ['x' => 0, 'y' => 1, 'k' => 'Br'],
+        'g1'      => ['x' => 4, 'y' => 1, 'k' => 'w1'],
+    ],
+    'verborgen' => ['g1'],
+];
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $mitKarte]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('ohne Freigabe sieht die Runde keine Karte',
+       !array_key_exists('karte', (array)($r['body']['kampf'] ?? [])), kurz($r));
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung sieht sie trotzdem',
+       ($r['body']['kampf']['karte']['breite'] ?? 0) === 5);
+
+$mitKarte['karte']['zeigen'] = true;
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $mitKarte]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$ka = $r['body']['kampf']['karte'] ?? null;
+pruefe('mit Freigabe kommt sie an', is_array($ka), kurz($r));
+pruefe('mit ihren Maszen', ($ka['breite'] ?? 0) === 5 && ($ka['hoehe'] ?? 0) === 3);
+pruefe('und dem ganzen Gelaende', ($ka['gelaende'] ?? '') === '.......#.........');
+pruefe('der Held steht darauf', isset($ka['figuren']['held-h1']));
+pruefe('die verborgene Figur nicht', !isset($ka['figuren']['g1']));
+pruefe('sie steht auch sonst nirgends in der Karte',
+       strpos(json_encode($ka), 'w1') === false, json_encode($ka));
+pruefe('und die Liste der Verborgenen geht nicht mit',
+       !array_key_exists('verborgen', (array)$ka));
+
+// Zuruecknehmen muss sofort wirken — sonst bliebe eine Karte sichtbar,
+// die die Spielleitung gerade zugemacht hat.
+$mitKarte['karte']['zeigen'] = false;
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $mitKarte]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('die Freigabe laesst sich zurueckehmen',
+       !array_key_exists('karte', (array)($r['body']['kampf'] ?? [])), kurz($r));
+
+// Und der alte Kampf ohne Karte darf keine erfinden.
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('ein Kampf ohne Karte hat auch keine',
+       !array_key_exists('karte', (array)($r['body']['kampf'] ?? [])));
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
+$stand = (int)($r['body']['stand'] ?? 0);
+
 abschnitt('Der Stand spart die Antwort');
 $r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'seit' => $stand]);
 pruefe('wer schon den neuesten Stand hat, bekommt nur die Zahl',
