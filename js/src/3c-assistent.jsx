@@ -13,14 +13,19 @@
 
 const ASS_SCHRITTE = ['Volk', 'Klasse', 'Attribute', 'Hintergrund', 'Fertigkeiten', 'Ausrüstung'];
 
-const CharakterAssistent = ({ klassen, onAbbrechen, onFertig, onVonHand }) => {
+const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand }) => {
   const [schritt, setSchritt] = React.useState(0);
+  const [merkmalDaten, setMerkmalDaten] = React.useState(MERKMAL_DATEN);
+  React.useEffect(() => { merkmaleLaden().then(setMerkmalDaten); }, []);
   const [e, setE] = React.useState({
     name: '', volk: '', untervolk: '', klasse: '', hintergrund: '',
-    attribute: {}, wahlBoni: {}, fertigkeiten: [], ausruestung: '', gold: 0,
+    attribute: {}, wahlBoni: {}, talent: '', talentAttr: '', fertigkeiten: [], ausruestung: '', gold: 0,
   });
   const setzen = (p) => setE(x => ({...x, ...p}));
-  const plan = assistentPlan(e);
+  // Der Plan bekommt das Talent ausgeschrieben mit — der Entwurf kennt
+  // nur seinen Namen, und Beschreibung und Effekte stehen in der Liste.
+  const plan = assistentPlan({...e, talentDaten: (willTalent && talEintrag)
+    ? {...talEintrag, attr: talHalb.includes(e.talentAttr) ? e.talentAttr : ''} : null});
 
   const volk  = volkFinden(e.volk);
   const unter = unterFinden(volk, e.untervolk);
@@ -33,14 +38,28 @@ const CharakterAssistent = ({ klassen, onAbbrechen, onFertig, onVonHand }) => {
 
   // ── Was jeder Schritt braucht, damit „Weiter" hell wird ────────
   const wahlBoniSumme = Object.values(e.wahlBoni || {}).reduce((a, b) => a + b, 0);
+  const wahlZahl = wahlBoniZahl(volk, unter);
+  // Der begabte Mensch nimmt schon auf der ersten Stufe ein Talent. Die
+  // Liste dafuer kommt denselben Weg wie beim Aufstieg: die Datei neben
+  // der index.html gilt fuer die ganze Gruppe, die Datenbank ist das,
+  // was ihr euch selbst ausgedacht habt.
+  const willTalent = brauchtTalent(unter);
+  const alleTalente = [
+    ...((merkmalDaten && merkmalDaten.talente) || []),
+    ...(talente || []).filter(t => !((merkmalDaten && merkmalDaten.talente) || [])
+      .some(x => dbSchluessel(x.name) === dbSchluessel(t.name))),
+  ];
+  const talEintrag = alleTalente.find(t => t.name === e.talent) || null;
+  const talHalb = talEintrag ? (talEintrag.halb || []) : [];
   const ausHg = hg ? hg.fert : [];
   const eigene = (e.fertigkeiten || []).filter(f => !ausHg.includes(f));
   const offen = [
     !e.name.trim() ? 'Ein Name fehlt.'
       : !volk ? 'Wähle ein Volk.'
       : (volk.unter || []).length && !unter ? 'Wähle eine Untergruppe.'
-      : volk.wahlBoni && wahlBoniSumme !== volk.wahlBoni
-        ? 'Verteile ' + volk.wahlBoni + ' Punkte auf verschiedene Attribute.' : '',
+      : wahlZahl && wahlBoniSumme !== wahlZahl
+        ? 'Verteile ' + wahlZahl + ' Punkte auf verschiedene Attribute.'
+      : (willTalent && !talEintrag) ? 'Wähle ein Talent.' : '',
     !e.klasse ? 'Wähle eine Klasse.' : '',
     ATTR_WAHL.some(a => !e.attribute[a.k]) ? 'Die Attribute stehen noch nicht.' : '',
     !hg ? 'Wähle einen Hintergrund.' : '',
@@ -108,7 +127,7 @@ const CharakterAssistent = ({ klassen, onAbbrechen, onFertig, onVonHand }) => {
                 {VOELKER.map(v => (
                   <button type="button" key={v.name}
                     className={'ass-karte' + (e.volk === v.name ? ' an' : '')}
-                    onClick={()=>setzen({volk: v.name, untervolk: '', wahlBoni: {}})}>
+                    onClick={()=>setzen({volk: v.name, untervolk: '', wahlBoni: {}, talent: '', talentAttr: ''})}>
                     <b>{v.name}</b>
                     <i>{ATTR_WAHL.filter(a => v.boni[a.k]).map(a => a.l + ' +' + v.boni[a.k]).join(', ')}</i>
                   </button>
@@ -119,7 +138,7 @@ const CharakterAssistent = ({ klassen, onAbbrechen, onFertig, onVonHand }) => {
                   {volk.unter.map(u => (
                     <button type="button" key={u.name}
                       className={'ass-karte klein' + (e.untervolk === u.name ? ' an' : '')}
-                      onClick={()=>setzen({untervolk: u.name})}>
+                      onClick={()=>setzen({untervolk: u.name, wahlBoni: {}, talent: '', talentAttr: ''})}>
                       <b>{u.name}</b>
                       <i>{ATTR_WAHL.filter(a => (u.boni||{})[a.k]).map(a => a.l + ' +' + u.boni[a.k]).join(', ')}
                         {u.tempo ? ' · ' + u.tempo + ' m' : ''}</i>
@@ -127,26 +146,76 @@ const CharakterAssistent = ({ klassen, onAbbrechen, onFertig, onVonHand }) => {
                   ))}
                 </div>
               )}
-              {volk && volk.wahlBoni > 0 && (
+              {wahlZahl > 0 && (() => {
+                // Der Halbelf hat Charisma schon aus dem Volk und darf
+                // deshalb nicht noch einmal darauf; beim Menschen steht
+                // kein Attribut fest, also stehen alle sechs zur Wahl.
+                const gesperrt = volk && (volk.boni || {}).cha ? ['cha'] : [];
+                return (
+                  <>
+                    <div className="ass-warum" style={{marginTop:10}}>
+                      {gesperrt.length
+                        ? 'Der Halbelf verteilt ' + wahlZahl + ' Punkte selbst — auf zwei '
+                          + 'verschiedene Attribute, nicht auf Charisma.'
+                        : wahlZahl + ' Punkte auf ' + wahlZahl + ' verschiedene Attribute, '
+                          + 'und dafür ein Talent schon jetzt.'}
+                    </div>
+                    <div className="ass-wahl">
+                      {ATTR_WAHL.filter(a => !gesperrt.includes(a.k)).map(a => (
+                        <button type="button" key={a.k}
+                          className={'ass-karte klein' + ((e.wahlBoni||{})[a.k] ? ' an' : '')}
+                          onClick={()=>{
+                            const w = {...(e.wahlBoni || {})};
+                            if (w[a.k]) delete w[a.k];
+                            else if (Object.keys(w).length < wahlZahl) w[a.k] = 1;
+                            setzen({wahlBoni: w});
+                          }}>
+                          <b>{a.l}</b><i>{(e.wahlBoni||{})[a.k] ? '+1' : '—'}</i>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+
+              {/* Das Talent des begabten Menschen. Dieselbe Liste wie beim
+                  Aufstieg — steht dort keines drin, steht hier auch keines. */}
+              {willTalent && (
                 <>
-                  <div className="ass-warum" style={{marginTop:10}}>
-                    Der Halbelf verteilt {volk.wahlBoni} Punkte selbst — auf zwei
-                    verschiedene Attribute, nicht auf Charisma.
+                  <div className="ass-warum" style={{marginTop:12}}>
+                    {alleTalente.length === 0
+                      ? 'Es ist noch kein Talent hinterlegt. Einzeln unter 📚 Datenbank ▸ ⭐ Talente, '
+                        + 'oder als Sammlung neben der index.html.'
+                      : 'Ein Talent, gleich auf der ersten Stufe.'}
                   </div>
-                  <div className="ass-wahl">
-                    {ATTR_WAHL.filter(a => a.k !== 'cha').map(a => (
-                      <button type="button" key={a.k}
-                        className={'ass-karte klein' + ((e.wahlBoni||{})[a.k] ? ' an' : '')}
-                        onClick={()=>{
-                          const w = {...(e.wahlBoni || {})};
-                          if (w[a.k]) delete w[a.k];
-                          else if (Object.keys(w).length < volk.wahlBoni) w[a.k] = 1;
-                          setzen({wahlBoni: w});
-                        }}>
-                        <b>{a.l}</b><i>{(e.wahlBoni||{})[a.k] ? '+1' : '—'}</i>
-                      </button>
-                    ))}
-                  </div>
+                  {alleTalente.length > 0 && (
+                    <select className="form-select" value={e.talent || ''}
+                      aria-label="Talent"
+                      onChange={ev=>setzen({talent: ev.target.value, talentAttr: ''})}>
+                      <option value="">Talent wählen…</option>
+                      {[...alleTalente].sort((a, b) => a.name.localeCompare(b.name, 'de'))
+                        .map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                    </select>
+                  )}
+                  {/* Ein halbes Talent steigert nebenbei ein Attribut. */}
+                  {talHalb.length > 0 && (
+                    <div className="ass-wahl" style={{marginTop:8}}>
+                      {talHalb.map(k => {
+                        const a = ATTR_WAHL.find(x => x.k === k) || {k, l: k};
+                        return (
+                          <button type="button" key={k}
+                            className={'ass-karte klein' + (e.talentAttr === k ? ' an' : '')}
+                            onClick={()=>setzen({talentAttr: e.talentAttr === k ? '' : k})}>
+                            <b>{a.l}</b><i>+1</i>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {talEintrag && talEintrag.description && (
+                    <div className="ass-warum" style={{marginTop:8}}
+                      dangerouslySetInnerHTML={{__html: sanitizeHtml(talEintrag.description)}} />
+                  )}
                 </>
               )}
             </>

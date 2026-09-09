@@ -494,6 +494,10 @@ const assistentPlan = (e) => {
   dazu(volk && volk.boni);
   dazu(unter && unter.boni);
   dazu(d.wahlBoni);
+  // Ein halbes Talent steigert nebenbei ein Attribut — dasselbe wie beim
+  // Aufstieg, nur zwoelf Stufen frueher.
+  const tal = d.talentDaten || null;
+  if (tal && tal.attr) dazu({[tal.attr]: 1});
   const werte = {};
   for (const a of ATTR_WAHL) werte[a.k] = Math.min(20, (+grund[a.k] || 0) + (boni[a.k] || 0));
 
@@ -553,10 +557,18 @@ const assistentPlan = (e) => {
   const merkmale = [];
   if (volk) (volk.merkmale || []).forEach(m => merkmale.push({name: m, source: volk.name}));
   if (hg && hg.merkmal) merkmale.push({name: hg.merkmal, source: hg.name});
+  // Das Talent des begabten Menschen kommt als Merkmal in den Bogen —
+  // samt seiner Effekte, damit es wirkt und nicht nur dasteht. Genau so
+  // macht es der Aufstieg auch.
+  if (tal && tal.name) {
+    merkmale.push({name: tal.name, source: 'Talent · ' + (volk ? volk.name : 'Volk'),
+                   description: tal.description || '', effects: tal.effects || []});
+    zeile('Talent', tal.name);
+  }
   if (merkmale.length) {
     neu.features = merkmale.map((m, i) => ({
       id: 'ass' + Date.now() + i, name: m.name, source: m.source,
-      description: '', effects: [], effectsActive: true,
+      description: m.description || '', effects: m.effects || [], effectsActive: true,
     }));
     zeile('Merkmale', merkmale.map(m => m.name).join(', '));
   }
@@ -860,6 +872,14 @@ const gegnerAusText = (text) => {
 // Beute und Laden fuellen sich aus der Sammlung der Gruppe. Gesucht
 // wird nachsichtig: Grossschreibung und ein Leerzeichen zu viel sollen
 // nicht dazu fuehren, dass ein Stueck ohne seine Werte im Bogen landet.
+// Wie viele Punkte selbst zu verteilen sind. Der Halbelf traegt es am
+// Volk, der begabte Mensch an seiner Untergruppe — gefragt wird deshalb
+// beides, und die Untergruppe sticht.
+const wahlBoniZahl = (volk, unter) =>
+  ((unter && +unter.wahlBoni) || (volk && +volk.wahlBoni) || 0);
+// Ob diese Untergruppe ein Talent mitbringt.
+const brauchtTalent = (unter) => !!(unter && unter.talent);
+
 const dbSchluessel = (n) => String(n || '').toLowerCase()
   .replace(/[\s,.·–—_-]+/g, ' ').trim();
 const dbEintrag = (liste, name) => {

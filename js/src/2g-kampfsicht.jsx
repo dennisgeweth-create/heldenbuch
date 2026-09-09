@@ -287,7 +287,21 @@ const ksKlemmen = (pos) => ({
   y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60)),
 });
 
-const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSchliessen }) => {
+// ── Reaktionen ───────────────────────────────────────────────
+// Eine Reaktion kommt zwischendurch: der Gegner zaubert, und irgendwer
+// wirft einen Gegenzauber dagegen. Bis hierher hiess das: Fenster
+// aufmachen, auf „Reaktion" stellen, den Zauber suchen, abschicken —
+// vier Griffe fuer etwas, das in einer Sekunde entschieden wird.
+//
+// Was eine Reaktion ist, steht im Zauber selbst: die Wirkzeit sagt es.
+// Damit taucht jeder Gegenzauber und jedes Silberdornen von allein hier
+// auf, sobald es im Buch steht, und niemand muss eine Liste pflegen.
+const IST_REAKTION = /reaktion/i;
+const reaktionsSprueche = (held) => ((held && held.spells) || [])
+  .filter(s => IST_REAKTION.test(s.castingTime || '') && s.prepared !== false);
+
+const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
+                      eigenerHeld, onReaktion, onSchliessen }) => {
   const [pos, setPos] = React.useState(() => ksLesen()
     || ksKlemmen({x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32), y: 76}));
   const zug = React.useRef(null);
@@ -343,6 +357,24 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage, onSc
                   eigenerHeld={t.art === 'held' && (eigeneIds || []).includes(t.charId)} />
               ))}
         </div>
+
+        {/* Der schnelle Weg dazwischen. Steht immer da, nicht nur wenn
+            man am Zug ist — genau das ist der Sinn einer Reaktion. */}
+        {onReaktion && reaktionsSprueche(eigenerHeld).length > 0 && (
+          <div className="ks-reaktion">
+            <div className="ks-reaktion-titel">⚡ Reaktion</div>
+            <div className="ks-reaktion-tasten">
+              {reaktionsSprueche(eigenerHeld).map(s => (
+                <button className="ks-reaktion-knopf" key={s.id}
+                  title={s.name + (s.level ? ' · ' + s.level + '. Grad' : ' · Zaubertrick')}
+                  onClick={()=>onReaktion(s)}>
+                  {s.name}
+                  {s.level ? <i>{s.level}</i> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {(kampf.ansagen || []).length > 0 && (
           <div className="ks-ansagen">

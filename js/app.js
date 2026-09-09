@@ -13567,6 +13567,18 @@ const ksKlemmen = pos => ({
   x: Math.max(-KS_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
   y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
 });
+
+// ── Reaktionen ───────────────────────────────────────────────
+// Eine Reaktion kommt zwischendurch: der Gegner zaubert, und irgendwer
+// wirft einen Gegenzauber dagegen. Bis hierher hiess das: Fenster
+// aufmachen, auf „Reaktion" stellen, den Zauber suchen, abschicken —
+// vier Griffe fuer etwas, das in einer Sekunde entschieden wird.
+//
+// Was eine Reaktion ist, steht im Zauber selbst: die Wirkzeit sagt es.
+// Damit taucht jeder Gegenzauber und jedes Silberdornen von allein hier
+// auf, sobald es im Buch steht, und niemand muss eine Liste pflegen.
+const IST_REAKTION = /reaktion/i;
+const reaktionsSprueche = held => (held && held.spells || []).filter(s => IST_REAKTION.test(s.castingTime || '') && s.prepared !== false);
 const KampfSicht = ({
   kampf,
   helden,
@@ -13574,6 +13586,8 @@ const KampfSicht = ({
   setDefs,
   tpOffen,
   onAnsage,
+  eigenerHeld,
+  onReaktion,
   onSchliessen
 }) => {
   const [pos, setPos] = React.useState(() => ksLesen() || ksKlemmen({
@@ -13654,7 +13668,18 @@ const KampfSicht = ({
     setDefs: setDefs,
     tpOffen: tpOffen,
     eigenerHeld: t.art === 'held' && (eigeneIds || []).includes(t.charId)
-  }))), (kampf.ansagen || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+  }))), onReaktion && reaktionsSprueche(eigenerHeld).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "ks-reaktion"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ks-reaktion-titel"
+  }, "\u26A1 Reaktion"), /*#__PURE__*/React.createElement("div", {
+    className: "ks-reaktion-tasten"
+  }, reaktionsSprueche(eigenerHeld).map(s => /*#__PURE__*/React.createElement("button", {
+    className: "ks-reaktion-knopf",
+    key: s.id,
+    title: s.name + (s.level ? ' · ' + s.level + '. Grad' : ' · Zaubertrick'),
+    onClick: () => onReaktion(s)
+  }, s.name, s.level ? /*#__PURE__*/React.createElement("i", null, s.level) : null)))), (kampf.ansagen || []).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "ks-ansagen"
   }, /*#__PURE__*/React.createElement("div", {
     className: "ks-ansagen-titel"
@@ -18462,11 +18487,16 @@ const StufenAufstieg = ({
 const ASS_SCHRITTE = ['Volk', 'Klasse', 'Attribute', 'Hintergrund', 'Fertigkeiten', 'Ausrüstung'];
 const CharakterAssistent = ({
   klassen,
+  talente,
   onAbbrechen,
   onFertig,
   onVonHand
 }) => {
   const [schritt, setSchritt] = React.useState(0);
+  const [merkmalDaten, setMerkmalDaten] = React.useState(MERKMAL_DATEN);
+  React.useEffect(() => {
+    merkmaleLaden().then(setMerkmalDaten);
+  }, []);
   const [e, setE] = React.useState({
     name: '',
     volk: '',
@@ -18475,6 +18505,8 @@ const CharakterAssistent = ({
     hintergrund: '',
     attribute: {},
     wahlBoni: {},
+    talent: '',
+    talentAttr: '',
     fertigkeiten: [],
     ausruestung: '',
     gold: 0
@@ -18483,7 +18515,15 @@ const CharakterAssistent = ({
     ...x,
     ...p
   }));
-  const plan = assistentPlan(e);
+  // Der Plan bekommt das Talent ausgeschrieben mit — der Entwurf kennt
+  // nur seinen Namen, und Beschreibung und Effekte stehen in der Liste.
+  const plan = assistentPlan({
+    ...e,
+    talentDaten: willTalent && talEintrag ? {
+      ...talEintrag,
+      attr: talHalb.includes(e.talentAttr) ? e.talentAttr : ''
+    } : null
+  });
   const volk = volkFinden(e.volk);
   const unter = unterFinden(volk, e.untervolk);
   const kl = KLASSEN_REGELN[e.klasse] || null;
@@ -18494,9 +18534,18 @@ const CharakterAssistent = ({
 
   // ── Was jeder Schritt braucht, damit „Weiter" hell wird ────────
   const wahlBoniSumme = Object.values(e.wahlBoni || {}).reduce((a, b) => a + b, 0);
+  const wahlZahl = wahlBoniZahl(volk, unter);
+  // Der begabte Mensch nimmt schon auf der ersten Stufe ein Talent. Die
+  // Liste dafuer kommt denselben Weg wie beim Aufstieg: die Datei neben
+  // der index.html gilt fuer die ganze Gruppe, die Datenbank ist das,
+  // was ihr euch selbst ausgedacht habt.
+  const willTalent = brauchtTalent(unter);
+  const alleTalente = [...(merkmalDaten && merkmalDaten.talente || []), ...(talente || []).filter(t => !(merkmalDaten && merkmalDaten.talente || []).some(x => dbSchluessel(x.name) === dbSchluessel(t.name)))];
+  const talEintrag = alleTalente.find(t => t.name === e.talent) || null;
+  const talHalb = talEintrag ? talEintrag.halb || [] : [];
   const ausHg = hg ? hg.fert : [];
   const eigene = (e.fertigkeiten || []).filter(f => !ausHg.includes(f));
-  const offen = [!e.name.trim() ? 'Ein Name fehlt.' : !volk ? 'Wähle ein Volk.' : (volk.unter || []).length && !unter ? 'Wähle eine Untergruppe.' : volk.wahlBoni && wahlBoniSumme !== volk.wahlBoni ? 'Verteile ' + volk.wahlBoni + ' Punkte auf verschiedene Attribute.' : '', !e.klasse ? 'Wähle eine Klasse.' : '', ATTR_WAHL.some(a => !e.attribute[a.k]) ? 'Die Attribute stehen noch nicht.' : '', !hg ? 'Wähle einen Hintergrund.' : '', !kl ? '' : eigene.length !== kl.fertZahl ? 'Genau ' + kl.fertZahl + ' Fertigkeiten — gewählt: ' + eigene.length + '.' : '', !e.ausruestung ? 'Paket oder Startgold.' : ''];
+  const offen = [!e.name.trim() ? 'Ein Name fehlt.' : !volk ? 'Wähle ein Volk.' : (volk.unter || []).length && !unter ? 'Wähle eine Untergruppe.' : wahlZahl && wahlBoniSumme !== wahlZahl ? 'Verteile ' + wahlZahl + ' Punkte auf verschiedene Attribute.' : willTalent && !talEintrag ? 'Wähle ein Talent.' : '', !e.klasse ? 'Wähle eine Klasse.' : '', ATTR_WAHL.some(a => !e.attribute[a.k]) ? 'Die Attribute stehen noch nicht.' : '', !hg ? 'Wähle einen Hintergrund.' : '', !kl ? '' : eigene.length !== kl.fertZahl ? 'Genau ' + kl.fertZahl + ' Fertigkeiten — gewählt: ' + eigene.length + '.' : '', !e.ausruestung ? 'Paket oder Startgold.' : ''];
   const hakt = offen[schritt];
 
   // ── Attribute ─────────────────────────────────────────────────
@@ -18565,7 +18614,9 @@ const CharakterAssistent = ({
     onClick: () => setzen({
       volk: v.name,
       untervolk: '',
-      wahlBoni: {}
+      wahlBoni: {},
+      talent: '',
+      talentAttr: ''
     })
   }, /*#__PURE__*/React.createElement("b", null, v.name), /*#__PURE__*/React.createElement("i", null, ATTR_WAHL.filter(a => v.boni[a.k]).map(a => a.l + ' +' + v.boni[a.k]).join(', '))))), volk && (volk.unter || []).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "ass-wahl",
@@ -18577,29 +18628,82 @@ const CharakterAssistent = ({
     key: u.name,
     className: 'ass-karte klein' + (e.untervolk === u.name ? ' an' : ''),
     onClick: () => setzen({
-      untervolk: u.name
+      untervolk: u.name,
+      wahlBoni: {},
+      talent: '',
+      talentAttr: ''
     })
-  }, /*#__PURE__*/React.createElement("b", null, u.name), /*#__PURE__*/React.createElement("i", null, ATTR_WAHL.filter(a => (u.boni || {})[a.k]).map(a => a.l + ' +' + u.boni[a.k]).join(', '), u.tempo ? ' · ' + u.tempo + ' m' : '')))), volk && volk.wahlBoni > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("b", null, u.name), /*#__PURE__*/React.createElement("i", null, ATTR_WAHL.filter(a => (u.boni || {})[a.k]).map(a => a.l + ' +' + u.boni[a.k]).join(', '), u.tempo ? ' · ' + u.tempo + ' m' : '')))), wahlZahl > 0 && (() => {
+    // Der Halbelf hat Charisma schon aus dem Volk und darf
+    // deshalb nicht noch einmal darauf; beim Menschen steht
+    // kein Attribut fest, also stehen alle sechs zur Wahl.
+    const gesperrt = volk && (volk.boni || {}).cha ? ['cha'] : [];
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "ass-warum",
+      style: {
+        marginTop: 10
+      }
+    }, gesperrt.length ? 'Der Halbelf verteilt ' + wahlZahl + ' Punkte selbst — auf zwei ' + 'verschiedene Attribute, nicht auf Charisma.' : wahlZahl + ' Punkte auf ' + wahlZahl + ' verschiedene Attribute, ' + 'und dafür ein Talent schon jetzt.'), /*#__PURE__*/React.createElement("div", {
+      className: "ass-wahl"
+    }, ATTR_WAHL.filter(a => !gesperrt.includes(a.k)).map(a => /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      key: a.k,
+      className: 'ass-karte klein' + ((e.wahlBoni || {})[a.k] ? ' an' : ''),
+      onClick: () => {
+        const w = {
+          ...(e.wahlBoni || {})
+        };
+        if (w[a.k]) delete w[a.k];else if (Object.keys(w).length < wahlZahl) w[a.k] = 1;
+        setzen({
+          wahlBoni: w
+        });
+      }
+    }, /*#__PURE__*/React.createElement("b", null, a.l), /*#__PURE__*/React.createElement("i", null, (e.wahlBoni || {})[a.k] ? '+1' : '—')))));
+  })(), willTalent && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "ass-warum",
     style: {
-      marginTop: 10
+      marginTop: 12
     }
-  }, "Der Halbelf verteilt ", volk.wahlBoni, " Punkte selbst \u2014 auf zwei verschiedene Attribute, nicht auf Charisma."), /*#__PURE__*/React.createElement("div", {
-    className: "ass-wahl"
-  }, ATTR_WAHL.filter(a => a.k !== 'cha').map(a => /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    key: a.k,
-    className: 'ass-karte klein' + ((e.wahlBoni || {})[a.k] ? ' an' : ''),
-    onClick: () => {
-      const w = {
-        ...(e.wahlBoni || {})
-      };
-      if (w[a.k]) delete w[a.k];else if (Object.keys(w).length < volk.wahlBoni) w[a.k] = 1;
-      setzen({
-        wahlBoni: w
-      });
+  }, alleTalente.length === 0 ? 'Es ist noch kein Talent hinterlegt. Einzeln unter 📚 Datenbank ▸ ⭐ Talente, ' + 'oder als Sammlung neben der index.html.' : 'Ein Talent, gleich auf der ersten Stufe.'), alleTalente.length > 0 && /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: e.talent || '',
+    "aria-label": "Talent",
+    onChange: ev => setzen({
+      talent: ev.target.value,
+      talentAttr: ''
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Talent w\xE4hlen\u2026"), [...alleTalente].sort((a, b) => a.name.localeCompare(b.name, 'de')).map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.name,
+    value: t.name
+  }, t.name))), talHalb.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "ass-wahl",
+    style: {
+      marginTop: 8
     }
-  }, /*#__PURE__*/React.createElement("b", null, a.l), /*#__PURE__*/React.createElement("i", null, (e.wahlBoni || {})[a.k] ? '+1' : '—')))))), schritt === 1 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, talHalb.map(k => {
+    const a = ATTR_WAHL.find(x => x.k === k) || {
+      k,
+      l: k
+    };
+    return /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      key: k,
+      className: 'ass-karte klein' + (e.talentAttr === k ? ' an' : ''),
+      onClick: () => setzen({
+        talentAttr: e.talentAttr === k ? '' : k
+      })
+    }, /*#__PURE__*/React.createElement("b", null, a.l), /*#__PURE__*/React.createElement("i", null, "+1"));
+  })), talEintrag && talEintrag.description && /*#__PURE__*/React.createElement("div", {
+    className: "ass-warum",
+    style: {
+      marginTop: 8
+    },
+    dangerouslySetInnerHTML: {
+      __html: sanitizeHtml(talEintrag.description)
+    }
+  }))), schritt === 1 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "ass-warum"
   }, "Die Klasse bestimmt den Trefferw\xFCrfel, zwei ge\xFCbte Rettungsw\xFCrfe, womit man k\xE4mpft \u2014 und ob man zaubert."), /*#__PURE__*/React.createElement("div", {
     className: "ass-wahl"
@@ -21859,11 +21963,12 @@ function App() {
   };
 
   // Und die andere Seite: der Spieler schickt seine Ansage ab.
-  const ansageSenden = async ansage => {
+  const ansageSenden = async (ansage, fuer) => {
     const creds = serverCreds();
-    if (!verbunden(creds) || !ansageFuer) return;
+    const wer = fuer || ansageFuer;
+    if (!verbunden(creds) || !wer) return;
     try {
-      const d = await apiKampfAnsage(creds.url, creds.code, advId, ansageFuer, ansage);
+      const d = await apiKampfAnsage(creds.url, creds.code, advId, wer, ansage);
       // Das Fenster bleibt offen — wer eine Bonusaktion hat, sagt sie
       // gleich hinterher an. Zugemacht wird mit „Fertig“.
       kampfStandRef.current = -1; // beim naechsten Blick alles neu holen
@@ -21912,6 +22017,25 @@ function App() {
       gestrichen: true,
       hat: true
     };
+  };
+
+  // Der schnelle Weg fuer eine Reaktion: ein Griff statt vier. Es ist
+  // dieselbe Ansage wie aus dem Fenster, nur ohne Fenster — und der
+  // Zauberplatz geht denselben Weg ab.
+  const reaktionSenden = async spruch => {
+    if (!spruch || !ansageHeldId) return;
+    const grad = +spruch.level || 0;
+    const raus = await ansageSenden({
+      typ: 'reaktion',
+      art: 'zauber',
+      was: spruch.name || '',
+      grad: 0,
+      stufe: grad,
+      ziele: [],
+      zielIds: [],
+      text: ''
+    }, ansageHeldId);
+    if (raus && grad > 0) zauberplatzStreichen(ansageHeldId, grad);
   };
 
   // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
@@ -26474,6 +26598,7 @@ function App() {
     onAnsagen: probeSetzen
   }), assistent && /*#__PURE__*/React.createElement(CharakterAssistent, {
     klassen: klassen,
+    talente: (userLibrary || {}).talent || [],
     onAbbrechen: () => setAssistent(false),
     onVonHand: () => {
       setAssistent(false);
@@ -28704,6 +28829,8 @@ function App() {
     setDefs: setDefs,
     tpOffen: tpOffen,
     onAnsage: ansageHeldId ? () => setAnsageFuer(ansageHeldId) : null,
+    eigenerHeld: chars.find(c => c.id === ansageHeldId) || null,
+    onReaktion: ansageHeldId ? reaktionSenden : null,
     onSchliessen: () => setShowKampfSicht(false)
   }), ansageFuer && kampfSichtDaten && /*#__PURE__*/React.createElement(AnsageFenster, {
     held: chars.find(c => c.id === ansageFuer),

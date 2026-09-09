@@ -3926,3 +3926,21 @@
     .beute-hand-tafel .form-input { min-width:0; padding:5px 4px; font-size:12px; }
     .beute-hand-name { font-size:12px; }
   }
+
+  /* ── Der schnelle Weg für eine Reaktion ────────────────
+     Eine Reaktion kommt zwischendurch, und dafür ist ein Fenster mit
+     vier Griffen zu langsam. Hier steht, was im Buch als Reaktion
+     eingetragen ist — ein Tipp, und es ist beim Tisch. */
+  .ks-reaktion { padding:8px 11px; border-top:1px solid var(--border); }
+  .ks-reaktion-titel { font-family:'Roboto Condensed',sans-serif; font-size:10.5px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--text-muted);
+    margin-bottom:6px; }
+  .ks-reaktion-tasten { display:flex; flex-wrap:wrap; gap:6px; }
+  .ks-reaktion-knopf { display:inline-flex; align-items:center; gap:5px;
+    padding:6px 10px; border-radius:6px; cursor:pointer;
+    background:var(--bg-void); border:1px solid var(--arcane, #6080d0);
+    color:var(--text-primary); font-family:'Roboto Condensed',sans-serif;
+    font-size:12.5px; line-height:1; }
+  .ks-reaktion-knopf:hover { border-color:var(--inspiration); }
+  .ks-reaktion-knopf i { font-style:normal; font-size:10px; color:var(--text-muted);
+    border:1px solid var(--border-bright); border-radius:3px; padding:1px 4px; }

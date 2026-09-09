@@ -171,8 +171,14 @@ const RACES   = ["Mensch","Elf","Zwerg","Halbling","Halbork","Tiefling","Drachen
 //
 // Die Bewegung steht in Metern, weil der Bogen sie so anzeigt.
 const VOELKER = [
-  {name:'Mensch',        boni:{str:1,dex:1,con:1,int:1,wis:1,cha:1}, tempo:9,
-   sprachen:['Gemeinsprache','eine weitere'], merkmale:[]},
+  // Der Mensch hat als einziges Volk eine Wahl statt eines Bonus: entweder
+  // ueberall ein Punkt, oder zwei Punkte nach Wahl und dafuer ein Talent
+  // schon auf der ersten Stufe. Das ist dieselbe Frage wie bei der
+  // Attributssteigerung — breit oder scharf —, nur zwoelf Stufen frueher.
+  {name:'Mensch',        boni:{}, tempo:9,
+   sprachen:['Gemeinsprache','eine weitere'], merkmale:[],
+   unter:[{name:'Vielseitig', boni:{str:1,dex:1,con:1,int:1,wis:1,cha:1}},
+          {name:'Begabt',     boni:{}, wahlBoni:2, talent:true}]},
   {name:'Zwerg',         boni:{con:2}, tempo:7.5, sprachen:['Gemeinsprache','Zwergisch'],
    merkmale:['Dunkelsicht','Zwergische Zähigkeit','Zwergische Kampfausbildung','Steinkundig'],
    unter:[{name:'Hügelzwerg', boni:{wis:1}}, {name:'Gebirgszwerg', boni:{str:2}}]},

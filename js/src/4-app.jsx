@@ -2306,11 +2306,12 @@ function App() {
   };
 
   // Und die andere Seite: der Spieler schickt seine Ansage ab.
-  const ansageSenden = async (ansage) => {
+  const ansageSenden = async (ansage, fuer) => {
     const creds = serverCreds();
-    if (!verbunden(creds) || !ansageFuer) return;
+    const wer = fuer || ansageFuer;
+    if (!verbunden(creds) || !wer) return;
     try {
-      const d = await apiKampfAnsage(creds.url, creds.code, advId, ansageFuer, ansage);
+      const d = await apiKampfAnsage(creds.url, creds.code, advId, wer, ansage);
       // Das Fenster bleibt offen — wer eine Bonusaktion hat, sagt sie
       // gleich hinterher an. Zugemacht wird mit „Fertig“.
       kampfStandRef.current = -1;        // beim naechsten Blick alles neu holen
@@ -2341,6 +2342,19 @@ function App() {
                    [g]: {...platz, used: (+platz.used || 0) + 1}},
     }));
     return {grad: g, frei: frei - 1, gestrichen: true, hat: true};
+  };
+
+  // Der schnelle Weg fuer eine Reaktion: ein Griff statt vier. Es ist
+  // dieselbe Ansage wie aus dem Fenster, nur ohne Fenster — und der
+  // Zauberplatz geht denselben Weg ab.
+  const reaktionSenden = async (spruch) => {
+    if (!spruch || !ansageHeldId) return;
+    const grad = +spruch.level || 0;
+    const raus = await ansageSenden({
+      typ: 'reaktion', art: 'zauber', was: spruch.name || '',
+      grad: 0, stufe: grad, ziele: [], zielIds: [], text: '',
+    }, ansageHeldId);
+    if (raus && grad > 0) zauberplatzStreichen(ansageHeldId, grad);
   };
 
   // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
@@ -4650,7 +4664,7 @@ function App() {
       )}
 
       {assistent && (
-        <CharakterAssistent klassen={klassen}
+        <CharakterAssistent klassen={klassen} talente={(userLibrary || {}).talent || []}
           onAbbrechen={()=>setAssistent(false)}
           onVonHand={()=>{ setAssistent(false); openNew(); }}
           onFertig={assistentFertig} />
@@ -5803,6 +5817,8 @@ function App() {
         <KampfSicht kampf={kampfSichtDaten} helden={advChars} eigeneIds={eigeneHeldenIds}
           setDefs={setDefs} tpOffen={tpOffen}
           onAnsage={ansageHeldId ? ()=>setAnsageFuer(ansageHeldId) : null}
+          eigenerHeld={chars.find(c => c.id === ansageHeldId) || null}
+          onReaktion={ansageHeldId ? reaktionSenden : null}
           onSchliessen={()=>setShowKampfSicht(false)} />
       )}
 
