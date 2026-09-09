@@ -500,6 +500,13 @@ const assistentPlan = (e) => {
   if (tal && tal.attr) dazu({[tal.attr]: 1});
   const werte = {};
   for (const a of ATTR_WAHL) werte[a.k] = Math.min(20, (+grund[a.k] || 0) + (boni[a.k] || 0));
+  // Steht der Grundwert noch nicht, ist das Attribut unbekannt — und
+  // alles, was daraus folgt, auch. Ein Bonus des Volkes allein macht es
+  // nicht bekannt: der Waldgnom gibt Geschicklichkeit +1, und daraus
+  // wurde bisher eine Geschicklichkeit von 1, ein Modifikator von −5 und
+  // damit Initiative −5 und Ruestungsklasse 5. Geprueft werden muss der
+  // Grundwert, nicht die Summe.
+  const attrDa = (k) => !!(+grund[k]);
 
   const neu = {};
   if (d.name) neu.name = d.name;
@@ -525,9 +532,11 @@ const assistentPlan = (e) => {
   if (kl) {
     // Auf Stufe 1 gibt der Trefferwürfel sein Höchstes — gewürfelt wird
     // erst ab Stufe 2.
-    const tp = Math.max(1, kl.tw + mod(werte.con || 10));
-    neu.maxHp = tp; neu.hp = tp;
-    zeile('Trefferpunkte', tp + '  (W' + kl.tw + ' + Konstitution)');
+    if (attrDa('con')) {
+      const tp = Math.max(1, kl.tw + mod(werte.con));
+      neu.maxHp = tp; neu.hp = tp;
+      zeile('Trefferpunkte', tp + '  (W' + kl.tw + ' + Konstitution)');
+    }
     neu.savingThrowProfs = [...kl.rw];
     zeile('Rettungswürfe', kl.rw.map(k => (ATTR_WAHL.find(a => a.k === k) || {}).l).join(', '));
     const plaetze = zauberPlaetze(d.klasse, 1);
@@ -537,7 +546,7 @@ const assistentPlan = (e) => {
       if (plaetze[1]) zeile('Zauberplätze', plaetze[1] + ' vom 1. Grad');
     }
   }
-  if (werte.dex) {
+  if (attrDa('dex')) {
     neu.initiative = mod(werte.dex);
     neu.ac = 10 + mod(werte.dex);
     zeile('Initiative', (neu.initiative >= 0 ? '+' : '') + neu.initiative);

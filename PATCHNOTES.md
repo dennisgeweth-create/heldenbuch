@@ -155,6 +155,18 @@ darunter wäre die Karte kein Bild mehr, sondern ein Muster.
 
 ### 🔑 Kleinigkeiten
 
+- **Der Waldgnom mit Rüstungsklasse 5.** Die Vorschau im Assistenten
+  („Das steht danach im Bogen") rechnete Initiative und Rüstungsklasse
+  aus, sobald das Volk einen Bonus auf Geschicklichkeit gab — auch wenn
+  noch gar kein Attribut gewählt war. Geschicklichkeit 0 plus 1 vom
+  Waldgnom ergibt 1, und der Modifikator dazu ist −5. Geprüft wurde die
+  Summe statt des Grundwerts. Dieselbe Stelle gab dem Zwerg auf der
+  ersten Stufe Trefferpunkte unterhalb seines Trefferwürfels. Beides
+  steht jetzt erst da, wenn die Attribute stehen.
+
+  In v5.1.1 stand hier, die Ursache lägen in Modifikatoren in den
+  Gegnerfeldern. Das war die falsche Stelle — die Anzeige dort ist
+  trotzdem nützlich und bleibt.
 - **„Neuer Charakter" ging nicht mehr auf.** Das Fenster blieb grau: der
   Assistent rechnete seinen Plan aus, bevor er wusste, ob ein Talent
   dazugehört, und brach an dieser Stelle jedes Mal ab. Die Ursache kam
