@@ -107,7 +107,8 @@ const ProbenAnsage = ({ helden, onAbbrechen, onAnsagen }) => {
           <span>
             <b>Geheim</b> — nur die Genannten sehen die Probe überhaupt.
             <i>{geheimGeht
-              ? 'Der Rest des Tisches merkt nicht, dass gewürfelt wurde.'
+              ? 'Der Rest des Tisches merkt nicht, dass gewürfelt wurde — '
+                + 'geworfen wird deshalb im Gerät, mit einem Knopf statt eines Würfels.'
               : 'Dafür muss oben jemand angetippt sein — ein Geheimnis vor allen ist keines.'}</i>
           </span>
         </label>
@@ -190,6 +191,14 @@ const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen,
                 {a.wurf} {a.bonus >= 0 ? '+' : '−'} {Math.abs(a.bonus)} = <b>{gesamt}</b>
                 {gut === null ? '' : gut ? ' ✓' : ' ✗'}
               </span>
+            ) : probe.geheim ? (
+              // Ein geheimer Wurf wird hier geworfen, nicht auf dem
+              // Tisch. Genau das ist der Sinn: wer den Würfel nimmt,
+              // fällt auf — und dann weiss der ganze Tisch, dass etwas
+              // gefragt wurde. Deshalb steht hier ein Knopf und kein
+              // Feld; einzutragen gibt es nichts.
+              <button className="btn-save probe-melden"
+                onClick={()=>onAntwort(c, w20(), b)}>🎲 Würfeln</button>
             ) : (
               <>
                 {/* sofort: sonst meldet das Feld erst beim Verlassen, und

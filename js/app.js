@@ -13874,7 +13874,7 @@ const ProbenAnsage = ({
     checked: geheim && geheimGeht,
     disabled: !geheimGeht,
     onChange: e => setGeheim(e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Geheim"), " \u2014 nur die Genannten sehen die Probe \xFCberhaupt.", /*#__PURE__*/React.createElement("i", null, geheimGeht ? 'Der Rest des Tisches merkt nicht, dass gewürfelt wurde.' : 'Dafür muss oben jemand angetippt sein — ein Geheimnis vor allen ist keines.'))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Geheim"), " \u2014 nur die Genannten sehen die Probe \xFCberhaupt.", /*#__PURE__*/React.createElement("i", null, geheimGeht ? 'Der Rest des Tisches merkt nicht, dass gewürfelt wurde — ' + 'geworfen wird deshalb im Gerät, mit einem Knopf statt eines Würfels.' : 'Dafür muss oben jemand angetippt sein — ein Geheimnis vor allen ist keines.'))), /*#__PURE__*/React.createElement("div", {
     className: "form-actions",
     style: {
       marginTop: 14
@@ -13967,7 +13967,17 @@ const ProbenBalken = ({
       className: "probe-bonus"
     }, b >= 0 ? '+' + b : b), a ? /*#__PURE__*/React.createElement("span", {
       className: 'probe-erg' + (gut === null ? '' : gut ? ' gut' : ' schlecht')
-    }, a.wurf, " ", a.bonus >= 0 ? '+' : '−', " ", Math.abs(a.bonus), " = ", /*#__PURE__*/React.createElement("b", null, gesamt), gut === null ? '' : gut ? ' ✓' : ' ✗') : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(ZahlFeld, {
+    }, a.wurf, " ", a.bonus >= 0 ? '+' : '−', " ", Math.abs(a.bonus), " = ", /*#__PURE__*/React.createElement("b", null, gesamt), gut === null ? '' : gut ? ' ✓' : ' ✗') : probe.geheim ?
+    /*#__PURE__*/
+    // Ein geheimer Wurf wird hier geworfen, nicht auf dem
+    // Tisch. Genau das ist der Sinn: wer den Würfel nimmt,
+    // fällt auf — und dann weiss der ganze Tisch, dass etwas
+    // gefragt wurde. Deshalb steht hier ein Knopf und kein
+    // Feld; einzutragen gibt es nichts.
+    React.createElement("button", {
+      className: "btn-save probe-melden",
+      onClick: () => onAntwort(c, w20(), b)
+    }, "\uD83C\uDFB2 W\xFCrfeln") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(ZahlFeld, {
       className: "form-input probe-feld",
       sofort: true,
       wert: wuerfe[c.id] || '',
