@@ -22,10 +22,6 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
     attribute: {}, wahlBoni: {}, talent: '', talentAttr: '', fertigkeiten: [], ausruestung: '', gold: 0,
   });
   const setzen = (p) => setE(x => ({...x, ...p}));
-  // Der Plan bekommt das Talent ausgeschrieben mit — der Entwurf kennt
-  // nur seinen Namen, und Beschreibung und Effekte stehen in der Liste.
-  const plan = assistentPlan({...e, talentDaten: (willTalent && talEintrag)
-    ? {...talEintrag, attr: talHalb.includes(e.talentAttr) ? e.talentAttr : ''} : null});
 
   const volk  = volkFinden(e.volk);
   const unter = unterFinden(volk, e.untervolk);
@@ -51,6 +47,16 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
   ];
   const talEintrag = alleTalente.find(t => t.name === e.talent) || null;
   const talHalb = talEintrag ? (talEintrag.halb || []) : [];
+
+  // Der Plan bekommt das Talent ausgeschrieben mit — der Entwurf kennt
+  // nur seinen Namen, und Beschreibung und Effekte stehen in der Liste.
+  //
+  // Er steht hier unten und nicht oben bei den Zustaenden: er braucht
+  // `willTalent` und `talEintrag`, und die stehen erst hier. Weiter oben
+  // waeren sie noch nicht da — und ein `const`, auf das man vor seiner
+  // Zeile zugreift, wirft, statt undefined zu sein.
+  const plan = assistentPlan({...e, talentDaten: (willTalent && talEintrag)
+    ? {...talEintrag, attr: talHalb.includes(e.talentAttr) ? e.talentAttr : ''} : null});
   const ausHg = hg ? hg.fert : [];
   const eigene = (e.fertigkeiten || []).filter(f => !ausHg.includes(f));
   const offen = [

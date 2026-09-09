@@ -20399,15 +20399,6 @@ const CharakterAssistent = ({
     ...x,
     ...p
   }));
-  // Der Plan bekommt das Talent ausgeschrieben mit — der Entwurf kennt
-  // nur seinen Namen, und Beschreibung und Effekte stehen in der Liste.
-  const plan = assistentPlan({
-    ...e,
-    talentDaten: willTalent && talEintrag ? {
-      ...talEintrag,
-      attr: talHalb.includes(e.talentAttr) ? e.talentAttr : ''
-    } : null
-  });
   const volk = volkFinden(e.volk);
   const unter = unterFinden(volk, e.untervolk);
   const kl = KLASSEN_REGELN[e.klasse] || null;
@@ -20427,6 +20418,21 @@ const CharakterAssistent = ({
   const alleTalente = [...(merkmalDaten && merkmalDaten.talente || []), ...(talente || []).filter(t => !(merkmalDaten && merkmalDaten.talente || []).some(x => dbSchluessel(x.name) === dbSchluessel(t.name)))];
   const talEintrag = alleTalente.find(t => t.name === e.talent) || null;
   const talHalb = talEintrag ? talEintrag.halb || [] : [];
+
+  // Der Plan bekommt das Talent ausgeschrieben mit — der Entwurf kennt
+  // nur seinen Namen, und Beschreibung und Effekte stehen in der Liste.
+  //
+  // Er steht hier unten und nicht oben bei den Zustaenden: er braucht
+  // `willTalent` und `talEintrag`, und die stehen erst hier. Weiter oben
+  // waeren sie noch nicht da — und ein `const`, auf das man vor seiner
+  // Zeile zugreift, wirft, statt undefined zu sein.
+  const plan = assistentPlan({
+    ...e,
+    talentDaten: willTalent && talEintrag ? {
+      ...talEintrag,
+      attr: talHalb.includes(e.talentAttr) ? e.talentAttr : ''
+    } : null
+  });
   const ausHg = hg ? hg.fert : [];
   const eigene = (e.fertigkeiten || []).filter(f => !ausHg.includes(f));
   const offen = [!e.name.trim() ? 'Ein Name fehlt.' : !volk ? 'Wähle ein Volk.' : (volk.unter || []).length && !unter ? 'Wähle eine Untergruppe.' : wahlZahl && wahlBoniSumme !== wahlZahl ? 'Verteile ' + wahlZahl + ' Punkte auf verschiedene Attribute.' : willTalent && !talEintrag ? 'Wähle ein Talent.' : '', !e.klasse ? 'Wähle eine Klasse.' : '', ATTR_WAHL.some(a => !e.attribute[a.k]) ? 'Die Attribute stehen noch nicht.' : '', !hg ? 'Wähle einen Hintergrund.' : '', !kl ? '' : eigene.length !== kl.fertZahl ? 'Genau ' + kl.fertZahl + ' Fertigkeiten — gewählt: ' + eigene.length + '.' : '', !e.ausruestung ? 'Paket oder Startgold.' : ''];

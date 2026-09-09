@@ -155,6 +155,11 @@ darunter wäre die Karte kein Bild mehr, sondern ein Muster.
 
 ### 🔑 Kleinigkeiten
 
+- **„Neuer Charakter" ging nicht mehr auf.** Das Fenster blieb grau: der
+  Assistent rechnete seinen Plan aus, bevor er wusste, ob ein Talent
+  dazugehört, und brach an dieser Stelle jedes Mal ab. Die Ursache kam
+  mit dem begabten Menschen in v5.1.1 herein und traf jeden neuen
+  Charakter, nicht nur Menschen.
 - **Das Protokollfenster ist höher** — 340 statt 220 Pixel. Mit einer
   Kartenaufnahme darin war es zu eng.
 - **`KAMPFTRACKER.md`**, die Übersicht zum Vorlegen an eine KI, hat
