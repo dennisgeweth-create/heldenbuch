@@ -175,6 +175,9 @@ const karteFigurSetzen = (karte, id, x, y, kuerzel) => {
     else delete figuren[da];
   }
   figuren[id] = {x, y, k: (alt && alt.k) || kuerzel || '??'};
+  // Wer schon in der Luft war, bleibt es beim Ziehen — herunterkommen
+  // ist ein eigener Griff und soll keine Nebenwirkung sein.
+  if (alt && alt.h) figuren[id].h = alt.h;
   return {...karte, figuren};
 };
 
@@ -223,6 +226,8 @@ const karteFuerSpieler = (karte) => {
   Object.keys(karte.figuren || {}).forEach(id => {
     if (!karteIstVerborgen(karte, id)) figuren[id] = karte.figuren[id];
   });
+  // Die Hoehe geht mit: wer den Drachen sieht, sieht auch, dass er
+  // oben ist.
   // Das Gelaende geht ganz mit. Wer die Wand sieht, sieht sie auch am
   // Tisch — und eine Karte mit Loechern waere keine.
   return {breite: karte.breite, hoehe: karte.hoehe, feldMeter: karte.feldMeter,
@@ -233,7 +238,45 @@ const karteFuerSpieler = (karte) => {
 // Diagonal zaehlt wie gerade — die Regel des Grundregelwerks. Die
 // Variante 5-10-5 waere eine Zeile mehr und steht bewusst nicht hier:
 // sie gehoert als Hausregel dazu oder gar nicht.
-const karteWeit = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+//
+// Die Hoehe zaehlt als dritte Achse mit, in Feldern gerechnet. Ein
+// Drache zwoelf Meter ueber dem Kaempfer steht acht Felder weit weg,
+// auch wenn er senkrecht darueber schwebt — und genau das ist am Tisch
+// die Frage.
+//
+// Gerundet wird auf ganze Felder: eine Hoehe von zwei Metern ist bei
+// anderthalb Metern je Feld ein Feld und nicht 1,33.
+const kHoehenFelder = (a, b, meter) =>
+  Math.round(Math.abs(((a && +a.h) || 0) - ((b && +b.h) || 0)) / (meter || K_METER));
+
+const karteWeit = (a, b, meter) => Math.max(
+  Math.abs(a.x - b.x), Math.abs(a.y - b.y), kHoehenFelder(a, b, meter));
+
+// ── Höhe ─────────────────────────────────────────────────────────
+// Der Drache, der Vampir, die Spinne an der Wand. Je Figur ein Wert in
+// Metern, und mehr braucht es nicht: die Karte kennt keine Stockwerke
+// und keine Deckenhoehe, nur „wie weit ueber dem Boden".
+//
+// Gestellt wird in Feldschritten — anderthalb Meter, dieselbe Einheit
+// wie in der Waagerechten. Wer krumme Werte will, traegt sie ein; die
+// Rechnung nimmt jede Zahl.
+const karteHoehe = (karte, id) => (((karte || {}).figuren || {})[id] || {}).h || 0;
+
+const karteHoeheSetzen = (karte, id, meter) => {
+  const f = ((karte || {}).figuren || {})[id];
+  if (!f) return karte;
+  const h = Math.max(0, Math.round((+meter || 0) * 10) / 10);
+  const neu = {...f};
+  if (h) neu.h = h; else delete neu.h;
+  return {...karte, figuren: {...karte.figuren, [id]: neu}};
+};
+
+const karteHoeheText = (h) =>
+  String(Math.round((+h || 0) * 10) / 10).replace('.', ',') + ' m';
+
+// Wer nicht auf dem Boden steht. Steht in mehreren Saetzen, deshalb
+// einmal hier.
+const karteSchwebt = (f) => !!(f && +f.h);
 const karteMeter = (felder, karte) =>
   felder * ((karte && +karte.feldMeter) || K_METER);
 // Eine Nachkommastelle reicht — 4,5 m, nicht 4,5000000000000004 m, und
@@ -361,6 +404,9 @@ const karteText = (karte, teilnehmer, opts) => {
       ];
       const rest = [];
       if (o.mitZahlen && x.hp !== undefined) rest.push(x.hp + '/' + x.hpMax + ' TP');
+      // Nur wer nicht auf dem Boden steht. „Höhe 0 m" bei sieben von
+      // acht Figuren waere eine Spalte Nullen.
+      if (karteSchwebt(f)) rest.push('Höhe ' + karteHoeheText(f.h));
       if ((x.zustaende || []).length) rest.push(x.zustaende.join(', '));
       t.push(teile.join('') + (rest.length ? '  ' + rest.join(' · ') : ''));
     });
@@ -381,10 +427,13 @@ const karteText = (karte, teilnehmer, opts) => {
   const helden  = gesetzt.filter(g => g.t.art === 'held');
   const gegner  = gesetzt.filter(g => g.t.art !== 'held');
   if (helden.length && gegner.length) {
-    t.push('', 'ENTFERNUNGEN (Felder, diagonal zählt eins)');
+    const meter = karte.feldMeter || K_METER;
+    const inDerLuft = gesetzt.some(x => karteSchwebt(x.f));
+    t.push('', 'ENTFERNUNGEN (Felder, diagonal zählt eins'
+      + (inDerLuft ? ', Höhe zählt mit' : '') + ')');
     helden.forEach(h => {
       t.push('  ' + gegner.map(g =>
-        h.f.k + ' → ' + g.f.k + ' ' + String(karteWeit(h.f, g.f)).padStart(2)).join('   '));
+        h.f.k + ' → ' + g.f.k + ' ' + String(karteWeit(h.f, g.f, meter)).padStart(2)).join('   '));
     });
 
     // Nur die Paare, bei denen etwas dazwischensteht. Alle aufzulisten
@@ -393,8 +442,17 @@ const karteText = (karte, teilnehmer, opts) => {
     const verstellt = [];
     helden.forEach(h => gegner.forEach(g => {
       const s = karteSicht(karte, h.f, g.f);
-      if (!s.frei) verstellt.push('  ' + h.f.k + ' → ' + g.f.k + '  '
-        + s.art.name + ' auf ' + karteName(s.x, s.y));
+      if (s.frei) return;
+      // Das Raster kennt keine Hoehe des Gelaendes. Ob ein Drache in
+      // zwoelf Metern ueber die Wand hinwegsieht, kann es deshalb nicht
+      // sagen — also sagt es, dass es die Frage gibt, statt sie falsch
+      // zu beantworten.
+      const hoch = [h, g].filter(x => karteSchwebt(x.f))
+        .map(x => x.f.k + ' ' + karteHoeheText(x.f.h) + ' hoch');
+      verstellt.push('  ' + h.f.k + ' → ' + g.f.k + '  '
+        + s.art.name + ' auf ' + karteName(s.x, s.y)
+        + (hoch.length ? ' — aber ' + hoch.join(' und ')
+                       + ': darüber hinweg entscheidet die Spielleitung' : ''));
     }));
     // Der Hinweis steht auch dann da, wenn nichts verstellt ist. Er
     // sagt, wie genau die Angabe ist, und das gilt in beide Richtungen.
@@ -438,6 +496,7 @@ const karteAusText = (text) => {
   // sich in Felder zerlegen laesst und keine Spaltenzeile ist.
   const reihen = [];
   const namen = {};
+  const hoehen = {};
   let abschnitt = 'raster';
   for (const zeile of roh) {
     const a = K_ABSATZ.exec(zeile);
@@ -451,9 +510,17 @@ const karteAusText = (text) => {
       if (!kIstReihe(felder)) continue;
       reihen.push(felder);
     } else if (abschnitt === 'FIGUREN') {
-      // „Br   Brunhilde   Held   F3   38/44 TP" — Kuerzel und Name.
+      // „Br   Brunhilde   Held   F3   38/44 TP · Höhe 12 m"
+      // — Kuerzel und Name, und wenn eine Hoehe dabeisteht, die auch.
       const m = /^\s*(\S{1,3})\s{2,}(\S[^\s].*?)(?:\s{2,}|$)/.exec(zeile);
-      if (m) namen[m[1]] = m[2].trim();
+      if (m) {
+        namen[m[1]] = m[2].trim();
+        // „Hoehe" ohne Umlaut geht auch — wer den Block ohne Umlaute
+        // schreibt, soll nicht daran scheitern. „m" muss aber „m" sein:
+        // sonst ginge „Höhe 40 ft" als vierzig Meter durch.
+        const hm = /H(?:ö|oe|o)he\s+(\d+(?:[.,]\d+)?)\s*m(?![A-Za-zÄÖÜäöü])/i.exec(zeile);
+        if (hm) hoehen[m[1]] = +hm[1].replace(',', '.');
+      }
     }
   }
   if (!reihen.length) return {karte: null, meldung: 'Kein Raster gefunden.', warnung};
@@ -490,7 +557,7 @@ const karteAusText = (text) => {
   if (unbekannt.size) warnung.push('Unbekannte Zeichen zu Boden gemacht: '
     + [...unbekannt].join(' '));
 
-  return {karte, marken, namen, warnung,
+  return {karte, marken, namen, hoehen, warnung,
           meldung: breite + ' × ' + hoehe + ' Felder gelesen'
             + (marken.length ? ', ' + marken.length
                + (marken.length === 1 ? ' Figur' : ' Figuren') : '')};
@@ -500,7 +567,7 @@ const karteAusText = (text) => {
 // den Namen aus dem FIGUREN-Block, mit derselben unscharfen Suche, die
 // Beute und Gegnerlisten benutzen — und der Import legt niemanden an:
 // wer im Kampf stehen soll, steht in der Teilnehmerliste.
-const karteMarkenZuordnen = (karte, marken, namen, teilnehmer) => {
+const karteMarkenZuordnen = (karte, marken, namen, teilnehmer, hoehen) => {
   const frei = [...(teilnehmer || [])];
   const raus = {};
   const offen = [];
@@ -513,7 +580,8 @@ const karteMarkenZuordnen = (karte, marken, namen, teilnehmer) => {
       || dbSchluessel(gesucht).startsWith(dbSchluessel(t.name)));
     if (i < 0) { offen.push(m.k + (gesucht ? ' (' + gesucht + ')' : '')); return; }
     const t = frei.splice(i, 1)[0];
-    raus[t.id] = {x: m.x, y: m.y, k: m.k};
+    const h = +((hoehen || {})[m.k]) || 0;
+    raus[t.id] = h ? {x: m.x, y: m.y, k: m.k, h} : {x: m.x, y: m.y, k: m.k};
   });
   return {figuren: raus, offen};
 };
@@ -522,7 +590,7 @@ const karteMarkenZuordnen = (karte, marken, namen, teilnehmer) => {
 const karteUebernehmen = (text, teilnehmer) => {
   const g = karteAusText(text);
   if (!g.karte) return g;
-  const z = karteMarkenZuordnen(g.karte, g.marken, g.namen, teilnehmer);
+  const z = karteMarkenZuordnen(g.karte, g.marken, g.namen, teilnehmer, g.hoehen);
   const warnung = [...g.warnung];
   if (z.offen.length) warnung.push('Nicht zugeordnet: ' + z.offen.join(', ')
     + ' — wer im Kampf stehen soll, muss in der Reihe stehen.');
@@ -595,7 +663,8 @@ const karteAufnahmeGleich = (a, b) => {
   const fa = a.karte.figuren || {}, fb = b.karte.figuren || {};
   const ia = Object.keys(fa);
   if (ia.length !== Object.keys(fb).length) return false;
-  return ia.every(id => fb[id] && fa[id].x === fb[id].x && fa[id].y === fb[id].y);
+  return ia.every(id => fb[id] && fa[id].x === fb[id].x && fa[id].y === fb[id].y
+                        && (fa[id].h || 0) === (fb[id].h || 0));
 };
 
 // ══ Ende der reinen Rechnung ═══════════════════════════════════════
@@ -695,6 +764,7 @@ const K_PLATZHALTER = '    A  B  C  D\n 1  .  .  #  .\n 2  .  #  #  .';
 const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, versteckt, mass, onKlick, onZeigen }) => {
   const was = karteName(x, y)
     + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name)
+    + (karteSchwebt(figur) ? ' · Höhe ' + karteHoeheText(figur.h) : '')
     + (versteckt ? ' · verborgen, die Runde sieht sie nicht' : '')
     // Am Tablet gibt es keinen Zeiger und damit keine Anzeige in der
     // Leiste — im Titel steht dasselbe, und langes Antippen zeigt ihn.
@@ -705,7 +775,7 @@ const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, versteckt, mass, onK
         + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner')
                  : ' g' + K_ZEICHEN.indexOf(zeichen))
         + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : '')
-        + (versteckt ? ' versteckt' : '')}
+        + (versteckt ? ' versteckt' : '') + (karteSchwebt(figur) ? ' hoch' : '')}
       title={was} aria-label={was.replace(/ · /g, ', ')}
       onMouseEnter={onZeigen ? ()=>onZeigen(x, y) : undefined}
       onFocus={onZeigen ? ()=>onZeigen(x, y) : undefined}
@@ -790,7 +860,7 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
       // Eine Bewegung gehört ins Protokoll — sie ist das, was im Zug
       // passiert ist, und ohne sie steht dort nur, wer angegriffen hat.
       if (alt && onLog && (alt.x !== x || alt.y !== y)) {
-        const weit = karteWeit(alt, {x, y});
+        const weit = karteWeit(alt, alt.h ? {x, y, h: alt.h} : {x, y}, karte.feldMeter);
         // Die Meter stehen dabei, weil Reichweiten in Metern angegeben
         // sind — „3 Felder" muesste sonst jeder im Kopf umrechnen.
         onLog({art: 'bewegung', wer: t.name, von: karteName(alt.x, alt.y),
@@ -818,6 +888,20 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
       + (verlust.felder.length === 1 ? ' bemaltes Feld' : ' bemalte Felder'));
     if (onFrage) onFrage('Beim Verkleinern fällt weg: ' + was.join(' und ') + '.', tun, 'Trotzdem');
     else tun();
+  };
+
+  // Steigen und Sinken gehoeren ins Protokoll wie das Ziehen: es ist
+  // eine Bewegung, sie kostet, und ohne sie stuende dort ein Drache, der
+  // ploetzlich in Reichweite ist, ohne dass jemand weiss, warum.
+  const hoehe = (m) => {
+    const t = inHand;
+    const alt = vonFeld ? (vonFeld.h || 0) : 0;
+    const neu = Math.max(0, Math.round((+m || 0) * 10) / 10);
+    if (!t || neu === alt) return;
+    schreiben(karteHoeheSetzen(karte, werkzeug.id, neu));
+    if (onLog) onLog({art: 'hoehe', wer: t.name, wo: karteName(vonFeld.x, vonFeld.y),
+                      von: karteHoeheText(alt), auf: karteHoeheText(neu),
+                      steigt: neu > alt});
   };
 
   // Der Plan laesst sich nicht beliebig weit schieben oder schrumpfen —
@@ -849,7 +933,10 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
   const vonFeld = inHand ? (karte.figuren || {})[werkzeug.id] : null;
   const messen = (x, y) => {
     if (!vonFeld || (vonFeld.x === x && vonFeld.y === y)) return null;
-    const felder = karteWeit(vonFeld, {x, y});
+    // Gemessen wird auf die Hoehe, die die Figur behaelt — wer fliegt,
+    // landet durch das Ziehen nicht.
+    const ziel = vonFeld.h ? {x, y, h: vonFeld.h} : {x, y};
+    const felder = karteWeit(vonFeld, ziel, karte.feldMeter);
     const sicht = karteSicht(karte, vonFeld, {x, y});
     const weg = karteWeg(karte, vonFeld, {x, y});
     return {
@@ -896,6 +983,20 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
             onClick={()=>{ schreiben(karteFigurWeg(karte, werkzeug.id)); setWerkzeug(null); }}>
             ↩ Herunternehmen
           </button>
+        )}
+        {/* Die Hoehe: der Drache, der Vampir, die Spinne an der Wand.
+            In Feldschritten, weil anderthalb Meter dieselbe Einheit
+            sind wie in der Waagerechten. */}
+        {inHand && vonFeld && (
+          <span className="kk-nudge kk-hoehe">
+            <span className="kk-label">Höhe</span>
+            <button type="button" className="bj-taste" title="Tiefer"
+              disabled={!vonFeld.h}
+              onClick={()=>hoehe((vonFeld.h || 0) - (karte.feldMeter || K_METER))}>−</button>
+            <b>{karteHoeheText(vonFeld.h || 0)}</b>
+            <button type="button" className="bj-taste" title="Höher"
+              onClick={()=>hoehe((vonFeld.h || 0) + (karte.feldMeter || K_METER))}>+</button>
+          </span>
         )}
         {/* Einzelne verbergen: der Hinterhalt, der Unsichtbare, der
             Wolf, den noch keiner gesehen hat. Nur sinnvoll, solange die
@@ -1136,8 +1237,10 @@ const KarteSchau = ({ karte, wer }) => {
                   <span key={x + ':' + y}
                     className={'kk-feld' + (f
                       ? ' figur ' + (f.art === 'held' ? 'held' : 'gegner')
+                        + (karteSchwebt(f) ? ' hoch' : '')
                       : ' g' + K_ZEICHEN.indexOf(z))}
-                    title={karteName(x, y) + ' · ' + (f ? f.name : kArt(z).name)}>
+                    title={karteName(x, y) + ' · ' + (f ? f.name : kArt(z).name)
+                      + (karteSchwebt(f) ? ' · Höhe ' + karteHoeheText(f.h) : '')}>
                     {f ? f.k : (z === K_BODEN ? '' : z)}
                   </span>
                 );
@@ -1148,7 +1251,11 @@ const KarteSchau = ({ karte, wer }) => {
       </div>
       <div className="kk-schau-fuss">
         1 Feld = {String(karte.feldMeter || K_METER).replace('.', ',')} m ·
-        diagonal zählt eins. Was die Spielleitung nicht zeigt, steht hier nicht.
+        diagonal zählt eins.
+        {Object.keys(karte.figuren || {}).some(id => karteSchwebt(karte.figuren[id]))
+          ? ' Ein Häkchen an der Ecke heißt: die Figur ist über dem Boden — wie hoch, sagt der Zeiger.'
+          : ''}
+        {' '}Was die Spielleitung nicht zeigt, steht hier nicht.
       </div>
     </div>
   );

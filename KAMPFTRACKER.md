@@ -121,6 +121,7 @@ Eingerückte Zeilen gehören zum Zug darüber.
 | `▸ … ist am Zug` | Zugwechsel |
 | `⚡ … kommt dazwischen` | eingeschoben; der Unterbrochene ist danach wieder dran |
 | `… zieht B3 → E4 · 3 Felder (4,5 m)` | Bewegung auf der Karte, diagonal zählt eins. Ältere Verläufe haben die Meter noch nicht |
+| `… steigt auf 12 m über G2 (von 0 m)` | Höhenwechsel — abheben, landen, klettern. `sinkt auf` in die andere Richtung |
 | `Angriff:` / `Zauber:` / `Gegenstand:` / `Merkmal:` | was angesagt bzw. eingetragen wurde, ggf. mit Rang und Würfel |
 | `… → Ziel: Treffer (18 gegen RK 15)` | Angriffswurf gegen ein Ziel |
 | `… → Ziel: Rettungswurf GES misslungen (9 gegen SG 15)` | Rettungswurf |
@@ -172,20 +173,21 @@ FIGUREN
   Br  Brunhilde          Held     B2  22/30 TP
   Th  Thalia             Held     A4  18/18 TP
   g1  Goblin 1           Gegner   G2  4/7 TP · liegend
-  g2  Goblin 2           Gegner   H5  7/7 TP
+  Dr  Blauer Drache      Gegner   H5  124/244 TP · Höhe 12 m
 
 GELÄNDE
   #  Wand       Bewegung blockiert, Sicht blockiert
   T  Baum       Bewegung blockiert, Sicht blockiert
   ~  Wasser     Bewegung schwierig
 
-ENTFERNUNGEN (Felder, diagonal zählt eins)
-  Br → g1  5   Br → g2  6
-  Th → g1  6   Th → g2  7
+ENTFERNUNGEN (Felder, diagonal zählt eins, Höhe zählt mit)
+  Br → g1  5   Br → Dr  8
+  Th → g1  6   Th → Dr  8
 
 SICHT (Näherung: Linie Mitte zu Mitte, keine Deckungsgrade —
        im Zweifel entscheidet die Spielleitung)
   Br → g1  Wand auf C2
+  Br → Dr  Wand auf C2 — aber Dr 12 m hoch: darüber hinweg entscheidet die Spielleitung
   Th → g1  Wand auf C3
 ```
 
@@ -200,6 +202,18 @@ Was darin gilt:
 - **Gelände blockiert oder nicht** — die Tafel sagt es je Zeichen. Die
   Karte kennt keine Höhe, keine halbe Deckung, keinen Untergrund: was
   nicht in der Geländetafel steht, weiß sie nicht.
+- **Höhe.** Steht bei einer Figur `Höhe 12 m`, ist sie so weit über dem
+  Boden — der Drache, der fliegende Vampir, die Spinne an der Wand.
+  Steht nichts dabei, steht sie auf dem Boden. **Die Höhe zählt in der
+  Entfernung mit**, als dritte Achse und in Feldern gerechnet: zwölf
+  Meter sind acht Felder, und ein Drache senkrecht über einem Kämpfer
+  ist acht Felder weit weg. Die Tafelüberschrift sagt es, sobald jemand
+  in der Luft ist.
+- **Das Gelände hat keine Höhe.** Ob ein Drache in zwölf Metern über die
+  Wand hinwegsieht, kann die Karte nicht sagen — sie kennt die Höhe der
+  Wand nicht. Sie sagt deshalb, dass die Frage besteht, und überlässt
+  die Antwort der Spielleitung. Rechne nicht selbst nach: eine Höhe
+  bedeutet nicht automatisch freie Sicht.
 - **Die Entfernungstafel steht nur zwischen den Seiten** — Held gegen
   Gegner. Held zu Held und Gegner zu Gegner muss man abzählen.
 - **Die Sichttafel nennt nur, wo etwas dazwischensteht.** Ein Paar, das
@@ -308,7 +322,30 @@ FIGUREN
 Im Raster steht das **Kürzel** (höchstens zwei Zeichen) statt des
 Geländes; der Boden darunter bleibt Boden. Der `FIGUREN`-Block sagt,
 welcher Name zu welchem Kürzel gehört — zwei oder mehr Leerzeichen
-zwischen Kürzel und Namen, alles danach in der Zeile ist egal.
+zwischen Kürzel und Namen.
+
+### Höhe
+
+Steht in der Zeile einer Figur irgendwo **`Höhe N m`**, wird sie
+übernommen. Sonst steht die Figur auf dem Boden.
+
+```
+FIGUREN
+  Ar  Armin              Held     D5   32/38 TP
+  Dr  Blauer Drache      Gegner   H8   124/244 TP · Höhe 12 m
+```
+
+- **Meter, nicht Fuß.** Das Heldenbuch rechnet durchgehend metrisch —
+  ein Feld ist 1,5 m. Ein Werteblock mit `fly 80 ft.` wird also
+  umgerechnet: 40 ft sind 12 m.
+- **Komma oder Punkt** geht beides: `Höhe 4,5 m` und `Höhe 4.5 m`.
+  Auch `Hoehe` ohne Umlaut wird gelesen. Die Einheit muss aber `m`
+  sein — `Höhe 40 ft` wird bewusst *nicht* übernommen, sonst würden
+  vierzig Fuß als vierzig Meter dastehen.
+- **Nur wer nicht am Boden steht**, trägt die Angabe. `Höhe 0 m` bei
+  sieben von acht Figuren wäre eine Spalte Nullen.
+- Die Angabe darf irgendwo in der Zeile stehen, auch zwischen anderen
+  Angaben. Was sonst noch in der Zeile steht, ist egal.
 
 **Der Import legt niemanden an.** Er ordnet die Kürzel den Figuren zu,
 die schon im Kampf stehen, gesucht über den Namen (Groß- und

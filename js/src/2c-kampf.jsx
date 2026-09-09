@@ -154,6 +154,11 @@ const protokollZeile = (e, mitZahlen) => {
     case 'zug':      return '▸ ' + e.wer + ' ist am Zug';
     case 'zwischen': return '   ⚡ ' + e.wer + ' kommt dazwischen';
     case 'karte':    return '';                       // ein Block, keine Zeile
+    // Steigen und Sinken. Eine Bewegung wie jede andere — nur eben die,
+    // die das Raster nicht zeigen kann.
+    case 'hoehe':    return '   ' + e.wer + (e.steigt ? ' steigt auf ' : ' sinkt auf ')
+                            + e.auf + (e.wo ? ' über ' + e.wo : '')
+                            + ' (von ' + e.von + ')';
     // Wohin jemand gezogen ist. Ohne diese Zeile stuende im Protokoll
     // nur, wer angegriffen hat, und nie, wie er dorthin kam.
     // Die Meter stehen nur dort, wo sie mitgeschrieben wurden — aeltere

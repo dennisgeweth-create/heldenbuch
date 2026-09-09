@@ -593,6 +593,58 @@ Gewinn für den Spieler.
 
 ---
 
+## Nachtrag: die Höhe
+
+Der Vorschlag kam von der KI eines Spielleiters: die Karte hat keine
+Höhe, und bei Drachen, fliegenden Vampiren und Spinnen an Wänden wird
+das relevant. Vorgeschlagen war **ein einziges Feld je Figur**, und
+mehr ist es auch geworden.
+
+```
+FIGUREN
+  Ar  Armin              Held     D5   32/38 TP
+  Dr  Blauer Drache      Gegner   H8   124/244 TP · Höhe 12 m
+```
+
+Wer am Boden steht, trägt nichts mit sich herum — `Höhe 0 m` bei sieben
+von acht Figuren wäre eine Spalte Nullen.
+
+**Zwei Dinge sind anders als vorgeschlagen.**
+
+**Meter statt Fuß.** Das Heldenbuch rechnet durchgehend metrisch, ein
+Feld ist 1,5 m. Eine Karte, die als einzige Stelle Fuß führt, wäre eine
+Umrechnung, die jemand im Kopf machen muss — und irgendwann vergisst.
+Der Leser nimmt `Höhe 40 ft` deshalb ausdrücklich **nicht** an: lieber
+keine Höhe als vierzig Meter statt zwölf.
+
+**Die Höhe zählt in der Entfernung mit.** Sonst hätte die Tafel weiter
+`Ar → Dr 4` gesagt, während der Drache zwölf Meter über dem Feld
+schwebt — eine Zahl, die falsch ist, ohne es zu zeigen. Gerechnet wird
+als dritte Achse in Feldern, nach derselben Regel wie in der
+Waagerechten: die größte der drei Differenzen gewinnt. Zwölf Meter sind
+acht Felder, und ein Drache senkrecht über einem Kämpfer ist acht
+Felder weit weg.
+
+**Die Sicht bleibt, was sie war — mit einem Hinweis mehr.** Das Raster
+kennt die Höhe des Geländes nicht; ob ein Drache über die Wand
+hinwegsieht, kann es nicht sagen. Es sagt jetzt, dass die Frage
+besteht:
+
+```
+Ar → Dr  Wand auf C2 — aber Dr 12 m hoch: darüber hinweg entscheidet die Spielleitung
+```
+
+Eine erfundene Wandhöhe wäre die Alternative gewesen. Erfundene Regeln
+sind schlimmer als eine gestellte Frage.
+
+**Sonst fügt sie sich ein.** Sie bleibt beim Ziehen erhalten (wer
+fliegt, landet nicht durch eine Bewegung), sie steht im Protokoll
+(`steigt auf 12 m über G2`), sie geht an die Runde, sie kommt beim
+Einlesen zurück, und ein Häkchen an der Ecke des Feldes zeigt sie auf
+beiden Karten.
+
+---
+
 ## Reihenfolge, kurz begründet
 
 | Stufe | Warum hier |

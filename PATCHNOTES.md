@@ -153,6 +153,37 @@ und Mausrad. Dazu **⤢ Einpassen**: ein Druck, und die ganze Karte steht
 ohne Rollbalken im Fenster. Unter zwölf Pixeln je Feld hört es auf —
 darunter wäre die Karte kein Bild mehr, sondern ein Muster.
 
+### 🐉 Höhe
+
+Die Karte war flach. Bei Drachen, fliegenden Vampiren und Spinnen an
+Wänden ist das die eine Sache, die fehlt — also trägt jede Figur jetzt
+optional eine Höhe. Figur aufnehmen, `Höhe − 0 m +`, in Feldschritten
+von 1,5 m.
+
+```
+FIGUREN
+  Ar  Armin              Held     D5   32/38 TP
+  Dr  Blauer Drache      Gegner   H8   124/244 TP · Höhe 12 m
+```
+
+Wer am Boden steht, trägt nichts mit sich herum. Ein Häkchen an der
+Ecke des Feldes zeigt, wer oben ist — auf beiden Karten.
+
+**Die Höhe zählt in der Entfernung mit**, als dritte Achse und in
+Feldern gerechnet: zwölf Meter sind acht Felder, und ein Drache
+senkrecht über einem Kämpfer ist acht Felder weit weg. Sonst hätte die
+Tafel weiter eine Zahl genannt, die falsch ist, ohne es zu zeigen.
+
+**Bei der Sicht bleibt es bei einer Frage.** Das Raster kennt die Höhe
+der Wand nicht, also sagt es „aber Dr 12 m hoch: darüber hinweg
+entscheidet die Spielleitung" — statt eine Wandhöhe zu erfinden.
+
+Steigen und Sinken stehen im Protokoll (`steigt auf 12 m über G2`), die
+Höhe bleibt beim Ziehen erhalten, geht an die Runde und kommt beim
+Einlesen zurück. Gerechnet wird in **Metern**: `Höhe 40 ft` wird
+bewusst nicht übernommen, sonst stünden vierzig Fuß als vierzig Meter
+da.
+
 ### 🔑 Kleinigkeiten
 
 - **Der Waldgnom mit Rüstungsklasse 5.** Die Vorschau im Assistenten
