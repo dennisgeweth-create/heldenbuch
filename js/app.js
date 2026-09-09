@@ -1026,6 +1026,33 @@ const newEnemy = () => ({
   tags: [],
   image: null
 });
+const GEGNER_ATTR = [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']];
+const modText = m => (m >= 0 ? '+' : '−') + Math.abs(m);
+
+// Ein Gegner mit sechs einstelligen Attributen ist kein Monster, sondern
+// ein Missverstaendnis: da stehen die Modifikatoren in den Feldern fuer
+// die Werte. Das faellt sonst erst im Kampf auf, an einer
+// Ruestungsklasse von 5 und Initiativen um minus vier — und dann sucht
+// man den Fehler im Programm.
+//
+// Geraten wird vorsichtig: erst wenn ALLE sechs unter 7 liegen. Ein
+// Schwarm Ratten mit Intelligenz 2 ist echt; ein Wesen, das in allem
+// unter sieben liegt, gibt es nicht.
+const siehtNachModAus = f => GEGNER_ATTR.every(([k]) => {
+  const v = +(f || {})[k];
+  return Number.isFinite(v) && v >= -5 && v < 7;
+});
+// Aus einem Modifikator wird wieder ein Wert: 10 + 2 mal Modifikator.
+// Der genaue Wert ist damit nicht zurueckzuholen — 14 und 15 geben beide
+// +2 —, aber der Modifikator stimmt danach, und der ist es, worauf alles
+// rechnet.
+const modsZuWerten = f => {
+  const raus = {};
+  GEGNER_ATTR.forEach(([k]) => {
+    raus[k] = Math.max(1, Math.min(30, 10 + 2 * Math.round(+(f || {})[k] || 0)));
+  });
+  return raus;
+};
 
 // ── Werteübersicht ───────────────────────────────────────────────
 const GegnerBlatt = ({
@@ -1037,7 +1064,7 @@ const GegnerBlatt = ({
 }) => {
   if (!gegner) return null;
   const g = gegner;
-  const attr = [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']];
+  const attr = GEGNER_ATTR;
   const listen = GEGNER_LISTEN.filter(l => (g[l.key] || []).length > 0);
   return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onSchliessen
@@ -1245,7 +1272,7 @@ const GegnerFormular = ({
     className: "form-label"
   }, "Attribute"), /*#__PURE__*/React.createElement("div", {
     className: "gegner-attr-eingabe"
-  }, [['str', 'STR'], ['dex', 'GES'], ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']].map(([k, l]) => /*#__PURE__*/React.createElement("div", {
+  }, GEGNER_ATTR.map(([k, l]) => /*#__PURE__*/React.createElement("div", {
     key: k
   }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement(ZahlFeld, {
     className: "form-input",
@@ -1256,7 +1283,21 @@ const GegnerFormular = ({
     onWert: v => setzen({
       [k]: v
     })
-  }))))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("i", {
+    className: "gegner-attr-mod"
+  }, modText(mod(+f[k] || 10)))))), siehtNachModAus(f) && /*#__PURE__*/React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 8
+    }
+  }, "Das sehen wie ", /*#__PURE__*/React.createElement("b", null, "Modifikatoren"), " aus, nicht wie Attribute. Mit diesen Zahlen bekommt der Gegner R\xFCstungsklasse ", 10 + mod(+f.dex || 10), " und w\xFCrfelt Initiative mit ", modText(mod(+f.dex || 10)), ".", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    style: {
+      marginLeft: 8
+    },
+    onClick: () => setzen(modsZuWerten(f))
+  }, "In Attribute umrechnen"))), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("label", {
     className: "form-label"

@@ -74,6 +74,37 @@ die stärkste im Haus und darf deshalb die seltenste sein.
 - Die Halle hat jetzt zwei Überschriften: **Tische** und **Walzen**. An
   einem Tisch gibt jemand, an einem Automaten nicht.
 
+### Aus dem Testlauf
+
+- **Die Auszahlungstafel war abgeschnitten.** Sie wurde als Flex-Kind
+  zusammengestaucht und der Rest verschwand, ohne dass irgendwo etwas zu
+  rollen war. Beim Verschollenen Kapitel fehlten zwei Zeichen und beide
+  Fußnoten.
+- **Die Halle hat drei Gruppen**: Tische, Walzen, Wetten. „Dreifaches
+  Glück" ist ein Automat, die Rennbahn keines von beiden.
+- **Beute lässt sich von Hand verteilen.** Gleiche Teile bleiben der
+  Normalfall; „Anders verteilen" macht daraus ein Raster, je Held eine
+  Zeile. Aufgehen muss es — was offen bliebe, wäre nach dem Wegräumen weg.
+- **Ein angesagter Zauber kostet seinen Platz.** Wer das im Kampf
+  vergisst, zaubert den Abend aus einem Vorrat, den es nicht mehr gibt.
+- **Reaktionen mit einem Griff.** In der Kampfsicht steht eine Leiste mit
+  genau den Zaubern, deren Wirkzeit „Reaktion" sagt — Gegenzauber und
+  Silberdornen tauchen von allein auf, sobald sie im Buch stehen.
+- **Der Mensch hat die Wahl.** „Vielseitig" ist der alte, überall einer;
+  „Begabt" nimmt zwei Punkte nach Wahl und dafür ein Talent, schon auf
+  der ersten Stufe.
+- **Proben gehen an einzelne**, und **geheim** heißt jetzt wirklich
+  geheim: die anderen erfahren nicht einmal, dass gewürfelt wurde. Das
+  filtert der Server, nicht die Anzeige. Danach kann die Spielleitung
+  Text und Bild an die schicken, die es geschafft haben.
+- **Der Artifizient** fehlte in Klassenlisten, die vor ihm angelegt
+  wurden. Die Einstellungen sagen jetzt, was aus dem Regelwerk fehlt.
+- **Gegnerattribute zeigen ihren Modifikator.** Wer dort Modifikatoren
+  einträgt statt Werte, bekommt Rüstungsklasse 5 und Initiative −4 — das
+  fiel bisher erst im Kampf auf. Jetzt steht es im Formular, mit einem
+  Knopf zum Umrechnen.
+- **„Erstes Konto anlegen"** steht nur noch da, wo es noch keines gibt.
+
 ## v5.0
 
 Diese Fassung fängt mit einem Schrecken an: die Datenbank der Gruppe

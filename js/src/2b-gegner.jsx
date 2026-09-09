@@ -37,11 +37,40 @@ const newEnemy = () => ({
   attacks:[], traits:[], tags:[], image:null,
 });
 
+const GEGNER_ATTR = [['str','STR'],['dex','GES'],['con','KON'],
+                     ['int','INT'],['wis','WEI'],['cha','CHA']];
+const modText = (m) => (m >= 0 ? '+' : '−') + Math.abs(m);
+
+// Ein Gegner mit sechs einstelligen Attributen ist kein Monster, sondern
+// ein Missverstaendnis: da stehen die Modifikatoren in den Feldern fuer
+// die Werte. Das faellt sonst erst im Kampf auf, an einer
+// Ruestungsklasse von 5 und Initiativen um minus vier — und dann sucht
+// man den Fehler im Programm.
+//
+// Geraten wird vorsichtig: erst wenn ALLE sechs unter 7 liegen. Ein
+// Schwarm Ratten mit Intelligenz 2 ist echt; ein Wesen, das in allem
+// unter sieben liegt, gibt es nicht.
+const siehtNachModAus = (f) => GEGNER_ATTR.every(([k]) => {
+  const v = +((f || {})[k]);
+  return Number.isFinite(v) && v >= -5 && v < 7;
+});
+// Aus einem Modifikator wird wieder ein Wert: 10 + 2 mal Modifikator.
+// Der genaue Wert ist damit nicht zurueckzuholen — 14 und 15 geben beide
+// +2 —, aber der Modifikator stimmt danach, und der ist es, worauf alles
+// rechnet.
+const modsZuWerten = (f) => {
+  const raus = {};
+  GEGNER_ATTR.forEach(([k]) => {
+    raus[k] = Math.max(1, Math.min(30, 10 + 2 * Math.round(+((f || {})[k]) || 0)));
+  });
+  return raus;
+};
+
 // ── Werteübersicht ───────────────────────────────────────────────
 const GegnerBlatt = ({ gegner, onSchliessen, onBearbeiten, onLoeschen, onBild }) => {
   if (!gegner) return null;
   const g = gegner;
-  const attr = [['str','STR'],['dex','GES'],['con','KON'],['int','INT'],['wis','WEI'],['cha','CHA']];
+  const attr = GEGNER_ATTR;
   const listen = GEGNER_LISTEN.filter(l => (g[l.key]||[]).length > 0);
   return (
     <Fenster onClick={onSchliessen}>
@@ -173,14 +202,33 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
           <div className="form-group form-full">
             <label className="form-label">Attribute</label>
             <div className="gegner-attr-eingabe">
-              {[['str','STR'],['dex','GES'],['con','KON'],['int','INT'],['wis','WEI'],['cha','CHA']].map(([k,l])=>(
+              {GEGNER_ATTR.map(([k,l])=>(
                 <div key={k}>
                   <span>{l}</span>
                   <ZahlFeld className="form-input" min={1} max={30} wert={f[k]}
                     aria-label={l} onWert={v =>setzen({[k]:v})} />
+                  {/* Der Modifikator steht dabei. Ohne ihn sieht man einer
+                      2 nicht an, dass sie −4 bedeutet — und genau so
+                      landen Modifikatoren in den Feldern fuer die Werte. */}
+                  <i className="gegner-attr-mod">{modText(mod(+f[k] || 10))}</i>
                 </div>
               ))}
             </div>
+            {/* Sechs einstellige Attribute sind kein Monster, sondern ein
+                Missverstaendnis: da hat jemand die Modifikatoren
+                eingetragen. Das faellt sonst erst im Kampf auf — an einer
+                Ruestungsklasse von 5 und Initiativen um −4. */}
+            {siehtNachModAus(f) && (
+              <div className="einst-hinweis" style={{marginTop:8}}>
+                Das sehen wie <b>Modifikatoren</b> aus, nicht wie Attribute. Mit diesen
+                Zahlen bekommt der Gegner Rüstungsklasse {10 + mod(+f.dex || 10)} und
+                würfelt Initiative mit {modText(mod(+f.dex || 10))}.
+                <button type="button" className="btn-icon" style={{marginLeft:8}}
+                  onClick={()=>setzen(modsZuWerten(f))}>
+                  In Attribute umrechnen
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="form-group form-full">

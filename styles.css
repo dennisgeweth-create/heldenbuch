@@ -3970,3 +3970,9 @@
   .probe-postform-tasten { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;
     align-items:center; }
   .probe-postform-tasten label { cursor:pointer; }
+
+  /* Der Modifikator unter dem Attribut eines Gegners. Ohne ihn sieht man
+     einer 2 nicht an, dass sie −4 bedeutet. */
+  .gegner-attr-mod { display:block; margin-top:2px; text-align:center; font-style:normal;
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted);
+    font-variant-numeric:tabular-nums; }
