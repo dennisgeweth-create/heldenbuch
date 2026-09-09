@@ -3,6 +3,10 @@ name: Deploy to SFTP
 on:
   push:
     branches: [master]
+  # Von Hand ausloesbar, ohne dass sich etwas geaendert haben muss —
+  # zum Beispiel, nachdem das SFTP-Passwort gewechselt wurde, oder wenn
+  # auf dem Server etwas fehlt. Actions > Deploy to SFTP > Run workflow.
+  workflow_dispatch:
 
 # Wohin ausgeliefert wird, steht in den Secrets des Repos und nicht hier:
 # das Repo ist oeffentlich, und Adresse, Benutzername und Zielpfad sind die
