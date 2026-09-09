@@ -4124,13 +4124,20 @@
     background:var(--bg-void); color:var(--text-muted); font-size:10.5px;
     font-family:'Roboto Condensed',sans-serif; letter-spacing:0.04em;
     font-variant-numeric:tabular-nums; }
-  .kk-spalte { height:18px; }
-  .kk-zeile { width:24px; }
+  /* Randspalte und Kopfzeile wachsen mit dem Feld: bei zwoelf Pixeln
+     waere eine feste Randspalte von vierundzwanzig breiter als die
+     halbe Karte. Die Faktoren treffen bei 34 px genau die Masze, die
+     vorher fest dastanden. */
+  .kk-spalte { height:max(11px, calc(var(--kk-feld) * 0.52));
+    font-size:max(8px, calc(var(--kk-feld) * 0.30)); }
+  .kk-zeile { width:max(15px, calc(var(--kk-feld) * 0.70));
+    font-size:max(8px, calc(var(--kk-feld) * 0.30)); }
 
   .kk-feld { width:var(--kk-feld); height:var(--kk-feld); cursor:pointer;
     display:flex; align-items:center; justify-content:center; padding:0;
     border:none; background:var(--bg-card); color:var(--text-muted);
-    font-family:inherit; font-size:13px; line-height:1; }
+    font-family:inherit; line-height:1; overflow:hidden;
+    font-size:max(8px, calc(var(--kk-feld) * 0.38)); }
   .kk-feld:hover { outline:1px solid var(--inspiration); outline-offset:-1px; z-index:1; }
   .kk-feld:focus-visible { outline:2px solid var(--inspiration); outline-offset:-2px; z-index:2; }
   /* Die sieben Geländearten in der Reihenfolge von K_ARTEN. */
@@ -4142,7 +4149,8 @@
   .kk-feld.g5 { background:#242a20; color:#9ab082; }                 /* Tür offen */
   .kk-feld.g6 { background:#33220f; color:#e08a30; }                 /* Gefahr */
 
-  .kk-feld.figur { font-weight:700; font-size:12.5px; }
+  .kk-feld.figur { font-weight:700;
+    font-size:max(8px, calc(var(--kk-feld) * 0.36)); }
   .kk-feld.figur.held   { background:rgba(232,184,75,0.18); color:var(--inspiration); }
   .kk-feld.figur.gegner { background:rgba(197,49,49,0.20);  color:var(--gold-bright); }
   .kk-feld.dran { box-shadow:inset 0 0 0 2px var(--inspiration); }
@@ -4202,12 +4210,8 @@
     max-width:min(74vw, 900px); max-height:min(62vh, 620px); }
   .kk-schau-leiste { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
     margin-bottom:8px; }
-  .kk-schau .kk-raster { --kk-feld:22px; }
-  .kk-schau .kk-feld { font-size:10.5px; cursor:default; }
-  .kk-schau .kk-feld.figur { font-size:10px; }
+  .kk-schau .kk-feld { cursor:default; }
   .kk-schau .kk-feld:hover { outline:none; }
-  .kk-schau .kk-spalte { height:14px; font-size:9px; }
-  .kk-schau .kk-zeile { width:18px; font-size:9px; }
   .kk-schau-fuss { font-size:10.5px; color:var(--text-muted); margin-top:5px;
     line-height:1.5; }
 

@@ -6146,6 +6146,99 @@ const karteAufnahmeGleich = (a, b) => {
 
 // ══ Ende der reinen Rechnung ═══════════════════════════════════════
 
+// ── Wie gross die Felder sind ────────────────────────────────────
+// Beide Karten lassen sich naeher heranholen und wieder wegschieben.
+// Am Schreibtisch will man das ganze Feld sehen, auf dem iPad die Ecke,
+// in der gerade gekaempft wird — und ein Raster, das in sein Fenster
+// passt, braucht keinen Rollbalken.
+//
+// Die Schriftgroesse haengt am Feld (siehe styles.css): bei zwoelf
+// Pixeln ist „g1" nur noch eine Andeutung, aber Farbe und Stelle
+// stimmen, und darum geht es beim Herauszoomen.
+const K_FELD_KLEIN = 12;
+const K_FELD_GROSS = 60;
+const K_SCHAU_START = 22; // im Fenster der Runde
+const K_FELD_START = 34; // im Feld der Spielleitung
+
+const useFeldZoom = (fach, start) => {
+  const kasten = React.useRef(null);
+  const [feld, setFeldRoh] = React.useState(() => {
+    try {
+      const n = +localStorage.getItem(fach);
+      if (n >= K_FELD_KLEIN && n <= K_FELD_GROSS) return n;
+    } catch {}
+    return start;
+  });
+  const setFeld = n => setFeldRoh(() => {
+    const g = Math.max(K_FELD_KLEIN, Math.min(K_FELD_GROSS, Math.round(n)));
+    try {
+      localStorage.setItem(fach, String(g));
+    } catch {}
+    return g;
+  });
+  return {
+    feld,
+    setFeld,
+    start,
+    kasten,
+    // Strg und Rad ist das, was man von einer Karte erwartet. Ohne Strg
+    // rollt die Seite weiter — sonst bliebe man beim Scrollen an der
+    // Karte haengen.
+    rad: e => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setFeld(feld + (e.deltaY < 0 ? 2 : -2));
+    },
+    // So gross, dass die ganze Karte in den Kasten passt. Die Randspalte
+    // waechst mit dem Feld (0,7) und die Kopfzeile auch (0,52), deshalb
+    // stehen sie in der Rechnung; je Spalte kommt ein Pixel Fuge dazu.
+    einpassen: karte => {
+      const k = kasten.current;
+      if (!k || !karte) return;
+      const breit = (k.clientWidth - karte.breite - 10) / (karte.breite + 0.7);
+      const hoch = (k.clientHeight - karte.hoehe - 10) / (karte.hoehe + 0.52);
+      setFeld(Math.floor(Math.min(breit, hoch)));
+    }
+  };
+};
+
+// Die Leiste dazu. Steht ueber beiden Karten gleich, damit sie sich
+// gleich bedienen — es ist dasselbe Raster.
+const ZoomLeiste = ({
+  zoom,
+  karte,
+  kinder
+}) => /*#__PURE__*/React.createElement("div", {
+  className: "kk-schau-leiste"
+}, /*#__PURE__*/React.createElement("span", {
+  className: "kk-label"
+}, "Ansicht"), /*#__PURE__*/React.createElement("span", {
+  className: "kk-nudge"
+}, /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: "bj-taste",
+  title: "Kleiner",
+  disabled: zoom.feld <= K_FELD_KLEIN,
+  onClick: () => zoom.setFeld(zoom.feld - 4)
+}, "\u2212"), /*#__PURE__*/React.createElement("b", null, Math.round(zoom.feld / zoom.start * 100), " %"), /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: "bj-taste",
+  title: "Gr\xF6\xDFer",
+  disabled: zoom.feld >= K_FELD_GROSS,
+  onClick: () => zoom.setFeld(zoom.feld + 4)
+}, "+")), /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: "bj-taste",
+  title: "So gro\xDF, dass die ganze Karte ins Fenster passt",
+  onClick: () => zoom.einpassen(karte)
+}, "\u2922 Einpassen"), /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: "bj-taste",
+  onClick: () => zoom.setFeld(zoom.start)
+}, "Zur\xFCcksetzen"), kinder, /*#__PURE__*/React.createElement("span", {
+  className: "kk-hinweis"
+}, "Strg + Rad geht auch"));
+
 // ── Das Feld im Tracker ──────────────────────────────────────────
 // Bedient wird am Schreibtisch oder auf dem iPad, nie am Telefon —
 // deshalb darf das Raster Platz nehmen. Und deshalb ist „erst wählen,
@@ -6217,6 +6310,7 @@ const KarteFeld = ({
   // Wo der Zeiger gerade steht. Nur fuers Messen — am Tablet gibt es
   // ihn nicht, deshalb steht dasselbe auch im Titel jedes Feldes.
   const [zeiger, setZeiger] = React.useState(null);
+  const zoom = useFeldZoom('hb_kampfkarte_zoom', K_FELD_START);
   const schreiben = neu => setKampf(k => k && {
     ...k,
     karte: karteAufraeumen(neu, k.teilnehmer)
@@ -6456,10 +6550,15 @@ const KarteFeld = ({
     className: gemessen.frei ? 'kk-frei' : 'kk-zu'
   }, " \xB7 ", gemessen.sicht), /*#__PURE__*/React.createElement("b", {
     className: gemessen.gehbar ? 'kk-frei' : 'kk-zu'
-  }, " \xB7 ", gemessen.weg)) : inHand ? inHand.name + ' — wohin? Ein Feld antippen setzt sie ab.' : 'Eine Figur antippen nimmt sie auf'), /*#__PURE__*/React.createElement("div", {
+  }, " \xB7 ", gemessen.weg)) : inHand ? inHand.name + ' — wohin? Ein Feld antippen setzt sie ab.' : 'Eine Figur antippen nimmt sie auf'), /*#__PURE__*/React.createElement(ZoomLeiste, {
+    zoom: zoom,
+    karte: karte
+  }), /*#__PURE__*/React.createElement("div", {
     className: "kk-mitte"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kk-raster-kasten",
+    ref: zoom.kasten,
+    onWheel: zoom.rad,
     onMouseLeave: () => setZeiger(null)
   }, /*#__PURE__*/React.createElement("div", {
     className: "kk-buehne"
@@ -6476,6 +6575,7 @@ const KarteFeld = ({
   }), /*#__PURE__*/React.createElement("div", {
     className: 'kk-raster' + (karte.bild ? ' mit-bild' : ''),
     style: {
+      '--kk-feld': zoom.feld + 'px',
       gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -6683,40 +6783,11 @@ const KarteFeld = ({
 // Felder sind kleiner, weil das Fenster der Runde schmaler ist als der
 // Tracker — laesst sich das Raster nicht unterbringen, rollt es in sich
 // selbst, statt zu schrumpfen.
-// Wie gross die Felder in der Ansicht sind. Zwischen den Grenzen frei
-// waehlbar: am Schreibtisch will man das ganze Feld sehen, auf dem iPad
-// die Ecke, in der gerade gekaempft wird.
-const K_SCHAU_KLEIN = 12;
-const K_SCHAU_GROSS = 60;
-const K_SCHAU_START = 22;
-const K_SCHAU_FACH = 'hb_karte_schau_zoom';
-const kSchauLesen = () => {
-  try {
-    const n = +localStorage.getItem(K_SCHAU_FACH);
-    if (n >= K_SCHAU_KLEIN && n <= K_SCHAU_GROSS) return n;
-  } catch {}
-  return K_SCHAU_START;
-};
 const KarteSchau = ({
   karte,
   wer
 }) => {
-  const [feld, setFeldRoh] = React.useState(kSchauLesen);
-  const setFeld = n => setFeldRoh(() => {
-    const g = Math.max(K_SCHAU_KLEIN, Math.min(K_SCHAU_GROSS, Math.round(n)));
-    try {
-      localStorage.setItem(K_SCHAU_FACH, String(g));
-    } catch {}
-    return g;
-  });
-  // Strg und Rad ist das, was man von einer Karte erwartet. Ohne Strg
-  // rollt die Seite weiter — sonst bliebe man beim Scrollen an der
-  // Karte haengen.
-  const rad = e => {
-    if (!e.ctrlKey && !e.metaKey) return;
-    e.preventDefault();
-    setFeld(feld + (e.deltaY < 0 ? 2 : -2));
-  };
+  const zoom = useFeldZoom('hb_karte_schau_zoom', K_SCHAU_START);
   if (!karte || !karte.breite) return null;
   const belegt = new Map();
   Object.keys(karte.figuren || {}).forEach(id => {
@@ -6730,37 +6801,17 @@ const KarteSchau = ({
   });
   return /*#__PURE__*/React.createElement("div", {
     className: "kk-schau"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "kk-schau-leiste"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "kk-label"
-  }, "Ansicht"), /*#__PURE__*/React.createElement("span", {
-    className: "kk-nudge"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "bj-taste",
-    title: "Kleiner",
-    disabled: feld <= K_SCHAU_KLEIN,
-    onClick: () => setFeld(feld - 4)
-  }, "\u2212"), /*#__PURE__*/React.createElement("b", null, Math.round(feld / K_SCHAU_START * 100), " %"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "bj-taste",
-    title: "Gr\xF6\xDFer",
-    disabled: feld >= K_SCHAU_GROSS,
-    onClick: () => setFeld(feld + 4)
-  }, "+")), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "bj-taste",
-    onClick: () => setFeld(K_SCHAU_START)
-  }, "Zur\xFCcksetzen"), /*#__PURE__*/React.createElement("span", {
-    className: "kk-hinweis"
-  }, "Strg + Rad geht auch")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(ZoomLeiste, {
+    zoom: zoom,
+    karte: karte
+  }), /*#__PURE__*/React.createElement("div", {
     className: "kk-raster-kasten",
-    onWheel: rad
+    ref: zoom.kasten,
+    onWheel: zoom.rad
   }, /*#__PURE__*/React.createElement("div", {
     className: "kk-raster",
     style: {
-      '--kk-feld': feld + 'px',
+      '--kk-feld': zoom.feld + 'px',
       gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'
     }
   }, /*#__PURE__*/React.createElement("span", {

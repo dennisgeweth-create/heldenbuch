@@ -568,10 +568,22 @@ Aufbau einmal hat, hat ihn beim nächsten Kampf wieder.
 Das Fenster der Spielleitung lässt sich am Zipfel **größer ziehen**; bei
 dreißig Spalten ist das kein Luxus.
 
-**Die Karte der Runde lässt sich vergrößern.** Ein Schieber von 55 % bis
-270 %, oder Strg und Mausrad. Am Schreibtisch will man das ganze Feld
-sehen, auf dem iPad die Ecke, in der gerade gekämpft wird. Die
-Einstellung bleibt am Gerät.
+**Beide Karten lassen sich vergrößern und verkleinern.** Zwei Knöpfe
+oder Strg und Mausrad, zwischen 12 und 60 Pixeln je Feld. Am
+Schreibtisch will man das ganze Feld sehen, auf dem iPad die Ecke, in
+der gerade gekämpft wird. Die Einstellung bleibt am Gerät, je Karte
+eine.
+
+Dazu **⤢ Einpassen**: es rechnet aus, wie groß die Felder sein dürfen,
+damit die ganze Karte in ihr Fenster passt — ein Druck, und der
+Rollbalken ist weg. Unter 12 Pixeln hört es auf; darunter wäre die Karte
+kein Bild mehr, sondern ein Muster, und dann ist Rollen ehrlicher.
+
+Schrift, Randspalte und Kopfzeile wachsen mit dem Feld. Die Faktoren
+sind so gewählt, dass bei 34 Pixeln genau die Maße herauskommen, die
+vorher fest dastanden — die gewohnte Ansicht ist weiter die
+Ausgangsstellung. Ein Bodenplan darunter skaliert mit, weil er seine
+Breite in Prozent des Rasters trägt.
 
 Das Schieben selbst steht seit dieser Runde in `0-basis.jsx`
 (`useSchiebefenster`, `Schiebefenster`) und nicht mehr in jedem Fenster
