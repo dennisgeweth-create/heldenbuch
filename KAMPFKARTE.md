@@ -335,7 +335,7 @@ bewegen will, sagt es an — das ist derselbe Weg wie bei allem anderen.
 
 ## Der Bauplan
 
-### Stufe 1 · Die Rechnung
+### Stufe 1 · Die Rechnung ✓
 
 `js/src/2c2-karte.jsx`, oberer Teil ohne React — damit er einzeln mit
 `node` prüfbar ist, wie beim Fünfwalzengerüst.
@@ -355,7 +355,7 @@ Entfernung diagonal, der Textblock Zeichen für Zeichen — und die
 Rundreise: was der Schreiber ausgibt, muss der Leser wieder einlesen und
 dieselbe Karte ergeben.
 
-### Stufe 2 · Das Feld im Tracker
+### Stufe 2 · Das Feld im Tracker ✓
 
 Aufklappbar wie das Protokoll. Raster zeichnen, Figuren setzen und
 ziehen, Gelände malen, Ablage für die, die noch nicht stehen. Dazu das
@@ -385,16 +385,20 @@ Maße als eine Feldschlacht, und beides soll gehen:
   aus dem Raum hinausläuft, schiebt die Wand weiter, statt neu
   aufzubauen.
 
-### Stufe 3 · Bewegung ins Log
+### Stufe 3 · Bewegung ins Log ✓
 
 Die Zeile `zieht B3 → E4 · 3 Felder`, automatisch beim Loslassen. Dazu
 die Aufnahme je Runde.
 
-### Stufe 4 · Kopieren
+### Stufe 4 · Kopieren — halb
 
-Ein Knopf **🗺 Karte kopieren** am Feld selbst, und der Schalter „mit
-Karte" im Protokoll. Damit ist der Zweck erfüllt — ab hier ist alles
-Weitere Komfort.
+Der Knopf **🗺 Karte kopieren** steht schon am Feld: er kam mit Stufe 2,
+weil ein Feld, in das man eine Karte einfügen kann und aus dem keine
+herauskommt, seltsam ist.
+
+**Es fehlt:** der Schalter „mit Karte" im Protokoll und die Aufnahme je
+Runde. Damit trägt der kopierte Verlauf die Karte, wie sie sich
+entwickelt hat.
 
 ### Stufe 5 · Sicht und Reichweite
 

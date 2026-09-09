@@ -2096,6 +2096,10 @@ const protokollZeile = (e, mitZahlen) => {
       return '▸ ' + e.wer + ' ist am Zug';
     case 'zwischen':
       return '   ⚡ ' + e.wer + ' kommt dazwischen';
+    // Wohin jemand gezogen ist. Ohne diese Zeile stuende im Protokoll
+    // nur, wer angegriffen hat, und nie, wie er dorthin kam.
+    case 'bewegung':
+      return '   ' + e.wer + ' zieht ' + e.von + ' → ' + e.auf + ' · ' + e.felder + (e.felder === 1 ? ' Feld' : ' Felder');
     // Die drei aus dem Zugfenster. Sie stehen zwischen dem Zug und seinen
     // Folgen: erst was jemand tut, dann was daraus wird.
     case 'frei':
@@ -4234,6 +4238,7 @@ const KampfAnsicht = ({
   const [begegnungOffen, setBegegnungOffen] = React.useState(false);
   const [nothelferOffen, setNothelferOffen] = React.useState(false);
   const [protokollOffen, setProtokollOffen] = React.useState(false);
+  const [karteOffen, setKarteOffen] = React.useState(false);
   const [protokollTab, setProtokollTab] = React.useState('jetzt');
   // Zaehlt jeden beendeten Kampf mit. Er steht am Archiv als Schluessel,
   // damit es nach einem Ende neu aus dem Speicher liest.
@@ -4960,6 +4965,10 @@ const KampfAnsicht = ({
     }),
     title: kampf.gezeigt ? 'Die Runde sieht die Initiativliste und wie es den Figuren geht — nie die Zahlen der Gegner' : 'Der Runde zeigen: Reihenfolge, wer am Zug ist, wie es den Figuren geht'
   }, kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'), /*#__PURE__*/React.createElement("button", {
+    className: "kampf-kopf-btn zusatz" + (karteOffen ? " an" : ""),
+    onClick: () => setKarteOffen(o => !o),
+    title: "Wer wo steht \u2014 ein Raster, das sich kopieren l\xE4sst"
+  }, "\uD83D\uDDFA Karte", kampf.karte ? ' · ' + kampf.karte.breite + '×' + kampf.karte.hoehe : ''), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn zusatz" + (protokollOffen ? " an" : ""),
     onClick: () => setProtokollOffen(o => !o),
     title: "Was in diesem Kampf geschehen ist"
@@ -5014,7 +5023,16 @@ const KampfAnsicht = ({
       title: "Erledigt, weg damit",
       onClick: () => onAnsageWeg && onAnsageWeg(a.id)
     }, "\u2715"));
-  }))), protokollOffen && /*#__PURE__*/React.createElement("div", {
+  }))), karteOffen && /*#__PURE__*/React.createElement("div", {
+    className: "kampf-karte"
+  }, /*#__PURE__*/React.createElement(KarteFeld, {
+    kampf: kampf,
+    setKampf: setKampf,
+    liste: liste,
+    amZug: amZug,
+    onFrage: onFrage,
+    onLog: protokollieren
+  })), protokollOffen && /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll-kopf"
@@ -5701,6 +5719,349 @@ const karteUebernehmen = (text, teilnehmer) => {
 const KARTE_KI_ANWEISUNG = ['Du bekommst das Bild einer Kampfkarte. Schreib daraus einen Textblock', 'in genau diesem Format:', '', '      A  B  C  D  E  F  G  H', '  1   .  .  #  #  #  .  .  .', '  2   .  .  #  .  /  .  .  .', '  3   .  .  #  #  #  .  ~  ~', '', 'Regeln:', '- Ein Zeichen je Feld, durch Leerzeichen getrennt.', '- Spalten von links: A, B, C … Z, dann AA, AB …', '- Zeilen von oben, ab 1.', '- Erlaubt sind genau diese Zeichen:', '    .  Boden          #  Wand oder Fels    T  Baum oder Säule', '    ~  Wasser         +  Tür zu            /  Tür offen', '    x  Gefahr (Feuer, Dornen)', '- Ein Feld ist 1,5 m (5 Fuß). Schätz die Größe danach ab.', '- Höchstens ' + K_MAX_B + ' Spalten und ' + K_MAX_H + ' Zeilen.', '- Zeichne keine Figuren ein — nur das Gelände.', '- Schreib nichts dazu, keine Erklärung, keinen Kommentar.'].join('\n');
 
 // ══ Ende der reinen Rechnung ═══════════════════════════════════════
+
+// ── Das Feld im Tracker ──────────────────────────────────────────
+// Bedient wird am Schreibtisch oder auf dem iPad, nie am Telefon —
+// deshalb darf das Raster Platz nehmen. Und deshalb ist „erst wählen,
+// dann tippen" der Hauptweg: er geht mit Maus und Finger gleich gut,
+// während Ziehen auf einem Tablet erfahrungsgemäß hakt.
+
+const K_VORLAGEN = [{
+  name: 'Kammer',
+  b: 10,
+  h: 8
+}, {
+  name: 'Raum',
+  b: 16,
+  h: 12
+}, {
+  name: 'Halle',
+  b: 24,
+  h: 18
+}, {
+  name: 'Freies Feld',
+  b: 32,
+  h: 24
+}];
+const K_PLATZHALTER = '    A  B  C  D\n 1  .  .  #  .\n 2  .  #  #  .';
+
+// Ein Feld auf dem Schirm. Es zeigt entweder eine Figur oder sein
+// Gelände; beides gleichzeitig gibt es nicht, und die Figur gewinnt.
+const KarteZelle = ({
+  x,
+  y,
+  zeichen,
+  figur,
+  dran,
+  gewaehlt,
+  onKlick
+}) => /*#__PURE__*/React.createElement("button", {
+  type: "button",
+  className: 'kk-feld' + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner') : ' g' + K_ZEICHEN.indexOf(zeichen)) + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : ''),
+  title: karteName(x, y) + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name),
+  "aria-label": karteName(x, y) + (figur ? ', ' + figur.name : ', ' + kArt(zeichen).name),
+  onClick: () => onKlick(x, y)
+}, figur ? figur.k : zeichen === K_BODEN ? '' : zeichen);
+const KarteFeld = ({
+  kampf,
+  setKampf,
+  liste,
+  amZug,
+  onFrage,
+  onLog
+}) => {
+  const karte = kampf.karte || null;
+  // Das Werkzeug in der Hand: eine Figur, die gesetzt werden will, oder
+  // ein Gelände, das gemalt wird. Nichts in der Hand heißt: ein Tipp auf
+  // eine Figur nimmt sie auf.
+  const [werkzeug, setWerkzeug] = React.useState(null);
+  const [masze, setMasze] = React.useState(null);
+  const [kopiert, setKopiert] = React.useState(false);
+  const schreiben = neu => setKampf(k => k && {
+    ...k,
+    karte: karteAufraeumen(neu, k.teilnehmer)
+  });
+  const einfuegen = roh => {
+    const e = karteUebernehmen(roh, kampf && kampf.teilnehmer || []);
+    if (!e.karte) return {
+      gut: false,
+      meldung: e.meldung
+    };
+    schreiben(e.karte);
+    return {
+      gut: true,
+      meldung: [e.meldung, ...(e.warnung || [])].join(' · ')
+    };
+  };
+  if (!karte) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "kk kk-leer"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "kk-leer-text"
+    }, "Noch keine Karte. Eine leere anlegen \u2014 oder eine als Text einf\xFCgen: die Anweisung unten legst du deiner KI zusammen mit dem Bild eines Bodenplans vor, und was zur\xFCckkommt, kommt hier hinein."), /*#__PURE__*/React.createElement("div", {
+      className: "kk-leiste"
+    }, K_VORLAGEN.map(v => /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "bj-taste",
+      key: v.name,
+      onClick: () => schreiben(karteNeu(v.b, v.h))
+    }, v.name, " ", /*#__PURE__*/React.createElement("i", {
+      className: "kk-masz-i"
+    }, v.b, " \xD7 ", v.h)))), /*#__PURE__*/React.createElement(ListeEinfuegen, {
+      anweisung: KARTE_KI_ANWEISUNG,
+      aufschrift: "Karte als Text einf\xFCgen",
+      platzhalter: K_PLATZHALTER,
+      onText: einfuegen
+    }));
+  }
+
+  // Wer wo steht — einmal aufgelöst, damit jede Zelle nur nachschlägt.
+  const nachId = new Map((liste || []).map(t => [t.id, t]));
+  const belegt = new Map();
+  Object.keys(karte.figuren || {}).forEach(id => {
+    const t = nachId.get(id);
+    const f = karte.figuren[id];
+    if (t) belegt.set(f.y * karte.breite + f.x, {
+      ...f,
+      name: t.name,
+      art: t.art,
+      id
+    });
+  });
+  const ohnePlatz = (liste || []).filter(t => !(karte.figuren || {})[t.id]);
+  const klick = (x, y) => {
+    const wz = werkzeug;
+    const drauf = belegt.get(y * karte.breite + x);
+    if (wz && wz.art === 'gelaende') {
+      schreiben(karteSetzen(karte, x, y, wz.z));
+      return;
+    }
+    if (wz && wz.art === 'figur') {
+      const t = nachId.get(wz.id);
+      if (!t) {
+        setWerkzeug(null);
+        return;
+      }
+      const schon = Object.values(karte.figuren || {}).map(f => f.k);
+      const alt = (karte.figuren || {})[wz.id];
+      const neu = karteFigurSetzen(karte, wz.id, x, y, alt && alt.k || karteKuerzel(t.name, t.art, schon));
+      // Eine Bewegung gehört ins Protokoll — sie ist das, was im Zug
+      // passiert ist, und ohne sie steht dort nur, wer angegriffen hat.
+      if (alt && onLog && (alt.x !== x || alt.y !== y)) {
+        onLog({
+          art: 'bewegung',
+          wer: t.name,
+          von: karteName(alt.x, alt.y),
+          auf: karteName(x, y),
+          felder: karteWeit(alt, {
+            x,
+            y
+          })
+        });
+      }
+      schreiben(neu);
+      setWerkzeug(null);
+      return;
+    }
+    if (drauf) setWerkzeug({
+      art: 'figur',
+      id: drauf.id
+    });
+  };
+  const groesseSetzen = (b, h) => {
+    const verlust = karteVerloren(karte, b, h);
+    const tun = () => {
+      schreiben(karteGroesse(karte, b, h));
+      setMasze(null);
+    };
+    if (!verlust.marken.length && !verlust.felder.length) {
+      tun();
+      return;
+    }
+    // Eine Karte, die beim Verkleinern still zwei Gegner verliert, ist
+    // schlimmer als gar keine. Also vorher fragen — und sagen, wen.
+    const was = [];
+    if (verlust.marken.length) was.push(verlust.marken.length + (verlust.marken.length === 1 ? ' Figur' : ' Figuren') + ' (' + verlust.marken.map(m => m.k + ' auf ' + m.wo).join(', ') + ')');
+    if (verlust.felder.length) was.push(verlust.felder.length + (verlust.felder.length === 1 ? ' bemaltes Feld' : ' bemalte Felder'));
+    if (onFrage) onFrage('Beim Verkleinern fällt weg: ' + was.join(' und ') + '.', tun, 'Trotzdem');else tun();
+  };
+  const kopieren = () => {
+    const text = karteText(karte, liste || [], {
+      mitZahlen: true
+    });
+    const fertig = () => {
+      setKopiert(true);
+      setTimeout(() => setKopiert(false), 2000);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(fertig, () => {});
+    } else {
+      try {
+        if (document.execCommand('copy')) fertig();
+      } catch (e) {}
+    }
+  };
+  const wz = masze || {
+    b: karte.breite,
+    h: karte.hoehe
+  };
+  const inHand = werkzeug && werkzeug.art === 'figur' ? nachId.get(werkzeug.id) : null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "kk"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-leiste"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-label"
+  }, "Gel\xE4nde"), K_ARTEN.map(a => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: a.z,
+    title: a.name,
+    className: 'kk-pinsel g' + K_ZEICHEN.indexOf(a.z) + (werkzeug && werkzeug.art === 'gelaende' && werkzeug.z === a.z ? ' an' : ''),
+    onClick: () => setWerkzeug(w => w && w.art === 'gelaende' && w.z === a.z ? null : {
+      art: 'gelaende',
+      z: a.z
+    })
+  }, a.z === K_BODEN ? '·' : a.z)), /*#__PURE__*/React.createElement("span", {
+    className: "kk-hinweis"
+  }, werkzeug && werkzeug.art === 'gelaende' ? 'Felder antippen zum Malen — noch einmal auf den Pinsel legt ihn weg' : inHand ? inHand.name + ' — wohin?' : 'Eine Figur antippen nimmt sie auf'), inHand && (karte.figuren || {})[werkzeug.id] && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    onClick: () => {
+      schreiben(karteFigurWeg(karte, werkzeug.id));
+      setWerkzeug(null);
+    }
+  }, "\u21A9 Herunternehmen"), inHand && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    onClick: () => setWerkzeug(null)
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste kk-rechts",
+    onClick: kopieren
+  }, kopiert ? '✓ Kopiert' : '🗺 Karte kopieren')), /*#__PURE__*/React.createElement("div", {
+    className: "kk-mitte"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-raster-kasten"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-raster",
+    style: {
+      gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-ecke"
+  }), Array.from({
+    length: karte.breite
+  }, (_, x) => /*#__PURE__*/React.createElement("span", {
+    className: "kk-spalte",
+    key: 's' + x
+  }, kSpalte(x))), Array.from({
+    length: karte.hoehe
+  }, (_, y) => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: 'z' + y
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-zeile"
+  }, y + 1), Array.from({
+    length: karte.breite
+  }, (_, x) => {
+    const f = belegt.get(y * karte.breite + x);
+    return /*#__PURE__*/React.createElement(KarteZelle, {
+      key: x + ':' + y,
+      x: x,
+      y: y,
+      zeichen: karteFeld(karte, x, y),
+      figur: f,
+      dran: !!(f && amZug && f.id === amZug.id),
+      gewaehlt: !!(werkzeug && werkzeug.art === 'figur' && f && f.id === werkzeug.id),
+      onKlick: klick
+    });
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-ablage"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-label"
+  }, "Noch ohne Platz"), ohnePlatz.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Alle stehen.") : ohnePlatz.map(t => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: t.id,
+    className: 'kk-marke ' + (t.art === 'held' ? 'held' : 'gegner') + (werkzeug && werkzeug.art === 'figur' && werkzeug.id === t.id ? ' an' : ''),
+    onClick: () => setWerkzeug(w => w && w.id === t.id ? null : {
+      art: 'figur',
+      id: t.id
+    })
+  }, t.name)), Object.keys(karte.figuren || {}).length > 0 && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste kk-alle-weg",
+    onClick: () => schreiben({
+      ...karte,
+      figuren: {}
+    })
+  }, "Alle herunternehmen"))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-leiste"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-label"
+  }, "Gr\xF6\xDFe"), K_VORLAGEN.map(v => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: v.name,
+    className: "bj-taste",
+    title: v.b + ' × ' + v.h,
+    onClick: () => groesseSetzen(v.b, v.h)
+  }, v.name)), /*#__PURE__*/React.createElement("span", {
+    className: "kk-masz"
+  }, /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: K_MIN,
+    max: K_MAX_B,
+    wert: wz.b,
+    "aria-label": "Spalten",
+    onWert: v => setMasze({
+      b: v,
+      h: wz.h
+    })
+  }), /*#__PURE__*/React.createElement("span", null, "\xD7"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: K_MIN,
+    max: K_MAX_H,
+    wert: wz.h,
+    "aria-label": "Zeilen",
+    onWert: v => setMasze({
+      b: wz.b,
+      h: v
+    })
+  })), masze && (masze.b !== karte.breite || masze.h !== karte.hoehe) && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn-save",
+    onClick: () => groesseSetzen(masze.b, masze.h)
+  }, "\xDCbernehmen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    disabled: karte.breite >= K_MAX_B,
+    onClick: () => groesseSetzen(karte.breite + 1, karte.hoehe),
+    title: "Eine Spalte anh\xE4ngen, wenn der Kampf aus dem Raum l\xE4uft"
+  }, "+ Spalte"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    disabled: karte.hoehe >= K_MAX_H,
+    onClick: () => groesseSetzen(karte.breite, karte.hoehe + 1),
+    title: "Eine Zeile anh\xE4ngen"
+  }, "+ Zeile"), /*#__PURE__*/React.createElement("span", {
+    className: "kk-hinweis"
+  }, "h\xF6chstens ", K_MAX_B, " \xD7 ", K_MAX_H), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste kk-rechts",
+    onClick: () => {
+      const weg = () => setKampf(k => k && {
+        ...k,
+        karte: null
+      });
+      if (onFrage) onFrage('Die Karte wegräumen? Gelände und Positionen sind dann weg.', weg, 'Wegräumen');else weg();
+    }
+  }, "Karte wegr\xE4umen")), /*#__PURE__*/React.createElement(ListeEinfuegen, {
+    anweisung: KARTE_KI_ANWEISUNG,
+    aufschrift: "Andere Karte einf\xFCgen",
+    platzhalter: K_PLATZHALTER,
+    onText: einfuegen
+  }));
+};
 
 // ==== js/src/2d-chronik.jsx ====
 // ── Chronik: Kalender und Ereignisse der Spielleitung ─────────────

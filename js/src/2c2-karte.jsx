@@ -446,3 +446,262 @@ const KARTE_KI_ANWEISUNG = [
 ].join('\n');
 
 // ══ Ende der reinen Rechnung ═══════════════════════════════════════
+
+// ── Das Feld im Tracker ──────────────────────────────────────────
+// Bedient wird am Schreibtisch oder auf dem iPad, nie am Telefon —
+// deshalb darf das Raster Platz nehmen. Und deshalb ist „erst wählen,
+// dann tippen" der Hauptweg: er geht mit Maus und Finger gleich gut,
+// während Ziehen auf einem Tablet erfahrungsgemäß hakt.
+
+const K_VORLAGEN = [
+  {name: 'Kammer',      b: 10, h: 8},
+  {name: 'Raum',        b: 16, h: 12},
+  {name: 'Halle',       b: 24, h: 18},
+  {name: 'Freies Feld', b: 32, h: 24},
+];
+
+const K_PLATZHALTER = '    A  B  C  D\n 1  .  .  #  .\n 2  .  #  #  .';
+
+// Ein Feld auf dem Schirm. Es zeigt entweder eine Figur oder sein
+// Gelände; beides gleichzeitig gibt es nicht, und die Figur gewinnt.
+const KarteZelle = ({ x, y, zeichen, figur, dran, gewaehlt, onKlick }) => (
+  <button type="button"
+    className={'kk-feld'
+      + (figur ? ' figur ' + (figur.art === 'held' ? 'held' : 'gegner')
+               : ' g' + K_ZEICHEN.indexOf(zeichen))
+      + (dran ? ' dran' : '') + (gewaehlt ? ' gewaehlt' : '')}
+    title={karteName(x, y) + (figur ? ' · ' + figur.name : ' · ' + kArt(zeichen).name)}
+    aria-label={karteName(x, y) + (figur ? ', ' + figur.name : ', ' + kArt(zeichen).name)}
+    onClick={()=>onKlick(x, y)}>
+    {figur ? figur.k : (zeichen === K_BODEN ? '' : zeichen)}
+  </button>
+);
+
+const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
+  const karte = kampf.karte || null;
+  // Das Werkzeug in der Hand: eine Figur, die gesetzt werden will, oder
+  // ein Gelände, das gemalt wird. Nichts in der Hand heißt: ein Tipp auf
+  // eine Figur nimmt sie auf.
+  const [werkzeug, setWerkzeug] = React.useState(null);
+  const [masze, setMasze] = React.useState(null);
+  const [kopiert, setKopiert] = React.useState(false);
+
+  const schreiben = (neu) =>
+    setKampf(k => k && ({...k, karte: karteAufraeumen(neu, k.teilnehmer)}));
+
+  const einfuegen = (roh) => {
+    const e = karteUebernehmen(roh, (kampf && kampf.teilnehmer) || []);
+    if (!e.karte) return {gut: false, meldung: e.meldung};
+    schreiben(e.karte);
+    return {gut: true, meldung: [e.meldung, ...(e.warnung || [])].join(' · ')};
+  };
+
+  if (!karte) {
+    return (
+      <div className="kk kk-leer">
+        <div className="kk-leer-text">
+          Noch keine Karte. Eine leere anlegen — oder eine als Text einfügen:
+          die Anweisung unten legst du deiner KI zusammen mit dem Bild eines
+          Bodenplans vor, und was zurückkommt, kommt hier hinein.
+        </div>
+        <div className="kk-leiste">
+          {K_VORLAGEN.map(v => (
+            <button type="button" className="bj-taste" key={v.name}
+              onClick={()=>schreiben(karteNeu(v.b, v.h))}>
+              {v.name} <i className="kk-masz-i">{v.b} × {v.h}</i>
+            </button>
+          ))}
+        </div>
+        <ListeEinfuegen anweisung={KARTE_KI_ANWEISUNG}
+          aufschrift="Karte als Text einfügen"
+          platzhalter={K_PLATZHALTER} onText={einfuegen} />
+      </div>
+    );
+  }
+
+  // Wer wo steht — einmal aufgelöst, damit jede Zelle nur nachschlägt.
+  const nachId = new Map((liste || []).map(t => [t.id, t]));
+  const belegt = new Map();
+  Object.keys(karte.figuren || {}).forEach(id => {
+    const t = nachId.get(id);
+    const f = karte.figuren[id];
+    if (t) belegt.set(f.y * karte.breite + f.x, {...f, name: t.name, art: t.art, id});
+  });
+  const ohnePlatz = (liste || []).filter(t => !(karte.figuren || {})[t.id]);
+
+  const klick = (x, y) => {
+    const wz = werkzeug;
+    const drauf = belegt.get(y * karte.breite + x);
+    if (wz && wz.art === 'gelaende') { schreiben(karteSetzen(karte, x, y, wz.z)); return; }
+    if (wz && wz.art === 'figur') {
+      const t = nachId.get(wz.id);
+      if (!t) { setWerkzeug(null); return; }
+      const schon = Object.values(karte.figuren || {}).map(f => f.k);
+      const alt = (karte.figuren || {})[wz.id];
+      const neu = karteFigurSetzen(karte, wz.id, x, y,
+        (alt && alt.k) || karteKuerzel(t.name, t.art, schon));
+      // Eine Bewegung gehört ins Protokoll — sie ist das, was im Zug
+      // passiert ist, und ohne sie steht dort nur, wer angegriffen hat.
+      if (alt && onLog && (alt.x !== x || alt.y !== y)) {
+        onLog({art: 'bewegung', wer: t.name, von: karteName(alt.x, alt.y),
+               auf: karteName(x, y), felder: karteWeit(alt, {x, y})});
+      }
+      schreiben(neu);
+      setWerkzeug(null);
+      return;
+    }
+    if (drauf) setWerkzeug({art: 'figur', id: drauf.id});
+  };
+
+  const groesseSetzen = (b, h) => {
+    const verlust = karteVerloren(karte, b, h);
+    const tun = () => { schreiben(karteGroesse(karte, b, h)); setMasze(null); };
+    if (!verlust.marken.length && !verlust.felder.length) { tun(); return; }
+    // Eine Karte, die beim Verkleinern still zwei Gegner verliert, ist
+    // schlimmer als gar keine. Also vorher fragen — und sagen, wen.
+    const was = [];
+    if (verlust.marken.length) was.push(verlust.marken.length
+      + (verlust.marken.length === 1 ? ' Figur' : ' Figuren') + ' ('
+      + verlust.marken.map(m => m.k + ' auf ' + m.wo).join(', ') + ')');
+    if (verlust.felder.length) was.push(verlust.felder.length
+      + (verlust.felder.length === 1 ? ' bemaltes Feld' : ' bemalte Felder'));
+    if (onFrage) onFrage('Beim Verkleinern fällt weg: ' + was.join(' und ') + '.', tun, 'Trotzdem');
+    else tun();
+  };
+
+  const kopieren = () => {
+    const text = karteText(karte, liste || [], {mitZahlen: true});
+    const fertig = () => { setKopiert(true); setTimeout(()=>setKopiert(false), 2000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(fertig, ()=>{});
+    } else { try { if (document.execCommand('copy')) fertig(); } catch (e) {} }
+  };
+
+  const wz = masze || {b: karte.breite, h: karte.hoehe};
+  const inHand = werkzeug && werkzeug.art === 'figur' ? nachId.get(werkzeug.id) : null;
+
+  return (
+    <div className="kk">
+
+      <div className="kk-leiste">
+        <span className="kk-label">Gelände</span>
+        {K_ARTEN.map(a => (
+          <button type="button" key={a.z} title={a.name}
+            className={'kk-pinsel g' + K_ZEICHEN.indexOf(a.z)
+              + (werkzeug && werkzeug.art === 'gelaende' && werkzeug.z === a.z ? ' an' : '')}
+            onClick={()=>setWerkzeug(w => (w && w.art === 'gelaende' && w.z === a.z)
+              ? null : {art: 'gelaende', z: a.z})}>
+            {a.z === K_BODEN ? '·' : a.z}
+          </button>
+        ))}
+        <span className="kk-hinweis">
+          {werkzeug && werkzeug.art === 'gelaende'
+            ? 'Felder antippen zum Malen — noch einmal auf den Pinsel legt ihn weg'
+            : inHand ? inHand.name + ' — wohin?'
+            : 'Eine Figur antippen nimmt sie auf'}
+        </span>
+        {/* Wer in der Hand ist, kann auch wieder herunter. Ohne das ginge
+            eine einzelne Figur nur ueber „alle herunternehmen" weg. */}
+        {inHand && (karte.figuren || {})[werkzeug.id] && (
+          <button type="button" className="bj-taste"
+            onClick={()=>{ schreiben(karteFigurWeg(karte, werkzeug.id)); setWerkzeug(null); }}>
+            ↩ Herunternehmen
+          </button>
+        )}
+        {inHand && (
+          <button type="button" className="bj-taste" onClick={()=>setWerkzeug(null)}>
+            Abbrechen
+          </button>
+        )}
+        <button type="button" className="bj-taste kk-rechts" onClick={kopieren}>
+          {kopiert ? '✓ Kopiert' : '🗺 Karte kopieren'}
+        </button>
+      </div>
+
+      <div className="kk-mitte">
+        <div className="kk-raster-kasten">
+          <div className="kk-raster"
+            style={{gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'}}>
+            <span className="kk-ecke" />
+            {Array.from({length: karte.breite}, (_, x) => (
+              <span className="kk-spalte" key={'s' + x}>{kSpalte(x)}</span>
+            ))}
+            {Array.from({length: karte.hoehe}, (_, y) => (
+              <React.Fragment key={'z' + y}>
+                <span className="kk-zeile">{y + 1}</span>
+                {Array.from({length: karte.breite}, (_, x) => {
+                  const f = belegt.get(y * karte.breite + x);
+                  return (
+                    <KarteZelle key={x + ':' + y} x={x} y={y}
+                      zeichen={karteFeld(karte, x, y)} figur={f}
+                      dran={!!(f && amZug && f.id === amZug.id)}
+                      gewaehlt={!!(werkzeug && werkzeug.art === 'figur' && f && f.id === werkzeug.id)}
+                      onKlick={klick} />
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        <div className="kk-ablage">
+          <div className="kk-label">Noch ohne Platz</div>
+          {ohnePlatz.length === 0
+            ? <div className="probe-leer">Alle stehen.</div>
+            : ohnePlatz.map(t => (
+                <button type="button" key={t.id}
+                  className={'kk-marke ' + (t.art === 'held' ? 'held' : 'gegner')
+                    + (werkzeug && werkzeug.art === 'figur' && werkzeug.id === t.id ? ' an' : '')}
+                  onClick={()=>setWerkzeug(w => (w && w.id === t.id)
+                    ? null : {art: 'figur', id: t.id})}>
+                  {t.name}
+                </button>
+              ))}
+          {Object.keys(karte.figuren || {}).length > 0 && (
+            <button type="button" className="bj-taste kk-alle-weg"
+              onClick={()=>schreiben({...karte, figuren: {}})}>
+              Alle herunternehmen
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="kk-leiste">
+        <span className="kk-label">Größe</span>
+        {K_VORLAGEN.map(v => (
+          <button type="button" key={v.name} className="bj-taste"
+            title={v.b + ' × ' + v.h} onClick={()=>groesseSetzen(v.b, v.h)}>{v.name}</button>
+        ))}
+        <span className="kk-masz">
+          <ZahlFeld className="form-input" min={K_MIN} max={K_MAX_B} wert={wz.b}
+            aria-label="Spalten" onWert={v=>setMasze({b: v, h: wz.h})} />
+          <span>×</span>
+          <ZahlFeld className="form-input" min={K_MIN} max={K_MAX_H} wert={wz.h}
+            aria-label="Zeilen" onWert={v=>setMasze({b: wz.b, h: v})} />
+        </span>
+        {masze && (masze.b !== karte.breite || masze.h !== karte.hoehe) && (
+          <button type="button" className="btn-save"
+            onClick={()=>groesseSetzen(masze.b, masze.h)}>Übernehmen</button>
+        )}
+        <button type="button" className="bj-taste" disabled={karte.breite >= K_MAX_B}
+          onClick={()=>groesseSetzen(karte.breite + 1, karte.hoehe)}
+          title="Eine Spalte anhängen, wenn der Kampf aus dem Raum läuft">+ Spalte</button>
+        <button type="button" className="bj-taste" disabled={karte.hoehe >= K_MAX_H}
+          onClick={()=>groesseSetzen(karte.breite, karte.hoehe + 1)}
+          title="Eine Zeile anhängen">+ Zeile</button>
+        <span className="kk-hinweis">höchstens {K_MAX_B} × {K_MAX_H}</span>
+        <button type="button" className="bj-taste kk-rechts"
+          onClick={()=>{
+            const weg = ()=>setKampf(k => k && ({...k, karte: null}));
+            if (onFrage) onFrage('Die Karte wegräumen? Gelände und Positionen sind dann weg.',
+                                 weg, 'Wegräumen');
+            else weg();
+          }}>Karte wegräumen</button>
+      </div>
+
+      <ListeEinfuegen anweisung={KARTE_KI_ANWEISUNG}
+        aufschrift="Andere Karte einfügen"
+        platzhalter={K_PLATZHALTER} onText={einfuegen} />
+    </div>
+  );
+};

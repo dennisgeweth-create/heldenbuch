@@ -4040,3 +4040,88 @@
   @media (hover:none), (pointer:coarse) {
     .gear-portrait-tools .bild-ablage { width:34px; height:34px; }
   }
+
+  /* ── Die Kampfkarte ────────────────────────────────────
+     Bedient wird am Schreibtisch oder auf dem iPad — das Raster darf
+     deshalb Platz nehmen. Wird es breiter als sein Kasten, rollt es in
+     sich selbst; geschrumpft wird nichts, sonst wären die Felder nicht
+     mehr zu treffen. */
+  .kampf-karte { margin:0 0 10px; border:1px solid var(--border-bright);
+    border-radius:5px; background:var(--bg-void); padding:11px; }
+  .kk { display:flex; flex-direction:column; gap:11px; }
+
+  .kk-leer-text { font-size:12.5px; line-height:1.6; color:var(--text-secondary);
+    max-width:62ch; }
+  .kk-masz-i { font-style:normal; color:var(--text-muted); font-size:10.5px;
+    margin-left:5px; }
+
+  .kk-leiste { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+  .kk-label { font-family:'Roboto Condensed',sans-serif; font-size:10.5px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--text-muted); }
+  .kk-hinweis { font-size:11.5px; color:var(--text-muted); font-style:italic; }
+  .kk-rechts { margin-left:auto; }
+
+  /* Die Pinsel tragen ihr eigenes Zeichen und ihre eigene Farbe — dann
+     muss man die Legende nicht auswendig können. */
+  .kk-pinsel { width:30px; height:30px; border-radius:5px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    background:var(--bg-card); border:1px solid var(--border-bright);
+    font-family:'JetBrains Mono','Roboto Mono',monospace; font-size:14px;
+    line-height:1; color:var(--text-secondary); }
+  .kk-pinsel:hover { border-color:var(--inspiration); }
+  .kk-pinsel.an { border-color:var(--inspiration); background:rgba(232,184,75,0.16);
+    box-shadow:0 0 0 1px var(--inspiration); }
+
+  .kk-mitte { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+  .kk-raster-kasten { flex:1; min-width:0; overflow:auto; padding-bottom:3px; }
+  .kk-raster { --kk-feld:34px; display:grid; gap:1px; width:max-content;
+    background:var(--border); border:1px solid var(--border);
+    font-family:'JetBrains Mono','Roboto Mono',monospace; }
+  .kk-ecke { background:var(--bg-void); }
+  .kk-spalte, .kk-zeile { display:flex; align-items:center; justify-content:center;
+    background:var(--bg-void); color:var(--text-muted); font-size:10.5px;
+    font-family:'Roboto Condensed',sans-serif; letter-spacing:0.04em;
+    font-variant-numeric:tabular-nums; }
+  .kk-spalte { height:18px; }
+  .kk-zeile { width:24px; }
+
+  .kk-feld { width:var(--kk-feld); height:var(--kk-feld); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    border:none; background:var(--bg-card); color:var(--text-muted);
+    font-family:inherit; font-size:13px; line-height:1; }
+  .kk-feld:hover { outline:1px solid var(--inspiration); outline-offset:-1px; z-index:1; }
+  .kk-feld:focus-visible { outline:2px solid var(--inspiration); outline-offset:-2px; z-index:2; }
+  /* Die sieben Geländearten in der Reihenfolge von K_ARTEN. */
+  .kk-feld.g0 { background:var(--bg-card); }
+  .kk-feld.g1 { background:#3a2020; color:var(--gold-bright); }      /* Wand */
+  .kk-feld.g2 { background:#1c2a1a; color:#7fb069; }                 /* Baum */
+  .kk-feld.g3 { background:#16242e; color:#5c9ac0; }                 /* Wasser */
+  .kk-feld.g4 { background:#2e2418; color:var(--gold-bright); }      /* Tür zu */
+  .kk-feld.g5 { background:#242a20; color:#9ab082; }                 /* Tür offen */
+  .kk-feld.g6 { background:#33220f; color:#e08a30; }                 /* Gefahr */
+
+  .kk-feld.figur { font-weight:700; font-size:12.5px; }
+  .kk-feld.figur.held   { background:rgba(232,184,75,0.18); color:var(--inspiration); }
+  .kk-feld.figur.gegner { background:rgba(197,49,49,0.20);  color:var(--gold-bright); }
+  .kk-feld.dran { box-shadow:inset 0 0 0 2px var(--inspiration); }
+  .kk-feld.gewaehlt { box-shadow:inset 0 0 0 2px var(--parchment); }
+
+  .kk-ablage { width:190px; flex-shrink:0; display:flex; flex-direction:column; gap:5px; }
+  .kk-marke { text-align:left; padding:6px 9px; border-radius:5px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border-bright);
+    font-family:'Roboto Condensed',sans-serif; font-size:12.5px;
+    color:var(--text-primary); }
+  .kk-marke.held   { border-left:3px solid var(--inspiration); }
+  .kk-marke.gegner { border-left:3px solid var(--crimson); }
+  .kk-marke:hover { border-color:var(--inspiration); }
+  .kk-marke.an { background:rgba(232,184,75,0.16); border-color:var(--inspiration); }
+  .kk-alle-weg { margin-top:5px; }
+
+  .kk-masz { display:inline-flex; align-items:center; gap:5px; }
+  .kk-masz .form-input { width:56px; padding:5px 7px; font-size:13px; text-align:right; }
+  .kk-masz span { color:var(--text-muted); font-size:12px; }
+
+  @media (max-width:900px) {
+    .kk-ablage { width:100%; flex-direction:row; flex-wrap:wrap; }
+    .kk-marke { flex:0 1 auto; }
+  }

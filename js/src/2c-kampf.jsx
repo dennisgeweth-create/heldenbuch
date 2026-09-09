@@ -153,6 +153,10 @@ const protokollZeile = (e, mitZahlen) => {
     case 'runde':    return '';                       // wird als Ueberschrift gesetzt
     case 'zug':      return '▸ ' + e.wer + ' ist am Zug';
     case 'zwischen': return '   ⚡ ' + e.wer + ' kommt dazwischen';
+    // Wohin jemand gezogen ist. Ohne diese Zeile stuende im Protokoll
+    // nur, wer angegriffen hat, und nie, wie er dorthin kam.
+    case 'bewegung': return '   ' + e.wer + ' zieht ' + e.von + ' → ' + e.auf
+                            + ' · ' + e.felder + (e.felder === 1 ? ' Feld' : ' Felder');
     // Die drei aus dem Zugfenster. Sie stehen zwischen dem Zug und seinen
     // Folgen: erst was jemand tut, dann was daraus wird.
     case 'frei':     return '   „' + e.text + '“';
@@ -1801,6 +1805,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [begegnungOffen, setBegegnungOffen] = React.useState(false);
   const [nothelferOffen, setNothelferOffen] = React.useState(false);
   const [protokollOffen, setProtokollOffen] = React.useState(false);
+  const [karteOffen, setKarteOffen] = React.useState(false);
   const [protokollTab, setProtokollTab] = React.useState('jetzt');
   // Zaehlt jeden beendeten Kampf mit. Er steht am Archiv als Schluessel,
   // damit es nach einem Ende neu aus dem Speicher liest.
@@ -2295,6 +2300,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               {kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'}
             </button>
           )}
+          <button className={"kampf-kopf-btn zusatz" + (karteOffen ? " an" : "")}
+            onClick={()=>setKarteOffen(o=>!o)}
+            title="Wer wo steht — ein Raster, das sich kopieren lässt">
+            🗺 Karte{kampf.karte ? ' · ' + kampf.karte.breite + '×' + kampf.karte.hoehe : ''}
+          </button>
           <button className={"kampf-kopf-btn zusatz" + (protokollOffen ? " an" : "")}
             onClick={()=>setProtokollOffen(o=>!o)}
             title="Was in diesem Kampf geschehen ist">
@@ -2364,6 +2374,13 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               );
             })}
             </div>
+          </div>
+        )}
+
+        {karteOffen && (
+          <div className="kampf-karte">
+            <KarteFeld kampf={kampf} setKampf={setKampf} liste={liste}
+              amZug={amZug} onFrage={onFrage} onLog={protokollieren} />
           </div>
         )}
 
