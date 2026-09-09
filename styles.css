@@ -3861,3 +3861,15 @@
   @media (prefers-reduced-motion: reduce) {
     .buch-blatt, .buch-blatt.steht { transition:none; transform:none; }
   }
+
+  /* Die Leiter des Wachsamen Auges: acht Sprossen, und was der Wächter
+     genommen hat, steht durchgestrichen da. */
+  .auge-leiter { display:flex; align-items:center; justify-content:center;
+    gap:6px; margin:-4px 0 12px; padding:6px 8px; border-radius:7px;
+    background:var(--bg-void); border:1px solid var(--border); }
+  .auge-sprosse { position:relative; font-size:17px; line-height:1; opacity:0.85; }
+  .auge-sprosse.weg { opacity:0.22; }
+  .auge-sprosse.weg::after { content:''; position:absolute; left:-2px; right:-2px;
+    top:50%; height:1px; background:var(--text-muted); }
+  .auge-sprosse.unten { opacity:1;
+    text-shadow:0 0 9px rgba(217,164,65,0.75); }

@@ -1,5 +1,79 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.1
+
+Die Taverne bekommt drei Automaten dazu. Sie sind nach dem Vorbild
+dreier Geräte gebaut, die jeder kennt, der schon einmal in einer
+Spielhalle stand — nachgebaut ist der Ablauf, nicht die Aufmachung:
+Namen, Zeichen und Bild sind eigene.
+
+Alle drei sind derselbe Automat: fünf Walzen, drei Reihen, **zehn feste
+Linien**. Zuschaltbar sind die nicht — wer im Original mit drei Linien
+spielt, spielt einen schlechteren Automaten, und diese Falle muss das
+Heldenbuch nicht nachbauen. Der Einsatz auf der Leiste ist der
+Gesamteinsatz; eine Linie bekommt ein Zehntel davon.
+
+Unterscheiden tun sie sich in genau einer Regel — der ihrer
+Freispielrunde. Das ist der ganze Charakter eines solchen Geräts.
+
+### 🕮 Das Verschollene Kapitel
+
+Ein Zauberbuch in einer versunkenen Bibliothek. **Drei Bücher** öffnen
+zehn Freispiele; vorher blättert das Buch sichtbar durch die Tafel und
+bleibt bei einem Zeichen stehen. Liegt dieses Zeichen im Freispiel auf
+drei Walzen oder mehr, füllt es sie ganz aus und zahlt über alle zehn
+Linien — **auch dann, wenn die Walzen nicht nebeneinander liegen.** Drei
+Bücher in der Runde legen zehn nach.
+
+Das Buch ist dabei Wild und Streuzeichen zugleich. Wird es selbst zum
+Sonderzeichen gelost, ist das der beste Fall, den dieser Automat kennt.
+
+Auszahlung **95,2 %**, die Runde fällt etwa jede 117. Drehung.
+
+### 🗡️ Klinge und Hörner
+
+Die Arena unter der Stadt. **Drei Hörner auf Walze 1, 3 und 5** — nur
+dort liegen sie — öffnen zehn Freispiele, und darin bleibt jede Klinge,
+die fällt, **bis zum letzten Dreh stehen**. Sie sammeln sich an: der
+siebte Freidreh wird auf einem Feld gespielt, auf dem schon vier Klingen
+stecken. Nachgelegt wird nicht.
+
+Die Klinge ersetzt jedes Zeichen außer den Hörnern und zahlt selbst am
+höchsten. Welches Zeichen sie vertritt, entscheidet der Gewinn: vier
+Klingen und eine Fechterin zahlen als fünf Fechterinnen.
+
+Auszahlung **94,2 %**, die Runde fällt etwa jede 125. Drehung.
+
+### 👁️ Das Wachsame Auge
+
+Ein Wächter in einer Tempelruine. Er liegt **nur auf Walze 2, 3 und 4**
+und füllt die Walze, auf der er fällt. **Drei Tore** öffnen zwölf
+Freispiele, und darin tut jeder Wächter zwei Dinge auf einmal: er
+**veredelt** — das unterste der vier billigen Zeichen verschwindet von
+den Walzen, alles rückt eine Stufe hoch, für den Rest der Runde — und er
+**verlängert**: ein Freidreh je Wächter, zwei bei zweien, drei bei
+dreien.
+
+Beides zusammen ist eine Lawine. Eine Runde, die gut anfängt, wird von
+selbst immer besser. Damit sie sich nicht selbst auffrisst, hat sie zwei
+Zäune: die Leiter endet bei den billigen Zeichen, und nach zwanzig
+Drehungen ist Schluss.
+
+Auszahlung **95,3 %**, die Runde fällt etwa jede 350. Drehung — sie ist
+die stärkste im Haus und darf deshalb die seltenste sein.
+
+### Was für alle drei gilt
+
+- **Die Quote steht am Tisch**, und zwar die erreichte. Sie ist gemessen
+  und nicht geschätzt: acht bis fünfzehn Millionen stille Drehungen je
+  Automat, Freispielrunden eingerechnet.
+- **Die Risikoleiter** und *Rabe oder Rose* gelten nach jedem Gewinn im
+  Grundspiel — dieselben wie am dreiwalzigen Automaten.
+- **Die Auszahlungen sind je Abenteuer einstellbar**, wie beim
+  „Dreifachen Glück". Die Quote rechnet sich sofort mit.
+- Die Halle hat jetzt zwei Überschriften: **Tische** und **Walzen**. An
+  einem Tisch gibt jemand, an einem Automaten nicht.
+
 ## v5.0
 
 Diese Fassung fängt mit einem Schrecken an: die Datenbank der Gruppe

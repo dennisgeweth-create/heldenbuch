@@ -183,28 +183,46 @@ Freispiel legen zehn nach.
 
 *Ein Wächter in einer Tempelruine. Sein Blick veredelt, was er trifft.*
 
+So gebaut (Vielfaches des **Linien**einsatzes):
+
 | Zeichen | 3 | 4 | 5 |
 |---|--:|--:|--:|
-| 🦅 Der Falke | 20 | 200 | 1.000 |
-| 🐍 Die Natter | 15 | 100 | 500 |
-| 🗝️ Der Schlüssel | 10 | 60 | 250 |
-| ⚱️ Die Urne | 10 | 40 | 150 |
-| 🪶 Die Feder | 3 | 15 | 60 |
-| 🌾 Der Halm | 3 | 12 | 50 |
-| 💧 Der Tropfen | 2 | 10 | 40 |
-| 🪨 Der Kiesel | 2 | 8 | 30 |
-| 👁 **Der Wächter** — Wild, nur Walze 2–4, füllt die Walze, zahlt nichts | | | |
-| 🚪 **Das Tor** — Scatter, 3 → zwölf Freispiele | | | |
+| 🦅 Der Falke | 40 | 330 | 1.500 |
+| 🐍 Die Natter | 30 | 180 | 750 |
+| 🗝️ Der Schlüssel | 20 | 105 | 380 |
+| ⚱️ Die Urne | 20 | 75 | 230 |
+| 🪶 Die Feder | 7 | 30 | 100 |
+| 🌾 Der Halm | 6 | 23 | 80 |
+| 💧 Der Tropfen | 5 | 18 | 62 |
+| 🪨 Der Kiesel | 5 | 15 | 50 |
+| 👁️ **Der Wächter** — Wild, nur Walze 2–4, füllt die Walze, zahlt nichts | – | – | – |
+| 🚪 **Das Tor** — 3 → zwölf Freispiele, zahlt selbst nichts | – | – | – |
 
-Die acht zahlenden Zeichen stehen in einer **Leiter**: Kiesel → Tropfen
-→ Halm → Feder → Urne → Schlüssel → Natter → Falke. Jedes Wild im
-Freispiel nimmt die unterste Sprosse von den Bändern; alles rückt hoch.
-Dazu ein Freidreh je Wild, drei bei zweien, fünf bei dreien.
+Die **Leiter** reicht über die vier billigen Zeichen und hört dort auf:
+Kiesel → Tropfen → Halm → Feder. Jeder Wächter im Freispiel nimmt die
+unterste Sprosse von den Bändern; alles rückt hoch. Dazu ein Freidreh je
+Wächter, zwei bei zweien, drei bei dreien.
 
 Die Leiter ist die **Reihenfolge** der Tafel, nicht ihre Zahlen — wer
 die Auszahlungen je Abenteuer verstellt, verstellt die Leiter nicht mit.
-Das muss so sein, sonst hinge die Bonusrunde an einem Zahlenfeld (siehe
-unten, „Die Rechnung").
+Das muss so sein, sonst hinge die Bonusrunde an einem Zahlenfeld.
+
+Gemessen mit acht Millionen stillen Drehungen: **95,3 %**, die Runde
+fällt etwa jede **350. Drehung**.
+
+**Zwei Zäune, teuer erkauft.** Die erste Fassung führte die Leiter bis
+zum Falken hinauf und ließ die Runde sich unbegrenzt verlängern. Die
+Messung ergab **2790 %**. Beides zusammen ist eine Rückkopplung: jeder
+Wächter legt Drehungen nach *und* hebt die Zeichen, und am Ende bestehen
+die Walzen fast nur noch aus dem teuersten Zeichen — das dann auf allen
+zehn Linien einen Fünfer zahlt, zwanzig Drehungen lang. Die hohen
+Zeichen sind teuer, *weil* sie selten sind; wer sie häufig macht, hat
+keine hohen Zeichen mehr, sondern einen kaputten Automaten.
+
+Deshalb: die Leiter endet bei den billigen Zeichen, und nach zwanzig
+Drehungen ist die Runde vorbei. Beides steht mit Begründung im Code —
+und die Obergrenze gilt am Tisch genauso wie in der Messung, sonst wäre
+die Zahl an der Tafel falsch.
 
 ### 🗡️ Klinge und Hörner
 
@@ -302,9 +320,9 @@ sind eine Liste von Positionen, die vor dem Ziehen wieder eingesetzt
 wird. Zehn Zeilen Regel. Er bringt dafür die **Scatter-Bedingung je
 Walze** mit, die das Gerüst noch nicht kann.
 
-## Stufe 11 · 👁 Das Wachsame Auge
+## Stufe 11 · 👁️ Das Wachsame Auge ✓
 
-Zuletzt, weil er am meisten verlangt: das Wild, das nur auf drei Walzen
+*Steht.* Zuletzt, weil er am meisten verlangt: das Wild, das nur auf drei Walzen
 liegt und sich ausdehnt, die Veredelungsleiter, die die Bänder während
 der Runde umschreibt, und die wachsende Freispielzahl. Er ist auch der,
 der sich am besten anfühlt — deshalb steht er hinten und nicht vorn:
@@ -414,6 +432,15 @@ unten gewinnen, und `@media`-Blöcke vor ihrer Grundregel greifen nie.
 | 9 Kapitel | Einfachste Bonusrunde — prüft das Gerüst am billigsten |
 | 10 Arena | Klebende Felder sind zehn Zeilen; bringt die Scatter-Bedingung je Walze |
 | 11 Auge | Verlangt am meisten und wirkt am stärksten — deshalb zuletzt |
+
+---
+
+## Alle vier Stufen stehen
+
+Ausgeliefert mit **v5.1**. Drei Automaten auf einem Gerüst, drei
+Bonusrunden, drei Quoten zwischen 94,2 % und 95,3 % — und drei sehr
+verschiedene Abende. Geprüft mit 169 Rechnungen in `node` und in der
+Werkbank durchgespielt.
 
 ## Woher die Zahlen stammen
 
