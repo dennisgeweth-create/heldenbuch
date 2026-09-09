@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Werkbank · Kampfkarte im Protokoll</title>
+<link rel="stylesheet" href="../styles.css?v=dev">
+<style>
+  body { padding:20px; background:var(--bg-void); }
+  .wb-kasten { max-width:760px; }
+  .wb-titel { font-family:'Cinzel',serif; color:var(--gold); margin:0 0 12px; }
+</style>
+</head>
+<body>
+  <div class="wb-kasten">
+    <h2 class="wb-titel">Protokoll mit Kartenaufnahme</h2>
+    <div class="kampf-protokoll">
+      <div class="kampf-protokoll-kopf">
+        <div class="kampf-protokoll-reiter"><button type="button" class="an">📜 Dieser Kampf</button></div>
+        <label class="kampf-protokoll-schalter"><input type="checkbox" id="wbZahlen" checked> Trefferpunkte</label>
+        <label class="kampf-protokoll-schalter"><input type="checkbox" id="wbKarte" checked> Karte</label>
+      </div>
+      <div class="kampf-protokoll-text" id="wbText"></div>
+    </div>
+  </div>
+
+  <script>
+    // Die Anwendung ruft den Server nur, wenn eine Adresse dasteht.
+    try { localStorage.removeItem('sv_url'); } catch (e) {}
+    // Die Huellen um die Schnittstelle stehen sonst in der index.html.
+    // Hier braucht sie niemand — aber js/app.js liest ein paar davon
+    // beim Laden, und ein fehlender Name braeche die ganze Datei ab.
+    const wbStumm = () => Promise.reject(new Error('Werkbank: kein Server'));
+    const apiAdvDmSetzen = wbStumm;
+    const apiBesitzerSetzen = wbStumm;
+    const apiDeleteChar = wbStumm;
+    const apiDeleteItem = wbStumm;
+    const apiDmDeleteEncounter = wbStumm;
+    const apiDmDeleteEnemy = wbStumm;
+    const apiDmImportEnemies = wbStumm;
+    const apiDmLoad = wbStumm;
+    const apiDmLoadChronik = wbStumm;
+    const apiDmLoadEncounters = wbStumm;
+    const apiDmLoadEnemies = wbStumm;
+    const apiDmSaveChronik = wbStumm;
+    const apiDmSaveEncounter = wbStumm;
+    const apiDmSaveEnemy = wbStumm;
+    const apiDmSaveLibrary = wbStumm;
+    const apiGruppeNeu = wbStumm;
+    const apiKampfAnsage = wbStumm;
+    const apiKampfAnsagen = wbStumm;
+    const apiKampfSetzen = wbStumm;
+    const apiKampfStand = wbStumm;
+    const apiKontoListe = wbStumm;
+    const apiKontoLoeschen = wbStumm;
+    const apiKontoNeu = wbStumm;
+    const apiSetupNoetig = wbStumm;
+    const apiProbeNachricht = wbStumm;
+    const apiKontoReset = wbStumm;
+    const apiLoadChars = wbStumm;
+    const apiLoadLogs = wbStumm;
+    const apiLogFrist = wbStumm;
+    const apiLogin = wbStumm;
+    const apiLogout = wbStumm;
+    const apiMe = wbStumm;
+    const apiMeineDaten = wbStumm;
+    const apiMitglieder = wbStumm;
+    const apiPassAendern = wbStumm;
+    const apiPoll = wbStumm;
+    const apiRolleSetzen = wbStumm;
+    const apiSaveChar = wbStumm;
+    const apiSaveChars = wbStumm;
+    const apiSaveItem = wbStumm;
+    const apiSaveLibrary = wbStumm;
+    const apiSaveLog = wbStumm;
+    const apiSetDmPassword = wbStumm;
+    // Stehen sonst in der index.html und fehlen hier deshalb: ohne die
+    // Platzhalter bricht jeder Baustein ab, der nach dem Zugang fragt
+    // oder etwas merken will.
+    const serverCreds = () => ({url: '', code: '', pass: '', token: ''});
+    const safeSetItem = (schluessel, wert) => {
+      try { localStorage.setItem('wb_' + schluessel, wert); } catch (e) {}
+    };
+  </script>
+  <script src="../js/data.js?v=dev"></script>
+  <script src="../js/util.js?v=dev"></script>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/app.js?v=dev"></script>
+  <script>
+    // Ein erfundener Verlauf mit zwei Aufnahmen — die Werkbank fasst
+    // keinen echten Kampf an.
+    var wbKarte = function (figuren, gelaende) {
+      return {breite: 8, hoehe: 5, feldMeter: 1.5,
+        gelaende: gelaende || '..###...' + '..#.....' + '..#..TT.' + '....~~..' + '........',
+        figuren: figuren};
+    };
+    var wbListe = [
+      {id:'h1', name:'Brunhilde', art:'held',   hp:22, hpMax:30, zustaende:[]},
+      {id:'h2', name:'Thalia',    art:'held',   hp:18, hpMax:18, zustaende:[]},
+      {id:'g1', name:'Goblin 1',  art:'gegner', hp:4,  hpMax:7,  zustaende:['liegend']},
+      {id:'g2', name:'Goblin 2',  art:'gegner', hp:7,  hpMax:7}
+    ];
+    var wbAuf1 = karteAufnahme(wbKarte({h1:{x:1,y:1,k:'Br'}, h2:{x:0,y:3,k:'Th'},
+      g1:{x:6,y:1,k:'g1'}, g2:{x:7,y:4,k:'g2'}}), wbListe);
+    var wbAuf2 = karteAufnahme(wbKarte({h1:{x:4,y:1,k:'Br'}, h2:{x:2,y:3,k:'Th'},
+      g1:{x:6,y:2,k:'g1'}, g2:{x:6,y:4,k:'g2'}}), wbListe);
+
+    var wbLog = [
+      {art:'start', r:1, wer:'Brunhilde'},
+      {art:'zug', r:1, wer:'Brunhilde'},
+      {art:'bewegung', r:1, wer:'Brunhilde', von:'A2', auf:'B2', felder:1},
+      {art:'aktion', r:1, modus:'angriff', was:'Langschwert', wurf:17},
+      {art:'schaden', r:1, wer:'Goblin 1', wert:3, von:7, auf:4},
+      {art:'karte', r:1, karte:wbAuf1.karte, liste:wbAuf1.liste},
+      {art:'zug', r:2, wer:'Goblin 1'},
+      {art:'bewegung', r:2, wer:'Goblin 1', von:'G2', auf:'G3', felder:1},
+      {art:'karte', r:2, karte:wbAuf2.karte, liste:wbAuf2.liste},
+      {art:'zug', r:3, wer:'Brunhilde'}
+    ];
+
+    var wbWurzel = ReactDOM.createRoot(document.getElementById('wbText'));
+    function wbZeichnen() {
+      wbWurzel.render(React.createElement(ProtokollZeilen, {
+        log: wbLog,
+        mitZahlen: document.getElementById('wbZahlen').checked,
+        mitKarte: document.getElementById('wbKarte').checked
+      }));
+    }
+    document.getElementById('wbZahlen').addEventListener('change', wbZeichnen);
+    document.getElementById('wbKarte').addEventListener('change', wbZeichnen);
+    wbZeichnen();
+
+    // Was der Kopierknopf in die Zwischenablage legt.
+    window.wbText = function (mitKarte, jetzt) {
+      return protokollText({name:'Am Waldrand', log:wbLog}, true, 0,
+        mitKarte !== false, jetzt ? wbAuf2 : null);
+    };
+  </script>
+</body>
+</html>

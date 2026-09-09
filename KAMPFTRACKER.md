@@ -104,6 +104,7 @@ Eingerückte Zeilen gehören zum Zug darüber.
 | `⚔ … beginnt` | der Kampf startet, diese Figur hat die höchste Initiative |
 | `▸ … ist am Zug` | Zugwechsel |
 | `⚡ … kommt dazwischen` | eingeschoben; der Unterbrochene ist danach wieder dran |
+| `… zieht B3 → E4 · 3 Felder` | Bewegung auf der Karte. Felder, nicht Meter — ein Feld sind 1,5 m, diagonal zählt eins |
 | `Angriff:` / `Zauber:` / `Gegenstand:` / `Merkmal:` | was angesagt bzw. eingetragen wurde, ggf. mit Rang und Würfel |
 | `… → Ziel: Treffer (18 gegen RK 15)` | Angriffswurf gegen ein Ziel |
 | `… → Ziel: Rettungswurf GES misslungen (9 gegen SG 15)` | Rettungswurf |
@@ -125,10 +126,64 @@ Eingerückte Zeilen gehören zum Zug darüber.
 | `− Name verlässt den Kampf` | jemand geht raus |
 | `„…"` in Anführungszeichen | freier Text der Spielleitung |
 
-**Ein Schalter im Protokoll heißt „mit Zahlen".** Ist er aus, fehlen die
-Trefferpunktstände (`· 12 → 3`) — dann sieht die KI, *dass* Schaden
-gefallen ist, aber nicht, wie es der Figur geht. Für eine Analyse sollte
-er **an** sein.
+**Zwei Schalter stehen über dem Protokoll.** Für eine Analyse sollten
+beide **an** sein.
+
+- **Trefferpunkte.** Aus fehlen die Stände (`· 12 → 3`) — dann sieht die
+  KI, *dass* Schaden gefallen ist, aber nicht, wie es der Figur geht.
+- **Karte.** Aus fehlen die Kartenblöcke, die unten beschrieben sind.
+
+### Die Karte im Verlauf
+
+Führt die Spielleitung eine Karte, steht am Ende jeder Runde, wie das
+Feld danach aussah — und ganz am Schluss unter `── Jetzt ──`, wie es
+gerade steht. Eine Runde, in der sich nichts bewegt und nichts gemalt
+wurde, legt keine zweite Aufnahme an.
+
+```
+── Ende der Runde 1 ───────────────
+
+🗺 KARTE  8 × 5  ·  1 Feld = 1,5 m
+
+    A  B  C  D  E  F  G  H
+  1 .  .  #  #  #  .  .  .
+  2 .  Br #  .  .  .  g1 .
+  3 .  .  #  .  .  T  T  .
+  4 Th .  .  .  ~  ~  .  .
+  5 .  .  .  .  .  .  .  g2
+
+FIGUREN
+  Br  Brunhilde          Held     B2  22/30 TP
+  Th  Thalia             Held     A4  18/18 TP
+  g1  Goblin 1           Gegner   G2  4/7 TP · liegend
+  g2  Goblin 2           Gegner   H5  7/7 TP
+
+GELÄNDE
+  #  Wand       Bewegung blockiert, Sicht blockiert
+  T  Baum       Bewegung blockiert, Sicht blockiert
+  ~  Wasser     Bewegung schwierig
+
+ENTFERNUNGEN (Felder, diagonal zählt eins)
+  Br → g1  5   Br → g2  6
+  Th → g1  6   Th → g2  7
+```
+
+Was darin gilt:
+
+- **Spalten A, B, C … Z, dann AA**; Zeilen ab 1. `B2` ist Spalte B,
+  Zeile 2.
+- **Ein Feld = 1,5 m (5 Fuß)**, sofern die Kopfzeile nichts anderes
+  sagt. Reichweiten in Metern also durch 1,5 teilen.
+- **Diagonal zählt eins.** Die Entfernungstafel rechnet schon so; wer
+  selbst nachzählt, muss es auch so tun.
+- **Gelände blockiert oder nicht** — die Tafel sagt es je Zeichen. Die
+  Karte kennt keine Höhe, keine halbe Deckung, keinen Untergrund: was
+  nicht in der Geländetafel steht, weiß sie nicht.
+- **Die Entfernungstafel steht nur zwischen den Seiten** — Held gegen
+  Gegner. Held zu Held und Gegner zu Gegner muss man abzählen.
+- **Sichtlinien stehen nicht drin.** Dass eine Wand zwischen zwei
+  Figuren *liegt*, lässt sich am Raster ablesen; ob sie den Schuss
+  wirklich sperrt, entscheidet die Spielleitung.
 
 ---
 
@@ -137,19 +192,23 @@ er **an** sein.
 Das ist der Teil, den eine KI von sich aus nicht wissen kann und den sie
 auch nicht erraten soll.
 
-- **Keine Stellungen, keine Entfernungen, keine Karte.** Der Tracker
-  führt eine Initiativliste, kein Raster. Wer neben wem steht, ob eine
-  Kugel drei Ziele erwischt, ob jemand in Reichweite ist — davon weiß er
-  nichts. **Vorschläge zu Bewegung, Deckung, Flankieren oder
-  Flächenzaubern brauchen die Spielleitung als Quelle.**
+- **Stellungen nur, wenn eine Karte geführt wird.** Steht kein
+  Kartenblock im Text, führt der Tracker nur eine Initiativliste: wer
+  neben wem steht, ob eine Kugel drei Ziele erwischt, ob jemand in
+  Reichweite ist, weiß er dann nicht. **Vorschläge zu Bewegung, Deckung,
+  Flankieren oder Flächenzaubern brauchen dann die Spielleitung als
+  Quelle.** Steht eine Karte da, gilt sie — aber nur so weit, wie oben
+  beschrieben.
 - **Keine Werteblöcke der Gegner.** Angriffe, Zauber, Resistenzen,
   legendäre Aktionen einer Kreatur stehen in der Gegnersammlung, nicht
   im Protokoll. Wer Vorschläge für eine Kreatur will, muss ihr Blatt
   mitgeben.
-- **Kein aktueller Gesamtstand.** Das Protokoll ist ein Verlauf. Wer
-  jetzt wie viele Trefferpunkte hat, lässt sich daraus zwar
-  zusammenrechnen, steht aber nirgends als Liste. Bei einem langen Kampf
-  ist es sicherer, den Stand kurz dazuzuschreiben.
+- **Kein aktueller Gesamtstand — außer die Karte liefert ihn.** Das
+  Protokoll ist ein Verlauf; wer jetzt wie viele Trefferpunkte hat,
+  lässt sich daraus zwar zusammenrechnen, steht aber nirgends als
+  Liste. Wird eine Karte geführt, ist die Figurentafel der letzten
+  Aufnahme genau diese Liste. Ohne Karte ist es bei einem langen Kampf
+  sicherer, den Stand kurz dazuzuschreiben.
 - **Nichts, was nicht eingetragen wurde.** Was am Tisch nur gesagt
   wurde, steht nicht drin.
 
@@ -167,10 +226,16 @@ WAS DU BEKOMMST
 2. Die Werteblöcke der Kreaturen, für die du Vorschläge machst.
 3. Den aktuellen Stand, falls ich ihn dazuschreibe.
 
-WAS DU NICHT HAST
-Es gibt keine Karte und keine Entfernungen. Frag nach Stellung und
-Reichweite, statt sie anzunehmen. Wenn ein Vorschlag von der Stellung
-abhängt, sag das dazu, statt eine zu erfinden.
+WAS ZUR STELLUNG GILT
+Steht im Protokoll ein Block „🗺 KARTE", ist das die Stellung: Raster
+mit Spalten A, B, C … und Zeilen ab 1, ein Feld 1,5 m, diagonal zählt
+eins. Die Geländetafel sagt, was Bewegung oder Sicht blockiert. Rechne
+damit, aber nur damit — Höhe, Deckungsgrade und Sichtlinien stehen
+nicht drin, die entscheide ich.
+
+Steht kein solcher Block da, gibt es keine Stellung und keine
+Entfernungen. Frag danach, statt sie anzunehmen. Wenn ein Vorschlag von
+der Stellung abhängt, sag das dazu, statt eine zu erfinden.
 
 WAS ICH WILL
 - Für jede Kreatur, die als Nächstes dran ist: ein bis drei Züge zur
@@ -210,9 +275,16 @@ Stellung: die Goblins am Wasser, der Hauptmann fünf Meter dahinter.
   würde.
 - Welche Rettungswürfe gleich fällig sind.
 
+**Mit Karte zusätzlich gut:**
+
+- Wer in Reichweite ist, wer wegziehen müsste, wohin es einen Schritt
+  weit lohnt.
+- Ob ein Flächenzauber mehrere trifft — abgezählt am Raster.
+
 **Nur mit zusätzlicher Angabe:**
 
-- Alles, was von Stellung, Reichweite oder Sichtlinie abhängt.
+- Ohne Karte alles, was von Stellung oder Reichweite abhängt.
+- Sichtlinien und Deckung, auch mit Karte.
 - Alles, was aus dem Werteblock der Kreatur kommt.
 
 **Gar nicht:**

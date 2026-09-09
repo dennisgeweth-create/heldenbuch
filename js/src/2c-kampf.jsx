@@ -153,6 +153,7 @@ const protokollZeile = (e, mitZahlen) => {
     case 'runde':    return '';                       // wird als Ueberschrift gesetzt
     case 'zug':      return '▸ ' + e.wer + ' ist am Zug';
     case 'zwischen': return '   ⚡ ' + e.wer + ' kommt dazwischen';
+    case 'karte':    return '';                       // ein Block, keine Zeile
     // Wohin jemand gezogen ist. Ohne diese Zeile stuende im Protokoll
     // nur, wer angegriffen hat, und nie, wie er dorthin kam.
     case 'bewegung': return '   ' + e.wer + ' zieht ' + e.von + ' → ' + e.auf
@@ -205,14 +206,34 @@ const protokollZeile = (e, mitZahlen) => {
   }
 };
 
+// Haengt eine Kartenaufnahme an den Verlauf. Nur wenn es eine Karte
+// gibt, und nur wenn sich seit der letzten etwas geruehrt hat.
+const logMitAufnahme = (log, auf, runde) => {
+  if (!auf) return log || [];
+  const alt = [...(log || [])].reverse().find(e => e.art === 'karte');
+  if (alt && karteAufnahmeGleich(alt, auf)) return log || [];
+  return [...(log || []), {art: 'karte', r: runde, ...auf}];
+};
+
 // Der ganze Verlauf als Text, wie er in die Zwischenablage geht.
-const protokollText = (kampf, mitZahlen, zeit) => {
+//
+// Die Karte kommt als Block dazwischen, nicht als Zeile: am Ende jeder
+// Runde steht, wie das Feld danach aussah. Wer den Verlauf einer KI
+// hinlegt, gibt ihr damit auch die Stellung — und ohne die ist „zieht
+// nach E4" nur eine Vokabel.
+const protokollText = (kampf, mitZahlen, zeit, mitKarte, jetzt) => {
   const zeilen = [];
   zeilen.push('⚔ ' + (kampf.name || 'Kampf'));
   zeilen.push(new Date(zeit || Date.now()).toLocaleString('de-DE'));
   zeilen.push('');
   let runde = null;
   (kampf.log || []).forEach(e => {
+    if (e.art === 'karte') {
+      if (mitKarte && e.karte) zeilen.push('',
+        '── Ende der Runde ' + e.r + ' ───────────────',
+        '', karteText(e.karte, e.liste || [], {mitZahlen}));
+      return;
+    }
     if (e.r !== runde) {
       runde = e.r;
       if (zeilen.length > 3) zeilen.push('');
@@ -222,15 +243,35 @@ const protokollText = (kampf, mitZahlen, zeit) => {
     if (z) zeilen.push(z);
   });
   if ((kampf.log || []).length === 0) zeilen.push('(noch nichts geschehen)');
+  // Der laufende Kampf steht mitten in einer Runde — die letzte Aufnahme
+  // ist von deren Anfang. Wie es jetzt aussieht, steht deshalb zum
+  // Schluss noch einmal da. Es sei denn, es steht schon da: hat sich
+  // seit der letzten Aufnahme nichts geruehrt, waere es dieselbe Karte
+  // zweimal untereinander.
+  const letzte = [...(kampf.log || [])].reverse().find(e => e.art === 'karte');
+  if (mitKarte && jetzt && !(letzte && karteAufnahmeGleich(letzte, jetzt)))
+    zeilen.push('', '── Jetzt ─────────────────────────────',
+      '', karteText(jetzt.karte, jetzt.liste, {mitZahlen}));
   return zeilen.join('\n');
 };
 
 // Derselbe Verlauf auf dem Schirm. Steht einzeln, weil ihn zwei
 // Stellen zeichnen: der laufende Kampf und jeder alte aus dem Archiv.
-const ProtokollZeilen = ({ log, mitZahlen }) => {
+const ProtokollZeilen = ({ log, mitZahlen, mitKarte }) => {
   const zeilen = [];
   let runde = null;
   (log || []).forEach((e, i) => {
+    // Auf dem Schirm steht das Raster, in der Kopie der ganze Block mit
+    // Figurentafel und Entfernungen. Sechs Runden mal vier Absaetze
+    // waeren hier nicht mehr zu ueberblicken; im Text stoert es nicht.
+    if (e.art === 'karte') {
+      if (mitKarte && e.karte) zeilen.push(
+        <div className="pr-karte" key={'k'+i}>
+          <div className="pr-karte-kopf">🗺 Ende der Runde {e.r}</div>
+          <pre>{karteZeilen(e.karte, null).join('\n')}</pre>
+        </div>);
+      return;
+    }
     if (e.r !== runde) {
       runde = e.r;
       zeilen.push(<div className="pr-runde" key={'r'+i}>── Runde {runde} ──</div>);
@@ -305,7 +346,7 @@ const tagName = (tag) => {
 const uhrzeitVon = (zeit) => new Date(zeit)
   .toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
 
-const KampfArchiv = ({ mitZahlen }) => {
+const KampfArchiv = ({ mitZahlen, mitKarte }) => {
   const [liste] = React.useState(archivLesen);
   const tage = [...new Set(liste.map(e => tagVon(e.zeit)))];
   const [tag, setTag] = React.useState(tage[0] || '');
@@ -320,7 +361,7 @@ const KampfArchiv = ({ mitZahlen }) => {
 
   const desTages = liste.filter(e => tagVon(e.zeit) === tag);
   const kopieren = async (e) => {
-    if (!await inZwischenablage(protokollText(e, mitZahlen, e.zeit))) return;
+    if (!await inZwischenablage(protokollText(e, mitZahlen, e.zeit, mitKarte))) return;
     setKopiert(e.id);
     setTimeout(() => setKopiert(null), 2000);
   };
@@ -352,7 +393,7 @@ const KampfArchiv = ({ mitZahlen }) => {
             {offen === e.id && (
               <>
                 <div className="kampf-protokoll-text">
-                  <ProtokollZeilen log={e.log} mitZahlen={mitZahlen} />
+                  <ProtokollZeilen log={e.log} mitZahlen={mitZahlen} mitKarte={mitKarte} />
                 </div>
                 <div className="kampf-archiv-fuss">
                   <button className="btn-icon" onClick={()=>kopieren(e)}>
@@ -1811,6 +1852,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // damit es nach einem Ende neu aus dem Speicher liest.
   const [archivStand, setArchivStand] = React.useState(0);
   const [mitZahlen, setMitZahlen] = React.useState(true);
+  const [mitKarte, setMitKarte] = React.useState(true);
   const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
   const [zugFenster, setZugFenster] = React.useState(null);   // {id, ansage}
@@ -2172,13 +2214,19 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     + 'stehen schon in den Bögen. Danach steht wieder die Vorbereitung da — '
     + 'ohne Gegner, ohne Initiativen.',
     () => {
-      const eigen = (kampf.log || []).filter(e => e.art !== 'start');
+      // Die letzte Stellung gehoert noch dazu. Sie faellt sonst weg: der
+      // Kampf endet mitten in einer Runde, und die naechste, die eine
+      // Aufnahme gelegt haette, kommt nicht mehr.
+      const log = logMitAufnahme(kampf.log, karteAufnahme(kampf.karte, liste), kampf.runde);
+      // Eine Karte allein ist kein Kampf — sonst landete jede Aufstellung,
+      // in der nichts geschah, im Archiv.
+      const eigen = log.filter(e => e.art !== 'start' && e.art !== 'karte');
       if (eigen.length) {
         archivLegen({
           id: 'kl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6),
           name: kampf.name || 'Kampf', zeit: Date.now(), runden: kampf.runde,
           abenteuer: ((abenteuer || []).find(a => a.id === advId) || {}).name || '',
-          log: kampf.log || [],
+          log,
         });
         setArchivStand(n => n + 1);
       }
@@ -2189,9 +2237,14 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const naechster = () => setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
-    return naechsterZug >= k.teilnehmer.length
-      ? {...k, zwischen: null, zug: 0, runde: k.runde + 1}
-      : {...k, zwischen: null, zug: naechsterZug};
+    if (naechsterZug < k.teilnehmer.length)
+      return {...k, zwischen: null, zug: naechsterZug};
+    // Die Runde ist um. Bevor die naechste anfaengt, haelt der Verlauf
+    // fest, wie das Feld danach aussah — sonst stuende darin nur, wer
+    // wohin gezogen ist, und nie, was dabei herauskam.
+    return {...k, zwischen: null, zug: 0, runde: k.runde + 1,
+      log: inVorbereitung(k) ? k.log
+        : logMitAufnahme(k.log, karteAufnahme(k.karte, liste), k.runde)};
   });
 
   // Jemand kommt dazwischen — und danach geht es weiter, wo es
@@ -2208,7 +2261,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     t.ini !== null ? t : {...t, ini: w20() + mod(heldDex(t))})));
 
   const protokollKopieren = async () => {
-    if (!await inZwischenablage(protokollText(kampf, mitZahlen))) return;
+    if (!await inZwischenablage(protokollText(kampf, mitZahlen, null, mitKarte,
+        karteAufnahme(kampf.karte, liste)))) return;
     setKopiert(true);
     setTimeout(() => setKopiert(false), 2000);
   };
@@ -2398,6 +2452,12 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                   onChange={e=>setMitZahlen(e.target.checked)} />
                 Trefferpunkte
               </label>
+              <label className="kampf-protokoll-schalter"
+                title="Am Ende jeder Runde, wie das Feld danach aussah. Hier steht das Raster, in der Kopie der ganze Block mit Figuren und Entfernungen.">
+                <input type="checkbox" checked={mitKarte}
+                  onChange={e=>setMitKarte(e.target.checked)} />
+                Karte
+              </label>
               {protokollTab === 'jetzt' && (
                 <button className="btn-icon" onClick={protokollKopieren}>
                   {kopiert ? '✓ Kopiert' : '📋 Kopieren'}
@@ -2412,11 +2472,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                 ) : (kampf.log || []).length <= 1 ? (
                   <i>Noch nichts geschehen. Was du einträgst, steht hier.</i>
                 ) : (
-                  <ProtokollZeilen log={kampf.log} mitZahlen={mitZahlen} />
+                  <ProtokollZeilen log={kampf.log} mitZahlen={mitZahlen} mitKarte={mitKarte} />
                 )}
               </div>
             ) : (
-              <KampfArchiv key={archivStand} mitZahlen={mitZahlen} />
+              <KampfArchiv key={archivStand} mitZahlen={mitZahlen} mitKarte={mitKarte} />
             )}
           </div>
         )}

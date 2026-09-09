@@ -387,18 +387,39 @@ Maße als eine Feldschlacht, und beides soll gehen:
 
 ### Stufe 3 · Bewegung ins Log ✓
 
-Die Zeile `zieht B3 → E4 · 3 Felder`, automatisch beim Loslassen. Dazu
-die Aufnahme je Runde.
+Die Zeile `zieht B3 → E4 · 3 Felder`, automatisch beim Absetzen. Die
+Aufnahme je Runde kam mit Stufe 4 dazu.
 
-### Stufe 4 · Kopieren — halb
+### Stufe 4 · Kopieren ✓
 
-Der Knopf **🗺 Karte kopieren** steht schon am Feld: er kam mit Stufe 2,
-weil ein Feld, in das man eine Karte einfügen kann und aus dem keine
+Der Knopf **🗺 Karte kopieren** steht am Feld: er kam mit Stufe 2, weil
+ein Feld, in das man eine Karte einfügen kann und aus dem keine
 herauskommt, seltsam ist.
 
-**Es fehlt:** der Schalter „mit Karte" im Protokoll und die Aufnahme je
-Runde. Damit trägt der kopierte Verlauf die Karte, wie sie sich
-entwickelt hat.
+Dazu kam der Schalter **Karte** im Protokoll, neben „Trefferpunkte".
+Ist er an, trägt der kopierte Verlauf die Karte, wie sie sich entwickelt
+hat:
+
+- **Am Ende jeder Runde eine Aufnahme.** Sie steht hinter den Zeilen
+  ihrer Runde, unter der Überschrift `── Ende der Runde N ──`.
+- **Und zum Schluss `── Jetzt ──`,** wie es gerade steht — der laufende
+  Kampf hält ja mitten in einer Runde.
+- **Was sich nicht gerührt hat, kommt nicht zweimal.** Verglichen wird
+  Gelände und wer auf welchem Feld steht; Trefferpunkte zählen dabei
+  nicht, die stehen schon Zeile für Zeile im Verlauf. Zehnmal dieselbe
+  Karte wäre kein Verlauf.
+
+Die Aufnahme steht für sich: sie nimmt Name, Seite, Trefferpunkte und
+Zustände der Figuren mit, die auf ihr stehen. Der Verlauf wandert am
+Ende ins Archiv, wo es den Kampf und seine Teilnehmerliste nicht mehr
+gibt — eine Aufnahme, die dort nachfragen müsste, wäre leer.
+
+Auf dem Schirm steht je Aufnahme nur das Raster; der ganze Block mit
+Figurentafel, Gelände und Entfernungen steckt in der Kopie. Sechs Runden
+mal vier Absätze wären im Protokollfenster nicht mehr zu überblicken.
+
+Was der Verlauf ausgibt, liest der Leser aus Stufe 1 wieder ein — der
+Kreis ist geschlossen und wird als Prüfung mitgeführt.
 
 ### Stufe 5 · Sicht und Reichweite
 
@@ -457,15 +478,21 @@ die eigentliche Arbeit.
 
 ---
 
-## Was das für `KAMPFTRACKER.md` bedeutet
+## Was das für `KAMPFTRACKER.md` bedeutet — erledigt mit Stufe 4
 
-Der Abschnitt *„Was NICHT im Protokoll steht"* verliert seinen ersten
-und wichtigsten Punkt. Aus
+Der Abschnitt *„Was NICHT im Protokoll steht"* hat seinen ersten und
+wichtigsten Punkt verloren. Aus
 
 > Keine Stellungen, keine Entfernungen, keine Karte. […] Vorschläge zu
 > Bewegung, Deckung, Flankieren oder Flächenzaubern brauchen die
 > Spielleitung als Quelle.
 
-wird nach Stufe 4 eine Beschreibung des Kartenblocks — und die Vorlage
-für die KI kann aufhören, nach der Stellung zu fragen. Genau darum geht
-es.
+ist *„Stellungen nur, wenn eine Karte geführt wird"* geworden, dazu eine
+Beschreibung des Kartenblocks mit seinen Regeln — Spalten, Feldgröße,
+diagonal zählt eins — und ein Satz in der Vorlage, der der KI sagt, dass
+sie damit rechnen darf.
+
+Zwei Punkte bleiben stehen, und das ist Absicht: **Sichtlinien** und
+**Deckung** entscheidet weiter die Spielleitung. Das Raster zeigt, dass
+eine Wand dazwischenliegt; ob sie den Schuss sperrt, steht dort nicht.
+Stufe 5 nähert sich dem an und wird es ebenso ausdrücklich sagen.

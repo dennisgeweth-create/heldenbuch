@@ -445,6 +445,46 @@ const KARTE_KI_ANWEISUNG = [
   '- Schreib nichts dazu, keine Erklärung, keinen Kommentar.',
 ].join('\n');
 
+// ── Die Aufnahme je Runde ────────────────────────────────────────
+// Der kopierte Verlauf soll die Karte tragen, wie sie sich entwickelt
+// hat — dafuer legt jede Runde eine Aufnahme ab.
+//
+// Sie steht fuer sich: der Verlauf wandert am Ende ins Archiv, wo es
+// den Kampf und seine Teilnehmerliste nicht mehr gibt. Also nimmt die
+// Aufnahme mit, was der Textblock braucht, statt sich darauf zu
+// verlassen, dass es spaeter noch jemanden gibt, den man fragen kann.
+const karteAufnahme = (karte, teilnehmer) => {
+  if (!karte) return null;
+  const drauf = karte.figuren || {};
+  return {
+    karte: {breite: karte.breite, hoehe: karte.hoehe, feldMeter: karte.feldMeter,
+            gelaende: karte.gelaende, figuren: drauf},
+    liste: (teilnehmer || []).filter(t => drauf[t.id]).map(t => {
+      const e = {id: t.id, name: t.name, art: t.art};
+      if (t.hp !== undefined) { e.hp = t.hp; e.hpMax = t.hpMax; }
+      if ((t.zustaende || []).length) e.zustaende = t.zustaende;
+      return e;
+    }),
+  };
+};
+
+// Was sich seit der letzten Aufnahme nicht gerührt hat, wird nicht noch
+// einmal abgelegt — zehnmal dieselbe Karte ist kein Verlauf.
+//
+// Gleich heisst: dasselbe Gelände, dieselben Figuren auf denselben
+// Feldern. Trefferpunkte gehoeren nicht dazu. Die stehen schon Zeile
+// fuer Zeile im Protokoll, und eine zweite Karte nur wegen drei Schaden
+// waere Ballast.
+const karteAufnahmeGleich = (a, b) => {
+  if (!a || !b) return a === b;
+  if (a.karte.breite !== b.karte.breite || a.karte.hoehe !== b.karte.hoehe
+      || a.karte.gelaende !== b.karte.gelaende) return false;
+  const fa = a.karte.figuren || {}, fb = b.karte.figuren || {};
+  const ia = Object.keys(fa);
+  if (ia.length !== Object.keys(fb).length) return false;
+  return ia.every(id => fb[id] && fa[id].x === fb[id].x && fa[id].y === fb[id].y);
+};
+
 // ══ Ende der reinen Rechnung ═══════════════════════════════════════
 
 // ── Das Feld im Tracker ──────────────────────────────────────────

@@ -3655,7 +3655,7 @@
     text-transform:none; letter-spacing:0.04em; font-size:11px; }
   .kampf-protokoll-schalter input { width:13px; height:13px; accent-color:var(--gold);
     cursor:pointer; }
-  .kampf-protokoll-text { max-height:220px; overflow-y:auto; padding:9px 12px;
+  .kampf-protokoll-text { max-height:340px; overflow-y:auto; padding:9px 12px;
     font-family:'Roboto Mono',ui-monospace,monospace; font-size:12px; line-height:1.65;
     color:var(--text-secondary); white-space:pre-wrap; }
   .kampf-protokoll-text i { color:var(--text-muted); font-family:'Roboto',sans-serif; }
@@ -3663,6 +3663,16 @@
   .pr-runde:first-child { margin-top:0; }
   .pr-zeile.zug { color:var(--text-primary); }
   .pr-zeile.schwer { color:var(--gold-bright); }
+  /* Die Aufnahme am Ende einer Runde. Sie rollt in sich selbst, wenn das
+     Raster breiter ist als der Kasten — umgebrochen waere sie keine Karte
+     mehr, sondern Zeichensalat. */
+  .pr-karte { margin:7px 0 9px; border-left:2px solid var(--border-bright);
+    padding-left:9px; }
+  .pr-karte-kopf { color:var(--text-muted); font-size:11px; margin-bottom:3px;
+    letter-spacing:0.04em; }
+  .pr-karte pre { margin:0; overflow-x:auto; white-space:pre;
+    font-family:inherit; font-size:11.5px; line-height:1.45;
+    color:var(--text-secondary); }
 
   /* Das Wirkungsfeld im Zauberformular. */
   .zauber-wirkung-kopf { display:flex; align-items:center; gap:10px; justify-content:space-between; }
