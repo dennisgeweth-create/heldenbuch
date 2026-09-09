@@ -658,7 +658,12 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
   const einfuegen = (roh) => {
     const e = karteUebernehmen(roh, (kampf && kampf.teilnehmer) || []);
     if (!e.karte) return {gut: false, meldung: e.meldung};
-    schreiben(e.karte);
+    // Ein Bodenplan, der schon daliegt, bleibt liegen. Er passt zur
+    // neuen Karte vielleicht nicht mehr — aber ihn stillschweigend
+    // wegzuwerfen waere schlimmer als ein Knopf, der ihn entfernt.
+    const alt = karte || {};
+    schreiben(alt.bild ? {...e.karte, bild: alt.bild, bildZoom: alt.bildZoom,
+                          bildX: alt.bildX, bildY: alt.bildY} : e.karte);
     return {gut: true, meldung: [e.meldung, ...(e.warnung || [])].join(' · ')};
   };
 
@@ -738,6 +743,18 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
     if (onFrage) onFrage('Beim Verkleinern fällt weg: ' + was.join(' und ') + '.', tun, 'Trotzdem');
     else tun();
   };
+
+  // Der Plan laesst sich nicht beliebig weit schieben oder schrumpfen —
+  // ein Bild bei zwoelf Prozent irgendwo neben dem Raster waere nur noch
+  // durch Zufall wiederzufinden.
+  const planStellen = (was) => schreiben({...karte,
+    bildZoom: Math.max(20, Math.min(400,
+      was.bildZoom === undefined ? (karte.bildZoom || 100) : was.bildZoom)),
+    bildX: Math.max(-100, Math.min(100,
+      was.bildX === undefined ? (karte.bildX || 0) : was.bildX)),
+    bildY: Math.max(-100, Math.min(100,
+      was.bildY === undefined ? (karte.bildY || 0) : was.bildY)),
+  });
 
   const kopieren = () => {
     const text = karteText(karte, liste || [], {mitZahlen: true});
@@ -856,7 +873,17 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
       <div className="kk-mitte">
         <div className="kk-raster-kasten"
           onMouseLeave={()=>setZeiger(null)}>
-          <div className="kk-raster"
+         <div className="kk-buehne">
+          {/* Der Bodenplan liegt darunter, das Raster bleibt die
+              Wahrheit. Ausgerichtet wird ueber Zoom und Versatz — beide
+              in Prozent der Rasterbreite, damit die Einstellung stehen
+              bleibt, wenn die Felder ihre Groesse aendern. */}
+          {karte.bild && (
+            <img className="kk-plan" src={karte.bild} alt="" aria-hidden="true"
+              style={{left: (karte.bildX || 0) + '%', top: (karte.bildY || 0) + '%',
+                      width: (karte.bildZoom || 100) + '%'}} />
+          )}
+          <div className={'kk-raster' + (karte.bild ? ' mit-bild' : '')}
             style={{gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'}}>
             <span className="kk-ecke" />
             {Array.from({length: karte.breite}, (_, x) => (
@@ -880,6 +907,7 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
               </React.Fragment>
             ))}
           </div>
+         </div>
         </div>
 
         <div className="kk-ablage">
@@ -935,6 +963,52 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
                                  weg, 'Wegräumen');
             else weg();
           }}>Karte wegräumen</button>
+      </div>
+
+      {/* Der Bodenplan. Er ist fuers Auge: das Raster bleibt die
+          Wahrheit, und am Textblock aendert er nichts. Er bleibt auch
+          auf diesem Geraet — durch die Spiegelung geht er nicht, denn
+          der Kampf wird im Sekundentakt geschrieben und ein Bild
+          gehoert da nicht hinein. */}
+      <div className="kk-leiste kk-planzeile">
+        <span className="kk-label">Bodenplan</span>
+        {!karte.bild ? (
+          <BildAblage bild={null} maxPx={1400} hoehe={0}
+            aufschrift="🖼 Plan hierher ziehen"
+            hinweis="oder Strg+V — er liegt unter dem Raster und bleibt auf diesem Gerät"
+            onBild={(d)=>schreiben({...karte, bild: d,
+              bildZoom: 100, bildX: 0, bildY: 0})} />
+        ) : (
+          <>
+            <span className="kk-nudge">
+              <button type="button" className="bj-taste" title="Kleiner"
+                onClick={()=>planStellen({bildZoom: (karte.bildZoom || 100) - 2})}>−</button>
+              <b>{Math.round(karte.bildZoom || 100)} %</b>
+              <button type="button" className="bj-taste" title="Größer"
+                onClick={()=>planStellen({bildZoom: (karte.bildZoom || 100) + 2})}>+</button>
+            </span>
+            <span className="kk-nudge">
+              <button type="button" className="bj-taste" title="Nach links"
+                onClick={()=>planStellen({bildX: (karte.bildX || 0) - 1})}>◀</button>
+              <button type="button" className="bj-taste" title="Nach rechts"
+                onClick={()=>planStellen({bildX: (karte.bildX || 0) + 1})}>▶</button>
+              <button type="button" className="bj-taste" title="Nach oben"
+                onClick={()=>planStellen({bildY: (karte.bildY || 0) - 1})}>▲</button>
+              <button type="button" className="bj-taste" title="Nach unten"
+                onClick={()=>planStellen({bildY: (karte.bildY || 0) + 1})}>▼</button>
+            </span>
+            <span className="kk-hinweis">
+              Verschoben um {Math.round(karte.bildX || 0)} / {Math.round(karte.bildY || 0)} %
+              — das Raster zählt, nicht das Bild
+            </span>
+            <button type="button" className="bj-taste"
+              onClick={()=>planStellen({bildZoom: 100, bildX: 0, bildY: 0})}>
+              Zurücksetzen
+            </button>
+            <button type="button" className="bj-taste kk-rechts"
+              onClick={()=>schreiben({...karte, bild: null})}>Plan entfernen</button>
+          </>
+        )}
       </div>
 
       <ListeEinfuegen anweisung={KARTE_KI_ANWEISUNG}

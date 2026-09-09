@@ -335,6 +335,9 @@ bewegen will, sagt es an — das ist derselbe Weg wie bei allem anderen.
 
 ## Der Bauplan
 
+**Alle sieben Stufen sind gebaut.** Was hier steht, beschreibt, was da
+ist — nicht mehr, was noch kommen soll.
+
 ### Stufe 1 · Die Rechnung ✓
 
 `js/src/2c2-karte.jsx`, oberer Teil ohne React — damit er einzeln mit
@@ -510,13 +513,43 @@ rollt es in sich selbst, statt zu schrumpfen.
 auch die verborgenen Figuren — der Verlauf gehört der Spielleitung, und
 einer, der die Hälfte verschweigt, wäre hinterher gelogen.
 
-### Stufe 7 · Ein Bild darunter *(später, wenn überhaupt)*
+### Stufe 7 · Ein Bild darunter ✓
 
-Ein hochgeladener Bodenplan als Untergrund, das Raster halbdurchsichtig
-darüber. Das Bild ist fürs Auge, das Raster bleibt die Wahrheit — der
-Text ändert sich dadurch nicht. Die Bildablage von v5.1.1 kann das
-schon; es fehlt nur das Ausrichten des Rasters auf das Bild, und das ist
-die eigentliche Arbeit.
+Ein Bodenplan liegt unter dem Raster: hineinziehen, Strg+V, oder
+anklicken. Die Bildablage von v5.1.1 nimmt ihn und rechnet ihn klein.
+
+**Das Ausrichten war die eigentliche Arbeit.** Drei Stellschrauben,
+alle in Prozent der Rasterbreite — dann bleibt die Einstellung stehen,
+wenn die Felder ihre Größe ändern:
+
+- **Zoom** in Schritten von 2 %, zwischen 20 % und 400 %.
+- **Versatz** in Schritten von 1 %, zwischen −100 % und +100 %.
+- **Zurücksetzen** auf 100 % / 0 / 0.
+
+Die Grenzen sind kein Schmuck: ein Bild bei zwölf Prozent irgendwo
+neben dem Raster wäre nur noch durch Zufall wiederzufinden.
+
+**Was durchscheint und was nicht.** Der leere Boden wird durchsichtig,
+gemaltes Gelände bleibt undurchsichtig. Das Bild zeigt den Raum, die
+gemalten Felder sind die Wahrheit darüber — wer eine Wand einträgt, will
+sie sehen, auch wenn der Plan dort einen Teppich zeigt. Die Gitterlinien
+bleiben stehen, sonst wäre es kein Raster mehr.
+
+**Der Plan bleibt auf dem Gerät der Spielleitung.** Er geht nicht durch
+die Spiegelung — der Kampf wird im Sekundentakt geschrieben, und ein
+Bild gehört da nicht hinein; `api.php` weist es seit jeher ab. Er steht
+auch nicht im Textblock und nicht in den Aufnahmen im Verlauf: die
+wandern ins Archiv, und ein Bild darin wäre nach zehn Kämpfen der ganze
+Speicher.
+
+**Im Gerät liegt er in einem eigenen Fach.** `hb_kampf_bild` neben
+`hb_kampf`. Er ist um Größenordnungen größer als der ganze übrige
+Kampf, und wenn der Speicher voll ist, soll das Bild ausfallen und
+nicht die Initiativreihenfolge. Der Kampf wird zuerst geschrieben, das
+Bild danach und für sich.
+
+Am Textblock ändert der Plan nichts. Das war die Bedingung von Anfang
+an: kopierbar heißt Text, und ein Bild ist keiner.
 
 ---
 

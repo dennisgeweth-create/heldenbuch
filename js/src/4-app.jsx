@@ -1,6 +1,40 @@
 // Heldenbuch — Wurzelkomponente: Zustand, Server-Sync, Seitenleiste,
 // Dialoge. Haelt alles, was der Bogen ueber SheetCtx bekommt.
 
+// ── Der Kampf im Geraet ──────────────────────────────────────────
+// Der Bodenplan unter der Karte liegt in einem eigenen Fach. Er ist um
+// Groessenordnungen groesser als der ganze uebrige Kampf, und wenn der
+// Speicher voll ist, soll das Bild ausfallen und nicht die
+// Initiativreihenfolge. Deshalb wird er beim Schreiben abgetrennt und
+// beim Lesen wieder angehaengt.
+const KAMPF_FACH = 'hb_kampf';
+const KAMPF_BILD_FACH = 'hb_kampf_bild';
+
+const kampfLesen = () => {
+  try {
+    const k = JSON.parse(localStorage.getItem(KAMPF_FACH) || 'null');
+    if (!k || !k.karte) return k;
+    const bild = localStorage.getItem(KAMPF_BILD_FACH) || null;
+    return bild ? {...k, karte: {...k.karte, bild}} : k;
+  } catch { return null; }
+};
+
+const kampfSchreiben = (neu) => {
+  if (!neu) {
+    try { localStorage.removeItem(KAMPF_FACH); } catch {}
+    try { localStorage.removeItem(KAMPF_BILD_FACH); } catch {}
+    return;
+  }
+  const bild = ((neu.karte || {}).bild) || null;
+  const ohne = neu.karte ? {...neu, karte: {...neu.karte, bild: null}} : neu;
+  try { localStorage.setItem(KAMPF_FACH, JSON.stringify(ohne)); } catch {}
+  // Das Bild danach und fuer sich: schlaegt es fehl, steht der Kampf schon.
+  try {
+    if (bild) localStorage.setItem(KAMPF_BILD_FACH, bild);
+    else localStorage.removeItem(KAMPF_BILD_FACH);
+  } catch {}
+};
+
 function App() {
   const [chars,  setChars]   = useState([]);
   const [sel,    setSel]     = useState(null);
@@ -202,21 +236,17 @@ function App() {
   const [enemyView, setEnemyView] = useState(null);   // offene Werteübersicht
   const [enemyImportBusy, setEnemyImportBusy] = useState(false);
   const [encounters, setEncounters] = useState([]);
+  // (kampfLesen und kampfSchreiben stehen ueber der Anwendung.)
   // Der laufende Kampf liegt im Geraet, nicht nur im Arbeitsspeicher: im
   // alten Tracker kostete ein versehentliches Neuladen mitten im Kampf die
   // ganze Initiativreihenfolge. Er gehoert der Spielleitung an diesem
   // Geraet, deshalb reicht der lokale Speicher — auf dem Server waere er
   // ein Fremdkoerper zwischen den Charakterboegen.
-  const [kampf, setKampfRoh] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('hb_kampf') || 'null'); } catch { return null; }
-  });
+  const [kampf, setKampfRoh] = useState(() => kampfLesen());
   const [showKampf, setShowKampf] = useState(false);
   const setKampf = (wertOderFn) => setKampfRoh(vorher => {
     const neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
-    try {
-      if (neu) localStorage.setItem('hb_kampf', JSON.stringify(neu));
-      else localStorage.removeItem('hb_kampf');
-    } catch {}
+    kampfSchreiben(neu);
     return neu;
   });
   const [encForm, setEncForm] = useState(null);

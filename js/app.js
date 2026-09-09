@@ -6076,7 +6076,17 @@ const KarteFeld = ({
       gut: false,
       meldung: e.meldung
     };
-    schreiben(e.karte);
+    // Ein Bodenplan, der schon daliegt, bleibt liegen. Er passt zur
+    // neuen Karte vielleicht nicht mehr — aber ihn stillschweigend
+    // wegzuwerfen waere schlimmer als ein Knopf, der ihn entfernt.
+    const alt = karte || {};
+    schreiben(alt.bild ? {
+      ...e.karte,
+      bild: alt.bild,
+      bildZoom: alt.bildZoom,
+      bildX: alt.bildX,
+      bildY: alt.bildY
+    } : e.karte);
     return {
       gut: true,
       meldung: [e.meldung, ...(e.warnung || [])].join(' · ')
@@ -6178,6 +6188,16 @@ const KarteFeld = ({
     if (verlust.felder.length) was.push(verlust.felder.length + (verlust.felder.length === 1 ? ' bemaltes Feld' : ' bemalte Felder'));
     if (onFrage) onFrage('Beim Verkleinern fällt weg: ' + was.join(' und ') + '.', tun, 'Trotzdem');else tun();
   };
+
+  // Der Plan laesst sich nicht beliebig weit schieben oder schrumpfen —
+  // ein Bild bei zwoelf Prozent irgendwo neben dem Raster waere nur noch
+  // durch Zufall wiederzufinden.
+  const planStellen = was => schreiben({
+    ...karte,
+    bildZoom: Math.max(20, Math.min(400, was.bildZoom === undefined ? karte.bildZoom || 100 : was.bildZoom)),
+    bildX: Math.max(-100, Math.min(100, was.bildX === undefined ? karte.bildX || 0 : was.bildX)),
+    bildY: Math.max(-100, Math.min(100, was.bildY === undefined ? karte.bildY || 0 : was.bildY))
+  });
   const kopieren = () => {
     const text = karteText(karte, liste || [], {
       mitZahlen: true
@@ -6291,7 +6311,19 @@ const KarteFeld = ({
     className: "kk-raster-kasten",
     onMouseLeave: () => setZeiger(null)
   }, /*#__PURE__*/React.createElement("div", {
-    className: "kk-raster",
+    className: "kk-buehne"
+  }, karte.bild && /*#__PURE__*/React.createElement("img", {
+    className: "kk-plan",
+    src: karte.bild,
+    alt: "",
+    "aria-hidden": "true",
+    style: {
+      left: (karte.bildX || 0) + '%',
+      top: (karte.bildY || 0) + '%',
+      width: (karte.bildZoom || 100) + '%'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: 'kk-raster' + (karte.bild ? ' mit-bild' : ''),
     style: {
       gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'
     }
@@ -6325,7 +6357,7 @@ const KarteFeld = ({
       onKlick: klick,
       onZeigen: vonFeld ? zeigen : null
     });
-  }))))), /*#__PURE__*/React.createElement("div", {
+  })))))), /*#__PURE__*/React.createElement("div", {
     className: "kk-ablage"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kk-label"
@@ -6406,7 +6438,87 @@ const KarteFeld = ({
       });
       if (onFrage) onFrage('Die Karte wegräumen? Gelände und Positionen sind dann weg.', weg, 'Wegräumen');else weg();
     }
-  }, "Karte wegr\xE4umen")), /*#__PURE__*/React.createElement(ListeEinfuegen, {
+  }, "Karte wegr\xE4umen")), /*#__PURE__*/React.createElement("div", {
+    className: "kk-leiste kk-planzeile"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-label"
+  }, "Bodenplan"), !karte.bild ? /*#__PURE__*/React.createElement(BildAblage, {
+    bild: null,
+    maxPx: 1400,
+    hoehe: 0,
+    aufschrift: "\uD83D\uDDBC Plan hierher ziehen",
+    hinweis: "oder Strg+V \u2014 er liegt unter dem Raster und bleibt auf diesem Ger\xE4t",
+    onBild: d => schreiben({
+      ...karte,
+      bild: d,
+      bildZoom: 100,
+      bildX: 0,
+      bildY: 0
+    })
+  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    className: "kk-nudge"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Kleiner",
+    onClick: () => planStellen({
+      bildZoom: (karte.bildZoom || 100) - 2
+    })
+  }, "\u2212"), /*#__PURE__*/React.createElement("b", null, Math.round(karte.bildZoom || 100), " %"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Gr\xF6\xDFer",
+    onClick: () => planStellen({
+      bildZoom: (karte.bildZoom || 100) + 2
+    })
+  }, "+")), /*#__PURE__*/React.createElement("span", {
+    className: "kk-nudge"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Nach links",
+    onClick: () => planStellen({
+      bildX: (karte.bildX || 0) - 1
+    })
+  }, "\u25C0"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Nach rechts",
+    onClick: () => planStellen({
+      bildX: (karte.bildX || 0) + 1
+    })
+  }, "\u25B6"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Nach oben",
+    onClick: () => planStellen({
+      bildY: (karte.bildY || 0) - 1
+    })
+  }, "\u25B2"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Nach unten",
+    onClick: () => planStellen({
+      bildY: (karte.bildY || 0) + 1
+    })
+  }, "\u25BC")), /*#__PURE__*/React.createElement("span", {
+    className: "kk-hinweis"
+  }, "Verschoben um ", Math.round(karte.bildX || 0), " / ", Math.round(karte.bildY || 0), " % \u2014 das Raster z\xE4hlt, nicht das Bild"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    onClick: () => planStellen({
+      bildZoom: 100,
+      bildX: 0,
+      bildY: 0
+    })
+  }, "Zur\xFCcksetzen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste kk-rechts",
+    onClick: () => schreiben({
+      ...karte,
+      bild: null
+    })
+  }, "Plan entfernen"))), /*#__PURE__*/React.createElement(ListeEinfuegen, {
     anweisung: KARTE_KI_ANWEISUNG,
     aufschrift: "Andere Karte einf\xFCgen",
     platzhalter: K_PLATZHALTER,
@@ -20408,6 +20520,56 @@ const CharakterAssistent = ({
 // Heldenbuch — Wurzelkomponente: Zustand, Server-Sync, Seitenleiste,
 // Dialoge. Haelt alles, was der Bogen ueber SheetCtx bekommt.
 
+// ── Der Kampf im Geraet ──────────────────────────────────────────
+// Der Bodenplan unter der Karte liegt in einem eigenen Fach. Er ist um
+// Groessenordnungen groesser als der ganze uebrige Kampf, und wenn der
+// Speicher voll ist, soll das Bild ausfallen und nicht die
+// Initiativreihenfolge. Deshalb wird er beim Schreiben abgetrennt und
+// beim Lesen wieder angehaengt.
+const KAMPF_FACH = 'hb_kampf';
+const KAMPF_BILD_FACH = 'hb_kampf_bild';
+const kampfLesen = () => {
+  try {
+    const k = JSON.parse(localStorage.getItem(KAMPF_FACH) || 'null');
+    if (!k || !k.karte) return k;
+    const bild = localStorage.getItem(KAMPF_BILD_FACH) || null;
+    return bild ? {
+      ...k,
+      karte: {
+        ...k.karte,
+        bild
+      }
+    } : k;
+  } catch {
+    return null;
+  }
+};
+const kampfSchreiben = neu => {
+  if (!neu) {
+    try {
+      localStorage.removeItem(KAMPF_FACH);
+    } catch {}
+    try {
+      localStorage.removeItem(KAMPF_BILD_FACH);
+    } catch {}
+    return;
+  }
+  const bild = (neu.karte || {}).bild || null;
+  const ohne = neu.karte ? {
+    ...neu,
+    karte: {
+      ...neu.karte,
+      bild: null
+    }
+  } : neu;
+  try {
+    localStorage.setItem(KAMPF_FACH, JSON.stringify(ohne));
+  } catch {}
+  // Das Bild danach und fuer sich: schlaegt es fehl, steht der Kampf schon.
+  try {
+    if (bild) localStorage.setItem(KAMPF_BILD_FACH, bild);else localStorage.removeItem(KAMPF_BILD_FACH);
+  } catch {}
+};
 function App() {
   const [chars, setChars] = useState([]);
   const [sel, setSel] = useState(null);
@@ -20654,24 +20816,17 @@ function App() {
   const [enemyView, setEnemyView] = useState(null); // offene Werteübersicht
   const [enemyImportBusy, setEnemyImportBusy] = useState(false);
   const [encounters, setEncounters] = useState([]);
+  // (kampfLesen und kampfSchreiben stehen ueber der Anwendung.)
   // Der laufende Kampf liegt im Geraet, nicht nur im Arbeitsspeicher: im
   // alten Tracker kostete ein versehentliches Neuladen mitten im Kampf die
   // ganze Initiativreihenfolge. Er gehoert der Spielleitung an diesem
   // Geraet, deshalb reicht der lokale Speicher — auf dem Server waere er
   // ein Fremdkoerper zwischen den Charakterboegen.
-  const [kampf, setKampfRoh] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('hb_kampf') || 'null');
-    } catch {
-      return null;
-    }
-  });
+  const [kampf, setKampfRoh] = useState(() => kampfLesen());
   const [showKampf, setShowKampf] = useState(false);
   const setKampf = wertOderFn => setKampfRoh(vorher => {
     const neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
-    try {
-      if (neu) localStorage.setItem('hb_kampf', JSON.stringify(neu));else localStorage.removeItem('hb_kampf');
-    } catch {}
+    kampfSchreiben(neu);
     return neu;
   });
   const [encForm, setEncForm] = useState(null);

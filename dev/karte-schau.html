@@ -158,6 +158,12 @@
     }
     wbFeldZeichnen();
     window.wbStand = function () { return wbKampf.karte; };
+    // Ein Griff fuer die Pruefung: die Karte von aussen setzen, ohne
+    // dafuer durch die Oberflaeche zu muessen.
+    window.wbSetzen = function (aend) {
+      wbKampf = {...wbKampf, karte: {...wbKampf.karte, ...aend}};
+      wbFeldZeichnen(); wbRundeZeichnen();
+    };
 
     // Und dieselbe Karte durch den Filter — genau das, was beim Spieler
     // ankaeme. Sie zeichnet mit, sobald sich am Feld etwas aendert.
@@ -172,6 +178,20 @@
             'Die Spielleitung zeigt die Karte nicht.'));
     }
     window.wbFuerSpieler = function () { return karteFuerSpieler(wbKampf.karte); };
+
+    // Ein erfundener Bodenplan: acht mal fuenf farbige Kacheln, damit
+    // sich am Bild ablesen laesst, ob das Raster darauf passt.
+    window.wbPlan = function (b, h) {
+      b = b || 8; h = h || 5;
+      var c = document.createElement('canvas');
+      c.width = b * 40; c.height = h * 40;
+      var g = c.getContext('2d');
+      for (var y = 0; y < h; y++) for (var x = 0; x < b; x++) {
+        g.fillStyle = ((x + y) % 2) ? '#7a5c3a' : '#3f5a44';
+        g.fillRect(x * 40, y * 40, 40, 40);
+      }
+      return c.toDataURL('image/png');
+    };
     wbRundeZeichnen();
 
     // Was der Kopierknopf in die Zwischenablage legt.
