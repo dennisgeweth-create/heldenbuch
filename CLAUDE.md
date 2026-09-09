@@ -24,6 +24,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2f6-poker.jsx` | Ultimate Texas Hold’em — Blattbewertung, Tafel, Abrechnung |
 | ↳ `2f7-walzen.jsx` | Fünfwalzen-Gerüst: zehn Linien, Bänder, Wild, Streuzeichen, Rechnung |
 | ↳ `2f8-buch.jsx` | „Das Verschollene Kapitel“ — gelostes Sonderzeichen, das ganze Walzen füllt |
+| ↳ `2f9-arena.jsx` | „Klinge und Hörner“ — klebende Wilds in zehn Freispielen |
 | ↳ `2h-proben.jsx` | Proben auf Ansage — Balken und Ansagefenster |
 | ↳ `2i-beute.jsx` | Beute — hinlegen, nehmen, in die Bögen eintragen |
 | ↳ `2j-laden.jsx` | Laden — Auslage, kaufen, verkaufen |

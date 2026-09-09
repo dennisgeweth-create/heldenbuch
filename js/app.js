@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -7524,6 +7524,15 @@ const TAVERNEN_TISCHE = [{
   da: true,
   breit: 460,
   weit: 560
+}, {
+  k: 'arena',
+  z: '🗡',
+  name: 'Klinge und Hörner',
+  unter: 'Die Arena unter der Stadt — im Freispiel bleibt jede Klinge stecken',
+  walze: true,
+  da: true,
+  breit: 460,
+  weit: 560
 }];
 
 // Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
@@ -7870,6 +7879,11 @@ const TaverneSchirm = ({
     zahlen: zahlen,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'buch' ? /*#__PURE__*/React.createElement(BuchTisch, {
+    cfg: cfgTisch,
+    marken: marken,
+    zahlen: zahlen,
+    onLaeuft: setLaeuft
+  }) : jetzt && jetzt.k === 'arena' ? /*#__PURE__*/React.createElement(ArenaTisch, {
     cfg: cfgTisch,
     marken: marken,
     zahlen: zahlen,
@@ -11542,9 +11556,12 @@ const WalzenSchirm = ({
   const reihe = i - (W_BAND - W_REIHEN);
   const nr = reihe >= 0 ? reihe * W_WALZEN + walze : -1;
   const s = wSymbol(k, symbole);
+  // Ein Feld kann beides sein: ein Treffer und ein Zeichen, das
+  // stehenbleibt. Dann gilt der Treffer — er sagt, was gerade
+  // passiert ist, das Kleben nur, was bleibt.
   return /*#__PURE__*/React.createElement("div", {
     key: i,
-    className: 'walzen-zelle' + (leuchtet && leuchtet.has(nr) ? ' treffer' : '') + (klebt && klebt.has(nr) ? ' klebt' : '')
+    className: 'walzen-zelle' + (leuchtet && leuchtet.has(nr) ? ' treffer' : klebt && klebt.has(nr) ? ' klebt' : '')
   }, /*#__PURE__*/React.createElement("span", null, s ? s.z : '·'));
 })))));
 
@@ -11629,11 +11646,11 @@ const BUCH_MINDEST = 3; // so oft muss das Sonderzeichen liegen
 // Sprung vom Vierer zum Fuenfer, der die Schwankung macht.
 //
 // Die Zahlen sind Vielfache des LINIENeinsatzes, und der ist ein Zehntel
-// dessen, was auf der Leiste steht. Sie stehen so da, wie sie gemessen
-// wurden: 800.000 stille Drehungen ergeben 94,9 % Auszahlung, davon 45 %
-// aus der Freispielrunde. Die Runde faellt etwa jede 117. Drehung.
+// dessen, was auf der Leiste steht. Mit ihnen zahlt der Automat 95,2 %
+// aus, davon 45 % aus der Freispielrunde; die faellt etwa jede 117.
+// Drehung. Gemessen, nicht geschaetzt — die Tafel dazu steht unten.
 //
-// Wer sie verstellt, verstellt die Quote — sie steht am Tisch, und zwar
+// Wer sie verstellt, verstellt die Quote. Sie steht am Tisch, und zwar
 // die erreichte und nicht die gewuenschte.
 const BUCH_SYMBOLE = [{
   k: 'graeber',
@@ -11756,12 +11773,18 @@ const buchOhne = (symbole, k) => symbole.map(s => s.k === k ? {
 const buchDreh = (feld, symbole, einsatz, sonderK) => {
   const le = wLinieneinsatz(einsatz);
   const streu = [];
-  // Die Buecher zaehlen immer auf dem gezogenen Feld, nie auf dem
-  // ausgefuellten: sonst zaehlte eine mit Buechern gefuellte Walze neun
-  // Buecher, und dafuer steht in der Tafel nichts.
+  // Zwei Regeln fuer die Buecher, beide erfahren:
+  //
+  // Sie zaehlen immer auf dem gezogenen Feld, nie auf dem ausgefuellten —
+  // sonst zaehlte eine mit Buechern gefuellte Walze neun davon, und
+  // dafuer steht in der Tafel nichts.
+  //
+  // Und vermerkt wird nur, was zahlt oder oeffnet. Ein einzelnes Buch
+  // liegt fast jede dritte Drehung irgendwo; es leuchtete dann auf, als
+  // haette es etwas eingebracht, und in der Meldung stuende „1 Bücher".
   symbole.filter(s => s.streu).forEach(s => {
     const e = wStreuWerten(feld, s, einsatz);
-    if (e.anzahl > 0) streu.push(e);
+    if (e.betrag > 0 || e.anzahl >= BUCH_AUSLOESER) streu.push(e);
   });
   const walzen = sonderK ? wWalzenMit(feld, sonderK) : [];
   const dehnt = walzen.length >= BUCH_MINDEST;
@@ -12135,11 +12158,11 @@ const BuchTisch = ({
     className: "leise"
   }, "Nichts. Nochmal."), ergebnis && ergebnis.streu.length > 0 && !laeuft && /*#__PURE__*/React.createElement("span", {
     className: "vollbild"
-  }, ergebnis.streu[0].anzahl, " B\xFCcher"), frei && frei.neu > 0 && !laeuft && /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDCDC ", ergebnis.streu[0].anzahl === 2 ? 'Zwei Bücher' : ergebnis.streu[0].anzahl + ' Bücher!'), frei && frei.neu > 0 && !laeuft && /*#__PURE__*/React.createElement("span", {
     className: "freidreh"
   }, "+", frei.neu, " nachgelegt")), frei && frei.uebrig <= 0 && /*#__PURE__*/React.createElement("div", {
     className: "frei-schluss"
-  }, "Die Runde ist zu Ende. Zusammen ", /*#__PURE__*/React.createElement("b", null, frei.gesamt), ".", /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("span", null, "Die Runde ist zu Ende. Zusammen ", /*#__PURE__*/React.createElement("b", null, frei.gesamt), "."), /*#__PURE__*/React.createElement("button", {
     className: "risiko-knopf",
     onClick: () => setFrei(null)
   }, "Verstanden")), /*#__PURE__*/React.createElement("div", {
@@ -12171,6 +12194,478 @@ const BuchTisch = ({
     kinder: /*#__PURE__*/React.createElement("p", {
       className: "automat-fussnote"
     }, /*#__PURE__*/React.createElement("b", null, "Das Kapitel"), " \u2014 ", BUCH_AUSLOESER, " B\xFCcher irgendwo auf dem Feld \xF6ffnen", ' ', BUCH_FREISPIELE, " Freispiele. Vorher bl\xE4ttert das Buch und bleibt bei einem Zeichen stehen. Liegt dieses Zeichen im Freispiel auf ", BUCH_MINDEST, ' ', "Walzen oder mehr, f\xFCllt es sie ganz aus und zahlt \xFCber alle zehn Linien \u2014 auch dann, wenn die Walzen nicht nebeneinander liegen. Drei B\xFCcher im Freispiel legen ", BUCH_FREISPIELE, " nach.")
+  })));
+};
+
+// ==== js/src/2f9-arena.jsx ====
+// Heldenbuch — „Klinge und Hörner", der zweite der drei
+// Fuenfwalzenautomaten.
+//
+// Die Arena unter der Stadt: der Minotaurus, und was von den Klingen im
+// Sand steckenbleibt. Drei Hoerner auf Walze 1, 3 und 5 oeffnen zehn
+// Freispiele, und darin bleibt jede Klinge, die faellt, bis zum letzten
+// Dreh stehen. Sie sammeln sich an — der siebte Freidreh wird auf einem
+// Feld gespielt, auf dem schon vier Klingen kleben.
+//
+// Nachladen gibt es nicht. Die Runde ist nach zehn Drehungen zu Ende,
+// egal was faellt. Das ist Absicht und nicht Sparsamkeit: eine Runde,
+// die sich selbst verlaengert, muesste kleiner anfangen.
+//
+// Die Tafel ist flach, und auch das ist Absicht. Der hoechste Treffer
+// zahlt 450, wo das Verschollene Kapitel 2000 zahlt — dafuer trifft
+// dieser Automat oefter. Er verdient sein Geld nicht am einen grossen
+// Dreh, sondern an vielen mittleren und an der Runde, in der die Klingen
+// sich sammeln. Zwei Automaten mit derselben Quote koennen sich sehr
+// verschieden anfuehlen, und genau das ist der Grund, drei zu bauen.
+
+const ARENA_FREISPIELE = 10;
+const ARENA_AUSLOESER = 3; // drei Hoerner, und die liegen nur auf 1, 3, 5
+
+// ── Die Tafel ────────────────────────────────────────────────────
+// Flach, mit dem Wild an der Spitze. Die Zahlen sind Vielfache des
+// LINIENeinsatzes; der ist ein Zehntel dessen, was auf der Leiste steht.
+const ARENA_SYMBOLE = [{
+  k: 'klinge',
+  z: '🗡️',
+  name: 'Die Klinge',
+  wild: true,
+  zahlt: {
+    3: 45,
+    4: 135,
+    5: 450
+  }
+}, {
+  k: 'fechterin',
+  z: '💃',
+  name: 'Die Fechterin',
+  zahlt: {
+    3: 22,
+    4: 90,
+    5: 225
+  }
+}, {
+  k: 'rose',
+  z: '🌹',
+  name: 'Die Rose',
+  zahlt: {
+    3: 13,
+    4: 45,
+    5: 115
+  }
+}, {
+  k: 'trommel',
+  z: '🪘',
+  name: 'Die Trommel',
+  zahlt: {
+    3: 13,
+    4: 45,
+    5: 115
+  }
+}, {
+  k: 'schild',
+  z: '🛡️',
+  name: 'Der Schild',
+  zahlt: {
+    3: 13,
+    4: 45,
+    5: 115
+  }
+}, {
+  k: 'becher',
+  z: '🍷',
+  name: 'Der Becher',
+  zahlt: {
+    3: 4,
+    4: 9,
+    5: 24
+  }
+}, {
+  k: 'glocke',
+  z: '🔔',
+  name: 'Die Glocke',
+  zahlt: {
+    3: 4,
+    4: 9,
+    5: 24
+  }
+}, {
+  k: 'handschuh',
+  z: '🧤',
+  name: 'Der Handschuh',
+  zahlt: {
+    3: 4,
+    4: 9,
+    5: 24
+  }
+}, {
+  k: 'kette',
+  z: '⛓️',
+  name: 'Die Kette',
+  zahlt: {
+    3: 4,
+    4: 9,
+    5: 24
+  }
+},
+// Die Hoerner zahlen selbst nichts — sie oeffnen nur. Die leere Tafel
+// steht trotzdem da, sonst waeren sie kein Streuzeichen und wuerden
+// nirgends gezaehlt.
+{
+  k: 'hoerner',
+  z: '🐂',
+  name: 'Die Hörner',
+  streu: {
+    3: 0
+  },
+  streuWalzen: [0, 2, 4]
+}];
+
+// ── Die Baender ──────────────────────────────────────────────────
+// Zwei verschiedene: die Hoerner liegen nur auf Walze 1, 3 und 5. Das
+// steht damit zweimal fest — im Band, das sie sonst nirgends fuehrt, und
+// in der Regel `streuWalzen`. Das ist keine Doppelung aus Versehen: das
+// Band sagt, wo ein Zeichen liegt, die Regel sagt, wie es zaehlt, und
+// wer eines von beiden aendert, soll nicht versehentlich das andere
+// mitaendern.
+//
+// Vier Hoerner auf sechzig Plaetzen heisst 20 % je Walze; alle drei
+// zusammen kommen damit etwa jede 125. Drehung.
+const ARENA_BANDLAENGE = 60;
+const ARENA_MIT_HOERNERN = {
+  klinge: 3,
+  fechterin: 5,
+  rose: 6,
+  trommel: 6,
+  schild: 6,
+  becher: 7,
+  glocke: 7,
+  handschuh: 8,
+  kette: 8,
+  hoerner: 4
+};
+const ARENA_OHNE_HOERNER = {
+  klinge: 3,
+  fechterin: 5,
+  rose: 6,
+  trommel: 6,
+  schild: 6,
+  becher: 8,
+  glocke: 8,
+  handschuh: 9,
+  kette: 9
+};
+const ARENA_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(w % 2 === 0 ? ARENA_MIT_HOERNERN : ARENA_OHNE_HOERNER, ARENA_BANDLAENGE, w * 0.2 + 0.05));
+
+// ── Die klebenden Klingen ────────────────────────────────────────
+// Eine Liste von Feldnummern, mehr ist die ganze Regel nicht. Vor dem
+// Werten werden sie ins gezogene Feld gesetzt, danach kommen die neu
+// gefallenen dazu.
+//
+// Die Reihenfolge ist wichtig: eine Klinge, die gerade erst gefallen
+// ist, zaehlt schon in diesem Dreh mit und bleibt danach. Andersherum
+// waere sie einen Dreh lang unsichtbar.
+const arenaKleben = (feld, klebt) => {
+  if (!klebt || !klebt.length) return feld;
+  const neu = feld.slice();
+  klebt.forEach(i => {
+    neu[i] = 'klinge';
+  });
+  return neu;
+};
+const arenaKlingen = feld => {
+  const raus = [];
+  for (let i = 0; i < W_FELDER; i++) if (feld[i] === 'klinge') raus.push(i);
+  return raus;
+};
+
+// Wie viele Hoerner liegen — und die zaehlen je Walze nur einmal und nur
+// auf 1, 3 und 5. Das macht den Ausloeser seltener, als er aussieht.
+const arenaZahl = (feld, symbole) => wStreuZahl(feld, symbole, 'hoerner');
+
+// ── Ein Dreh ─────────────────────────────────────────────────────
+const arenaDreh = (feld, symbole, einsatz, klebt) => {
+  const bild = arenaKleben(feld, klebt);
+  const le = wLinieneinsatz(einsatz);
+  const treffer = [];
+  let gewinn = 0;
+  W_LINIEN.forEach((linie, nr) => {
+    const t = wLinieWerten(bild, linie, symbole, le);
+    if (!t) return;
+    gewinn += t.betrag;
+    treffer.push({
+      nr,
+      name: linie.name,
+      ...t
+    });
+  });
+  // Nur, was oeffnet, wird vermerkt. Ein einzelnes Horn liegt fast jede
+  // dritte Drehung irgendwo; es leuchtete dann auf, als waere etwas
+  // passiert, und passiert ist nichts.
+  const streu = [];
+  symbole.filter(s => s.streu).forEach(s => {
+    const e = wStreuWerten(bild, s, einsatz);
+    if (e.betrag > 0 || e.anzahl >= ARENA_AUSLOESER) streu.push(e);
+  });
+  return {
+    feld: bild,
+    roh: feld,
+    gewinn,
+    treffer,
+    streu,
+    klebt: arenaKlingen(bild)
+  };
+};
+
+// ── Die Rechnung ─────────────────────────────────────────────────
+const arenaFreiLauf = (symbole, baender, zufall) => (feld, z) => {
+  const r = zufall || Math.random;
+  if (arenaZahl(feld, symbole) < ARENA_AUSLOESER) return;
+  let klebt = [];
+  for (let i = 0; i < ARENA_FREISPIELE; i++) {
+    const bild = arenaKleben(wZiehen(baender, r), klebt);
+    wZaehlenLinien(z, bild, symbole);
+    klebt = arenaKlingen(bild);
+  }
+};
+const arenaMessen = (symbole, baender, drehungen, zufall) => wMessen({
+  symbole,
+  baender,
+  freiLauf: arenaFreiLauf(symbole, baender, zufall)
+}, drehungen, zufall);
+
+// ── Die gemessene Tafel ──────────────────────────────────────────
+// Einmal in der Werkbank gemessen, hier als Konstante; der Browser
+// rechnet daraus nur noch das Skalarprodukt. Wer die Baender aendert,
+// muss neu messen — wer die Auszahlungen aendert, nicht.
+// Gemessen mit 12.000.000 stillen Drehungen; die Zahlen sind Treffer je
+// Drehung. Die Runde faellt damit etwa jede 125. Drehung.
+const ARENA_HAEUFIGKEIT = {
+  drehungen: 1,
+  linie: {
+    becher: {
+      3: 0.05272,
+      4: 0.01236,
+      5: 0.004677
+    },
+    fechterin: {
+      3: 0.02738,
+      4: 0.006087,
+      5: 0.002893
+    },
+    glocke: {
+      3: 0.05281,
+      4: 0.01234,
+      5: 0.004662
+    },
+    handschuh: {
+      3: 0.0671,
+      4: 0.01659,
+      5: 0.006366
+    },
+    kette: {
+      3: 0.067,
+      4: 0.01651,
+      5: 0.006403
+    },
+    klinge: {
+      3: 0.007774,
+      4: 0.003609,
+      5: 0.002128
+    },
+    rose: {
+      3: 0.03731,
+      4: 0.00858,
+      5: 0.003512
+    },
+    schild: {
+      3: 0.0374,
+      4: 0.008471,
+      5: 0.003508
+    },
+    trommel: {
+      3: 0.03744,
+      4: 0.008526,
+      5: 0.003505
+    }
+  },
+  streu: {
+    hoerner: {
+      1: 0.384,
+      2: 0.0961,
+      3: 0.008011
+    }
+  }
+};
+
+// ── Der Tisch ────────────────────────────────────────────────────
+const ArenaTisch = ({
+  cfg,
+  marken,
+  zahlen,
+  onLaeuft
+}) => {
+  const symbole = React.useMemo(() => wSymboleAus(ARENA_SYMBOLE, cfg && cfg.arenaSymbole), [cfg]);
+  const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  const [einsatz, setEinsatz] = React.useState(() => einsaetze[Math.min(1, einsaetze.length - 1)]);
+  const [feld, setFeld] = React.useState(() => wZiehen(ARENA_BAENDER, Math.random));
+  const [baender, setBaender] = React.useState(() => [0, 1, 2, 3, 4].map(w => wBandBauen(feld, w, symbole, Math.random)));
+  const [dreh, setDreh] = React.useState(0);
+  const [ergebnis, setErgebnis] = React.useState(null);
+  const [frei, setFrei] = React.useState(null); // {uebrig, gesamt, klebt}
+  const [riskierbar, setRiskierbar] = React.useState(0);
+  const [risiko, setRisiko] = React.useState(null);
+  const {
+    laeuft,
+    starten
+  } = useWalzenLauf();
+  const zeigeLinie = useLinienWechsel(ergebnis && ergebnis.treffer);
+  const zaehler = useHochzaehler(ergebnis ? Math.round(ergebnis.gewinn) : 0);
+  React.useEffect(() => {
+    if (onLaeuft) onLaeuft(laeuft);
+  }, [laeuft]);
+  React.useEffect(() => {
+    if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
+  }, [einsaetze]);
+  const quote = React.useMemo(() => wQuote(ARENA_HAEUFIGKEIT, symbole), [symbole]);
+  const imFrei = !!(frei && frei.uebrig > 0);
+  const kannDrehen = !laeuft && !risiko && (imFrei || marken >= einsatz);
+  const drehen = () => {
+    if (!kannDrehen) return;
+    const gezogen = wZiehen(ARENA_BAENDER, Math.random);
+    const e = arenaDreh(gezogen, symbole, einsatz, imFrei ? frei.klebt : null);
+    const hoerner = arenaZahl(gezogen, symbole);
+    const gewinn = Math.round(e.gewinn);
+
+    // Sofort buchen, danach zeigen — der Ausgang steht fest, sobald
+    // gezogen wurde.
+    zahlen((imFrei ? 0 : -einsatz) + gewinn);
+    setFeld(e.feld);
+    setBaender([0, 1, 2, 3, 4].map(w => wBandBauen(e.feld, w, symbole, Math.random)));
+    setErgebnis(null);
+    setRiskierbar(0);
+    setRisiko(null);
+    setDreh(d => d + 1);
+    starten(() => {
+      setErgebnis({
+        ...e,
+        gewinn
+      });
+      setRiskierbar(imFrei ? 0 : gewinn);
+      if (imFrei) {
+        setFrei(f => f && {
+          ...f,
+          uebrig: f.uebrig - 1,
+          gesamt: f.gesamt + gewinn,
+          klebt: e.klebt
+        });
+      } else if (hoerner >= ARENA_AUSLOESER) {
+        // Die Runde faengt mit leerem Sand an: was im Ausloeser lag,
+        // klebt noch nicht.
+        setFrei({
+          uebrig: ARENA_FREISPIELE,
+          gesamt: 0,
+          klebt: []
+        });
+      }
+    });
+  };
+  const risikoStarten = art => {
+    const gesamt = riskierbar;
+    if (gesamt <= 0 || risiko) return;
+    zahlen(-gesamt);
+    setRiskierbar(0);
+    setRisiko({
+      art,
+      betrag: gesamt,
+      stufe: 0,
+      aus: false,
+      letztes: null,
+      laeuft: art === 'leiter',
+      pos: 0,
+      ziel: Math.floor(Math.random() * LEITER_FELDER),
+      gezogen: null
+    });
+  };
+  const leuchtet = laeuft ? new Set() : wLeuchtet(ergebnis, zeigeLinie);
+  // Gezeigt wird, was nach diesem Dreh steckt — auch die Klinge, die
+  // gerade erst gefallen ist.
+  const klebt = React.useMemo(() => new Set(!laeuft && imFrei && ergebnis ? ergebnis.klebt : []), [laeuft, imFrei, ergebnis]);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, risiko && /*#__PURE__*/React.createElement(RisikoFenster, {
+    risiko: risiko,
+    setRisiko: setRisiko,
+    onNehmen: b => {
+      zahlen(b);
+      setRisiko(null);
+    },
+    onSchliessen: () => setRisiko(null)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "automat-mitte aut-mitte"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "automat-kasten walzen-kasten"
+  }, frei && /*#__PURE__*/React.createElement("div", {
+    className: "frei-leiste"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "frei-zeichen"
+  }, "\uD83D\uDDE1\uFE0F"), /*#__PURE__*/React.createElement("span", {
+    className: "frei-text"
+  }, /*#__PURE__*/React.createElement("b", null, frei.klebt.length, " ", frei.klebt.length === 1 ? 'Klinge steckt' : 'Klingen stecken'), /*#__PURE__*/React.createElement("i", null, "sie bleiben bis zum letzten Dreh")), /*#__PURE__*/React.createElement("span", {
+    className: "frei-zahl"
+  }, frei.uebrig > 0 ? frei.uebrig : 0, /*#__PURE__*/React.createElement("i", null, frei.uebrig === 1 ? 'Freispiel' : 'Freispiele'))), /*#__PURE__*/React.createElement(WalzenSchirm, {
+    baender: baender,
+    symbole: symbole,
+    dreh: dreh,
+    laeuft: laeuft,
+    leuchtet: leuchtet,
+    klebt: klebt
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "automat-meldung",
+    "aria-live": "polite"
+  }, laeuft ? /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, "\u2026") : !ergebnis ? /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, "Einsatz w\xE4hlen und drehen.") : ergebnis.gewinn > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", {
+    className: "gewinn"
+  }, "+", zaehler), /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, ergebnis.treffer.length > 1 && zeigeLinie >= 0 ? ergebnis.treffer[zeigeLinie].name + ' · ' + ergebnis.treffer[zeigeLinie].sym.name + ' ×' + ergebnis.treffer[zeigeLinie].laenge + '  (' + (zeigeLinie + 1) + ' von ' + ergebnis.treffer.length + ')' : ergebnis.treffer.map(t => t.name + ' · ' + t.sym.name).join('   '))) : /*#__PURE__*/React.createElement("span", {
+    className: "leise"
+  }, "Nichts. Nochmal."), ergebnis && !laeuft && ergebnis.streu.length > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "vollbild"
+  }, "\uD83D\uDC02 Die H\xF6rner!")), frei && frei.uebrig <= 0 && /*#__PURE__*/React.createElement("div", {
+    className: "frei-schluss"
+  }, /*#__PURE__*/React.createElement("span", null, "Der Sand wird geharkt. Zusammen ", /*#__PURE__*/React.createElement("b", null, frei.gesamt), "."), /*#__PURE__*/React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => setFrei(null)
+  }, "Verstanden")), /*#__PURE__*/React.createElement("div", {
+    className: "automat-einsatz"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "automat-label"
+  }, "Einsatz"), einsaetze.map(n => /*#__PURE__*/React.createElement("button", {
+    key: n,
+    className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
+    disabled: imFrei,
+    onClick: () => setEinsatz(n)
+  }, n))), /*#__PURE__*/React.createElement("button", {
+    className: 'automat-hebel' + (imFrei ? ' frei' : ''),
+    disabled: !kannDrehen,
+    onClick: drehen
+  }, laeuft ? 'Läuft…' : imFrei ? '🗡️ Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), riskierbar > 0 && !laeuft && !risiko && !imFrei && /*#__PURE__*/React.createElement("div", {
+    className: "risiko-angebot"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "risiko-angebot-text"
+  }, riskierbar, " setzen?"), /*#__PURE__*/React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => risikoStarten('leiter')
+  }, "\uD83E\uDE9C Leiter"), /*#__PURE__*/React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => risikoStarten('karte')
+  }, "\uD83C\uDCA0 Rabe oder Rose"))), /*#__PURE__*/React.createElement(WalzenTafel, {
+    symbole: symbole,
+    quote: quote,
+    kinder: /*#__PURE__*/React.createElement("p", {
+      className: "automat-fussnote"
+    }, /*#__PURE__*/React.createElement("b", null, "Der Sand"), " \u2014 ", ARENA_AUSLOESER, " H\xF6rner auf Walze 1, 3 und 5 \xF6ffnen", ' ', ARENA_FREISPIELE, " Freispiele. Anderswo liegen die H\xF6rner nicht, und je Walze z\xE4hlt eines. In den Freispielen bleibt jede Klinge, die f\xE4llt, bis zum letzten Dreh stehen und sammelt sich mit den anderen. Nachgelegt wird nicht: nach ", ARENA_FREISPIELE, " Drehungen ist die Runde zu Ende, gleich was f\xE4llt.")
   })));
 };
 

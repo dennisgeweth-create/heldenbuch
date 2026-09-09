@@ -1074,6 +1074,9 @@ const TAVERNEN_TISCHE = [
   {k:'buch',      z:'🕮', name:'Das Verschollene Kapitel',
    unter:'Fünf Walzen, zehn Linien — drei Bücher schlagen ein Kapitel auf',
    walze:true, da:true, breit:460, weit:560},
+  {k:'arena',     z:'🗡', name:'Klinge und Hörner',
+   unter:'Die Arena unter der Stadt — im Freispiel bleibt jede Klinge stecken',
+   walze:true, da:true, breit:460, weit:560},
 ];
 
 // Die Hausregeln. Nichts eingetragen heisst: so, wie das Regelwerk es
@@ -1349,6 +1352,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
         <PokerTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'buch' ? (
         <BuchTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+      ) : jetzt && jetzt.k === 'arena' ? (
+        <ArenaTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />

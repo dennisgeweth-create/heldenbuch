@@ -24,11 +24,11 @@ const BUCH_MINDEST    = 3;     // so oft muss das Sonderzeichen liegen
 // Sprung vom Vierer zum Fuenfer, der die Schwankung macht.
 //
 // Die Zahlen sind Vielfache des LINIENeinsatzes, und der ist ein Zehntel
-// dessen, was auf der Leiste steht. Sie stehen so da, wie sie gemessen
-// wurden: 800.000 stille Drehungen ergeben 94,9 % Auszahlung, davon 45 %
-// aus der Freispielrunde. Die Runde faellt etwa jede 117. Drehung.
+// dessen, was auf der Leiste steht. Mit ihnen zahlt der Automat 95,2 %
+// aus, davon 45 % aus der Freispielrunde; die faellt etwa jede 117.
+// Drehung. Gemessen, nicht geschaetzt — die Tafel dazu steht unten.
 //
-// Wer sie verstellt, verstellt die Quote — sie steht am Tisch, und zwar
+// Wer sie verstellt, verstellt die Quote. Sie steht am Tisch, und zwar
 // die erreichte und nicht die gewuenschte.
 const BUCH_SYMBOLE = [
   {k:'graeber',  z:'🧭', name:'Der Gräber',            zahlt:{2:2, 3:40, 4:400, 5:2000}},
@@ -69,12 +69,18 @@ const buchOhne = (symbole, k) => symbole.map(s => s.k === k ? {...s, zahlt: null
 const buchDreh = (feld, symbole, einsatz, sonderK) => {
   const le = wLinieneinsatz(einsatz);
   const streu = [];
-  // Die Buecher zaehlen immer auf dem gezogenen Feld, nie auf dem
-  // ausgefuellten: sonst zaehlte eine mit Buechern gefuellte Walze neun
-  // Buecher, und dafuer steht in der Tafel nichts.
+  // Zwei Regeln fuer die Buecher, beide erfahren:
+  //
+  // Sie zaehlen immer auf dem gezogenen Feld, nie auf dem ausgefuellten —
+  // sonst zaehlte eine mit Buechern gefuellte Walze neun davon, und
+  // dafuer steht in der Tafel nichts.
+  //
+  // Und vermerkt wird nur, was zahlt oder oeffnet. Ein einzelnes Buch
+  // liegt fast jede dritte Drehung irgendwo; es leuchtete dann auf, als
+  // haette es etwas eingebracht, und in der Meldung stuende „1 Bücher".
   symbole.filter(s => s.streu).forEach(s => {
     const e = wStreuWerten(feld, s, einsatz);
-    if (e.anzahl > 0) streu.push(e);
+    if (e.betrag > 0 || e.anzahl >= BUCH_AUSLOESER) streu.push(e);
   });
 
   const walzen = sonderK ? wWalzenMit(feld, sonderK) : [];
@@ -362,7 +368,8 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             )}
             {ergebnis && ergebnis.streu.length > 0 && !laeuft && (
               <span className="vollbild">
-                {ergebnis.streu[0].anzahl} Bücher
+                📜 {ergebnis.streu[0].anzahl === 2 ? 'Zwei Bücher'
+                    : ergebnis.streu[0].anzahl + ' Bücher!'}
               </span>
             )}
             {frei && frei.neu > 0 && !laeuft && (
@@ -372,7 +379,7 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
 
           {frei && frei.uebrig <= 0 && (
             <div className="frei-schluss">
-              Die Runde ist zu Ende. Zusammen <b>{frei.gesamt}</b>.
+              <span>Die Runde ist zu Ende. Zusammen <b>{frei.gesamt}</b>.</span>
               <button className="risiko-knopf" onClick={()=>setFrei(null)}>Verstanden</button>
             </div>
           )}

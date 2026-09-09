@@ -211,13 +211,24 @@ unten, „Die Rechnung").
 *Die Arena unter der Stadt. Der Minotaurus, und was von den Klingen im
 Sand steckenbleibt.*
 
+So gebaut (Vielfaches des **Linien**einsatzes):
+
 | Zeichen | 3 | 4 | 5 |
 |---|--:|--:|--:|
-| 🗡️ **Die Klinge** — Wild, ersetzt alles außer den Hörnern | 10 | 30 | 100 |
-| 💃 Die Fechterin | 5 | 20 | 50 |
-| 🌹 Die Rose · 🪘 Die Trommel · 🛡️ Der Schild | 3 | 10 | 25 |
-| 🍷 🔔 🧤 ⛓️ Becher · Glocke · Handschuh · Kette | 1 | 2 | 5 |
-| 🐂 **Die Hörner** — Scatter auf Walze 1, 3 und 5 → zehn Freispiele | | | |
+| 🗡️ **Die Klinge** — Wild, ersetzt alles außer den Hörnern | 45 | 135 | 450 |
+| 💃 Die Fechterin | 22 | 90 | 225 |
+| 🌹 Die Rose · 🪘 Die Trommel · 🛡️ Der Schild | 13 | 45 | 115 |
+| 🍷 🔔 🧤 ⛓️ Becher · Glocke · Handschuh · Kette | 4 | 9 | 24 |
+| 🐂 **Die Hörner** — nur auf Walze 1, 3 und 5, je Walze eines → zehn Freispiele | – | – | – |
+
+Zwei verschiedene Bänder: die Hörner liegen nur auf den Walzen 1, 3 und
+5, dort viermal je sechzig Plätzen. Die Runde fällt etwa jede **125.
+Drehung**. Gemessen mit zwölf Millionen stillen Drehungen: **94,2 %** —
+genau die Quote des Vorbilds, und einen Punkt unter dem Kapitel.
+
+Zwei Automaten mit fast derselben Quote fühlen sich sehr verschieden an:
+der höchste Treffer zahlt hier 450, im Kapitel 2.000 — dafür trifft
+dieser öfter. Genau das ist der Grund, drei zu bauen statt einen.
 
 Jede Klinge, die im Freispiel fällt, **bleibt stecken** bis zum letzten
 Dreh. Kein Nachladen. Die flache Tafel bleibt flach — hier zahlt die
@@ -284,9 +295,9 @@ gelostes Zeichen, ein Zähler, eine Ausdehnungsregel. An ihm zeigt sich,
 ob das Gerüst trägt. Neu dazu nur: das Blättern vor der Runde, die
 gefüllte Walze, und die Wertung ohne Nachbarschaft.
 
-## Stufe 10 · 🗡️ Klinge und Hörner
+## Stufe 10 · 🗡️ Klinge und Hörner ✓
 
-Der zweite, weil er das Gerüst am wenigsten fordert: klebende Felder
+*Steht.* Der zweite, weil er das Gerüst am wenigsten fordert: klebende Felder
 sind eine Liste von Positionen, die vor dem Ziehen wieder eingesetzt
 wird. Zehn Zeilen Regel. Er bringt dafür die **Scatter-Bedingung je
 Walze** mit, die das Gerüst noch nicht kann.

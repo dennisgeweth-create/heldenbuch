@@ -465,10 +465,13 @@ const WalzenSchirm = ({ baender, symbole, dreh, laeuft, leuchtet, klebt, gefuell
             const reihe = i - (W_BAND - W_REIHEN);
             const nr = reihe >= 0 ? reihe * W_WALZEN + walze : -1;
             const s = wSymbol(k, symbole);
+            // Ein Feld kann beides sein: ein Treffer und ein Zeichen, das
+            // stehenbleibt. Dann gilt der Treffer — er sagt, was gerade
+            // passiert ist, das Kleben nur, was bleibt.
             return (
               <div key={i} className={'walzen-zelle'
-                  + (leuchtet && leuchtet.has(nr) ? ' treffer' : '')
-                  + (klebt && klebt.has(nr) ? ' klebt' : '')}>
+                  + (leuchtet && leuchtet.has(nr) ? ' treffer'
+                     : klebt && klebt.has(nr) ? ' klebt' : '')}>
                 <span>{s ? s.z : '·'}</span>
               </div>
             );
