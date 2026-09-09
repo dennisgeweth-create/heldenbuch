@@ -1809,7 +1809,6 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
   const [zugFenster, setZugFenster] = React.useState(null);   // {id, ansage}
-  const [ansagenOffen, setAnsagenOffen] = React.useState(false);
   // Auf dem Telefon traegt jede Zeile sonst ihren ganzen Tastenblock —
   // fuenf Figuren sind dann fast zwei Bildschirme, ohne dass man die
   // Reihenfolge sieht. Aufgeklappt ist, wer dran ist, und was man antippt.
@@ -2296,13 +2295,6 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               {kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'}
             </button>
           )}
-          {(ansagen || []).length > 0 && (
-            <button className={"kampf-kopf-btn ansage" + (ansagenOffen ? " an" : "")}
-              onClick={()=>setAnsagenOffen(o=>!o)}
-              title="Was die Runde angesagt hat">
-              📣 Ansagen · {(ansagen || []).length}
-            </button>
-          )}
           <button className={"kampf-kopf-btn zusatz" + (protokollOffen ? " an" : "")}
             onClick={()=>setProtokollOffen(o=>!o)}
             title="Was in diesem Kampf geschehen ist">
@@ -2336,11 +2328,18 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
         </div>
 
-        {ansagenOffen && (ansagen || []).length > 0 && (
+        {/* Was die Runde angesagt hat, steht offen da. Es lag bis v5.1
+            hinter einem Knopf, und damit sah die Spielleitung erst nach
+            einem Griff, dass jemand etwas vorhat — bei einer Sache, die
+            genau dann gebraucht wird, wenn man ohnehin schon zwei andere
+            im Kopf hat. Lang werden kann die Liste trotzdem: sie rollt
+            dann in sich selbst und schiebt den Tracker nicht weg. */}
+        {(ansagen || []).length > 0 && (
           <div className="kampf-ansagen">
             <div className="kampf-ansagen-kopf">
-              📣 Angesagt — eintragen füllt das Zugfenster schon aus
+              📣 Angesagt · {(ansagen || []).length} — eintragen füllt das Zugfenster schon aus
             </div>
+            <div className="kampf-ansagen-liste">
             {(ansagen || []).map(a => {
               const held = (helden || []).find(h => h.id === a.charId);
               const zeile = liste.find(x => x.art === 'held' && x.charId === a.charId);
@@ -2355,7 +2354,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                   </span>
                   {zeile && (
                     <button className="btn-icon" title="Ins Zugfenster übernehmen"
-                      onClick={()=>{ setAnsagenOffen(false); setZugFenster({id: zeile.id, ansage: a}); }}>
+                      onClick={()=>setZugFenster({id: zeile.id, ansage: a})}>
                       ✍ Eintragen
                     </button>
                   )}
@@ -2364,6 +2363,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                 </div>
               );
             })}
+            </div>
           </div>
         )}
 

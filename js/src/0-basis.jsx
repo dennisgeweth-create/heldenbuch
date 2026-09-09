@@ -431,3 +431,114 @@ const PatchnotesFenster = ({ onSchliessen }) => {
     </Fenster>
   );
 };
+
+// ── Bilder ablegen ───────────────────────────────────────────────
+// Bis v5.1 gab es an sieben Stellen sieben verschiedene Bildfelder, und
+// alle konnten dasselbe: klicken, Datei suchen, öffnen. Für eine
+// Spielleitung, die mitten im Abend das Bild eines Gegners einsetzen
+// will, sind das drei Griffe zu viel.
+//
+// Hier steht das einmal, und es nimmt drei Wege an:
+//
+//   * hineinziehen — aus dem Dateiverwalter, aus dem Bildbetrachter
+//   * anklicken — der alte Weg, für alle, die ihn gewohnt sind
+//   * einfügen — Strg+V, wenn irgendwo ein Bild kopiert wurde
+//
+// Was NICHT geht: ein Bild aus einer fremden Webseite direkt
+// hereinziehen. Dabei kommt keine Datei an, sondern eine Adresse, und
+// die dürfte der Browser aus Sicherheitsgründen gar nicht in eine
+// Leinwand zeichnen. Kopieren und einfügen geht dafür.
+const BILD_ART = /^image\//;
+
+// Wer zuletzt aufgemacht hat, fängt das Eingefügte. Sonst schriebe ein
+// Strg+V bei zwei offenen Formularen in beide.
+let bildAblageZaehler = 0;
+
+const BildAblage = ({ bild, maxPx, aufschrift, hinweis, hoehe, rund, onBild, onWeg }) => {
+  const [ueber, setUeber] = React.useState(false);
+  const [laeuft, setLaeuft] = React.useState(false);
+  const eingabe = React.useRef(null);
+  const nimmRef = React.useRef(null);
+  const meins = React.useRef(0);
+
+  const nimm = (datei) => {
+    if (!datei) return;
+    if (!BILD_ART.test(datei.type || '')) return;
+    setLaeuft(true);
+    compressImage(datei, maxPx || 800, (daten) => {
+      setLaeuft(false);
+      if (daten) onBild(daten);
+    });
+  };
+  nimmRef.current = nimm;
+
+  React.useEffect(() => {
+    meins.current = ++bildAblageZaehler;
+    const einfuegen = (e) => {
+      // Nur die jüngste Ablage hört zu, und nie, während jemand in ein
+      // Textfeld schreibt — dort ist Strg+V etwas anderes.
+      if (meins.current !== bildAblageZaehler) return;
+      const z = e.target;
+      if (z && /^(INPUT|TEXTAREA|SELECT)$/.test(z.tagName || '')) return;
+      if (z && z.isContentEditable) return;
+      const sachen = (e.clipboardData && e.clipboardData.items) || [];
+      for (let i = 0; i < sachen.length; i++) {
+        if (sachen[i].kind === 'file' && BILD_ART.test(sachen[i].type || '')) {
+          const d = sachen[i].getAsFile();
+          if (d) { e.preventDefault(); nimmRef.current(d); return; }
+        }
+      }
+    };
+    document.addEventListener('paste', einfuegen);
+    return () => document.removeEventListener('paste', einfuegen);
+  }, []);
+
+  const waehlen = () => { if (eingabe.current) eingabe.current.click(); };
+
+  return (
+    <div className={'bild-ablage' + (ueber ? ' ueber' : '') + (bild ? ' voll' : '')
+        + (rund ? ' rund' : '')}
+      style={hoehe ? {minHeight: hoehe} : undefined}
+      role="button" tabIndex={0}
+      title={bild ? 'Anderes Bild — ziehen, klicken oder Strg+V'
+                  : 'Bild hineinziehen, anklicken oder Strg+V'}
+      onClick={waehlen}
+      onKeyDown={(e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); waehlen(); } }}
+      // dragover MUSS abgefangen werden, sonst öffnet der Browser das
+      // Bild in einem neuen Tab und das Formular ist weg.
+      onDragOver={(e)=>{ e.preventDefault(); if (!ueber) setUeber(true); }}
+      onDragEnter={(e)=>{ e.preventDefault(); setUeber(true); }}
+      onDragLeave={(e)=>{ if (!e.currentTarget.contains(e.relatedTarget)) setUeber(false); }}
+      onDrop={(e)=>{
+        e.preventDefault(); setUeber(false);
+        const d = e.dataTransfer;
+        const datei = d && d.files && d.files[0];
+        if (datei) nimm(datei);
+      }}>
+
+      {bild && <img className="bild-ablage-bild" src={bild} alt="" />}
+
+      <div className="bild-ablage-text">
+        {laeuft ? <b>Wird verkleinert…</b>
+          : ueber ? <b>Loslassen</b>
+          : <>
+              <b>{aufschrift || (bild ? '🖼 Anderes Bild' : '📷 Bild')}</b>
+              <i>{hinweis || 'ziehen · klicken · Strg+V'}</i>
+            </>}
+      </div>
+
+      <input ref={eingabe} type="file" accept="image/*" style={{display:'none'}}
+        onChange={(e)=>{
+          const d = e.target.files && e.target.files[0];
+          e.target.value = '';        // damit dieselbe Datei erneut geht
+          nimm(d);
+        }} />
+
+      {bild && onWeg && (
+        <button type="button" className="bild-ablage-weg" title="Bild entfernen"
+          aria-label="Bild entfernen"
+          onClick={(e)=>{ e.stopPropagation(); onWeg(); }}>✕</button>
+      )}
+    </div>
+  );
+};

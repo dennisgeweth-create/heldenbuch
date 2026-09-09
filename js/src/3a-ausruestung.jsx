@@ -112,15 +112,9 @@ const AusruestungsPuppe = () => {
   // Helden vollstaendig zum Server — anders als Inventargegenstaende, die
   // einzeln gespeichert werden. Deshalb 480px lange Kante: angezeigt wird
   // es ohnehin nur handtellergross.
-  const bildWaehlen = (ev) => {
-    const datei = ev.target.files && ev.target.files[0];
-    ev.target.value = '';   // damit dieselbe Datei erneut gewaehlt werden kann
-    if (!datei) return;
-    compressImage(datei, 480, (daten) => {
-      if (daten) patchChar({portrait: daten});
-      else appAlert('Das Bild liess sich nicht lesen.');
-    });
-  };
+  // Verkleinert wird in der Ablage; hier kommt nur noch das fertige
+  // Bild an.
+  const bildSetzen = (daten) => patchChar({portrait: daten});
   const bildEntfernen = () => appConfirm('Bild wirklich entfernen?', () => patchChar({portrait: ''}));
 
   const s = gearPick ? GEAR_SLOTS.find(x => x.key === gearPick) : null;
@@ -144,23 +138,22 @@ const AusruestungsPuppe = () => {
             einem hellen Foto lesbar bleibt. */}
         <div className="gear-mid">
           {cur.portrait ? (
-            <img className="gear-mid-bild" src={cur.portrait} alt={cur.name}
-              onClick={()=>setImgViewer({name:cur.name, imageData:cur.portrait})} />
+            <>
+              <img className="gear-mid-bild" src={cur.portrait} alt={cur.name}
+                onClick={()=>setImgViewer({name:cur.name, imageData:cur.portrait})} />
+              {/* Das Bild bleibt anklickbar zum Ansehen; getauscht wird
+                  über die Werkzeuge daneben. */}
+              <div className="gear-portrait-tools">
+                <BildAblage bild={null} maxPx={480} aufschrift="✎" hinweis=""
+                  hoehe={30} onBild={bildSetzen} />
+                <button className="gear-portrait-btn" onClick={bildEntfernen}
+                  title="Bild entfernen" aria-label="Bild entfernen">✕</button>
+              </div>
+            </>
           ) : (
-            <label className="gear-mid-leer" title="Bild des Helden hochladen">
-              <span className="gear-figur" aria-hidden="true">⚔</span>
-              <span className="gear-portrait-hinweis">📷 Bild wählen</span>
-              <input type="file" accept="image/*" onChange={bildWaehlen} />
-            </label>
-          )}
-          {cur.portrait && (
-            <div className="gear-portrait-tools">
-              <label className="gear-portrait-btn" title="Anderes Bild wählen">
-                ✎<input type="file" accept="image/*" onChange={bildWaehlen} />
-              </label>
-              <button className="gear-portrait-btn" onClick={bildEntfernen}
-                title="Bild entfernen" aria-label="Bild entfernen">✕</button>
-            </div>
+            <BildAblage bild={null} maxPx={480} hoehe={0}
+              aufschrift="📷 Bild wählen" hinweis="ziehen · klicken · Strg+V"
+              onBild={bildSetzen} />
           )}
           <div className="gear-mid-info">
             <div className="gear-mid-name">{cur.name}</div>

@@ -104,6 +104,18 @@ die stärkste im Haus und darf deshalb die seltenste sein.
   fiel bisher erst im Kampf auf. Jetzt steht es im Formular, mit einem
   Knopf zum Umrechnen.
 - **„Erstes Konto anlegen"** steht nur noch da, wo es noch keines gibt.
+- **Bilder lassen sich hineinziehen.** An allen sieben Stellen, an denen
+  ein Bild eingesetzt wird — Gegner, Heldenporträt, Waffe, Gegenstand,
+  Datenbank, Post an einen Spieler —, steht jetzt dieselbe Ablage. Sie
+  nimmt drei Wege: hineinziehen, anklicken, oder **Strg+V**, wenn
+  irgendwo ein Bild kopiert wurde.
+- **Angesagt steht offen da.** Im Kampftracker lag die Liste hinter
+  einem Knopf; bei einer Sache, die man genau dann braucht, wenn man
+  ohnehin zwei andere im Kopf hat, war das ein Griff zu viel.
+- **Weniger Verzug beim Spielen.** Die eigene Handlung steht sofort da
+  statt nach bis zu drei Sekunden, nach dem Abschicken wird sofort neu
+  gefragt, und solange etwas offen steht, ist der Takt kürzer (Kampf und
+  Probe 1,2 s statt 2 bzw. 3).
 
 ## v5.0
 

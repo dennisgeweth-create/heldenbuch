@@ -267,21 +267,11 @@ const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen,
                 <textarea className="form-input" rows={3} maxLength={1200}
                   placeholder="Was nur die sehen, die es geschafft haben."
                   value={post.text} onChange={e=>setPost(p=>({...p, text:e.target.value}))} />
+                <BildAblage bild={post.bild} maxPx={900} hoehe={post.bild ? 150 : 62}
+                  aufschrift={post.bild ? '🖼 Anderes Bild' : '🖼 Bild dazu'}
+                  onBild={(d)=>setPost(p=>p && ({...p, bild: d || ''}))}
+                  onWeg={()=>setPost(p=>({...p, bild:''}))} />
                 <div className="probe-postform-tasten">
-                  <label className="bj-taste">
-                    🖼 Bild
-                    <input type="file" accept="image/*" style={{display:'none'}}
-                      onChange={e=>{
-                        const f = e.target.files && e.target.files[0];
-                        if (f) compressImage(f, 900, (d)=>setPost(p=>p && ({...p, bild: d || ''})));
-                        e.target.value = '';
-                      }} />
-                  </label>
-                  {post.bild && (
-                    <button className="bj-taste" onClick={()=>setPost(p=>({...p, bild:''}))}>
-                      Bild weg
-                    </button>
-                  )}
                   <button className="bj-taste" onClick={()=>setPost(null)}>Abbrechen</button>
                   <button className="btn-save"
                     disabled={sendet || !post.an.length || (!post.text.trim() && !post.bild)}
@@ -292,7 +282,6 @@ const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen,
                       if (ok) setPost(null);
                     }}>{sendet ? 'Sendet…' : 'Senden'}</button>
                 </div>
-                {post.bild && <img className="probe-post-bild" src={post.bild} alt="" />}
               </div>
             )}
 

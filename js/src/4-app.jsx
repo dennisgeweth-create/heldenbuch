@@ -3816,28 +3816,14 @@ function App() {
               </div>
               <div className="form-group form-halb">
                 <div className="form-label">Bild (optional)</div>
-                <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                  {wf.imageData && (
-                    <div style={{position:'relative',flexShrink:0}}>
-                      <img src={wf.imageData} alt="" style={{width:80,height:64,objectFit:'contain',borderRadius:4,border:'1px solid var(--border)',background:'var(--bg-void)'}} />
-                      <button onClick={()=>setWf({...wf,imageData:''})}
-                        style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--crimson)',border:'none',color:'#fff',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</button>
-                    </div>
-                  )}
-                  <label style={{flex:1,padding:'10px 14px',background:'var(--bg-card)',border:'1px dashed var(--border)',borderRadius:6,cursor:'pointer',textAlign:'center',fontSize:12,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",letterSpacing:'0.05em'}}>
-                    📷 {wf.imageData ? 'Bild ändern' : 'Bild auswählen'}
-                    <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{
-                      const file = e.target.files?.[0];
-                      if(!file) return;
-                      // 600px: das Bild fuellt die Karte formatfuellend aus und
-                      // wird dabei beschnitten, dafuer braucht es mehr Reserve
-                      // als die reine Anzeigebreite. Transparenz bleibt
-                      // erhalten, siehe compressImage.
-                      compressImage(file, 600, data => { if(data) setWf(prev=>({...prev,imageData:data})); });
-                    }} />
-                  </label>
-                </div>
-                <div style={{fontSize:10,color:'var(--text-muted)',marginTop:5,fontStyle:'italic'}}>Füllt die Karte im Format 5:7 aus, hochkant wird also am wenigsten beschnitten. Transparente PNGs bleiben transparent.</div>
+                {/* 600 Punkte: das Bild fuellt die Karte formatfuellend aus und
+                    wird dabei beschnitten, dafuer braucht es mehr Reserve als
+                    die reine Anzeigebreite. Transparenz bleibt erhalten. */}
+                <BildAblage bild={wf.imageData} maxPx={600} hoehe={110}
+                  aufschrift={wf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen'}
+                  onBild={(d)=>setWf(prev=>({...prev,imageData:d}))}
+                  onWeg={()=>setWf(prev=>({...prev,imageData:''}))} />
+                                <div style={{fontSize:10,color:'var(--text-muted)',marginTop:5,fontStyle:'italic'}}>Füllt die Karte im Format 5:7 aus, hochkant wird also am wenigsten beschnitten. Transparente PNGs bleiben transparent.</div>
               </div>
               <div className="form-group form-full">
                 <div className="form-label">✦ Effekte</div>
@@ -4402,39 +4388,12 @@ function App() {
               {/* Image upload */}
               <div className="form-group form-full">
                 <div className="form-label">Bild (optional)</div>
-                <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-                  {itf.imageData && (
-                    <div style={{position:'relative',flexShrink:0}}>
-                      <img src={itf.imageData} alt="" style={{width:80,height:60,objectFit:'cover',borderRadius:4,border:'1px solid var(--border)'}} />
-                      <button onClick={()=>setItf({...itf,imageData:''})}
-                        style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--crimson)',border:'none',color:'#fff',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</button>
-                    </div>
-                  )}
-                  <label style={{flex:1,padding:'10px 14px',background:'var(--bg-card)',border:'1px dashed var(--border)',borderRadius:6,cursor:'pointer',textAlign:'center',fontSize:12,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif",letterSpacing:'0.05em'}}>
-                    📷 Bild auswählen
-                    <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{
-                      const file = e.target.files?.[0];
-                      if(!file) return;
-                      const reader = new FileReader();
-                      reader.onload = ev => {
-                        // Compress via canvas — max 600px wide, 0.75 quality → ~60-100KB
-                        const img = new Image();
-                        img.onload = () => {
-                          const MAX = 1000;
-                          const scale = img.width > MAX ? MAX / img.width : 1;
-                          const canvas = document.createElement('canvas');
-                          canvas.width  = Math.round(img.width  * scale);
-                          canvas.height = Math.round(img.height * scale);
-                          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                          const compressed = canvas.toDataURL('image/jpeg', 0.85);
-                          setItf(prev=>({...prev,imageData:compressed}));
-                        };
-                        img.src = ev.target.result;
-                      };
-                      reader.readAsDataURL(file);
-                    }} />
-                  </label>
-                </div>
+                {/* Verkleinert wird in der Ablage, und die haelt anders als
+                    der Handbau davor auch die Transparenz eines PNG. */}
+                <BildAblage bild={itf.imageData} maxPx={1000} hoehe={110}
+                  aufschrift={itf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen'}
+                  onBild={(d)=>setItf(prev=>({...prev,imageData:d}))}
+                  onWeg={()=>setItf(prev=>({...prev,imageData:''}))} />
               </div>
               <div className="form-group form-full">
                 <div className="form-label">✦ Effekte</div>
@@ -5228,34 +5187,10 @@ function App() {
                       </div>
                       <div className="form-group form-full">
                         <label className="form-label">Bild (optional)</label>
-                        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                          {dbForm.imageData && (
-                            <div style={{width:60,height:60,borderRadius:4,overflow:'hidden',border:'1px solid var(--border)',flexShrink:0,cursor:'pointer'}}
-                              onClick={()=>setImgViewer({name:dbForm.name,imageData:dbForm.imageData})}>
-                              <img src={dbForm.imageData} style={{width:'100%',height:'100%',objectFit:'contain'}}/>
-                            </div>
-                          )}
-                          <label style={{cursor:'pointer',flex:1}}>
-                            <div className="form-input" style={{textAlign:'center',padding:'8px',cursor:'pointer',color:'var(--text-muted)'}}>
-                              {dbForm.imageData ? '🖼 Bild ändern' : '📷 Bild hochladen'}
-                            </div>
-                            <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{
-                              const file=e.target.files?.[0]; if(!file) return;
-                              const reader=new FileReader();
-                              reader.onload=ev=>{
-                                const img=new Image(); img.onload=()=>{
-                                  const MAX=1000,scale=img.width>MAX?MAX/img.width:1;
-                                  const c=document.createElement('canvas');
-                                  c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
-                                  c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-                                  setDbForm(f=>({...f,imageData:c.toDataURL('image/jpeg',0.85)}));
-                                }; img.src=ev.target.result;
-                              }; reader.readAsDataURL(file);
-                            }}/>
-                          </label>
-                          {dbForm.imageData && <button type="button" onClick={()=>setDbForm(f=>({...f,imageData:''}))}
-                            style={{background:'none',border:'1px solid var(--border)',color:'var(--text-muted)',borderRadius:4,cursor:'pointer',padding:'4px 8px',fontSize:11}}>✕</button>}
-                        </div>
+                        <BildAblage bild={dbForm.imageData} maxPx={1000} hoehe={110}
+                          aufschrift={dbForm.imageData ? '🖼 Bild ändern' : '📷 Bild hochladen'}
+                          onBild={(d)=>setDbForm(f=>({...f,imageData:d}))}
+                          onWeg={()=>setDbForm(f=>({...f,imageData:''}))} />
                       </div>
                       <div className="form-group form-full"><label className="form-label">Beschreibung</label><textarea className="form-input" rows={3} style={{resize:'vertical'}} value={dbForm.description||''} onChange={e=>setDbForm(f=>({...f,description:e.target.value}))}/></div>
                       <div className="form-group form-full"><label className="form-label">Erhalten durch (optional)</label><input className="form-input" value={dbForm.source||''} onChange={e=>setDbForm(f=>({...f,source:e.target.value}))} placeholder="z.B. Händler, Quest-Belohnung..."/></div>

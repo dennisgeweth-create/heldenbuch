@@ -546,6 +546,145 @@ const PatchnotesFenster = ({
   }, "Schlie\xDFen"))));
 };
 
+// ── Bilder ablegen ───────────────────────────────────────────────
+// Bis v5.1 gab es an sieben Stellen sieben verschiedene Bildfelder, und
+// alle konnten dasselbe: klicken, Datei suchen, öffnen. Für eine
+// Spielleitung, die mitten im Abend das Bild eines Gegners einsetzen
+// will, sind das drei Griffe zu viel.
+//
+// Hier steht das einmal, und es nimmt drei Wege an:
+//
+//   * hineinziehen — aus dem Dateiverwalter, aus dem Bildbetrachter
+//   * anklicken — der alte Weg, für alle, die ihn gewohnt sind
+//   * einfügen — Strg+V, wenn irgendwo ein Bild kopiert wurde
+//
+// Was NICHT geht: ein Bild aus einer fremden Webseite direkt
+// hereinziehen. Dabei kommt keine Datei an, sondern eine Adresse, und
+// die dürfte der Browser aus Sicherheitsgründen gar nicht in eine
+// Leinwand zeichnen. Kopieren und einfügen geht dafür.
+const BILD_ART = /^image\//;
+
+// Wer zuletzt aufgemacht hat, fängt das Eingefügte. Sonst schriebe ein
+// Strg+V bei zwei offenen Formularen in beide.
+let bildAblageZaehler = 0;
+const BildAblage = ({
+  bild,
+  maxPx,
+  aufschrift,
+  hinweis,
+  hoehe,
+  rund,
+  onBild,
+  onWeg
+}) => {
+  const [ueber, setUeber] = React.useState(false);
+  const [laeuft, setLaeuft] = React.useState(false);
+  const eingabe = React.useRef(null);
+  const nimmRef = React.useRef(null);
+  const meins = React.useRef(0);
+  const nimm = datei => {
+    if (!datei) return;
+    if (!BILD_ART.test(datei.type || '')) return;
+    setLaeuft(true);
+    compressImage(datei, maxPx || 800, daten => {
+      setLaeuft(false);
+      if (daten) onBild(daten);
+    });
+  };
+  nimmRef.current = nimm;
+  React.useEffect(() => {
+    meins.current = ++bildAblageZaehler;
+    const einfuegen = e => {
+      // Nur die jüngste Ablage hört zu, und nie, während jemand in ein
+      // Textfeld schreibt — dort ist Strg+V etwas anderes.
+      if (meins.current !== bildAblageZaehler) return;
+      const z = e.target;
+      if (z && /^(INPUT|TEXTAREA|SELECT)$/.test(z.tagName || '')) return;
+      if (z && z.isContentEditable) return;
+      const sachen = e.clipboardData && e.clipboardData.items || [];
+      for (let i = 0; i < sachen.length; i++) {
+        if (sachen[i].kind === 'file' && BILD_ART.test(sachen[i].type || '')) {
+          const d = sachen[i].getAsFile();
+          if (d) {
+            e.preventDefault();
+            nimmRef.current(d);
+            return;
+          }
+        }
+      }
+    };
+    document.addEventListener('paste', einfuegen);
+    return () => document.removeEventListener('paste', einfuegen);
+  }, []);
+  const waehlen = () => {
+    if (eingabe.current) eingabe.current.click();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'bild-ablage' + (ueber ? ' ueber' : '') + (bild ? ' voll' : '') + (rund ? ' rund' : ''),
+    style: hoehe ? {
+      minHeight: hoehe
+    } : undefined,
+    role: "button",
+    tabIndex: 0,
+    title: bild ? 'Anderes Bild — ziehen, klicken oder Strg+V' : 'Bild hineinziehen, anklicken oder Strg+V',
+    onClick: waehlen,
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        waehlen();
+      }
+    }
+    // dragover MUSS abgefangen werden, sonst öffnet der Browser das
+    // Bild in einem neuen Tab und das Formular ist weg.
+    ,
+    onDragOver: e => {
+      e.preventDefault();
+      if (!ueber) setUeber(true);
+    },
+    onDragEnter: e => {
+      e.preventDefault();
+      setUeber(true);
+    },
+    onDragLeave: e => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setUeber(false);
+    },
+    onDrop: e => {
+      e.preventDefault();
+      setUeber(false);
+      const d = e.dataTransfer;
+      const datei = d && d.files && d.files[0];
+      if (datei) nimm(datei);
+    }
+  }, bild && /*#__PURE__*/React.createElement("img", {
+    className: "bild-ablage-bild",
+    src: bild,
+    alt: ""
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "bild-ablage-text"
+  }, laeuft ? /*#__PURE__*/React.createElement("b", null, "Wird verkleinert\u2026") : ueber ? /*#__PURE__*/React.createElement("b", null, "Loslassen") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", null, aufschrift || (bild ? '🖼 Anderes Bild' : '📷 Bild')), /*#__PURE__*/React.createElement("i", null, hinweis || 'ziehen · klicken · Strg+V'))), /*#__PURE__*/React.createElement("input", {
+    ref: eingabe,
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: 'none'
+    },
+    onChange: e => {
+      const d = e.target.files && e.target.files[0];
+      e.target.value = ''; // damit dieselbe Datei erneut geht
+      nimm(d);
+    }
+  }), bild && onWeg && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bild-ablage-weg",
+    title: "Bild entfernen",
+    "aria-label": "Bild entfernen",
+    onClick: e => {
+      e.stopPropagation();
+      onWeg();
+    }
+  }, "\u2715"));
+};
+
 // ==== js/src/1-editors.jsx ====
 // Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
 // Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
@@ -1318,74 +1457,17 @@ const GegnerFormular = ({
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("label", {
     className: "form-label"
-  }, "Bild (optional)"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 10,
-      alignItems: 'flex-start'
-    }
-  }, f.image && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'relative',
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: f.image,
-    alt: "",
-    style: {
-      width: 84,
-      height: 84,
-      objectFit: 'cover',
-      borderRadius: 5,
-      border: '1px solid var(--border)'
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setzen({
-      image: null
+  }, "Bild (optional)"), /*#__PURE__*/React.createElement(BildAblage, {
+    bild: f.image,
+    maxPx: 800,
+    hoehe: 130,
+    onBild: d => setzen({
+      image: d
     }),
-    "aria-label": "Bild entfernen",
-    style: {
-      position: 'absolute',
-      top: -7,
-      right: -7,
-      width: 20,
-      height: 20,
-      borderRadius: '50%',
-      background: 'var(--crimson)',
-      border: 'none',
-      color: '#fff',
-      fontSize: 10,
-      cursor: 'pointer'
-    }
-  }, "\u2715")), /*#__PURE__*/React.createElement("label", {
-    style: {
-      flex: 1,
-      padding: '11px 14px',
-      background: 'var(--bg-card)',
-      border: '1px dashed var(--border)',
-      borderRadius: 6,
-      cursor: 'pointer',
-      textAlign: 'center',
-      fontSize: 12,
-      color: 'var(--text-muted)',
-      fontFamily: "'Roboto Condensed',sans-serif"
-    }
-  }, "\uD83D\uDCF7 Bild w\xE4hlen", /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/*",
-    style: {
-      display: 'none'
-    },
-    onChange: e => {
-      const d = e.target.files && e.target.files[0];
-      e.target.value = '';
-      if (d) compressImage(d, 800, daten => {
-        if (daten) setzen({
-          image: daten
-        });
-      });
-    }
-  })))), /*#__PURE__*/React.createElement("div", {
+    onWeg: () => setzen({
+      image: null
+    })
+  })), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("label", {
     className: "form-label"
@@ -4160,7 +4242,6 @@ const KampfAnsicht = ({
   const [kopiert, setKopiert] = React.useState(false);
   const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
   const [zugFenster, setZugFenster] = React.useState(null); // {id, ansage}
-  const [ansagenOffen, setAnsagenOffen] = React.useState(false);
   // Auf dem Telefon traegt jede Zeile sonst ihren ganzen Tastenblock —
   // fuenf Figuren sind dann fast zwei Bildschirme, ohne dass man die
   // Reihenfolge sieht. Aufgeklappt ist, wer dran ist, und was man antippt.
@@ -4878,11 +4959,7 @@ const KampfAnsicht = ({
       gezeigt: !k.gezeigt
     }),
     title: kampf.gezeigt ? 'Die Runde sieht die Initiativliste und wie es den Figuren geht — nie die Zahlen der Gegner' : 'Der Runde zeigen: Reihenfolge, wer am Zug ist, wie es den Figuren geht'
-  }, kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'), (ansagen || []).length > 0 && /*#__PURE__*/React.createElement("button", {
-    className: "kampf-kopf-btn ansage" + (ansagenOffen ? " an" : ""),
-    onClick: () => setAnsagenOffen(o => !o),
-    title: "Was die Runde angesagt hat"
-  }, "\uD83D\uDCE3 Ansagen \xB7 ", (ansagen || []).length), /*#__PURE__*/React.createElement("button", {
+  }, kampf.gezeigt ? '👁 Gezeigt' : '👁 Zeigen'), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-btn zusatz" + (protokollOffen ? " an" : ""),
     onClick: () => setProtokollOffen(o => !o),
     title: "Was in diesem Kampf geschehen ist"
@@ -4909,11 +4986,13 @@ const KampfAnsicht = ({
     onClick: onSchliessen,
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter",
     "aria-label": "Kampftracker schlie\xDFen"
-  }, "\u2715")), ansagenOffen && (ansagen || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), (ansagen || []).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "kampf-ansagen"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-ansagen-kopf"
-  }, "\uD83D\uDCE3 Angesagt \u2014 eintragen f\xFCllt das Zugfenster schon aus"), (ansagen || []).map(a => {
+  }, "\uD83D\uDCE3 Angesagt \xB7 ", (ansagen || []).length, " \u2014 eintragen f\xFCllt das Zugfenster schon aus"), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-ansagen-liste"
+  }, (ansagen || []).map(a => {
     const held = (helden || []).find(h => h.id === a.charId);
     const zeile = liste.find(x => x.art === 'held' && x.charId === a.charId);
     return /*#__PURE__*/React.createElement("div", {
@@ -4926,19 +5005,16 @@ const KampfAnsicht = ({
     }, a.was ? /*#__PURE__*/React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null), zeile && /*#__PURE__*/React.createElement("button", {
       className: "btn-icon",
       title: "Ins Zugfenster \xFCbernehmen",
-      onClick: () => {
-        setAnsagenOffen(false);
-        setZugFenster({
-          id: zeile.id,
-          ansage: a
-        });
-      }
+      onClick: () => setZugFenster({
+        id: zeile.id,
+        ansage: a
+      })
     }, "\u270D Eintragen"), /*#__PURE__*/React.createElement("button", {
       className: "fx-del",
       title: "Erledigt, weg damit",
       onClick: () => onAnsageWeg && onAnsageWeg(a.id)
     }, "\u2715"));
-  })), protokollOffen && /*#__PURE__*/React.createElement("div", {
+  }))), protokollOffen && /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll-kopf"
@@ -14046,31 +14122,22 @@ const ProbenBalken = ({
         ...p,
         text: e.target.value
       }))
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "probe-postform-tasten"
-    }, /*#__PURE__*/React.createElement("label", {
-      className: "bj-taste"
-    }, "\uD83D\uDDBC Bild", /*#__PURE__*/React.createElement("input", {
-      type: "file",
-      accept: "image/*",
-      style: {
-        display: 'none'
-      },
-      onChange: e => {
-        const f = e.target.files && e.target.files[0];
-        if (f) compressImage(f, 900, d => setPost(p => p && {
-          ...p,
-          bild: d || ''
-        }));
-        e.target.value = '';
-      }
-    })), post.bild && /*#__PURE__*/React.createElement("button", {
-      className: "bj-taste",
-      onClick: () => setPost(p => ({
+    }), /*#__PURE__*/React.createElement(BildAblage, {
+      bild: post.bild,
+      maxPx: 900,
+      hoehe: post.bild ? 150 : 62,
+      aufschrift: post.bild ? '🖼 Anderes Bild' : '🖼 Bild dazu',
+      onBild: d => setPost(p => p && {
+        ...p,
+        bild: d || ''
+      }),
+      onWeg: () => setPost(p => ({
         ...p,
         bild: ''
       }))
-    }, "Bild weg"), /*#__PURE__*/React.createElement("button", {
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "probe-postform-tasten"
+    }, /*#__PURE__*/React.createElement("button", {
       className: "bj-taste",
       onClick: () => setPost(null)
     }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
@@ -14082,11 +14149,7 @@ const ProbenBalken = ({
         setSendet(false);
         if (ok) setPost(null);
       }
-    }, sendet ? 'Sendet…' : 'Senden')), post.bild && /*#__PURE__*/React.createElement("img", {
-      className: "probe-post-bild",
-      src: post.bild,
-      alt: ""
-    })), /*#__PURE__*/React.createElement("button", {
+    }, sendet ? 'Sendet…' : 'Senden'))), /*#__PURE__*/React.createElement("button", {
       className: "bj-taste",
       style: {
         marginTop: 6
@@ -17995,16 +18058,11 @@ const AusruestungsPuppe = () => {
   // Helden vollstaendig zum Server — anders als Inventargegenstaende, die
   // einzeln gespeichert werden. Deshalb 480px lange Kante: angezeigt wird
   // es ohnehin nur handtellergross.
-  const bildWaehlen = ev => {
-    const datei = ev.target.files && ev.target.files[0];
-    ev.target.value = ''; // damit dieselbe Datei erneut gewaehlt werden kann
-    if (!datei) return;
-    compressImage(datei, 480, daten => {
-      if (daten) patchChar({
-        portrait: daten
-      });else appAlert('Das Bild liess sich nicht lesen.');
-    });
-  };
+  // Verkleinert wird in der Ablage; hier kommt nur noch das fertige
+  // Bild an.
+  const bildSetzen = daten => patchChar({
+    portrait: daten
+  });
   const bildEntfernen = () => appConfirm('Bild wirklich entfernen?', () => patchChar({
     portrait: ''
   }));
@@ -18031,7 +18089,7 @@ const AusruestungsPuppe = () => {
     className: "gear-col"
   }, spalte('links').map(platzKachel)), /*#__PURE__*/React.createElement("div", {
     className: "gear-mid"
-  }, cur.portrait ? /*#__PURE__*/React.createElement("img", {
+  }, cur.portrait ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
     className: "gear-mid-bild",
     src: cur.portrait,
     alt: cur.name,
@@ -18039,33 +18097,28 @@ const AusruestungsPuppe = () => {
       name: cur.name,
       imageData: cur.portrait
     })
-  }) : /*#__PURE__*/React.createElement("label", {
-    className: "gear-mid-leer",
-    title: "Bild des Helden hochladen"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "gear-figur",
-    "aria-hidden": "true"
-  }, "\u2694"), /*#__PURE__*/React.createElement("span", {
-    className: "gear-portrait-hinweis"
-  }, "\uD83D\uDCF7 Bild w\xE4hlen"), /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/*",
-    onChange: bildWaehlen
-  })), cur.portrait && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
     className: "gear-portrait-tools"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "gear-portrait-btn",
-    title: "Anderes Bild w\xE4hlen"
-  }, "\u270E", /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/*",
-    onChange: bildWaehlen
-  })), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement(BildAblage, {
+    bild: null,
+    maxPx: 480,
+    aufschrift: "\u270E",
+    hinweis: "",
+    hoehe: 30,
+    onBild: bildSetzen
+  }), /*#__PURE__*/React.createElement("button", {
     className: "gear-portrait-btn",
     onClick: bildEntfernen,
     title: "Bild entfernen",
     "aria-label": "Bild entfernen"
-  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715"))) : /*#__PURE__*/React.createElement(BildAblage, {
+    bild: null,
+    maxPx: 480,
+    hoehe: 0,
+    aufschrift: "\uD83D\uDCF7 Bild w\xE4hlen",
+    hinweis: "ziehen \xB7 klicken \xB7 Strg+V",
+    onBild: bildSetzen
+  }), /*#__PURE__*/React.createElement("div", {
     className: "gear-mid-info"
   }, /*#__PURE__*/React.createElement("div", {
     className: "gear-mid-name"
@@ -24720,85 +24773,20 @@ function App() {
     className: "form-group form-halb"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, "Bild (optional)"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 10,
-      alignItems: 'flex-start'
-    }
-  }, wf.imageData && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'relative',
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: wf.imageData,
-    alt: "",
-    style: {
-      width: 80,
-      height: 64,
-      objectFit: 'contain',
-      borderRadius: 4,
-      border: '1px solid var(--border)',
-      background: 'var(--bg-void)'
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setWf({
-      ...wf,
+  }, "Bild (optional)"), /*#__PURE__*/React.createElement(BildAblage, {
+    bild: wf.imageData,
+    maxPx: 600,
+    hoehe: 110,
+    aufschrift: wf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen',
+    onBild: d => setWf(prev => ({
+      ...prev,
+      imageData: d
+    })),
+    onWeg: () => setWf(prev => ({
+      ...prev,
       imageData: ''
-    }),
-    style: {
-      position: 'absolute',
-      top: -6,
-      right: -6,
-      width: 18,
-      height: 18,
-      borderRadius: '50%',
-      background: 'var(--crimson)',
-      border: 'none',
-      color: '#fff',
-      fontSize: 10,
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      lineHeight: 1
-    }
-  }, "\u2715")), /*#__PURE__*/React.createElement("label", {
-    style: {
-      flex: 1,
-      padding: '10px 14px',
-      background: 'var(--bg-card)',
-      border: '1px dashed var(--border)',
-      borderRadius: 6,
-      cursor: 'pointer',
-      textAlign: 'center',
-      fontSize: 12,
-      color: 'var(--text-muted)',
-      fontFamily: "'Roboto Condensed',sans-serif",
-      letterSpacing: '0.05em'
-    }
-  }, "\uD83D\uDCF7 ", wf.imageData ? 'Bild ändern' : 'Bild auswählen', /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/*",
-    style: {
-      display: 'none'
-    },
-    onChange: e => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      // 600px: das Bild fuellt die Karte formatfuellend aus und
-      // wird dabei beschnitten, dafuer braucht es mehr Reserve
-      // als die reine Anzeigebreite. Transparenz bleibt
-      // erhalten, siehe compressImage.
-      compressImage(file, 600, data => {
-        if (data) setWf(prev => ({
-          ...prev,
-          imageData: data
-        }));
-      });
-    }
-  }))), /*#__PURE__*/React.createElement("div", {
+    }))
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10,
       color: 'var(--text-muted)',
@@ -25988,94 +25976,20 @@ function App() {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, "Bild (optional)"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 10,
-      alignItems: 'flex-start'
-    }
-  }, itf.imageData && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'relative',
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: itf.imageData,
-    alt: "",
-    style: {
-      width: 80,
-      height: 60,
-      objectFit: 'cover',
-      borderRadius: 4,
-      border: '1px solid var(--border)'
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setItf({
-      ...itf,
+  }, "Bild (optional)"), /*#__PURE__*/React.createElement(BildAblage, {
+    bild: itf.imageData,
+    maxPx: 1000,
+    hoehe: 110,
+    aufschrift: itf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen',
+    onBild: d => setItf(prev => ({
+      ...prev,
+      imageData: d
+    })),
+    onWeg: () => setItf(prev => ({
+      ...prev,
       imageData: ''
-    }),
-    style: {
-      position: 'absolute',
-      top: -6,
-      right: -6,
-      width: 18,
-      height: 18,
-      borderRadius: '50%',
-      background: 'var(--crimson)',
-      border: 'none',
-      color: '#fff',
-      fontSize: 10,
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      lineHeight: 1
-    }
-  }, "\u2715")), /*#__PURE__*/React.createElement("label", {
-    style: {
-      flex: 1,
-      padding: '10px 14px',
-      background: 'var(--bg-card)',
-      border: '1px dashed var(--border)',
-      borderRadius: 6,
-      cursor: 'pointer',
-      textAlign: 'center',
-      fontSize: 12,
-      color: 'var(--text-muted)',
-      fontFamily: "'Roboto Condensed',sans-serif",
-      letterSpacing: '0.05em'
-    }
-  }, "\uD83D\uDCF7 Bild ausw\xE4hlen", /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: "image/*",
-    style: {
-      display: 'none'
-    },
-    onChange: e => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        // Compress via canvas — max 600px wide, 0.75 quality → ~60-100KB
-        const img = new Image();
-        img.onload = () => {
-          const MAX = 1000;
-          const scale = img.width > MAX ? MAX / img.width : 1;
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.85);
-          setItf(prev => ({
-            ...prev,
-            imageData: compressed
-          }));
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-  })))), /*#__PURE__*/React.createElement("div", {
+    }))
+  })), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
@@ -28066,90 +27980,20 @@ function App() {
       className: "form-group form-full"
     }, /*#__PURE__*/React.createElement("label", {
       className: "form-label"
-    }, "Bild (optional)"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 8,
-        alignItems: 'center'
-      }
-    }, dbForm.imageData && /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 60,
-        height: 60,
-        borderRadius: 4,
-        overflow: 'hidden',
-        border: '1px solid var(--border)',
-        flexShrink: 0,
-        cursor: 'pointer'
-      },
-      onClick: () => setImgViewer({
-        name: dbForm.name,
-        imageData: dbForm.imageData
-      })
-    }, /*#__PURE__*/React.createElement("img", {
-      src: dbForm.imageData,
-      style: {
-        width: '100%',
-        height: '100%',
-        objectFit: 'contain'
-      }
-    })), /*#__PURE__*/React.createElement("label", {
-      style: {
-        cursor: 'pointer',
-        flex: 1
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "form-input",
-      style: {
-        textAlign: 'center',
-        padding: '8px',
-        cursor: 'pointer',
-        color: 'var(--text-muted)'
-      }
-    }, dbForm.imageData ? '🖼 Bild ändern' : '📷 Bild hochladen'), /*#__PURE__*/React.createElement("input", {
-      type: "file",
-      accept: "image/*",
-      style: {
-        display: 'none'
-      },
-      onChange: e => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          const img = new Image();
-          img.onload = () => {
-            const MAX = 1000,
-              scale = img.width > MAX ? MAX / img.width : 1;
-            const c = document.createElement('canvas');
-            c.width = Math.round(img.width * scale);
-            c.height = Math.round(img.height * scale);
-            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-            setDbForm(f => ({
-              ...f,
-              imageData: c.toDataURL('image/jpeg', 0.85)
-            }));
-          };
-          img.src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-      }
-    })), dbForm.imageData && /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: () => setDbForm(f => ({
+    }, "Bild (optional)"), /*#__PURE__*/React.createElement(BildAblage, {
+      bild: dbForm.imageData,
+      maxPx: 1000,
+      hoehe: 110,
+      aufschrift: dbForm.imageData ? '🖼 Bild ändern' : '📷 Bild hochladen',
+      onBild: d => setDbForm(f => ({
+        ...f,
+        imageData: d
+      })),
+      onWeg: () => setDbForm(f => ({
         ...f,
         imageData: ''
-      })),
-      style: {
-        background: 'none',
-        border: '1px solid var(--border)',
-        color: 'var(--text-muted)',
-        borderRadius: 4,
-        cursor: 'pointer',
-        padding: '4px 8px',
-        fontSize: 11
-      }
-    }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+      }))
+    })), /*#__PURE__*/React.createElement("div", {
       className: "form-group form-full"
     }, /*#__PURE__*/React.createElement("label", {
       className: "form-label"

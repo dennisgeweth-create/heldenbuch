@@ -240,25 +240,10 @@ const GegnerFormular = ({ form, setForm, onSpeichern, onAbbrechen, neu }) => {
 
           <div className="form-group form-full">
             <label className="form-label">Bild (optional)</label>
-            <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
-              {f.image && (
-                <div style={{position:'relative',flexShrink:0}}>
-                  <img src={f.image} alt="" style={{width:84,height:84,objectFit:'cover',borderRadius:5,border:'1px solid var(--border)'}} />
-                  <button onClick={()=>setzen({image:null})} aria-label="Bild entfernen"
-                    style={{position:'absolute',top:-7,right:-7,width:20,height:20,borderRadius:'50%',background:'var(--crimson)',border:'none',color:'#fff',fontSize:10,cursor:'pointer'}}>✕</button>
-                </div>
-              )}
-              <label style={{flex:1,padding:'11px 14px',background:'var(--bg-card)',border:'1px dashed var(--border)',borderRadius:6,cursor:'pointer',textAlign:'center',fontSize:12,color:'var(--text-muted)',fontFamily:"'Roboto Condensed',sans-serif"}}>
-                📷 Bild wählen
-                {/* Gegner liegen einzeln auf dem Server, deshalb ist hier
-                    mehr Platz als beim Heldenbild — 800px lange Kante. */}
-                <input type="file" accept="image/*" style={{display:'none'}}
-                  onChange={e=>{
-                    const d=e.target.files && e.target.files[0]; e.target.value='';
-                    if(d) compressImage(d, 800, daten => { if(daten) setzen({image:daten}); });
-                  }} />
-              </label>
-            </div>
+            {/* Gegner liegen einzeln auf dem Server, deshalb ist hier mehr
+                Platz als beim Heldenbild — 800 Punkte lange Kante. */}
+            <BildAblage bild={f.image} maxPx={800} hoehe={130}
+              onBild={(d)=>setzen({image:d})} onWeg={()=>setzen({image:null})} />
           </div>
 
           <div className="form-group form-full">

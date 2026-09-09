@@ -3623,11 +3623,17 @@
   .kampf-kopf-btn.ansage { border-color:var(--inspiration-dim); color:var(--inspiration); }
   .kampf-kopf-btn.ansage:hover { background:rgba(232,184,75,0.12); border-color:var(--inspiration); }
   .kampf-kopf-btn.ansage.an { background:rgba(232,184,75,0.18); color:#f3ce74; }
+  /* Die Tafel steht offen da, seit sie nicht mehr hinter einem Knopf
+     liegt. Damit sie den Tracker nicht wegschiebt, wenn eine ganze Runde
+     gleichzeitig ansagt, rollt sie in sich selbst — der Kopf bleibt
+     dabei stehen. */
   .kampf-ansagen { margin:0 0 10px; border:1px solid var(--inspiration-dim); border-radius:5px;
-    background:var(--bg-void); overflow:hidden; }
-  .kampf-ansagen-kopf { padding:7px 11px; background:rgba(232,184,75,0.08);
+    background:var(--bg-void); overflow:hidden; display:flex; flex-direction:column;
+    max-height:min(38vh, 300px); }
+  .kampf-ansagen-kopf { flex-shrink:0; padding:7px 11px; background:rgba(232,184,75,0.08);
     border-bottom:1px solid var(--inspiration-dim); font-family:'Roboto Condensed',sans-serif;
     font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--inspiration); }
+  .kampf-ansagen-liste { overflow-y:auto; min-height:0; }
   .kampf-ansage { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 11px;
     border-bottom:1px solid var(--border); }
   .kampf-ansage:last-child { border-bottom:none; }
@@ -3976,3 +3982,61 @@
   .gegner-attr-mod { display:block; margin-top:2px; text-align:center; font-style:normal;
     font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted);
     font-variant-numeric:tabular-nums; }
+
+  /* ── Die Bildablage ────────────────────────────────────
+     Eine Fläche, die drei Wege annimmt: hineinziehen, anklicken,
+     einfügen. Sie steht überall dort, wo vorher sieben verschiedene
+     Bildfelder standen. Liegt ein Bild darin, füllt es die Fläche und
+     die Beschriftung rückt darüber. */
+  .bild-ablage { position:relative; display:flex; align-items:center;
+    justify-content:center; min-height:88px; padding:12px; border-radius:7px;
+    cursor:pointer; overflow:hidden; text-align:center;
+    background:var(--bg-card); border:1px dashed var(--border);
+    transition:border-color .15s, background .15s; }
+  .bild-ablage:hover, .bild-ablage:focus-visible { border-color:var(--gold-dim); }
+  .bild-ablage:focus-visible { outline:2px solid var(--inspiration); outline-offset:2px; }
+  .bild-ablage.ueber { border-color:var(--inspiration); border-style:solid;
+    background:rgba(201,168,76,0.12); }
+  .bild-ablage.rund { border-radius:50%; aspect-ratio:1; min-height:0; }
+
+  .bild-ablage-bild { position:absolute; inset:0; width:100%; height:100%;
+    object-fit:contain; background:var(--bg-void); }
+  .bild-ablage.rund .bild-ablage-bild { object-fit:cover; }
+
+  .bild-ablage-text { position:relative; z-index:1; display:flex; flex-direction:column;
+    gap:2px; font-family:'Roboto Condensed',sans-serif; pointer-events:none; }
+  .bild-ablage-text b { font-size:12.5px; font-weight:400; color:var(--text-muted);
+    letter-spacing:0.05em; }
+  .bild-ablage-text i { font-style:normal; font-size:10px; color:var(--text-muted);
+    opacity:0.75; letter-spacing:0.06em; }
+  /* Über einem Bild braucht die Schrift einen Grund, sonst verschwindet
+     sie in einem hellen Motiv. */
+  .bild-ablage.voll .bild-ablage-text { padding:5px 9px; border-radius:5px;
+    background:rgba(12,10,8,0.72); }
+  .bild-ablage.voll .bild-ablage-text b { color:var(--text-primary); }
+  .bild-ablage.voll:not(:hover):not(.ueber):not(:focus-within) .bild-ablage-text { opacity:0; }
+  .bild-ablage.voll .bild-ablage-text { transition:opacity .15s; }
+  .bild-ablage.ueber .bild-ablage-text b { color:var(--inspiration); }
+
+  .bild-ablage-weg { position:absolute; top:5px; right:5px; z-index:2;
+    width:22px; height:22px; border-radius:50%; cursor:pointer; line-height:1;
+    display:flex; align-items:center; justify-content:center; font-size:11px;
+    background:var(--crimson); border:none; color:#fff; }
+  @media (prefers-reduced-motion: reduce) {
+    .bild-ablage, .bild-ablage-text { transition:none; }
+  }
+
+  /* Die Ablage im Portraitrahmen füllt die ganze Karte — dort ist sie
+     kein Feld in einem Formular, sondern die Fläche selbst. */
+  .gear-mid > .bild-ablage { flex:1; min-height:0; border:none; border-radius:0;
+    background:transparent; }
+  .gear-mid > .bild-ablage .bild-ablage-text b { font-size:13px; }
+  /* Und die kleine daneben ist ein Knopf, kein Feld. */
+  .gear-portrait-tools .bild-ablage { width:26px; height:26px; min-height:0; padding:0;
+    border-radius:4px; border:1px solid var(--border-bright); background:rgba(15,16,17,0.82); }
+  .gear-portrait-tools .bild-ablage .bild-ablage-text b { font-size:12px;
+    color:var(--text-secondary); }
+  .gear-portrait-tools .bild-ablage .bild-ablage-text i { display:none; }
+  @media (hover:none), (pointer:coarse) {
+    .gear-portrait-tools .bild-ablage { width:34px; height:34px; }
+  }
