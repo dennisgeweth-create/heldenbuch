@@ -1742,6 +1742,14 @@
     background:var(--bg-panel); border-bottom:1px solid var(--border); flex-shrink:0;
     cursor:grab; touch-action:none; user-select:none; }
   .ks-kopf:active { cursor:grabbing; }
+  /* .ks-dran-kopf nimmt schon den freien Platz — hier reicht der Abstand. */
+  .ks-kartenknopf { background:var(--bg-card); cursor:pointer; align-self:center;
+    border:1px solid var(--border-bright); border-radius:5px; padding:4px 9px;
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--text-secondary); }
+  .ks-kartenknopf:hover { border-color:var(--inspiration); color:var(--inspiration); }
+  .ks-kartenknopf.an { border-color:var(--inspiration); color:var(--inspiration);
+    background:rgba(232,184,75,0.12); }
   .ks-titel { font-family:'Roboto Condensed',sans-serif; font-size:15px; letter-spacing:0.06em;
     text-transform:uppercase; color:var(--gold); }
   .ks-runde { display:flex; align-items:baseline; gap:6px; }
@@ -4056,8 +4064,6 @@
      deshalb Platz nehmen. Wird es breiter als sein Kasten, rollt es in
      sich selbst; geschrumpft wird nichts, sonst wären die Felder nicht
      mehr zu treffen. */
-  .kampf-karte { margin:0 0 10px; border:1px solid var(--border-bright);
-    border-radius:5px; background:var(--bg-void); padding:11px; }
   .kk { display:flex; flex-direction:column; gap:11px; }
 
   .kk-leer-text { font-size:12.5px; line-height:1.6; color:var(--text-secondary);
@@ -4152,7 +4158,50 @@
     background:rgba(232,184,75,0.12); }
 
   /* ── Und dieselbe Karte in der Kampfsicht der Runde ──────────── */
-  .kk-schau { margin:0 0 9px; }
+  /* ── Ein Fenster, das stehen bleibt, wo man es hinschiebt ────────
+     Dieselbe Form wie die Kampfsicht, nur ohne feste Breite: die Karte
+     ist so breit, wie sie ist, und wird zur Not gerollt. */
+  .sf-fenster { position:fixed; z-index:62; display:flex; flex-direction:column;
+    border-radius:9px; background:var(--bg-card); border:1px solid var(--gold-dim);
+    box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5);
+    width:max-content; max-width:calc(100vw - 24px); }
+  .sf-kopf { display:flex; align-items:center; gap:9px; padding:9px 12px;
+    background:var(--bg-panel); border-bottom:1px solid var(--border);
+    border-radius:8px 8px 0 0; flex-shrink:0;
+    cursor:grab; touch-action:none; user-select:none; }
+  .sf-kopf:active { cursor:grabbing; }
+  .sf-fenster.zu .sf-kopf { border-bottom:none; border-radius:8px; }
+  .sf-titel { font-family:'Roboto Condensed',sans-serif; font-size:14px;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--gold);
+    white-space:nowrap; }
+  .sf-klapp, .sf-x { background:none; border:none; cursor:pointer; padding:2px 5px;
+    color:var(--text-muted); font-size:13px; line-height:1; border-radius:4px; }
+  .sf-klapp:hover, .sf-x:hover { color:var(--gold-bright); background:var(--bg-card); }
+  .sf-x { margin-left:auto; font-size:14px; }
+  /* Der Leib rollt in sich selbst und laesst sich am Zipfel groesser
+     ziehen — eine Karte mit dreissig Spalten passt sonst in kein
+     Fenster, das man auch noch verschieben kann. */
+  .sf-leib { overflow:auto; padding:11px; max-height:min(78vh, 760px); }
+  /* Der Zipfel zum Groesserziehen braucht eine Ausgangsgroesse, sonst
+     hat er nichts, wovon er ausgeht. */
+  .sf-leib.groessbar { resize:both; min-width:320px; min-height:220px;
+    width:min(80vw, 940px); height:min(68vh, 620px); max-height:none; }
+
+  @media (max-width:700px) {
+    .sf-fenster { left:8px !important; top:8px !important; right:8px;
+      max-width:none; }
+    .sf-kopf { cursor:default; }
+    .sf-leib.groessbar { resize:none; min-width:0; }
+  }
+
+  /* Im Fenster der Runde traegt der Kasten seine eigene Breite: die
+     Regel oben (flex:1; min-width:0) gilt fuer das Feld der
+     Spielleitung, wo er sich die Zeile mit der Ablage teilt. */
+  .kk-schau { margin:0; }
+  .kk-schau .kk-raster-kasten { flex:none; min-width:0;
+    max-width:min(74vw, 900px); max-height:min(62vh, 620px); }
+  .kk-schau-leiste { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    margin-bottom:8px; }
   .kk-schau .kk-raster { --kk-feld:22px; }
   .kk-schau .kk-feld { font-size:10.5px; cursor:default; }
   .kk-schau .kk-feld.figur { font-size:10px; }

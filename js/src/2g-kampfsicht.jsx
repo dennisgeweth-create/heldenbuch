@@ -271,21 +271,8 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
 // bleibt stehen, wo man ihn hingeschoben hat.
 const KS_SPEICHER = 'hb_kampfsicht_fenster';
 const KS_BREITE = 460;
-const ksLesen = () => {
-  try {
-    const d = JSON.parse(localStorage.getItem(KS_SPEICHER) || 'null');
-    if (d && Number.isFinite(+d.x)) return {x: +d.x, y: +d.y};
-  } catch {}
-  return null;
-};
-const ksSchreiben = (pos) => {
-  try { localStorage.setItem(KS_SPEICHER, JSON.stringify(pos)); } catch {}
-};
-// Immer so viel stehen lassen, dass man den Kopf noch zu fassen bekommt.
-const ksKlemmen = (pos) => ({
-  x: Math.max(-KS_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
-  y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60)),
-});
+// Das Schieben selbst steht in 0-basis.jsx: drei Fenster im Kampf
+// wollen dasselbe, und dreimal dasselbe waere dreimal zu pflegen.
 
 // ── Reaktionen ───────────────────────────────────────────────
 // Eine Reaktion kommt zwischendurch: der Gegner zaubert, und irgendwer
@@ -302,19 +289,12 @@ const reaktionsSprueche = (held) => ((held && held.spells) || [])
 
 const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                       eigenerHeld, onReaktion, onSchliessen }) => {
-  const [pos, setPos] = React.useState(() => ksLesen()
-    || ksKlemmen({x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32), y: 76}));
-  const zug = React.useRef(null);
-  const zugStart = (e) => {
-    if (e.target.closest('button')) return;       // der Schliessknopf schiebt nicht
-    zug.current = {dx: e.clientX - pos.x, dy: e.clientY - pos.y};
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-  };
-  const zugBewegen = (e) => {
-    if (!zug.current) return;
-    setPos(ksKlemmen({x: e.clientX - zug.current.dx, y: e.clientY - zug.current.dy}));
-  };
-  const zugEnde = () => { if (zug.current) { zug.current = null; ksSchreiben(pos); } };
+  const {pos, griff} = useSchiebefenster(KS_SPEICHER,
+    {x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32), y: 76}, KS_BREITE);
+  // Die Karte steht in einem eigenen Fenster daneben. Sie ist beim
+  // Ansagen die erste Frage, aber nicht immer — und ein Raster, das die
+  // Reihe aus dem Fenster schiebt, hilft niemandem.
+  const [karteAuf, setKarteAuf] = useEingeklappt('hb_kampfsicht_karte_auf', false);
 
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
@@ -334,25 +314,26 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
   const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
 
   return (
+   <>
     <div className="ks-fenster" style={{left: pos.x, top: pos.y, width: KS_BREITE}}>
-        <div className="ks-kopf" onPointerDown={zugStart} onPointerMove={zugBewegen}
-          onPointerUp={zugEnde} onPointerCancel={zugEnde} title="Zum Verschieben ziehen">
+        <div className="ks-kopf" {...griff} title="Zum Verschieben ziehen">
           <span className="ks-titel">⚔ {kampf.name || 'Kampf'}</span>
           <span className="ks-runde"><span>Runde</span><b>{kampf.runde || 1}</b></span>
           <span className="ks-dran-kopf">
             {zwName ? <>⚡ Dazwischen: <b>{zwName}</b></>
               : dranName ? <>Am Zug: <b>{dranName}</b></> : 'Niemand am Zug'}
           </span>
+          {kampf.karte && (
+            <button className={'ks-kartenknopf' + (karteAuf ? ' an' : '')}
+              onClick={()=>setKarteAuf(a => !a)}
+              title={karteAuf ? 'Die Karte zuklappen'
+                              : 'Wer wo steht — in einem eigenen Fenster'}>
+              🗺 Karte
+            </button>
+          )}
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Schließen — der Kampf läuft weiter" aria-label="Schließen">✕</button>
         </div>
-
-        {/* Die Karte, wenn die Spielleitung sie zeigt. Sie steht ueber
-            der Reihe: wer wo steht, ist beim Ansagen die erste Frage. */}
-        {kampf.karte && (
-          <KarteSchau karte={kampf.karte} wer={Object.fromEntries(liste.map(t =>
-            [t.id, {name: namensZug(t), art: t.art}]))} />
-        )}
 
         <div className="ks-liste">
           {liste.length === 0
@@ -406,6 +387,24 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
           <span>Was die Spielleitung notiert, steht hier nicht — und die Trefferpunkte der
             Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.</span>
         </div>
+
     </div>
+
+    {/* Die Karte in einem eigenen Fenster: schiebbar, einklappbar, und
+        mit einer Ansicht, die sich groesser stellen laesst. Am Tisch
+        schaut man abwechselnd auf die Reihe und auf das Feld — beides
+        soll nebeneinander stehen koennen. Sie steht neben dem Fenster
+        der Reihe und nicht darin: das schneidet ab, was ueber seinen
+        Rand hinausragt. */}
+    {karteAuf && kampf.karte && (
+      <Schiebefenster schluessel="hb_kampfsicht_karte"
+        standard={{x: 24, y: 120}}
+        titel="🗺 Die Karte"
+        onSchliessen={()=>setKarteAuf(false)}>
+        <KarteSchau karte={kampf.karte} wer={Object.fromEntries(liste.map(t =>
+          [t.id, {name: namensZug(t), art: t.art}]))} />
+      </Schiebefenster>
+    )}
+   </>
   );
 };

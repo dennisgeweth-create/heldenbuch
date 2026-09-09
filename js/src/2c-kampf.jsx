@@ -2434,12 +2434,6 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           </div>
         )}
 
-        {karteOffen && (
-          <div className="kampf-karte">
-            <KarteFeld kampf={kampf} setKampf={setKampf} liste={liste}
-              amZug={amZug} onFrage={onFrage} onLog={protokollieren} />
-          </div>
-        )}
 
         {protokollOffen && (
           <div className="kampf-protokoll">
@@ -2590,6 +2584,22 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           ))}
         </div>
       </div>
+
+      {/* Die Karte steht in einem eigenen Fenster, nicht mehr im Kasten:
+          waehrend sie offen ist, wird an der Reihe weitergearbeitet, und
+          ein Feld, das die Liste zwei Schirmlaengen nach unten schiebt,
+          hilft dabei nicht. Wo es steht und ob es eingeklappt ist, merkt
+          sich das Geraet. */}
+      {karteOffen && (
+        <Schiebefenster schluessel="hb_kampfkarte" groessbar
+          standard={{x: 40, y: 90}}
+          titel={<>🗺 Karte{kampf.karte
+            ? ' · ' + kampf.karte.breite + '×' + kampf.karte.hoehe : ''}</>}
+          onSchliessen={()=>setKarteOffen(false)}>
+          <KarteFeld kampf={kampf} setKampf={setKampf} liste={liste}
+            amZug={amZug} onFrage={onFrage} onLog={protokollieren} />
+        </Schiebefenster>
+      )}
     </div>
   );
 };

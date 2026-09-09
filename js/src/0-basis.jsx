@@ -542,3 +542,100 @@ const BildAblage = ({ bild, maxPx, aufschrift, hinweis, hoehe, rund, onBild, onW
     </div>
   );
 };
+
+// ── Ein Fenster, das stehen bleibt, wo man es hinschiebt ─────────
+// Der Kampf braucht mehrere davon: die Reihenfolge fuer die Runde, die
+// Karte fuer die Spielleitung, die Karte fuer die Runde. Alle drei
+// sollen sich schieben lassen und sich merken, wo sie zuletzt standen —
+// deshalb steht das Schieben hier und nicht dreimal nebenan.
+//
+// Gemerkt wird je Fenster unter einem eigenen Schluessel. Beim Laden
+// wird die Stelle geklemmt: ein Fenster, das seit dem letzten Mal auf
+// einem breiteren Schirm stand, waere sonst nicht mehr zu fassen.
+//
+// Das Fenster der Taverne (2f-automat.jsx) macht dasselbe noch selbst.
+// Es umzustellen waere Arbeit ohne Gewinn fuer den Spieler — wer dort
+// einmal etwas anfasst, kann es dann mit erledigen.
+const schiebeKlemmen = (pos, breite) => ({
+  x: Math.max(-(breite || 460) + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
+  y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60)),
+});
+
+const useSchiebefenster = (schluessel, standard, breite) => {
+  const [pos, setPos] = React.useState(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(schluessel) || 'null');
+      if (d && Number.isFinite(+d.x)) return schiebeKlemmen({x: +d.x, y: +d.y}, breite);
+    } catch {}
+    return schiebeKlemmen(standard, breite);
+  });
+  const zug = React.useRef(null);
+  const merken = (p) => {
+    try { localStorage.setItem(schluessel, JSON.stringify(p)); } catch {}
+  };
+  return {
+    pos,
+    // Am Kopf des Fensters angebracht. Der Schliessknopf sitzt dort auch
+    // und darf nicht mitschieben.
+    griff: {
+      onPointerDown: (e) => {
+        if (e.target.closest('button')) return;
+        zug.current = {dx: e.clientX - pos.x, dy: e.clientY - pos.y};
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+      },
+      onPointerMove: (e) => {
+        if (!zug.current) return;
+        setPos(schiebeKlemmen({x: e.clientX - zug.current.dx,
+                               y: e.clientY - zug.current.dy}, breite));
+      },
+      onPointerUp:     () => { if (zug.current) { zug.current = null; merken(pos); } },
+      onPointerCancel: () => { if (zug.current) { zug.current = null; merken(pos); } },
+    },
+  };
+};
+
+// Ob ein Fenster eingeklappt ist. Steht neben der Stelle, weil es
+// dasselbe Wesen hat: eine Kleinigkeit, die das Geraet sich merkt.
+const useEingeklappt = (schluessel, anfang) => {
+  const [zu, setZu] = React.useState(() => {
+    try {
+      const d = localStorage.getItem(schluessel);
+      if (d === '0' || d === '1') return d === '1';
+    } catch {}
+    return !!anfang;
+  });
+  return [zu, (wert) => setZu(v => {
+    const neu = typeof wert === 'function' ? wert(v) : wert;
+    try { localStorage.setItem(schluessel, neu ? '1' : '0'); } catch {}
+    return neu;
+  })];
+};
+
+// Und das Fenster selbst. Kopf zum Schieben, ein Dreieck zum Ein- und
+// Ausklappen, ein Kreuz zum Schliessen — beides gemerkt, damit der
+// Kampf nicht jedes Mal wieder aufgeraeumt werden muss.
+const Schiebefenster = ({ schluessel, standard, breite, titel, kopfExtra,
+                          zuAnfang, groessbar, onSchliessen, klasse, children }) => {
+  const {pos, griff} = useSchiebefenster(schluessel + '_pos', standard, breite);
+  const [zu, setZu] = useEingeklappt(schluessel + '_zu', zuAnfang);
+  return (
+    <div className={'sf-fenster' + (zu ? ' zu' : '') + (klasse ? ' ' + klasse : '')}
+      style={breite ? {left: pos.x, top: pos.y, width: breite}
+                    : {left: pos.x, top: pos.y}}>
+      <div className="sf-kopf" {...griff} title="Zum Verschieben ziehen">
+        <button type="button" className="sf-klapp" aria-expanded={!zu}
+          title={zu ? 'Ausklappen' : 'Einklappen'}
+          onClick={()=>setZu(z => !z)}>{zu ? '▸' : '▾'}</button>
+        <span className="sf-titel">{titel}</span>
+        {kopfExtra}
+        {onSchliessen && (
+          <button type="button" className="sf-x" onClick={onSchliessen}
+            title="Schließen" aria-label="Schließen">✕</button>
+        )}
+      </div>
+      {!zu && (
+        <div className={'sf-leib' + (groessbar ? ' groessbar' : '')}>{children}</div>
+      )}
+    </div>
+  );
+};

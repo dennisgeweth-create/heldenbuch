@@ -1024,7 +1024,37 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
 // Felder sind kleiner, weil das Fenster der Runde schmaler ist als der
 // Tracker — laesst sich das Raster nicht unterbringen, rollt es in sich
 // selbst, statt zu schrumpfen.
+// Wie gross die Felder in der Ansicht sind. Zwischen den Grenzen frei
+// waehlbar: am Schreibtisch will man das ganze Feld sehen, auf dem iPad
+// die Ecke, in der gerade gekaempft wird.
+const K_SCHAU_KLEIN = 12;
+const K_SCHAU_GROSS = 60;
+const K_SCHAU_START = 22;
+const K_SCHAU_FACH  = 'hb_karte_schau_zoom';
+
+const kSchauLesen = () => {
+  try {
+    const n = +localStorage.getItem(K_SCHAU_FACH);
+    if (n >= K_SCHAU_KLEIN && n <= K_SCHAU_GROSS) return n;
+  } catch {}
+  return K_SCHAU_START;
+};
+
 const KarteSchau = ({ karte, wer }) => {
+  const [feld, setFeldRoh] = React.useState(kSchauLesen);
+  const setFeld = (n) => setFeldRoh(() => {
+    const g = Math.max(K_SCHAU_KLEIN, Math.min(K_SCHAU_GROSS, Math.round(n)));
+    try { localStorage.setItem(K_SCHAU_FACH, String(g)); } catch {}
+    return g;
+  });
+  // Strg und Rad ist das, was man von einer Karte erwartet. Ohne Strg
+  // rollt die Seite weiter — sonst bliebe man beim Scrollen an der
+  // Karte haengen.
+  const rad = (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    setFeld(feld + (e.deltaY < 0 ? 2 : -2));
+  };
   if (!karte || !karte.breite) return null;
   const belegt = new Map();
   Object.keys(karte.figuren || {}).forEach(id => {
@@ -1035,9 +1065,25 @@ const KarteSchau = ({ karte, wer }) => {
   });
   return (
     <div className="kk-schau">
-      <div className="kk-raster-kasten">
+      <div className="kk-schau-leiste">
+        <span className="kk-label">Ansicht</span>
+        <span className="kk-nudge">
+          <button type="button" className="bj-taste" title="Kleiner"
+            disabled={feld <= K_SCHAU_KLEIN}
+            onClick={()=>setFeld(feld - 4)}>−</button>
+          <b>{Math.round((feld / K_SCHAU_START) * 100)} %</b>
+          <button type="button" className="bj-taste" title="Größer"
+            disabled={feld >= K_SCHAU_GROSS}
+            onClick={()=>setFeld(feld + 4)}>+</button>
+        </span>
+        <button type="button" className="bj-taste"
+          onClick={()=>setFeld(K_SCHAU_START)}>Zurücksetzen</button>
+        <span className="kk-hinweis">Strg + Rad geht auch</span>
+      </div>
+      <div className="kk-raster-kasten" onWheel={rad}>
         <div className="kk-raster"
-          style={{gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'}}>
+          style={{'--kk-feld': feld + 'px',
+                  gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'}}>
           <span className="kk-ecke" />
           {Array.from({length: karte.breite}, (_, x) => (
             <span className="kk-spalte" key={'s' + x}>{kSpalte(x)}</span>

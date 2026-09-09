@@ -553,6 +553,34 @@ an: kopierbar heißt Text, und ein Bild ist keiner.
 
 ---
 
+## Nachtrag: drei Fenster statt zweier Kästen
+
+Gebaut waren beide Karten als Kästen in der Seite — die der Spielleitung
+im Tracker, die der Runde in der Kampfsicht. Am Tisch war das falsch
+herum: wer die Karte aufmacht, schiebt damit die Initiativliste zwei
+Schirmlängen nach unten, und genau die braucht er im selben Augenblick.
+
+Beide sind jetzt **eigene Fenster**, mit derselben Form wie die
+Kampfsicht: am Kopf schieben, das Dreieck klappt ein, das Kreuz macht
+zu. Stelle und Zustand merkt sich das Gerät je Fenster — wer seinen
+Aufbau einmal hat, hat ihn beim nächsten Kampf wieder.
+
+Das Fenster der Spielleitung lässt sich am Zipfel **größer ziehen**; bei
+dreißig Spalten ist das kein Luxus.
+
+**Die Karte der Runde lässt sich vergrößern.** Ein Schieber von 55 % bis
+270 %, oder Strg und Mausrad. Am Schreibtisch will man das ganze Feld
+sehen, auf dem iPad die Ecke, in der gerade gekämpft wird. Die
+Einstellung bleibt am Gerät.
+
+Das Schieben selbst steht seit dieser Runde in `0-basis.jsx`
+(`useSchiebefenster`, `Schiebefenster`) und nicht mehr in jedem Fenster
+noch einmal. Die Kampfsicht benutzt es jetzt auch. Das Fenster der
+Taverne macht es weiter selbst — es umzustellen wäre Arbeit ohne
+Gewinn für den Spieler.
+
+---
+
 ## Reihenfolge, kurz begründet
 
 | Stufe | Warum hier |

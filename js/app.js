@@ -685,6 +685,150 @@ const BildAblage = ({
   }, "\u2715"));
 };
 
+// ── Ein Fenster, das stehen bleibt, wo man es hinschiebt ─────────
+// Der Kampf braucht mehrere davon: die Reihenfolge fuer die Runde, die
+// Karte fuer die Spielleitung, die Karte fuer die Runde. Alle drei
+// sollen sich schieben lassen und sich merken, wo sie zuletzt standen —
+// deshalb steht das Schieben hier und nicht dreimal nebenan.
+//
+// Gemerkt wird je Fenster unter einem eigenen Schluessel. Beim Laden
+// wird die Stelle geklemmt: ein Fenster, das seit dem letzten Mal auf
+// einem breiteren Schirm stand, waere sonst nicht mehr zu fassen.
+//
+// Das Fenster der Taverne (2f-automat.jsx) macht dasselbe noch selbst.
+// Es umzustellen waere Arbeit ohne Gewinn fuer den Spieler — wer dort
+// einmal etwas anfasst, kann es dann mit erledigen.
+const schiebeKlemmen = (pos, breite) => ({
+  x: Math.max(-(breite || 460) + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
+  y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
+});
+const useSchiebefenster = (schluessel, standard, breite) => {
+  const [pos, setPos] = React.useState(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(schluessel) || 'null');
+      if (d && Number.isFinite(+d.x)) return schiebeKlemmen({
+        x: +d.x,
+        y: +d.y
+      }, breite);
+    } catch {}
+    return schiebeKlemmen(standard, breite);
+  });
+  const zug = React.useRef(null);
+  const merken = p => {
+    try {
+      localStorage.setItem(schluessel, JSON.stringify(p));
+    } catch {}
+  };
+  return {
+    pos,
+    // Am Kopf des Fensters angebracht. Der Schliessknopf sitzt dort auch
+    // und darf nicht mitschieben.
+    griff: {
+      onPointerDown: e => {
+        if (e.target.closest('button')) return;
+        zug.current = {
+          dx: e.clientX - pos.x,
+          dy: e.clientY - pos.y
+        };
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
+      },
+      onPointerMove: e => {
+        if (!zug.current) return;
+        setPos(schiebeKlemmen({
+          x: e.clientX - zug.current.dx,
+          y: e.clientY - zug.current.dy
+        }, breite));
+      },
+      onPointerUp: () => {
+        if (zug.current) {
+          zug.current = null;
+          merken(pos);
+        }
+      },
+      onPointerCancel: () => {
+        if (zug.current) {
+          zug.current = null;
+          merken(pos);
+        }
+      }
+    }
+  };
+};
+
+// Ob ein Fenster eingeklappt ist. Steht neben der Stelle, weil es
+// dasselbe Wesen hat: eine Kleinigkeit, die das Geraet sich merkt.
+const useEingeklappt = (schluessel, anfang) => {
+  const [zu, setZu] = React.useState(() => {
+    try {
+      const d = localStorage.getItem(schluessel);
+      if (d === '0' || d === '1') return d === '1';
+    } catch {}
+    return !!anfang;
+  });
+  return [zu, wert => setZu(v => {
+    const neu = typeof wert === 'function' ? wert(v) : wert;
+    try {
+      localStorage.setItem(schluessel, neu ? '1' : '0');
+    } catch {}
+    return neu;
+  })];
+};
+
+// Und das Fenster selbst. Kopf zum Schieben, ein Dreieck zum Ein- und
+// Ausklappen, ein Kreuz zum Schliessen — beides gemerkt, damit der
+// Kampf nicht jedes Mal wieder aufgeraeumt werden muss.
+const Schiebefenster = ({
+  schluessel,
+  standard,
+  breite,
+  titel,
+  kopfExtra,
+  zuAnfang,
+  groessbar,
+  onSchliessen,
+  klasse,
+  children
+}) => {
+  const {
+    pos,
+    griff
+  } = useSchiebefenster(schluessel + '_pos', standard, breite);
+  const [zu, setZu] = useEingeklappt(schluessel + '_zu', zuAnfang);
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'sf-fenster' + (zu ? ' zu' : '') + (klasse ? ' ' + klasse : ''),
+    style: breite ? {
+      left: pos.x,
+      top: pos.y,
+      width: breite
+    } : {
+      left: pos.x,
+      top: pos.y
+    }
+  }, /*#__PURE__*/React.createElement("div", _extends({
+    className: "sf-kopf"
+  }, griff, {
+    title: "Zum Verschieben ziehen"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "sf-klapp",
+    "aria-expanded": !zu,
+    title: zu ? 'Ausklappen' : 'Einklappen',
+    onClick: () => setZu(z => !z)
+  }, zu ? '▸' : '▾'), /*#__PURE__*/React.createElement("span", {
+    className: "sf-titel"
+  }, titel), kopfExtra, onSchliessen && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "sf-x",
+    onClick: onSchliessen,
+    title: "Schlie\xDFen",
+    "aria-label": "Schlie\xDFen"
+  }, "\u2715")), !zu && /*#__PURE__*/React.createElement("div", {
+    className: 'sf-leib' + (groessbar ? ' groessbar' : '')
+  }, children));
+};
+
 // ==== js/src/1-editors.jsx ====
 // Heldenbuch — Eingabebausteine: Rich-Text-Editor und Effekt-Editor.
 // Beide ohne Bezug zum Charakterbogen, deshalb eigene Datei.
@@ -5088,16 +5232,7 @@ const KampfAnsicht = ({
       title: "Erledigt, weg damit",
       onClick: () => onAnsageWeg && onAnsageWeg(a.id)
     }, "\u2715"));
-  }))), karteOffen && /*#__PURE__*/React.createElement("div", {
-    className: "kampf-karte"
-  }, /*#__PURE__*/React.createElement(KarteFeld, {
-    kampf: kampf,
-    setKampf: setKampf,
-    liste: liste,
-    amZug: amZug,
-    onFrage: onFrage,
-    onLog: protokollieren
-  })), protokollOffen && /*#__PURE__*/React.createElement("div", {
+  }))), protokollOffen && /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll-kopf"
@@ -5264,7 +5399,23 @@ const KampfAnsicht = ({
     onBlatt: onGegnerBlatt,
     auf: handelnd && handelnd.id === t.id || zeileOffen === t.id,
     onAufklappen: () => setZeileOffen(o => o === t.id ? null : t.id)
-  })))));
+  })))), karteOffen && /*#__PURE__*/React.createElement(Schiebefenster, {
+    schluessel: "hb_kampfkarte",
+    groessbar: true,
+    standard: {
+      x: 40,
+      y: 90
+    },
+    titel: /*#__PURE__*/React.createElement(React.Fragment, null, "\uD83D\uDDFA Karte", kampf.karte ? ' · ' + kampf.karte.breite + '×' + kampf.karte.hoehe : ''),
+    onSchliessen: () => setKarteOffen(false)
+  }, /*#__PURE__*/React.createElement(KarteFeld, {
+    kampf: kampf,
+    setKampf: setKampf,
+    liste: liste,
+    amZug: amZug,
+    onFrage: onFrage,
+    onLog: protokollieren
+  })));
 };
 
 // ==== js/src/2c2-karte.jsx ====
@@ -6532,10 +6683,40 @@ const KarteFeld = ({
 // Felder sind kleiner, weil das Fenster der Runde schmaler ist als der
 // Tracker — laesst sich das Raster nicht unterbringen, rollt es in sich
 // selbst, statt zu schrumpfen.
+// Wie gross die Felder in der Ansicht sind. Zwischen den Grenzen frei
+// waehlbar: am Schreibtisch will man das ganze Feld sehen, auf dem iPad
+// die Ecke, in der gerade gekaempft wird.
+const K_SCHAU_KLEIN = 12;
+const K_SCHAU_GROSS = 60;
+const K_SCHAU_START = 22;
+const K_SCHAU_FACH = 'hb_karte_schau_zoom';
+const kSchauLesen = () => {
+  try {
+    const n = +localStorage.getItem(K_SCHAU_FACH);
+    if (n >= K_SCHAU_KLEIN && n <= K_SCHAU_GROSS) return n;
+  } catch {}
+  return K_SCHAU_START;
+};
 const KarteSchau = ({
   karte,
   wer
 }) => {
+  const [feld, setFeldRoh] = React.useState(kSchauLesen);
+  const setFeld = n => setFeldRoh(() => {
+    const g = Math.max(K_SCHAU_KLEIN, Math.min(K_SCHAU_GROSS, Math.round(n)));
+    try {
+      localStorage.setItem(K_SCHAU_FACH, String(g));
+    } catch {}
+    return g;
+  });
+  // Strg und Rad ist das, was man von einer Karte erwartet. Ohne Strg
+  // rollt die Seite weiter — sonst bliebe man beim Scrollen an der
+  // Karte haengen.
+  const rad = e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    setFeld(feld + (e.deltaY < 0 ? 2 : -2));
+  };
   if (!karte || !karte.breite) return null;
   const belegt = new Map();
   Object.keys(karte.figuren || {}).forEach(id => {
@@ -6550,10 +6731,36 @@ const KarteSchau = ({
   return /*#__PURE__*/React.createElement("div", {
     className: "kk-schau"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "kk-raster-kasten"
+    className: "kk-schau-leiste"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-label"
+  }, "Ansicht"), /*#__PURE__*/React.createElement("span", {
+    className: "kk-nudge"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Kleiner",
+    disabled: feld <= K_SCHAU_KLEIN,
+    onClick: () => setFeld(feld - 4)
+  }, "\u2212"), /*#__PURE__*/React.createElement("b", null, Math.round(feld / K_SCHAU_START * 100), " %"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    title: "Gr\xF6\xDFer",
+    disabled: feld >= K_SCHAU_GROSS,
+    onClick: () => setFeld(feld + 4)
+  }, "+")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "bj-taste",
+    onClick: () => setFeld(K_SCHAU_START)
+  }, "Zur\xFCcksetzen"), /*#__PURE__*/React.createElement("span", {
+    className: "kk-hinweis"
+  }, "Strg + Rad geht auch")), /*#__PURE__*/React.createElement("div", {
+    className: "kk-raster-kasten",
+    onWheel: rad
   }, /*#__PURE__*/React.createElement("div", {
     className: "kk-raster",
     style: {
+      '--kk-feld': feld + 'px',
       gridTemplateColumns: 'auto repeat(' + karte.breite + ', var(--kk-feld))'
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -15073,26 +15280,8 @@ const AnsageFenster = ({
 // bleibt stehen, wo man ihn hingeschoben hat.
 const KS_SPEICHER = 'hb_kampfsicht_fenster';
 const KS_BREITE = 460;
-const ksLesen = () => {
-  try {
-    const d = JSON.parse(localStorage.getItem(KS_SPEICHER) || 'null');
-    if (d && Number.isFinite(+d.x)) return {
-      x: +d.x,
-      y: +d.y
-    };
-  } catch {}
-  return null;
-};
-const ksSchreiben = pos => {
-  try {
-    localStorage.setItem(KS_SPEICHER, JSON.stringify(pos));
-  } catch {}
-};
-// Immer so viel stehen lassen, dass man den Kopf noch zu fassen bekommt.
-const ksKlemmen = pos => ({
-  x: Math.max(-KS_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
-  y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
-});
+// Das Schieben selbst steht in 0-basis.jsx: drei Fenster im Kampf
+// wollen dasselbe, und dreimal dasselbe waere dreimal zu pflegen.
 
 // ── Reaktionen ───────────────────────────────────────────────
 // Eine Reaktion kommt zwischendurch: der Gegner zaubert, und irgendwer
@@ -15116,34 +15305,17 @@ const KampfSicht = ({
   onReaktion,
   onSchliessen
 }) => {
-  const [pos, setPos] = React.useState(() => ksLesen() || ksKlemmen({
+  const {
+    pos,
+    griff
+  } = useSchiebefenster(KS_SPEICHER, {
     x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32),
     y: 76
-  }));
-  const zug = React.useRef(null);
-  const zugStart = e => {
-    if (e.target.closest('button')) return; // der Schliessknopf schiebt nicht
-    zug.current = {
-      dx: e.clientX - pos.x,
-      dy: e.clientY - pos.y
-    };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-  };
-  const zugBewegen = e => {
-    if (!zug.current) return;
-    setPos(ksKlemmen({
-      x: e.clientX - zug.current.dx,
-      y: e.clientY - zug.current.dy
-    }));
-  };
-  const zugEnde = () => {
-    if (zug.current) {
-      zug.current = null;
-      ksSchreiben(pos);
-    }
-  };
+  }, KS_BREITE);
+  // Die Karte steht in einem eigenen Fenster daneben. Sie ist beim
+  // Ansagen die erste Frage, aber nicht immer — und ein Raster, das die
+  // Reihe aus dem Fenster schiebt, hilft niemandem.
+  const [karteAuf, setKarteAuf] = useEingeklappt('hb_kampfsicht_karte_auf', false);
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
   // Solange nur aufgestellt wird, ist niemand am Zug — und wer dazwischen
@@ -15156,38 +15328,33 @@ const KampfSicht = ({
   const namensZug = t => !t ? '' : t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
   const dranName = namensZug(liste[dranIdx]);
   const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
-  return /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "ks-fenster",
     style: {
       left: pos.x,
       top: pos.y,
       width: KS_BREITE
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "ks-kopf",
-    onPointerDown: zugStart,
-    onPointerMove: zugBewegen,
-    onPointerUp: zugEnde,
-    onPointerCancel: zugEnde,
+  }, /*#__PURE__*/React.createElement("div", _extends({
+    className: "ks-kopf"
+  }, griff, {
     title: "Zum Verschieben ziehen"
-  }, /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("span", {
     className: "ks-titel"
   }, "\u2694 ", kampf.name || 'Kampf'), /*#__PURE__*/React.createElement("span", {
     className: "ks-runde"
   }, /*#__PURE__*/React.createElement("span", null, "Runde"), /*#__PURE__*/React.createElement("b", null, kampf.runde || 1)), /*#__PURE__*/React.createElement("span", {
     className: "ks-dran-kopf"
-  }, zwName ? /*#__PURE__*/React.createElement(React.Fragment, null, "\u26A1 Dazwischen: ", /*#__PURE__*/React.createElement("b", null, zwName)) : dranName ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, dranName)) : 'Niemand am Zug'), /*#__PURE__*/React.createElement("button", {
+  }, zwName ? /*#__PURE__*/React.createElement(React.Fragment, null, "\u26A1 Dazwischen: ", /*#__PURE__*/React.createElement("b", null, zwName)) : dranName ? /*#__PURE__*/React.createElement(React.Fragment, null, "Am Zug: ", /*#__PURE__*/React.createElement("b", null, dranName)) : 'Niemand am Zug'), kampf.karte && /*#__PURE__*/React.createElement("button", {
+    className: 'ks-kartenknopf' + (karteAuf ? ' an' : ''),
+    onClick: () => setKarteAuf(a => !a),
+    title: karteAuf ? 'Die Karte zuklappen' : 'Wer wo steht — in einem eigenen Fenster'
+  }, "\uD83D\uDDFA Karte"), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
     title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
     "aria-label": "Schlie\xDFen"
-  }, "\u2715")), kampf.karte && /*#__PURE__*/React.createElement(KarteSchau, {
-    karte: kampf.karte,
-    wer: Object.fromEntries(liste.map(t => [t.id, {
-      name: namensZug(t),
-      art: t.art
-    }]))
-  }), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
     className: "ks-liste"
   }, liste.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "ks-leer"
@@ -15225,7 +15392,21 @@ const KampfSicht = ({
   }, onAnsage ? /*#__PURE__*/React.createElement("button", {
     className: "ks-ansage-knopf",
     onClick: onAnsage
-  }, "\u270D Ansagen, was du tust") : null, /*#__PURE__*/React.createElement("span", null, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")));
+  }, "\u270D Ansagen, was du tust") : null, /*#__PURE__*/React.createElement("span", null, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch."))), karteAuf && kampf.karte && /*#__PURE__*/React.createElement(Schiebefenster, {
+    schluessel: "hb_kampfsicht_karte",
+    standard: {
+      x: 24,
+      y: 120
+    },
+    titel: "\uD83D\uDDFA Die Karte",
+    onSchliessen: () => setKarteAuf(false)
+  }, /*#__PURE__*/React.createElement(KarteSchau, {
+    karte: kampf.karte,
+    wer: Object.fromEntries(liste.map(t => [t.id, {
+      name: namensZug(t),
+      art: t.art
+    }]))
+  })));
 };
 
 // ==== js/src/2h-proben.jsx ====

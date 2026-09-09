@@ -23,10 +23,10 @@
     </div>
 
     <h2 class="wb-titel" style="margin-top:22px">Das Feld</h2>
-    <div class="kampf-karte" id="wbFeld"></div>
+    <div id="wbFeld"></div>
 
     <h2 class="wb-titel" style="margin-top:22px">Was die Runde sieht</h2>
-    <div class="ks-fenster" style="position:static;width:460px" id="wbRunde"></div>
+    <div id="wbRunde"></div>
   </div>
 
   <script>
@@ -146,7 +146,11 @@
     var wbFeldWurzel = ReactDOM.createRoot(document.getElementById('wbFeld'));
     window.wbLog = [];
     function wbFeldZeichnen() {
-      wbFeldWurzel.render(React.createElement(KarteFeld, {
+      wbFeldWurzel.render(React.createElement(Schiebefenster, {
+        schluessel: 'wb_dmfenster', standard: {x: 500, y: 40},
+        groessbar: true, titel: 'Karte (Spielleitung)',
+        onSchliessen: function () { console.log('zu'); }
+      }, React.createElement(KarteFeld, {
         kampf: wbKampf, liste: wbListe, amZug: wbListe[0],
         setKampf: function (fn) {
           wbKampf = typeof fn === 'function' ? fn(wbKampf) : fn;
@@ -154,7 +158,7 @@
         },
         onFrage: function (text, tun) { console.log('Frage: ' + text); tun(); },
         onLog: function (e) { window.wbLog.push(e); console.log('Log', JSON.stringify(e)); }
-      }));
+      })));
     }
     wbFeldZeichnen();
     window.wbStand = function () { return wbKampf.karte; };
@@ -173,7 +177,10 @@
       var wer = {};
       wbListe.forEach(function (t) { wer[t.id] = {name: t.name, art: t.art}; });
       wbRundeWurzel.render(fuer
-        ? React.createElement(KarteSchau, {karte: fuer, wer: wer})
+        ? React.createElement(Schiebefenster, {
+            schluessel: 'wb_kartenfenster', standard: {x: 40, y: 60},
+            titel: 'Die Karte', onSchliessen: function () { console.log('zu'); }
+          }, React.createElement(KarteSchau, {karte: fuer, wer: wer}))
         : React.createElement('div', {className: 'ks-leer'},
             'Die Spielleitung zeigt die Karte nicht.'));
     }
