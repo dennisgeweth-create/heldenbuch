@@ -129,6 +129,81 @@ weitere Erklärung lesen kann. Er beantwortet genau die Fragen, bei denen
 
 ---
 
+## Derselbe Block auch hinein
+
+Eine Karte von Hand zu malen dauert. Eine Karte, die schon existiert —
+als Bild aus einem Abenteuerband, als Skizze, als Bodenplan — abzumalen
+dauert länger.
+
+**Also geht der Block auch rückwärts.** Die Spielleitung legt der KI das
+Bild vor und die Anweisung dazu; die KI schreibt den Block; der Block
+wird eingefügt, und die Karte steht.
+
+Das ist kein zweites Format. **Was herauskommt, geht auch hinein** —
+eine Karte lässt sich kopieren, weiterreichen, verändern und
+zurückgeben. Ein Format, zwei Richtungen, und beide werden mit denselben
+Prüfungen abgesichert.
+
+Das Einfügefeld ist dasselbe, das die Beute und die Gegnerlisten schon
+benutzen (`ListeEinfuegen` in `0-basis.jsx`), samt der Anweisung zum
+Weitergeben — dieser Weg hat sich zweimal bewährt und wird nicht zum
+dritten Mal neu erfunden.
+
+### Was gelesen wird
+
+Beim Lesen ist der Leser großzügig, beim Schreiben genau. Ein Block von
+einer KI trifft das Format selten aufs Zeichen.
+
+- **Ein Feld je Wortgruppe.** Die Zeilen werden an Leerräumen zerlegt,
+  nicht nach Spaltenbreite abgezählt. `. . # ~ Br` liest sich genauso wie
+  `.  .  #  ~  Br`.
+- **Die Zeilennummer vorn darf fehlen** oder dastehen; beides geht.
+- **Die Spaltenzeile darf fehlen.** Die Breite ergibt sich aus der
+  längsten Zeile; kürzere Zeilen werden mit Boden aufgefüllt und das
+  wird gemeldet.
+- **Unbekannte Geländezeichen werden zu Boden** — mit einer Meldung,
+  welche es waren. Lieber eine Karte mit einer Lücke als gar keine.
+- **Die Figuren kommen über den Namen.** Im `FIGUREN`-Block steht
+  `Br  Brunhilde`; gesucht wird der Teilnehmer, dessen Name dazu passt —
+  mit derselben unscharfen Suche, die auch Beute und Gegner benutzen.
+  Wer nicht gefunden wird, wird gemeldet und weggelassen. **Der Import
+  legt keine Figuren an**; wer im Kampf stehen soll, steht in der
+  Teilnehmerliste.
+
+### Die Anweisung für die KI
+
+Steht im Programm neben dem Einfügefeld, zum Kopieren — wie bei der
+Beute. Sinngemäß:
+
+```
+Du bekommst das Bild einer Kampfkarte. Schreib daraus einen Textblock
+in genau diesem Format:
+
+    A  B  C  D  E  F  G  H
+ 1  .  .  #  #  #  .  .  .
+ 2  .  .  #  .  /  .  .  .
+ 3  .  .  #  #  #  .  ~  ~
+
+Regeln:
+- Ein Zeichen je Feld, durch Leerzeichen getrennt.
+- Spalten von links: A, B, C … Z, dann AA, AB …
+- Zeilen von oben, ab 1.
+- Erlaubt sind genau diese Zeichen:
+    .  Boden          #  Wand oder Fels    T  Baum oder Säule
+    ~  Wasser         +  Tür zu            /  Tür offen
+    x  Gefahr (Feuer, Dornen)
+- Ein Feld ist 1,5 m (5 Fuß). Schätz die Größe danach ab.
+- Höchstens 40 Spalten und 30 Zeilen.
+- Zeichne keine Figuren ein — nur das Gelände.
+- Schreib nichts dazu, keine Erklärung, keinen Kommentar.
+```
+
+Figuren bleiben ausdrücklich draußen: wer im Kampf steht, entscheidet
+die Teilnehmerliste, und eine KI, die aus einem Bild „drei Goblins"
+liest, legt sonst drei Figuren an, die es im Kampf nicht gibt.
+
+---
+
 ## Was gespeichert wird
 
 Die Karte hängt am Kampf und geht denselben Weg wie er — sie braucht
@@ -271,15 +346,21 @@ bewegen will, sagt es an — das ist derselbe Weg wie bei allem anderen.
 - Kürzel vergeben, eindeutig und stabil
 - Entfernung zweier Felder, Feldname (`B3`) hin und her
 - **Der Textblock** — das Ergebnis, an dem alles hängt
+- **Und derselbe Block zurück:** der Leser, großzügig, mit Meldung, was
+  er nicht verstanden hat
 
 *Prüfungen:* Feldnamen über `Z` hinaus, Raster verkleinern mit Figuren
 außerhalb, zwei Figuren auf ein Feld, Kürzel bei gleichen Namen,
-Entfernung diagonal, der Textblock Zeichen für Zeichen.
+Entfernung diagonal, der Textblock Zeichen für Zeichen — und die
+Rundreise: was der Schreiber ausgibt, muss der Leser wieder einlesen und
+dieselbe Karte ergeben.
 
 ### Stufe 2 · Das Feld im Tracker
 
 Aufklappbar wie das Protokoll. Raster zeichnen, Figuren setzen und
-ziehen, Gelände malen, Ablage für die, die noch nicht stehen.
+ziehen, Gelände malen, Ablage für die, die noch nicht stehen. Dazu das
+**Einfügefeld** samt Anweisung zum Weitergeben — dasselbe Bauteil wie
+bei Beute und Gegnerlisten.
 
 Bearbeitet wird am Schreibtisch oder auf dem iPad. Das Raster darf
 deshalb Platz nehmen: Felder von 34 Punkten, und wo es breiter wird als

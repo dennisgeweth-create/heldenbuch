@@ -14,6 +14,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2-logtab.jsx` | Abenteuerlog eines Helden |
 | ↳ `2b-gegner.jsx` | Gegnersammlung und Begegnungen der Spielleitung |
 | ↳ `2c-kampf.jsx` | Kampftracker: Aufstellung, Runden, Todesrettungswürfe |
+| ↳ `2c2-karte.jsx` | Kampfkarte — Raster, Gelände, Figuren, Textblock und sein Leser |
 | ↳ `2d-chronik.jsx` | Kalender und Ereignisse der Spielleitung |
 | ↳ `2e-abenteuer.jsx` | Einstellungen eines Abenteuers (nur im DM-Modus) |
 | ↳ `2f-automat.jsx` | Taverne: Halle, Fenster, Beutel je Held, Automat |
