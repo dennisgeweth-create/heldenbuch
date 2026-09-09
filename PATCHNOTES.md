@@ -1,5 +1,126 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.1.1
+
+Ein Abend am Tisch, eine Liste hinterher. Was hier steht, kommt fast
+vollständig aus dem ersten echten Testlauf mit v5.1 — und das meiste
+davon sind Dinge, die erst auffallen, wenn jemand wirklich damit spielt.
+
+### ⏱ Es fühlt sich schneller an
+
+Der Verzug beim Würfeln und im Kampf kam nirgends aus der Leitung: eine
+Anfrage an den Server dauert **21 Millisekunden** (gemessen, Median über
+25 Läufe). Er kam aus zwei anderen Stellen.
+
+**Die eigene Handlung war nicht sofort da.** Wer würfelte, sah seinen
+eigenen Wurf erst, wenn die nächste Abfrage antwortete — bis zu drei
+Sekunden für eine Zahl, die längst feststand. Dabei schickt der Server
+sie in seiner Antwort ohnehin zurück; sie wurde nur nicht benutzt. Jetzt
+steht sie sofort da: der Wurf, die eigene Ansage im Kampf, die angesagte
+Probe der Spielleitung.
+
+**Nach dem Abschicken wurde der Takt abgewartet.** Jetzt wird sofort neu
+gefragt.
+
+Und der Takt selbst ist kürzer, solange etwas offen steht:
+
+| | vorher | jetzt |
+|---|--:|--:|
+| Kampf läuft | 2,0 s | **1,2 s** |
+| Probe offen | 3,0 s | **1,2 s** |
+| Fund liegt | 5,0 s | **2,5 s** |
+
+Im Leerlauf und im Hintergrund bleibt alles wie es war — dort wird
+nichts erwartet.
+
+### 🎲 Proben gehen an einzelne, und geheim heißt geheim
+
+Eine Ansage ging bisher an alle. Jetzt lassen sich einzelne antippen;
+niemand angetippt heißt weiter alle.
+
+**„Verdeckt" und „geheim" sind zwei verschiedene Dinge.** Verdeckt
+heißt: *du* weißt nicht, ob du bestanden hast. Geheim heißt: die
+*anderen* wissen nicht einmal, dass du gewürfelt hast. Das kann die
+Anzeige nicht halten — sie bekäme die Ansage und müsste sie nur
+verschweigen. Deshalb filtert der **Server** sie heraus, bevor sie
+hinausgeht.
+
+Bei einer geheimen Probe steht kein Zahlenfeld, sondern **🎲 Würfeln**.
+Wer zum Würfel greift, fällt auf, und dann weiß der ganze Tisch, dass
+etwas gefragt wurde.
+
+Danach kann die Spielleitung **Text und Bild an einzelne schicken** —
+vorgeschlagen sind die, die es geschafft haben, ankreuzen lässt sich
+jeder. Auch das filtert der Server.
+
+### 🖼 Bilder hineinziehen
+
+An sieben Stellen ließen sich Bilder einsetzen, und alle sieben waren
+verschieden gebaut. Jetzt steht überall dieselbe Ablage — Gegner,
+Heldenporträt, Waffe, Gegenstand, Datenbank, Post an einen Spieler —,
+und sie nimmt drei Wege an: **hineinziehen**, anklicken, oder
+**Strg+V**, wenn irgendwo ein Bild kopiert wurde.
+
+Ein Bild direkt aus einer fremden Webseite hereinzuziehen geht nicht und
+kann nicht gehen: dabei kommt keine Datei an, sondern eine Adresse.
+Kopieren und einfügen geht dafür.
+
+Zwei der alten Felder machten aus jedem PNG ein JPEG und damit aus jeder
+Transparenz eine schwarze Fläche. Das ist mit erledigt.
+
+### ⚔ Kampf
+
+- **Ein angesagter Zauber kostet seinen Platz.** Wer das von Hand
+  vergisst, zaubert den Abend zu Ende aus einem Vorrat, den es nicht
+  mehr gibt. Gestrichen wird nur, wenn einer da ist — angesagt wird
+  trotzdem, denn Rituale und Zaubereipunkte kosten keinen, und das
+  entscheidet der Tisch und nicht der Bogen.
+- **Reaktionen mit einem Griff.** In der Kampfsicht steht eine Leiste
+  mit genau den Zaubern, deren Wirkzeit „Reaktion" sagt. Gegenzauber und
+  Silberdornen tauchen von allein auf, sobald sie im Buch stehen.
+- **Angesagt steht offen da.** Die Liste lag im Tracker hinter einem
+  Knopf; bei einer Sache, die man genau dann braucht, wenn man ohnehin
+  zwei andere im Kopf hat, war das ein Griff zu viel.
+
+### 🎓 Bogen und Regeln
+
+- **Der Mensch hat die Wahl.** „Vielseitig" ist der alte — überall
+  einer; **„Begabt"** nimmt zwei Punkte nach Wahl und dafür ein Talent,
+  schon auf der ersten Stufe. Dieselbe Frage wie bei der
+  Attributssteigerung, nur zwölf Stufen früher.
+- **Beute von Hand verteilen.** Gleiche Teile bleiben der Normalfall;
+  „Anders verteilen" macht daraus ein Raster, je Held eine Zeile.
+  Aufgehen muss es — der Fund wird danach weggeräumt, und was offen
+  bliebe, wäre weg.
+- **Der Artifizient** fehlte nicht im Regelwerk, sondern in
+  Klassenlisten, die angelegt wurden, bevor es ihn gab. Die
+  Einstellungen sagen jetzt, was fehlt, und legen es auf einen Griff
+  dazu. Von allein hinzufügen wäre falsch: wer eine Klasse streicht,
+  meint das.
+- **Gegnerattribute zeigen ihren Modifikator.** Wer dort Modifikatoren
+  einträgt statt Werte, bekommt Rüstungsklasse 5 und Initiative −4 —
+  Geschicklichkeit 0 gibt nun einmal genau 10 + (−5). Das fiel bisher
+  erst im Kampf auf. Jetzt steht es im Formular, und wenn alle sechs
+  unter sieben liegen, rechnet ein Knopf es um.
+
+### 🎰 Taverne
+
+- **Die Auszahlungstafel war abgeschnitten.** Sie wurde als Flex-Kind
+  zusammengestaucht und der Rest verschwand, ohne dass irgendwo etwas zu
+  rollen war — beim Verschollenen Kapitel fehlten zwei Zeichen und beide
+  Fußnoten. Betraf alle Tische, nicht nur die neuen.
+- **Die Halle hat drei Gruppen**: Tische, Walzen, Wetten. An einem Tisch
+  gibt jemand, eine Walze läuft von allein, und eine Wette geht auf
+  etwas, das ohne den Spieler passiert.
+- **Drei Zeichen waren kaum zu sehen**, weil sie als Textglyphe gesetzt
+  wurden statt als Bild: ♟ → ♠️, 🕮 → 📖, 🗡 → ⚔️.
+
+### 🔑 Kleinigkeiten
+
+- **„Erstes Konto anlegen"** steht nur noch da, wo es noch keines gibt.
+  Vorher konnte der Knopf, sobald es Konten gab, nur noch eine
+  Fehlermeldung erzeugen.
+
 ## v5.1
 
 Die Taverne bekommt drei Automaten dazu. Sie sind nach dem Vorbild
@@ -73,49 +194,6 @@ die stärkste im Haus und darf deshalb die seltenste sein.
   „Dreifachen Glück". Die Quote rechnet sich sofort mit.
 - Die Halle hat jetzt zwei Überschriften: **Tische** und **Walzen**. An
   einem Tisch gibt jemand, an einem Automaten nicht.
-
-### Aus dem Testlauf
-
-- **Die Auszahlungstafel war abgeschnitten.** Sie wurde als Flex-Kind
-  zusammengestaucht und der Rest verschwand, ohne dass irgendwo etwas zu
-  rollen war. Beim Verschollenen Kapitel fehlten zwei Zeichen und beide
-  Fußnoten.
-- **Die Halle hat drei Gruppen**: Tische, Walzen, Wetten. „Dreifaches
-  Glück" ist ein Automat, die Rennbahn keines von beiden.
-- **Beute lässt sich von Hand verteilen.** Gleiche Teile bleiben der
-  Normalfall; „Anders verteilen" macht daraus ein Raster, je Held eine
-  Zeile. Aufgehen muss es — was offen bliebe, wäre nach dem Wegräumen weg.
-- **Ein angesagter Zauber kostet seinen Platz.** Wer das im Kampf
-  vergisst, zaubert den Abend aus einem Vorrat, den es nicht mehr gibt.
-- **Reaktionen mit einem Griff.** In der Kampfsicht steht eine Leiste mit
-  genau den Zaubern, deren Wirkzeit „Reaktion" sagt — Gegenzauber und
-  Silberdornen tauchen von allein auf, sobald sie im Buch stehen.
-- **Der Mensch hat die Wahl.** „Vielseitig" ist der alte, überall einer;
-  „Begabt" nimmt zwei Punkte nach Wahl und dafür ein Talent, schon auf
-  der ersten Stufe.
-- **Proben gehen an einzelne**, und **geheim** heißt jetzt wirklich
-  geheim: die anderen erfahren nicht einmal, dass gewürfelt wurde. Das
-  filtert der Server, nicht die Anzeige. Danach kann die Spielleitung
-  Text und Bild an die schicken, die es geschafft haben.
-- **Der Artifizient** fehlte in Klassenlisten, die vor ihm angelegt
-  wurden. Die Einstellungen sagen jetzt, was aus dem Regelwerk fehlt.
-- **Gegnerattribute zeigen ihren Modifikator.** Wer dort Modifikatoren
-  einträgt statt Werte, bekommt Rüstungsklasse 5 und Initiative −4 — das
-  fiel bisher erst im Kampf auf. Jetzt steht es im Formular, mit einem
-  Knopf zum Umrechnen.
-- **„Erstes Konto anlegen"** steht nur noch da, wo es noch keines gibt.
-- **Bilder lassen sich hineinziehen.** An allen sieben Stellen, an denen
-  ein Bild eingesetzt wird — Gegner, Heldenporträt, Waffe, Gegenstand,
-  Datenbank, Post an einen Spieler —, steht jetzt dieselbe Ablage. Sie
-  nimmt drei Wege: hineinziehen, anklicken, oder **Strg+V**, wenn
-  irgendwo ein Bild kopiert wurde.
-- **Angesagt steht offen da.** Im Kampftracker lag die Liste hinter
-  einem Knopf; bei einer Sache, die man genau dann braucht, wenn man
-  ohnehin zwei andere im Kopf hat, war das ein Griff zu viel.
-- **Weniger Verzug beim Spielen.** Die eigene Handlung steht sofort da
-  statt nach bis zu drei Sekunden, nach dem Abschicken wird sofort neu
-  gefragt, und solange etwas offen steht, ist der Takt kürzer (Kampf und
-  Probe 1,2 s statt 2 bzw. 3).
 
 ## v5.0
 
