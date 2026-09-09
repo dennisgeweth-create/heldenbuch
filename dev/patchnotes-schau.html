@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Werkbank · Patchnotes</title>
+<link rel="stylesheet" href="../styles.css?v=dev">
+<style> body { padding:0; background:var(--bg-void); } </style>
+</head>
+<body>
+  <div id="wurzel"></div>
+  <script>
+    // Die Anwendung ruft den Server nur, wenn eine Adresse dasteht.
+    try { localStorage.removeItem('sv_url'); } catch (e) {}
+    // Die Huellen um die Schnittstelle stehen sonst in der index.html.
+    // Hier braucht sie niemand — aber js/app.js liest ein paar davon
+    // beim Laden, und ein fehlender Name braeche die ganze Datei ab.
+    const wbStumm = () => Promise.reject(new Error('Werkbank: kein Server'));
+    const apiAdvDmSetzen = wbStumm;
+    const apiBesitzerSetzen = wbStumm;
+    const apiDeleteChar = wbStumm;
+    const apiDeleteItem = wbStumm;
+    const apiDmDeleteEncounter = wbStumm;
+    const apiDmDeleteEnemy = wbStumm;
+    const apiDmImportEnemies = wbStumm;
+    const apiDmLoad = wbStumm;
+    const apiDmLoadChronik = wbStumm;
+    const apiDmLoadEncounters = wbStumm;
+    const apiDmLoadEnemies = wbStumm;
+    const apiDmSaveChronik = wbStumm;
+    const apiDmSaveEncounter = wbStumm;
+    const apiDmSaveEnemy = wbStumm;
+    const apiDmSaveLibrary = wbStumm;
+    const apiGruppeNeu = wbStumm;
+    const apiKampfAnsage = wbStumm;
+    const apiKampfAnsagen = wbStumm;
+    const apiKampfSetzen = wbStumm;
+    const apiKampfStand = wbStumm;
+    const apiKontoListe = wbStumm;
+    const apiKontoLoeschen = wbStumm;
+    const apiKontoNeu = wbStumm;
+    const apiSetupNoetig = wbStumm;
+    const apiProbeNachricht = wbStumm;
+    const apiKontoReset = wbStumm;
+    const apiLoadChars = wbStumm;
+    const apiLoadLogs = wbStumm;
+    const apiLogFrist = wbStumm;
+    const apiLogin = wbStumm;
+    const apiLogout = wbStumm;
+    const apiMe = wbStumm;
+    const apiMeineDaten = wbStumm;
+    const apiMitglieder = wbStumm;
+    const apiPassAendern = wbStumm;
+    const apiPoll = wbStumm;
+    const apiRolleSetzen = wbStumm;
+    const apiSaveChar = wbStumm;
+    const apiSaveChars = wbStumm;
+    const apiSaveItem = wbStumm;
+    const apiSaveLibrary = wbStumm;
+    const apiSaveLog = wbStumm;
+    const apiSetDmPassword = wbStumm;
+    // Stehen sonst in der index.html und fehlen hier deshalb: ohne die
+    // Platzhalter bricht jeder Baustein ab, der nach dem Zugang fragt
+    // oder etwas merken will.
+    const serverCreds = () => ({url: '', code: '', pass: '', token: ''});
+    const safeSetItem = (schluessel, wert) => {
+      try { localStorage.setItem('wb_' + schluessel, wert); } catch (e) {}
+    };
+  </script>
+  <script src="../js/data.js?v=dev"></script>
+  <script src="../js/util.js?v=dev"></script>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/app.js?v=dev"></script>
+  <script>
+    // Das Fenster liest die PATCHNOTES.md neben der index.html — hier
+    // liegt sie eine Ebene höher, deshalb der Umweg über fetch.
+    const echt = window.fetch;
+    window.fetch = (u, o) => echt(String(u).startsWith('PATCHNOTES.md')
+      ? '../' + u : u, o);
+    ReactDOM.createRoot(document.getElementById('wurzel')).render(
+      React.createElement(PatchnotesFenster, {onSchliessen: function () {}}));
+  </script>
+</body>
+</html>

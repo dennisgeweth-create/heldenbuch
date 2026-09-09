@@ -1,5 +1,167 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.2
+
+Der Kampftracker bekommt ein Feld. Bis hierher führte er eine
+Reihenfolge und wusste alles darüber, wie es den Figuren geht — aber
+nichts darüber, wo sie stehen. Wer neben wem steht, ob eine Kugel drei
+Ziele erwischt, ob jemand in Reichweite ist: das lag außerhalb.
+
+Den Ausschlag für die Bauart gab eine einzige Anforderung — **die Karte
+soll jederzeit kopierbar sein.** Kopierbar heißt Text, und ein Raster
+ist schon fast einer. Deshalb ist der Textblock hier nicht die Ausgabe
+am Ende, sondern der Zweck.
+
+```
+🗺 KARTE  8 × 5  ·  1 Feld = 1,5 m
+
+    A  B  C  D  E  F  G  H
+  1 .  .  #  #  #  .  .  .
+  2 .  Br #  .  .  .  g1 .
+  3 .  .  #  .  .  T  T  .
+  4 Th .  .  .  ~  ~  .  .
+  5 .  .  .  .  .  .  .  g2
+```
+
+### 🗺 Das Feld
+
+Sieben Geländearten — Boden, Wand, Baum, Wasser, Tür zu, Tür offen,
+Gefahr. Jeder Pinsel trägt sein eigenes Zeichen und seine eigene Farbe,
+damit man die Legende nicht auswendig können muss.
+
+**„Erst wählen, dann tippen" statt Ziehen.** Das geht mit Maus und
+Finger gleich gut, während Ziehen auf einem Tablet erfahrungsgemäß hakt.
+Figur antippen nimmt sie auf, ein Feld setzt sie ab. Wer auf ein
+besetztes Feld zieht, **tauscht** mit dem, der dort steht — das ist am
+Tisch das, was gemeint ist, und verliert niemanden.
+
+Jede Figur trägt zwei Zeichen, einmal vergeben und dann fest: Helden
+groß (`Br`, `Th`), Gegner klein mit Nummer (`g1`, `g2`). Fest deshalb,
+weil derselbe Gegner in Runde 1 und Runde 9 dasselbe Kürzel tragen muss
+— sonst wäre kein Protokoll lesbar.
+
+Die Größe lässt sich jederzeit ändern, vier Vorlagen von 10×8 bis 32×24
+oder frei bis 40×30. Am Rand hängt je eine Taste, die eine Reihe oder
+Spalte anfügt: wer merkt, dass der Kampf aus dem Raum hinausläuft,
+schiebt die Wand weiter, statt neu aufzubauen. **Beim Verkleinern fragt
+es vorher und sagt, wen es kostet** — eine Karte, die still zwei Gegner
+verliert, ist schlimmer als gar keine.
+
+### 🤖 Eine Karte aus einem Bild
+
+Der Block geht in beide Richtungen. Neben dem Einfügefeld steht die
+Anweisung für eine KI: Bodenplan hinlegen, Anweisung dazu, den Text
+zurück ins Feld. Der Leser ist beim Lesen großzügig und beim Schreiben
+genau — ein Block, den eine KI aus einem Bild geschrieben hat, trifft
+das Format selten aufs Zeichen. Er erkennt Figuren an ihren Namen wieder
+und ordnet sie den Teilnehmern zu; anlegen tut er niemanden.
+
+### 📜 Was im Protokoll steht
+
+Jede Bewegung schreibt sich selbst mit: `Brunhilde zieht A2 → B2 ·
+1 Feld (1,5 m)`. Die Meter stehen dabei, weil Reichweiten in Metern
+angegeben sind.
+
+Über dem Protokoll steht ein zweiter Schalter, **Karte**. Ist er an,
+trägt der kopierte Verlauf am Ende jeder Runde eine Aufnahme des Feldes,
+und ganz zum Schluss, wie es gerade steht. Was sich nicht gerührt hat,
+kommt nicht zweimal — verglichen wird Gelände und wer auf welchem Feld
+steht; Trefferpunkte zählen nicht dazu, die stehen schon Zeile für Zeile
+im Verlauf.
+
+Damit trägt der Text, den man einer KI hinlegt, auch die Stellung. Ohne
+sie war „zieht nach E4" nur eine Vokabel.
+
+### 👁 Sicht und Reichweite
+
+Die Entfernungstafel rechnet nach der Regel des Grundregelwerks:
+diagonal zählt eins. Dazu eine Sichttafel, die nur die Paare nennt, bei
+denen etwas dazwischensteht — alle aufzulisten wäre bei acht Figuren
+eine Wand aus Zeilen, in der die drei wichtigen untergehen.
+
+**Sie sagt selbst, was sie ist: eine Näherung.** Gerechnet wird eine
+Linie von Feldmitte zu Feldmitte. Das Grundregelwerk prüft von Ecke zu
+Ecke und kennt Deckung in Stufen — halb, drei viertel, ganz. Davon steht
+hier nichts, und das darf auch eine KI nicht für einen Regelentscheid
+halten. **Deckungsgrade entscheidet die Spielleitung.**
+
+Beim Setzen misst eine Zeile mit:
+
+```
+G2 · 5 Felder · 7,5 m · Wand auf C2 im Blick · Weg versperrt: Wand auf C2
+E4 · 1 Feld · 1,5 m · Sicht frei · 1 Feld schwierig
+```
+
+Sicht und Weg stehen getrennt, weil sie es sind: durch Wasser sieht man
+und kommt langsamer voran, eine Wand tut beides. Der Weg ist die gerade
+Strecke, keine Wegfindung — wer um die Wand herumläuft, geht weiter als
+dort steht.
+
+### 🙈 Was die Runde sieht
+
+Zwei Schalter, und beide müssen an sein.
+
+Der eine gilt der ganzen Karte. Er steht **aus**, bis jemand ihn umlegt:
+eine Aufstellung, die vor dem Kampf schon steht, gehört niemandem außer
+der Spielleitung, und ein Standard, der den Hinterhalt verrät, ist
+keiner.
+
+Der andere gilt einzelnen Figuren — der Hinterhalt, der Unsichtbare, der
+Wolf, den noch keiner gesehen hat. Am Schalter oben steht dann, wie
+viele es sind, damit niemand vergisst, dass er etwas versteckt hat.
+
+**Verborgen heißt verborgen, nicht ausgegraut.** Die Figur wird
+herausgenommen, bevor irgendetwas das Gerät verlässt — eine Marke, die
+nur nicht gezeichnet wird, stünde trotzdem in der Antwort, und wer die
+Antwort liest, sieht sie. Dieselbe Grenze steht ein zweites Mal auf dem
+Server. Das Gelände geht immer ganz mit: wer die Wand sieht, sieht sie
+auch am Tisch.
+
+Das Protokoll bleibt vollständig. Die Aufnahmen im Verlauf kennen auch
+die verborgenen Figuren — der Verlauf gehört der Spielleitung, und
+einer, der die Hälfte verschweigt, wäre hinterher gelogen.
+
+### 🖼 Ein Bodenplan darunter
+
+Ein Bild hineinziehen, und es liegt unter dem Raster. Ausgerichtet wird
+über Zoom und Versatz, beides in Prozent der Rasterbreite, damit die
+Einstellung stehen bleibt, wenn die Felder ihre Größe ändern.
+
+Der leere Boden wird durchsichtig, **gemaltes Gelände bleibt
+undurchsichtig**: das Bild zeigt den Raum, die gemalten Felder sind die
+Wahrheit darüber. Wer eine Wand einträgt, will sie sehen, auch wenn der
+Plan dort einen Teppich zeigt.
+
+Der Plan bleibt auf dem Gerät der Spielleitung. Er geht nicht an die
+Runde und nicht in den Textblock — der Kampf wird im Sekundentakt
+geschrieben, und ein Bild gehört da nicht hinein. Im Gerät liegt er in
+einem eigenen Fach: ist der Speicher voll, fällt das Bild aus und nicht
+die Initiativreihenfolge.
+
+### 🪟 Fenster statt Kästen
+
+Beide Karten sind eigene Fenster, wie die Kampfsicht: am Kopf schieben,
+das Dreieck klappt ein, das Kreuz macht zu. Stelle und Zustand merkt
+sich das Gerät je Fenster.
+
+Als Kasten in der Seite waren sie falsch herum: wer die Karte aufmacht,
+schiebt damit die Initiativliste zwei Schirmlängen nach unten — und
+genau die braucht er im selben Augenblick.
+
+**Beide lassen sich vergrößern und verkleinern**, zwei Knöpfe oder Strg
+und Mausrad. Dazu **⤢ Einpassen**: ein Druck, und die ganze Karte steht
+ohne Rollbalken im Fenster. Unter zwölf Pixeln je Feld hört es auf —
+darunter wäre die Karte kein Bild mehr, sondern ein Muster.
+
+### 🔑 Kleinigkeiten
+
+- **Das Protokollfenster ist höher** — 340 statt 220 Pixel. Mit einer
+  Kartenaufnahme darin war es zu eng.
+- **`KAMPFTRACKER.md`**, die Übersicht zum Vorlegen an eine KI, hat
+  ihren ersten „steht nicht drin"-Punkt verloren: Stellungen stehen
+  jetzt drin, wenn eine Karte geführt wird. Was weiter nicht drinsteht,
+  steht weiter dabei.
+
 ## v5.1.1
 
 Ein Abend am Tisch, eine Liste hinterher. Was hier steht, kommt fast
