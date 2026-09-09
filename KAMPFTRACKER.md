@@ -9,6 +9,11 @@ Der letzte Punkt ist der wichtigste. Eine KI, die glaubt, sie kenne
 Stellungen und Entfernungen, gibt Ratschläge, die am Tisch nicht
 umsetzbar sind.
 
+Es geht auch in die andere Richtung: der Abschnitt *„Eine Karte
+schreiben, die der Tracker einliest"* beschreibt das Format so genau,
+dass eine KI aus dem Bild eines Bodenplans einen Block schreiben kann,
+den die Spielleitung direkt einfügt.
+
 ---
 
 ## Kurz: der Ablauf
@@ -31,6 +36,11 @@ und trägt dann ein, was daraus wurde.
 **Gewürfelt wird am Tisch, nicht im Programm.** Der Tracker rechnet
 nichts aus und entscheidet nichts. Er hält fest, was passiert ist, und
 schreibt die Trefferpunkte in die Bögen.
+
+**Dazu kann eine Karte kommen** — ein Raster, auf dem Figuren und
+Gelände stehen. Sie ist freiwillig: ein Kampf ohne Karte läuft genau wie
+vorher. Steht eine, bewegt sich vieles von dem, was unten unter
+*„Was NICHT im Protokoll steht"* aufgezählt ist, auf die andere Seite.
 
 ---
 
@@ -61,6 +71,12 @@ heißt:
 **Die Trefferpunkte der Helden liegen im Bogen, nicht im Kampf.** Was im
 Tracker eingetragen wird, steht sofort im Charakterbogen — es gibt kein
 Übertragen am Ende.
+
+**Wo eine Figur steht, führt die Karte** und nicht die Figur. Sie hält
+je Figur nur drei Dinge: Spalte, Zeile und ein Kürzel aus zwei Zeichen.
+Wer im Kampf steht, steht in der Reihe oben — eine Karte mit eigener
+Figurenliste ginge beim ersten gelöschten Gegner auseinander. Deshalb
+legt auch der Import niemanden an.
 
 ---
 
@@ -195,6 +211,152 @@ Was darin gilt:
   Stufen — halb, drei viertel, ganz. Davon steht hier nichts.
   **Deckungsgrade und Grenzfälle entscheidet die Spielleitung.**
 
+Denselben Block liest der Tracker auch wieder ein — wie er dafür
+aussehen muss, steht im nächsten Abschnitt.
+
+---
+
+## Eine Karte schreiben, die der Tracker einliest
+
+Der Textblock geht **in beide Richtungen**. Was oben steht, gibt der
+Tracker aus — und denselben Block liest er auch wieder ein. Damit kann
+eine KI eine Karte *herstellen*: aus dem Bild eines Bodenplans, aus
+einer Beschreibung, oder indem sie eine bestehende Karte abändert.
+
+Die Spielleitung fügt das Ergebnis im Kampftracker unter **🗺 Karte** in
+das Feld **„Karte als Text einfügen"** ein (bei einer bestehenden Karte
+heißt es „Andere Karte einfügen"). Die Größe muss vorher nicht
+eingestellt werden — sie ergibt sich aus dem Block.
+
+### Das Mindeste: nur das Raster
+
+```
+    A  B  C  D  E  F  G  H
+ 1  .  .  #  #  #  .  .  .
+ 2  .  .  #  .  /  .  .  .
+ 3  .  .  #  #  #  .  ~  ~
+```
+
+Das ist eine vollständige Karte: 8 Spalten, 3 Zeilen.
+
+### Die Zeichen — genau diese sieben
+
+| | | Bewegung | Sicht |
+|---|---|---|---|
+| `.` | Boden | frei | frei |
+| `#` | Wand oder Fels | blockiert | blockiert |
+| `T` | Baum oder Säule | blockiert | blockiert |
+| `~` | Wasser | schwierig | frei |
+| `+` | Tür zu | blockiert | blockiert |
+| `/` | Tür offen | frei | frei |
+| `x` | Gefahr (Feuer, Dornen) | frei | frei |
+
+Andere Zeichen gibt es nicht. Ein fremdes Sonderzeichen wird zu Boden,
+und der Tracker sagt dazu, welches er nicht kannte.
+
+### Die Regeln
+
+- **Ein Zeichen je Feld, durch Leerzeichen getrennt.** Wie viele
+  Leerzeichen, ist gleich — zerlegt wird an Leerraum, nicht nach
+  Spaltenbreite.
+- **Spalten von links:** A, B, C … Z, dann AA, AB … Zeilen von oben,
+  ab 1. `B2` ist Spalte B, Zeile 2.
+- **Ein Feld ist 1,5 m (5 Fuß).** Nach diesem Maß wird ein Bodenplan
+  abgeschätzt.
+- **Höchstens 40 Spalten und 30 Zeilen.** Was darüber steht, wird
+  abgeschnitten, und der Tracker sagt es.
+- **Die Kopfzeile mit den Buchstaben und die Zeilennummern sind
+  freiwillig.** Sie werden erkannt und übersprungen. Ein Block ganz ohne
+  sie wird genauso gelesen.
+- **Zeilen dürfen unterschiedlich lang sein.** Kürzere werden mit Boden
+  aufgefüllt, und der Tracker sagt, wie viele es waren.
+
+### Was der Leser überspringt
+
+Er sucht das Raster und lässt alles andere liegen. Übersprungen werden:
+eine Zeile, die mit `🗺` oder `KARTE` beginnt; die Kopfzeile aus
+Buchstaben; Zeilennummern am Zeilenanfang; leere Zeilen. Ab einer Zeile
+`FIGUREN`, `GELÄNDE`, `ENTFERNUNGEN` oder `SICHT` sucht er kein Raster
+mehr.
+
+**Eine Zeile gilt als Rasterzeile, wenn** sie mindestens zwei Felder
+hat, **kein** Feld länger als zwei Zeichen ist, und mindestens ein
+bekanntes Geländezeichen darin vorkommt. Reiner Fließtext ist damit
+sicher: „Die Tür ist zu" enthält Wörter mit mehr als zwei Buchstaben und
+wird nicht für ein Raster gehalten.
+
+### Figuren mitschicken — geht, aber mit einer Regel
+
+Für eine Karte aus einem **Bild** gilt: **nur Gelände, keine Figuren.**
+Wer auf dem Plan steht, weiß die KI nicht, und geratene Figuren stehen
+falsch.
+
+Wenn Figuren doch mitsollen — etwa weil eine ausgegebene Karte
+zurückgespielt oder abgeändert wird —, gehen sie so:
+
+```
+    A  B  C  D  E  F  G  H
+ 1  .  .  #  #  #  .  .  .
+ 2  .  Br #  .  .  .  g1 .
+ 3  .  .  #  .  .  T  T  .
+
+FIGUREN
+  Br  Brunhilde
+  g1  Goblin 1
+```
+
+Im Raster steht das **Kürzel** (höchstens zwei Zeichen) statt des
+Geländes; der Boden darunter bleibt Boden. Der `FIGUREN`-Block sagt,
+welcher Name zu welchem Kürzel gehört — zwei oder mehr Leerzeichen
+zwischen Kürzel und Namen, alles danach in der Zeile ist egal.
+
+**Der Import legt niemanden an.** Er ordnet die Kürzel den Figuren zu,
+die schon im Kampf stehen, gesucht über den Namen (Groß- und
+Kleinschreibung egal, Namensanfang genügt). Wer nicht in der Reihe
+steht, wird nicht gesetzt, und der Tracker sagt, welches Kürzel offen
+blieb.
+
+### Was der Tracker meldet
+
+Nach dem Einfügen steht da, was gelesen wurde — `8 × 3 Felder gelesen,
+2 Figuren gesetzt` — und dazu jede Warnung: abgeschnittene Zeilen,
+aufgefüllte Zeilen, unbekannte Zeichen, nicht zugeordnete Kürzel.
+**Kommt gar kein Raster vor, passiert nichts**, und es steht „Kein
+Raster gefunden."
+
+### Die Anweisung zum Weitergeben
+
+Genau dieser Text steht auch neben dem Einfügefeld im Tracker. Er wird
+der KI zusammen mit dem Bild des Bodenplans vorgelegt:
+
+```
+Du bekommst das Bild einer Kampfkarte. Schreib daraus einen Textblock
+in genau diesem Format:
+
+      A  B  C  D  E  F  G  H
+  1   .  .  #  #  #  .  .  .
+  2   .  .  #  .  /  .  .  .
+  3   .  .  #  #  #  .  ~  ~
+
+Regeln:
+- Ein Zeichen je Feld, durch Leerzeichen getrennt.
+- Spalten von links: A, B, C … Z, dann AA, AB …
+- Zeilen von oben, ab 1.
+- Erlaubt sind genau diese Zeichen:
+    .  Boden          #  Wand oder Fels    T  Baum oder Säule
+    ~  Wasser         +  Tür zu            /  Tür offen
+    x  Gefahr (Feuer, Dornen)
+- Ein Feld ist 1,5 m (5 Fuß). Schätz die Größe danach ab.
+- Höchstens 40 Spalten und 30 Zeilen.
+- Zeichne keine Figuren ein — nur das Gelände.
+- Schreib nichts dazu, keine Erklärung, keinen Kommentar.
+```
+
+Der letzte Punkt ist der wichtigste: **kein Vorwort, kein Nachwort.**
+Der Leser ist zwar großzügig und überspringt, was er nicht braucht —
+aber ein Satz wie „Hier ist deine Karte:" ist eine Fehlerquelle
+umsonst.
+
 ---
 
 ## Was NICHT im Protokoll steht
@@ -259,6 +421,11 @@ WAS ICH WILL
   könnte: nenn es.
 - Nenn Rettungswürfe und Schwierigkeitsgrade, die ich brauchen werde.
 
+WENN ICH DICH UM EINE KARTE BITTE
+Ich lege dir dann ein Bild eines Bodenplans vor. Schreib den Textblock
+in genau dem Format, das im Abschnitt „Eine Karte schreiben" steht —
+nur das Gelände, keine Figuren, kein Vorwort, kein Nachwort.
+
 WAS DU NICHT TUST
 Nicht würfeln. Nicht entscheiden. Keine Zahlen erfinden, die nicht im
 Werteblock stehen.
@@ -314,6 +481,11 @@ Rüstungsklasse, was gewirkt hat und was nicht. Es ist für die
 Spielleitung gedacht. Wer es einer KI gibt, gibt ihr die Sicht der
 Spielleitung; das ist der Sinn der Sache, sollte aber nicht versehentlich
 im Gruppenchat landen.
+
+Dasselbe gilt für die Karte im Verlauf: sie zeigt **alle** Figuren, auch
+die, die für die Runde verborgen sind. Der Verlauf gehört der
+Spielleitung, und einer, der die Hälfte verschweigt, wäre hinterher
+gelogen — aber er gehört damit auch nicht in den Gruppenchat.
 
 Die Spieler sehen im Heldenbuch eine andere Fassung: Reihenfolge, wer am
 Zug ist, und wie es den Figuren ungefähr geht — nie die Zahlen der
