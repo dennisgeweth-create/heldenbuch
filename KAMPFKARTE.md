@@ -63,7 +63,8 @@ Ein Feld ist 1,5 m (5 Fuß), wie im Regelwerk.
 **Dafür:** Entfernungen ergeben sich von selbst. Flächenzauber lassen
 sich abzählen. Hindernisse sind einfach Felder. Und der Text schreibt
 sich fast von allein — ein Raster **ist** schon fast ASCII.
-**Dagegen:** auf dem Telefon wird es eng; das Raster braucht Rollraum.
+**Dagegen:** es braucht Platz. Bearbeitet wird am Schreibtisch oder auf
+dem iPad, nie auf dem Telefon — damit ist das keine Einschränkung mehr.
 
 ### 4 · Bild mit Marken
 
@@ -83,11 +84,10 @@ Sache — das Bild fürs Auge, das Raster für den Text. Siehe Stufe 6.
 ### Auf dem Schirm
 
 Ein Feld im Tracker, aufklappbar wie das Protokoll. Links das Raster,
-rechts (auf dem Telefon darunter) die Ablage mit den Figuren, die noch
-nicht stehen.
+rechts die Ablage mit den Figuren, die noch nicht stehen.
 
-- **Figur setzen:** Figur in der Ablage antippen, dann ein Feld. Auf dem
-  Schreibtisch geht auch ziehen.
+- **Figur setzen:** Figur in der Ablage antippen, dann ein Feld. Ziehen
+  geht auch.
 - **Figur bewegen:** anfassen und auf ein anderes Feld ziehen. Beim
   Loslassen steht im Log, wie weit sie gezogen ist.
 - **Gelände malen:** eine Geländeart wählen, dann über die Felder
@@ -281,9 +281,28 @@ Entfernung diagonal, der Textblock Zeichen für Zeichen.
 Aufklappbar wie das Protokoll. Raster zeichnen, Figuren setzen und
 ziehen, Gelände malen, Ablage für die, die noch nicht stehen.
 
-Auf dem Telefon rollt das Raster in seinem Kasten — 16 Felder à 30
-Punkte sind 480 und passen nicht. Voreinstellung deshalb **12 × 10**,
-einstellbar bis 30 × 20.
+Bearbeitet wird am Schreibtisch oder auf dem iPad. Das Raster darf
+deshalb Platz nehmen: Felder von 34 Punkten, und wo es breiter wird als
+der Kasten, rollt es in sich selbst statt zu schrumpfen.
+
+**Die Größe gehört der Spielleitung.** Ein Flurgefecht braucht andere
+Maße als eine Feldschlacht, und beides soll gehen:
+
+- **Voreinstellung 16 × 12** — ein Raum mit Luft drumherum.
+- **Frei einstellbar von 8 × 8 bis 40 × 30.** Darüber wird der Textblock
+  breiter als jedes Fenster, in das man ihn einfügt; das ist die Grenze,
+  und sie steht auch dabei.
+- **Vier Vorlagen** für den schnellen Griff: *Kammer* 10 × 8, *Raum*
+  16 × 12, *Halle* 24 × 18, *Freies Feld* 32 × 24.
+- **Die Größe lässt sich jederzeit ändern**, auch mitten im Kampf.
+  Gelände und Figuren bleiben stehen, wo sie waren. Wer verkleinert und
+  dabei etwas abschneiden würde, bekommt es gesagt, bevor es passiert —
+  eine Karte, die beim Verkleinern still zwei Gegner verliert, ist
+  schlimmer als gar keine.
+- **Wachsen in eine Richtung.** Am Rand des Rasters sitzt je eine kleine
+  Taste, die eine Reihe oder Spalte anhängt. Wer merkt, dass der Kampf
+  aus dem Raum hinausläuft, schiebt die Wand weiter, statt neu
+  aufzubauen.
 
 ### Stufe 3 · Bewegung ins Log
 
@@ -347,6 +366,9 @@ die eigentliche Arbeit.
   Tisch.
 - **Keine Höhe.** Ein Raster ist flach. Wer auf dem Dach steht, steht in
   der Notiz.
+- **Keine Bedienung auf dem Telefon.** Bearbeitet wird am Schreibtisch
+  oder auf dem iPad. Ansehen geht überall — die Spielersicht ist ohnehin
+  nur zum Lesen.
 
 ---
 
