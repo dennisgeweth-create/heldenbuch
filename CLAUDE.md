@@ -43,6 +43,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `api.php` | Server-Sync, braucht `config.php` (nicht im Repo) |
 | `TAVERNE.md` | Stufenplan der Taverne — alle Stufen gebaut |
 | `TAVERNE-WALZEN.md` | Konzept und Stufenplan der drei Fünfwalzenautomaten |
+| `KAMPFTRACKER.md` | Was der Tracker führt und ausgibt — zum Vorlegen an eine KI |
 | `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — alle Stufen gebaut |
 | `PATCHNOTES.md` | wird **ausgeliefert**: die Ausgabe-Nummer in der Heldenleiste öffnet sie |
 | `dev/` | oertliche Serverseite zum Testen — wird nie ausgeliefert |
