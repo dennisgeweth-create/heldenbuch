@@ -13714,6 +13714,7 @@ const KampfSicht = ({
 // allem, was daran hängt.
 
 const ProbenAnsage = ({
+  helden,
   onAbbrechen,
   onAnsagen
 }) => {
@@ -13722,6 +13723,14 @@ const ProbenAnsage = ({
   const [sg, setSg] = React.useState(15);
   const [verdeckt, setVerdeckt] = React.useState(false);
   const [text, setText] = React.useState('');
+  // Wen es angeht. Leer heisst alle — so war es bisher, und so bleibt es,
+  // solange niemand jemanden anklickt.
+  const [fuer, setFuer] = React.useState([]);
+  const [geheim, setGeheim] = React.useState(false);
+  const alle = helden || [];
+  const um = id => setFuer(f => f.includes(id) ? f.filter(x => x !== id) : [...f, id]);
+  // Geheim geht nur an Genannte: ein Geheimnis vor allen ist keines.
+  const geheimGeht = fuer.length > 0;
   return /*#__PURE__*/React.createElement(Fenster, null, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
@@ -13787,7 +13796,25 @@ const ProbenAnsage = ({
     maxLength: 160,
     placeholder: "z.B. Ist hier jemand vor uns durchgegangen?",
     onChange: e => setText(e.target.value)
-  })), /*#__PURE__*/React.createElement("label", {
+  })), alle.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Wer w\xFCrfelt ", fuer.length === 0 ? '— niemand angetippt heißt: alle' : ''), /*#__PURE__*/React.createElement("div", {
+    className: "ass-tasten"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'bj-taste' + (fuer.length === 0 ? ' haupt' : ''),
+    onClick: () => {
+      setFuer([]);
+      setGeheim(false);
+    }
+  }, "Alle"), alle.map(h => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: h.id,
+    className: 'bj-taste' + (fuer.includes(h.id) ? ' haupt' : ''),
+    onClick: () => um(h.id)
+  }, h.name)))), /*#__PURE__*/React.createElement("label", {
     className: "pk-trips",
     style: {
       marginTop: 4
@@ -13796,7 +13823,17 @@ const ProbenAnsage = ({
     type: "checkbox",
     checked: verdeckt,
     onChange: e => setVerdeckt(e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Verdeckt"), " \u2014 der Schwierigkeitsgrad steht nicht dabei, und niemand erf\xE4hrt, ob er bestanden hat.", /*#__PURE__*/React.createElement("i", null, "F\xFCr alles, wo schon das Ergebnis etwas verr\xE4t."))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Verdeckt"), " \u2014 der Schwierigkeitsgrad steht nicht dabei, und niemand erf\xE4hrt, ob er bestanden hat.", /*#__PURE__*/React.createElement("i", null, "F\xFCr alles, wo schon das Ergebnis etwas verr\xE4t."))), /*#__PURE__*/React.createElement("label", {
+    className: 'pk-trips' + (geheimGeht ? '' : ' aus'),
+    style: {
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: geheim && geheimGeht,
+    disabled: !geheimGeht,
+    onChange: e => setGeheim(e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "Geheim"), " \u2014 nur die Genannten sehen die Probe \xFCberhaupt.", /*#__PURE__*/React.createElement("i", null, geheimGeht ? 'Der Rest des Tisches merkt nicht, dass gewürfelt wurde.' : 'Dafür muss oben jemand angetippt sein — ein Geheimnis vor allen ist keines.'))), /*#__PURE__*/React.createElement("div", {
     className: "form-actions",
     style: {
       marginTop: 14
@@ -13811,7 +13848,9 @@ const ProbenAnsage = ({
       wert,
       sg,
       verdeckt,
-      text
+      text,
+      fuer,
+      geheim: geheim && geheimGeht
     })
   }, "Ansagen"))));
 };
@@ -13827,15 +13866,24 @@ const ProbenBalken = ({
   isDmMode,
   setDefs,
   onAntwort,
-  onAbraeumen
+  onAbraeumen,
+  onNachricht
 }) => {
   const [wuerfe, setWuerfe] = React.useState({});
   const [zu, setZu] = React.useState(false);
+  // Was die Spielleitung hinterher an einzelne schicken will.
+  const [post, setPost] = React.useState(null); // {an:[], text, bild}
+  const [sendet, setSendet] = React.useState(false);
   React.useEffect(() => {
     setWuerfe({});
     setZu(false);
+    setPost(null);
   }, [probe && probe.id]);
   if (!probe) return null;
+
+  // Wer gefragt ist. Leer heisst alle — dann gilt die Zeile fuer jeden
+  // eigenen Bogen wie bisher.
+  const gefragt = (probe.fuer || []).length ? meine.filter(c => probe.fuer.includes(c.id)) : meine;
   const bonusVon = c => {
     const w = charWerte(c, setDefs);
     if (!w) return 0;
@@ -13864,7 +13912,7 @@ const ProbenBalken = ({
     title: "Einklappen"
   }, "\u25BE")), probe.text && /*#__PURE__*/React.createElement("div", {
     className: "probe-text"
-  }, probe.text), meine.map(c => {
+  }, probe.text), gefragt.map(c => {
     const a = antwortVon(c.id);
     const b = bonusVon(c);
     const gesamt = a ? a.wurf + a.bonus : null;
@@ -13893,23 +13941,108 @@ const ProbenBalken = ({
       disabled: !wuerfe[c.id],
       onClick: () => onAntwort(c, wuerfe[c.id], b)
     }, "Melden")));
-  }), isDmMode && /*#__PURE__*/React.createElement("div", {
-    className: "probe-liste"
-  }, (probe.antworten || []).length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "probe-leer"
-  }, "Noch hat niemand gew\xFCrfelt.") : (probe.antworten || []).map((a, i) => {
-    const g = a.wurf + a.bonus;
+  }), !isDmMode && (probe.nachrichten || []).map(n => /*#__PURE__*/React.createElement("div", {
+    className: "probe-post",
+    key: n.id
+  }, n.text && /*#__PURE__*/React.createElement("div", {
+    className: "probe-post-text"
+  }, n.text), n.bild && /*#__PURE__*/React.createElement("img", {
+    className: "probe-post-bild",
+    src: n.bild,
+    alt: ""
+  }))), isDmMode && (() => {
+    const antworten = probe.antworten || [];
+    const bestanden = antworten.filter(a => a.wurf + a.bonus >= probe.sg);
     return /*#__PURE__*/React.createElement("div", {
-      className: 'probe-erg-zeile' + (g >= probe.sg ? ' gut' : ' schlecht'),
-      key: i
-    }, /*#__PURE__*/React.createElement("span", null, a.name || '—'), /*#__PURE__*/React.createElement("b", null, g, g >= probe.sg ? ' ✓' : ' ✗'));
-  }), /*#__PURE__*/React.createElement("button", {
-    className: "bj-taste",
-    style: {
-      marginTop: 6
-    },
-    onClick: onAbraeumen
-  }, "Abr\xE4umen")));
+      className: "probe-liste"
+    }, antworten.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "probe-leer"
+    }, "Noch hat niemand gew\xFCrfelt.") : antworten.map((a, i) => {
+      const g = a.wurf + a.bonus;
+      const drin = post && post.an.includes(a.charId);
+      return /*#__PURE__*/React.createElement("div", {
+        className: 'probe-erg-zeile' + (g >= probe.sg ? ' gut' : ' schlecht') + (drin ? ' gewaehlt' : ''),
+        key: i,
+        onClick: post ? () => setPost(p => ({
+          ...p,
+          an: p.an.includes(a.charId) ? p.an.filter(x => x !== a.charId) : [...p.an, a.charId]
+        })) : undefined,
+        style: post ? {
+          cursor: 'pointer'
+        } : undefined
+      }, /*#__PURE__*/React.createElement("span", null, post ? drin ? '☑ ' : '☐ ' : '', a.name || '—'), /*#__PURE__*/React.createElement("b", null, g, g >= probe.sg ? ' ✓' : ' ✗'));
+    }), onNachricht && !post && antworten.length > 0 && /*#__PURE__*/React.createElement("button", {
+      className: "bj-taste",
+      style: {
+        marginTop: 6
+      },
+      onClick: () => setPost({
+        an: bestanden.map(a => a.charId),
+        text: '',
+        bild: ''
+      })
+    }, "\u2709 Etwas an einzelne schicken"), post && /*#__PURE__*/React.createElement("div", {
+      className: "probe-postform"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "probe-postform-kopf"
+    }, post.an.length === 0 ? 'Niemand gewählt' : post.an.length + (post.an.length === 1 ? ' Empfänger' : ' Empfänger') + ' — oben antippen ändert das'), /*#__PURE__*/React.createElement("textarea", {
+      className: "form-input",
+      rows: 3,
+      maxLength: 1200,
+      placeholder: "Was nur die sehen, die es geschafft haben.",
+      value: post.text,
+      onChange: e => setPost(p => ({
+        ...p,
+        text: e.target.value
+      }))
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "probe-postform-tasten"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "bj-taste"
+    }, "\uD83D\uDDBC Bild", /*#__PURE__*/React.createElement("input", {
+      type: "file",
+      accept: "image/*",
+      style: {
+        display: 'none'
+      },
+      onChange: e => {
+        const f = e.target.files && e.target.files[0];
+        if (f) compressImage(f, 900, d => setPost(p => p && {
+          ...p,
+          bild: d || ''
+        }));
+        e.target.value = '';
+      }
+    })), post.bild && /*#__PURE__*/React.createElement("button", {
+      className: "bj-taste",
+      onClick: () => setPost(p => ({
+        ...p,
+        bild: ''
+      }))
+    }, "Bild weg"), /*#__PURE__*/React.createElement("button", {
+      className: "bj-taste",
+      onClick: () => setPost(null)
+    }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+      className: "btn-save",
+      disabled: sendet || !post.an.length || !post.text.trim() && !post.bild,
+      onClick: async () => {
+        setSendet(true);
+        const ok = await onNachricht(post.an, post.text.trim(), post.bild);
+        setSendet(false);
+        if (ok) setPost(null);
+      }
+    }, sendet ? 'Sendet…' : 'Senden')), post.bild && /*#__PURE__*/React.createElement("img", {
+      className: "probe-post-bild",
+      src: post.bild,
+      alt: ""
+    })), /*#__PURE__*/React.createElement("button", {
+      className: "bj-taste",
+      style: {
+        marginTop: 6
+      },
+      onClick: onAbraeumen
+    }, "Abr\xE4umen"));
+  })());
 };
 
 // ==== js/src/2i-beute.jsx ====
@@ -21732,6 +21865,23 @@ function App() {
       probeStandRef.current = -1;
     } catch {}
   };
+  // Die Post an einzelne. Wer sie bekommt, entscheidet der Server —
+  // hier steht nur, an wen sie gehen soll.
+  const probeNachricht = async (an, text, bild) => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiProbeNachricht(url, code, pass, advId, an, text, bild);
+      probeStandRef.current = -1;
+      return true;
+    } catch (e) {
+      appAlert('Das kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
   const probeAntworten = async (c, wurf, bonus) => {
     const {
       url,
@@ -26592,10 +26742,12 @@ function App() {
     setDefs: setDefs,
     meine: chars.filter(c => !c.archived && (c.adventure || advId) === advId && (isDmMode ? c.id === sel : darfSchreiben(c))),
     onAntwort: probeAntworten,
-    onAbraeumen: probeAbraeumen
+    onAbraeumen: probeAbraeumen,
+    onNachricht: isDmMode ? probeNachricht : null
   }), probeAnsagen && /*#__PURE__*/React.createElement(ProbenAnsage, {
     onAbbrechen: () => setProbeAnsagen(false),
-    onAnsagen: probeSetzen
+    onAnsagen: probeSetzen,
+    helden: advChars.filter(c => !c.archived && c.dmOnly !== true)
   }), assistent && /*#__PURE__*/React.createElement(CharakterAssistent, {
     klassen: klassen,
     talente: (userLibrary || {}).talent || [],

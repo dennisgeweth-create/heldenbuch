@@ -2120,6 +2120,19 @@ function App() {
     try { await apiProbeSetzen(url, code, pass, advId, null); setProbe(null); probeStandRef.current = -1; }
     catch {}
   };
+  // Die Post an einzelne. Wer sie bekommt, entscheidet der Server —
+  // hier steht nur, an wen sie gehen soll.
+  const probeNachricht = async (an, text, bild) => {
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiProbeNachricht(url, code, pass, advId, an, text, bild);
+      probeStandRef.current = -1;
+      return true;
+    } catch (e) {
+      appAlert('Das kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
   const probeAntworten = async (c, wurf, bonus) => {
     const {url, code, pass} = serverCreds();
     try {
@@ -4657,10 +4670,12 @@ function App() {
         <ProbenBalken probe={probe} isDmMode={isDmMode} setDefs={setDefs}
           meine={chars.filter(c => !c.archived && (c.adventure || advId) === advId
             && (isDmMode ? c.id === sel : darfSchreiben(c)))}
-          onAntwort={probeAntworten} onAbraeumen={probeAbraeumen} />
+          onAntwort={probeAntworten} onAbraeumen={probeAbraeumen}
+          onNachricht={isDmMode ? probeNachricht : null} />
       )}
       {probeAnsagen && (
-        <ProbenAnsage onAbbrechen={()=>setProbeAnsagen(false)} onAnsagen={probeSetzen} />
+        <ProbenAnsage onAbbrechen={()=>setProbeAnsagen(false)} onAnsagen={probeSetzen}
+          helden={advChars.filter(c => !c.archived && c.dmOnly !== true)} />
       )}
 
       {assistent && (

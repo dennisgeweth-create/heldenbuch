@@ -3944,3 +3944,29 @@
   .ks-reaktion-knopf:hover { border-color:var(--inspiration); }
   .ks-reaktion-knopf i { font-style:normal; font-size:10px; color:var(--text-muted);
     border:1px solid var(--border-bright); border-radius:3px; padding:1px 4px; }
+
+  /* ── Proben: wer gefragt ist, und was hinterher kommt ──
+     „Verdeckt" heißt: du weißt nicht, ob du bestanden hast. „Geheim"
+     heißt: die anderen wissen nicht einmal, dass du gewürfelt hast. Der
+     zweite Haken bleibt grau, solange niemand genannt ist — ein
+     Geheimnis vor allen ist keines. */
+  .pk-trips.aus { opacity:0.5; }
+
+  /* Was die Spielleitung an einzelne geschickt hat. */
+  .probe-post { margin-top:8px; padding:9px 11px; border-radius:7px;
+    background:rgba(201,168,76,0.08); border:1px solid var(--gold-dim); }
+  .probe-post-text { font-size:13px; line-height:1.6; color:var(--text-primary);
+    white-space:pre-wrap; }
+  .probe-post-bild { display:block; width:100%; max-height:280px; object-fit:contain;
+    margin-top:8px; border-radius:5px; background:var(--bg-void); }
+
+  .probe-erg-zeile.gewaehlt { outline:1px solid var(--inspiration); outline-offset:-1px; }
+  .probe-postform { margin-top:8px; padding:9px; border-radius:7px;
+    background:var(--bg-void); border:1px solid var(--border-bright); }
+  .probe-postform-kopf { font-family:'Roboto Condensed',sans-serif; font-size:11px;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);
+    margin-bottom:6px; }
+  .probe-postform textarea { width:100%; resize:vertical; }
+  .probe-postform-tasten { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;
+    align-items:center; }
+  .probe-postform-tasten label { cursor:pointer; }

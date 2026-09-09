@@ -797,6 +797,70 @@ $antw = (array)($r['body']['probe']['antworten'] ?? []);
 pruefe('zweimal melden ersetzt sich selbst', count($antw) === 1, 'Antworten: ' . count($antw));
 pruefe('und zwar durch den neuen Wurf', (int)($antw[0]['wurf'] ?? 0) === 17);
 
+// ── Nur an einzelne, und geheim ──
+// Der Spieler besitzt h1, der Bogen d1 gehoert jemand anderem. Eine
+// geheime Probe an d1 darf er deshalb gar nicht erst zu sehen bekommen.
+$r = ruf('probe_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'probe' => ['art' => 'fert', 'wert' => 'heimlichkeit', 'sg' => 12,
+                                      'fuer' => ['h1'], 'geheim' => true]]);
+pruefe('eine geheime Probe an einen (201)', $r['status'] === 201, kurz($r));
+pruefe('sie merkt sich, wer gefragt ist',
+       ($r['body']['probe']['fuer'] ?? []) === ['h1'], kurz($r));
+pruefe('und dass sie geheim ist', !empty($r['body']['probe']['geheim']), kurz($r));
+$geheimId = (string)($r['body']['probe']['id'] ?? '');
+
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('der Gefragte sieht sie', ($r['body']['probe']['wert'] ?? '') === 'heimlichkeit', kurz($r));
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+pruefe('ein anderer Tisch sieht sie gar nicht',
+       array_key_exists('probe', $r['body']) && $r['body']['probe'] === null, kurz($r));
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung sieht sie immer', ($r['body']['probe']['wert'] ?? '') === 'heimlichkeit', kurz($r));
+
+// Ohne Empfaenger gibt es kein Geheimnis.
+$r = ruf('probe_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'probe' => ['art' => 'fert', 'wert' => 'aufmerksamkeit', 'sg' => 12,
+                                      'fuer' => [], 'geheim' => true]]);
+pruefe('geheim ohne Empfaenger ist nicht geheim',
+       empty($r['body']['probe']['geheim']), kurz($r));
+$offenId = (string)($r['body']['probe']['id'] ?? '');
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+pruefe('und deshalb sehen sie alle', ($r['body']['probe']['wert'] ?? '') === 'aufmerksamkeit', kurz($r));
+
+// ── Post an einzelne ──
+$r = ruf('probe_antwort', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                           'char_id' => 'h1', 'probe_id' => $offenId, 'name' => 'Armin',
+                           'wurf' => 18, 'bonus' => 3]);
+pruefe('der Wurf geht durch (200)', $r['status'] === 200, kurz($r));
+
+$r = ruf('probe_nachricht', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                             'an' => ['h1'], 'text' => 'Heimlich']);
+pruefe('ein Spieler schickt keine Post (403)', $r['status'] === 403, kurz($r));
+$r = ruf('probe_nachricht', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                             'an' => [], 'text' => 'An niemanden']);
+pruefe('Post an niemanden wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+$r = ruf('probe_nachricht', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                             'an' => ['h1'], 'text' => '']);
+pruefe('leere Post wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+$r = ruf('probe_nachricht', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                             'an' => ['h1'], 'text' => 'Kratzspuren am Türrahmen.']);
+pruefe('die Spielleitung schickt Post (200)', $r['status'] === 200, kurz($r));
+
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$post = (array)($r['body']['probe']['nachrichten'] ?? []);
+pruefe('der Genannte bekommt sie', count($post) === 1
+       && ($post[0]['text'] ?? '') === 'Kratzspuren am Türrahmen.', kurz($r));
+$r = ruf('probe_stand', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+pruefe('ein anderer Tisch bekommt sie nicht',
+       count((array)($r['body']['probe']['nachrichten'] ?? [])) === 0, kurz($r));
+
+$r = ruf('probe_nachricht', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                             'an' => ['h1'], 'bild' => 'nichtsalseintext']);
+pruefe('was kein Bild ist, geht nicht durch (413)', $r['status'] === 413, kurz($r));
+$r = ruf('probe_nachricht', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                             'an' => ['h1'], 'bild' => 'data:image/png;base64,' . str_repeat('A', 400001)]);
+pruefe('und ein zu grosses auch nicht (413)', $r['status'] === 413, kurz($r));
+
 $r = ruf('probe_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'probe' => null]);
 pruefe('die Spielleitung raeumt ab (200)', $r['status'] === 200, kurz($r));
 $r = ruf('probe_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);

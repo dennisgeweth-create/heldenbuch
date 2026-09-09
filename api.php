@@ -1399,6 +1399,14 @@ switch ($action) {
             respond(200, 'Abgeräumt.');
         }
         if (!is_array($roh)) respond(400, 'Fehlende Ansage.');
+        // Wer gefragt ist. Leer heisst alle — so war es bisher, und so
+        // bleibt es fuer jede Ansage, die niemanden nennt.
+        $fuer = [];
+        foreach ((array)($roh['fuer'] ?? []) as $cid) {
+            $cid = mb_substr(trim((string)$cid), 0, 50);
+            if ($cid !== '' && !in_array($cid, $fuer, true)) $fuer[] = $cid;
+            if (count($fuer) >= 24) break;
+        }
         $probe = [
             'id'   => bin2hex(random_bytes(6)),
             'art'  => in_array((string)($roh['art'] ?? ''), ['fert','rw'], true) ? (string)$roh['art'] : 'fert',
@@ -1406,8 +1414,16 @@ switch ($action) {
             'sg'   => max(0, min(40, (int)($roh['sg'] ?? 0))),
             'verdeckt' => !empty($roh['verdeckt']),
             'text' => mb_substr(trim((string)($roh['text'] ?? '')), 0, 160),
+            'fuer' => $fuer,
+            // Geheim heisst: die anderen erfahren nicht einmal, dass
+            // gewuerfelt wurde. Das kann der Client nicht halten — er
+            // bekaeme die Ansage ja und muesste sie nur verschweigen.
+            // Also filtert der Server, und ohne Empfaenger gibt es kein
+            // Geheimnis.
+            'geheim' => !empty($roh['geheim']) && count($fuer) > 0,
             'zeit' => time(),
             'antworten' => [],
+            'nachrichten' => [],
         ];
         if ($probe['wert'] === '') respond(400, 'Worauf denn?');
         $pdo->prepare("INSERT INTO hb_proben (session_code, adv_id, probe_json, stand)
@@ -1454,9 +1470,52 @@ switch ($action) {
             ->execute([json_encode($probe, JSON_UNESCAPED_UNICODE), $code, $advId]);
         respond(200, 'Notiert.', ['antwort' => $antwort]);
 
+    // Die Spielleitung schickt hinterher etwas an einzelne: „Du siehst
+    // Kratzspuren am Tuerrahmen." Steht an der Probe, geht nur an die
+    // Genannten, und der Server haelt das — nicht der Client.
+    case 'probe_nachricht': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $st = $pdo->prepare("SELECT probe_json FROM hb_proben WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(404, 'Es steht keine Probe an.');
+        $probe = json_decode($row['probe_json'], true);
+        if (!is_array($probe)) respond(404, 'Es steht keine Probe an.');
+
+        $an = [];
+        foreach ((array)($body['an'] ?? []) as $cid) {
+            $cid = mb_substr(trim((string)$cid), 0, 50);
+            if ($cid !== '' && !in_array($cid, $an, true)) $an[] = $cid;
+            if (count($an) >= 24) break;
+        }
+        $text = mb_substr(trim((string)($body['text'] ?? '')), 0, 1200);
+        $bild = (string)($body['bild'] ?? '');
+        // Ein Bild kommt als Data-URL und ist vorher verkleinert worden.
+        // Was groesser ist, war keines — oder jemand hat es umgangen.
+        if ($bild !== '' && (strlen($bild) > 400000 || strpos($bild, 'data:image/') !== 0)) {
+            respond(413, 'Das Bild ist zu groß.');
+        }
+        if ($text === '' && $bild === '') respond(400, 'Nichts zu senden.');
+        if (!$an) respond(400, 'An niemanden.');
+
+        $liste = (array)($probe['nachrichten'] ?? []);
+        $liste[] = ['id' => bin2hex(random_bytes(6)), 'an' => $an,
+                    'text' => $text, 'bild' => $bild, 'zeit' => time()];
+        if (count($liste) > 12) $liste = array_slice($liste, -12);
+        $probe['nachrichten'] = $liste;
+        $pdo->prepare("UPDATE hb_proben SET probe_json=?, stand=stand+1
+                       WHERE session_code=? AND adv_id=?")
+            ->execute([json_encode($probe, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        respond(200, 'Gesendet.');
+    }
+
     case 'probe_stand':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        zugang($pdo, $code, $pass, $body);
+        $z2 = zugang($pdo, $code, $pass, $body);
         $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
         if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
         $st = $pdo->prepare("SELECT probe_json, stand FROM hb_proben WHERE session_code=? AND adv_id=?");
@@ -1469,6 +1528,40 @@ switch ($action) {
         // hat sich erledigt. Sie verschwindet von selbst, damit ein
         // vergessener Wurf niemandem den Bildschirm belegt.
         if (is_array($probe) && (time() - (int)($probe['zeit'] ?? 0)) > PROBE_FRIST) $probe = null;
+
+        // ── Was dieser Tisch sehen darf ──
+        // Eine geheime Probe und eine Nachricht an einzelne sind nur dann
+        // etwas wert, wenn sie gar nicht erst hinausgehen. Der Client
+        // koennte sie nur verschweigen — und wer die Konsole aufmacht,
+        // sieht sie trotzdem. Also entscheidet das hier.
+        $istDm = istDmVon($pdo, $z2, $code, $advId);
+        if (is_array($probe) && !$istDm) {
+            $meine = [];
+            if ($z2['user']) {
+                $q = $pdo->prepare("SELECT char_id FROM hb_chars
+                                    WHERE session_code=? AND owner=?");
+                $q->execute([$code, (int)$z2['user']['id']]);
+                $meine = array_column($q->fetchAll(), 'char_id');
+            }
+            $betrifft = function (array $ids) use ($meine) {
+                foreach ($ids as $cid) if (in_array($cid, $meine, true)) return true;
+                return false;
+            };
+            // Ohne Konto laesst sich kein Besitz feststellen; dann gilt der
+            // alte Weg, und der kennt keine Geheimnisse.
+            if (!empty($probe['geheim']) && $z2['user'] && !$betrifft((array)($probe['fuer'] ?? []))) {
+                $probe = null;
+            }
+            if (is_array($probe)) {
+                $raus = [];
+                foreach ((array)($probe['nachrichten'] ?? []) as $n) {
+                    if (!is_array($n)) continue;
+                    if (!$z2['user'] || $betrifft((array)($n['an'] ?? []))) $raus[] = $n;
+                }
+                $probe['nachrichten'] = $raus;
+            }
+        }
+
         // Nur wenn sich etwas getan hat, geht die ganze Ansage hinaus.
         $seit = (int)($body['seit'] ?? -1);
         if ($seit >= 0 && $seit === $stand) respond(200, 'OK', ['stand' => $stand]);

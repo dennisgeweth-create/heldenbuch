@@ -14,12 +14,20 @@
 // Modifikator — und zwar der aus dem Bogen, mit Übung, Expertise und
 // allem, was daran hängt.
 
-const ProbenAnsage = ({ onAbbrechen, onAnsagen }) => {
+const ProbenAnsage = ({ helden, onAbbrechen, onAnsagen }) => {
   const [art, setArt] = React.useState('fert');
   const [wert, setWert] = React.useState('aufmerksamkeit');
   const [sg, setSg] = React.useState(15);
   const [verdeckt, setVerdeckt] = React.useState(false);
   const [text, setText] = React.useState('');
+  // Wen es angeht. Leer heisst alle — so war es bisher, und so bleibt es,
+  // solange niemand jemanden anklickt.
+  const [fuer, setFuer] = React.useState([]);
+  const [geheim, setGeheim] = React.useState(false);
+  const alle = helden || [];
+  const um = (id) => setFuer(f => f.includes(id) ? f.filter(x => x !== id) : [...f, id]);
+  // Geheim geht nur an Genannte: ein Geheimnis vor allen ist keines.
+  const geheimGeht = fuer.length > 0;
 
   return (
     <Fenster>
@@ -63,6 +71,23 @@ const ProbenAnsage = ({ onAbbrechen, onAnsagen }) => {
             onChange={e=>setText(e.target.value)} />
         </div>
 
+        {alle.length > 0 && (
+          <div className="form-group form-full">
+            <div className="form-label">
+              Wer würfelt {fuer.length === 0 ? '— niemand angetippt heißt: alle' : ''}
+            </div>
+            <div className="ass-tasten">
+              <button type="button" className={'bj-taste' + (fuer.length === 0 ? ' haupt' : '')}
+                onClick={()=>{setFuer([]); setGeheim(false);}}>Alle</button>
+              {alle.map(h => (
+                <button type="button" key={h.id}
+                  className={'bj-taste' + (fuer.includes(h.id) ? ' haupt' : '')}
+                  onClick={()=>um(h.id)}>{h.name}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <label className="pk-trips" style={{marginTop:4}}>
           <input type="checkbox" checked={verdeckt} onChange={e=>setVerdeckt(e.target.checked)} />
           <span>
@@ -72,9 +97,26 @@ const ProbenAnsage = ({ onAbbrechen, onAnsagen }) => {
           </span>
         </label>
 
+        {/* Verdeckt heisst: du weisst nicht, ob du bestanden hast.
+            Geheim heisst: die anderen wissen nicht einmal, dass du
+            gewuerfelt hast. Das ist ein Unterschied, und deshalb sind es
+            zwei Haken. */}
+        <label className={'pk-trips' + (geheimGeht ? '' : ' aus')} style={{marginTop:4}}>
+          <input type="checkbox" checked={geheim && geheimGeht} disabled={!geheimGeht}
+            onChange={e=>setGeheim(e.target.checked)} />
+          <span>
+            <b>Geheim</b> — nur die Genannten sehen die Probe überhaupt.
+            <i>{geheimGeht
+              ? 'Der Rest des Tisches merkt nicht, dass gewürfelt wurde.'
+              : 'Dafür muss oben jemand angetippt sein — ein Geheimnis vor allen ist keines.'}</i>
+          </span>
+        </label>
+
         <div className="form-actions" style={{marginTop:14}}>
           <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
-          <button className="btn-save" onClick={()=>onAnsagen({art, wert, sg, verdeckt, text})}>
+          <button className="btn-save"
+            onClick={()=>onAnsagen({art, wert, sg, verdeckt, text, fuer,
+                                    geheim: geheim && geheimGeht})}>
             Ansagen
           </button>
         </div>
@@ -91,11 +133,20 @@ const probeWort = (p) => {
     : ((SKILLS.find(s => s.key === p.wert) || {}).label || p.wert);
 };
 
-const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen }) => {
+const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen,
+                       onNachricht }) => {
   const [wuerfe, setWuerfe] = React.useState({});
   const [zu, setZu] = React.useState(false);
-  React.useEffect(() => { setWuerfe({}); setZu(false); }, [probe && probe.id]);
+  // Was die Spielleitung hinterher an einzelne schicken will.
+  const [post, setPost] = React.useState(null);   // {an:[], text, bild}
+  const [sendet, setSendet] = React.useState(false);
+  React.useEffect(() => { setWuerfe({}); setZu(false); setPost(null); }, [probe && probe.id]);
   if (!probe) return null;
+
+  // Wer gefragt ist. Leer heisst alle — dann gilt die Zeile fuer jeden
+  // eigenen Bogen wie bisher.
+  const gefragt = (probe.fuer || []).length
+    ? meine.filter(c => probe.fuer.includes(c.id)) : meine;
 
   const bonusVon = (c) => {
     const w = charWerte(c, setDefs);
@@ -122,8 +173,10 @@ const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen 
       </div>
       {probe.text && <div className="probe-text">{probe.text}</div>}
 
-      {/* Die eigenen Helden: einer je Zeile, mit dem Bonus aus dem Bogen. */}
-      {meine.map(c => {
+      {/* Die eigenen Helden: einer je Zeile, mit dem Bonus aus dem Bogen.
+          Sind einzelne genannt, stehen auch nur die da — wer nicht
+          gefragt ist, soll nicht mitwürfeln. */}
+      {gefragt.map(c => {
         const a = antwortVon(c.id);
         const b = bonusVon(c);
         const gesamt = a ? a.wurf + a.bonus : null;
@@ -154,23 +207,90 @@ const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen 
         );
       })}
 
-      {/* Die Spielleitung sieht, wer geantwortet hat und wer nicht. */}
-      {isDmMode && (
-        <div className="probe-liste">
-          {(probe.antworten || []).length === 0
-            ? <div className="probe-leer">Noch hat niemand gewürfelt.</div>
-            : (probe.antworten || []).map((a, i) => {
-                const g = a.wurf + a.bonus;
-                return (
-                  <div className={'probe-erg-zeile' + (g >= probe.sg ? ' gut' : ' schlecht')} key={i}>
-                    <span>{a.name || '—'}</span>
-                    <b>{g}{g >= probe.sg ? ' ✓' : ' ✗'}</b>
-                  </div>
-                );
-              })}
-          <button className="bj-taste" style={{marginTop:6}} onClick={onAbraeumen}>Abräumen</button>
+      {/* Was die Spielleitung hinterher geschickt hat — und zwar nur an
+          die, die es angeht. Wer nicht dabeisteht, bekommt es gar nicht
+          erst zugestellt; das entscheidet der Server. */}
+      {!isDmMode && (probe.nachrichten || []).map(n => (
+        <div className="probe-post" key={n.id}>
+          {n.text && <div className="probe-post-text">{n.text}</div>}
+          {n.bild && <img className="probe-post-bild" src={n.bild} alt="" />}
         </div>
-      )}
+      ))}
+
+      {/* Die Spielleitung sieht, wer geantwortet hat und wer nicht. */}
+      {isDmMode && (() => {
+        const antworten = probe.antworten || [];
+        const bestanden = antworten.filter(a => (a.wurf + a.bonus) >= probe.sg);
+        return (
+          <div className="probe-liste">
+            {antworten.length === 0
+              ? <div className="probe-leer">Noch hat niemand gewürfelt.</div>
+              : antworten.map((a, i) => {
+                  const g = a.wurf + a.bonus;
+                  const drin = post && post.an.includes(a.charId);
+                  return (
+                    <div className={'probe-erg-zeile' + (g >= probe.sg ? ' gut' : ' schlecht')
+                        + (drin ? ' gewaehlt' : '')} key={i}
+                      onClick={post ? ()=>setPost(p => ({...p,
+                        an: p.an.includes(a.charId) ? p.an.filter(x => x !== a.charId)
+                                                    : [...p.an, a.charId]})) : undefined}
+                      style={post ? {cursor:'pointer'} : undefined}>
+                      <span>{post ? (drin ? '☑ ' : '☐ ') : ''}{a.name || '—'}</span>
+                      <b>{g}{g >= probe.sg ? ' ✓' : ' ✗'}</b>
+                    </div>
+                  );
+                })}
+
+            {/* Was nur die sehen, die es geschafft haben. */}
+            {onNachricht && !post && antworten.length > 0 && (
+              <button className="bj-taste" style={{marginTop:6}}
+                onClick={()=>setPost({an: bestanden.map(a => a.charId), text: '', bild: ''})}>
+                ✉ Etwas an einzelne schicken
+              </button>
+            )}
+            {post && (
+              <div className="probe-postform">
+                <div className="probe-postform-kopf">
+                  {post.an.length === 0 ? 'Niemand gewählt'
+                    : post.an.length + (post.an.length === 1 ? ' Empfänger' : ' Empfänger')
+                      + ' — oben antippen ändert das'}
+                </div>
+                <textarea className="form-input" rows={3} maxLength={1200}
+                  placeholder="Was nur die sehen, die es geschafft haben."
+                  value={post.text} onChange={e=>setPost(p=>({...p, text:e.target.value}))} />
+                <div className="probe-postform-tasten">
+                  <label className="bj-taste">
+                    🖼 Bild
+                    <input type="file" accept="image/*" style={{display:'none'}}
+                      onChange={e=>{
+                        const f = e.target.files && e.target.files[0];
+                        if (f) compressImage(f, 900, (d)=>setPost(p=>p && ({...p, bild: d || ''})));
+                        e.target.value = '';
+                      }} />
+                  </label>
+                  {post.bild && (
+                    <button className="bj-taste" onClick={()=>setPost(p=>({...p, bild:''}))}>
+                      Bild weg
+                    </button>
+                  )}
+                  <button className="bj-taste" onClick={()=>setPost(null)}>Abbrechen</button>
+                  <button className="btn-save"
+                    disabled={sendet || !post.an.length || (!post.text.trim() && !post.bild)}
+                    onClick={async ()=>{
+                      setSendet(true);
+                      const ok = await onNachricht(post.an, post.text.trim(), post.bild);
+                      setSendet(false);
+                      if (ok) setPost(null);
+                    }}>{sendet ? 'Sendet…' : 'Senden'}</button>
+                </div>
+                {post.bild && <img className="probe-post-bild" src={post.bild} alt="" />}
+              </div>
+            )}
+
+            <button className="bj-taste" style={{marginTop:6}} onClick={onAbraeumen}>Abräumen</button>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -141,6 +141,11 @@
                                          probe_id: probeId, name, wurf, bonus });
     const apiProbeStand   = (url, code, pass, advId, seit) =>
       apiRequest(url, 'probe_stand',   { code, password: pass, adv_id: advId, seit });
+    // Was die Spielleitung hinterher an einzelne schickt. Wer es
+    // bekommt, entscheidet der Server — hier steht nur, an wen.
+    const apiProbeNachricht = (url, code, pass, advId, an, text, bild) =>
+      apiRequest(url, 'probe_nachricht', { code, password: pass, adv_id: advId,
+                                           an, text, bild });
 
     // ── Konten ──────────────────────────────────────────────────
     // Alles hier traegt die Kennung von selbst, ausser login und dem
