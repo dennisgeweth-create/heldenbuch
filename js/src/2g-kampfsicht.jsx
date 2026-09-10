@@ -289,7 +289,7 @@ const reaktionsSprueche = (held) => ((held && held.spells) || [])
 
 const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                       eigenerHeld, onReaktion, onSchliessen }) => {
-  const {pos, griff} = useSchiebefenster(KS_SPEICHER,
+  const {pos, griff, masz} = useSchiebefenster(KS_SPEICHER,
     {x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32), y: 76}, KS_BREITE);
   // Die Karte steht in einem eigenen Fenster daneben. Sie ist beim
   // Ansagen die erste Frage, aber nicht immer — und ein Raster, das die
@@ -315,7 +315,9 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
 
   return (
    <>
-    <div className="ks-fenster" style={{left: pos.x, top: pos.y, width: KS_BREITE}}>
+    {/* Die Breite steht nicht mehr fest: der Leib laesst sich ziehen,
+        und das Fenster folgt ihm. */}
+    <div className="ks-fenster" style={{left: pos.x, top: pos.y}} {...masz}>
         <div className="ks-kopf" {...griff} title="Zum Verschieben ziehen">
           <span className="ks-titel">⚔ {kampf.name || 'Kampf'}</span>
           <span className="ks-runde"><span>Runde</span><b>{kampf.runde || 1}</b></span>
@@ -335,6 +337,11 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
             title="Schließen — der Kampf läuft weiter" aria-label="Schließen">✕</button>
         </div>
 
+        {/* Reihe, Reaktionen und Ansagen rollen zusammen. Kopf und Fuss
+            bleiben stehen: am Kopf wird geschoben, und im Fuss steht der
+            Knopf zum Ansagen. Wer das Fenster klein zieht, soll rollen
+            muessen — nicht raten, ob unten noch etwas steht. */}
+        <div className="ks-mitte">
         <div className="ks-liste">
           {liste.length === 0
             ? <div className="ks-leer">Noch steht niemand in der Reihe.</div>
@@ -380,13 +387,21 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
           </div>
         )}
 
-        <div className="ks-fuss">
-          {onAnsage ? (
-            <button className="ks-ansage-knopf" onClick={onAnsage}>✍ Ansagen, was du tust</button>
-          ) : null}
-          <span>Was die Spielleitung notiert, steht hier nicht — und die Trefferpunkte der
-            Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.</span>
+          {/* Der Satz steht im rollenden Teil und nicht im Fuss: er wird
+              einmal gelesen und danach nie wieder, und in einem schmalen
+              Fenster bricht er auf vier Zeilen um — die haetten der Reihe
+              den Platz genommen. */}
+          <div className="ks-erklaerung">
+            Was die Spielleitung notiert, steht hier nicht — und die Trefferpunkte der
+            Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.
+          </div>
         </div>
+
+        {onAnsage ? (
+          <div className="ks-fuss">
+            <button className="ks-ansage-knopf" onClick={onAnsage}>✍ Ansagen, was du tust</button>
+          </div>
+        ) : null}
 
     </div>
 

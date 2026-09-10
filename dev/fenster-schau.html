@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Werkbank &middot; Fenster</title>
+<link rel="stylesheet" href="../styles.css?v=dev">
+<style>
+  body { padding:16px; background:var(--bg-void); }
+  .wb-titel { font-family:'Cinzel',serif; color:var(--gold); margin:0 0 10px; }
+  .wb-hilfe { font-size:12px; color:var(--text-muted); max-width:60ch; line-height:1.6; }
+</style>
+</head>
+<body>
+  <h2 class="wb-titel">Die Fenster und ihre Mindestgroessen</h2>
+  <p class="wb-hilfe">Jedes Fenster laesst sich am Zipfel unten rechts ziehen.
+     <code>wbMasze()</code> in der Konsole nennt die Groessen, <code>wbKlein()</code>
+     zieht alle auf ihr Minimum.</p>
+  <div id="kampfsicht"></div>
+  <div id="dialog"></div>
+
+  <script>
+    // Die Anwendung ruft den Server nur, wenn eine Adresse dasteht.
+    try { localStorage.removeItem('sv_url'); } catch (e) {}
+    // Die Huellen um die Schnittstelle stehen sonst in der index.html.
+    // Hier braucht sie niemand — aber js/app.js liest ein paar davon
+    // beim Laden, und ein fehlender Name braeche die ganze Datei ab.
+    const wbStumm = () => Promise.reject(new Error('Werkbank: kein Server'));
+    const apiAdvDmSetzen = wbStumm;
+    const apiBesitzerSetzen = wbStumm;
+    const apiDeleteChar = wbStumm;
+    const apiDeleteItem = wbStumm;
+    const apiDmDeleteEncounter = wbStumm;
+    const apiDmDeleteEnemy = wbStumm;
+    const apiDmImportEnemies = wbStumm;
+    const apiDmLoad = wbStumm;
+    const apiDmLoadChronik = wbStumm;
+    const apiDmLoadEncounters = wbStumm;
+    const apiDmLoadEnemies = wbStumm;
+    const apiDmSaveChronik = wbStumm;
+    const apiDmSaveEncounter = wbStumm;
+    const apiDmSaveEnemy = wbStumm;
+    const apiDmSaveLibrary = wbStumm;
+    const apiGruppeNeu = wbStumm;
+    const apiKampfAnsage = wbStumm;
+    const apiKampfAnsagen = wbStumm;
+    const apiKampfSetzen = wbStumm;
+    const apiKampfStand = wbStumm;
+    const apiKontoListe = wbStumm;
+    const apiKontoLoeschen = wbStumm;
+    const apiKontoNeu = wbStumm;
+    const apiSetupNoetig = wbStumm;
+    const apiProbeNachricht = wbStumm;
+    const apiKontoReset = wbStumm;
+    const apiLoadChars = wbStumm;
+    const apiLoadLogs = wbStumm;
+    const apiLogFrist = wbStumm;
+    const apiLogin = wbStumm;
+    const apiLogout = wbStumm;
+    const apiMe = wbStumm;
+    const apiMeineDaten = wbStumm;
+    const apiMitglieder = wbStumm;
+    const apiPassAendern = wbStumm;
+    const apiPoll = wbStumm;
+    const apiRolleSetzen = wbStumm;
+    const apiSaveChar = wbStumm;
+    const apiSaveChars = wbStumm;
+    const apiSaveItem = wbStumm;
+    const apiSaveLibrary = wbStumm;
+    const apiSaveLog = wbStumm;
+    const apiSetDmPassword = wbStumm;
+    // Stehen sonst in der index.html und fehlen hier deshalb: ohne die
+    // Platzhalter bricht jeder Baustein ab, der nach dem Zugang fragt
+    // oder etwas merken will.
+    const serverCreds = () => ({url: '', code: '', pass: '', token: ''});
+    const safeSetItem = (schluessel, wert) => {
+      try { localStorage.setItem('wb_' + schluessel, wert); } catch (e) {}
+    };
+  </script>
+  <script src="../js/data.js?v=dev"></script>
+  <script src="../js/util.js?v=dev"></script>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/app.js?v=dev"></script>
+  <script>
+    var wbHelden = [
+      {id:'c1', name:'Brunhilde Eisenfaust', race:'Zwergin', charClass:'Kaempferin', level:5,
+       hp:31, maxHp:44, str:16, dex:12, con:15, int:10, wis:12, cha:8},
+      {id:'c2', name:'Thalia', race:'Halbelfe', charClass:'Magierin', level:5,
+       hp:18, maxHp:26, str:8, dex:14, con:12, int:17, wis:11, cha:13}
+    ];
+    var wbKampf = {
+      name:'Ueberfall an der Furt', phase:'kampf', aktiv:true, runde:3, zug:1,
+      hpOffen:true,
+      teilnehmer:[
+        {id:'t1', art:'held', charId:'c1', ini:17, zustaende:['Gepackt'],
+         erschoepfung:1, vorteil:true, nachteil:false},
+        {id:'t2', art:'gegner', name:'Wolf 1', ini:14, zustaende:[],
+         zustand:'Schwer verwundet', balken:0.37, erschoepfung:0},
+        {id:'t3', art:'held', charId:'c2', ini:11, zustaende:[], erschoepfung:0},
+        {id:'t4', art:'gegner', name:'Hauptmann der Wache', ini:9,
+         zustaende:['Veraengstigt'], zustand:'Angeschlagen', balken:0.62, erschoepfung:0}
+      ],
+      ansagen:[{id:'a1', charId:'c2', typ:'aktion', art:'zauber', was:'Feuerball',
+                grad:3, ziele:['Wolf 1'], text:'zielt auf die Gruppe am Wasser'}],
+      karte:{breite:8, hoehe:5, feldMeter:1.5,
+             gelaende:'..###.....#.......#..TT.....~~..........',
+             figuren:{t1:{x:1,y:1,k:'Br'}, t2:{x:6,y:1,k:'w1'},
+                      t3:{x:0,y:3,k:'Th'}, t4:{x:7,y:4,k:'h1',h:6}},
+             zeigen:true}
+    };
+    ReactDOM.createRoot(document.getElementById('kampfsicht')).render(
+      React.createElement(KampfSicht, {
+        kampf: wbKampf, helden: wbHelden, eigeneIds: ['c1'], setDefs: null,
+        tpOffen: true, eigenerHeld: wbHelden[0],
+        onAnsage: function () { console.log('ansagen'); },
+        onSchliessen: function () { console.log('zu'); }
+      }));
+
+    // Ein Dialogfenster daneben, damit alle vier Arten beisammen sind.
+    ReactDOM.createRoot(document.getElementById('dialog')).render(
+      React.createElement(Fenster, {onZu: function () { console.log('dialog zu'); }},
+        React.createElement('div', {className: 'form-modal'},
+          React.createElement('div', {className: 'form-title'}, 'Ein Dialogfenster'),
+          React.createElement('div', {className: 'form-group'},
+            React.createElement('div', {className: 'form-label'}, 'Name'),
+            React.createElement('input', {className: 'form-input', defaultValue: 'Brunhilde'})),
+          React.createElement('div', {className: 'form-group'},
+            React.createElement('div', {className: 'form-label'}, 'Notiz'),
+            React.createElement('textarea', {className: 'form-textarea',
+              defaultValue: 'Ein Satz, der breit genug ist, um umzubrechen.'})))));
+
+    // Die Masze aller Fenster auf dem Schirm.
+    window.wbMasze = function () {
+      return [].map.call(document.querySelectorAll(
+        '.ks-fenster, .sf-fenster, .automat-schirm, .form-modal'), function (f) {
+        var r = f.getBoundingClientRect();
+        var cs = getComputedStyle(f);
+        return {
+          fenster: (f.querySelector('.ks-titel, .sf-titel, .automat-name, .form-title')
+                    || {}).textContent || f.className,
+          aussen: [Math.round(r.width), Math.round(r.height)],
+          minimum: [cs.minWidth, cs.minHeight],
+          ziehbar: cs.resize
+        };
+      });
+    };
+    // Alle Leiber auf ihr Minimum ziehen — so klein, wie es geht.
+    window.wbKlein = function () {
+      [].forEach.call(document.querySelectorAll(
+        '.ks-fenster, .sf-fenster, .automat-schirm, .form-modal'), function (el) {
+        el.style.width = '1px'; el.style.height = '1px';
+      });
+      return window.wbMasze();
+    };
+  </script>
+</body>
+</html>

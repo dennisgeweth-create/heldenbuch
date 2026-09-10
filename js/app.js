@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.2';
+const HB_VERSION = 'v5.2.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -346,6 +346,26 @@ const Fenster = ({
   const zugEnde = () => {
     zug.current = null;
   };
+
+  // Ein verschobenes Fenster traegt seine Breite als style-Attribut. Wer
+  // es am Zipfel zieht, aendert dieselbe Eigenschaft — und das naechste
+  // Neuzeichnen wuerde sie zuruecksetzen. Deshalb wird die gezogene
+  // Breite in den Zustand uebernommen, sobald sie sich geaendert hat.
+  useEffect(() => {
+    const el = haus.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const beo = new ResizeObserver(() => setPos(p => {
+      if (!p) return p; // mittig: da mischt sich niemand ein
+      const w = Math.round(el.getBoundingClientRect().width);
+      return !w || Math.abs(w - p.w) < 2 ? p : {
+        ...p,
+        w,
+        w0: w
+      };
+    }));
+    beo.observe(el);
+    return () => beo.disconnect();
+  }, [pos !== null]);
 
   // Ein verschobenes Fenster steht in Bildpunkten vom linken oberen Eck.
   // Wird das Browserfenster kleiner, bliebe es liegen, wo es lag — also
@@ -703,24 +723,75 @@ const schiebeKlemmen = (pos, breite) => ({
   y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
 });
 const useSchiebefenster = (schluessel, standard, breite) => {
-  const [pos, setPos] = React.useState(() => {
+  const gemerkt = () => {
     try {
       const d = JSON.parse(localStorage.getItem(schluessel) || 'null');
-      if (d && Number.isFinite(+d.x)) return schiebeKlemmen({
-        x: +d.x,
-        y: +d.y
-      }, breite);
+      if (d && Number.isFinite(+d.x)) return d;
     } catch {}
-    return schiebeKlemmen(standard, breite);
+    return null;
+  };
+  const [pos, setPos] = React.useState(() => {
+    const d = gemerkt();
+    return schiebeKlemmen(d ? {
+      x: +d.x,
+      y: +d.y
+    } : standard, breite);
   });
   const zug = React.useRef(null);
+  const leib = React.useRef(null);
+  const uhr = React.useRef(null);
+  // Die Stelle steht auch als Referenz da: der Beobachter der Groesse
+  // laeuft ausserhalb des Renderns und saehe sonst die Stelle von
+  // damals.
+  const posRef = React.useRef(pos);
+  posRef.current = pos;
   const merken = p => {
+    // Was schon dasteht, bleibt stehen: wer schiebt, aendert die Groesse
+    // nicht, und wer zieht, aendert die Stelle nicht.
+    const alt = gemerkt() || {};
     try {
-      localStorage.setItem(schluessel, JSON.stringify(p));
+      localStorage.setItem(schluessel, JSON.stringify({
+        ...alt,
+        ...p
+      }));
     } catch {}
   };
+  React.useEffect(() => () => clearTimeout(uhr.current), []);
   return {
     pos,
+    // An den Leib des Fensters angebracht. Der Browser aendert die
+    // Groesse selbst (CSS `resize`); hier wird nur gemerkt, was dabei
+    // herauskam — und beim naechsten Mal wieder eingestellt.
+    //
+    // Die Mindestgroesse steht im Stylesheet, nicht hier: sie haengt am
+    // Inhalt, und der weiss es besser als eine Zahl in einem Haken.
+    masz: {
+      ref: el => {
+        if (!el || el === leib.current) return;
+        leib.current = el;
+        const g = gemerkt();
+        if (g && g.w) {
+          el.style.width = g.w + 'px';
+          el.style.height = g.h + 'px';
+        }
+        if (typeof ResizeObserver === 'undefined') return;
+        // Der Beobachter meldet jeden Zwischenschritt beim Ziehen —
+        // geschrieben wird erst, wenn die Hand einen Moment still ist.
+        const beo = new ResizeObserver(() => {
+          clearTimeout(uhr.current);
+          uhr.current = setTimeout(() => {
+            const b = Math.round(el.getBoundingClientRect().width);
+            const h = Math.round(el.getBoundingClientRect().height);
+            if (b > 0 && h > 0) merken({
+              ...posRef.current,
+              w: b,
+              h
+            });
+          }, 400);
+        });
+        beo.observe(el);
+      }
+    },
     // Am Kopf des Fensters angebracht. Der Schliessknopf sitzt dort auch
     // und darf nicht mitschieben.
     griff: {
@@ -793,11 +864,12 @@ const Schiebefenster = ({
 }) => {
   const {
     pos,
-    griff
+    griff,
+    masz
   } = useSchiebefenster(schluessel + '_pos', standard, breite);
   const [zu, setZu] = useEingeklappt(schluessel + '_zu', zuAnfang);
-  return /*#__PURE__*/React.createElement("div", {
-    className: 'sf-fenster' + (zu ? ' zu' : '') + (klasse ? ' ' + klasse : ''),
+  return /*#__PURE__*/React.createElement("div", _extends({
+    className: 'sf-fenster' + (zu ? ' zu' : '') + (groessbar ? ' weit' : '') + (klasse ? ' ' + klasse : ''),
     style: breite ? {
       left: pos.x,
       top: pos.y,
@@ -806,7 +878,7 @@ const Schiebefenster = ({
       left: pos.x,
       top: pos.y
     }
-  }, /*#__PURE__*/React.createElement("div", _extends({
+  }, masz), /*#__PURE__*/React.createElement("div", _extends({
     className: "sf-kopf"
   }, griff, {
     title: "Zum Verschieben ziehen"
@@ -825,7 +897,7 @@ const Schiebefenster = ({
     title: "Schlie\xDFen",
     "aria-label": "Schlie\xDFen"
   }, "\u2715")), !zu && /*#__PURE__*/React.createElement("div", {
-    className: 'sf-leib' + (groessbar ? ' groessbar' : '')
+    className: "sf-leib"
   }, children));
 };
 
@@ -8961,6 +9033,25 @@ const fensterSchreiben = pos => {
     }));
   } catch {}
 };
+const groesseLesen = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || 'null');
+    if (d && d.groesse && +d.groesse.w > 0) return {
+      w: +d.groesse.w,
+      h: +d.groesse.h
+    };
+  } catch {}
+  return null;
+};
+const groesseSchreiben = groesse => {
+  try {
+    const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || '{}') || {};
+    localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify({
+      ...d,
+      groesse
+    }));
+  } catch {}
+};
 // Immer so viel stehen lassen, dass man den Kopf noch zu fassen bekommt.
 const fensterKlemmen = pos => ({
   x: Math.max(-FENSTER_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
@@ -9761,12 +9852,45 @@ const TaverneSchirm = ({
       fensterSchreiben(pos);
     }
   };
+
+  // Die selbst gezogene Groesse. Sie wird gemerkt wie die Stelle — wer
+  // sich den Tisch einmal breit gezogen hat, will ihn morgen wieder so.
+  const schirmEl = React.useRef(null);
+  const groessenUhr = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(groessenUhr.current), []);
+  const fensterMasz = el => {
+    if (!el || el === schirmEl.current) return;
+    schirmEl.current = el;
+    const g = groesseLesen();
+    if (g) {
+      el.style.width = g.w + 'px';
+      el.style.height = g.h + 'px';
+    }
+    if (typeof ResizeObserver === 'undefined') return;
+    const beo = new ResizeObserver(() => {
+      clearTimeout(groessenUhr.current);
+      groessenUhr.current = setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) groesseSchreiben({
+          w: Math.round(r.width),
+          h: Math.round(r.height)
+        });
+      }, 400);
+    });
+    beo.observe(el);
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "automat-schirm",
+    ref: fensterMasz,
     style: {
       left: pos.x,
       top: pos.y,
-      width: tischBreite(jetzt, schirm)
+      // Die entworfene Breite steht als Eigenschaft da und nicht
+      // als `width`: gezogen wird ueber `style.width`, und ein
+      // Neuzeichnen wuerde die sonst jedes Mal zuruecksetzen.
+      // Sie ist zugleich die Untergrenze — schmaler ist ein Tisch
+      // nicht gebaut, und was darunter passiert, waere Verlust.
+      '--aut-breit': tischBreite(jetzt, schirm) + 'px'
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "automat-kopf",
@@ -15479,7 +15603,8 @@ const KampfSicht = ({
 }) => {
   const {
     pos,
-    griff
+    griff,
+    masz
   } = useSchiebefenster(KS_SPEICHER, {
     x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32),
     y: 76
@@ -15500,14 +15625,13 @@ const KampfSicht = ({
   const namensZug = t => !t ? '' : t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
   const dranName = namensZug(liste[dranIdx]);
   const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", _extends({
     className: "ks-fenster",
     style: {
       left: pos.x,
-      top: pos.y,
-      width: KS_BREITE
+      top: pos.y
     }
-  }, /*#__PURE__*/React.createElement("div", _extends({
+  }, masz), /*#__PURE__*/React.createElement("div", _extends({
     className: "ks-kopf"
   }, griff, {
     title: "Zum Verschieben ziehen"
@@ -15527,6 +15651,8 @@ const KampfSicht = ({
     title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
     "aria-label": "Schlie\xDFen"
   }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "ks-mitte"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "ks-liste"
   }, liste.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "ks-leer"
@@ -15560,11 +15686,13 @@ const KampfSicht = ({
   }, /*#__PURE__*/React.createElement("span", {
     className: 'an-typ ' + (a.typ || 'aktion')
   }, ansageTyp(a).kurz), /*#__PURE__*/React.createElement("b", null, ((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'), a.was ? /*#__PURE__*/React.createElement("span", null, a.art === 'zauber' ? ' zaubert ' : ' greift an mit ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null))), /*#__PURE__*/React.createElement("div", {
+    className: "ks-erklaerung"
+  }, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")), onAnsage ? /*#__PURE__*/React.createElement("div", {
     className: "ks-fuss"
-  }, onAnsage ? /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     className: "ks-ansage-knopf",
     onClick: onAnsage
-  }, "\u270D Ansagen, was du tust") : null, /*#__PURE__*/React.createElement("span", null, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch."))), karteAuf && kampf.karte && /*#__PURE__*/React.createElement(Schiebefenster, {
+  }, "\u270D Ansagen, was du tust")) : null), karteAuf && kampf.karte && /*#__PURE__*/React.createElement(Schiebefenster, {
     schluessel: "hb_kampfsicht_karte",
     standard: {
       x: 24,

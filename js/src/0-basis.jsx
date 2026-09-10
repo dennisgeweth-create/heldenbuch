@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.2';
+const HB_VERSION = 'v5.2.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -269,6 +269,22 @@ const Fenster = ({ onClick, onZu, children, ...rest }) => {
       y: Math.max(0, Math.min(e.clientY - zug.current.dy, h - 44))}));
   };
   const zugEnde = () => { zug.current = null; };
+
+  // Ein verschobenes Fenster traegt seine Breite als style-Attribut. Wer
+  // es am Zipfel zieht, aendert dieselbe Eigenschaft — und das naechste
+  // Neuzeichnen wuerde sie zuruecksetzen. Deshalb wird die gezogene
+  // Breite in den Zustand uebernommen, sobald sie sich geaendert hat.
+  useEffect(() => {
+    const el = haus.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const beo = new ResizeObserver(() => setPos(p => {
+      if (!p) return p;                    // mittig: da mischt sich niemand ein
+      const w = Math.round(el.getBoundingClientRect().width);
+      return (!w || Math.abs(w - p.w) < 2) ? p : {...p, w, w0: w};
+    }));
+    beo.observe(el);
+    return () => beo.disconnect();
+  }, [pos !== null]);
 
   // Ein verschobenes Fenster steht in Bildpunkten vom linken oberen Eck.
   // Wird das Browserfenster kleiner, bliebe es liegen, wo es lag — also
@@ -562,19 +578,60 @@ const schiebeKlemmen = (pos, breite) => ({
 });
 
 const useSchiebefenster = (schluessel, standard, breite) => {
-  const [pos, setPos] = React.useState(() => {
+  const gemerkt = () => {
     try {
       const d = JSON.parse(localStorage.getItem(schluessel) || 'null');
-      if (d && Number.isFinite(+d.x)) return schiebeKlemmen({x: +d.x, y: +d.y}, breite);
+      if (d && Number.isFinite(+d.x)) return d;
     } catch {}
-    return schiebeKlemmen(standard, breite);
+    return null;
+  };
+  const [pos, setPos] = React.useState(() => {
+    const d = gemerkt();
+    return schiebeKlemmen(d ? {x: +d.x, y: +d.y} : standard, breite);
   });
   const zug = React.useRef(null);
+  const leib = React.useRef(null);
+  const uhr = React.useRef(null);
+  // Die Stelle steht auch als Referenz da: der Beobachter der Groesse
+  // laeuft ausserhalb des Renderns und saehe sonst die Stelle von
+  // damals.
+  const posRef = React.useRef(pos);
+  posRef.current = pos;
   const merken = (p) => {
-    try { localStorage.setItem(schluessel, JSON.stringify(p)); } catch {}
+    // Was schon dasteht, bleibt stehen: wer schiebt, aendert die Groesse
+    // nicht, und wer zieht, aendert die Stelle nicht.
+    const alt = gemerkt() || {};
+    try { localStorage.setItem(schluessel, JSON.stringify({...alt, ...p})); } catch {}
   };
+  React.useEffect(() => () => clearTimeout(uhr.current), []);
   return {
     pos,
+    // An den Leib des Fensters angebracht. Der Browser aendert die
+    // Groesse selbst (CSS `resize`); hier wird nur gemerkt, was dabei
+    // herauskam — und beim naechsten Mal wieder eingestellt.
+    //
+    // Die Mindestgroesse steht im Stylesheet, nicht hier: sie haengt am
+    // Inhalt, und der weiss es besser als eine Zahl in einem Haken.
+    masz: {
+      ref: (el) => {
+        if (!el || el === leib.current) return;
+        leib.current = el;
+        const g = gemerkt();
+        if (g && g.w) { el.style.width = g.w + 'px'; el.style.height = g.h + 'px'; }
+        if (typeof ResizeObserver === 'undefined') return;
+        // Der Beobachter meldet jeden Zwischenschritt beim Ziehen —
+        // geschrieben wird erst, wenn die Hand einen Moment still ist.
+        const beo = new ResizeObserver(() => {
+          clearTimeout(uhr.current);
+          uhr.current = setTimeout(() => {
+            const b = Math.round(el.getBoundingClientRect().width);
+            const h = Math.round(el.getBoundingClientRect().height);
+            if (b > 0 && h > 0) merken({...posRef.current, w: b, h});
+          }, 400);
+        });
+        beo.observe(el);
+      },
+    },
     // Am Kopf des Fensters angebracht. Der Schliessknopf sitzt dort auch
     // und darf nicht mitschieben.
     griff: {
@@ -616,12 +673,14 @@ const useEingeklappt = (schluessel, anfang) => {
 // Kampf nicht jedes Mal wieder aufgeraeumt werden muss.
 const Schiebefenster = ({ schluessel, standard, breite, titel, kopfExtra,
                           zuAnfang, groessbar, onSchliessen, klasse, children }) => {
-  const {pos, griff} = useSchiebefenster(schluessel + '_pos', standard, breite);
+  const {pos, griff, masz} = useSchiebefenster(schluessel + '_pos', standard, breite);
   const [zu, setZu] = useEingeklappt(schluessel + '_zu', zuAnfang);
   return (
-    <div className={'sf-fenster' + (zu ? ' zu' : '') + (klasse ? ' ' + klasse : '')}
+    <div className={'sf-fenster' + (zu ? ' zu' : '') + (groessbar ? ' weit' : '')
+                    + (klasse ? ' ' + klasse : '')}
       style={breite ? {left: pos.x, top: pos.y, width: breite}
-                    : {left: pos.x, top: pos.y}}>
+                    : {left: pos.x, top: pos.y}}
+      {...masz}>
       <div className="sf-kopf" {...griff} title="Zum Verschieben ziehen">
         <button type="button" className="sf-klapp" aria-expanded={!zu}
           title={zu ? 'Ausklappen' : 'Einklappen'}
@@ -633,9 +692,11 @@ const Schiebefenster = ({ schluessel, standard, breite, titel, kopfExtra,
             title="Schließen" aria-label="Schließen">✕</button>
         )}
       </div>
-      {!zu && (
-        <div className={'sf-leib' + (groessbar ? ' groessbar' : '')}>{children}</div>
-      )}
+      {/* Jedes Fenster laesst sich am Zipfel groesser und kleiner
+          ziehen. Wie klein, steht im Stylesheet: unter seiner
+          Mindestgroesse faengt ein Fenster an, Dinge zu verstecken,
+          statt sie nur enger zu setzen. */}
+      {!zu && <div className="sf-leib">{children}</div>}
     </div>
   );
 };

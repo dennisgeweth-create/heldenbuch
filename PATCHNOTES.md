@@ -1,5 +1,38 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.2.1
+
+### 🪟 Alle Fenster lassen sich ziehen
+
+Bisher war genau eines in der Größe veränderbar — das Kartenfeld der
+Spielleitung. Jetzt alle vier Arten: die beiden Karten, die Kampfsicht
+der Runde, die Taverne und jedes Dialogfenster. Der Zipfel sitzt unten
+rechts, und **die Größe wird gemerkt** wie die Stelle.
+
+**Jedes hat eine Mindestgröße**, und die ist gemessen, nicht geraten —
+es ist jeweils die Breite, unter der die engste Zeile des Inhalts
+umbricht:
+
+| | |
+|---|---|
+| Kampfsicht der Runde | 400 × 280 |
+| Kartenfeld der Spielleitung | 440 × 300 |
+| Karte der Runde | 300 × 120 |
+| Dialogfenster | 320 × 160 |
+| Taverne | die Breite des Tisches — schmaler ist er nicht gebaut |
+
+Beim Einbauen fiel auf, dass die Kampfsicht am Minimum ihren Fuß
+abgeschnitten hätte, samt dem Knopf zum Ansagen. Deshalb rollt jetzt
+der Mittelteil, während Kopf und Fuß stehen bleiben: **kleiner ziehen
+heißt rollen, nicht verlieren.** Der Erklärsatz am Fuß ist dabei nach
+oben ins Rollende gewandert — er wird einmal gelesen und brauchte in
+einem schmalen Fenster vier Zeilen.
+
+Die Tische der Taverne lassen sich nur vergrößern. Ihr Filz ist auf
+seine Breite gebaut; schmaler rücken Tafeln und Einsatzfelder
+ineinander, und das wäre genau der Verlust, den die Mindestgröße
+verhindern soll.
+
 ## v5.2
 
 Der Kampftracker bekommt ein Feld. Bis hierher führte er eine

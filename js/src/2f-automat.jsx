@@ -649,6 +649,19 @@ const fensterSchreiben = (pos) => {
     localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify({...d, fenster: pos}));
   } catch {}
 };
+const groesseLesen = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || 'null');
+    if (d && d.groesse && +d.groesse.w > 0) return {w: +d.groesse.w, h: +d.groesse.h};
+  } catch {}
+  return null;
+};
+const groesseSchreiben = (groesse) => {
+  try {
+    const d = JSON.parse(localStorage.getItem(AUTOMAT_SPEICHER) || '{}') || {};
+    localStorage.setItem(AUTOMAT_SPEICHER, JSON.stringify({...d, groesse}));
+  } catch {}
+};
 // Immer so viel stehen lassen, dass man den Kopf noch zu fassen bekommt.
 const fensterKlemmen = (pos) => ({
   x: Math.max(-FENSTER_BREITE + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
@@ -1315,9 +1328,37 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
   };
   const zugEnde = () => { if (zug.current) { zug.current = null; fensterSchreiben(pos); } };
 
+  // Die selbst gezogene Groesse. Sie wird gemerkt wie die Stelle — wer
+  // sich den Tisch einmal breit gezogen hat, will ihn morgen wieder so.
+  const schirmEl = React.useRef(null);
+  const groessenUhr = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(groessenUhr.current), []);
+  const fensterMasz = (el) => {
+    if (!el || el === schirmEl.current) return;
+    schirmEl.current = el;
+    const g = groesseLesen();
+    if (g) { el.style.width = g.w + 'px'; el.style.height = g.h + 'px'; }
+    if (typeof ResizeObserver === 'undefined') return;
+    const beo = new ResizeObserver(() => {
+      clearTimeout(groessenUhr.current);
+      groessenUhr.current = setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0)
+          groesseSchreiben({w: Math.round(r.width), h: Math.round(r.height)});
+      }, 400);
+    });
+    beo.observe(el);
+  };
+
   return (
-    <div className="automat-schirm"
-      style={{left: pos.x, top: pos.y, width: tischBreite(jetzt, schirm)}}>
+    <div className="automat-schirm" ref={fensterMasz}
+      style={{left: pos.x, top: pos.y,
+              // Die entworfene Breite steht als Eigenschaft da und nicht
+              // als `width`: gezogen wird ueber `style.width`, und ein
+              // Neuzeichnen wuerde die sonst jedes Mal zuruecksetzen.
+              // Sie ist zugleich die Untergrenze — schmaler ist ein Tisch
+              // nicht gebaut, und was darunter passiert, waere Verlust.
+              '--aut-breit': tischBreite(jetzt, schirm) + 'px'}}>
       <div className="automat-kopf" onPointerDown={zugStart}
         onPointerMove={zugBewegen} onPointerUp={zugEnde} onPointerCancel={zugEnde}
         title="Zum Verschieben ziehen">
