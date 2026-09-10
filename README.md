@@ -1,13 +1,14 @@
 # ⚔ Heldenbuch
 
 Ein Charakterbogen und Spielleitungswerkzeug für **Dungeons & Dragons 5e**,
-auf Deutsch, für eine Gruppe, die zusammen an einem Tisch sitzt.
+auf Deutsch — für eine Gruppe an einem Tisch, und ebenso für eine, die
+sich über Discord oder einen Videocall trifft.
 
-Es ist kein Regelrechner und kein Würfelserver. Gewürfelt wird am Tisch.
+Es ist kein Regelrechner und kein Würfelserver. Gewürfelt wird von Hand.
 Das Heldenbuch hält fest, was dabei herauskommt, und nimmt der
 Spielleitung die Buchführung ab — Trefferpunkte, Zauberplätze,
-Initiative, Beute, Kalender. Wer am Tisch schneller im Kopf rechnet als
-er tippt, soll im Kopf rechnen dürfen.
+Initiative, Beute, Kalender. Wer schneller im Kopf rechnet als er tippt,
+soll im Kopf rechnen dürfen.
 
 > **Dieses Programm wurde vollständig von einer KI geschrieben.**
 > Was das heißt und was es nicht heißt, steht weiter unten unter
@@ -47,9 +48,55 @@ er tippt, soll im Kopf rechnen dürfen.
 
 **Zusammenspiel**
 
-Ein Server hält die Bögen zusammen; wer am Tisch sitzt, sieht dasselbe.
-Was die Spielleitung nicht zeigen will, wird nicht gezeigt — und zwar
+Ein Server hält die Bögen zusammen; alle sehen dasselbe. Was die
+Spielleitung nicht zeigen will, wird nicht gezeigt — und zwar
 serverseitig gefiltert, nicht nur im Browser ausgeblendet.
+
+---
+
+## 🎧 Am Tisch und über Discord
+
+Das Heldenbuch ist eine Webseite. Wer die Adresse hat und ein Konto,
+kann mitspielen — im selben Raum oder von überall. **Für eine Runde
+über Videocall braucht es nichts weiter als den Link.**
+
+Was es ausdrücklich **nicht** mitbringt: Ton, Bild und Chat. Da kann es
+gegen Discord, Zoom oder ein Telefon in der Mitte des Tisches nichts
+gewinnen, und es versucht es gar nicht erst. Das Heldenbuch ist der
+zweite Schirm daneben.
+
+Was am Bildschirm besser läuft als am Tisch:
+
+- **Jeder hat seinen Bogen offen.** Kein Weiterreichen, kein „warte,
+  ich such's". Trefferpunkte, die die Spielleitung einträgt, stehen
+  sofort im Bogen — es gibt kein Übertragen am Ende des Abends.
+- **Die Kampfsicht zeigt der Runde die Reihenfolge**, wer am Zug ist und
+  wie es den Figuren geht. Ohne Bildschirmteilen: jeder sieht es in
+  seinem eigenen Fenster, auf dem Telefon genauso.
+- **Die Karte kommt dazu, wenn die Spielleitung sie freigibt.** Verbergen
+  lässt sich die ganze Karte oder einzelne Figuren — der Hinterhalt
+  bleibt einer.
+- **Ansagen statt Durcheinanderreden.** Wer dran ist, trägt ein, was er
+  vorhat, mit Ziel und Zaubergrad. Die Spielleitung sieht es und trägt
+  ein, was daraus wurde. Das nimmt dem Videocall genau die Reibung, die
+  er hat: dass immer nur einer sprechen kann.
+- **Geheime Proben.** Die Spielleitung schickt eine Probe an einen
+  einzelnen Spieler; die anderen erfahren nichts davon — auch nicht,
+  *dass* gewürfelt wurde. Danach kann sie Text und Bilder an einzelne
+  schicken. Am Tisch verrät der Griff zum Würfel das Geheimnis; über
+  Discord müsste man eine Privatnachricht schreiben, während alle
+  zusehen.
+- **Die Taverne** ist ein Spiel für zwischendurch, das jeder an seinem
+  eigenen Gerät spielt.
+
+Was die Spielleitung sieht und was die Runde sieht, entscheidet der
+Server, nicht der Browser. Ein Spieler, der die Entwicklerkonsole
+öffnet, findet die Trefferpunkte der Gegner trotzdem nicht — sie werden
+gar nicht erst gesendet.
+
+Je Abenteuer lässt sich einstellen, ob die Runde den Kampf überhaupt
+sieht (`auto` · `nur auf Freigabe` · `aus`) und ob die Trefferpunkte der
+Helden offen dastehen oder nur ihr Zustand.
 
 ---
 
@@ -260,9 +307,9 @@ Verbindung zu Wizards of the Coast.
 
 ## Mitmachen
 
-Das Heldenbuch ist für eine bestimmte Gruppe an einem bestimmten Tisch
-gebaut. Es ist öffentlich, damit andere hineinsehen und es nachbauen
-können — nicht, weil es ein Produkt werden soll.
+Das Heldenbuch ist für eine bestimmte Gruppe gebaut. Es ist öffentlich,
+damit andere hineinsehen und es nachbauen können — nicht, weil es ein
+Produkt werden soll.
 
 Fehlerberichte sind willkommen, besonders solche aus echten Spielabenden:
 **was hast du getan, was hast du erwartet, was stand da.** Genau daraus
