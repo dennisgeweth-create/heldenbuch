@@ -1,5 +1,37 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.2.2
+
+### 🎲 „Wie zuletzt" am Tisch
+
+Am Roulette und beim Craps steht neben dem Hebel ein Knopf, der die
+letzte Lage noch einmal aufbaut. Wer eine Serie spielt, legt sonst
+Runde um Runde ein Dutzend Jetons einzeln.
+
+**Roulette:** `↻ Wie zuletzt · 250` — der Betrag steht dabei, damit man
+sieht, was es kostet, bevor man drückt. Reicht der Beutel nicht, wird
+gar nichts gelegt; eine halbe Ansage ist eine andere Wette als die, die
+man wiederholen wollte.
+
+**Craps:** gelegt wird nur, was gerade fehlt. Eine Passe mit gesetztem
+Punkt liegt ja noch und wird nicht verdoppelt — und neu angenommen
+würde sie ohnehin nicht.
+
+Blackjack und Poker haben keinen: dort bleibt der Einsatz stehen, wo man
+ihn eingestellt hat. Da gibt es nichts zu wiederholen.
+
+### 🩹 Ein Fenster, das nicht mehr auf den Schirm passte
+
+Mit v5.2.1 merken sich die Fenster ihre Größe — aber ohne zu prüfen, ob
+sie auf den Schirm passt, auf dem sie das nächste Mal aufgehen. Wer den
+Roulettetisch am Schreibtisch groß gezogen hatte, bekam ihn auf dem iPad
+in derselben Größe: der Fuß mit **Werfen** hing unter dem Bildschirmrand.
+
+Jetzt wird die gemerkte Größe auf das geklemmt, was der Schirm hergibt.
+Dazu rechnen die Fenster ihre Höhe in `dvh` statt `vh` — auf iPad und
+iPhone ist `100vh` größer als das, was man sieht, und genau darum ging
+der Fuß verloren.
+
 ## v5.2.1
 
 ### 🪟 Alle Fenster lassen sich ziehen

@@ -1336,7 +1336,9 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
   const fensterMasz = (el) => {
     if (!el || el === schirmEl.current) return;
     schirmEl.current = el;
-    const g = groesseLesen();
+    // Geklemmt auf das, was der Schirm hergibt — eine am Schreibtisch
+    // gezogene Groesse passt auf dem iPad sonst nicht.
+    const g = schiebeMasz(groesseLesen());
     if (g) { el.style.width = g.w + 'px'; el.style.height = g.h + 'px'; }
     if (typeof ResizeObserver === 'undefined') return;
     const beo = new ResizeObserver(() => {

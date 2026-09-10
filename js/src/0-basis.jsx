@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.2.1';
+const HB_VERSION = 'v5.2.2';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -572,6 +572,18 @@ const BildAblage = ({ bild, maxPx, aufschrift, hinweis, hoehe, rund, onBild, onW
 // Das Fenster der Taverne (2f-automat.jsx) macht dasselbe noch selbst.
 // Es umzustellen waere Arbeit ohne Gewinn fuer den Spieler — wer dort
 // einmal etwas anfasst, kann es dann mit erledigen.
+// Und dasselbe fuer die Groesse. Ein Fenster, das am Schreibtisch auf
+// neunhundert Punkte gezogen wurde, darf auf dem iPad nicht neunhundert
+// Punkte breit aufgehen — sonst haengt sein Fuss unter dem Schirmrand,
+// und dort steht der Knopf, den man drueckt.
+const schiebeMasz = (g) => {
+  if (!g || !(+g.w > 0)) return null;
+  const b = window.innerWidth  || 1200;
+  const h = window.innerHeight || 800;
+  return {w: Math.max(200, Math.min(+g.w, b - 24)),
+          h: Math.max(120, Math.min(+g.h, h - 24))};
+};
+
 const schiebeKlemmen = (pos, breite) => ({
   x: Math.max(-(breite || 460) + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
   y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60)),
@@ -616,8 +628,8 @@ const useSchiebefenster = (schluessel, standard, breite) => {
       ref: (el) => {
         if (!el || el === leib.current) return;
         leib.current = el;
-        const g = gemerkt();
-        if (g && g.w) { el.style.width = g.w + 'px'; el.style.height = g.h + 'px'; }
+        const g = schiebeMasz(gemerkt());
+        if (g) { el.style.width = g.w + 'px'; el.style.height = g.h + 'px'; }
         if (typeof ResizeObserver === 'undefined') return;
         // Der Beobachter meldet jeden Zwischenschritt beim Ziehen —
         // geschrieben wird erst, wenn die Hand einen Moment still ist.

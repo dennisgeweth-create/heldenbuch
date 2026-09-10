@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.2.1';
+const HB_VERSION = 'v5.2.2';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -718,6 +718,19 @@ const BildAblage = ({
 // Das Fenster der Taverne (2f-automat.jsx) macht dasselbe noch selbst.
 // Es umzustellen waere Arbeit ohne Gewinn fuer den Spieler — wer dort
 // einmal etwas anfasst, kann es dann mit erledigen.
+// Und dasselbe fuer die Groesse. Ein Fenster, das am Schreibtisch auf
+// neunhundert Punkte gezogen wurde, darf auf dem iPad nicht neunhundert
+// Punkte breit aufgehen — sonst haengt sein Fuss unter dem Schirmrand,
+// und dort steht der Knopf, den man drueckt.
+const schiebeMasz = g => {
+  if (!g || !(+g.w > 0)) return null;
+  const b = window.innerWidth || 1200;
+  const h = window.innerHeight || 800;
+  return {
+    w: Math.max(200, Math.min(+g.w, b - 24)),
+    h: Math.max(120, Math.min(+g.h, h - 24))
+  };
+};
 const schiebeKlemmen = (pos, breite) => ({
   x: Math.max(-(breite || 460) + 140, Math.min(pos.x, (window.innerWidth || 1200) - 140)),
   y: Math.max(0, Math.min(pos.y, (window.innerHeight || 800) - 60))
@@ -769,8 +782,8 @@ const useSchiebefenster = (schluessel, standard, breite) => {
       ref: el => {
         if (!el || el === leib.current) return;
         leib.current = el;
-        const g = gemerkt();
-        if (g && g.w) {
+        const g = schiebeMasz(gemerkt());
+        if (g) {
           el.style.width = g.w + 'px';
           el.style.height = g.h + 'px';
         }
@@ -9861,7 +9874,9 @@ const TaverneSchirm = ({
   const fensterMasz = el => {
     if (!el || el === schirmEl.current) return;
     schirmEl.current = el;
-    const g = groesseLesen();
+    // Geklemmt auf das, was der Schirm hergibt — eine am Schreibtisch
+    // gezogene Groesse passt auf dem iPad sonst nicht.
+    const g = schiebeMasz(groesseLesen());
     if (g) {
       el.style.width = g.w + 'px';
       el.style.height = g.h + 'px';
@@ -10926,6 +10941,10 @@ const RouletteTisch = ({
   const [gefallen, setGefallen] = React.useState(null);
   const [verlauf, setVerlauf] = React.useState([]);
   const [abrechnung, setAbrechnung] = React.useState(null);
+  // Was zuletzt auf dem Tuch lag. Wer eine Serie spielt, legt Runde um
+  // Runde dasselbe — das von Hand nachzubauen sind bei einer Ansage ein
+  // Dutzend Griffe, und genau die kostet der Abend.
+  const [zuletzt, setZuletzt] = React.useState([]);
   const [wirtWort, wirtSagen] = useWirt('roulette');
   const [meldung, setMeldung] = React.useState('');
   const [bahn, setBahn] = React.useState(false);
@@ -11047,6 +11066,7 @@ const RouletteTisch = ({
       setMeldung('Erst setzen, dann werfen.');
       return;
     }
+    setZuletzt(wetten);
     const n = RLT_KESSEL[Math.floor(Math.random() * RLT_KESSEL.length)];
     const i = RLT_KESSEL.indexOf(n);
     setPhase('dreht');
@@ -11100,6 +11120,36 @@ const RouletteTisch = ({
       einsatz
     });
     setPhase('aus');
+  };
+
+  // Noch einmal dasselbe. Bezahlt wird neu — es ist eine neue Runde, und
+  // was auf dem Tuch lag, ist mit dem Kessel gefallen. Reicht der Beutel
+  // nicht fuer alles, wird gar nichts gelegt: eine halbe Ansage ist eine
+  // andere Wette als die, die man wiederholen wollte.
+  const nochEinmal = () => {
+    if (phase !== 'setzen' || !zuletzt.length) return;
+    const gesamt = zuletzt.reduce((s, w) => s + w.betrag, 0);
+    if (gesamt > marken) {
+      setMeldung('Für dieselbe Lage reicht der Beutel nicht — es fehlen ' + (gesamt - marken) + '.');
+      return;
+    }
+    zahlen(-gesamt);
+    // Was schon liegt, bleibt liegen und wird hoeher.
+    setWetten(l => {
+      const neu = [...l];
+      zuletzt.forEach(w => {
+        const i = neu.findIndex(x => x.name === w.name);
+        if (i >= 0) neu[i] = {
+          ...neu[i],
+          betrag: neu[i].betrag + w.betrag
+        };else neu.push({
+          ...w
+        });
+      });
+      return neu;
+    });
+    setWahl([]);
+    setMeldung(zuletzt.length + (zuletzt.length === 1 ? ' Wette' : ' Wetten') + ' wie zuletzt — ' + gesamt + ' im Spiel.');
   };
   const neueRunde = () => {
     setPhase('setzen');
@@ -11285,7 +11335,11 @@ const RouletteTisch = ({
     className: "automat-hebel",
     onClick: phase === 'aus' ? neueRunde : werfen,
     disabled: phase === 'dreht' || phase === 'setzen' && !imSpiel
-  }, phase === 'dreht' ? 'Rien ne va plus…' : phase === 'aus' ? 'Nächster Wurf' : 'Werfen'), /*#__PURE__*/React.createElement("button", {
+  }, phase === 'dreht' ? 'Rien ne va plus…' : phase === 'aus' ? 'Nächster Wurf' : 'Werfen'), zuletzt.length > 0 && phase === 'setzen' && /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: nochEinmal,
+    title: "Dieselben Wetten noch einmal legen"
+  }, "\u21BB Wie zuletzt \xB7 ", zuletzt.reduce((x, w) => x + w.betrag, 0)), /*#__PURE__*/React.createElement("button", {
     className: "bj-taste",
     onClick: alleZurueck,
     disabled: phase !== 'setzen' || !imSpiel
@@ -11660,6 +11714,10 @@ const CrapsTisch = ({
   const serie = React.useRef(0);
   const [ruf, setRuf] = React.useState('Der erste Wurf setzt den Punkt.');
   const [meldung, setMeldung] = React.useState('');
+  // Was zuletzt auf dem Tuch lag. Bei der Sieben raeumt der Tisch alles
+  // ab — wer dieselbe Lage wieder aufbauen will, legt sonst ein Dutzend
+  // Jetons einzeln.
+  const [zuletzt, setZuletzt] = React.useState(null);
   const [verlauf, setVerlauf] = React.useState([]);
   const uhr = React.useRef(null);
   React.useEffect(() => {
@@ -11696,6 +11754,7 @@ const CrapsTisch = ({
       setMeldung('Erst setzen, dann werfen.');
       return;
     }
+    setZuletzt(JSON.parse(JSON.stringify(wetten)));
     setRollt(true);
     setZeilen([]);
     setMeldung('');
@@ -11766,6 +11825,63 @@ const CrapsTisch = ({
       return n;
     });
     setMeldung('');
+  };
+
+  // Noch einmal dieselbe Lage. Gelegt wird nur, was gerade fehlt — was
+  // noch liegt, bleibt liegen und wird nicht verdoppelt. Und nur, was
+  // jetzt auch erlaubt waere: eine Passe mit gesetztem Punkt legt man
+  // nicht neu, die steht schon.
+  const zuletztWieder = () => {
+    if (rollt || !zuletzt) return;
+    const jetzt = wetten;
+    const fehlt = JSON.parse(JSON.stringify(crLeer()));
+    let summe = 0;
+    const nimm = (wert, hab) => {
+      const d = Math.max(0, (wert || 0) - (hab || 0));
+      summe += d;
+      return d;
+    };
+    fehlt.feld = nimm(zuletzt.feld, jetzt.feld);
+    fehlt.craps = nimm(zuletzt.craps, jetzt.craps);
+    fehlt.sieben = nimm(zuletzt.sieben, jetzt.sieben);
+    fehlt.hart[6] = nimm(zuletzt.hart[6], jetzt.hart[6]);
+    fehlt.hart[8] = nimm(zuletzt.hart[8], jetzt.hart[8]);
+    fehlt.come = nimm(zuletzt.come, jetzt.come);
+    fehlt.dontCome = nimm(zuletzt.dontCome, jetzt.dontCome);
+    Object.keys(zuletzt.place || {}).forEach(k => {
+      const d = nimm(zuletzt.place[k], (jetzt.place || {})[k]);
+      if (d) fehlt.place[k] = d;
+    });
+    // Passe und Don't nur vor dem Punkt — danach nimmt der Tisch sie
+    // nicht mehr an.
+    if (punkt === null) {
+      fehlt.pass = nimm(zuletzt.pass, jetzt.pass);
+      fehlt.dont = nimm(zuletzt.dont, jetzt.dont);
+    }
+    if (!summe) {
+      setMeldung('Es liegt schon alles, was zuletzt lag.');
+      return;
+    }
+    if (summe > marken) {
+      setMeldung('Für dieselbe Lage reicht der Beutel nicht — es fehlen ' + (summe - marken) + '.');
+      return;
+    }
+    zahlen(-summe);
+    setWetten(w => {
+      const n = JSON.parse(JSON.stringify(w));
+      n.feld += fehlt.feld;
+      n.craps += fehlt.craps;
+      n.sieben += fehlt.sieben;
+      n.hart[6] += fehlt.hart[6];
+      n.hart[8] += fehlt.hart[8];
+      n.come += fehlt.come;
+      n.dontCome += fehlt.dontCome;
+      n.pass += fehlt.pass;
+      n.dont += fehlt.dont;
+      Object.keys(fehlt.place).forEach(k => n.place[k] = (n.place[k] || 0) + fehlt.place[k]);
+      return n;
+    });
+    setMeldung('Wie zuletzt gelegt — ' + summe + ' dazu.');
   };
   const kasten = n => {
     const place = wetten.place[n] || 0;
@@ -11918,7 +12034,11 @@ const CrapsTisch = ({
     className: "automat-hebel",
     onClick: werfen,
     disabled: rollt || !imSpiel
-  }, rollt ? 'Sie rollen…' : 'Würfeln'), /*#__PURE__*/React.createElement("button", {
+  }, rollt ? 'Sie rollen…' : 'Würfeln'), zuletzt && !rollt && /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: zuletztWieder,
+    title: "Dieselbe Lage noch einmal aufbauen"
+  }, "\u21BB Wie zuletzt"), /*#__PURE__*/React.createElement("button", {
     className: "bj-taste",
     onClick: allesZurueck,
     disabled: rollt

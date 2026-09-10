@@ -173,6 +173,10 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const serie = React.useRef(0);
   const [ruf, setRuf] = React.useState('Der erste Wurf setzt den Punkt.');
   const [meldung, setMeldung] = React.useState('');
+  // Was zuletzt auf dem Tuch lag. Bei der Sieben raeumt der Tisch alles
+  // ab — wer dieselbe Lage wieder aufbauen will, legt sonst ein Dutzend
+  // Jetons einzeln.
+  const [zuletzt, setZuletzt] = React.useState(null);
   const [verlauf, setVerlauf] = React.useState([]);
   const uhr = React.useRef(null);
 
@@ -202,6 +206,7 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const werfen = () => {
     if (rollt) return;
     if (!imSpiel) { setMeldung('Erst setzen, dann werfen.'); return; }
+    setZuletzt(JSON.parse(JSON.stringify(wetten)));
     setRollt(true); setZeilen([]); setMeldung('');
     const [a, b] = crWuerfeln();
     // Ein kurzer Lauf, damit man die Wuerfel fallen sieht.
@@ -264,6 +269,53 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       return n;
     });
     setMeldung('');
+  };
+
+  // Noch einmal dieselbe Lage. Gelegt wird nur, was gerade fehlt — was
+  // noch liegt, bleibt liegen und wird nicht verdoppelt. Und nur, was
+  // jetzt auch erlaubt waere: eine Passe mit gesetztem Punkt legt man
+  // nicht neu, die steht schon.
+  const zuletztWieder = () => {
+    if (rollt || !zuletzt) return;
+    const jetzt = wetten;
+    const fehlt = JSON.parse(JSON.stringify(crLeer()));
+    let summe = 0;
+    const nimm = (wert, hab) => { const d = Math.max(0, (wert || 0) - (hab || 0));
+                                  summe += d; return d; };
+    fehlt.feld    = nimm(zuletzt.feld,    jetzt.feld);
+    fehlt.craps   = nimm(zuletzt.craps,   jetzt.craps);
+    fehlt.sieben  = nimm(zuletzt.sieben,  jetzt.sieben);
+    fehlt.hart[6] = nimm(zuletzt.hart[6], jetzt.hart[6]);
+    fehlt.hart[8] = nimm(zuletzt.hart[8], jetzt.hart[8]);
+    fehlt.come    = nimm(zuletzt.come,    jetzt.come);
+    fehlt.dontCome = nimm(zuletzt.dontCome, jetzt.dontCome);
+    Object.keys(zuletzt.place || {}).forEach(k => {
+      const d = nimm(zuletzt.place[k], (jetzt.place || {})[k]);
+      if (d) fehlt.place[k] = d;
+    });
+    // Passe und Don't nur vor dem Punkt — danach nimmt der Tisch sie
+    // nicht mehr an.
+    if (punkt === null) {
+      fehlt.pass = nimm(zuletzt.pass, jetzt.pass);
+      fehlt.dont = nimm(zuletzt.dont, jetzt.dont);
+    }
+    if (!summe) { setMeldung('Es liegt schon alles, was zuletzt lag.'); return; }
+    if (summe > marken) {
+      setMeldung('Für dieselbe Lage reicht der Beutel nicht — es fehlen '
+                 + (summe - marken) + '.');
+      return;
+    }
+    zahlen(-summe);
+    setWetten(w => {
+      const n = JSON.parse(JSON.stringify(w));
+      n.feld += fehlt.feld; n.craps += fehlt.craps; n.sieben += fehlt.sieben;
+      n.hart[6] += fehlt.hart[6]; n.hart[8] += fehlt.hart[8];
+      n.come += fehlt.come; n.dontCome += fehlt.dontCome;
+      n.pass += fehlt.pass; n.dont += fehlt.dont;
+      Object.keys(fehlt.place).forEach(k => n.place[k] = (n.place[k] || 0) + fehlt.place[k]);
+      return n;
+    });
+    setMeldung('Wie zuletzt gelegt — ' + summe + ' dazu.');
   };
 
   const kasten = (n) => {
@@ -413,6 +465,10 @@ const CrapsTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <button className="automat-hebel" onClick={werfen} disabled={rollt || !imSpiel}>
           {rollt ? 'Sie rollen…' : 'Würfeln'}
         </button>
+        {zuletzt && !rollt && (
+          <button className="bj-taste" onClick={zuletztWieder}
+            title="Dieselbe Lage noch einmal aufbauen">↻ Wie zuletzt</button>
+        )}
         <button className="bj-taste" onClick={allesZurueck} disabled={rollt}>Zurück</button>
       </div>
 

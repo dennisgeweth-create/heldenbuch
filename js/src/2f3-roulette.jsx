@@ -147,6 +147,10 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   const [gefallen, setGefallen] = React.useState(null);
   const [verlauf, setVerlauf] = React.useState([]);
   const [abrechnung, setAbrechnung] = React.useState(null);
+  // Was zuletzt auf dem Tuch lag. Wer eine Serie spielt, legt Runde um
+  // Runde dasselbe — das von Hand nachzubauen sind bei einer Ansage ein
+  // Dutzend Griffe, und genau die kostet der Abend.
+  const [zuletzt, setZuletzt] = React.useState([]);
   const [wirtWort, wirtSagen] = useWirt('roulette');
   const [meldung, setMeldung] = React.useState('');
   const [bahn, setBahn] = React.useState(false);
@@ -235,6 +239,7 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   // ── Werfen ─────────────────────────────────────────────────────
   const werfen = () => {
     if (!wetten.length) { setMeldung('Erst setzen, dann werfen.'); return; }
+    setZuletzt(wetten);
     const n = RLT_KESSEL[Math.floor(Math.random() * RLT_KESSEL.length)];
     const i = RLT_KESSEL.indexOf(n);
     setPhase('dreht'); setGefallen(null); setAbrechnung(null); setMeldung('');
@@ -274,6 +279,34 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       aus, einsatz,
     });
     setPhase('aus');
+  };
+
+  // Noch einmal dasselbe. Bezahlt wird neu — es ist eine neue Runde, und
+  // was auf dem Tuch lag, ist mit dem Kessel gefallen. Reicht der Beutel
+  // nicht fuer alles, wird gar nichts gelegt: eine halbe Ansage ist eine
+  // andere Wette als die, die man wiederholen wollte.
+  const nochEinmal = () => {
+    if (phase !== 'setzen' || !zuletzt.length) return;
+    const gesamt = zuletzt.reduce((s, w) => s + w.betrag, 0);
+    if (gesamt > marken) {
+      setMeldung('Für dieselbe Lage reicht der Beutel nicht — es fehlen '
+                 + (gesamt - marken) + '.');
+      return;
+    }
+    zahlen(-gesamt);
+    // Was schon liegt, bleibt liegen und wird hoeher.
+    setWetten(l => {
+      const neu = [...l];
+      zuletzt.forEach(w => {
+        const i = neu.findIndex(x => x.name === w.name);
+        if (i >= 0) neu[i] = {...neu[i], betrag: neu[i].betrag + w.betrag};
+        else neu.push({...w});
+      });
+      return neu;
+    });
+    setWahl([]);
+    setMeldung(zuletzt.length + (zuletzt.length === 1 ? ' Wette' : ' Wetten')
+               + ' wie zuletzt — ' + gesamt + ' im Spiel.');
   };
 
   const neueRunde = () => {
@@ -494,6 +527,15 @@ const RouletteTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           {phase === 'dreht' ? 'Rien ne va plus…'
             : phase === 'aus' ? 'Nächster Wurf' : 'Werfen'}
         </button>
+        {/* Steht nur da, wenn es etwas zu wiederholen gibt — und nur
+            beim Setzen. Der Betrag steht dabei: wer ihn nicht mehr hat,
+            soll es sehen, bevor er drueckt. */}
+        {zuletzt.length > 0 && phase === 'setzen' && (
+          <button className="bj-taste" onClick={nochEinmal}
+            title="Dieselben Wetten noch einmal legen">
+            ↻ Wie zuletzt · {zuletzt.reduce((x, w) => x + w.betrag, 0)}
+          </button>
+        )}
         <button className="bj-taste" onClick={alleZurueck}
           disabled={phase !== 'setzen' || !imSpiel}>Zurück</button>
       </div>

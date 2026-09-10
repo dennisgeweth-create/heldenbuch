@@ -1750,7 +1750,7 @@
   .ks-fenster { position:fixed; z-index:61;
     width:460px; height:min(70vh, 620px); resize:both;
     min-width:400px; min-height:280px;
-    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px);
+    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px);
     display:flex; flex-direction:column; border-radius:9px; overflow:hidden;
     background:var(--bg-card); border:1px solid var(--gold-dim);
     box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5); }
@@ -2453,7 +2453,7 @@
   .automat-schirm { position:fixed; z-index:62; display:flex; flex-direction:column;
     width:var(--aut-breit, 430px); min-width:var(--aut-breit, 430px);
     height:min(86vh, 760px); min-height:320px; resize:both;
-    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px);
+    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px);
     border-radius:10px; overflow:hidden;
     background:var(--bg-void); border:1px solid var(--border-bright);
     box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5); }
@@ -3379,7 +3379,7 @@
   .aut-mitte { align-items:center; }
 
   @media (min-width:768px) {
-    .automat-schirm { max-height:calc(100vh - 24px); }
+    .automat-schirm { max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); }
     /* Ab hier ist Platz da, aber nicht endlos: 40 Punkte Polster
        unter dem letzten Knopf sind auf dem Telefon Rollraum und auf
        dem Schreibtisch nur ein leerer Streifen. */
@@ -4220,7 +4220,7 @@
     box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5);
     width:max-content; overflow:hidden; resize:both;
     min-width:300px; min-height:120px;
-    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); }
+    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); }
   /* Das Feld der Spielleitung traegt Werkzeugleiste, Raster und Ablage
      nebeneinander — es faengt groesser an und darf nicht so weit
      herunter. */
@@ -4260,7 +4260,7 @@
       max-width:none; }
     .sf-kopf { cursor:default; }
     .sf-fenster, .sf-fenster.weit { resize:none; min-width:0; width:auto;
-      height:auto; max-height:calc(100vh - 16px); }
+      height:auto; max-height:calc(100vh - 16px); max-height:calc(100dvh - 16px); }
   }
 
   /* Im Fenster der Runde traegt der Kasten seine eigene Breite: die

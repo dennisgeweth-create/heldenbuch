@@ -49,9 +49,10 @@ globalThis.React = {
 };
 
 const quelle = fs.readFileSync('js/src/0-basis.jsx', 'utf8');
-const anfang = quelle.indexOf('const schiebeKlemmen');
+const anfang = quelle.indexOf('const schiebeMasz');
 const ende   = quelle.indexOf('const useEingeklappt');
-eval(quelle.slice(anfang, ende) + ';globalThis.M = {schiebeKlemmen, useSchiebefenster};');
+eval(quelle.slice(anfang, ende)
+     + ';globalThis.M = {schiebeMasz, schiebeKlemmen, useSchiebefenster};');
 Object.assign(globalThis, M);
 
 let gut = 0, schlecht = 0;
@@ -122,6 +123,44 @@ groesseAendern(el, 0, 0);
 await warten();
 ist('eine Groesse von null wird nicht gemerkt',
   JSON.parse(speicher.wb), {x: 5, y: 7, w: 800, h: 600});
+
+// ── Die Groesse wird auch geklemmt ──────────────────────────────
+// Ein Fenster, das am Schreibtisch auf neunhundert Punkte gezogen
+// wurde, darf auf dem Tablet nicht neunhundert Punkte breit aufgehen —
+// sonst haengt sein Fuss unter dem Schirmrand, und dort steht der
+// Knopf, den man drueckt.
+globalThis.window = {innerWidth: 1024, innerHeight: 690};
+speicher.gross = JSON.stringify({x: 10, y: 10, w: 900, h: 760});
+zustaende.length = 0; beobachter.length = 0;
+f = useSchiebefenster('gross', {x: 0, y: 0}, 460);
+el = bauElement();
+f.masz.ref(el);
+ist('was hineinpasst, bleibt: 900 in 1024', el.style.width, '900px');
+ist('die zu grosse Hoehe wird geklemmt', el.style.height, '666px');
+
+// Und eine Breite, die wirklich nicht passt.
+speicher.breit = JSON.stringify({x: 10, y: 10, w: 1600, h: 400});
+zustaende.length = 0; beobachter.length = 0;
+f = useSchiebefenster('breit', {x: 0, y: 0}, 460);
+el = bauElement();
+f.masz.ref(el);
+ist('eine zu grosse Breite wird geklemmt', el.style.width, '1000px');
+
+// Was hineinpasst, bleibt, wie es war.
+speicher.passt = JSON.stringify({x: 10, y: 10, w: 500, h: 400});
+zustaende.length = 0; beobachter.length = 0;
+f = useSchiebefenster('passt', {x: 0, y: 0}, 460);
+el = bauElement();
+f.masz.ref(el);
+ist('was hineinpasst, bleibt unveraendert', [el.style.width, el.style.height],
+  ['500px', '400px']);
+
+ist('ohne gemerkte Groesse gibt es nichts zu klemmen', schiebeMasz(null), null);
+ist('eine Breite von null zaehlt nicht', schiebeMasz({w: 0, h: 300}), null);
+// Unter das Kleinste geht es auch nicht.
+ist('winzige Werte werden angehoben', schiebeMasz({w: 10, h: 10}), {w: 200, h: 120});
+
+globalThis.window = {innerWidth: 1400, innerHeight: 900};
 
 // ── Die Stelle wird geklemmt ─────────────────────────────────────
 // Ein Fenster, das auf einem breiteren Schirm stand, muss wieder zu
