@@ -5,6 +5,10 @@ config.php
 # index.html und ueberlebt jeden Upload, weil der dort nichts loescht.
 data-eigen.json
 
+# Die unbeschnittenen Bildschirmfotos. In bilder/ landet, was
+# zugeschnitten ist; die Rohfassung mit Adresszeile bleibt hier.
+bilder/roh/
+
 # Was beim Arbeiten anfaellt und niemanden sonst angeht.
 scratchpad/
 *.log

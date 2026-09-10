@@ -16,6 +16,46 @@ soll im Kopf rechnen dürfen.
 
 ---
 
+## Ansehen
+
+![Der Charakterbogen](bilder/bogen.png)
+
+*Der Bogen. Aktive Effekte stehen oben und schlagen in die Werte durch —
+was von einem Gegenstand kommt, ist mit ✦ markiert. Sieben Reiter am
+Fuß, von den Attributen bis zum Abenteuerlog.*
+
+![Ansagen im Kampf](bilder/kampf-ansage.png)
+
+*Was ein Spieler ansagt: Aktion, Zauber, Grad, Ziele, ein Satz dazu. Der
+Zauberplatz wird abgehakt, wenn es hinausgeht. Die Spielleitung sieht es
+und trägt ein, was daraus wurde — gewürfelt wird von Hand.*
+
+![Der Kampftracker](bilder/tracker.png)
+
+*Der Tracker in der Vorbereitung. Links die Gegnersammlung zum
+Dazustellen, rechts die Reihe mit Initiative, Trefferpunkten und
+Notizen. Ins Protokoll kommt erst etwas, wenn der Kampf gestartet ist.*
+
+![Die Kampfkarte](bilder/karte.png)
+
+*Die Karte: sieben Geländearten, Figuren aus der Reihe, Höhe je Figur.
+**🗺 Karte kopieren** legt sie als Text in die Zwischenablage — derselbe
+Block geht auch wieder hinein.*
+
+![Was die Runde sieht](bilder/spielersicht.png)
+
+*Dieselbe Runde aus Sicht eines Spielers: die Reihenfolge, wer am Zug
+ist, wie es den Figuren geht — und die Karte, weil die Spielleitung sie
+freigegeben hat. Die Trefferpunkte der Gegner stehen nicht da; sie
+werden gar nicht erst gesendet.*
+
+![Die Taverne](bilder/taverne.png)
+
+*Die Taverne, hier Französisches Roulette mit Zéro und La Partage.
+Gespielt wird mit Spielmarken, nicht mit dem Gold der Helden.*
+
+---
+
 ## Was es kann
 
 **Für die Spielenden**
