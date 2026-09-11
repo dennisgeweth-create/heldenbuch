@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.3.2';
+const HB_VERSION = 'v5.3.3';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -17144,6 +17144,17 @@ const heldText = (c, opts) => {
       (nachGrad[+s.level || 0] = nachGrad[+s.level || 0] || []).push(s);
     });
     titel('ZAUBER' + (spAttr ? '   (Zauberattribut ' + ATTR_NAME[spAttr] + ')' : ''));
+    // Womit gezaubert wird, steht in der Klassenliste des Abenteuers.
+    // Steht die Klasse nicht darin — eine Hausklasse, ein Tippfehler,
+    // ein Abenteuer, in dem noch niemand sie eingetragen hat —, gibt es
+    // keinen Zauber-SG. Oben fiele er dann stillschweigend weg, und die
+    // KI bekaeme eine Zauberliste ohne die Zahl, nach der sie als
+    // erstes fragen wird. Also steht hier, warum.
+    if (!spAttr) {
+      t.push('  Für die Klasse „' + (c.charClass || '—') + '" ist kein Zauberattribut');
+      t.push('  hinterlegt — Zauber-SG und Zauberangriff fehlen deshalb oben.');
+      t.push('');
+    }
     Object.keys(nachGrad).map(Number).sort((a, b) => a - b).forEach((g, i) => {
       const p = plaetze[g] || {
         max: 0,

@@ -82,10 +82,10 @@
     // Eine Heldin mit allem, was der Bogen kann — damit jeder Abschnitt
     // im Fenster wirklich etwas zu zeigen hat.
     var wbHeldin = Object.assign(newChar(), {
-      id: 'c1', name: 'Daemmerlicht', race: 'Waldelfe',
-      charClass: 'Waldlaeufer', subclass: 'Jaegerin', level: 5,
+      id: 'c1', name: 'Dämmerlicht', race: 'Waldelfe',
+      charClass: 'Waldläufer', subclass: 'Jägerin', level: 5,
       multiclasses: [{charClass: 'Schurke', level: 2, subclass: 'Meuchlerin'}],
-      background: 'Aussenseiterin',
+      background: 'Außenseiterin',
       str: 10, dex: 18, con: 14, int: 11, wis: 15, cha: 9,
       hp: 38, maxHp: 52, tempHp: 6, speed: 10.5, profBonus: 3,
       inspiration: 1, inspirationMax: 1,
@@ -99,19 +99,19 @@
       weapons: [
         {id:'w1', name:'Langbogen', attrKey:'dex', proficient:true, range:'45 m',
          attackBonus:0, damage:'1W8', damageType:'Stich',
-         properties:['Zweihaendig'], description:'Aus Mondholz geschnitzt.', effects:[]},
+         properties:['Zweihändig'], description:'Aus Mondholz geschnitzt.', effects:[]},
         {id:'w2', name:'Kurzschwert', attrKey:'fin', proficient:true, range:'1,5 m',
          attackBonus:0, damage:'1W6', damageType:'Stich',
          properties:['Finesse','Leicht'], description:'', effects:[]}
       ],
       inventory: [
-        {id:'i1', name:'Lederruestung', qty:1, weight:'5', rarity:'gewoehnlich',
+        {id:'i1', name:'Lederrüstung', qty:1, weight:'5', rarity:'gewöhnlich',
          gearKind:'ruestung', armorType:'light', baseAC:11, acBonus:0,
          effects:[], effectsActive:false},
-        {id:'i2', name:'Heiltrank', qty:3, weight:'0,25', rarity:'gewoehnlich',
+        {id:'i2', name:'Heiltrank', qty:3, weight:'0,25', rarity:'gewöhnlich',
          description:'Heilt 2W4+2 Trefferpunkte.', effects:[]},
         {id:'i3', name:'Umhang der Elfen', qty:1, weight:'0,5', rarity:'selten',
-         gearKind:'umhang', description:'Aus Elfenhand gewoben; wer ihn traegt, verschwindet im Unterholz.',
+         gearKind:'umhang', description:'Aus Elfenhand gewoben; wer ihn trägt, verschwindet im Unterholz.',
          effects:[{id:'e1', target:'adv_stealth', mode:'bonus', value:0}],
          effectsActive:false}
       ],
@@ -119,32 +119,32 @@
       gearMigrated: 3,
       currency: {pp:0, gp:24, ep:0, sp:7, cp:3},
       features: [
-        {id:'f1', name:'Erzfeind: Untote', source:'Waldlaeufer 1',
-         description:'Vorteil auf Ueberlebenskunst, um ihre Spuren zu lesen, und auf Intelligenzwuerfe, um sich an sie zu erinnern.',
+        {id:'f1', name:'Erzfeind: Untote', source:'Waldläufer 1',
+         description:'Vorteil auf Überlebenskunst, um ihre Spuren zu lesen, und auf Intelligenzwürfe, um sich an sie zu erinnern.',
          effects:[], effectsActive:true},
-        {id:'f2', name:'Kampfstil: Verteidigung', source:'Waldlaeufer 2',
-         description:'Solange sie eine Ruestung traegt.',
+        {id:'f2', name:'Kampfstil: Verteidigung', source:'Waldläufer 2',
+         description:'Solange sie eine Rüstung trägt.',
          effects:[{id:'e2', target:'ac', mode:'bonus', value:1}], effectsActive:true}
       ],
       spells: [
         {id:'s1', name:'Jagdzeichen', level:1, school:'Weissagung',
          castingTime:'1 Bonusaktion', range:'27 m', components:'V',
          duration:'Konzentration, bis zu 1 Stunde',
-         description:'Sie waehlt eine Kreatur in Reichweite und zeichnet sie als Beute. Bis der Zauber endet, richtet sie 1W6 zusaetzlichen Schaden an, wenn sie das Ziel mit einer Waffe trifft.',
+         description:'Sie wählt eine Kreatur in Reichweite und zeichnet sie als Beute. Bis der Zauber endet, richtet sie 1W6 zusätzlichen Schaden an, wenn sie das Ziel mit einer Waffe trifft.',
          prepared:true},
-        {id:'s2', name:'Ranken', level:1, school:'Beschwoerung', castingTime:'1 Aktion',
+        {id:'s2', name:'Ranken', level:1, school:'Beschwörung', castingTime:'1 Aktion',
          range:'9 m', components:'V, S', duration:'10 Minuten',
          description:'', prepared:false},
         {id:'s3', name:'Lichtfunke', level:0, school:'Hervorrufung', castingTime:'1 Aktion',
-         range:'Beruehrung', components:'V, S', duration:'1 Stunde',
+         range:'Berührung', components:'V, S', duration:'1 Stunde',
          description:'Ein Gegenstand leuchtet hell.'}
       ],
       spellSlots: {1:{max:4,used:1}, 2:{max:2,used:0}, 3:{max:0,used:0}, 4:{max:0,used:0},
                    5:{max:0,used:0}, 6:{max:0,used:0}, 7:{max:0,used:0}, 8:{max:0,used:0},
                    9:{max:0,used:0}},
       resources: [{id:'r1', name:'Verstohlener Angriff', max:1, used:0, restType:'kurz'}],
-      notes: 'Sucht die Moerder ihrer Sippe.',
-      notesList: [{id:'n1', title:'Der Ring', content:'Im Grab gefunden, traegt eine Inschrift.', tags:['Raetsel']}]
+      notes: 'Sucht die Mörder ihrer Sippe.',
+      notesList: [{id:'n1', title:'Der Ring', content:'Im Grab gefunden, trägt eine Inschrift.', tags:['Rätsel']}]
     });
 
     ReactDOM.createRoot(document.getElementById('fenster')).render(

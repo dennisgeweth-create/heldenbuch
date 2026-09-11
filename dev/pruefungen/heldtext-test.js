@@ -255,6 +255,25 @@ falsch('Vorbereitetes trägt keinen Vermerk', /Jagdzeichen\s+\[/.test(text));
 // Zaubertricks haben keine Plaetze — „0 von 0 frei" waere Unsinn.
 falsch('Zaubertricks bekommen keine Platzzahl', /Zaubertricks\s+\(/.test(text));
 
+// Womit gezaubert wird, steht in der Klassenliste des Abenteuers. Steht
+// die Klasse nicht darin — eine Hausklasse, ein Tippfehler —, gibt es
+// keinen Zauber-SG. Der fiel oben stillschweigend weg: eine Zauberliste
+// ohne die Zahl, nach der als erstes gefragt wird.
+const fremd = heldText({...c, charClass: 'Wildhüterin'}, {klassen: kl, setDefs: []});
+falsch('ohne Zauberattribut steht oben kein Zauber-SG',
+  block(fremd, 'KAMPFWERTE').includes('Zauber-SG'));
+wahr('  … aber es steht da, warum', fremd.includes('kein Zauberattribut'));
+wahr('  … und welche Klasse gemeint ist', fremd.includes('„Wildhüterin"'));
+wahr('  … die Zauber selbst stehen trotzdem da', fremd.includes('Jagdzeichen'));
+falsch('  … ohne doppelte Leerzeilen', /\n\n\n/.test(fremd));
+// Und wer ein Zauberattribut hat, bekommt den Hinweis nicht.
+falsch('mit Zauberattribut steht kein Hinweis da', text.includes('kein Zauberattribut'));
+// Eine Klasse ohne Zauber und ohne Zauberliste bekommt ihn auch nicht:
+// der Hinweis haengt an den Zaubern, nicht an der Klasse.
+falsch('ein Held ohne Zauber bekommt keinen Hinweis',
+  heldText({...newChar(), name: 'Wache', charClass: 'Wildhüterin'},
+    {klassen: kl, setDefs: []}).includes('kein Zauberattribut'));
+
 // ── Vorteile ohne Zahl ───────────────────────────────────────────
 // Sie stecken in keinem der Werte oben: ein Vorteil ist kein Bonus.
 // Stuenden sie nicht eigens da, fehlten sie ganz.

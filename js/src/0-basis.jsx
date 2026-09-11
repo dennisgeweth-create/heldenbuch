@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.3.2';
+const HB_VERSION = 'v5.3.3';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,

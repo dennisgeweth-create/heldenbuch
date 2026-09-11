@@ -1,5 +1,25 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.3.3
+
+### ✨ Ein fehlender Zauber-SG sagt jetzt, warum er fehlt
+
+Womit ein Held zaubert, steht in der Klassenliste des Abenteuers. Steht
+seine Klasse nicht darin — eine Hausklasse, ein Tippfehler, ein Abenteuer,
+in dem sie noch niemand eingetragen hat —, dann gibt es keinen Zauber-SG.
+
+Im kopierten Text fiel er dann **stillschweigend weg.** Übrig blieb eine
+Zauberliste ohne die Zahl, nach der eine KI als erstes fragt — und nichts
+deutete darauf hin, dass etwas fehlt.
+
+Jetzt steht es unter der Überschrift:
+
+> Für die Klasse „Wildhüterin" ist kein Zauberattribut hinterlegt —
+> Zauber-SG und Zauberangriff fehlen deshalb oben.
+
+Damit ist auch klar, was zu tun ist: die Klasse in den Einstellungen des
+Abenteuers eintragen, dann rechnet das Heldenbuch wieder mit.
+
 ## v5.3.2
 
 ### 🔢 Die Ausgabe steht im kopierten Text
