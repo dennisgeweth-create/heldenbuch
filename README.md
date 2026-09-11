@@ -29,6 +29,11 @@ Sie besteht aus zwei Dateien, [`demo.html`](demo.html) und
 [`demo.json`](demo.json), und benutzt sonst genau dieselbe `js/app.js`
 wie das echte Heldenbuch.
 
+**Gefällt es dir?** Das Heldenbuch kostet nichts und soll nichts kosten —
+wer mag, kann trotzdem [**etwas dalassen**](https://www.paypal.com/donate/?hosted_button_id=283ZWLT5AC3RJ)
+(für den Server, auf dem es läuft). Kein Muss, kein Unterschied im
+Programm.
+
 ---
 
 ## Ansehen
@@ -370,15 +375,7 @@ Fehlerberichte sind willkommen, besonders solche aus echten Spielabenden:
 **was hast du getan, was hast du erwartet, was stand da.** Genau daraus
 ist fast alles hier entstanden.
 
----
-
-## ☕ Etwas dalassen
-
-Das Heldenbuch kostet nichts und soll nichts kosten. Wer es trotzdem
-gern unterstützen möchte — für den Server, auf dem es läuft, oder
-einfach so:
-
-### **[Über PayPal spenden](https://www.paypal.com/donate/?hosted_button_id=283ZWLT5AC3RJ)**
-
-Kein Muss, kein Unterschied im Programm. Ein Fehlerbericht aus einem
-echten Spielabend hilft genauso.
+Und wer etwas dalassen möchte: der
+[Spendenlink](https://www.paypal.com/donate/?hosted_button_id=283ZWLT5AC3RJ)
+steht oben bei der Vorführung. Ein Fehlerbericht aus einem echten
+Spielabend hilft genauso.
