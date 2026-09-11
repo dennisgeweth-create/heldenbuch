@@ -1,5 +1,28 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.3.4
+
+### ⌨ Der Text ist markiert, sobald das Fenster aufgeht
+
+Der Knopf allein reicht nicht. Die Zwischenablage über
+`navigator.clipboard` ist **nicht immer zu haben**: in einem eingebetteten
+Fenster ist sie gesperrt, ohne HTTPS fehlt sie ganz, und sobald der Schirm
+den Fokus verloren hat, weist der Browser sie ab.
+
+Das Tückische daran: Wer dann drückt, bekommt nichts — und findet beim
+Einfügen, was **vorher** in der Ablage lag. Also denselben Text wie beim
+letzten Mal. Es sieht aus, als ändere sich nichts, obwohl in Wahrheit gar
+nichts kopiert wurde.
+
+Deshalb ist der ganze Text jetzt **markiert, sobald das Fenster aufgeht**,
+und darunter steht, was das heißt:
+
+> Der Text ist markiert — **Strg+C** (am Mac ⌘+C) nimmt ihn auch ohne den
+> Knopf mit.
+
+Strg+C kann kein Browser verweigern. Der Knopf bleibt die Abkürzung — aber
+er ist nicht mehr der einzige Weg.
+
 ## v5.3.3
 
 ### ✨ Ein fehlender Zauber-SG sagt jetzt, warum er fehlt

@@ -338,6 +338,25 @@ const HeldTextFenster = ({char, klassen, setDefs, onZu}) => {
   // dem Knopf steht, hat ihn bis dahin nicht gesehen.
   const [stand, setStand] = React.useState(null);
   const feld = React.useRef(null);
+
+  // Der Text ist markiert, sobald das Fenster aufgeht.
+  //
+  // Der Grund steht in der Geschichte dieses Knopfes: die Zwischenablage
+  // ueber `navigator.clipboard` ist nicht immer zu haben. In einem
+  // eingebetteten Fenster ist sie gesperrt, ohne HTTPS fehlt sie, und
+  // sobald der Schirm den Fokus verloren hat, weist der Browser sie ab.
+  // Wer dann drueckt, bekommt nichts — und faendet beim Einfuegen, was
+  // vorher in der Ablage lag: denselben Text wie beim letzten Mal, was
+  // aussieht, als aendere sich nichts.
+  //
+  // Strg+C dagegen geht immer. Deshalb ist der Text von Anfang an
+  // markiert, und der Knopf ist nur noch die Abkuerzung.
+  React.useEffect(() => {
+    const f = feld.current;
+    if (!f) return;
+    try { f.focus(); f.select(); } catch (e) {}
+  }, []);
+
   if (!char) return null;
   const text = heldText(char, {klassen, setDefs});
 
@@ -361,11 +380,17 @@ const HeldTextFenster = ({char, klassen, setDefs, onZu}) => {
         </div>
         <textarea className="hb-text-feld" readOnly value={text} ref={feld}
           onFocus={e=>e.target.select()} spellCheck={false} />
-        {stand === 'weg' && (
+        {stand === 'weg' ? (
           <div className="hb-text-weg">
-            Der Browser hat das Kopieren abgelehnt — das kommt vor, wenn das
-            Fenster gerade nicht im Vordergrund steht. Der Text ist jetzt
-            markiert: <b>Strg+C</b> (am Mac <b>⌘+C</b>) nimmt ihn mit.
+            Der Browser hat das Kopieren abgelehnt — das kommt vor, wenn die
+            Seite in einem eingebetteten Fenster steckt oder gerade nicht im
+            Vordergrund ist. Der Text ist aber markiert:
+            <b> Strg+C</b> (am Mac <b>⌘+C</b>) nimmt ihn trotzdem mit.
+          </div>
+        ) : (
+          <div className="hb-text-wink">
+            Der Text ist markiert — <b>Strg+C</b> (am Mac <b>⌘+C</b>) nimmt ihn
+            auch ohne den Knopf mit.
           </div>
         )}
         <div className="form-actions" style={{marginTop:14}}>

@@ -779,6 +779,12 @@
     font-family:'Roboto Condensed',sans-serif; font-size:12px; line-height:1.5;
     color:var(--text-secondary); }
   .hb-text-weg b { color:var(--gold); }
+  /* Der Weg ueber die Tastatur steht immer da, nicht erst im Fehlerfall:
+     er ist der einzige, den kein Browser verweigern kann. */
+  .hb-text-wink { margin-top:8px;
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; line-height:1.5;
+    color:var(--text-muted); }
+  .hb-text-wink b { color:var(--text-secondary); font-weight:600; }
   /* Die Groesse steht links, weit weg von den Knoepfen: sie ist eine
      Auskunft, kein Angebot. */
   .hb-text-mass { margin-right:auto; align-self:center;

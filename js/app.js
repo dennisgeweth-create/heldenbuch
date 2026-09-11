@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.3.3';
+const HB_VERSION = 'v5.3.4';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -17214,6 +17214,27 @@ const HeldTextFenster = ({
   // dem Knopf steht, hat ihn bis dahin nicht gesehen.
   const [stand, setStand] = React.useState(null);
   const feld = React.useRef(null);
+
+  // Der Text ist markiert, sobald das Fenster aufgeht.
+  //
+  // Der Grund steht in der Geschichte dieses Knopfes: die Zwischenablage
+  // ueber `navigator.clipboard` ist nicht immer zu haben. In einem
+  // eingebetteten Fenster ist sie gesperrt, ohne HTTPS fehlt sie, und
+  // sobald der Schirm den Fokus verloren hat, weist der Browser sie ab.
+  // Wer dann drueckt, bekommt nichts — und faendet beim Einfuegen, was
+  // vorher in der Ablage lag: denselben Text wie beim letzten Mal, was
+  // aussieht, als aendere sich nichts.
+  //
+  // Strg+C dagegen geht immer. Deshalb ist der Text von Anfang an
+  // markiert, und der Knopf ist nur noch die Abkuerzung.
+  React.useEffect(() => {
+    const f = feld.current;
+    if (!f) return;
+    try {
+      f.focus();
+      f.select();
+    } catch (e) {}
+  }, []);
   if (!char) return null;
   const text = heldText(char, {
     klassen,
@@ -17250,9 +17271,11 @@ const HeldTextFenster = ({
     ref: feld,
     onFocus: e => e.target.select(),
     spellCheck: false
-  }), stand === 'weg' && /*#__PURE__*/React.createElement("div", {
+  }), stand === 'weg' ? /*#__PURE__*/React.createElement("div", {
     className: "hb-text-weg"
-  }, "Der Browser hat das Kopieren abgelehnt \u2014 das kommt vor, wenn das Fenster gerade nicht im Vordergrund steht. Der Text ist jetzt markiert: ", /*#__PURE__*/React.createElement("b", null, "Strg+C"), " (am Mac ", /*#__PURE__*/React.createElement("b", null, "\u2318+C"), ") nimmt ihn mit."), /*#__PURE__*/React.createElement("div", {
+  }, "Der Browser hat das Kopieren abgelehnt \u2014 das kommt vor, wenn die Seite in einem eingebetteten Fenster steckt oder gerade nicht im Vordergrund ist. Der Text ist aber markiert:", /*#__PURE__*/React.createElement("b", null, " Strg+C"), " (am Mac ", /*#__PURE__*/React.createElement("b", null, "\u2318+C"), ") nimmt ihn trotzdem mit.") : /*#__PURE__*/React.createElement("div", {
+    className: "hb-text-wink"
+  }, "Der Text ist markiert \u2014 ", /*#__PURE__*/React.createElement("b", null, "Strg+C"), " (am Mac ", /*#__PURE__*/React.createElement("b", null, "\u2318+C"), ") nimmt ihn auch ohne den Knopf mit."), /*#__PURE__*/React.createElement("div", {
     className: "form-actions",
     style: {
       marginTop: 14
