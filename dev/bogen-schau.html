@@ -8,10 +8,23 @@
   body { padding:16px; background:var(--bg-void); }
   .wb-titel { font-family:'Cinzel',serif; color:var(--gold); margin:0 0 10px; }
   .wb-hilfe { font-size:12px; color:var(--text-muted); max-width:60ch; line-height:1.6; }
+  /* Diese Seite wurde schon einmal fuer das Heldenbuch selbst gehalten,
+     und ihr erfundener Text fuer den eines echten Helden. Deshalb sagt
+     sie jetzt laut, was sie ist. */
+  .wb-warnung { margin:0 0 14px; padding:10px 14px; border-radius:4px;
+    border:1px solid var(--crimson); background:rgba(180,60,60,0.15);
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; line-height:1.6;
+    color:var(--parchment); max-width:80ch; }
+  .wb-warnung b { color:var(--crimson-bright); }
 </style>
 </head>
 <body>
   <h2 class="wb-titel">Der Bogen als Text</h2>
+  <div class="wb-warnung"><b>Werkbank — nicht das Heldenbuch.</b>
+    Die Heldin hier ist erfunden und steht in keinem Bogen. Wer den Knopf
+    drueckt, kopiert Testdaten. Das echte Heldenbuch liegt unter
+    <code>codevermittler.net/heldenbuch2/</code>, und dort steht der Knopf
+    oben im Bogen der Spielleitung.</div>
   <p class="wb-hilfe">Dasselbe Fenster, das der Knopf oben im Bogen aufmacht. <code>wbText()</code> in der Konsole gibt den Text aus.</p>
   <div id="fenster"></div>
 
@@ -82,7 +95,7 @@
     // Eine Heldin mit allem, was der Bogen kann — damit jeder Abschnitt
     // im Fenster wirklich etwas zu zeigen hat.
     var wbHeldin = Object.assign(newChar(), {
-      id: 'c1', name: 'Dämmerlicht', race: 'Waldelfe',
+      id: 'c1', name: 'Dämmerlicht (Testfigur der Werkbank)', race: 'Waldelfe',
       charClass: 'Waldläufer', subclass: 'Jägerin', level: 5,
       multiclasses: [{charClass: 'Schurke', level: 2, subclass: 'Meuchlerin'}],
       background: 'Außenseiterin',
