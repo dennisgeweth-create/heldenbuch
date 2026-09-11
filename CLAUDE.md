@@ -51,6 +51,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `PATCHNOTES.md` | wird **ausgeliefert**: die Ausgabe-Nummer in der Heldenleiste öffnet sie |
 | `dev/` | oertliche Serverseite und Werkbankseiten zum Testen — wird nie ausgeliefert |
 | ↳ `dev/pruefungen/` | die Rechnungspruefungen, alle auf einmal mit `node dev/pruefen.js` |
+| ↳ `dev/echt.html` | **die Oberfläche am lebenden Objekt** — fährt die richtige App hoch und klickt sich durch; prüft sich selbst |
 | `README.md` | was das Heldenbuch ist — die Seite fuer Besucher des Repos |
 | `LICENSE`, `NOTICE` | MIT fuer den Code, CC-BY fuer die SRD-Daten |
 
@@ -65,6 +66,22 @@ Und was die Rechnung angeht:
 ```bash
 node dev/pruefen.js
 ```
+
+**Wer an der Oberfläche war, prüft sie auch.** `node dev/pruefen.js` kann das
+nicht: ein Knopf, dessen `onClick` eine gelöschte Funktion ruft, übersetzt
+sauber und fällt erst beim Klicken um — so ging „Als Text" von v5.3.1 bis
+v5.3.4 gar nicht auf, während alle Rechnungsprüfungen grün waren. Deshalb:
+
+```bash
+python devserver.py
+```
+
+und dann **http://localhost:8777/dev/echt.html**. Die Seite fährt die richtige
+Anwendung hoch — dieselbe `js/app.js`, derselbe Startweg wie in der
+`index.html`, nur ohne Server — und klickt sich hindurch: DM-Modus, Held
+wählen, Bogen, „Als Text", kopieren, schließen. Unten steht, was gut war und
+was nicht. Ihr Speicher liegt nur im Arbeitsspeicher, sie kann also keine
+echten Helden überschreiben.
 
 Sonst schlägt der Deploy fehl — die Action prüft mit `node build.js --check`,
 ob `js/app.js` zu den Quellen passt.

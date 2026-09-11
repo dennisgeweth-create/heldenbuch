@@ -11,8 +11,16 @@
 //
 //     C:/xampp/php/php.exe dev/test-api.php --neu
 //
-// Und die Oberflaeche in den Werkbankseiten daneben (tisch.html,
-// karte-schau.html, assistent-schau.html) — die brauchen ein Auge.
+// Und die Oberflaeche in dev/echt.html. Die ist kein Schaustueck: sie
+// faehrt die richtige Anwendung hoch — dieselbe app.js, derselbe
+// Startweg wie in der index.html — und klickt sich hindurch. Das muss
+// sein, weil hier nichts davon geprueft werden kann: ein Knopf, dessen
+// onClick eine geloeschte Funktion ruft, uebersetzt sauber und faellt
+// erst beim Klicken um. Genau so ging „Als Text" von v5.3.1 bis v5.3.4
+// nicht auf, waehrend hier alles gruen war.
+//
+// Daneben die Schaustuecke, die ein Auge brauchen und keines ersetzen:
+// tisch.html, karte-schau.html, assistent-schau.html, bogen-schau.html.
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -58,4 +66,9 @@ console.log('\n' + '─'.repeat(breite + 20));
 console.log(dateien.length + ' Dateien · ' + gut + ' Pruefungen gut, '
   + schlecht + ' schlecht'
   + (kaputt ? ', ' + kaputt + ' Datei(en) liefen nicht durch' : ''));
+// Hier endet, was ohne Browser zu pruefen ist. Dass der Rest daneben
+// steht, soll niemand vergessen — er hat schon einmal drei Ausgaben
+// lang gefehlt.
+console.log('\nDie Oberflaeche prueft das hier nicht. Wer an der Anwendung war:');
+console.log('    python devserver.py   →   http://localhost:8777/dev/echt.html');
 process.exit(schlecht || kaputt ? 1 : 0);

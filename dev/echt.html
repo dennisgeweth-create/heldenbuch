@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Werkbank &middot; Die echte Seite</title>
+<link rel="stylesheet" href="../styles.css?v=dev">
+<style>
+  /* Der Bericht liegt unter der Anwendung, nicht neben ihr: die
+     Anwendung soll den Schirm fuellen, wie sie es im Ernstfall tut. */
+  #bericht { position:fixed; inset:auto 0 0 0; z-index:99999; max-height:46vh;
+    overflow:auto; padding:12px 16px; background:#10100e; border-top:2px solid var(--gold-dim);
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; line-height:1.65; }
+  #bericht h3 { margin:0 0 8px; font-family:'Cinzel',serif; color:var(--gold); font-size:15px; }
+  #bericht .z { display:flex; gap:8px; align-items:baseline; }
+  #bericht .gut  { color:#7fd39b; }
+  #bericht .weg  { color:#e88; }
+  #bericht .lauf { color:var(--text-muted); }
+  #bericht .grund { color:var(--text-muted); font-size:12px; font-style:normal; }
+  #bericht .summe { margin-top:10px; padding-top:8px; border-top:1px solid var(--border);
+    font-size:14px; }
+  #bericht .summe.gut { color:#7fd39b; } #bericht .summe.weg { color:#e88; }
+  body { padding-bottom:46vh; }
+</style>
+</head>
+<body>
+  <!-- Genau die beiden Behaelter, die die index.html mitbringt. Die
+       Anwendung faehrt damit hier auf demselben Weg hoch wie dort —
+       sonst pruefte diese Seite nicht die echte Seite. -->
+  <div id="loading"></div>
+  <div id="root" style="display:none"></div>
+  <div id="bericht"><h3>Die echte Seite &mdash; Durchgang l&auml;uft&hellip;</h3><div id="zeilen"></div></div>
+
+  <script>
+    // ── Der Speicher ────────────────────────────────────────────────
+    // Ein eigener, nur im Arbeitsspeicher. Die Anwendung legt ihre Helden
+    // unter demselben Schluessel ab wie die echte auf demselben Rechner —
+    // ohne diesen Austausch wuerde diese Seite die Helden ueberschreiben,
+    // an denen jemand gerade arbeitet.
+    (function () {
+      const fach = Object.create(null);
+      const ersatz = {
+        getItem: (k) => (k in fach ? fach[k] : null),
+        setItem: (k, v) => { fach[k] = String(v); },
+        removeItem: (k) => { delete fach[k]; },
+        clear: () => { for (const k in fach) delete fach[k]; },
+        key: (i) => Object.keys(fach)[i] || null,
+        get length() { return Object.keys(fach).length; },
+      };
+      try {
+        Object.defineProperty(window, 'localStorage', {configurable: true, value: ersatz});
+      } catch (e) {
+        document.getElementById('zeilen').innerHTML =
+          '<div class="z weg">Der Speicher liess sich nicht austauschen — diese Seite '
+          + 'wuerde echte Helden ueberschreiben und bricht deshalb ab.</div>';
+        throw e;
+      }
+      window.wbSpeicher = fach;
+    })();
+
+    // ── Der Held, an dem geprueft wird ─────────────────────────────
+    // Ein voller Bogen: Attribute, Uebungen, eine Waffe, getragene
+    // Ruestung, ein Merkmal. Wer weniger hinstellt, prueft weniger.
+    const WB_HELD = {
+      id: 'wb1', name: 'Brunhilde Eisenfaust', race: 'Zwergin',
+      charClass: 'Kämpfer', subclass: 'Champion', level: 5, multiclasses: [],
+      background: 'Soldatin',
+      hp: 31, maxHp: 44, tempHp: 0, ac: 10, speed: 7.5, initiative: 0, profBonus: 3,
+      inspiration: 0, inspirationMax: 1,
+      str: 16, dex: 12, con: 15, int: 10, wis: 12, cha: 8,
+      portrait: '', notes: 'Sucht den Hammer ihres Vaters.', notesList: [],
+      features: [{id: 'f1', name: 'Aktionsschub', source: 'Kämpfer 2',
+        description: 'Einmal je Rast eine zusätzliche Aktion.',
+        effects: [], effectsActive: true}],
+      weapons: [{id: 'w1', name: 'Kriegshammer', attrKey: 'str', proficient: true,
+        range: '1,5 m', attackBonus: 0, damage: '1W8', damageType: 'Wucht',
+        description: 'Der Hammer ihres Vaters, nachgeschmiedet.',
+        properties: ['Vielseitig'], equipped: false, imageData: '', effects: []}],
+      spells: [], skillProfs: ['athletik', 'einschuechtern'], expertiseProfs: [],
+      jackOfAllTrades: false, languages: ['Gemeinsprache', 'Zwergisch'],
+      toolProfs: ['Schmiedewerkzeug'], weaponProfs: ['Kriegswaffen'],
+      armorProfs: ['Schwer'], savingThrowProfs: ['str', 'con'],
+      sorceryPoints: {max: 0, used: 0}, resources: [], wsFavorites: [],
+      inventory: [{id: 'i1', name: 'Kettenhemd', qty: 1, weight: '25',
+        rarity: 'gewöhnlich', description: '', tags: [], source: '', effects: [],
+        effectsActive: false, kampf: false, gearKind: 'ruestung',
+        armorType: 'heavy', baseAC: 16, acBonus: 0}],
+      currency: {pp: 0, gp: 12, ep: 0, sp: 0, cp: 0}, equipment: [], acBonuses: [],
+      gear: {ruestung: {k: 'i', id: 'i1'}, haupthand: {k: 'w', id: 'w1'}},
+      gearMigrated: 3, adventure: '',
+      spellSlots: {1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},
+                   5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},
+                   9:{max:0,used:0}},
+    };
+    localStorage.setItem('dnd_chars', JSON.stringify([WB_HELD]));
+
+    // ── Die Schnittstelle ──────────────────────────────────────────
+    // Kein Server, und nichts, wogegen man sich anmelden koennte. Was
+    // Daten liefern muss, damit die Spielleitung hineinkommt, liefert
+    // sie hier aus der Luft; alles andere schweigt.
+    const wbStumm = () => Promise.reject(new Error('Werkbank: kein Server'));
+    const apiAdvDmSetzen = wbStumm;
+    const apiBesitzerSetzen = wbStumm;
+    const apiBeuteNehmen = wbStumm;
+    const apiBeuteSetzen = wbStumm;
+    const apiBeuteStand = wbStumm;
+    const apiDeleteChar = wbStumm;
+    const apiDeleteItem = wbStumm;
+    const apiDmDeleteEncounter = wbStumm;
+    const apiDmDeleteEnemy = wbStumm;
+    const apiDmImportEnemies = wbStumm;
+    const apiDmLoadChronik = wbStumm;
+    const apiDmSaveChronik = wbStumm;
+    const apiDmSaveEncounter = wbStumm;
+    const apiDmSaveEnemy = wbStumm;
+    const apiDmSaveLibrary = wbStumm;
+    const apiGruppeNeu = wbStumm;
+    const apiKampfAnsage = wbStumm;
+    const apiKampfAnsagen = wbStumm;
+    const apiKampfSetzen = wbStumm;
+    const apiKampfStand = wbStumm;
+    const apiKontoListe = wbStumm;
+    const apiKontoLoeschen = wbStumm;
+    const apiKontoNeu = wbStumm;
+    const apiKontoReset = wbStumm;
+    const apiLoadChars = wbStumm;
+    const apiLoadLogs = wbStumm;
+    const apiLogFrist = wbStumm;
+    const apiLogin = wbStumm;
+    const apiLogout = wbStumm;
+    const apiMeineDaten = wbStumm;
+    const apiMitglieder = wbStumm;
+    const apiPassAendern = wbStumm;
+    const apiPoll = wbStumm;
+    const apiProbeAntwort = wbStumm;
+    const apiProbeNachricht = wbStumm;
+    const apiProbeSetzen = wbStumm;
+    const apiProbeStand = wbStumm;
+    const apiRequest = wbStumm;
+    const apiRolleSetzen = wbStumm;
+    const apiSaveChar = wbStumm;
+    const apiSaveChars = wbStumm;
+    const apiSaveItem = wbStumm;
+    const apiSaveLibrary = wbStumm;
+    const apiSaveLog = wbStumm;
+    const apiSetDmPassword = wbStumm;
+    const apiSetupNoetig = wbStumm;
+    // Die Rolle haengt an der Gruppe, nicht am Konto — deshalb die
+    // Liste, und deshalb muss der Code derselbe sein wie in serverCreds.
+    const apiMe = () => Promise.resolve({user: {
+      id: 'wb-dm', name: 'Werkbank', ist_admin: false,
+      gruppen: [{session_code: 'WB', rolle: 'dm'}],
+    }});
+    const apiDmLoad = () => Promise.resolve({dm_library: {}});
+    const apiDmLoadEnemies = () => Promise.resolve({enemies: []});
+    const apiDmLoadEncounters = () => Promise.resolve({encounters: []});
+    // Eine Adresse muss dastehen, sonst haelt sich die Anwendung fuer
+    // unverbunden und liest ihre Helden gar nicht erst aus dem Speicher.
+    // Angerufen wird sie nie: jede Anfrage geht an die Stummen oben.
+    const serverCreds = () => ({url: 'http://werkbank.ungueltig',
+                                code: 'WB', pass: '', token: 'werkbank'});
+    const safeSetItem = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  </script>
+  <script src="../js/data.js?v=dev"></script>
+  <script src="../js/util.js?v=dev"></script>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/app.js?v=dev"></script>
+  <script>
+    // ── Der Durchgang ──────────────────────────────────────────────
+    // Geklickt wird, was ein Mensch klicken wuerde: gesucht wird nach
+    // Aufschrift, nicht nach Klassennamen. Und geprueft wird, was auf
+    // dem Schirm steht — nicht, was die Rechnung dahinter meint.
+    (function () {
+      const zeilen = document.getElementById('zeilen');
+      let gut = 0, schlecht = 0;
+
+      const melden = (art, wort, grund) => {
+        const d = document.createElement('div');
+        d.className = 'z ' + art;
+        const zeichen = art === 'gut' ? '✓' : art === 'weg' ? '✕' : '·';
+        const kopf = document.createElement('span'); kopf.textContent = zeichen;
+        const leib = document.createElement('span'); leib.textContent = wort;
+        if (grund) {
+          const i = document.createElement('i');
+          i.className = 'grund'; i.textContent = '  ' + grund;
+          leib.appendChild(i);
+        }
+        d.appendChild(kopf); d.appendChild(leib);
+        zeilen.appendChild(d);
+        d.scrollIntoView({block: 'nearest'});
+      };
+      const ja = (wort, bedingung, grund) => {
+        if (bedingung) { gut++; melden('gut', wort); }
+        else { schlecht++; melden('weg', wort, grund || ''); }
+        return !!bedingung;
+      };
+
+      // Warten, bis etwas da ist: die Anwendung baut sich in Schritten
+      // auf, und ein Klick ins Leere waere kein Fehler der Anwendung.
+      const warten = (suche, ms) => new Promise((fertig) => {
+        const bis = Date.now() + (ms || 5000);
+        const sehen = () => {
+          let t = null;
+          try { t = suche(); } catch (e) {}
+          if (t) return fertig(t);
+          if (Date.now() > bis) return fertig(null);
+          setTimeout(sehen, 40);
+        };
+        sehen();
+      });
+      const knopfMit = (wort) => [...document.querySelectorAll('button')]
+        .find(b => (b.textContent || '').includes(wort)) || null;
+      const ruhe = (ms) => new Promise(r => setTimeout(r, ms || 60));
+
+      // Ein Fehler beim Zeichnen reisst sonst nur den Baum herunter und
+      // hinterlaesst eine graue Flaeche — genau das Bild, das v5.1.1
+      // bot. Hier wird er eingesammelt.
+      const kaputt = [];
+      window.addEventListener('error', (e) => kaputt.push(String(e.message || e.error)));
+      window.addEventListener('unhandledrejection', (e) => {
+        const g = String((e.reason && e.reason.message) || e.reason || '');
+        if (!/kein Server/.test(g)) kaputt.push(g);
+      });
+
+      const schluss = () => {
+        const d = document.createElement('div');
+        d.className = 'summe ' + (schlecht ? 'weg' : 'gut');
+        d.textContent = schlecht
+          ? gut + ' gut, ' + schlecht + ' SCHLECHT'
+          : gut + ' Prüfungen gut, 0 schlecht.';
+        zeilen.appendChild(d);
+        document.querySelector('#bericht h3').textContent =
+          'Die echte Seite — ' + (schlecht ? 'da stimmt etwas nicht' : 'alles in Ordnung');
+        window.wbErgebnis = {gut: gut, schlecht: schlecht, kaputt: kaputt};
+        console.log('[Werkbank] ' + gut + ' gut, ' + schlecht + ' schlecht');
+      };
+
+      (async () => {
+        melden('lauf', 'Die Anwendung fährt hoch');
+        const wurzel = await warten(() => {
+          const r = document.getElementById('root');
+          return r && r.querySelector('*') ? r : null;
+        });
+        if (!ja('Die Anwendung zeichnet sich', !!wurzel,
+                'nichts im #root — in der Konsole steht, warum')) return schluss();
+        ja('Das Ladebild ist weg',
+           document.getElementById('loading').style.display === 'none');
+
+        // ── Die Spielleitung ──
+        const dm = await warten(() => knopfMit('🔮 DM'));
+        if (!ja('Der Knopf für die Spielleitung steht da', !!dm)) return schluss();
+        dm.click();
+        if (!ja('Der DM-Modus geht auf', !!(await warten(() => knopfMit('🔮 aus')))))
+          return schluss();
+
+        // ── Der Held ──
+        const held = await warten(() =>
+          [...document.querySelectorAll('*')].find(e =>
+            e.children.length === 0 && (e.textContent || '').trim() === WB_HELD.name));
+        if (!ja('Der Held steht in der Liste', !!held)) return schluss();
+        held.click();
+        if (!ja('Sein Bogen geht auf', !!(await warten(() => document.querySelector('.sheet')))))
+          return schluss();
+
+        // ── Und jetzt der Knopf, um den es geht ──
+        const alsText = await warten(() => knopfMit('Als Text'));
+        if (!ja('„Als Text" steht im Kopf des Bogens', !!alsText,
+                'er steht nur im DM-Modus')) return schluss();
+
+        const vorher = kaputt.length;
+        alsText.click();
+        await ruhe(150);
+        ja('Der Klick wirft keinen Fehler', kaputt.length === vorher,
+           kaputt.slice(vorher).join(' · '));
+
+        const feld = await warten(() => document.querySelector('.hb-text-feld'));
+        if (!ja('Das Textfenster geht auf', !!feld,
+                'genau das tat es bis v5.3.5 nicht')) return schluss();
+
+        // ── Was darin steht ──
+        const text = feld.value || '';
+        ja('Der Text nennt den Helden', text.indexOf(WB_HELD.name.toUpperCase()) >= 0);
+        ja('  … und trägt die Ausgabe', text.indexOf(HB_VERSION) >= 0,
+           (text.split('\n')[7] || '').trim());
+        // Kettenhemd 16, schwere Ruestung — Geschick zaehlt nicht mit.
+        ja('  … die Rüstungsklasse ist gerechnet, nicht abgeschrieben',
+           /Rüstungsklasse\s+16/.test(text),
+           ((text.match(/Rüstungsklasse.*/) || [''])[0]).trim());
+        ja('  … alle achtzehn Fertigkeiten stehen da',
+           SKILLS.every(s => text.indexOf(s.label) >= 0));
+        ja('  … die Waffe mit Angriff und Schaden',
+           /Kriegshammer/.test(text) && /Angriff \+6 · Schaden 1W8 \+ 3/.test(text),
+           ((text.match(/Angriff.*/) || [''])[0]).trim());
+        ja('  … das Merkmal mit seinem ganzen Text',
+           text.indexOf('Einmal je Rast eine zusätzliche Aktion.') >= 0);
+        ja('  … das Getragene', text.indexOf('Kettenhemd') >= 0);
+        ja('  … und das Inventar nicht', text.indexOf('INVENTAR') < 0);
+
+        // ── Markiert, ohne dass jemand etwas tut ──
+        ja('Der ganze Text ist markiert',
+           feld.selectionEnd - feld.selectionStart === text.length,
+           (feld.selectionEnd - feld.selectionStart) + ' von ' + text.length);
+        ja('Der Hinweis auf Strg+C steht da',
+           !!document.querySelector('.hb-text-wink'));
+
+        // ── Der Kopierknopf ──
+        // Die Zwischenablage laesst sich hier nicht verlaesslich
+        // benutzen — und genau darum geht es: geprueft wird, dass der
+        // Knopf beide Ausgaenge zeigt. Dafuer wird beides gestellt.
+        const kopf = knopfMit('Alles kopieren');
+        if (ja('Der Kopierknopf steht da', !!kopf)) {
+          const echt = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+          const echtExec = document.execCommand;
+          const stellen = (klappt) => {
+            Object.defineProperty(navigator, 'clipboard', {configurable: true,
+              value: {writeText: () => klappt ? Promise.resolve()
+                                              : Promise.reject(new Error('abgelehnt'))}});
+            document.execCommand = () => klappt;
+          };
+
+          stellen(true);
+          kopf.click(); await ruhe(200);
+          ja('Klappt es, wird er grün und sagt es',
+             /Zwischenablage/.test(kopf.textContent) && kopf.className.indexOf('gut') >= 0,
+             kopf.textContent.trim() + ' · ' + kopf.className);
+          await ruhe(4300);
+          ja('  … und fällt danach zurück', /Alles kopieren/.test(kopf.textContent),
+             kopf.textContent.trim());
+
+          stellen(false);
+          kopf.click(); await ruhe(200);
+          ja('Klappt es nicht, sagt er auch das',
+             /Ging nicht/.test(kopf.textContent) && kopf.className.indexOf('weg') >= 0,
+             kopf.textContent.trim());
+          ja('  … und nennt den Weg über die Tastatur',
+             !!document.querySelector('.hb-text-weg'));
+
+          document.execCommand = echtExec;
+          if (echt) { try { Object.defineProperty(navigator, 'clipboard', echt); } catch (e) {} }
+        }
+
+        // ── Zu und wieder auf ──
+        const zu = knopfMit('Schließen');
+        if (ja('Es lässt sich schließen', !!zu)) {
+          zu.click(); await ruhe(150);
+          ja('  … und ist dann weg', !document.querySelector('.hb-text-feld'));
+          const nochmal = knopfMit('Als Text');
+          if (nochmal) { nochmal.click(); await ruhe(200); }
+          ja('  … und geht ein zweites Mal auf',
+             !!document.querySelector('.hb-text-feld'));
+        }
+
+        ja('Nichts ist unterwegs abgestürzt', kaputt.length === 0, kaputt.join(' · '));
+        schluss();
+      })();
+    })();
+  </script>
+</body>
+</html>
