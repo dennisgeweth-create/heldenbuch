@@ -165,7 +165,7 @@ const LadenBearbeiten = ({ laden, gegenstaende, onAbbrechen, onSpeichern }) => {
 };
 
 const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
-                        onBearbeiten, onSchliessen }) => {
+                        onBearbeiten, onAbraeumen, onSchliessen }) => {
   const [wer, setWer] = React.useState((helden[0] || {}).id || '');
   const [preise, setPreise] = React.useState({});      // was für ein Stück geboten wird
   const held = helden.find(h => h.id === wer) || null;
@@ -252,8 +252,16 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
 
         <div className="form-actions" style={{marginTop:14}}>
           {isDmMode && (
-            <button className="btn-cancel" style={{marginRight:'auto'}}
-              onClick={onBearbeiten}>Auslage ändern</button>
+            <>
+              <button className="btn-cancel" style={{marginRight:'auto'}}
+                onClick={onBearbeiten}>Auslage ändern</button>
+              {/* Der Ort bleibt sonst stehen, bis jemand daran denkt —
+                  und die Gruppe sieht drei Dörfer später noch den
+                  Krämer aus dem ersten. Abräumen ist das Gegenstück
+                  zum Hinstellen, und es gehört an dieselbe Stelle. */}
+              <button className="btn-cancel laden-abraeumen" onClick={onAbraeumen}
+                title="Der Ort verschwindet für die Runde">🧹 Abräumen</button>
+            </>
           )}
           <button className="btn-cancel" onClick={onSchliessen}>Schließen</button>
         </div>

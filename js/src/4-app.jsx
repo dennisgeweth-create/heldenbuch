@@ -2000,6 +2000,20 @@ function App() {
     saveLibrary(alt => ({...alt, _laeden: {...((alt || {})._laeden || {}), [advId]: l}}));
     setLadenBearbeiten(false);
   };
+  // Abraeumen: der Ort ist weg, und zwar fuer alle. Fuer die Runde
+  // verschwindet damit auch der Knopf in der Leiste — sie steht sonst
+  // drei Doerfer spaeter noch vor dem Kraemer aus dem ersten.
+  //
+  // Mit Rueckfrage, weil die Auslage danach wirklich fort ist: eine
+  // Liste von zwanzig Waren ist eine Viertelstunde Arbeit, und der
+  // Knopf steht neben „Schliessen".
+  const ladenAbraeumen = () => appConfirm(
+    laden
+      ? '„' + (laden.name || 'Der Laden') + '" abräumen? Die Auslage ist danach weg, '
+        + 'und die Runde sieht den Ort nicht mehr.'
+      : 'Den Laden abräumen?',
+    () => { ladenSpeichern(null); setLadenOffen(false); },
+    'Abräumen');
 
   // Gekauft wird aus dem Beutel des Helden und in sein Inventar. Beides
   // in einem Zug, damit nicht das eine ohne das andere passiert.
@@ -4731,6 +4745,7 @@ function App() {
             && darfSchreiben(c))}
           onKaufen={ladenKaufen} onVerkaufen={ladenVerkaufen}
           onBearbeiten={()=>setLadenBearbeiten(true)}
+          onAbraeumen={ladenAbraeumen}
           onSchliessen={()=>setLadenOffen(false)} />
       )}
       {ladenBearbeiten && (

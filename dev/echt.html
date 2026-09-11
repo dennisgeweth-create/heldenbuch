@@ -411,6 +411,53 @@
           }
         }
 
+        // ── Abräumen ───────────────────────────────────────────────
+        // Der Ort muss danach wirklich weg sein — nicht nur das Fenster
+        // zu. Geprüft wird deshalb, was die Leiste hinterher anbietet.
+        const speichern = knopfMit('Speichern');
+        if (ja('Die Auslage lässt sich speichern', !!speichern)) {
+          speichern.click(); await ruhe(250);
+          const name = await warten(() => knopfMit('Bogens Krämerladen'));
+          ja('Der Ort steht mit seinem Namen in der Leiste', !!name,
+             'gefunden: ' + [...document.querySelectorAll('.btn-tool')]
+               .map(b => b.textContent.trim()).join(' · '));
+          if (name) { name.click(); await ruhe(200); }
+
+          const raeumen = knopfMit('Abräumen');
+          if (ja('Der Knopf zum Abräumen steht da', !!raeumen)) {
+            raeumen.click(); await ruhe(150);
+            // Er fragt nach, bevor eine Viertelstunde Arbeit fortfliegt.
+            const frage = [...document.querySelectorAll('*')].some(
+              e => e.children.length === 0 && /abräumen\?/i.test(e.textContent || ''));
+            ja('  … und fragt vorher nach', frage);
+            // Der Knopf in der Rückfrage heisst genauso wie der, der sie
+            // ausgelöst hat. Ihn über die Aufschrift zu suchen, fände
+            // wieder den ersten — und dann öffnete sich die Frage nur
+            // erneut. Hier zählt, welcher es ist.
+            const ok = document.querySelector('.confirm-ok');
+            if (ja('  … mit einem Knopf, der sie beantwortet', !!ok)) {
+              ok.click(); await ruhe(300);
+            }
+            ja('  … danach ist der Ort namenlos',
+               !knopfMit('Bogens Krämerladen'),
+               [...document.querySelectorAll('.btn-tool')]
+                 .map(b => b.textContent.trim()).join(' · '));
+            ja('  … das Fenster ist zu', !document.querySelector('.laden-bearbeiten')
+               && !knopfMit('Auslage ändern'));
+            // Fuer die Spielleitung bleibt der Weg hinein: sie stellt den
+            // naechsten Ort hin. Die Runde sieht ihn nicht mehr.
+            ja('  … der Weg zum nächsten Ort bleibt offen', !!knopfMit('🏪'));
+            if (knopfMit('🏪')) {
+              knopfMit('🏪').click(); await ruhe(200);
+              const leer = [...document.querySelectorAll('.laden-ware, .beute-zeilen')].length;
+              ja('  … und die Auslage ist leer', leer === 0,
+                 leer + ' Zeilen noch da');
+              const zuLaden = knopfMit('Schließen');
+              if (zuLaden) { zuLaden.click(); await ruhe(120); }
+            }
+          }
+        }
+
         ja('Nichts ist unterwegs abgestürzt', kaputt.length === 0, kaputt.join(' · '));
         schluss();
       })();

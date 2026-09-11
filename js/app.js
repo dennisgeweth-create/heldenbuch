@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.4';
+const HB_VERSION = 'v5.4.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -16822,6 +16822,7 @@ const LadenFenster = ({
   onKaufen,
   onVerkaufen,
   onBearbeiten,
+  onAbraeumen,
   onSchliessen
 }) => {
   const [wer, setWer] = React.useState((helden[0] || {}).id || '');
@@ -16922,13 +16923,17 @@ const LadenFenster = ({
     style: {
       marginTop: 14
     }
-  }, isDmMode && /*#__PURE__*/React.createElement("button", {
+  }, isDmMode && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     style: {
       marginRight: 'auto'
     },
     onClick: onBearbeiten
   }, "Auslage \xE4ndern"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel laden-abraeumen",
+    onClick: onAbraeumen,
+    title: "Der Ort verschwindet f\xFCr die Runde"
+  }, "\uD83E\uDDF9 Abr\xE4umen")), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: onSchliessen
   }, "Schlie\xDFen"))));
@@ -24312,6 +24317,17 @@ function App() {
     }));
     setLadenBearbeiten(false);
   };
+  // Abraeumen: der Ort ist weg, und zwar fuer alle. Fuer die Runde
+  // verschwindet damit auch der Knopf in der Leiste — sie steht sonst
+  // drei Doerfer spaeter noch vor dem Kraemer aus dem ersten.
+  //
+  // Mit Rueckfrage, weil die Auslage danach wirklich fort ist: eine
+  // Liste von zwanzig Waren ist eine Viertelstunde Arbeit, und der
+  // Knopf steht neben „Schliessen".
+  const ladenAbraeumen = () => appConfirm(laden ? '„' + (laden.name || 'Der Laden') + '" abräumen? Die Auslage ist danach weg, ' + 'und die Runde sieht den Ort nicht mehr.' : 'Den Laden abräumen?', () => {
+    ladenSpeichern(null);
+    setLadenOffen(false);
+  }, 'Abräumen');
 
   // Gekauft wird aus dem Beutel des Helden und in sein Inventar. Beides
   // in einem Zug, damit nicht das eine ohne das andere passiert.
@@ -29367,6 +29383,7 @@ function App() {
     onKaufen: ladenKaufen,
     onVerkaufen: ladenVerkaufen,
     onBearbeiten: () => setLadenBearbeiten(true),
+    onAbraeumen: ladenAbraeumen,
     onSchliessen: () => setLadenOffen(false)
   }), ladenBearbeiten && /*#__PURE__*/React.createElement(LadenBearbeiten, {
     laden: laden,

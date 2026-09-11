@@ -714,6 +714,11 @@
   .btn-save:hover { background:linear-gradient(135deg,var(--gold-dim),#a07820); }
   .btn-cancel { padding:8px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:3px; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:12px; cursor:pointer; }
   .btn-cancel:hover { border-color:var(--border-bright); color:var(--text-primary); }
+  /* Abräumen steht neben Schließen und tut etwas ganz anderes. Es sieht
+     deshalb erst beim Darüberfahren nach Abräumen aus — auffällig genug,
+     um zu warnen, und ruhig genug, um nicht der Hauptknopf zu sein. */
+  .laden-abraeumen:hover { border-color:var(--crimson); color:var(--crimson-bright);
+    background:rgba(180,60,60,0.12); }
   .btn-add { padding:8px 16px; border:1px dashed var(--border); border-radius:4px; background:none; color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:11px; cursor:pointer; letter-spacing:0.08em; text-transform:uppercase; width:100%; margin-top:8px; }
   .btn-add:hover { border-color:var(--gold-dim); color:var(--gold-dim); }
 

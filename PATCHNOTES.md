@@ -1,5 +1,22 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.4.1
+
+### 🧹 Den Laden wieder abräumen
+
+Einen Ort hinzustellen ging seit v4.7 — ihn wieder loszuwerden nicht. Wer
+den Krämer im ersten Dorf angelegt hatte, hatte ihn drei Dörfer später
+immer noch, und die Runde sah in der Leiste einen Laden, den es in der
+Geschichte längst nicht mehr gab.
+
+Im Ladenfenster steht deshalb jetzt **🧹 Abräumen**, neben „Auslage
+ändern" und nur für die Spielleitung. Danach ist der Ort weg: die Auslage
+gelöscht, und für die Runde verschwindet der Knopf aus der Leiste. Die
+Spielleitung behält ihren — sie stellt ja den nächsten Ort hin.
+
+Mit Rückfrage, und das absichtlich: eine Auslage von zwanzig Waren ist
+eine Viertelstunde Arbeit, und der Knopf steht direkt neben „Schließen".
+
 ## v5.4
 
 ### 🏪 Eine Auslage einfügen, statt sie abzutippen
