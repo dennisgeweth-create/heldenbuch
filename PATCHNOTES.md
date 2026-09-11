@@ -1,5 +1,23 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.3.2
+
+### 🔢 Die Ausgabe steht im kopierten Text
+
+Nach v5.3.1 kam die Rückmeldung, es werde immer noch nicht alles
+kopiert und der Knopf ändere sich nicht. Die Ursache lag nicht im
+Heldenbuch: der Browser hatte die alte Fassung noch im Speicher.
+
+Das sieht man dem Text nicht an — deshalb steht jetzt die Ausgabe mit
+darin, gleich in der zweiten Zeile:
+
+> Charakterbogen aus dem Heldenbuch **v5.3.2** (D&D 5e).
+
+Steht dort eine ältere Nummer, ist es nicht der Text, sondern die Seite.
+Dann hilft ein Neuladen mit **Strg+F5** (am Mac ⌘+Shift+R); auf iPad und
+iPhone die Seite schließen und neu öffnen. Dieselbe Nummer steht auch
+unten in der Heldenleiste — ein Blick dorthin klärt es genauso.
+
 ## v5.3.1
 
 ### 🩹 Der Kopierknopf hat gelogen

@@ -94,7 +94,13 @@ const heldText = (c, opts) => {
   t.push('  ' + [c.race, klassenText, c.background].filter(Boolean).join(' · '));
   t.push('  Gesamtstufe ' + stufe + ' · Übungsbonus ' + fnum(eff.profBonus));
   t.push('');
-  t.push('  Charakterbogen aus dem Heldenbuch (D&D 5e). Alle Zahlen stehen fertig');
+  // Die Ausgabe steht mit im Text. Nicht der Zierde wegen: als dieser
+  // Text zum ersten Mal am Tisch ankam, hiess es, es komme nicht alles
+  // mit — und die Ursache war ein Browser, der die alte Fassung noch
+  // im Speicher hatte. Wer die Nummer im Text sieht, sieht es sofort.
+  t.push('  Charakterbogen aus dem Heldenbuch'
+    + (typeof HB_VERSION === 'string' ? ' ' + HB_VERSION : '')
+    + ' (D&D 5e). Alle Zahlen stehen fertig');
   t.push('  gerechnet da: Boni aus Ausrüstung, Merkmalen und Talenten sind bereits');
   t.push('  eingerechnet und dürfen nicht noch einmal addiert werden.');
 

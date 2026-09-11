@@ -108,6 +108,16 @@ wahr('der Name steht oben', /^═+\n  DÄMMERLICHT\n═+/.test(text));
 wahr('das Volk steht da', text.includes('Waldelf'));
 wahr('beide Klassen mit Unterklasse', text.includes('Waldläufer 5 (Jägerin) / Schurke 2 (Meuchlerin)'));
 wahr('der Hintergrund auch', text.includes('Außenseiterin'));
+// Die Ausgabe steht mit im Text: sieht sie jemand am Tisch, weiss er,
+// welche Fassung diesen Text gemacht hat. Hier fehlt HB_VERSION — die
+// Nummer steht in 0-basis.jsx, und die Rechnung laeuft ohne sie.
+wahr('ohne HB_VERSION steht der Kopf trotzdem sauber da',
+  text.includes('aus dem Heldenbuch (D&D 5e)'));
+ist('  … und die Nummer kommt dazu, wenn es sie gibt',
+  (globalThis.HB_VERSION = 'v9.9',
+   heldText(c, {klassen: kl, setDefs: []}).includes('aus dem Heldenbuch v9.9 (D&D 5e)')),
+  true);
+delete globalThis.HB_VERSION;
 ist('die Gesamtstufe wird gezählt', zeileMit(text, 'Gesamtstufe'),
   'Gesamtstufe 7 · Übungsbonus +3');
 
