@@ -792,7 +792,7 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
   // eine Figur nimmt sie auf.
   const [werkzeug, setWerkzeug] = React.useState(null);
   const [masze, setMasze] = React.useState(null);
-  const [kopiert, setKopiert] = React.useState(false);
+  const [kopiert, setKopiert] = React.useState(null);
   // Wo der Zeiger gerade steht. Nur fuers Messen — am Tablet gibt es
   // ihn nicht, deshalb steht dasselbe auch im Titel jedes Feldes.
   const [zeiger, setZeiger] = React.useState(null);
@@ -916,12 +916,13 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
       was.bildY === undefined ? (karte.bildY || 0) : was.bildY)),
   });
 
-  const kopieren = () => {
-    const text = karteText(karte, liste || [], {mitZahlen: true});
-    const fertig = () => { setKopiert(true); setTimeout(()=>setKopiert(false), 2000); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(fertig, ()=>{});
-    } else { try { if (document.execCommand('copy')) fertig(); } catch (e) {} }
+  // Derselbe Weg wie ueberall sonst — und derselbe Bericht darueber, ob
+  // er geklappt hat. Hier stand bis v5.3 eine eigene Fassung, die beim
+  // Scheitern gar nichts sagte.
+  const kopieren = async () => {
+    const gut = await inZwischenablage(karteText(karte, liste || [], {mitZahlen: true}));
+    setKopiert(gut ? 'gut' : 'weg');
+    setTimeout(() => setKopiert(null), 4000);
   };
 
   const wz = masze || {b: karte.breite, h: karte.hoehe};
@@ -1026,7 +1027,8 @@ const KarteFeld = ({ kampf, setKampf, liste, amZug, onFrage, onLog }) => {
             : '👁 Die Runde sieht mit · ' + versteckte + ' verborgen'}
         </button>
         <button type="button" className="bj-taste" onClick={kopieren}>
-          {kopiert ? '✓ Kopiert' : '🗺 Karte kopieren'}
+          {kopiert === 'gut' ? '✓ Kopiert'
+            : kopiert === 'weg' ? '✕ Ging nicht' : '🗺 Karte kopieren'}
         </button>
       </div>
 

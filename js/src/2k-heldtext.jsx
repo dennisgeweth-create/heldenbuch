@@ -69,11 +69,9 @@ const htEffekte = (liste) => (liste || [])
 //   c        der Held
 //   opts.klassen   die Klassenliste des Abenteuers (fuer das Zauberattribut)
 //   opts.setDefs   die Set-Register der Datenbank (fuer die Setboni)
-//   opts.lang      Beschreibungen und Notizen mitgeben (Standard: ja)
 const heldText = (c, opts) => {
   if (!c) return '';
   const o = opts || {};
-  const lang = o.lang !== false;
   const w = charWerte(c, o.setDefs || []);
   const eff = w.eff;
   const fx = (ziel, basis) => applyEffect(w.effekte, ziel, basis);
@@ -187,19 +185,32 @@ const heldText = (c, opts) => {
       if ((wa.properties || []).length) t.push('      Eigenschaften: ' + wa.properties.join(', '));
       const fxText = htEffekte(wa.effects);
       if (fxText && (platz || wa.equipped)) t.push('      Wirkt: ' + fxText);
-      if (lang && wa.description) htUmbruch(wa.description, '      ').forEach(z => t.push(z));
+      if (wa.description) htUmbruch(wa.description, '      ').forEach(z => t.push(z));
     });
   }
 
   // ── Getragene Ausruestung ──────────────────────────────────────
+  // Das Inventar selbst steht nicht im Text — drei Fackeln und ein Seil
+  // sagen ueber den Helden nichts, und bei einem Beutel voll Kram waere
+  // es die laengste Liste im ganzen Bogen. Was er *traegt*, steht da: es
+  // steckt in seinen Werten, und ein magischer Umhang ist naeher an
+  // einem Merkmal als an einem Seil. Darum auch mit seinem Text.
   if (getragen.length) {
     titel('GETRAGEN');
-    getragen.forEach(({slot, obj}) => {
+    getragen.forEach(({slot, obj, k}) => {
       const rk = obj.armorType && +obj.baseAC > 0 ? '  (Grundwert RK ' + obj.baseAC + ')'
                : +obj.acBonus ? '  (RK ' + fnum(+obj.acBonus) + ')' : '';
-      t.push(htPaar(slot.label, (obj.name || '—') + rk));
+      // „gewöhnlich" ist keine Auskunft — und sie steht in den Boegen
+      // mal mit Umlaut, mal ohne.
+      const selten = /^gew(ö|oe)hnlich$/i.test(String(obj.rarity || '').trim())
+        ? '' : String(obj.rarity || '').trim();
+      t.push(htPaar(slot.label, (obj.name || '—') + rk + (selten ? '  (' + selten + ')' : '')));
       const fxText = htEffekte(obj.effects);
       if (fxText) t.push('      Wirkt: ' + fxText);
+      // Nur Gegenstaende. Eine Waffe steht oben schon mit ihrem ganzen
+      // Text da; hier waere er dasselbe ein zweites Mal.
+      if (k !== 'w' && obj.description)
+        htUmbruch(obj.description, '      ').forEach(z => t.push(z));
     });
     const sets = gearSets(c, o.setDefs || []).filter(s => s.hoechste > 0);
     sets.forEach(s => {
@@ -209,27 +220,6 @@ const heldText = (c, opts) => {
         if (fxText) t.push('      Ab ' + (+st.teile || 0) + ' Teilen: ' + fxText);
       });
     });
-  }
-
-  // ── Inventar ───────────────────────────────────────────────────
-  const inv = c.inventory || [];
-  const muenzen = c.currency || {};
-  const hatGeld = ['pp','gp','ep','sp','cp'].some(k => +muenzen[k]);
-  if (inv.length || hatGeld) {
-    const gewicht = inv.reduce((s, i) => s + (parseFloat(String(i.weight).replace(',', '.')) || 0) * (+i.qty || 1), 0);
-    titel('INVENTAR' + (gewicht > 0 ? '   (zusammen ' + htZahl(Math.round(gewicht * 10) / 10) + ' kg)' : ''));
-    inv.forEach(i => {
-      const zusatz = [i.rarity && i.rarity !== 'gewöhnlich' ? i.rarity : '',
-                      i.weight ? htZahl(i.weight) + ' kg' : '',
-                      i.effectsActive && htEffekte(i.effects) ? 'wirkt: ' + htEffekte(i.effects) : '']
-        .filter(Boolean).join(' · ');
-      t.push('  ' + ((+i.qty || 1) + '×').padStart(4) + ' ' + (i.name || '—')
-        + (zusatz ? '   (' + zusatz + ')' : ''));
-      if (lang && i.description) htUmbruch(i.description, '        ').forEach(z => t.push(z));
-    });
-    if (hatGeld) t.push(htPaar('  Beutel', ['pp','gp','ep','sp','cp']
-      .map(k => (+muenzen[k] || 0) + ' ' + ({pp:'PM', gp:'GM', ep:'EM', sp:'SM', cp:'KM'})[k])
-      .filter(s => !/^0 /.test(s)).join(' · ')));
   }
 
   // ── Was sich verbraucht ────────────────────────────────────────
@@ -262,7 +252,7 @@ const heldText = (c, opts) => {
       t.push('  ' + (f.name || 'Merkmal') + (f.source ? '   — ' + f.source : ''));
       const fxText = htEffekte(f.effects);
       if (fxText) t.push('      ' + (f.effectsActive === false ? 'Ruht: ' : 'Wirkt: ') + fxText);
-      if (lang && f.description) htUmbruch(f.description, '      ').forEach(z => t.push(z));
+      if (f.description) htUmbruch(f.description, '      ').forEach(z => t.push(z));
     });
   }
 
@@ -286,7 +276,7 @@ const heldText = (c, opts) => {
         // danebenzuschreiben hiesse dasselbe zweimal.
         t.push('        ' + [s.school, s.castingTime, s.range, s.components, s.duration]
           .filter(Boolean).join(' · '));
-        if (lang && s.description) htUmbruch(s.description, '        ').forEach(z => t.push(z));
+        if (s.description) htUmbruch(s.description, '        ').forEach(z => t.push(z));
       });
     });
   }
@@ -302,19 +292,17 @@ const heldText = (c, opts) => {
   }
 
   // ── Notizen ────────────────────────────────────────────────────
-  if (lang) {
-    const notizen = (c.notesList || []).filter(n => (n.title || n.content));
-    if (String(c.notes || '').trim() || notizen.length) {
-      titel('NOTIZEN');
-      if (String(c.notes || '').trim())
-        htUmbruch(c.notes, '  ').forEach(z => t.push(z));
-      notizen.forEach(n => {
-        t.push('');
-        t.push('  ' + (n.title || 'Notiz')
-          + ((n.tags || []).length ? '   [' + n.tags.join(', ') + ']' : ''));
-        if (n.content) htUmbruch(n.content, '    ').forEach(z => t.push(z));
-      });
-    }
+  const notizen = (c.notesList || []).filter(n => (n.title || n.content));
+  if (String(c.notes || '').trim() || notizen.length) {
+    titel('NOTIZEN');
+    if (String(c.notes || '').trim())
+      htUmbruch(c.notes, '  ').forEach(z => t.push(z));
+    notizen.forEach(n => {
+      t.push('');
+      t.push('  ' + (n.title || 'Notiz')
+        + ((n.tags || []).length ? '   [' + n.tags.join(', ') + ']' : ''));
+      if (n.content) htUmbruch(n.content, '    ').forEach(z => t.push(z));
+    });
   }
 
   t.push('');
@@ -328,10 +316,23 @@ const heldText = (c, opts) => {
 // einer KI hinlegt, will vorher sehen, was er hinlegt. Der Knopf daneben
 // nimmt ihn dann in einem Griff mit.
 const HeldTextFenster = ({char, klassen, setDefs, onZu}) => {
-  const [lang, setLang] = React.useState(true);
-  const [kopiert, setKopiert] = React.useState(false);
+  // null · 'gut' · 'weg' — und der Stand bleibt vier Sekunden stehen.
+  // Zwei waren zu kurz: wer auf das Feld schaut oder mit dem Finger auf
+  // dem Knopf steht, hat ihn bis dahin nicht gesehen.
+  const [stand, setStand] = React.useState(null);
+  const feld = React.useRef(null);
   if (!char) return null;
-  const text = heldText(char, {klassen, setDefs, lang});
+  const text = heldText(char, {klassen, setDefs});
+
+  const kopieren = async () => {
+    // Das Feld wird mitgegeben: steht der Text ohnehin sichtbar da, ist
+    // es der verlaesslichste Weg — und scheitert auch der, bleibt er
+    // markiert stehen, und die Tastatur nimmt ihn mit.
+    const gut = await inZwischenablage(text, feld.current);
+    setStand(gut ? 'gut' : 'weg');
+    setTimeout(() => setStand(null), 4000);
+  };
+
   return (
     <Fenster onZu={onZu}>
       <div className="form-modal breit" style={{maxWidth:900}}>
@@ -339,27 +340,28 @@ const HeldTextFenster = ({char, klassen, setDefs, onZu}) => {
         <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:12,lineHeight:1.5}}>
           Der ganze Bogen mit fertig gerechneten Werten — zum Einfügen in ein
           KI-Gespräch. Alles steht darin: Attribute, alle achtzehn Fertigkeiten,
-          Waffen, Ausrüstung, Merkmale und Zauber.
+          Waffen, Getragenes, Merkmale und Zauber, jeweils mit ihrem ganzen Text.
         </div>
-        <label className="hb-text-schalter">
-          <input type="checkbox" checked={lang}
-            onChange={e=>{ setLang(e.target.checked); setKopiert(false); }} />
-          <span>Beschreibungen und Notizen mitgeben</span>
-          <i>{lang ? 'Vollständig — die KI kennt damit jeden Zaubertext.'
-                   : 'Nur die Werte — kürzer, wenn das Gespräch schon lang ist.'}</i>
-        </label>
-        <textarea className="hb-text-feld" readOnly value={text}
+        <textarea className="hb-text-feld" readOnly value={text} ref={feld}
           onFocus={e=>e.target.select()} spellCheck={false} />
+        {stand === 'weg' && (
+          <div className="hb-text-weg">
+            Der Browser hat das Kopieren abgelehnt — das kommt vor, wenn das
+            Fenster gerade nicht im Vordergrund steht. Der Text ist jetzt
+            markiert: <b>Strg+C</b> (am Mac <b>⌘+C</b>) nimmt ihn mit.
+          </div>
+        )}
         <div className="form-actions" style={{marginTop:14}}>
           <span className="hb-text-mass">
             {text.split('\n').length} Zeilen · {text.length} Zeichen
           </span>
           <button className="btn-cancel" onClick={onZu}>Schließen</button>
-          <button className="btn-save" onClick={async ()=>{
-            if (!await inZwischenablage(text)) return;
-            setKopiert(true);
-            setTimeout(()=>setKopiert(false), 2000);
-          }}>{kopiert ? '✓ Kopiert' : '📋 Kopieren'}</button>
+          <button className={'btn-save hb-kopf-knopf'
+                             + (stand ? ' ' + stand : '')} onClick={kopieren}>
+            {stand === 'gut' ? '✓ In der Zwischenablage'
+              : stand === 'weg' ? '✕ Ging nicht — siehe oben'
+              : '📋 Alles kopieren'}
+          </button>
         </div>
       </div>
     </Fenster>

@@ -1,5 +1,51 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.3.1
+
+### 🩹 Der Kopierknopf hat gelogen
+
+Die Spielleitung meldete, „Als Text" gehe bei ihr nicht. Das stimmte —
+und es war schlimmer, als es klang: **der Knopf meldete Erfolg, wo keiner
+war.** Wer danach einfügte, bekam, was vorher in der Zwischenablage lag.
+
+Der Fehler steckte nicht im neuen Fenster, sondern in der Kopierfunktion,
+die das Heldenbuch seit jeher benutzt. Sie geht zwei Wege: den neuen über
+`navigator.clipboard`, und wenn der nicht will, den alten über
+`document.execCommand`. Der alte Weg sagt zurück, ob er etwas ausgerichtet
+hat — und **genau das wurde nie angesehen.** Die Funktion meldete „ja,
+kopiert", egal was geschah.
+
+Warum der neue Weg überhaupt scheiterte: Browser weisen ihn ab, sobald
+das Fenster gerade nicht im Vordergrund steht. Ein Klick daneben, ein
+zweites Fenster auf dem Schirm — und schon geht es nicht mehr.
+
+Das betraf **alle drei Kopierknöpfe**: den im Bogen, den für das
+Kampfprotokoll und den für die Karte. Alle drei sagen jetzt die Wahrheit.
+
+### 📋 Und man sieht es am Knopf
+
+Klappt es, wird der Knopf grün und sagt **✓ In der Zwischenablage** —
+und zwar vier Sekunden lang statt zwei. Zwei übersieht, wer beim Drücken
+auf das Textfeld schaut oder mit dem Finger auf dem Knopf steht.
+
+Klappt es nicht, steht **✕ Ging nicht** da, und darüber, was zu tun ist:
+Der Text ist dann markiert, und **Strg+C** nimmt ihn mit. Das ist der
+Grund, warum das Fenster den Text überhaupt sichtbar zeigt — es gibt
+immer noch einen Weg.
+
+### 📖 Es kommt alles mit
+
+Der Schalter „Beschreibungen mitgeben" ist weg: **jede Beschreibung von
+Merkmalen, Zaubern und Waffen ist jetzt immer dabei.** Eine KI, der der
+halbe Zaubertext fehlt, reimt sich den Rest zusammen — und das fällt am
+Tisch erst auf, wenn es darauf ankommt.
+
+Dafür **steht das Inventar nicht mehr im Text.** Drei Fackeln und ein
+Seil sagen über einen Helden nichts, und bei einem vollen Beutel war es
+die längste Liste im ganzen Bogen. Was er *trägt*, steht weiter da — das
+steckt in seinen Werten, und ein magischer Umhang ist näher an einem
+Merkmal als an einem Seil. Darum jetzt auch mit seinem Text.
+
 ## v5.3
 
 ### 📋 Der Bogen als Text — zum Vorlegen an eine KI

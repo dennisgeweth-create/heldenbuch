@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.3';
+const HB_VERSION = 'v5.3.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -2486,27 +2486,50 @@ const ProtokollZeilen = ({
   return zeilen;
 };
 
-// In die Zwischenablage. Wo die neue Schnittstelle fehlt — altes
-// Android, unsichere Verbindung —, hilft der Umweg ueber ein Feld, das
-// kurz da ist und gleich wieder verschwindet.
-const inZwischenablage = async text => {
+// In die Zwischenablage.
+//
+// Hier stand bis v5.3 ein Fehler, der nicht auffiel, weil er sich als
+// Erfolg ausgab: der alte Weg — `document.execCommand('copy')` — gibt
+// zurueck, ob er etwas ausgerichtet hat, und genau das wurde nicht
+// angesehen. Die Funktion meldete „ja, kopiert", auch wenn nichts in der
+// Zwischenablage lag. Wer dann einfuegte, bekam, was vorher darin stand.
+//
+// Der neue Weg scheitert oefter, als man denkt: ohne HTTPS gibt es ihn
+// gar nicht, und sobald das Fenster den Fokus verloren hat — ein Klick
+// daneben, ein zweites Fenster —, weist ihn der Browser ab.
+//
+// Steht der Text ohnehin sichtbar in einem Feld, wird dieses uebergeben.
+// Aus einem unsichtbaren Feld zu kopieren mag nicht jeder Browser, und
+// scheitert auch der zweite Weg, bleibt der Text wenigstens markiert
+// stehen: dann tut es die Tastatur.
+const inZwischenablage = async (text, feld) => {
   try {
     await navigator.clipboard.writeText(text);
     return true;
-  } catch {
-    try {
-      const f = document.createElement('textarea');
+  } catch (e) {}
+  try {
+    const eigen = !feld;
+    const f = feld || document.createElement('textarea');
+    if (eigen) {
       f.value = text;
       f.style.position = 'fixed';
+      f.style.top = '0';
+      f.style.left = '0';
+      f.style.width = '2px';
+      f.style.height = '2px';
+      f.style.padding = '0';
+      f.style.border = 'none';
       f.style.opacity = '0';
       document.body.appendChild(f);
-      f.select();
-      document.execCommand('copy');
-      document.body.removeChild(f);
-      return true;
-    } catch {
-      return false;
     }
+    f.focus();
+    f.select();
+    if (f.setSelectionRange) f.setSelectionRange(0, (f.value || '').length);
+    const gut = document.execCommand('copy');
+    if (eigen) document.body.removeChild(f);
+    return !!gut;
+  } catch (e) {
+    return false;
   }
 };
 
@@ -2570,10 +2593,15 @@ const KampfArchiv = ({
     className: "kampf-protokoll-text"
   }, /*#__PURE__*/React.createElement("i", null, "Noch kein beendeter Kampf. Was du beendest, findest du hier wieder."));
   const desTages = liste.filter(e => tagVon(e.zeit) === tag);
+  // Auch das Scheitern wird gemeldet. Vorher stand hier ein stilles
+  // „return" — und wer nichts sieht, drueckt noch einmal.
   const kopieren = async e => {
-    if (!(await inZwischenablage(protokollText(e, mitZahlen, e.zeit, mitKarte)))) return;
-    setKopiert(e.id);
-    setTimeout(() => setKopiert(null), 2000);
+    const gut = await inZwischenablage(protokollText(e, mitZahlen, e.zeit, mitKarte));
+    setKopiert({
+      id: e.id,
+      gut
+    });
+    setTimeout(() => setKopiert(null), 4000);
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "kampf-archiv"
@@ -2615,7 +2643,7 @@ const KampfArchiv = ({
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-icon",
     onClick: () => kopieren(e)
-  }, kopiert === e.id ? '✓ Kopiert' : '📋 Kopieren')))))));
+  }, !kopiert || kopiert.id !== e.id ? '📋 Kopieren' : kopiert.gut ? '✓ Kopiert' : '✕ Ging nicht')))))));
 };
 
 // ── Todesrettungswuerfe ──────────────────────────────────────────
@@ -4531,7 +4559,7 @@ const KampfAnsicht = ({
   const [archivStand, setArchivStand] = React.useState(0);
   const [mitZahlen, setMitZahlen] = React.useState(true);
   const [mitKarte, setMitKarte] = React.useState(true);
-  const [kopiert, setKopiert] = React.useState(false);
+  const [kopiert, setKopiert] = React.useState(null);
   const [wertDlg, setWertDlg] = React.useState(null); // {id, modus}
   const [zugFenster, setZugFenster] = React.useState(null); // {id, ansage}
   // Auf dem Telefon traegt jede Zeile sonst ihren ganzen Tastenblock —
@@ -5142,9 +5170,9 @@ const KampfAnsicht = ({
     ini: w20() + mod(heldDex(t))
   })));
   const protokollKopieren = async () => {
-    if (!(await inZwischenablage(protokollText(kampf, mitZahlen, null, mitKarte, karteAufnahme(kampf.karte, liste))))) return;
-    setKopiert(true);
-    setTimeout(() => setKopiert(false), 2000);
+    const gut = await inZwischenablage(protokollText(kampf, mitZahlen, null, mitKarte, karteAufnahme(kampf.karte, liste)));
+    setKopiert(gut ? 'gut' : 'weg');
+    setTimeout(() => setKopiert(null), 4000);
   };
   const ohneIni = liste.filter(t => t.ini === null).length;
   const dlgZiel = wertDlg && liste.find(t => t.id === wertDlg.id);
@@ -5352,7 +5380,7 @@ const KampfAnsicht = ({
   }), "Karte"), protokollTab === 'jetzt' && /*#__PURE__*/React.createElement("button", {
     className: "btn-icon",
     onClick: protokollKopieren
-  }, kopiert ? '✓ Kopiert' : '📋 Kopieren')), protokollTab === 'jetzt' ? /*#__PURE__*/React.createElement("div", {
+  }, kopiert === 'gut' ? '✓ Kopiert' : kopiert === 'weg' ? '✕ Ging nicht' : '📋 Kopieren')), protokollTab === 'jetzt' ? /*#__PURE__*/React.createElement("div", {
     className: "kampf-protokoll-text"
   }, vorbereitung ? /*#__PURE__*/React.createElement("i", null, "Der Kampf l\xE4uft noch nicht. Ab \u201EKampf starten\u201C steht hier, was geschieht \u2014 und beim Beenden wandert es unter \u201EFr\xFChere\u201C.") : (kampf.log || []).length <= 1 ? /*#__PURE__*/React.createElement("i", null, "Noch nichts geschehen. Was du eintr\xE4gst, steht hier.") : /*#__PURE__*/React.createElement(ProtokollZeilen, {
     log: kampf.log,
@@ -6467,7 +6495,7 @@ const KarteFeld = ({
   // eine Figur nimmt sie auf.
   const [werkzeug, setWerkzeug] = React.useState(null);
   const [masze, setMasze] = React.useState(null);
-  const [kopiert, setKopiert] = React.useState(false);
+  const [kopiert, setKopiert] = React.useState(null);
   // Wo der Zeiger gerade steht. Nur fuers Messen — am Tablet gibt es
   // ihn nicht, deshalb steht dasselbe auch im Titel jedes Feldes.
   const [zeiger, setZeiger] = React.useState(null);
@@ -6627,21 +6655,16 @@ const KarteFeld = ({
     bildX: Math.max(-100, Math.min(100, was.bildX === undefined ? karte.bildX || 0 : was.bildX)),
     bildY: Math.max(-100, Math.min(100, was.bildY === undefined ? karte.bildY || 0 : was.bildY))
   });
-  const kopieren = () => {
-    const text = karteText(karte, liste || [], {
+
+  // Derselbe Weg wie ueberall sonst — und derselbe Bericht darueber, ob
+  // er geklappt hat. Hier stand bis v5.3 eine eigene Fassung, die beim
+  // Scheitern gar nichts sagte.
+  const kopieren = async () => {
+    const gut = await inZwischenablage(karteText(karte, liste || [], {
       mitZahlen: true
-    });
-    const fertig = () => {
-      setKopiert(true);
-      setTimeout(() => setKopiert(false), 2000);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(fertig, () => {});
-    } else {
-      try {
-        if (document.execCommand('copy')) fertig();
-      } catch (e) {}
-    }
+    }));
+    setKopiert(gut ? 'gut' : 'weg');
+    setTimeout(() => setKopiert(null), 4000);
   };
   const wz = masze || {
     b: karte.breite,
@@ -6750,7 +6773,7 @@ const KarteFeld = ({
     type: "button",
     className: "bj-taste",
     onClick: kopieren
-  }, kopiert ? '✓ Kopiert' : '🗺 Karte kopieren')), /*#__PURE__*/React.createElement("div", {
+  }, kopiert === 'gut' ? '✓ Kopiert' : kopiert === 'weg' ? '✕ Ging nicht' : '🗺 Karte kopieren')), /*#__PURE__*/React.createElement("div", {
     className: 'kk-hinweis' + (gemessen ? ' kk-mass' : '')
   }, werkzeug && werkzeug.art === 'gelaende' ? 'Felder antippen zum Malen — noch einmal auf den Pinsel legt ihn weg' : gemessen ? /*#__PURE__*/React.createElement(React.Fragment, null, karteName(zeiger.x, zeiger.y), " \xB7 ", gemessen.weite, /*#__PURE__*/React.createElement("b", {
     className: gemessen.frei ? 'kk-frei' : 'kk-zu'
@@ -16929,11 +16952,9 @@ const htEffekte = liste => (liste || []).filter(e => e && e.target && EFFECT_LAB
 //   c        der Held
 //   opts.klassen   die Klassenliste des Abenteuers (fuer das Zauberattribut)
 //   opts.setDefs   die Set-Register der Datenbank (fuer die Setboni)
-//   opts.lang      Beschreibungen und Notizen mitgeben (Standard: ja)
 const heldText = (c, opts) => {
   if (!c) return '';
   const o = opts || {};
-  const lang = o.lang !== false;
   const w = charWerte(c, o.setDefs || []);
   const eff = w.eff;
   const fx = (ziel, basis) => applyEffect(w.effekte, ziel, basis);
@@ -17039,21 +17060,33 @@ const heldText = (c, opts) => {
       if ((wa.properties || []).length) t.push('      Eigenschaften: ' + wa.properties.join(', '));
       const fxText = htEffekte(wa.effects);
       if (fxText && (platz || wa.equipped)) t.push('      Wirkt: ' + fxText);
-      if (lang && wa.description) htUmbruch(wa.description, '      ').forEach(z => t.push(z));
+      if (wa.description) htUmbruch(wa.description, '      ').forEach(z => t.push(z));
     });
   }
 
   // ── Getragene Ausruestung ──────────────────────────────────────
+  // Das Inventar selbst steht nicht im Text — drei Fackeln und ein Seil
+  // sagen ueber den Helden nichts, und bei einem Beutel voll Kram waere
+  // es die laengste Liste im ganzen Bogen. Was er *traegt*, steht da: es
+  // steckt in seinen Werten, und ein magischer Umhang ist naeher an
+  // einem Merkmal als an einem Seil. Darum auch mit seinem Text.
   if (getragen.length) {
     titel('GETRAGEN');
     getragen.forEach(({
       slot,
-      obj
+      obj,
+      k
     }) => {
       const rk = obj.armorType && +obj.baseAC > 0 ? '  (Grundwert RK ' + obj.baseAC + ')' : +obj.acBonus ? '  (RK ' + fnum(+obj.acBonus) + ')' : '';
-      t.push(htPaar(slot.label, (obj.name || '—') + rk));
+      // „gewöhnlich" ist keine Auskunft — und sie steht in den Boegen
+      // mal mit Umlaut, mal ohne.
+      const selten = /^gew(ö|oe)hnlich$/i.test(String(obj.rarity || '').trim()) ? '' : String(obj.rarity || '').trim();
+      t.push(htPaar(slot.label, (obj.name || '—') + rk + (selten ? '  (' + selten + ')' : '')));
       const fxText = htEffekte(obj.effects);
       if (fxText) t.push('      Wirkt: ' + fxText);
+      // Nur Gegenstaende. Eine Waffe steht oben schon mit ihrem ganzen
+      // Text da; hier waere er dasselbe ein zweites Mal.
+      if (k !== 'w' && obj.description) htUmbruch(obj.description, '      ').forEach(z => t.push(z));
     });
     const sets = gearSets(c, o.setDefs || []).filter(s => s.hoechste > 0);
     sets.forEach(s => {
@@ -17063,27 +17096,6 @@ const heldText = (c, opts) => {
         if (fxText) t.push('      Ab ' + (+st.teile || 0) + ' Teilen: ' + fxText);
       });
     });
-  }
-
-  // ── Inventar ───────────────────────────────────────────────────
-  const inv = c.inventory || [];
-  const muenzen = c.currency || {};
-  const hatGeld = ['pp', 'gp', 'ep', 'sp', 'cp'].some(k => +muenzen[k]);
-  if (inv.length || hatGeld) {
-    const gewicht = inv.reduce((s, i) => s + (parseFloat(String(i.weight).replace(',', '.')) || 0) * (+i.qty || 1), 0);
-    titel('INVENTAR' + (gewicht > 0 ? '   (zusammen ' + htZahl(Math.round(gewicht * 10) / 10) + ' kg)' : ''));
-    inv.forEach(i => {
-      const zusatz = [i.rarity && i.rarity !== 'gewöhnlich' ? i.rarity : '', i.weight ? htZahl(i.weight) + ' kg' : '', i.effectsActive && htEffekte(i.effects) ? 'wirkt: ' + htEffekte(i.effects) : ''].filter(Boolean).join(' · ');
-      t.push('  ' + ((+i.qty || 1) + '×').padStart(4) + ' ' + (i.name || '—') + (zusatz ? '   (' + zusatz + ')' : ''));
-      if (lang && i.description) htUmbruch(i.description, '        ').forEach(z => t.push(z));
-    });
-    if (hatGeld) t.push(htPaar('  Beutel', ['pp', 'gp', 'ep', 'sp', 'cp'].map(k => (+muenzen[k] || 0) + ' ' + {
-      pp: 'PM',
-      gp: 'GM',
-      ep: 'EM',
-      sp: 'SM',
-      cp: 'KM'
-    }[k]).filter(s => !/^0 /.test(s)).join(' · ')));
   }
 
   // ── Was sich verbraucht ────────────────────────────────────────
@@ -17116,7 +17128,7 @@ const heldText = (c, opts) => {
       t.push('  ' + (f.name || 'Merkmal') + (f.source ? '   — ' + f.source : ''));
       const fxText = htEffekte(f.effects);
       if (fxText) t.push('      ' + (f.effectsActive === false ? 'Ruht: ' : 'Wirkt: ') + fxText);
-      if (lang && f.description) htUmbruch(f.description, '      ').forEach(z => t.push(z));
+      if (f.description) htUmbruch(f.description, '      ').forEach(z => t.push(z));
     });
   }
 
@@ -17141,7 +17153,7 @@ const heldText = (c, opts) => {
         // daran erkennt es auch der Kampftracker. Es noch einmal
         // danebenzuschreiben hiesse dasselbe zweimal.
         t.push('        ' + [s.school, s.castingTime, s.range, s.components, s.duration].filter(Boolean).join(' · '));
-        if (lang && s.description) htUmbruch(s.description, '        ').forEach(z => t.push(z));
+        if (s.description) htUmbruch(s.description, '        ').forEach(z => t.push(z));
       });
     });
   }
@@ -17156,17 +17168,15 @@ const heldText = (c, opts) => {
   }
 
   // ── Notizen ────────────────────────────────────────────────────
-  if (lang) {
-    const notizen = (c.notesList || []).filter(n => n.title || n.content);
-    if (String(c.notes || '').trim() || notizen.length) {
-      titel('NOTIZEN');
-      if (String(c.notes || '').trim()) htUmbruch(c.notes, '  ').forEach(z => t.push(z));
-      notizen.forEach(n => {
-        t.push('');
-        t.push('  ' + (n.title || 'Notiz') + ((n.tags || []).length ? '   [' + n.tags.join(', ') + ']' : ''));
-        if (n.content) htUmbruch(n.content, '    ').forEach(z => t.push(z));
-      });
-    }
+  const notizen = (c.notesList || []).filter(n => n.title || n.content);
+  if (String(c.notes || '').trim() || notizen.length) {
+    titel('NOTIZEN');
+    if (String(c.notes || '').trim()) htUmbruch(c.notes, '  ').forEach(z => t.push(z));
+    notizen.forEach(n => {
+      t.push('');
+      t.push('  ' + (n.title || 'Notiz') + ((n.tags || []).length ? '   [' + n.tags.join(', ') + ']' : ''));
+      if (n.content) htUmbruch(n.content, '    ').forEach(z => t.push(z));
+    });
   }
   t.push('');
   return t.join('\n');
@@ -17184,14 +17194,24 @@ const HeldTextFenster = ({
   setDefs,
   onZu
 }) => {
-  const [lang, setLang] = React.useState(true);
-  const [kopiert, setKopiert] = React.useState(false);
+  // null · 'gut' · 'weg' — und der Stand bleibt vier Sekunden stehen.
+  // Zwei waren zu kurz: wer auf das Feld schaut oder mit dem Finger auf
+  // dem Knopf steht, hat ihn bis dahin nicht gesehen.
+  const [stand, setStand] = React.useState(null);
+  const feld = React.useRef(null);
   if (!char) return null;
   const text = heldText(char, {
     klassen,
-    setDefs,
-    lang
+    setDefs
   });
+  const kopieren = async () => {
+    // Das Feld wird mitgegeben: steht der Text ohnehin sichtbar da, ist
+    // es der verlaesslichste Weg — und scheitert auch der, bleibt er
+    // markiert stehen, und die Tastatur nimmt ihn mit.
+    const gut = await inZwischenablage(text, feld.current);
+    setStand(gut ? 'gut' : 'weg');
+    setTimeout(() => setStand(null), 4000);
+  };
   return /*#__PURE__*/React.createElement(Fenster, {
     onZu: onZu
   }, /*#__PURE__*/React.createElement("div", {
@@ -17208,22 +17228,16 @@ const HeldTextFenster = ({
       marginBottom: 12,
       lineHeight: 1.5
     }
-  }, "Der ganze Bogen mit fertig gerechneten Werten \u2014 zum Einf\xFCgen in ein KI-Gespr\xE4ch. Alles steht darin: Attribute, alle achtzehn Fertigkeiten, Waffen, Ausr\xFCstung, Merkmale und Zauber."), /*#__PURE__*/React.createElement("label", {
-    className: "hb-text-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: lang,
-    onChange: e => {
-      setLang(e.target.checked);
-      setKopiert(false);
-    }
-  }), /*#__PURE__*/React.createElement("span", null, "Beschreibungen und Notizen mitgeben"), /*#__PURE__*/React.createElement("i", null, lang ? 'Vollständig — die KI kennt damit jeden Zaubertext.' : 'Nur die Werte — kürzer, wenn das Gespräch schon lang ist.')), /*#__PURE__*/React.createElement("textarea", {
+  }, "Der ganze Bogen mit fertig gerechneten Werten \u2014 zum Einf\xFCgen in ein KI-Gespr\xE4ch. Alles steht darin: Attribute, alle achtzehn Fertigkeiten, Waffen, Getragenes, Merkmale und Zauber, jeweils mit ihrem ganzen Text."), /*#__PURE__*/React.createElement("textarea", {
     className: "hb-text-feld",
     readOnly: true,
     value: text,
+    ref: feld,
     onFocus: e => e.target.select(),
     spellCheck: false
-  }), /*#__PURE__*/React.createElement("div", {
+  }), stand === 'weg' && /*#__PURE__*/React.createElement("div", {
+    className: "hb-text-weg"
+  }, "Der Browser hat das Kopieren abgelehnt \u2014 das kommt vor, wenn das Fenster gerade nicht im Vordergrund steht. Der Text ist jetzt markiert: ", /*#__PURE__*/React.createElement("b", null, "Strg+C"), " (am Mac ", /*#__PURE__*/React.createElement("b", null, "\u2318+C"), ") nimmt ihn mit."), /*#__PURE__*/React.createElement("div", {
     className: "form-actions",
     style: {
       marginTop: 14
@@ -17234,13 +17248,9 @@ const HeldTextFenster = ({
     className: "btn-cancel",
     onClick: onZu
   }, "Schlie\xDFen"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-save",
-    onClick: async () => {
-      if (!(await inZwischenablage(text))) return;
-      setKopiert(true);
-      setTimeout(() => setKopiert(false), 2000);
-    }
-  }, kopiert ? '✓ Kopiert' : '📋 Kopieren'))));
+    className: 'btn-save hb-kopf-knopf' + (stand ? ' ' + stand : ''),
+    onClick: kopieren
+  }, stand === 'gut' ? '✓ In der Zwischenablage' : stand === 'weg' ? '✕ Ging nicht — siehe oben' : '📋 Alles kopieren'))));
 };
 
 // ==== js/src/3-sheet.jsx ====

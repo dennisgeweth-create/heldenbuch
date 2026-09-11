@@ -293,24 +293,44 @@ const ProtokollZeilen = ({ log, mitZahlen, mitKarte }) => {
   return zeilen;
 };
 
-// In die Zwischenablage. Wo die neue Schnittstelle fehlt — altes
-// Android, unsichere Verbindung —, hilft der Umweg ueber ein Feld, das
-// kurz da ist und gleich wieder verschwindet.
-const inZwischenablage = async (text) => {
+// In die Zwischenablage.
+//
+// Hier stand bis v5.3 ein Fehler, der nicht auffiel, weil er sich als
+// Erfolg ausgab: der alte Weg — `document.execCommand('copy')` — gibt
+// zurueck, ob er etwas ausgerichtet hat, und genau das wurde nicht
+// angesehen. Die Funktion meldete „ja, kopiert", auch wenn nichts in der
+// Zwischenablage lag. Wer dann einfuegte, bekam, was vorher darin stand.
+//
+// Der neue Weg scheitert oefter, als man denkt: ohne HTTPS gibt es ihn
+// gar nicht, und sobald das Fenster den Fokus verloren hat — ein Klick
+// daneben, ein zweites Fenster —, weist ihn der Browser ab.
+//
+// Steht der Text ohnehin sichtbar in einem Feld, wird dieses uebergeben.
+// Aus einem unsichtbaren Feld zu kopieren mag nicht jeder Browser, und
+// scheitert auch der zweite Weg, bleibt der Text wenigstens markiert
+// stehen: dann tut es die Tastatur.
+const inZwischenablage = async (text, feld) => {
   try {
     await navigator.clipboard.writeText(text);
     return true;
-  } catch {
-    try {
-      const f = document.createElement('textarea');
+  } catch (e) {}
+  try {
+    const eigen = !feld;
+    const f = feld || document.createElement('textarea');
+    if (eigen) {
       f.value = text;
-      f.style.position = 'fixed'; f.style.opacity = '0';
-      document.body.appendChild(f); f.select();
-      document.execCommand('copy');
-      document.body.removeChild(f);
-      return true;
-    } catch { return false; }
-  }
+      f.style.position = 'fixed'; f.style.top = '0'; f.style.left = '0';
+      f.style.width = '2px'; f.style.height = '2px';
+      f.style.padding = '0'; f.style.border = 'none'; f.style.opacity = '0';
+      document.body.appendChild(f);
+    }
+    f.focus();
+    f.select();
+    if (f.setSelectionRange) f.setSelectionRange(0, (f.value || '').length);
+    const gut = document.execCommand('copy');
+    if (eigen) document.body.removeChild(f);
+    return !!gut;
+  } catch (e) { return false; }
 };
 
 // ── Das Gesamtprotokoll ──────────────────────────────────────────
@@ -368,10 +388,12 @@ const KampfArchiv = ({ mitZahlen, mitKarte }) => {
   );
 
   const desTages = liste.filter(e => tagVon(e.zeit) === tag);
+  // Auch das Scheitern wird gemeldet. Vorher stand hier ein stilles
+  // „return" — und wer nichts sieht, drueckt noch einmal.
   const kopieren = async (e) => {
-    if (!await inZwischenablage(protokollText(e, mitZahlen, e.zeit, mitKarte))) return;
-    setKopiert(e.id);
-    setTimeout(() => setKopiert(null), 2000);
+    const gut = await inZwischenablage(protokollText(e, mitZahlen, e.zeit, mitKarte));
+    setKopiert({id: e.id, gut});
+    setTimeout(() => setKopiert(null), 4000);
   };
 
   return (
@@ -405,7 +427,8 @@ const KampfArchiv = ({ mitZahlen, mitKarte }) => {
                 </div>
                 <div className="kampf-archiv-fuss">
                   <button className="btn-icon" onClick={()=>kopieren(e)}>
-                    {kopiert === e.id ? '✓ Kopiert' : '📋 Kopieren'}
+                    {!kopiert || kopiert.id !== e.id ? '📋 Kopieren'
+                      : kopiert.gut ? '✓ Kopiert' : '✕ Ging nicht'}
                   </button>
                 </div>
               </>
@@ -1861,7 +1884,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   const [archivStand, setArchivStand] = React.useState(0);
   const [mitZahlen, setMitZahlen] = React.useState(true);
   const [mitKarte, setMitKarte] = React.useState(true);
-  const [kopiert, setKopiert] = React.useState(false);
+  const [kopiert, setKopiert] = React.useState(null);
   const [wertDlg, setWertDlg] = React.useState(null);   // {id, modus}
   const [zugFenster, setZugFenster] = React.useState(null);   // {id, ansage}
   // Auf dem Telefon traegt jede Zeile sonst ihren ganzen Tastenblock —
@@ -2269,10 +2292,10 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     t.ini !== null ? t : {...t, ini: w20() + mod(heldDex(t))})));
 
   const protokollKopieren = async () => {
-    if (!await inZwischenablage(protokollText(kampf, mitZahlen, null, mitKarte,
-        karteAufnahme(kampf.karte, liste)))) return;
-    setKopiert(true);
-    setTimeout(() => setKopiert(false), 2000);
+    const gut = await inZwischenablage(protokollText(kampf, mitZahlen, null, mitKarte,
+      karteAufnahme(kampf.karte, liste)));
+    setKopiert(gut ? 'gut' : 'weg');
+    setTimeout(() => setKopiert(null), 4000);
   };
 
   const ohneIni = liste.filter(t => t.ini === null).length;
@@ -2462,7 +2485,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               </label>
               {protokollTab === 'jetzt' && (
                 <button className="btn-icon" onClick={protokollKopieren}>
-                  {kopiert ? '✓ Kopiert' : '📋 Kopieren'}
+                  {kopiert === 'gut' ? '✓ Kopiert'
+                    : kopiert === 'weg' ? '✕ Ging nicht' : '📋 Kopieren'}
                 </button>
               )}
             </div>

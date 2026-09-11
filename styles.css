@@ -767,11 +767,18 @@
     font-family:'Courier New',ui-monospace,monospace; font-size:12px; line-height:1.45;
     white-space:pre; overflow:auto; tab-size:2; }
   .hb-text-feld:focus { border-color:var(--gold-dim); }
-  .hb-text-schalter { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    margin-bottom:12px; cursor:pointer;
-    font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); }
-  .hb-text-schalter input { width:15px; height:15px; cursor:pointer; accent-color:var(--gold-dim); }
-  .hb-text-schalter i { font-style:normal; font-size:11px; color:var(--text-muted); }
+  /* Ob es geklappt hat, steht am Knopf selbst — dort schaut hin, wer
+     gerade gedrueckt hat. Und es steht lange genug da: zwei Sekunden
+     uebersieht, wer dabei aufs Textfeld blickt. */
+  .hb-kopf-knopf.gut { background:linear-gradient(135deg,#2e7d46,#1f5c31);
+    border-color:#3aaa5c; color:#eafaef; }
+  .hb-kopf-knopf.weg { background:none; border-color:var(--crimson);
+    color:var(--crimson-bright); }
+  .hb-text-weg { margin-top:10px; padding:9px 12px; border-radius:4px;
+    border:1px solid var(--crimson); background:rgba(180,60,60,0.12);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; line-height:1.5;
+    color:var(--text-secondary); }
+  .hb-text-weg b { color:var(--gold); }
   /* Die Groesse steht links, weit weg von den Knoepfen: sie ist eine
      Auskunft, kein Angebot. */
   .hb-text-mass { margin-right:auto; align-self:center;

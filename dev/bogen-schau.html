@@ -111,7 +111,7 @@
         {id:'i2', name:'Heiltrank', qty:3, weight:'0,25', rarity:'gewoehnlich',
          description:'Heilt 2W4+2 Trefferpunkte.', effects:[]},
         {id:'i3', name:'Umhang der Elfen', qty:1, weight:'0,5', rarity:'selten',
-         gearKind:'umhang',
+         gearKind:'umhang', description:'Aus Elfenhand gewoben; wer ihn traegt, verschwindet im Unterholz.',
          effects:[{id:'e1', target:'adv_stealth', mode:'bonus', value:0}],
          effectsActive:false}
       ],
@@ -154,9 +154,18 @@
       }));
 
     // Der Text selbst, zum Nachlesen in der Konsole.
-    window.wbText = function (lang) {
-      return heldText(wbHeldin, {klassen: KLASSEN_STANDARD, setDefs: [],
-                                 lang: lang !== false});
+    window.wbText = function () {
+      return heldText(wbHeldin, {klassen: KLASSEN_STANDARD, setDefs: []});
+    };
+    // Und der Weg, auf dem das Kopieren scheitert: so sieht man, was der
+    // Spielleiter sieht, wenn der Browser es ablehnt.
+    window.wbKeinKopieren = function () {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {writeText: function () { return Promise.reject(new Error('abgelehnt')); }}
+      });
+      document.execCommand = function () { return false; };
+      return 'Kopieren scheitert jetzt — Knopf druecken.';
     };
   </script>
 </body>

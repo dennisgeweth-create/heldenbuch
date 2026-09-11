@@ -64,7 +64,8 @@ const heldin = () => ({
     {id: 'i2', name: 'Heiltrank', qty: 3, weight: '0,25', rarity: 'gewöhnlich',
      description: 'Heilt 2W4+2.', effects: []},
     {id: 'i3', name: 'Umhang der Elfen', qty: 1, weight: '0,5', rarity: 'selten',
-     gearKind: 'umhang', effects: [{id: 'e1', target: 'adv_stealth', mode: 'bonus', value: 0}],
+     gearKind: 'umhang', description: 'Aus Elfenhand gewoben.',
+     effects: [{id: 'e1', target: 'adv_stealth', mode: 'bonus', value: 0}],
      effectsActive: false},
   ],
   gear: {ruestung: {k: 'i', id: 'i1'}, haupthand: {k: 'w', id: 'w1'}, umhang: {k: 'i', id: 'i3'}},
@@ -186,16 +187,33 @@ ist('ungeübt heisst ohne Übungsbonus',
 ist('was in der Hand liegt, steht dabei', zeileMit(text, 'Geführt'), 'Geführt: Haupthand');
 ist('die Eigenschaften auch', zeileMit(text, 'Eigenschaften: Finesse'), 'Eigenschaften: Finesse');
 
-// ── Getragenes und Inventar ──────────────────────────────────────
+// ── Getragenes ───────────────────────────────────────────────────
 ist('die Rüstung mit ihrem Grundwert',
   zeileMit(text, 'Lederrüstung  (Grundwert'), 'Rüstung Lederrüstung (Grundwert RK 11)');
 ist('was ein getragenes Stück bewirkt',
   zeileMit(text, 'Wirkt: Vorteil'), 'Wirkt: Vorteil: Heimlichkeit');
-ist('die Anzahl im Inventar', zeileMit(text, '× Heiltrank'), '3× Heiltrank (0,25 kg)');
-ist('  … und die Seltenheit, wo es eine gibt',
-  zeileMit(text, '× Umhang'), '1× Umhang der Elfen (selten · 0,5 kg)');
-ist('der Beutel', zeileMit(text, 'Beutel'), 'Beutel 24 GM · 7 SM · 3 KM');
-falsch('leere Münzsorten stehen nicht da', /0 PM|0 EM/.test(text));
+ist('ein magisches Stück nennt seine Seltenheit',
+  zeileMit(text, 'Umhang der Elfen'), 'Umhang Umhang der Elfen (selten)');
+// Was am Koerper haengt, steckt in den Werten und ist naeher an einem
+// Merkmal als an einem Seil — deshalb mit seinem Text.
+wahr('ein getragenes Stück bringt seinen Text mit',
+  text.includes('Aus Elfenhand gewoben.'));
+falsch('„gewöhnlich" steht nicht dabei — das ist keine Auskunft',
+  /gew(ö|oe)hnlich/i.test(text));
+// Die Waffe in der Hand steht oben schon vollstaendig da. Ihr Text
+// gehoert nicht ein zweites Mal hierher.
+ist('der Text der geführten Waffe steht nur einmal da',
+  text.split('Aus Mondholz.').length - 1, 1);
+
+// Das Inventar selbst steht nicht im Text: drei Fackeln und ein Seil
+// sagen ueber den Helden nichts, und bei einem vollen Beutel waere es
+// die laengste Liste im ganzen Bogen.
+falsch('das Inventar steht nicht im Text', text.includes('INVENTAR'));
+falsch('  … auch kein einzelner Gegenstand daraus', text.includes('Heiltrank'));
+falsch('  … und kein Beutel', text.includes('Beutel'));
+// Die Ruestung liegt im Inventar und wird getragen — sie muss trotzdem
+// dastehen, denn ohne sie ergibt die Ruestungsklasse keinen Sinn.
+wahr('was getragen wird, steht trotzdem da', text.includes('Lederrüstung'));
 
 // ── Was sich verbraucht ──────────────────────────────────────────
 ist('die Zauberplätze nach Grad',
@@ -238,18 +256,24 @@ wahr('die freie Notiz kommt mit', text.includes('Sucht die Mörder ihrer Sippe.'
 wahr('eine Notiz mit Titel auch', text.includes('Der Ring   [Rätsel]'));
 wahr('  … samt Inhalt', text.includes('Im Grab gefunden.'));
 
-// ── Die kurze Fassung ────────────────────────────────────────────
-// Sie laesst die Beschreibungen weg — und sonst nichts. Was eine Zahl
-// ist, bleibt drin.
-const kurz = heldText(c, {klassen: kl, setDefs: [], lang: false});
-falsch('kurz: keine Zauberbeschreibung', kurz.includes('Ein Ziel bekommt 1W6'));
-falsch('kurz: keine Merkmalsbeschreibung', kurz.includes('Solange sie Rüstung trägt.'));
-falsch('kurz: keine Gegenstandsbeschreibung', kurz.includes('Heilt 2W4+2.'));
-falsch('kurz: keine Notizen', kurz.includes('Sucht die Mörder'));
-wahr('kurz: die Zauber stehen trotzdem da', kurz.includes('Jagdzeichen'));
-wahr('kurz: die Merkmale auch', kurz.includes('Kampfstil: Verteidigung'));
-wahr('kurz: und jede Fertigkeit', kurz.includes('★★ Heimlichkeit'));
-wahr('kurz ist kürzer', kurz.length < text.length);
+// ── Es kommt alles mit ───────────────────────────────────────────
+// Der Text kennt keine kurze Fassung mehr: eine KI, der die Haelfte des
+// Zaubertextes fehlt, raet sich den Rest zusammen — und das faellt am
+// Tisch niemandem auf, bis es darauf ankommt. Jede Beschreibung, die im
+// Bogen steht, steht deshalb auch hier.
+wahr('jede Zauberbeschreibung kommt mit', text.includes('Ein Ziel bekommt 1W6'));
+wahr('jede Merkmalsbeschreibung auch', text.includes('Solange sie Rüstung trägt.'));
+wahr('  … und die des zweiten Merkmals', text.includes('Vorteil, ihre Spuren zu lesen.'));
+wahr('jede Waffenbeschreibung auch', text.includes('Aus Mondholz.'));
+wahr('und die Notizen', text.includes('Sucht die Mörder'));
+// Ein zweites Auge darauf, dass wirklich keine fehlt: was im Bogen als
+// Beschreibung steht, muss im Text wiederzufinden sein.
+[...c.spells, ...c.features, ...c.weapons].forEach(x => {
+  if (!x.description) return;
+  const erste = x.description.split(' ').slice(0, 4).join(' ');
+  if (text.includes(erste)) gut++;
+  else { schlecht++; console.log('  FEHLER Beschreibung fehlt: ' + x.name); }
+});
 
 // ── Ein Held, der fast nichts hat ────────────────────────────────
 // Der haeufigste Fall am ersten Abend: angelegt, benannt, sonst nichts.
