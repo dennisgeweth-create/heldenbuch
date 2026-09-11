@@ -23,7 +23,7 @@ const Sheet = () => {
     initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
     klassen, languages, notesList, noteTagFilter, openAufstieg, openEdit, openNew, openTpl, traglastAn,
     openUnprepared, patchChar, patchCurrent, resEdit, resetAll, resources, save, sel,
-    selectChar, setCharMenuOpen,
+    selectChar, setCharMenuOpen, setDefs,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
     setFfEditId, setImgViewer, setInsp, setInspMax, setInvRarity,
     setInvTagFilter, setItemViewer, setItf, setItfEditId, setNf,
@@ -49,6 +49,10 @@ const Sheet = () => {
   const [tpDlg, setTpDlg] = useState(null);   // 'schaden' | 'heilung' | 'temp' | 'maxtemp'
   const [nachgetragen, setNachgetragen] = useState(null);   // Rueckmeldung des Einlesers
   const [werkzeugOffen, setWerkzeugOffen] = useState(false);
+  // Der Bogen als Text — zum Weitergeben an eine KI. Steht nur der
+  // Spielleitung offen: sie ist es, die den Abend vorbereitet, und ein
+  // fremder Bogen im Textfeld waere sonst mit einem Griff kopiert.
+  const [textOffen, setTextOffen] = useState(false);
   const [invSuche, setInvSuche] = useState("");
   const [betrag, setBetrag] = useState("");            // Gold, ausgeben oder einnehmen
   const [beutelMeldung, setBeutelMeldung] = useState("");
@@ -251,6 +255,15 @@ const Sheet = () => {
                 hingestellt. Der Server weist es ohnehin ab; eine Tuer
                 anzubieten, die zu ist, waere nur aergerlich. */}
             <div className="header-actions">
+              {/* Steht auch bei einem fremden Bogen da: Abschreiben ist
+                  kein Ändern, und gerade den fremden Bogen will die
+                  Spielleitung der KI hinlegen. */}
+              {isDmMode && (
+                <button className="kopf-knopf" title="Den ganzen Bogen als Text — zum Weitergeben an eine KI"
+                  onClick={()=>{ setTextKopiert(false); setTextOffen(true); }}>
+                  <span className="kopf-zeichen">📋</span><span className="kopf-wort">Als Text</span>
+                </button>
+              )}
               {darfBearbeiten ? <>
                 {/* Diese vier waren blasse Zeichen ohne Rahmen: 55 %
                     Deckkraft, Umriss erst beim Darüberfahren, kein Wort
@@ -1736,6 +1749,11 @@ const Sheet = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {textOffen && (
+          <HeldTextFenster char={cur} klassen={klassen} setDefs={setDefs}
+            onZu={()=>setTextOffen(false)} />
         )}
 
         {tab==="log" && (

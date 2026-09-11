@@ -755,6 +755,28 @@
   .form-textarea { resize:vertical; min-height:80px; }
   .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
 
+  /* ── Der Bogen als Text ───────────────────────────────────
+     Ein Fenster, das fast nur aus einem Textfeld besteht. Es waechst
+     mit dem Fenster mit: wer den Rahmen groesser zieht, will mehr vom
+     Text sehen und nicht mehr Luft darum. dvh neben vh, weil 100vh auf
+     dem iPad groesser ist als das, was man sieht. */
+  .hb-text-feld { width:100%; box-sizing:border-box; resize:vertical;
+    height:46vh; height:46dvh; min-height:180px;
+    background:var(--bg-card); border:1px solid var(--border); border-radius:3px;
+    color:var(--text-secondary); padding:12px 14px; outline:none;
+    font-family:'Courier New',ui-monospace,monospace; font-size:12px; line-height:1.45;
+    white-space:pre; overflow:auto; tab-size:2; }
+  .hb-text-feld:focus { border-color:var(--gold-dim); }
+  .hb-text-schalter { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    margin-bottom:12px; cursor:pointer;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); }
+  .hb-text-schalter input { width:15px; height:15px; cursor:pointer; accent-color:var(--gold-dim); }
+  .hb-text-schalter i { font-style:normal; font-size:11px; color:var(--text-muted); }
+  /* Die Groesse steht links, weit weg von den Knoepfen: sie ist eine
+     Auskunft, kein Angebot. */
+  .hb-text-mass { margin-right:auto; align-self:center;
+    font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
+
   /* ── Dialoge sind Fenster ─────────────────────────────────
      Die Titelzeile ist der Griff, an dem man das Fenster beiseite
      schiebt; die beiden Knoepfe rechts darin klappen es zu und

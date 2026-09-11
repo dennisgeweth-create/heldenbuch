@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Werkbank &middot; Bogen als Text</title>
+<link rel="stylesheet" href="../styles.css?v=dev">
+<style>
+  body { padding:16px; background:var(--bg-void); }
+  .wb-titel { font-family:'Cinzel',serif; color:var(--gold); margin:0 0 10px; }
+  .wb-hilfe { font-size:12px; color:var(--text-muted); max-width:60ch; line-height:1.6; }
+</style>
+</head>
+<body>
+  <h2 class="wb-titel">Der Bogen als Text</h2>
+  <p class="wb-hilfe">Dasselbe Fenster, das der Knopf oben im Bogen aufmacht. <code>wbText()</code> in der Konsole gibt den Text aus.</p>
+  <div id="fenster"></div>
+
+  <script>
+    // Die Anwendung ruft den Server nur, wenn eine Adresse dasteht.
+    try { localStorage.removeItem('sv_url'); } catch (e) {}
+    // Die Huellen um die Schnittstelle stehen sonst in der index.html.
+    // Hier braucht sie niemand — aber js/app.js liest ein paar davon
+    // beim Laden, und ein fehlender Name braeche die ganze Datei ab.
+    const wbStumm = () => Promise.reject(new Error('Werkbank: kein Server'));
+    const apiAdvDmSetzen = wbStumm;
+    const apiBesitzerSetzen = wbStumm;
+    const apiDeleteChar = wbStumm;
+    const apiDeleteItem = wbStumm;
+    const apiDmDeleteEncounter = wbStumm;
+    const apiDmDeleteEnemy = wbStumm;
+    const apiDmImportEnemies = wbStumm;
+    const apiDmLoad = wbStumm;
+    const apiDmLoadChronik = wbStumm;
+    const apiDmLoadEncounters = wbStumm;
+    const apiDmLoadEnemies = wbStumm;
+    const apiDmSaveChronik = wbStumm;
+    const apiDmSaveEncounter = wbStumm;
+    const apiDmSaveEnemy = wbStumm;
+    const apiDmSaveLibrary = wbStumm;
+    const apiGruppeNeu = wbStumm;
+    const apiKampfAnsage = wbStumm;
+    const apiKampfAnsagen = wbStumm;
+    const apiKampfSetzen = wbStumm;
+    const apiKampfStand = wbStumm;
+    const apiKontoListe = wbStumm;
+    const apiKontoLoeschen = wbStumm;
+    const apiKontoNeu = wbStumm;
+    const apiSetupNoetig = wbStumm;
+    const apiProbeNachricht = wbStumm;
+    const apiKontoReset = wbStumm;
+    const apiLoadChars = wbStumm;
+    const apiLoadLogs = wbStumm;
+    const apiLogFrist = wbStumm;
+    const apiLogin = wbStumm;
+    const apiLogout = wbStumm;
+    const apiMe = wbStumm;
+    const apiMeineDaten = wbStumm;
+    const apiMitglieder = wbStumm;
+    const apiPassAendern = wbStumm;
+    const apiPoll = wbStumm;
+    const apiRolleSetzen = wbStumm;
+    const apiSaveChar = wbStumm;
+    const apiSaveChars = wbStumm;
+    const apiSaveItem = wbStumm;
+    const apiSaveLibrary = wbStumm;
+    const apiSaveLog = wbStumm;
+    const apiSetDmPassword = wbStumm;
+    // Stehen sonst in der index.html und fehlen hier deshalb: ohne die
+    // Platzhalter bricht jeder Baustein ab, der nach dem Zugang fragt
+    // oder etwas merken will.
+    const serverCreds = () => ({url: '', code: '', pass: '', token: ''});
+    const safeSetItem = (schluessel, wert) => {
+      try { localStorage.setItem('wb_' + schluessel, wert); } catch (e) {}
+    };
+  </script>
+  <script src="../js/data.js?v=dev"></script>
+  <script src="../js/util.js?v=dev"></script>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/app.js?v=dev"></script>
+  <script>
+    // Eine Heldin mit allem, was der Bogen kann — damit jeder Abschnitt
+    // im Fenster wirklich etwas zu zeigen hat.
+    var wbHeldin = Object.assign(newChar(), {
+      id: 'c1', name: 'Daemmerlicht', race: 'Waldelfe',
+      charClass: 'Waldlaeufer', subclass: 'Jaegerin', level: 5,
+      multiclasses: [{charClass: 'Schurke', level: 2, subclass: 'Meuchlerin'}],
+      background: 'Aussenseiterin',
+      str: 10, dex: 18, con: 14, int: 11, wis: 15, cha: 9,
+      hp: 38, maxHp: 52, tempHp: 6, speed: 10.5, profBonus: 3,
+      inspiration: 1, inspirationMax: 1,
+      savingThrowProfs: ['str', 'dex'],
+      skillProfs: ['heimlichkeit', 'ueberleben', 'aufmerksamkeit'],
+      expertiseProfs: ['heimlichkeit'],
+      languages: ['Gemeinsprache', 'Elfisch'],
+      toolProfs: ['Diebeswerkzeug'],
+      weaponProfs: ['Einfache Waffen', 'Kriegswaffen'],
+      armorProfs: ['Leicht', 'Mittel'],
+      weapons: [
+        {id:'w1', name:'Langbogen', attrKey:'dex', proficient:true, range:'45 m',
+         attackBonus:0, damage:'1W8', damageType:'Stich',
+         properties:['Zweihaendig'], description:'Aus Mondholz geschnitzt.', effects:[]},
+        {id:'w2', name:'Kurzschwert', attrKey:'fin', proficient:true, range:'1,5 m',
+         attackBonus:0, damage:'1W6', damageType:'Stich',
+         properties:['Finesse','Leicht'], description:'', effects:[]}
+      ],
+      inventory: [
+        {id:'i1', name:'Lederruestung', qty:1, weight:'5', rarity:'gewoehnlich',
+         gearKind:'ruestung', armorType:'light', baseAC:11, acBonus:0,
+         effects:[], effectsActive:false},
+        {id:'i2', name:'Heiltrank', qty:3, weight:'0,25', rarity:'gewoehnlich',
+         description:'Heilt 2W4+2 Trefferpunkte.', effects:[]},
+        {id:'i3', name:'Umhang der Elfen', qty:1, weight:'0,5', rarity:'selten',
+         gearKind:'umhang',
+         effects:[{id:'e1', target:'adv_stealth', mode:'bonus', value:0}],
+         effectsActive:false}
+      ],
+      gear: {ruestung:{k:'i',id:'i1'}, haupthand:{k:'w',id:'w1'}, umhang:{k:'i',id:'i3'}},
+      gearMigrated: 3,
+      currency: {pp:0, gp:24, ep:0, sp:7, cp:3},
+      features: [
+        {id:'f1', name:'Erzfeind: Untote', source:'Waldlaeufer 1',
+         description:'Vorteil auf Ueberlebenskunst, um ihre Spuren zu lesen, und auf Intelligenzwuerfe, um sich an sie zu erinnern.',
+         effects:[], effectsActive:true},
+        {id:'f2', name:'Kampfstil: Verteidigung', source:'Waldlaeufer 2',
+         description:'Solange sie eine Ruestung traegt.',
+         effects:[{id:'e2', target:'ac', mode:'bonus', value:1}], effectsActive:true}
+      ],
+      spells: [
+        {id:'s1', name:'Jagdzeichen', level:1, school:'Weissagung',
+         castingTime:'1 Bonusaktion', range:'27 m', components:'V',
+         duration:'Konzentration, bis zu 1 Stunde',
+         description:'Sie waehlt eine Kreatur in Reichweite und zeichnet sie als Beute. Bis der Zauber endet, richtet sie 1W6 zusaetzlichen Schaden an, wenn sie das Ziel mit einer Waffe trifft.',
+         prepared:true},
+        {id:'s2', name:'Ranken', level:1, school:'Beschwoerung', castingTime:'1 Aktion',
+         range:'9 m', components:'V, S', duration:'10 Minuten',
+         description:'', prepared:false},
+        {id:'s3', name:'Lichtfunke', level:0, school:'Hervorrufung', castingTime:'1 Aktion',
+         range:'Beruehrung', components:'V, S', duration:'1 Stunde',
+         description:'Ein Gegenstand leuchtet hell.'}
+      ],
+      spellSlots: {1:{max:4,used:1}, 2:{max:2,used:0}, 3:{max:0,used:0}, 4:{max:0,used:0},
+                   5:{max:0,used:0}, 6:{max:0,used:0}, 7:{max:0,used:0}, 8:{max:0,used:0},
+                   9:{max:0,used:0}},
+      resources: [{id:'r1', name:'Verstohlener Angriff', max:1, used:0, restType:'kurz'}],
+      notes: 'Sucht die Moerder ihrer Sippe.',
+      notesList: [{id:'n1', title:'Der Ring', content:'Im Grab gefunden, traegt eine Inschrift.', tags:['Raetsel']}]
+    });
+
+    ReactDOM.createRoot(document.getElementById('fenster')).render(
+      React.createElement(HeldTextFenster, {
+        char: wbHeldin, klassen: KLASSEN_STANDARD, setDefs: [],
+        onZu: function () { console.log('zu'); }
+      }));
+
+    // Der Text selbst, zum Nachlesen in der Konsole.
+    window.wbText = function (lang) {
+      return heldText(wbHeldin, {klassen: KLASSEN_STANDARD, setDefs: [],
+                                 lang: lang !== false});
+    };
+  </script>
+</body>
+</html>

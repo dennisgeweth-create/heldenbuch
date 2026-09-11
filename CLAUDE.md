@@ -30,6 +30,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2h-proben.jsx` | Proben auf Ansage — Balken und Ansagefenster |
 | ↳ `2i-beute.jsx` | Beute — hinlegen, nehmen, in die Bögen eintragen |
 | ↳ `2j-laden.jsx` | Laden — Auslage, kaufen, verkaufen |
+| ↳ `2k-heldtext.jsx` | Der ganze Bogen als Text — zum Vorlegen an eine KI, samt Fenster |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |

@@ -3358,6 +3358,7 @@ function App() {
     setNoteTagFilter, setOpenUnprepared, setResEdit, setSf, setSfEditId,
     setShowFF, setShowIF, setShowNF, setShowSF, setShowTransfer,
     setShowWF, setSlotsEdit, setSpEdit, setSpellTagFilter, setStatsEdit,
+    setDefs,
     setTab, setTransferMode, setTransferSel, setWeaponViewer, setWf,
     setWfEditId, setWsExpand, slots, slotsEdit, sp, spChgMax, spEdit,
     spellTagFilter, statsEdit, switchList, tab, tpOffen,

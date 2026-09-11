@@ -1,5 +1,53 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.3
+
+### 📋 Der Bogen als Text — zum Vorlegen an eine KI
+
+Im DM-Modus steht oben im Bogen ein neuer Knopf: **📋 Als Text**. Er
+macht ein Fenster auf, in dem der ganze Held als schlichter Text steht —
+zum Kopieren und Einfügen in ein KI-Gespräch.
+
+Der Kampftracker konnte das für den Kampf schon lange. Für den Helden
+selbst hieß es bisher: abtippen, oder der KI erzählen, was man gerade im
+Kopf hat. Und wer erzählt, vergisst — meist genau das Merkmal, um das es
+gleich gehen wird.
+
+**Alles ist fertig gerechnet.** Nicht „Lederrüstung, dazu Geschick +4,
+dazu Kampfstil", sondern **Rüstungsklasse 16**. Angriff und Schaden
+jeder Waffe stehen mit Übungsbonus und Attribut darin, und bei Finesse
+steht dabei, welches Attribut gewonnen hat. Eine KI, die den Text
+bekommt, muss nichts addieren — und kann sich also auch nicht verrechnen.
+
+Drin ist:
+
+| | |
+|---|---|
+| Volk, Klassen, Unterklassen, Hintergrund | mit Gesamtstufe |
+| Kampfwerte | RK, TP, Initiative, Bewegung, passive Wahrnehmung, Zauber-SG |
+| Attribute | mit Modifikator und Rettungswurf |
+| **Alle achtzehn Fertigkeiten** | auch die ungeübten |
+| Sprachen, Werkzeuge, Waffen, Rüstungen | was geübt ist |
+| Waffen | Angriff, Schaden, Reichweite, Eigenschaften |
+| Getragenes und Inventar | samt Beutel |
+| Zauberplätze, Zauberpunkte, Ressourcen | was davon noch frei ist |
+| Merkmale | mit dem, was sie bewirken |
+| Zauber | nach Grad, mit Schule, Wirkzeit, Reichweite, Dauer |
+| Vorteile und Nachteile | die stecken in keiner Zahl |
+
+Die achtzehn Fertigkeiten stehen **vollständig** da, auch die, auf die
+niemand geübt ist. Sonst bekäme die KI auf „wie gut schleicht er?" bei
+den meisten Helden keine Antwort.
+
+Ein Schalter im Fenster: **Beschreibungen und Notizen mitgeben.** An
+bedeutet vollständig — die KI kennt dann jeden Zaubertext. Aus lässt nur
+die Werte stehen, was bei vierzig Zaubern ein Vielfaches kürzer ist und
+in einem schon langen Gespräch mehr Luft lässt. Wie lang der Text gerade
+ist, steht unten links.
+
+Er ist nebenbei auch für Menschen lesbar: wer keinen Zugang hat, bekommt
+den Helden so trotzdem als Ganzes vorgelegt.
+
 ## v5.2.2
 
 ### 🎲 „Wie zuletzt" am Tisch
