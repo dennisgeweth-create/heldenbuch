@@ -350,6 +350,67 @@
              !!document.querySelector('.hb-text-feld'));
         }
 
+        const zuText = knopfMit('Schließen');
+        if (zuText) { zuText.click(); await ruhe(150); }
+
+        // ── Der Laden ──────────────────────────────────────────────
+        // Dieselbe Frage wie beim Bogen: kommt an, was eingefügt wird?
+        // Der Leser dafür ist in laden-test.js geprüft — hier geht es
+        // darum, dass das Fenster ihn auch benutzt und die Zeilen
+        // hinterher dastehen.
+        melden('lauf', 'Der Laden');
+        const laden = await warten(() => knopfMit('🏪'));
+        if (ja('Der Laden steht der Spielleitung offen', !!laden)) {
+          laden.click();
+          const aendern = await warten(() => knopfMit('Auslage ändern'));
+          if (ja('  … und lässt sich ändern', !!aendern)) {
+            aendern.click();
+            const einfuegen = await warten(() => knopfMit('Auslage einfügen'));
+            if (ja('Der Knopf zum Einfügen steht da', !!einfuegen)) {
+              einfuegen.click(); await ruhe(120);
+              const feldEin = document.querySelector('.liste-roh');
+              if (ja('  … und macht ein Feld auf', !!feldEin)) {
+                // So schreibt React seine Felder: der Wert muss über den
+                // Setter des Prototyps kommen, sonst merkt es nichts.
+                const setzer = Object.getOwnPropertyDescriptor(
+                  window.HTMLTextAreaElement.prototype, 'value').set;
+                setzer.call(feldEin, [
+                  'Laden: Bogens Krämerladen',
+                  'Kauft zu 40 %',
+                  'Fackel | 1 KM | brennt eine Stunde',
+                  'Seil aus Hanf (15 m) | 1 GM',
+                  'Trank der Heilung | 50 GM | letztes Stück',
+                ].join('\n'));
+                feldEin.dispatchEvent(new Event('input', {bubbles: true}));
+                await ruhe(80);
+                const nehmen = knopfMit('Übernehmen');
+                if (ja('  … und einen Knopf zum Übernehmen', !!nehmen)) {
+                  nehmen.click(); await ruhe(200);
+                  const felder = [...document.querySelectorAll('.laden-bearbeiten input')]
+                    .map(i => i.value);
+                  ja('Die drei Waren stehen in den Zeilen',
+                     felder.indexOf('Fackel') >= 0
+                     && felder.indexOf('Seil aus Hanf (15 m)') >= 0
+                     && felder.indexOf('Trank der Heilung') >= 0,
+                     felder.filter(Boolean).join(' | '));
+                  ja('  … mit ihren Preisen in Gold',
+                     felder.indexOf('0,01') >= 0 && felder.indexOf('1') >= 0
+                     && felder.indexOf('50') >= 0,
+                     felder.filter(Boolean).join(' | '));
+                  ja('  … und der Notiz dazu',
+                     felder.indexOf('brennt eine Stunde') >= 0);
+                  const kopfFelder = [...document.querySelectorAll('.beute-neu input')]
+                    .map(i => i.value);
+                  ja('Der Name des Ortes ist übernommen',
+                     kopfFelder.indexOf('Bogens Krämerladen') >= 0,
+                     kopfFelder.slice(0, 3).join(' | '));
+                  ja('  … und der Ankauf', kopfFelder.indexOf('40') >= 0);
+                }
+              }
+            }
+          }
+        }
+
         ja('Nichts ist unterwegs abgestürzt', kaputt.length === 0, kaputt.join(' · '));
         schluss();
       })();

@@ -29,7 +29,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2fa-auge.jsx` | „Das Wachsame Auge“ — Wild füllt die Walze und veredelt die Tafel |
 | ↳ `2h-proben.jsx` | Proben auf Ansage — Balken und Ansagefenster |
 | ↳ `2i-beute.jsx` | Beute — hinlegen, nehmen, in die Bögen eintragen |
-| ↳ `2j-laden.jsx` | Laden — Auslage, kaufen, verkaufen |
+| ↳ `2j-laden.jsx` | Laden — Auslage (auch als Liste einfügbar), kaufen, verkaufen |
 | ↳ `2k-heldtext.jsx` | Der ganze Bogen als Text — zum Vorlegen an eine KI, samt Fenster |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |

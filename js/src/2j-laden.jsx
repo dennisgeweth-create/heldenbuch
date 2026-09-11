@@ -16,6 +16,41 @@ const goldZuKupfer = (t) => {
 };
 const kupferZuGold = (k) => String(Math.round((+k || 0)) / 100).replace('.', ',');
 
+// Was einer KI vorgelegt wird, damit sie eine Auslage schreibt, die der
+// Leser auch einliest. Derselbe Bau wie bei der Beute: erst die Form,
+// dann die Regeln, dann ein Beispiel — und ganz zum Schluss die Frage,
+// die sich jeder selbst anhaengt.
+const LADEN_KI_ANWEISUNG = [
+  'Erstelle mir die Auslage eines Ladens für Dungeons & Dragons 5e auf Deutsch.',
+  'Antworte nur mit der Liste: keine Einleitung, keine Erklärung, keine',
+  'Tabelle, keine Überschriften, keine Fettschrift.',
+  '',
+  'Eine Zeile je Eintrag, in dieser Form:',
+  '  Laden: <Name des Ortes>              (höchstens einmal, ganz oben)',
+  '  Kauft zu <Zahl> %                    (was der Ort für Gebrauchtes zahlt)',
+  '  <Ware> | <Preis> | <Notiz>           (Preis und Notiz darfst du weglassen)',
+  '',
+  'Dabei gilt:',
+  '- Waren mit ihrem deutschen Namen, so wie er im Regelwerk steht:',
+  '  „Seil aus Hanf (15 m)", „Trank der Heilung", „Fackel".',
+  '- Der Preis mit Münzart: „50 GM", „2,5 GM", „1 SM". Eine Zahl ohne',
+  '  Münzart gilt als Gold.',
+  '- Die Notiz ist ein kurzer Satz für den Tisch, kein Regeltext:',
+  '  „letztes Stück", „nur gegen Vorbestellung".',
+  '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.',
+  '',
+  'Beispiel:',
+  'Laden: Bogens Krämerladen',
+  'Kauft zu 40 %',
+  'Fackel | 1 KM | brennt eine Stunde',
+  'Seil aus Hanf (15 m) | 1 GM',
+  'Trank der Heilung | 50 GM | letztes Stück',
+  'Wanderstab | 5 KM',
+  '',
+  'Und das soll der Ort führen:',
+  '',
+].join('\n');
+
 const LadenBearbeiten = ({ laden, gegenstaende, onAbbrechen, onSpeichern }) => {
   const [name, setName] = React.useState((laden && laden.name) || 'Der Laden');
   const [kauf, setKauf] = React.useState(Math.round(((laden && laden.kauf) || 0.5) * 100));
@@ -24,6 +59,44 @@ const LadenBearbeiten = ({ laden, gegenstaende, onAbbrechen, onSpeichern }) => {
       .concat([{name:'', gold:'', notiz:''}]));
 
   const setZeile = (i, p) => setWaren(w => w.map((x, j) => j === i ? {...x, ...p} : x));
+
+  // ── Eine Auslage einfügen ──
+  // Was schon dasteht, bleibt stehen: eingefügt wird dazu. Wer eine
+  // Auslage ersetzen will, leert sie vorher — das ist seltener als
+  // nachlegen, und ein Einfügen, das still alles löscht, wäre der
+  // schlechtere Tausch.
+  const uebernehmen = (roh) => {
+    const g = ladenAusText(roh);
+    if (!g.waren.length && !g.name && g.kauf === null) {
+      return {gut: false, meldung: 'Daraus lässt sich nichts lesen. Eine Zeile je Ware.'};
+    }
+    if (g.name) setName(g.name);
+    if (g.kauf !== null) setKauf(g.kauf);
+    // Steht der Name in der Datenbank, gilt ihre Schreibweise und ihre
+    // Beschreibung — dieselbe Regel wie bei der Beute. Eine Notiz aus
+    // der Liste sticht sie: sie gilt für diesen Laden.
+    const reihen = g.waren.map(w => {
+      const t = dbGegenstand(gegenstaende, w.name);
+      return {name: (t && t.name) || w.name,
+              gold: w.preis ? kupferZuGold(w.preis) : '',
+              notiz: w.notiz || (t ? dbKurz(t) : ''),
+              ausDb: !!t};
+    });
+    if (reihen.length) setWaren(w => w.filter(x => (x.name || '').trim())
+      .concat(reihen.map(({ausDb, ...r}) => r), [{name:'', gold:'', notiz:''}]));
+
+    const was = [];
+    if (reihen.length) was.push(reihen.length + (reihen.length === 1 ? ' Ware' : ' Waren'));
+    if (g.name) was.push('der Name');
+    if (g.kauf !== null) was.push('der Ankauf');
+    const ohnePreis = reihen.filter(r => !r.gold).length;
+    const ausDb = reihen.filter(r => r.ausDb).length;
+    return {gut: true, meldung: 'Übernommen: ' + was.join(', ')
+      + (ausDb ? ' — ' + ausDb + ' davon aus der Datenbank' : '')
+      + (ohnePreis ? (ausDb ? '. ' : ' — ') + ohnePreis
+         + (ohnePreis === 1 ? ' Zeile hat keinen Preis' : ' Zeilen haben keinen Preis') : '')
+      + '.'};
+  };
   const fertig = () => onSpeichern({
     name: name.trim() || 'Der Laden',
     kauf: Math.max(0, Math.min(100, kauf)) / 100,
@@ -46,6 +119,10 @@ const LadenBearbeiten = ({ laden, gegenstaende, onAbbrechen, onSpeichern }) => {
             <span>%</span>
           </label>
         </div>
+
+        <ListeEinfuegen anweisung={LADEN_KI_ANWEISUNG} onText={uebernehmen}
+          aufschrift="Auslage einfügen"
+          platzhalter={'Eine Zeile je Ware:\n\nLaden: Bogens Krämerladen\nKauft zu 40 %\nFackel | 1 KM | brennt eine Stunde\nSeil aus Hanf (15 m) | 1 GM'} />
 
         <div className="ass-warum">Preise in Gold — „2,5" sind zwei Gold und fünf Silber.
           Eine Zeile ohne Namen fällt weg. Was in der Datenbank steht, wird beim

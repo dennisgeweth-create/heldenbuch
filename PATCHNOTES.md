@@ -1,5 +1,50 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.4
+
+### 🏪 Eine Auslage einfügen, statt sie abzutippen
+
+Was ein Ort führt, entsteht am Tisch als Aufzählung — auf einem Zettel, in
+einer Nachricht, in der Antwort einer KI. Sie danach Zeile für Zeile in
+Felder zu übertragen, scheut jeder. Genau dafür gibt es bei der Beute seit
+v4.6 den Knopf **„Liste einfügen"**; der Laden hatte ihn nicht.
+
+Jetzt steht er dort auch: **🏪 Was der Ort führt → Auslage einfügen.**
+
+Eine Zeile je Ware, und der Preis darf stehen, wo er natürlich steht:
+
+```
+Laden: Bogens Krämerladen
+Kauft zu 40 %
+Fackel | 1 KM | brennt eine Stunde
+Seil aus Hanf (15 m) | 1 GM
+Trank der Heilung | 50 GM | letztes Stück
+```
+
+Was der Leser dabei kann:
+
+| | |
+|---|---|
+| Name des Ortes und Ankauf | `Laden:` · `Ort:` · `Händler:` · `Kauft zu 40 %` |
+| Preis mit Münzart | `50 GM`, `2,5 GM`, `1 SM`, `1 GM 5 SM` |
+| Preis ohne Münzart | gilt als Gold — wie das Feld daneben |
+| Preis am Namen | `Trank der Heilung 50 GM` |
+| Kein Preis | die Ware steht ohne da, der Preis wird eingetragen |
+| Reihenfolge der Felder | egal — was ein Preis ist, sagt das Feld selbst |
+| Aufzählungszeichen | `-`, `*`, `1.` fallen weg |
+
+**Was er nicht tut:** aus `Seil, 15 m` ein Seil für fünfzehn Gold machen. Ein
+Preis am Namen zählt nur mit Münzart — sonst wäre die Länge des Seils weg.
+Dafür steht auch eine Prüfung.
+
+Was schon in der Auslage steht, **bleibt stehen**: eingefügt wird dazu. Und
+wie bei der Beute gilt die Datenbank, wenn der Name dort steht — ihre
+Schreibweise und ihre Beschreibung; eine Notiz aus der Liste sticht sie.
+
+Der Knopf **„Anweisung für eine KI"** liegt daneben wie überall sonst: er
+gibt den Text aus, der einer KI vorgelegt wird, damit sie eine Liste
+schreibt, die der Leser auch wirklich einliest.
+
 ## v5.3.5
 
 ### 🩹 „Als Text" öffnete gar nichts

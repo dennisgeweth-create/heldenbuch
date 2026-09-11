@@ -712,6 +712,100 @@ const beuteAusText = (text) => {
   return {titel, muenzen, stuecke};
 };
 
+// ── Die Auslage eines Ladens lesen ──────────────────────────────
+// Dasselbe Versprechen wie bei der Beute, eine Tür weiter: die
+// Spielleitung schreibt sich die Waren nicht ab, sondern fügt sie ein.
+// Was ein Ort führt, entsteht am Tisch ohnehin als Aufzählung — auf
+// einem Zettel, in einer Nachricht, in der Antwort einer KI.
+//
+// Der Unterschied zur Beute ist der Preis. Er darf stehen, wo er
+// natürlich steht: hinter einem senkrechten Strich, oder gleich am
+// Namen. Und er darf fehlen — dann steht die Ware ohne Preis da, und
+// die Spielleitung trägt ihn ein.
+
+// Ein Preis als Kupfer, oder null, wenn das kein Preis ist.
+// Erlaubt: „50 GM", „2,5 GM", „1 GM 5 SM", und die blosse „50" — die
+// ist Gold, wie das Feld daneben im Fenster.
+const ladenPreisKupfer = (text) => {
+  const t = String(text || '').trim().replace(/[.,;]+$/, '');
+  if (!t) return null;
+  if (/^\d+(?:[.,]\d+)?$/.test(t)) return Math.round(+t.replace(',', '.') * 100);
+  // Eine Zahl und ein Münzwort. Der Umweg über beuteMuenzZeile geht
+  // hier nicht: die kennt nur ganze Zahlen, und „2,5 GM" ist üblich.
+  const eins = /^(\d+(?:[.,]\d+)?)\s*([A-Za-zÄÖÜäöüß]+)$/.exec(t);
+  if (eins) {
+    const art = beuteMuenzArt(eins[2]);
+    return art ? Math.round(+eins[1].replace(',', '.') * MUENZ_WERT[art]) : null;
+  }
+  // „1 GM 5 SM" — mehrere Münzarten in einer Zeile.
+  const viele = beuteMuenzZeile(t);
+  return viele ? muenzenSumme(viele) : null;
+};
+
+// Ein Preis, der am Ende des Namens klebt: „Trank der Heilung 50 GM".
+// Nur mit Münzwort — ohne wäre „Seil, 15 m" eine Ware für fünfzehn
+// Gold, und die Länge des Seils wäre weg.
+const ladenPreisAmEnde = (text) => {
+  const m = /^(.*\S)\s+(\d+(?:[.,]\d+)?\s*[A-Za-zÄÖÜäöüß]+)$/.exec(String(text || '').trim());
+  if (!m) return null;
+  const preis = ladenPreisKupfer(m[2]);
+  return preis === null ? null : {name: m[1].trim(), preis};
+};
+
+const ladenAusText = (text) => {
+  let name = '';
+  let kauf = null;                 // in Prozent, null = nicht genannt
+  const waren = [];
+
+  String(text || '').split(/\r?\n/).forEach(roh => {
+    let z = String(roh || '').trim();
+    if (!z) return;
+    z = z.replace(/^[-–—*•·]\s+/, '').replace(/^\d+[.)]\s+/, '').trim();
+    if (!z || z.startsWith('#')) return;
+
+    const n = /^(?:laden|ort|gesch(?:ä|ae)ft|h(?:ä|ae)ndler(?:in)?|kr(?:ä|ae)mer)\s*[:：]\s*(.+)$/i
+      .exec(z);
+    if (n) { name = n[1].trim().slice(0, 60); return; }
+
+    const k = /^(?:kauft(?:\s+(?:zu|an))?|ankauf|r(?:ü|ue)ckkauf)\s*[:：]?\s*(\d{1,3})\s*%?$/i.exec(z);
+    if (k) { kauf = Math.max(0, Math.min(100, +k[1])); return; }
+
+    // Eine blosse Überschrift ist keine Ware.
+    if (/^(?:waren|auslage|sortiment|im\s+angebot|angebot)\s*[:：]?$/i.test(z)) return;
+
+    // Die Felder stehen hinter senkrechten Strichen — oder hinter einem
+    // Gedankenstrich mit Luft davor. Ein blosser Bindestrich zählt
+    // nicht: „Zwei-Hand-Axt" ist ein Name.
+    const teile = z.includes('|')
+      ? z.split('|').map(s => s.trim())
+      : z.split(/\s[–—]\s|\s--\s/).map(s => s.trim());
+
+    let wName = teile[0];
+    let preis = null;
+    const rest = [];
+    // Welches Feld der Preis ist, sagt das Feld selbst — dann ist die
+    // Reihenfolge egal, und „Fackel | brennt eine Stunde | 1 SM" geht
+    // genauso wie andersherum.
+    teile.slice(1).forEach(t => {
+      const p = preis === null ? ladenPreisKupfer(t) : null;
+      if (p !== null) preis = p; else if (t) rest.push(t);
+    });
+
+    // Steht kein Preis in einem eigenen Feld, darf er am Namen kleben.
+    if (preis === null) {
+      const amEnde = ladenPreisAmEnde(wName);
+      if (amEnde) { wName = amEnde.name; preis = amEnde.preis; }
+    }
+
+    wName = wName.replace(/[.,;]+$/, '').trim();
+    if (!wName) return;
+    waren.push({name: wName.slice(0, 80), preis: preis === null ? 0 : preis,
+                notiz: rest.join(' · ').slice(0, 120)});
+  });
+
+  return {name, kauf, waren};
+};
+
 // ── Die Patchnotes lesen ────────────────────────────────────────
 // Sie stehen als Markdown in der PATCHNOTES.md und werden dort auch
 // geschrieben — eine zweite Fassung fürs Programm wäre nach der ersten
