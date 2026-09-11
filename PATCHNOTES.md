@@ -1,5 +1,39 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.3.5
+
+### 🩹 „Als Text" öffnete gar nichts
+
+Der Spielleiter hatte von Anfang an recht: **der Knopf tat nichts.** Nicht
+das Kopieren war das Problem — das Fenster ging nie auf.
+
+Mit v5.3.1 wanderte der Zustand des Textfensters aus dem Bogen in das
+Fenster selbst. Die Zeilen, die ihn dort anlegten, verschwanden — aber im
+Knopf blieb ein Aufruf stehen:
+
+```
+onClick={()=>{ setTextKopiert(false); setTextOffen(true); }}
+                ↑ gibt es seit v5.3.1 nicht mehr
+```
+
+Der erste Aufruf warf einen Fehler, und der zweite — der, auf den es
+ankam — lief deshalb nie. Für wen auf den Knopf drückte, sah es aus, als
+geschehe nichts. Es geschah auch nichts.
+
+Ärgerlich daran: das übersetzt sauber, es fällt beim Bauen nicht auf, und
+keine Rechnungsprüfung kommt daran vorbei — der Fehler entsteht erst beim
+Klicken. Deshalb gibt es jetzt eine Prüfung mehr, die genau danach sucht:
+**Setzfunktionen, die aufgerufen werden und nirgends geschrieben stehen.**
+Sie findet den Fehler und nennt die Zeile.
+
+### Und die anderen Ausgaben waren nicht umsonst
+
+Was auf dem Weg dorthin gefunden wurde, bleibt: der Kopierknopf, der
+Erfolg meldete, wo keiner war (v5.3.1), die Ausgabe im kopierten Text
+(v5.3.2), der stillschweigend fehlende Zauber-SG (v5.3.3) und der Text,
+der markiert ist, sobald das Fenster aufgeht (v5.3.4). Drei davon waren
+echte Fehler — nur eben nicht der, nach dem gesucht wurde.
+
 ## v5.3.4
 
 ### ⌨ Der Text ist markiert, sobald das Fenster aufgeht

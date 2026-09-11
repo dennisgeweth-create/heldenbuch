@@ -260,7 +260,7 @@ const Sheet = () => {
                   Spielleitung der KI hinlegen. */}
               {isDmMode && (
                 <button className="kopf-knopf" title="Den ganzen Bogen als Text — zum Weitergeben an eine KI"
-                  onClick={()=>{ setTextKopiert(false); setTextOffen(true); }}>
+                  onClick={()=>setTextOffen(true)}>
                   <span className="kopf-zeichen">📋</span><span className="kopf-wort">Als Text</span>
                 </button>
               )}

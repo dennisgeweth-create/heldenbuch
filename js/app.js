@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.3.4';
+const HB_VERSION = 'v5.3.5';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -17775,10 +17775,7 @@ const Sheet = () => {
   }, isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "kopf-knopf",
     title: "Den ganzen Bogen als Text \u2014 zum Weitergeben an eine KI",
-    onClick: () => {
-      setTextKopiert(false);
-      setTextOffen(true);
-    }
+    onClick: () => setTextOffen(true)
   }, /*#__PURE__*/React.createElement("span", {
     className: "kopf-zeichen"
   }, "\uD83D\uDCCB"), /*#__PURE__*/React.createElement("span", {
