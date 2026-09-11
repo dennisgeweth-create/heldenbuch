@@ -1,0 +1,1586 @@
+{
+  "hinweis": "Vorführdaten für demo.html — erfundene Helden, kein echter Spielstand.",
+  "konto": {
+    "id": "demo-spieler",
+    "name": "Gast",
+    "gruppen": [
+      {
+        "session_code": "DEMO",
+        "rolle": "spieler"
+      }
+    ],
+    "ist_admin": false
+  },
+  "bibliothek": {
+    "_adventures": [
+      {
+        "id": "demo",
+        "name": "Die Mühle am Schwarzbach"
+      }
+    ],
+    "_laeden": {
+      "demo": {
+        "name": "Bogens Krämerladen",
+        "kauf": 0.4,
+        "waren": [
+          {
+            "id": "lw1",
+            "name": "Fackel",
+            "preis": 1,
+            "notiz": "brennt eine Stunde"
+          },
+          {
+            "id": "lw2",
+            "name": "Seil aus Hanf (15 m)",
+            "preis": 100,
+            "notiz": ""
+          },
+          {
+            "id": "lw3",
+            "name": "Reiserationen",
+            "preis": 50,
+            "notiz": "einen Tag"
+          },
+          {
+            "id": "lw4",
+            "name": "Trank der Heilung",
+            "preis": 5000,
+            "notiz": "letztes Stück"
+          },
+          {
+            "id": "lw5",
+            "name": "Kletterausrüstung",
+            "preis": 2500,
+            "notiz": ""
+          },
+          {
+            "id": "lw6",
+            "name": "Öl (Krug)",
+            "preis": 10,
+            "notiz": ""
+          },
+          {
+            "id": "lw7",
+            "name": "Weihwasser",
+            "preis": 2500,
+            "notiz": "kommt vom Kloster, dauert"
+          },
+          {
+            "id": "lw8",
+            "name": "Winterumhang",
+            "preis": 500,
+            "notiz": ""
+          }
+        ]
+      }
+    },
+    "item": [
+      {
+        "id": "db1",
+        "name": "Trank der Heilung",
+        "qty": 1,
+        "weight": "0,25",
+        "rarity": "gewöhnlich",
+        "description": "Heilt 2W4 + 2 Trefferpunkte. Eine Aktion.",
+        "tags": [],
+        "source": "",
+        "effects": [],
+        "effectsActive": false,
+        "kampf": false,
+        "gearKind": "",
+        "armorType": "",
+        "baseAC": 0,
+        "acBonus": 0
+      },
+      {
+        "id": "db2",
+        "name": "Fackel",
+        "qty": 1,
+        "weight": "0,5",
+        "rarity": "gewöhnlich",
+        "description": "Brennt eine Stunde und leuchtet 6 m weit hell.",
+        "tags": [],
+        "source": "",
+        "effects": [],
+        "effectsActive": false,
+        "kampf": false,
+        "gearKind": "",
+        "armorType": "",
+        "baseAC": 0,
+        "acBonus": 0
+      },
+      {
+        "id": "db3",
+        "name": "Weihwasser",
+        "qty": 1,
+        "weight": "0,5",
+        "rarity": "gewöhnlich",
+        "description": "Als improvisierte Wurfwaffe: 2W6 gleißender Schaden gegen Untote und Unholde.",
+        "tags": [],
+        "source": "",
+        "effects": [],
+        "effectsActive": false,
+        "kampf": false,
+        "gearKind": "",
+        "armorType": "",
+        "baseAC": 0,
+        "acBonus": 0
+      }
+    ]
+  },
+  "helden": [
+    {
+      "id": "h-brunhilde",
+      "name": "Brunhilde Eisenfaust",
+      "race": "Bergzwergin",
+      "charClass": "Kämpfer",
+      "level": 5,
+      "multiclasses": [],
+      "hp": 38,
+      "maxHp": 44,
+      "tempHp": 0,
+      "ac": 10,
+      "speed": 7.5,
+      "initiative": 0,
+      "profBonus": 3,
+      "inspiration": 1,
+      "inspirationMax": 1,
+      "str": 16,
+      "dex": 12,
+      "con": 16,
+      "int": 10,
+      "wis": 13,
+      "cha": 8,
+      "portrait": "",
+      "background": "Soldatin",
+      "notes": "Sucht die, die ihren Clan aus Eisenfurt vertrieben haben. Trinkt nicht, seit sie weiß, warum.",
+      "notesList": [
+        {
+          "id": "n-b1",
+          "title": "Der Müller lügt",
+          "tags": [
+            "Spur"
+          ],
+          "content": "Er sagt, die Mühle stehe seit dem Frühjahr still. Das Mehl in der Kammer ist keine zwei Wochen alt."
+        }
+      ],
+      "features": [
+        {
+          "id": "f-b1",
+          "name": "Zweiter Wind",
+          "source": "Kämpfer 1",
+          "description": "Als Bonusaktion 1W10 + Stufe Trefferpunkte zurück. Einmal je Rast.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-b2",
+          "name": "Kampfstil: Verteidigung",
+          "source": "Kämpfer 1",
+          "description": "Solange sie eine Rüstung trägt: +1 auf die Rüstungsklasse.",
+          "effects": [
+            {
+              "id": "e6vr5n",
+              "target": "ac",
+              "mode": "bonus",
+              "value": 1
+            }
+          ],
+          "effectsActive": true
+        },
+        {
+          "id": "f-b3",
+          "name": "Aktionsschub",
+          "source": "Kämpfer 2",
+          "description": "Eine zusätzliche Aktion in ihrem Zug. Einmal je Rast.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-b4",
+          "name": "Verbesserter Kritischer Treffer",
+          "source": "Champion 3",
+          "description": "Ihre Angriffe treffen schon bei einer 19 kritisch.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-b5",
+          "name": "Zwergische Zähigkeit",
+          "source": "Bergzwergin",
+          "description": "Vorteil auf Rettungswürfe gegen Gift, und halber Schaden davon.",
+          "effects": [],
+          "effectsActive": true
+        }
+      ],
+      "weapons": [
+        {
+          "id": "w-hammer",
+          "name": "Kriegshammer des Vaters",
+          "attrKey": "str",
+          "proficient": true,
+          "range": "1,5 m",
+          "attackBonus": 1,
+          "damage": "1W8",
+          "damageType": "Wucht",
+          "description": "Nachgeschmiedet aus dem, was vom Original übrig war. Der Kopf trägt eine Runenkerbe, die niemand mehr lesen kann.",
+          "properties": [
+            "Vielseitig"
+          ],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        },
+        {
+          "id": "w-beil",
+          "name": "Wurfbeil",
+          "attrKey": "str",
+          "proficient": true,
+          "range": "6 / 18 m",
+          "attackBonus": 0,
+          "damage": "1W6",
+          "damageType": "Hieb",
+          "description": "",
+          "properties": [
+            "Leicht",
+            "Wurfwaffe"
+          ],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        }
+      ],
+      "spells": [],
+      "skillProfs": [
+        "athletik",
+        "einschuechtern",
+        "ueberleben"
+      ],
+      "expertiseProfs": [],
+      "jackOfAllTrades": false,
+      "languages": [
+        "Gemeinsprache",
+        "Zwergisch"
+      ],
+      "toolProfs": [
+        "Schmiedewerkzeug",
+        "Würfelspiel"
+      ],
+      "weaponProfs": [
+        "Einfache Waffen",
+        "Kriegswaffen"
+      ],
+      "savingThrowProfs": [
+        "str",
+        "con"
+      ],
+      "sorceryPoints": {
+        "max": 0,
+        "used": 0
+      },
+      "resources": [
+        {
+          "id": "r-b1",
+          "name": "Zweiter Wind",
+          "max": 1,
+          "used": 1,
+          "color": "#c9a84c",
+          "restType": "kurz"
+        },
+        {
+          "id": "r-b2",
+          "name": "Aktionsschub",
+          "max": 1,
+          "used": 0,
+          "color": "#a85c3c",
+          "restType": "kurz"
+        }
+      ],
+      "wsFavorites": [],
+      "inventory": [
+        {
+          "id": "i-kette",
+          "name": "Kettenpanzer",
+          "qty": 1,
+          "weight": "25",
+          "rarity": "gewöhnlich",
+          "description": "Schwer, laut, und sie schläft darin.",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "ruestung",
+          "armorType": "heavy",
+          "baseAC": 16,
+          "acBonus": 0
+        },
+        {
+          "id": "i-schild",
+          "name": "Schild",
+          "qty": 1,
+          "weight": "3",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "schild",
+          "armorType": "shield",
+          "baseAC": 2,
+          "acBonus": 0
+        },
+        {
+          "id": "i-trank",
+          "name": "Trank der Heilung",
+          "qty": 2,
+          "weight": "0,25",
+          "rarity": "gewöhnlich",
+          "description": "Heilt 2W4 + 2 Trefferpunkte.",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        },
+        {
+          "id": "i-seil",
+          "name": "Seil aus Hanf (15 m)",
+          "qty": 1,
+          "weight": "5",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        }
+      ],
+      "currency": {
+        "pp": 0,
+        "gp": 48,
+        "ep": 0,
+        "sp": 6,
+        "cp": 2
+      },
+      "equipment": [],
+      "acBonuses": [],
+      "gear": {
+        "ruestung": {
+          "k": "i",
+          "id": "i-kette"
+        },
+        "nebenhand": {
+          "k": "i",
+          "id": "i-schild"
+        },
+        "haupthand": {
+          "k": "w",
+          "id": "w-hammer"
+        }
+      },
+      "gearMigrated": 3,
+      "adventure": "demo",
+      "spellSlots": {
+        "1": {
+          "max": 0,
+          "used": 0
+        },
+        "2": {
+          "max": 0,
+          "used": 0
+        },
+        "3": {
+          "max": 0,
+          "used": 0
+        },
+        "4": {
+          "max": 0,
+          "used": 0
+        },
+        "5": {
+          "max": 0,
+          "used": 0
+        },
+        "6": {
+          "max": 0,
+          "used": 0
+        },
+        "7": {
+          "max": 0,
+          "used": 0
+        },
+        "8": {
+          "max": 0,
+          "used": 0
+        },
+        "9": {
+          "max": 0,
+          "used": 0
+        }
+      },
+      "subclass": "Champion",
+      "armorProfs": [
+        "Leicht",
+        "Mittel",
+        "Schwer",
+        "Schilde"
+      ],
+      "stickyFields": [
+        "ac",
+        "initiative",
+        "speed",
+        "profBonus",
+        "hp"
+      ]
+    },
+    {
+      "id": "h-daemmerlicht",
+      "name": "Dämmerlicht",
+      "race": "Waldelfe",
+      "charClass": "Waldläufer",
+      "level": 4,
+      "multiclasses": [],
+      "hp": 27,
+      "maxHp": 34,
+      "tempHp": 0,
+      "ac": 10,
+      "speed": 10.5,
+      "initiative": 0,
+      "profBonus": 2,
+      "inspiration": 0,
+      "inspirationMax": 1,
+      "str": 10,
+      "dex": 18,
+      "con": 14,
+      "int": 11,
+      "wis": 15,
+      "cha": 9,
+      "portrait": "",
+      "background": "Außenseiterin",
+      "notes": "Spricht wenig. Wenn sie spricht, dann über Spuren.",
+      "notesList": [],
+      "features": [
+        {
+          "id": "f-d1",
+          "name": "Erzfeind: Untote",
+          "source": "Waldläufer 1",
+          "description": "Vorteil auf Überlebenskunst, um ihre Spuren zu lesen, und auf Intelligenzwürfe, um sich an sie zu erinnern.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-d2",
+          "name": "Kampfstil: Bogenschießen",
+          "source": "Waldläufer 2",
+          "description": "+2 auf Angriffswürfe mit Fernkampfwaffen.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-d3",
+          "name": "Wildnisläuferin",
+          "source": "Waldläufer 1",
+          "description": "Schwieriges Gelände in ihrer bevorzugten Landschaft hält die Gruppe nicht auf.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-d4",
+          "name": "Maskerade der Wildnis",
+          "source": "Waldläufer 3",
+          "description": "Sie kann versuchen, sich zu verbergen, wenn sie nur leicht verdeckt ist.",
+          "effects": [],
+          "effectsActive": true
+        }
+      ],
+      "weapons": [
+        {
+          "id": "w-bogen",
+          "name": "Langbogen",
+          "attrKey": "dex",
+          "proficient": true,
+          "range": "45 / 180 m",
+          "attackBonus": 0,
+          "damage": "1W8",
+          "damageType": "Stich",
+          "description": "Aus Mondholz. Der Griff ist mit dem Haar ihrer Schwester umwickelt.",
+          "properties": [
+            "Zweihändig",
+            "Munition"
+          ],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        },
+        {
+          "id": "w-kurz",
+          "name": "Kurzschwert",
+          "attrKey": "fin",
+          "proficient": true,
+          "range": "1,5 m",
+          "attackBonus": 0,
+          "damage": "1W6",
+          "damageType": "Stich",
+          "description": "",
+          "properties": [
+            "Finesse",
+            "Leicht"
+          ],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        }
+      ],
+      "spells": [
+        {
+          "id": "s-d1",
+          "name": "Jagdzeichen",
+          "level": 1,
+          "school": "Weissagung",
+          "castingTime": "1 Bonusaktion",
+          "range": "27 m",
+          "duration": "Konzentration, bis zu 1 Stunde",
+          "components": "V",
+          "description": "Sie wählt eine Kreatur in Reichweite und zeichnet sie als Beute. Bis der Zauber endet, richtet sie 1W6 zusätzlichen Schaden an, wenn sie das Ziel mit einer Waffe trifft.",
+          "prepared": true
+        },
+        {
+          "id": "s-d2",
+          "name": "Ranken",
+          "level": 1,
+          "school": "Beschwörung",
+          "castingTime": "1 Aktion",
+          "range": "9 m",
+          "duration": "10 Minuten",
+          "components": "V, S",
+          "description": "Dichtes Gestrüpp überzieht ein Quadrat von 6 m Kantenlänge und macht es zu schwierigem Gelände.",
+          "prepared": true
+        },
+        {
+          "id": "s-d3",
+          "name": "Heilende Berührung",
+          "level": 1,
+          "school": "Hervorrufung",
+          "castingTime": "1 Aktion",
+          "range": "Berührung",
+          "duration": "Sofort",
+          "components": "V, S",
+          "description": "Eine Kreatur, die sie berührt, erhält 1W8 + Weisheitsmodifikator Trefferpunkte zurück.",
+          "prepared": false
+        }
+      ],
+      "skillProfs": [
+        "heimlichkeit",
+        "ueberleben",
+        "aufmerksamkeit",
+        "natur"
+      ],
+      "expertiseProfs": [],
+      "jackOfAllTrades": false,
+      "languages": [
+        "Gemeinsprache",
+        "Elfisch"
+      ],
+      "toolProfs": [],
+      "weaponProfs": [
+        "Einfache Waffen",
+        "Kriegswaffen"
+      ],
+      "savingThrowProfs": [
+        "str",
+        "dex"
+      ],
+      "sorceryPoints": {
+        "max": 0,
+        "used": 0
+      },
+      "resources": [],
+      "wsFavorites": [],
+      "inventory": [
+        {
+          "id": "i-leder",
+          "name": "Lederrüstung",
+          "qty": 1,
+          "weight": "5",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "ruestung",
+          "armorType": "light",
+          "baseAC": 11,
+          "acBonus": 0
+        },
+        {
+          "id": "i-umhang",
+          "name": "Umhang der Elfen",
+          "qty": 1,
+          "weight": "0,5",
+          "rarity": "selten",
+          "description": "Wer ihn trägt, verschwindet im Unterholz, sobald er stillsteht.",
+          "tags": [],
+          "source": "",
+          "effects": [
+            {
+              "id": "e754zy",
+              "target": "adv_stealth",
+              "mode": "bonus",
+              "value": 0
+            }
+          ],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "umhang",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        },
+        {
+          "id": "i-koecher",
+          "name": "Köcher mit 20 Pfeilen",
+          "qty": 1,
+          "weight": "0,5",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        },
+        {
+          "id": "i-ration",
+          "name": "Reiserationen",
+          "qty": 6,
+          "weight": "1",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        }
+      ],
+      "currency": {
+        "pp": 0,
+        "gp": 12,
+        "ep": 0,
+        "sp": 14,
+        "cp": 8
+      },
+      "equipment": [],
+      "acBonuses": [],
+      "gear": {
+        "ruestung": {
+          "k": "i",
+          "id": "i-leder"
+        },
+        "umhang": {
+          "k": "i",
+          "id": "i-umhang"
+        },
+        "haupthand": {
+          "k": "w",
+          "id": "w-bogen"
+        }
+      },
+      "gearMigrated": 3,
+      "adventure": "demo",
+      "spellSlots": {
+        "1": {
+          "max": 3,
+          "used": 1
+        },
+        "2": {
+          "max": 0,
+          "used": 0
+        },
+        "3": {
+          "max": 0,
+          "used": 0
+        },
+        "4": {
+          "max": 0,
+          "used": 0
+        },
+        "5": {
+          "max": 0,
+          "used": 0
+        },
+        "6": {
+          "max": 0,
+          "used": 0
+        },
+        "7": {
+          "max": 0,
+          "used": 0
+        },
+        "8": {
+          "max": 0,
+          "used": 0
+        },
+        "9": {
+          "max": 0,
+          "used": 0
+        }
+      },
+      "subclass": "Jägerin",
+      "armorProfs": [
+        "Leicht",
+        "Mittel",
+        "Schilde"
+      ]
+    },
+    {
+      "id": "h-alvara",
+      "name": "Alvara Sonnenhand",
+      "race": "Mensch",
+      "charClass": "Kleriker",
+      "level": 4,
+      "multiclasses": [],
+      "hp": 25,
+      "maxHp": 31,
+      "tempHp": 4,
+      "ac": 10,
+      "speed": 9,
+      "initiative": 0,
+      "profBonus": 2,
+      "inspiration": 0,
+      "inspirationMax": 1,
+      "str": 13,
+      "dex": 10,
+      "con": 14,
+      "int": 12,
+      "wis": 17,
+      "cha": 11,
+      "portrait": "",
+      "background": "Gelehrte",
+      "notes": "Kam wegen der Bibliothek. Bleibt wegen der Leute.",
+      "notesList": [
+        {
+          "id": "n-a1",
+          "title": "Was im Keller stand",
+          "tags": [
+            "Rätsel"
+          ],
+          "content": "Der Kreis auf dem Boden ist kein Beschwörungskreis. Er hält etwas drinnen, nicht draußen."
+        }
+      ],
+      "features": [
+        {
+          "id": "f-a1",
+          "name": "Jüngerin des Lebens",
+          "source": "Lebensdomäne 1",
+          "description": "Ein Heilzauber vom 1. Grad oder höher gibt zusätzlich 2 + Grad Trefferpunkte zurück.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-a2",
+          "name": "Kanal göttlicher Macht: Erhaltung des Lebens",
+          "source": "Lebensdomäne 2",
+          "description": "Sie verteilt Trefferpunkte in Höhe des Fünffachen ihrer Klassenstufe an Kreaturen im Umkreis von 9 m — höchstens bis zur Hälfte ihres Maximums.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-a3",
+          "name": "Untote vertreiben",
+          "source": "Kleriker 2",
+          "description": "Jeder Untote im Umkreis von 9 m muss einen Weisheitsrettungswurf bestehen oder eine Minute lang fliehen.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-a4",
+          "name": "Schwere Rüstung",
+          "source": "Lebensdomäne 1",
+          "description": "Übung mit schwerer Rüstung.",
+          "effects": [],
+          "effectsActive": true
+        }
+      ],
+      "weapons": [
+        {
+          "id": "w-kolben",
+          "name": "Streitkolben",
+          "attrKey": "str",
+          "proficient": true,
+          "range": "1,5 m",
+          "attackBonus": 0,
+          "damage": "1W6",
+          "damageType": "Wucht",
+          "description": "",
+          "properties": [],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        }
+      ],
+      "spells": [
+        {
+          "id": "s-a1",
+          "name": "Licht",
+          "level": 0,
+          "school": "Hervorrufung",
+          "castingTime": "1 Aktion",
+          "range": "Berührung",
+          "duration": "1 Stunde",
+          "components": "V, M",
+          "description": "Ein Gegenstand leuchtet wie eine Fackel.",
+          "prepared": true
+        },
+        {
+          "id": "s-a2",
+          "name": "Heiliger Funke",
+          "level": 0,
+          "school": "Hervorrufung",
+          "castingTime": "1 Aktion",
+          "range": "18 m",
+          "duration": "Sofort",
+          "components": "V, S",
+          "description": "Das Ziel muss einen Geschicklichkeitsrettungswurf bestehen oder erleidet 1W8 gleißenden Schaden.",
+          "prepared": true
+        },
+        {
+          "id": "s-a3",
+          "name": "Heilendes Wort",
+          "level": 1,
+          "school": "Hervorrufung",
+          "castingTime": "1 Bonusaktion",
+          "range": "18 m",
+          "duration": "Sofort",
+          "components": "V",
+          "description": "Eine Kreatur, die sie sehen kann, erhält 1W4 + Zaubermodifikator Trefferpunkte zurück.",
+          "prepared": true
+        },
+        {
+          "id": "s-a4",
+          "name": "Segnen",
+          "level": 1,
+          "school": "Verzauberung",
+          "castingTime": "1 Aktion",
+          "range": "9 m",
+          "duration": "Konzentration, bis zu 1 Minute",
+          "components": "V, S, M",
+          "description": "Bis zu drei Kreaturen würfeln 1W4 zusätzlich auf jeden Angriffswurf und jeden Rettungswurf.",
+          "prepared": true
+        },
+        {
+          "id": "s-a5",
+          "name": "Schild des Glaubens",
+          "level": 1,
+          "school": "Bannmagie",
+          "castingTime": "1 Bonusaktion",
+          "range": "18 m",
+          "duration": "Konzentration, bis zu 10 Minuten",
+          "components": "V, S, M",
+          "description": "Eine Kreatur erhält +2 auf die Rüstungsklasse.",
+          "prepared": false
+        },
+        {
+          "id": "s-a6",
+          "name": "Geistige Waffe",
+          "level": 2,
+          "school": "Hervorrufung",
+          "castingTime": "1 Bonusaktion",
+          "range": "18 m",
+          "duration": "1 Minute",
+          "components": "V, S",
+          "description": "Eine schwebende Waffe aus Kraft greift als Bonusaktion an: 1W8 + Zaubermodifikator Energieschaden.",
+          "prepared": true
+        },
+        {
+          "id": "s-a7",
+          "name": "Person heilen",
+          "level": 2,
+          "school": "Hervorrufung",
+          "castingTime": "1 Aktion",
+          "range": "Berührung",
+          "duration": "Sofort",
+          "components": "V, S",
+          "description": "Eine Kreatur erhält 70 Trefferpunkte zurück und wird von Blindheit, Taubheit und Krankheit befreit.",
+          "prepared": true
+        }
+      ],
+      "skillProfs": [
+        "religion",
+        "medizin",
+        "einblick",
+        "geschichte"
+      ],
+      "expertiseProfs": [],
+      "jackOfAllTrades": false,
+      "languages": [
+        "Gemeinsprache",
+        "Himmlisch",
+        "Zwergisch"
+      ],
+      "toolProfs": [
+        "Kräuterkundeset"
+      ],
+      "weaponProfs": [
+        "Einfache Waffen"
+      ],
+      "savingThrowProfs": [
+        "wis",
+        "cha"
+      ],
+      "sorceryPoints": {
+        "max": 0,
+        "used": 0
+      },
+      "resources": [
+        {
+          "id": "r-a1",
+          "name": "Kanal göttlicher Macht",
+          "max": 1,
+          "used": 0,
+          "color": "#e0c040",
+          "restType": "kurz"
+        }
+      ],
+      "wsFavorites": [],
+      "inventory": [
+        {
+          "id": "i-schuppen",
+          "name": "Schuppenpanzer",
+          "qty": 1,
+          "weight": "22.5",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "ruestung",
+          "armorType": "medium",
+          "baseAC": 14,
+          "acBonus": 0
+        },
+        {
+          "id": "i-schild2",
+          "name": "Schild mit Sonnenzeichen",
+          "qty": 1,
+          "weight": "3",
+          "rarity": "gewöhnlich",
+          "description": "Das Zeichen ist frisch aufgemalt. Der Schild darunter ist es nicht.",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "schild",
+          "armorType": "shield",
+          "baseAC": 2,
+          "acBonus": 0
+        },
+        {
+          "id": "i-symbol",
+          "name": "Heiliges Symbol",
+          "qty": 1,
+          "weight": "0,5",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "hals",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        },
+        {
+          "id": "i-weih",
+          "name": "Weihwasser",
+          "qty": 2,
+          "weight": "0,5",
+          "rarity": "gewöhnlich",
+          "description": "Als Aktion werfen: 2W6 gleißender Schaden gegen Untote.",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        }
+      ],
+      "currency": {
+        "pp": 1,
+        "gp": 22,
+        "ep": 0,
+        "sp": 0,
+        "cp": 0
+      },
+      "equipment": [],
+      "acBonuses": [],
+      "gear": {
+        "ruestung": {
+          "k": "i",
+          "id": "i-schuppen"
+        },
+        "nebenhand": {
+          "k": "i",
+          "id": "i-schild2"
+        },
+        "hals": {
+          "k": "i",
+          "id": "i-symbol"
+        },
+        "haupthand": {
+          "k": "w",
+          "id": "w-kolben"
+        }
+      },
+      "gearMigrated": 3,
+      "adventure": "demo",
+      "spellSlots": {
+        "1": {
+          "max": 4,
+          "used": 2
+        },
+        "2": {
+          "max": 3,
+          "used": 1
+        },
+        "3": {
+          "max": 0,
+          "used": 0
+        },
+        "4": {
+          "max": 0,
+          "used": 0
+        },
+        "5": {
+          "max": 0,
+          "used": 0
+        },
+        "6": {
+          "max": 0,
+          "used": 0
+        },
+        "7": {
+          "max": 0,
+          "used": 0
+        },
+        "8": {
+          "max": 0,
+          "used": 0
+        },
+        "9": {
+          "max": 0,
+          "used": 0
+        }
+      },
+      "subclass": "Lebensdomäne",
+      "armorProfs": [
+        "Leicht",
+        "Mittel",
+        "Schilde",
+        "Schwer"
+      ]
+    },
+    {
+      "id": "h-fitz",
+      "name": "Fitz Wieselflink",
+      "race": "Halbling (Leichtfuß)",
+      "charClass": "Schurke",
+      "level": 4,
+      "multiclasses": [],
+      "hp": 22,
+      "maxHp": 27,
+      "tempHp": 0,
+      "ac": 10,
+      "speed": 7.5,
+      "initiative": 0,
+      "profBonus": 2,
+      "inspiration": 0,
+      "inspirationMax": 1,
+      "str": 8,
+      "dex": 18,
+      "con": 12,
+      "int": 14,
+      "wis": 12,
+      "cha": 14,
+      "portrait": "",
+      "background": "Gassenkind",
+      "notes": "Zählt beim Reden das Geld der anderen mit. Nicht aus Absicht — es geht einfach von selbst.",
+      "notesList": [],
+      "features": [
+        {
+          "id": "f-f1",
+          "name": "Verstohlener Angriff (2W6)",
+          "source": "Schurke 1",
+          "description": "Einmal je Zug 2W6 zusätzlichen Schaden, wenn er Vorteil hat oder ein Verbündeter neben dem Ziel steht.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-f2",
+          "name": "Gerissene Aktion",
+          "source": "Schurke 2",
+          "description": "Als Bonusaktion spurten, zurückziehen oder verstecken.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-f3",
+          "name": "Meuchelmörder",
+          "source": "Meuchler 3",
+          "description": "Vorteil gegen alles, was noch nicht gehandelt hat. Ein Treffer gegen einen Überraschten ist ein kritischer Treffer.",
+          "effects": [],
+          "effectsActive": true
+        },
+        {
+          "id": "f-f4",
+          "name": "Glückspilz",
+          "source": "Halbling",
+          "description": "Eine 1 auf dem W20 darf er einmal neu würfeln.",
+          "effects": [],
+          "effectsActive": true
+        }
+      ],
+      "weapons": [
+        {
+          "id": "w-rapier",
+          "name": "Rapier",
+          "attrKey": "fin",
+          "proficient": true,
+          "range": "1,5 m",
+          "attackBonus": 0,
+          "damage": "1W8",
+          "damageType": "Stich",
+          "description": "",
+          "properties": [
+            "Finesse"
+          ],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        },
+        {
+          "id": "w-armbrust",
+          "name": "Handarmbrust",
+          "attrKey": "dex",
+          "proficient": true,
+          "range": "9 / 36 m",
+          "attackBonus": 0,
+          "damage": "1W6",
+          "damageType": "Stich",
+          "description": "",
+          "properties": [
+            "Leicht",
+            "Munition",
+            "Nachladen"
+          ],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        },
+        {
+          "id": "w-dolch",
+          "name": "Dolch",
+          "attrKey": "fin",
+          "proficient": true,
+          "range": "1,5 m",
+          "attackBonus": 0,
+          "damage": "1W4",
+          "damageType": "Stich",
+          "description": "",
+          "properties": [
+            "Finesse",
+            "Leicht",
+            "Wurfwaffe"
+          ],
+          "equipped": false,
+          "imageData": "",
+          "effects": []
+        }
+      ],
+      "spells": [],
+      "skillProfs": [
+        "heimlichkeit",
+        "fingerfert",
+        "taueschen",
+        "akrobatik",
+        "nachforschung",
+        "aufmerksamkeit"
+      ],
+      "expertiseProfs": [
+        "heimlichkeit",
+        "fingerfert"
+      ],
+      "jackOfAllTrades": false,
+      "languages": [
+        "Gemeinsprache",
+        "Halblingisch",
+        "Diebessprache"
+      ],
+      "toolProfs": [
+        "Diebeswerkzeug",
+        "Kartenspiel"
+      ],
+      "weaponProfs": [
+        "Einfache Waffen",
+        "Handarmbrust",
+        "Langschwert",
+        "Rapier",
+        "Kurzschwert"
+      ],
+      "savingThrowProfs": [
+        "dex",
+        "int"
+      ],
+      "sorceryPoints": {
+        "max": 0,
+        "used": 0
+      },
+      "resources": [
+        {
+          "id": "r-f1",
+          "name": "Glückspilz heute genutzt",
+          "max": 3,
+          "used": 1,
+          "color": "#7fb3d5",
+          "restType": "tag"
+        }
+      ],
+      "wsFavorites": [],
+      "inventory": [
+        {
+          "id": "i-leder2",
+          "name": "Lederrüstung",
+          "qty": 1,
+          "weight": "5",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "ruestung",
+          "armorType": "light",
+          "baseAC": 11,
+          "acBonus": 0
+        },
+        {
+          "id": "i-diebe",
+          "name": "Diebeswerkzeug",
+          "qty": 1,
+          "weight": "0,5",
+          "rarity": "gewöhnlich",
+          "description": "Feilen, Dietriche, ein kleiner Spiegel an einem Stiel.",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        },
+        {
+          "id": "i-bolzen",
+          "name": "Armbrustbolzen",
+          "qty": 20,
+          "weight": "0,05",
+          "rarity": "gewöhnlich",
+          "description": "",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        },
+        {
+          "id": "i-ring",
+          "name": "Silberring mit Wappen",
+          "qty": 1,
+          "weight": "0",
+          "rarity": "gewöhnlich",
+          "description": "Gehört jemandem, der ihn noch nicht vermisst.",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": false,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0
+        }
+      ],
+      "currency": {
+        "pp": 0,
+        "gp": 6,
+        "ep": 3,
+        "sp": 41,
+        "cp": 77
+      },
+      "equipment": [],
+      "acBonuses": [],
+      "gear": {
+        "ruestung": {
+          "k": "i",
+          "id": "i-leder2"
+        },
+        "haupthand": {
+          "k": "w",
+          "id": "w-rapier"
+        },
+        "fernkampf": {
+          "k": "w",
+          "id": "w-armbrust"
+        }
+      },
+      "gearMigrated": 3,
+      "adventure": "demo",
+      "spellSlots": {
+        "1": {
+          "max": 0,
+          "used": 0
+        },
+        "2": {
+          "max": 0,
+          "used": 0
+        },
+        "3": {
+          "max": 0,
+          "used": 0
+        },
+        "4": {
+          "max": 0,
+          "used": 0
+        },
+        "5": {
+          "max": 0,
+          "used": 0
+        },
+        "6": {
+          "max": 0,
+          "used": 0
+        },
+        "7": {
+          "max": 0,
+          "used": 0
+        },
+        "8": {
+          "max": 0,
+          "used": 0
+        },
+        "9": {
+          "max": 0,
+          "used": 0
+        }
+      },
+      "subclass": "Meuchler",
+      "armorProfs": [
+        "Leicht"
+      ]
+    }
+  ],
+  "beute": {
+    "titel": "Aus der Truhe im Keller der Mühle",
+    "muenzen": {
+      "pp": 0,
+      "gp": 184,
+      "ep": 0,
+      "sp": 62,
+      "cp": 40
+    },
+    "stuecke": [
+      {
+        "id": "b1",
+        "name": "Ring des Schutzes",
+        "anzahl": 1,
+        "notiz": "schimmert blau, wenn Magie in der Nähe ist"
+      },
+      {
+        "id": "b2",
+        "name": "Trank der Heilung",
+        "anzahl": 3,
+        "notiz": ""
+      },
+      {
+        "id": "b3",
+        "name": "Silberleuchter",
+        "anzahl": 2,
+        "notiz": "im Wert von je 25 Gold"
+      },
+      {
+        "id": "b4",
+        "name": "Mühlenbuch, wasserfleckig",
+        "anzahl": 1,
+        "notiz": "die letzten zwölf Seiten sind herausgerissen",
+        "an": "h-alvara",
+        "anName": "Alvara Sonnenhand"
+      }
+    ]
+  },
+  "kampf": {
+    "name": "Am Mühlrad",
+    "phase": "kampf",
+    "aktiv": true,
+    "runde": 3,
+    "zug": 0,
+    "gezeigt": true,
+    "karte": {
+      "breite": 14,
+      "hoehe": 9,
+      "feldMeter": 1.5,
+      "zeigen": true,
+      "gelaende": "..###....TT.....#..#...T......#..+....~~~~..####....~~~~.........x~~~~..........~~~~.T........~~~~TT.....//.~~~~..............",
+      "figuren": {
+        "t1": {
+          "x": 4,
+          "y": 4,
+          "k": "Br"
+        },
+        "t2": {
+          "x": 3,
+          "y": 6,
+          "k": "Al"
+        },
+        "t3": {
+          "x": 2,
+          "y": 7,
+          "k": "Dä"
+        },
+        "t4": {
+          "x": 5,
+          "y": 5,
+          "k": "Fi"
+        },
+        "t5": {
+          "x": 8,
+          "y": 3,
+          "k": "g1"
+        },
+        "t6": {
+          "x": 9,
+          "y": 5,
+          "k": "g2"
+        },
+        "t7": {
+          "x": 7,
+          "y": 1,
+          "k": "An",
+          "h": 3
+        }
+      }
+    },
+    "teilnehmer": [
+      {
+        "id": "t3",
+        "art": "held",
+        "charId": "h-daemmerlicht",
+        "ini": 21,
+        "zustaende": [],
+        "erschoepfung": 0,
+        "vorteil": true,
+        "nachteil": false
+      },
+      {
+        "id": "t5",
+        "art": "gegner",
+        "name": "Ghul",
+        "ini": 18,
+        "zustaende": [],
+        "zustand": "Angeschlagen",
+        "balken": 0.55,
+        "erschoepfung": 0
+      },
+      {
+        "id": "t1",
+        "art": "held",
+        "charId": "h-brunhilde",
+        "ini": 14,
+        "zustaende": [
+          "Gepackt"
+        ],
+        "erschoepfung": 0,
+        "vorteil": false,
+        "nachteil": false
+      },
+      {
+        "id": "t4",
+        "art": "held",
+        "charId": "h-fitz",
+        "ini": 13,
+        "zustaende": [],
+        "erschoepfung": 0,
+        "vorteil": false,
+        "nachteil": false
+      },
+      {
+        "id": "t6",
+        "art": "gegner",
+        "name": "Ghul",
+        "ini": 11,
+        "zustaende": [
+          "Verängstigt"
+        ],
+        "zustand": "Schwer verwundet",
+        "balken": 0.18,
+        "erschoepfung": 0
+      },
+      {
+        "id": "t2",
+        "art": "held",
+        "charId": "h-alvara",
+        "ini": 9,
+        "zustaende": [],
+        "erschoepfung": 0,
+        "vorteil": false,
+        "nachteil": false
+      },
+      {
+        "id": "t7",
+        "art": "gegner",
+        "name": "Etwas über dem Mühlrad",
+        "ini": 6,
+        "zustaende": [],
+        "zustand": "Unversehrt",
+        "balken": 1,
+        "erschoepfung": 0
+      }
+    ],
+    "log": []
+  }
+}

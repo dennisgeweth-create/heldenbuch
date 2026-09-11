@@ -49,6 +49,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `KAMPFKARTE.md` | Konzept und Stufenplan der Rasterkarte im Kampf |
 | `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — alle Stufen gebaut |
 | `PATCHNOTES.md` | wird **ausgeliefert**: die Ausgabe-Nummer in der Heldenleiste öffnet sie |
+| `demo.html`, `demo.json` | wird **ausgeliefert**: die Vorführung. Fährt dieselbe `js/app.js` hoch, aber mit eigenem Speicher im Arbeitsspeicher und Hüllen statt Server — nichts wird gespeichert, nichts geht hinaus. `demo.json` wird mit `node dev/demo-daten.js` erzeugt — aus `newChar()`, damit kein Feld fehlt |
 | `dev/` | oertliche Serverseite und Werkbankseiten zum Testen — wird nie ausgeliefert |
 | ↳ `dev/pruefungen/` | die Rechnungspruefungen, alle auf einmal mit `node dev/pruefen.js` |
 | ↳ `dev/echt.html` | **die Oberfläche am lebenden Objekt** — fährt die richtige App hoch und klickt sich durch; prüft sich selbst |

@@ -16,6 +16,21 @@ soll im Kopf rechnen dürfen.
 
 ---
 
+## ▶ Zum Anschauen, ohne irgendetwas einzurichten
+
+### **[codevermittler.net/heldenbuch2/demo.html](https://codevermittler.net/heldenbuch2/demo.html)**
+
+Eine Vorführung mit vier erfundenen Helden, einem Krämerladen, einem Fund
+aus einer Truhe, der Taverne und einem laufenden Kampf — so, wie ihn ein
+Spieler sieht. Keine Anmeldung, kein Server, **nichts wird gespeichert**:
+ein Neuladen setzt alles zurück.
+
+Sie besteht aus zwei Dateien, [`demo.html`](demo.html) und
+[`demo.json`](demo.json), und benutzt sonst genau dieselbe `js/app.js`
+wie das echte Heldenbuch.
+
+---
+
 ## Ansehen
 
 ![Der Charakterbogen](bilder/bogen.png)

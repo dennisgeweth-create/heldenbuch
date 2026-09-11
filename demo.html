@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heldenbuch — Vorführung</title>
+<meta name="description" content="Das Heldenbuch zum Anschauen: vier erfundene Helden, ein Laden, ein Fund, ein laufender Kampf. Nichts wird gespeichert.">
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="styles.css?v=dev">
+<style>
+  /* Das Band oben. Es sagt in einem Satz, was das hier ist — wer von
+     Reddit kommt, weiss sonst nicht, ob er auf eine fremde Runde
+     geraten ist. */
+  /* Bewusst ohne position und ohne z-index: die Fenster der Anwendung
+     liegen fest am oberen Rand, und am Telefon fuellen sie den Schirm.
+     Ein Band darueber verdeckte dort ihre Kopfzeile — mitsamt dem ✕,
+     mit dem man sie wieder zumacht. */
+  #demo-band { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:8px 14px; background:linear-gradient(180deg,#1b1712,#141210);
+    border-bottom:1px solid var(--gold-dim);
+    font-family:'Roboto Condensed',sans-serif; font-size:12.5px; line-height:1.5;
+    color:var(--text-secondary); }
+  #demo-band b { color:var(--gold); font-weight:600; letter-spacing:0.04em; }
+  #demo-band i { font-style:normal; color:var(--text-muted); }
+  #demo-band .wachs { flex:1 1 auto; min-width:0; }
+  #demo-band a, #demo-band button {
+    flex-shrink:0; padding:5px 11px; border-radius:4px; cursor:pointer;
+    background:var(--bg-card); border:1px solid var(--border);
+    color:var(--text-secondary); text-decoration:none;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; }
+  #demo-band a:hover, #demo-band button:hover {
+    border-color:var(--gold-dim); color:var(--gold); }
+  #demo-hinweis { padding:10px 14px; background:var(--bg-panel);
+    border-bottom:1px solid var(--border);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; line-height:1.7;
+    color:var(--text-muted); }
+  #demo-hinweis b { color:var(--text-secondary); font-weight:600; }
+  #demo-hinweis kbd { display:inline-block; padding:1px 6px; margin:0 1px;
+    border:1px solid var(--border-bright); border-radius:3px;
+    background:var(--bg-card); color:var(--gold-dim); font-family:inherit; }
+  #demo-laden { padding:60px 20px; text-align:center; color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; }
+  /* Die Anwendung rechnet mit dem ganzen Schirm — hier hat sie ihn nicht,
+     weil das Band darueber steht. Ohne diese Zeile ragt ihr Fuss unten
+     hinaus, und die Reiterleiste des Bogens liegt ausserhalb des Bildes.
+     Die Hoehe wird gemessen, nicht geraten: auf dem Telefon faellt der
+     Erklaersatz weg, und dann ist das Band niedriger. */
+  :root { --demo-kopf: 0px; }
+  .app { height:calc(100vh - var(--demo-kopf)); height:calc(100dvh - var(--demo-kopf)); }
+  @media (max-width:640px) {
+    #demo-band { font-size:12px; padding:7px 10px; }
+    #demo-hinweis { display:none; }
+  }
+</style>
+</head>
+<body>
+  <div id="demo-kopf">
+  <div id="demo-band">
+    <span class="wachs"><b>HELDENBUCH · VORFÜHRUNG</b> &nbsp;
+      <i>Erfundene Helden. Nichts wird gespeichert — ein Neuladen setzt alles zurück.</i></span>
+    <button type="button" id="demo-neu" title="Alles auf den Anfang">↺ Zurücksetzen</button>
+    <a href="https://github.com/dennisgeweth-create/heldenbuch" target="_blank" rel="noopener">Quellcode</a>
+  </div>
+  <div id="demo-hinweis">
+    Links in der Leiste liegt die Gruppe — <b>vier Helden</b>, jeder mit sieben Reitern.
+    Darunter die Knöpfe der Runde: <kbd>🏪 Bogens Krämerladen</kbd>
+    <kbd>💰 Beute</kbd> <kbd>🎰 Taverne</kbd>.
+    Der <b>Kampf</b> läuft bereits und steht als eigenes Fenster da — so sieht ihn ein
+    Spieler, nicht die Spielleitung.
+  </div>
+  </div>
+
+  <div id="demo-laden">Die Vorführung wird geladen&hellip;</div>
+  <div id="loading" style="display:none"></div>
+  <div id="root" style="display:none"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ── Ein eigener Speicher, nur im Arbeitsspeicher ───────────────
+    //
+    // Diese Seite liegt neben der echten index.html und teilt sich mit
+    // ihr die Herkunft — und damit deren localStorage. Ohne diesen
+    // Austausch überschriebe die Vorführung die Helden dessen, der hier
+    // wirklich spielt. Das darf nicht passieren, und deshalb steht es
+    // ganz oben: nichts weiter unten läuft, wenn das hier nicht klappt.
+    var fach = Object.create(null);
+    var ersatz = {
+      getItem: function (k) { return k in fach ? fach[k] : null; },
+      setItem: function (k, v) { fach[k] = String(v); },
+      removeItem: function (k) { delete fach[k]; },
+      clear: function () { for (var k in fach) delete fach[k]; },
+      key: function (i) { return Object.keys(fach)[i] || null; },
+      get length() { return Object.keys(fach).length; }
+    };
+    try {
+      Object.defineProperty(window, 'localStorage', {configurable: true, value: ersatz});
+    } catch (e) {
+      document.getElementById('demo-laden').textContent =
+        'Dieser Browser lässt den Austausch des Speichers nicht zu. '
+        + 'Die Vorführung bricht hier ab, damit sie keine echten Daten anfasst.';
+      return;
+    }
+
+    document.getElementById('demo-neu').addEventListener('click', function () {
+      location.reload();
+    });
+
+    // Die Höhe des Bandes weitergeben, damit die Anwendung darunter
+    // genau den Rest bekommt. Gemessen, weil sie sich ändert: das Band
+    // bricht um, und auf dem Telefon fällt der Erklärsatz ganz weg.
+    var kopf = document.getElementById('demo-kopf');
+    var messen = function () {
+      document.documentElement.style.setProperty(
+        '--demo-kopf', Math.round(kopf.getBoundingClientRect().height) + 'px');
+    };
+    messen();
+    window.addEventListener('resize', messen);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(messen).observe(kopf);
+
+    // ── Was gespeichert würde, wird angenommen und vergessen ───────
+    //
+    // Wichtig ist, dass es *gelingt*: eine abgewiesene Anfrage lässt die
+    // Anwendung — zu Recht — warnen, dass nichts gesichert wurde. In
+    // einer Vorführung wäre das eine Fehlermeldung ohne Fehler.
+    var nichts = function () { return Promise.resolve({}); };
+    var gut    = function () { return Promise.resolve({ok: true}); };
+    [
+      'apiAdvDmSetzen', 'apiBesitzerSetzen', 'apiBeuteNehmen', 'apiBeuteSetzen',
+      'apiDeleteChar', 'apiDeleteItem', 'apiDmDeleteEncounter', 'apiDmDeleteEnemy',
+      'apiDmImportEnemies', 'apiDmLoad', 'apiDmLoadChronik', 'apiDmLoadEncounters',
+      'apiDmLoadEnemies', 'apiDmSaveChronik', 'apiDmSaveEncounter', 'apiDmSaveEnemy',
+      'apiDmSaveLibrary', 'apiGruppeNeu', 'apiKampfAnsage', 'apiKampfAnsagen',
+      'apiKampfSetzen', 'apiKontoListe', 'apiKontoLoeschen', 'apiKontoNeu',
+      'apiKontoReset', 'apiLoadLogs', 'apiLogFrist', 'apiLogin', 'apiLogout',
+      'apiMeineDaten', 'apiMitglieder', 'apiPassAendern', 'apiPoll',
+      'apiProbeAntwort', 'apiProbeNachricht', 'apiProbeSetzen', 'apiProbeStand',
+      'apiRequest', 'apiRolleSetzen', 'apiSaveChar', 'apiSaveChars', 'apiSaveItem',
+      'apiSaveLibrary', 'apiSaveLog', 'apiSetDmPassword', 'apiSetupNoetig'
+    ].forEach(function (n) { window[n] = gut; });
+    window.apiLoadLogs = nichts;
+    window.apiPoll = nichts;
+
+    // Eine Adresse muss dastehen: ohne sie hält sich die Anwendung für
+    // unverbunden und liest ihre Helden gar nicht erst. Angerufen wird
+    // sie nie — jede Anfrage geht an die Hüllen oben.
+    window.serverCreds = function () {
+      return {url: 'https://vorfuehrung.ungueltig', code: 'DEMO',
+              pass: '', token: 'vorfuehrung'};
+    };
+    window.safeSetItem = function (k, v) {
+      try { localStorage.setItem(k, v); } catch (e) {}
+    };
+
+    // ── Die Daten ──────────────────────────────────────────────────
+    // Erst holen, dann die Anwendung starten: js/app.js zeichnet sich
+    // am Ende der Datei selbst, und was dann nicht dasteht, sieht es nie.
+    var scheitern = function (grund) {
+      document.getElementById('demo-laden').innerHTML =
+        'Die Vorführdaten liessen sich nicht laden.<br><small>' + grund + '</small>';
+    };
+
+    fetch('demo.json?v=dev').then(function (a) {
+      if (!a.ok) throw new Error('demo.json: HTTP ' + a.status);
+      return a.json();
+    }).then(function (d) {
+      localStorage.setItem('dnd_chars', JSON.stringify(d.helden));
+      localStorage.setItem('hb_library', JSON.stringify(d.bibliothek));
+      localStorage.setItem('hb_adventure', 'demo');
+      // Mit offenem Bogen anfangen. „Kein Held ausgewählt" wäre ein
+      // leerer erster Eindruck — und ausgerechnet der Bogen ist das,
+      // wonach hier jemand sucht.
+      localStorage.setItem('hb_ansicht', JSON.stringify({
+        sel: d.helden[0].id, tab: 'stats', mv: 'sheet',
+        sidebar: false, kampf: false
+      }));
+
+      window.apiMe = function () { return Promise.resolve({user: d.konto}); };
+      window.apiLoadChars = function () {
+        return Promise.resolve({
+          chars: d.helden, library: d.bibliothek,
+          owners: {}, adv_dms: {}, rev: 1, poll_token: null, log_tage: 30
+        });
+      };
+      // Fund und Kampf kommen im Spiel über dieselben zwei Fragen, die
+      // die Anwendung ohnehin im Takt stellt. Hier antworten sie jedes
+      // Mal gleich — deshalb bewegt sich nichts, und genau das ist der
+      // Sinn einer Vorführung.
+      window.apiBeuteStand = function () {
+        return Promise.resolve({beute: d.beute, stand: 1});
+      };
+      window.apiKampfStand = function () {
+        return Promise.resolve({kampf: d.kampf, stand: 1});
+      };
+
+      // ── Der erste Blick auf dem Telefon ──
+      // Ein Kampf, der beginnt, macht sein Fenster von selbst auf — das
+      // ist im Spiel genau richtig, und am Schreibtisch steht es neben
+      // dem Bogen. Am Telefon füllt es den Schirm, und wer von einem
+      // Link kommt, sieht dann nur die Initiativliste und nicht das,
+      // wonach er gesucht hat. Also hier einmal zumachen; der Knopf
+      // „⚔ Kampf" in der Leiste macht es sofort wieder auf.
+      var aufraeumen = function () {
+        if (window.innerWidth > 760) return;
+        var versuche = 0;
+        var sehen = function () {
+          var x = document.querySelector('.kampf-kopf-x');
+          if (x) { x.click(); return; }
+          if (++versuche < 40) setTimeout(sehen, 100);
+        };
+        setTimeout(sehen, 100);
+      };
+
+      var stuecke = ['js/data.js', 'js/util.js',
+                     'vendor/react.production.min.js',
+                     'vendor/react-dom.production.min.js',
+                     'js/app.js'];
+      var naechstes = function (i) {
+        if (i >= stuecke.length) {
+          document.getElementById('demo-laden').style.display = 'none';
+          return;
+        }
+        var s = document.createElement('script');
+        s.src = stuecke[i] + '?v=dev';
+        s.onload = function () { naechstes(i + 1); if (i === stuecke.length - 1) aufraeumen(); };
+        s.onerror = function () { scheitern(stuecke[i] + ' fehlt'); };
+        document.body.appendChild(s);
+      };
+      naechstes(0);
+    }).catch(function (e) { scheitern(e.message || String(e)); });
+  })();
+  </script>
+</body>
+</html>
