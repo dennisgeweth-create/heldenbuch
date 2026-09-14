@@ -804,6 +804,10 @@
   .fenster { position:relative; }
   .fenster > .form-title,
   .fenster > .fenster-kopf { padding-right:84px; }
+  /* Köpfe mit eigenem Innenabstand im style-Attribut (Waffe, Gegenstand)
+     überschrieben die 84 Punkte — und ein langer Name lief unter die
+     beiden Knöpfe. */
+  .fenster > .fenster-kopf[style] { padding-right:84px !important; }
   .fenster-knoepfe { position:sticky; top:0; z-index:6; height:0; overflow:visible;
     display:flex; justify-content:flex-end; gap:6px; pointer-events:none; }
   .fenster-knopf { pointer-events:auto; margin-top:14px; width:30px; height:30px; padding:0;

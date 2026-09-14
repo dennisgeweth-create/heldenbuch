@@ -1,5 +1,22 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.10.2
+
+### Das Kreuz klebt nicht mehr am Rand
+
+Bei **Waffe**, **Gegenstand** und **Gegnerblatt** standen Minimieren und
+Schließen einen Punkt vom rechten Rand entfernt. Diese drei Fenster legen
+ihren farbigen Kopf bis an die Kante, und die Knöpfe richteten sich nach
+dem Innenabstand des Fensters, den sie nicht haben.
+
+Der Fensterrahmen misst jetzt, wie viel Platz das Fenster lässt, und rückt
+die Knöpfe ein, bis sie **mindestens 12 Punkte** vom Rand haben. Das gilt
+für jedes Fenster, auch für künftige. Außerdem läuft ein langer Name im
+Kopf nicht mehr unter die Knöpfe.
+
+Nachgemessen wurden alle Fensterarten: die Formulare, die Fenster der
+Leiste, Taverne, Karte und Kampftracker. Die übrigen hatten schon genug Abstand.
+
 ## v5.10.1
 
 ### Waffe, Gegenstand und Gegnerblatt schweben auch

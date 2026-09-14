@@ -973,6 +973,15 @@
           const kreuze = ov ? [...ov.querySelectorAll('.fenster-kopf button, .fenster-knoepfe button')]
             .filter(b => b.textContent.trim() === '✕') : [];
           ja('  … mit genau einem Kreuz im Kopf', kreuze.length === 1, kreuze.length + ' Kreuze');
+          const box = ov && ov.querySelector('.fenster');
+          const rand = (box && kreuze[0]) ? Math.round(box.getBoundingClientRect().right - kreuze[0].getBoundingClientRect().right) : -1;
+          // In einem verborgenen Fenster rechnet der Browser mit einer
+          // Breite von fast nichts — dann ist hier nichts zu messen.
+          if (box && box.getBoundingClientRect().width > 200) {
+            ja('  … das nicht am Rand klebt (mindestens 12 Punkte)', rand >= 12, rand + ' Punkte');
+          } else {
+            melden('lauf', '  … Abstand zum Rand nicht messbar — die Seite ist nicht sichtbar');
+          }
           const eintragW = [...document.querySelectorAll('.fl-eintrag')].find(e => /Kriegshammer/.test(e.textContent));
           ja('  … und steht in der Leiste', !!eintragW);
           const miniW = ov && ov.querySelector('.fl-mini');

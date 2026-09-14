@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.10.1';
+const HB_VERSION = 'v5.10.2';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -256,6 +256,7 @@ const EinstBlock = ({
 // bekommt alles Weitere geschenkt.
 const FENSTER_LUFT = 120; // so viel bleibt immer greifbar am Rand
 const FENSTER_RAND = 12; // so viel Abstand bleibt, wenn es hereingeholt wird
+const FENSTER_KNOPF_RAND = 12; // so nah kommen Minimieren und Schließen dem Rand höchstens
 
 // Nicht jeder Dialog kennt einen Weg hinaus, den wir kennen: manche
 // schliessen per Klick auf den Hintergrund, andere nur ueber ihren
@@ -321,6 +322,19 @@ const FensterLeib = ({
   const [ausgang, setAusgang] = useState(false);
   const haus = useRef(null);
   const zug = useRef(null);
+  // Wie weit die Knöpfe oben rechts einrücken müssen. Sie stehen im
+  // Inhalt des Fensters — bei einem Formular mit 24 Punkten Innenabstand
+  // also weit genug vom Rand. Waffe, Gegenstand und Gegnerblatt legen
+  // ihren farbigen Kopf aber bis an die Kante, und dort stand das Kreuz
+  // einen Punkt vom Rand. Gemessen wird deshalb, nicht angenommen.
+  const [einruecken, setEinruecken] = useState(0);
+  React.useLayoutEffect(() => {
+    const el = haus.current;
+    if (!el) return;
+    const pad = parseFloat(window.getComputedStyle(el).paddingRight) || 0;
+    const noetig = Math.max(0, FENSTER_KNOPF_RAND - pad);
+    if (noetig !== einruecken) setEinruecken(noetig);
+  });
   useEffect(() => {
     setAusgang(!!onZu || !!onClick || !!fensterAusgang(haus.current));
   }, [onClick, onZu]);
@@ -433,7 +447,10 @@ const FensterLeib = ({
     });
     innen.splice(kopfI, 0, /*#__PURE__*/React.createElement("div", {
       className: "fenster-knoepfe",
-      key: "hb-fenster-knoepfe"
+      key: "hb-fenster-knoepfe",
+      style: einruecken ? {
+        paddingRight: einruecken
+      } : undefined
     }, schwebend ? /*#__PURE__*/React.createElement(MiniKnopf, {
       className: "fenster-knopf"
     }) : /*#__PURE__*/React.createElement("button", {
