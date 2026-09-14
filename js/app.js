@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.7.1';
+const HB_VERSION = 'v5.8';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -19504,6 +19504,8 @@ const Sheet = () => {
     computedAC,
     cur,
     darfBearbeiten,
+    bogenModus,
+    setBogenModus,
     delArmorProf,
     deleteChar,
     delFeature,
@@ -19628,7 +19630,6 @@ const Sheet = () => {
   // zwei Bedienungen lernen muessen.
   const [tpDlg, setTpDlg] = useState(null); // 'schaden' | 'heilung' | 'temp' | 'maxtemp'
   const [nachgetragen, setNachgetragen] = useState(null); // Rueckmeldung des Einlesers
-  const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   // Der Bogen als Text — zum Weitergeben an eine KI. Steht nur der
   // Spielleitung offen: sie ist es, die den Abend vorbereitet, und ein
   // fremder Bogen im Textfeld waere sonst mit einem Griff kopiert.
@@ -19858,7 +19859,7 @@ const Sheet = () => {
   // ohnehin ab; hier steht es, damit niemand etwas anklickt, das nichts
   // tun kann.
   return /*#__PURE__*/React.createElement("div", {
-    className: "sheet" + (darfBearbeiten ? "" : " sheet-nur-lesen")
+    className: "sheet" + (darfBearbeiten ? bogenModus ? " sheet-bearbeiten" : " sheet-lesen" : " sheet-nur-lesen")
   }, !darfBearbeiten && /*#__PURE__*/React.createElement("div", {
     className: "nur-lesen-band"
   }, "\uD83D\uDD12 Fremder Bogen \u2014 nur zum Ansehen.", /*#__PURE__*/React.createElement("i", null, "\xC4ndern darf ihn sein Konto und die Spielleitung des Abenteuers.")), /*#__PURE__*/React.createElement("div", {
@@ -19967,15 +19968,24 @@ const Sheet = () => {
     className: "kopf-zeichen"
   }, "\u21E7"), /*#__PURE__*/React.createElement("span", {
     className: "kopf-wort"
-  }, "Aufstieg")), /*#__PURE__*/React.createElement("button", {
+  }, "Aufstieg")), bogenModus && /*#__PURE__*/React.createElement("button", {
     className: "kopf-knopf",
-    title: "Bearbeiten",
+    title: "Name, Klasse, Volk, Trefferpunkte \u2026",
     onClick: openEdit
   }, /*#__PURE__*/React.createElement("span", {
     className: "kopf-zeichen"
-  }, "\u270E"), /*#__PURE__*/React.createElement("span", {
+  }, "\uD83E\uDEAA"), /*#__PURE__*/React.createElement("span", {
     className: "kopf-wort"
-  }, "Bearbeiten")), cur.archived ? /*#__PURE__*/React.createElement("button", {
+  }, "Stammdaten")), /*#__PURE__*/React.createElement("button", {
+    className: "kopf-knopf" + (bogenModus ? " modus" : ""),
+    title: bogenModus ? "Bearbeiten beenden" : "Bearbeiten",
+    "aria-pressed": bogenModus,
+    onClick: () => setBogenModus(!bogenModus)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kopf-zeichen"
+  }, bogenModus ? "✓" : "✎"), /*#__PURE__*/React.createElement("span", {
+    className: "kopf-wort"
+  }, bogenModus ? "Fertig" : "Bearbeiten")), cur.archived ? /*#__PURE__*/React.createElement("button", {
     className: "kopf-knopf aktiv",
     title: "Reaktivieren",
     onClick: () => unarchiveChar(cur.id)
@@ -20281,31 +20291,12 @@ const Sheet = () => {
   }), /*#__PURE__*/React.createElement("div", {
     className: "leiste-werkzeug"
   }, /*#__PURE__*/React.createElement("button", {
-    className: "leiste-zahnrad" + (werkzeugOffen || statsEdit ? " aktiv" : ""),
-    onClick: () => setWerkzeugOffen(o => !o),
-    title: "Leiste einstellen",
-    "aria-expanded": werkzeugOffen,
+    className: "leiste-zahnrad" + (bogenModus ? " aktiv" : ""),
+    disabled: !bogenModus,
+    onClick: () => setLeisteWahlOffen(true),
+    title: bogenModus ? "Werte in der Leiste auswählen" : "Zum Einstellen oben auf Bearbeiten",
     "aria-label": "Leiste einstellen"
-  }, "\u2699"), werkzeugOffen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'fixed',
-      inset: 0,
-      zIndex: 29
-    },
-    onClick: () => setWerkzeugOffen(false)
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "leiste-werkzeug-menu"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setLeisteWahlOffen(true);
-      setWerkzeugOffen(false);
-    }
-  }, "\u2699 Werte ausw\xE4hlen"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setStatsEdit(!statsEdit);
-      setWerkzeugOffen(false);
-    }
-  }, statsEdit ? "✓ Bearbeiten beenden" : "✏️ Werte bearbeiten"))))), (() => {
+  }, "\u2699"))), (() => {
     const activeSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(l => slots[l] && slots[l].max > 0);
     const isZauberer = cur.charClass === "Zauberer" || (cur.multiclasses || []).some(m => m.charClass === "Zauberer");
     // Inspiration erscheint hier nur, wenn man welche hat — als
@@ -20600,7 +20591,7 @@ const Sheet = () => {
     }, fnum(val)));
   })), /*#__PURE__*/React.createElement("div", {
     className: "block-hint"
-  }, statsEdit ? "Klick schaltet die Übung um" : "zum Ändern unten auf Bearbeiten")), (() => {
+  }, statsEdit ? "Klick schaltet die Übung um" : "zum Ändern oben auf Bearbeiten")), (() => {
     const sk = SKILLS.find(x => x.key === 'aufmerksamkeit');
     if (!sk) return null;
     const isP = (cur.skillProfs || []).includes(sk.key);
@@ -20627,7 +20618,7 @@ const Sheet = () => {
   }, "\u2726 Fertigkeiten"), /*#__PURE__*/React.createElement("button", {
     className: "joat-toggle",
     disabled: !statsEdit,
-    title: statsEdit ? undefined : "Zum Ändern unten auf Bearbeiten",
+    title: statsEdit ? undefined : "Zum Ändern oben auf Bearbeiten",
     onClick: () => {
       if (statsEdit) toggleJoAT();
     },
@@ -20673,7 +20664,7 @@ const Sheet = () => {
         borderColor: col,
         color: col
       },
-      title: !statsEdit ? "Zum Ändern unten auf Bearbeiten" : isE ? "Expertise (Klick: entfernen)" : isP ? "Übung (Klick: Expertise)" : "Kein Bonus (Klick: Übung hinzufügen)"
+      title: !statsEdit ? "Zum Ändern oben auf Bearbeiten" : isE ? "Expertise (Klick: entfernen)" : isP ? "Übung (Klick: Expertise)" : "Kein Bonus (Klick: Übung hinzufügen)"
     }, pip), /*#__PURE__*/React.createElement("div", {
       className: "skill-name"
     }, sk.label), /*#__PURE__*/React.createElement("div", {
@@ -20703,12 +20694,7 @@ const Sheet = () => {
     }, "JoAT")));
   }), /*#__PURE__*/React.createElement("div", {
     className: "block-hint"
-  }, "\u2B24 \xDCbung \xB7 \u2B24\u2B24 Expertise", statsEdit ? " · Klick zum Wechseln" : " · zum Ändern unten auf Bearbeiten")))), /*#__PURE__*/React.createElement("div", {
-    className: "stats-fuss"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "panel-edit-btn gross" + (statsEdit ? " active" : ""),
-    onClick: () => setStatsEdit(!statsEdit)
-  }, statsEdit ? "✓ Fertig" : "✏️ Attribute & Übungen bearbeiten")))), tab === "inventar" && /*#__PURE__*/React.createElement(AusruestungsPuppe, null), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\u2B24 \xDCbung \xB7 \u2B24\u2B24 Expertise", statsEdit ? " · Klick zum Wechseln" : " · zum Ändern oben auf Bearbeiten")))))), tab === "inventar" && /*#__PURE__*/React.createElement(AusruestungsPuppe, null), tab === "aktionen" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "slots-panel",
     style: {
       marginBottom: 0
@@ -20717,10 +20703,7 @@ const Sheet = () => {
     className: "slots-panel-header"
   }, /*#__PURE__*/React.createElement("div", {
     className: "slots-title"
-  }, "\u25C7 Ressourcen & Sonderpunkte"), /*#__PURE__*/React.createElement("button", {
-    className: "panel-edit-btn" + (resEdit ? " active" : ""),
-    onClick: () => setResEdit(!resEdit)
-  }, resEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
+  }, "\u25C7 Ressourcen & Sonderpunkte")), /*#__PURE__*/React.createElement("div", {
     className: "resource-list" + (resEdit ? " bearbeiten" : "")
   }, /*#__PURE__*/React.createElement("div", {
     className: "resource-item insp-item"
@@ -20902,7 +20885,7 @@ const Sheet = () => {
       fontStyle: "italic",
       margin: "10px 0 4px"
     }
-  }, "Sonst noch keine Ressourcen.", !resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), resEdit && /*#__PURE__*/React.createElement("button", {
+  }, "Sonst noch keine Ressourcen.", !resEdit && ' Zum Hinzufügen oben auf „Bearbeiten“.'), resEdit && /*#__PURE__*/React.createElement("button", {
     className: "btn-add",
     onClick: addResource
   }, "+ Ressource hinzuf\xFCgen")), /*#__PURE__*/React.createElement("div", {
@@ -21207,17 +21190,14 @@ const Sheet = () => {
     className: "slots-panel-header"
   }, /*#__PURE__*/React.createElement("div", {
     className: "slots-title"
-  }, "\u25C8 Zauberpl\xE4tze"), /*#__PURE__*/React.createElement("button", {
-    className: "panel-edit-btn" + (slotsEdit ? " active" : ""),
-    onClick: () => setSlotsEdit(!slotsEdit)
-  }, slotsEdit ? "✓ Fertig" : "✏️ Bearbeiten")), [1, 2, 3, 4, 5, 6, 7, 8, 9].every(l => !slots[l] || slots[l].max === 0) && /*#__PURE__*/React.createElement("div", {
+  }, "\u25C8 Zauberpl\xE4tze")), [1, 2, 3, 4, 5, 6, 7, 8, 9].every(l => !slots[l] || slots[l].max === 0) && /*#__PURE__*/React.createElement("div", {
     style: {
       color: "var(--text-muted)",
       fontSize: 13,
       fontStyle: "italic",
       marginBottom: 8
     }
-  }, "Noch keine Slots.", !slotsEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'), /*#__PURE__*/React.createElement("div", {
+  }, "Noch keine Slots.", !slotsEdit && ' Zum Hinzufügen oben auf „Bearbeiten“.'), /*#__PURE__*/React.createElement("div", {
     className: "slots-grid"
   }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => {
     const s = slots[l] || {
@@ -21268,15 +21248,7 @@ const Sheet = () => {
       style: {
         margin: 0
       }
-    }, "\u2726 Zaubereipunkte"), /*#__PURE__*/React.createElement("button", {
-      className: "panel-edit-btn" + (spEdit ? " active" : ""),
-      onClick: () => setSpEdit(!spEdit),
-      style: {
-        borderColor: "var(--arcane-bright)",
-        color: spEdit ? "var(--arcane-bright)" : "var(--text-muted)",
-        opacity: spEdit ? 1 : 0.6
-      }
-    }, spEdit ? "✓ Fertig" : "✏️ Bearbeiten")), /*#__PURE__*/React.createElement("div", {
+    }, "\u2726 Zaubereipunkte")), /*#__PURE__*/React.createElement("div", {
       className: "sorcery-pips"
     }, Array.from({
       length: sp.max
@@ -21884,7 +21856,7 @@ const Sheet = () => {
         className: "spell-actions",
         onClick: e => e.stopPropagation()
       }, /*#__PURE__*/React.createElement("button", {
-        className: "spell-edit-btn",
+        className: "spell-edit-btn fav-weg",
         style: {
           color: "#f0c040"
         },
@@ -22495,7 +22467,7 @@ const Sheet = () => {
       }, /*#__PURE__*/React.createElement("div", {
         className: "note-card-title"
       }, "\uD83D\uDCC4 ", note.title), /*#__PURE__*/React.createElement("button", {
-        className: "btn-icon",
+        className: "btn-icon note-edit",
         style: {
           padding: "3px 8px",
           fontSize: 11
@@ -27503,6 +27475,22 @@ function App() {
     });
     setShowCF(true);
   };
+  // Der Bearbeitungsmodus des Bogens. Ein Schalter im Kopf statt eines
+  // Bearbeiten-Knopfs je Abschnitt: gelesen wird der Bogen fast immer,
+  // geändert selten — und dann meistens an mehreren Stellen zugleich.
+  // Er schaltet die vier alten Schalter gemeinsam und fällt beim Wechsel
+  // des Helden zurück.
+  const [bogenModus, setBogenModusRoh] = useState(false);
+  const setBogenModus = an => {
+    setBogenModusRoh(an);
+    setStatsEdit(an);
+    setResEdit(an);
+    setSlotsEdit(an);
+    setSpEdit(an);
+  };
+  useEffect(() => {
+    setBogenModus(false);
+  }, [sel]);
 
   // ── Der Charakterassistent ─────────────────────────
   // Er legt an, was aus den Regeln folgt. Das Formular von Hand bleibt
@@ -28812,6 +28800,8 @@ function App() {
     notesList,
     noteTagFilter,
     darfBearbeiten,
+    bogenModus,
+    setBogenModus,
     openAssistent,
     openAufstieg,
     openEdit,
@@ -29252,13 +29242,14 @@ function App() {
   }, cur && cur.name || "—"), /*#__PURE__*/React.createElement("div", {
     className: "mobile-topbar-actions"
   }, cur && (darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-    className: "btn-icon",
+    className: "btn-icon" + (bogenModus ? " aktiv" : ""),
     style: {
       padding: "5px 8px",
       fontSize: 11
     },
-    onClick: openEdit
-  }, "\u270E"), cur.archived ? /*#__PURE__*/React.createElement("button", {
+    title: bogenModus ? "Bearbeiten beenden" : "Bearbeiten",
+    onClick: () => setBogenModus(!bogenModus)
+  }, bogenModus ? "✓" : "✎"), cur.archived ? /*#__PURE__*/React.createElement("button", {
     className: "btn-icon",
     style: {
       padding: "5px 8px",
@@ -31754,7 +31745,7 @@ function App() {
         flex: 1
       },
       onClick: () => toggleEquipped(w.id)
-    }, "\u2694 ", w.equipped ? "Ablegen" : "Anlegen"), /*#__PURE__*/React.createElement("button", {
+    }, "\u2694 ", w.equipped ? "Ablegen" : "Anlegen"), bogenModus && darfBearbeiten && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       className: "btn-icon",
       style: {
         flex: 1
@@ -31783,7 +31774,7 @@ function App() {
         setWeaponViewer(null);
         delWeapon(w.id);
       }
-    }, "\u2715 L\xF6schen"))));
+    }, "\u2715 L\xF6schen")))));
   })(), imgViewer && /*#__PURE__*/React.createElement("div", {
     className: "form-overlay",
     style: {

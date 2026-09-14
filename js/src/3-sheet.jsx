@@ -16,7 +16,7 @@ const Sheet = () => {
   const {
     addArmorProf, addLanguage, addLog, addResource, addToolProf,
     addWeaponProf, appAlert, appConfirm, archiveChar, armorProfs, cc,
-    charMenuOpen, chars, chgMax, collapsedLevels, computedAC, cur, darfBearbeiten,
+    charMenuOpen, chars, chgMax, collapsedLevels, computedAC, cur, darfBearbeiten, bogenModus, setBogenModus,
     delArmorProf, deleteChar, delFeature, delItem, delLanguage, delNote,
     delResource, delSpell, delToolProf, delWeaponProf, displayAC,
     effCur, exFeature, exItem, exNote, exSpell, fx, fxOn, fxTitle,
@@ -48,7 +48,6 @@ const Sheet = () => {
   // zwei Bedienungen lernen muessen.
   const [tpDlg, setTpDlg] = useState(null);   // 'schaden' | 'heilung' | 'temp' | 'maxtemp'
   const [nachgetragen, setNachgetragen] = useState(null);   // Rueckmeldung des Einlesers
-  const [werkzeugOffen, setWerkzeugOffen] = useState(false);
   // Der Bogen als Text — zum Weitergeben an eine KI. Steht nur der
   // Spielleitung offen: sie ist es, die den Abend vorbereitet, und ein
   // fremder Bogen im Textfeld waere sonst mit einem Griff kopiert.
@@ -187,7 +186,7 @@ const Sheet = () => {
     // ohnehin ab; hier steht es, damit niemand etwas anklickt, das nichts
     // tun kann.
     return (
-      <div className={"sheet" + (darfBearbeiten ? "" : " sheet-nur-lesen")}>
+      <div className={"sheet" + (darfBearbeiten ? (bogenModus ? " sheet-bearbeiten" : " sheet-lesen") : " sheet-nur-lesen")}>
         {!darfBearbeiten && (
           <div className="nur-lesen-band">
             🔒 Fremder Bogen — nur zum Ansehen.
@@ -274,8 +273,19 @@ const Sheet = () => {
                 <button className="kopf-knopf auf" title="Stufenaufstieg" onClick={openAufstieg}>
                   <span className="kopf-zeichen">⇧</span><span className="kopf-wort">Aufstieg</span>
                 </button>
-                <button className="kopf-knopf" title="Bearbeiten" onClick={openEdit}>
-                  <span className="kopf-zeichen">✎</span><span className="kopf-wort">Bearbeiten</span>
+                {/* Der eine Schalter für den ganzen Bogen. Im Modus
+                    kommen die Stammdaten dazu — das Formular, das
+                    früher hinter diesem Knopf lag. */}
+                {bogenModus && (
+                  <button className="kopf-knopf" title="Name, Klasse, Volk, Trefferpunkte …" onClick={openEdit}>
+                    <span className="kopf-zeichen">🪪</span><span className="kopf-wort">Stammdaten</span>
+                  </button>
+                )}
+                <button className={"kopf-knopf" + (bogenModus ? " modus" : "")}
+                  title={bogenModus ? "Bearbeiten beenden" : "Bearbeiten"} aria-pressed={bogenModus}
+                  onClick={()=>setBogenModus(!bogenModus)}>
+                  <span className="kopf-zeichen">{bogenModus ? "✓" : "✎"}</span>
+                  <span className="kopf-wort">{bogenModus ? "Fertig" : "Bearbeiten"}</span>
                 </button>
                 {cur.archived ? (
                   <button className="kopf-knopf aktiv" title="Reaktivieren"
@@ -435,23 +445,13 @@ const Sheet = () => {
               selten braucht. Jetzt haengen sie als Zahnrad am Ende der
               Leiste — immer an derselben Stelle, aber nicht mehr im Weg. */}
           <div className="leiste-werkzeug">
-            <button className={"leiste-zahnrad"+(werkzeugOffen||statsEdit?" aktiv":"")}
-              onClick={()=>setWerkzeugOffen(o=>!o)}
-              title="Leiste einstellen" aria-expanded={werkzeugOffen}
+            {/* Welche Werte in der Leiste stehen, ist eine Einstellung
+                wie jede andere am Bogen — also nur im Bearbeitungsmodus. */}
+            <button className={"leiste-zahnrad"+(bogenModus?" aktiv":"")}
+              disabled={!bogenModus}
+              onClick={()=>setLeisteWahlOffen(true)}
+              title={bogenModus ? "Werte in der Leiste auswählen" : "Zum Einstellen oben auf Bearbeiten"}
               aria-label="Leiste einstellen">⚙</button>
-            {werkzeugOffen && (
-              <>
-                <div style={{position:'fixed',inset:0,zIndex:29}} onClick={()=>setWerkzeugOffen(false)} />
-                <div className="leiste-werkzeug-menu">
-                  <button onClick={()=>{setLeisteWahlOffen(true);setWerkzeugOffen(false);}}>
-                    ⚙ Werte auswählen
-                  </button>
-                  <button onClick={()=>{setStatsEdit(!statsEdit);setWerkzeugOffen(false);}}>
-                    {statsEdit ? "✓ Bearbeiten beenden" : "✏️ Werte bearbeiten"}
-                  </button>
-                </div>
-              </>
-            )}
           </div>
         </div>
 
@@ -687,7 +687,7 @@ const Sheet = () => {
                       })}
                     </div>
                     <div className="block-hint">
-                      {statsEdit ? "Klick schaltet die Übung um" : "zum Ändern unten auf Bearbeiten"}
+                      {statsEdit ? "Klick schaltet die Übung um" : "zum Ändern oben auf Bearbeiten"}
                     </div>
                   </div>
 
@@ -718,7 +718,7 @@ const Sheet = () => {
                       <button
                         className="joat-toggle"
                         disabled={!statsEdit}
-                        title={statsEdit ? undefined : "Zum Ändern unten auf Bearbeiten"}
+                        title={statsEdit ? undefined : "Zum Ändern oben auf Bearbeiten"}
                         onClick={()=>{ if (statsEdit) toggleJoAT(); }}
                         style={{
                           borderRadius:3,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,
@@ -759,7 +759,7 @@ const Sheet = () => {
                             onClick={()=>{ if (statsEdit) toggleSkill(sk.key); }}
                             style={{ background: isE ? "var(--arcane)" : isP ? "var(--gold-dim)" : "var(--bg-void)",
                                      borderColor: col, color: col }}
-                            title={!statsEdit ? "Zum Ändern unten auf Bearbeiten"
+                            title={!statsEdit ? "Zum Ändern oben auf Bearbeiten"
                                   : isE?"Expertise (Klick: entfernen)":isP?"Übung (Klick: Expertise)":"Kein Bonus (Klick: Übung hinzufügen)"}
                           >{pip}</button>
                           <div className="skill-name">{sk.label}</div>
@@ -777,18 +777,12 @@ const Sheet = () => {
                     })}
                     <div className="block-hint">
                       ⬤ Übung · ⬤⬤ Expertise
-                      {statsEdit ? " · Klick zum Wechseln" : " · zum Ändern unten auf Bearbeiten"}
+                      {statsEdit ? " · Klick zum Wechseln" : " · zum Ändern oben auf Bearbeiten"}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="stats-fuss">
-                <button className={"panel-edit-btn gross"+(statsEdit?" active":"")}
-                  onClick={()=>setStatsEdit(!statsEdit)}>
-                  {statsEdit ? "✓ Fertig" : "✏️ Attribute & Übungen bearbeiten"}
-                </button>
-              </div>
             </div>
           </>
         )}
@@ -808,7 +802,7 @@ const Sheet = () => {
             <div className="slots-panel" style={{marginBottom:0}}>
               <div className="slots-panel-header">
                 <div className="slots-title">◇ Ressourcen &amp; Sonderpunkte</div>
-                <button className={"panel-edit-btn"+(resEdit?" active":"")} onClick={()=>setResEdit(!resEdit)}>{resEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+
               </div>
               {/* Alle Eintraege als Kacheln in einem Raster. Vorher war jeder
                   eine Zeile ueber die volle Breite — bei sechs Eintraegen
@@ -924,7 +918,7 @@ const Sheet = () => {
                 ))}
               </div>
               {resources.length === 0 && (
-                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",margin:"10px 0 4px"}}>Sonst noch keine Ressourcen.{!resEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
+                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",margin:"10px 0 4px"}}>Sonst noch keine Ressourcen.{!resEdit && ' Zum Hinzufügen oben auf „Bearbeiten“.'}</div>
               )}
               {resEdit && <button className="btn-add" onClick={addResource}>+ Ressource hinzufügen</button>}
             </div>
@@ -1080,10 +1074,10 @@ const Sheet = () => {
             <div className="slots-panel">
               <div className="slots-panel-header">
                 <div className="slots-title">◈ Zauberplätze</div>
-                <button className={"panel-edit-btn"+(slotsEdit?" active":"")} onClick={()=>setSlotsEdit(!slotsEdit)}>{slotsEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+
               </div>
               {[1,2,3,4,5,6,7,8,9].every(l=>!slots[l] || slots[l].max===0) && (
-                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",marginBottom:8}}>Noch keine Slots.{!slotsEdit && ' Klicke "Bearbeiten" zum Hinzufügen.'}</div>
+                <div style={{color:"var(--text-muted)",fontSize:13,fontStyle:"italic",marginBottom:8}}>Noch keine Slots.{!slotsEdit && ' Zum Hinzufügen oben auf „Bearbeiten“.'}</div>
               )}
               <div className="slots-grid">
                 {[1,2,3,4,5,6,7,8,9].map(l => {
@@ -1117,7 +1111,7 @@ const Sheet = () => {
                 <div className="sorcery-panel">
                   <div className="slots-panel-header" style={{marginBottom:8}}>
                     <div className="sorcery-title" style={{margin:0}}>✦ Zaubereipunkte</div>
-                    <button className={"panel-edit-btn"+(spEdit?" active":"")} onClick={()=>setSpEdit(!spEdit)} style={{borderColor:"var(--arcane-bright)",color:spEdit?"var(--arcane-bright)":"var(--text-muted)",opacity: spEdit?1:0.6}}>{spEdit?"✓ Fertig":"✏️ Bearbeiten"}</button>
+
                   </div>
                   <div className="sorcery-pips">
                     {Array.from({length:sp.max}).map((_,i) => {
@@ -1387,7 +1381,7 @@ const Sheet = () => {
                                 <div className="spell-card-orb" style={{background:"#52b78840",borderColor:"#52b78880",color:"#52b788",fontSize:10}}>CR{w.cr}</div>
                                 <div className="spell-card-school-label" style={{flex:1}}>{w.name}</div>
                                 <div className="spell-actions" onClick={e=>e.stopPropagation()}>
-                                  <button className="spell-edit-btn" style={{color:"#f0c040"}} title="Aus Favoriten entfernen"
+                                  <button className="spell-edit-btn fav-weg" style={{color:"#f0c040"}} title="Aus Favoriten entfernen"
                                     onClick={e=>{e.stopPropagation();toggleWsFav(w.name);}}>★</button>
                                 </div>
                               </div>
@@ -1713,7 +1707,7 @@ const Sheet = () => {
                             style={{borderColor: isEx ? 'var(--gold-dim)' : ''}}>
                             <div className="note-card-header">
                               <div className="note-card-title">📄 {note.title}</div>
-                              <button className="btn-icon" style={{padding:"3px 8px",fontSize:11}}
+                              <button className="btn-icon note-edit" style={{padding:"3px 8px",fontSize:11}}
                                 onClick={e=>{e.stopPropagation();setNf({title:note.title,content:note.content,tags:note.tags||[]});setNfEditId(note.id);setShowNF(true);}}>
                                 ✏️ Bearbeiten
                               </button>

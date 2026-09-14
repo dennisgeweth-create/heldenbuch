@@ -2760,6 +2760,16 @@ function App() {
     setShowCF(true);
   };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
+  // Der Bearbeitungsmodus des Bogens. Ein Schalter im Kopf statt eines
+  // Bearbeiten-Knopfs je Abschnitt: gelesen wird der Bogen fast immer,
+  // geändert selten — und dann meistens an mehreren Stellen zugleich.
+  // Er schaltet die vier alten Schalter gemeinsam und fällt beim Wechsel
+  // des Helden zurück.
+  const [bogenModus, setBogenModusRoh] = useState(false);
+  const setBogenModus = (an) => {
+    setBogenModusRoh(an); setStatsEdit(an); setResEdit(an); setSlotsEdit(an); setSpEdit(an);
+  };
+  useEffect(() => { setBogenModus(false); }, [sel]);
 
   // ── Der Charakterassistent ─────────────────────────
   // Er legt an, was aus den Regeln folgt. Das Formular von Hand bleibt
@@ -3480,7 +3490,7 @@ function App() {
     gearArmor, gearAusVorlage, gearPick, gearSetList, gearShield,
     gearWornList, initTotal, insp, inspMax, invRarity, invTagFilter,
     isDmMode, itemFx, klassen, languages, nhGesperrt, notesList, noteTagFilter,
-    darfBearbeiten,
+    darfBearbeiten, bogenModus, setBogenModus,
     openAssistent, openAufstieg, openEdit, openNew, openTpl, openUnprepared, patchChar, patchCurrent, resEdit,
     traglastAn: !!(advObj && advObj.traglast),
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
@@ -3811,7 +3821,9 @@ function App() {
                 <div className="mobile-topbar-title">{cur && cur.name||"—"}</div>
                 <div className="mobile-topbar-actions">
                   {cur && (darfBearbeiten ? <>
-                    <button className="btn-icon" style={{padding:"5px 8px",fontSize:11}} onClick={openEdit}>✎</button>
+                    <button className={"btn-icon" + (bogenModus ? " aktiv" : "")} style={{padding:"5px 8px",fontSize:11}}
+                      title={bogenModus ? "Bearbeiten beenden" : "Bearbeiten"}
+                      onClick={()=>setBogenModus(!bogenModus)}>{bogenModus ? "✓" : "✎"}</button>
                     {cur.archived
                       ? <button className="btn-icon" style={{padding:"5px 8px",fontSize:11,borderColor:"var(--gold-dim)",color:"var(--gold-dim)"}} onClick={()=>unarchiveChar(cur.id)}>↩</button>
                       : <button className="btn-icon" style={{padding:"5px 8px",fontSize:11,color:"var(--text-muted)"}} onClick={()=>appConfirm("Charakter archivieren?", archiveChar, "Archivieren")}>📦</button>
@@ -4916,9 +4928,11 @@ function App() {
               {/* Fuß */}
               <div style={{display:'flex',gap:8,padding:'10px 18px',background:'var(--bg-deep)',borderTop:'1px solid var(--border)',flexWrap:'wrap'}}>
                 <button className="btn-icon" style={{flex:1}} onClick={()=>toggleEquipped(w.id)}>⚔ {w.equipped?"Ablegen":"Anlegen"}</button>
+                {bogenModus && darfBearbeiten && <>
                 <button className="btn-icon" style={{flex:1}} onClick={()=>{setWeaponViewer(null);setWf({...w,properties:w.properties||[]});setWfEditId(w.id);setShowWF(true);}}>✎ Bearbeiten</button>
                 <button style={{padding:'8px 14px',background:'rgba(180,60,60,0.15)',border:'1px solid rgba(180,60,60,0.4)',borderRadius:3,color:'#e07070',cursor:'pointer',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11}}
                   onClick={()=>{setWeaponViewer(null);delWeapon(w.id);}}>✕ Löschen</button>
+                </>}
               </div>
             </div>
           </Fenster>

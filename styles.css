@@ -4461,3 +4461,15 @@
     background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary); line-height:1; }
   .rast-ersch b { min-width:12px; text-align:center; color:var(--text-secondary); font-weight:400; }
   .rast-ersch b.an { color:#f0a0a0; }
+
+  /* Der Bogen zum Lesen: wer ihn bearbeiten darf, sieht Stifte und
+     Löschkreuze erst, wenn er im Kopf auf Bearbeiten geschaltet hat. */
+  .sheet-lesen .spell-edit-btn:not(.fav-weg),
+  .sheet-lesen .spell-delete,
+  .sheet-lesen .resource-del,
+  .sheet-lesen .note-del,
+  .sheet-lesen .note-edit,
+  .sheet-lesen .chip-remove,
+  .sheet-lesen .inv-card-actions { display:none !important; }
+  .leiste-zahnrad:disabled { opacity:0.3; cursor:default; }
+  .kopf-knopf.modus { border-color:var(--gold); color:var(--gold-bright); background:rgba(201,168,76,0.14); }

@@ -1,5 +1,32 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.8
+
+### ✎ Ein Bearbeiten für den ganzen Bogen
+
+Bisher hatte fast jeder Abschnitt seinen eigenen Bearbeiten-Knopf:
+Attribute und Übungen, Ressourcen, Zauberplätze, Zauberei-Punkte. Dazu kam
+das Zahnrad mit „Werte bearbeiten“ und an jeder Karte ein Stift und ein
+Kreuz. Gelesen wird der Bogen fast immer, geändert selten — und dann
+meistens an mehreren Stellen zugleich.
+
+Jetzt gibt es **einen Schalter: ✎ Bearbeiten im Kopf des Bogens**.
+
+- **Zum Lesen** (wie der Bogen aufgeht): keine Stifte und Löschkreuze an
+  Merkmalen, Zaubern, Gegenständen, Notizen, Sprachen und Übungen. Das
+  Zahnrad der mitlaufenden Leiste ist gesperrt, im Waffenfenster stehen
+  nur Anlegen und Ablegen.
+- **Im Bearbeitungsmodus** heißt der Knopf **✓ Fertig**. Attribute,
+  Übungen, Ressourcen, Zauberplätze und Zauberei-Punkte sind alle auf
+  einmal änderbar, Stifte und Kreuze sind wieder da, und das Zahnrad
+  wählt die Werte der Leiste.
+- **🪪 Stammdaten** — das Formular für Name, Klasse, Volk und
+  Trefferpunkte, das früher hinter dem Bearbeiten-Knopf lag — steht im
+  Modus direkt daneben.
+
+Wer den Helden wechselt, landet wieder beim Lesen. Auf dem Telefon
+schaltet der Stift in der oberen Leiste denselben Modus.
+
 ## v5.7.1
 
 ### Eine Erschöpfung, nicht zwei
