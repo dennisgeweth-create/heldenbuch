@@ -771,6 +771,28 @@
             }
           }
 
+          // ── Erschöpfung: aus dem Bogen, in den Bogen ──
+          melden('lauf', 'Erschöpfung im Tracker');
+          const bogenErsch = () => +(JSON.parse(wbSpeicher.dnd_chars)[0].erschoepfung || 0);
+          const zeileB = [...document.querySelectorAll('.kampf-liste > *')].find(z => /Brunhilde/.test(z.textContent));
+          const zustK = zeileB && [...zeileB.querySelectorAll('button')].find(b => b.textContent.trim() === 'Zustände');
+          if (ja('Brunhildes Zustände lassen sich öffnen', !!zustK)) {
+            zustK.click(); await ruhe(150);
+            const pip = document.querySelector('.ersch-pip[aria-label="Erschöpfung 2"]');
+            if (ja('  … mit den Erschöpfungsstufen', !!pip)) {
+              pip.click();
+              const zwei = await warten(() => bogenErsch() === 2 ? true : null, 3000);
+              ja('Stufe 2 im Tracker steht im Bogen', !!zwei, 'Bogen: ' + bogenErsch());
+              ja('  … nicht im Kampf', !((kampfStand().teilnehmer || []).find(t => t.id === 'held-wb1') || {}).erschoepfung);
+              ja('  … und die Kampfzeile zeigt sie',
+                 /Erschöpfung 2/.test(([...document.querySelectorAll('.kampf-liste > *')].find(z => /Brunhilde/.test(z.textContent)) || {}).textContent || ''));
+              const zu = document.querySelector('.kampf-zust-zu'); if (zu) { zu.click(); await ruhe(100); }
+              document.querySelector('.kampf-rueck').click();
+              const null0 = await warten(() => bogenErsch() === 0 ? true : null, 3000);
+              ja('  … Zurücknehmen nimmt sie aus dem Bogen', !!null0, 'Bogen: ' + bogenErsch());
+            }
+          }
+
           // ── Eine Wirkung läuft ab ──
           melden('lauf', 'Wirkungen mit Dauer');
           const weiterK = knopfMit('Nächster');

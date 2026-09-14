@@ -1,5 +1,21 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.7.1
+
+### Eine Erschöpfung, nicht zwei
+
+Seit v5.7 steht die Erschöpfung im Bogen, und die Rast setzt sie dort.
+Der Kampftracker führte aber noch seine eigene, und die beiden wussten
+nichts voneinander.
+
+Jetzt liest der Tracker die **Erschöpfung eines Helden aus dem Bogen**.
+Wer sie im Tracker umstellt (Zustände → Erschöpfung), stellt sie im Bogen
+um. ↶ nimmt das zurück, und das Kampffenster der Spieler zeigt dieselbe
+Zahl. Gegner behalten ihre Erschöpfung im Kampf.
+
+Stand in einem offenen Kampf noch eine Erschöpfung am Helden, und der Bogen
+kannte keine, wandert sie beim Öffnen des Trackers einmal in den Bogen.
+
 ## v5.7
 
 ### ☾ Rast auf Ansage

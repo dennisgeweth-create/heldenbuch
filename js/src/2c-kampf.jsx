@@ -698,7 +698,8 @@ const zustaendeVonWirkung = (wirkung, z, mitRettung, mitSchalter) => {
 const RUECK_MAX = 20;
 const RUECK_FELD = {hp: 'Trefferpunkte', tempHp: 'temporäre TP', tempMaxHp: 'temporäres Maximum',
   deathSaves: 'Todesrettungswürfe', spellSlots: 'Zauberplätze', inventory: 'Inventar',
-  konzentration: 'Konzentration', features: 'Merkmale', resources: 'Ressourcen'};
+  konzentration: 'Konzentration', features: 'Merkmale', resources: 'Ressourcen',
+  erschoepfung: 'Erschöpfung'};
 // Was ein Handgriff an einer Kampfzeile aendert. Die Initiative gehoert
 // nicht dazu: sie wird getippt, und das soll ein Rueckgaengig nicht
 // nebenbei wieder wegnehmen.
@@ -2292,6 +2293,21 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       t.art === 'held' ? {...t, notiz: ''} : t)}));
   }, []);
 
+  // Bis v5.6 fuehrte der Kampf die Erschöpfung der Helden selbst. Steht in
+  // einem offenen Kampf noch eine, und der Bogen kennt keine, wandert sie
+  // einmal hinueber — sonst waere sie beim Umstellen stillschweigend weg.
+  React.useEffect(() => {
+    if (!kampf || !kampf.aktiv) return;
+    const alt = kampf.teilnehmer.filter(t => t.art === 'held' && (+t.erschoepfung || 0) > 0);
+    if (!alt.length) return;
+    alt.forEach(t => {
+      const h = (helden || []).find(x => x.id === t.charId);
+      if (h && !(+h.erschoepfung)) onHeldAendern(h.id, {erschoepfung: +t.erschoepfung}, h.name);
+    });
+    setKampf(k => k && ({...k, teilnehmer: k.teilnehmer.map(t =>
+      t.art === 'held' ? {...t, erschoepfung: 0} : t)}));
+  }, []);
+
   // Wer am Zug ist, gehoert ins Protokoll — und zwar gleich, wodurch er
   // es wurde. Am Knopf "Naechster Zug" zu haengen liess genau die Faelle
   // aus, in denen niemand ihn drueckt: die allererste Runde, das
@@ -2367,6 +2383,9 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       ac: w.ac, hpMax: w.maxHp, hp: w.hp, tempHp: w.tempHp, dex: w.dex,
       tempMaxHp: +c.tempMaxHp || 0,
       deathSaves: c.deathSaves || TODES_LEER,
+      // Die Erschöpfung steht seit v5.7 im Bogen — die Rast setzt sie,
+      // und der Tracker liest sie von dort, statt eine eigene zu führen.
+      erschoepfung: Math.max(0, Math.min(6, +c.erschoepfung || 0)),
       notiz: (heldNotizen || {})[c.id] || '',
       bild: c.portrait || null,
       passive: w.passive, saves: w.saves, effekte: w.effekte,
@@ -2641,7 +2660,10 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     const t = liste.find(x => x.id === id);
     const neu = Math.max(0, Math.min(6, stufe));
     if (t && (t.erschoepfung||0) !== neu) protokollieren({art:'ersch', wer: t.name, wert: neu});
-    aendernKampf(id, t2 => ({...t2, erschoepfung: neu}));
+    // Beim Helden in den Bogen, wie die Trefferpunkte — beim Gegner bleibt
+    // sie im Kampf.
+    if (t && t.art === 'held' && !t.fehlt) heldAendern(t.charId, {erschoepfung: neu}, t.name);
+    else aendernKampf(id, t2 => ({...t2, erschoepfung: neu}));
   };
   // Die Notiz zu einem Helden gehoert zu ihm, nicht zu diesem Kampf —
   // deshalb denselben Weg wie die Trefferpunkte: hinaus aus dem Kampf.

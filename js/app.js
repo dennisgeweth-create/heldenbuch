@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.7';
+const HB_VERSION = 'v5.7.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -3117,7 +3117,8 @@ const RUECK_FELD = {
   inventory: 'Inventar',
   konzentration: 'Konzentration',
   features: 'Merkmale',
-  resources: 'Ressourcen'
+  resources: 'Ressourcen',
+  erschoepfung: 'Erschöpfung'
 };
 // Was ein Handgriff an einer Kampfzeile aendert. Die Initiative gehoert
 // nicht dazu: sie wird getippt, und das soll ein Rueckgaengig nicht
@@ -5190,6 +5191,28 @@ const KampfAnsicht = ({
     });
   }, []);
 
+  // Bis v5.6 fuehrte der Kampf die Erschöpfung der Helden selbst. Steht in
+  // einem offenen Kampf noch eine, und der Bogen kennt keine, wandert sie
+  // einmal hinueber — sonst waere sie beim Umstellen stillschweigend weg.
+  React.useEffect(() => {
+    if (!kampf || !kampf.aktiv) return;
+    const alt = kampf.teilnehmer.filter(t => t.art === 'held' && (+t.erschoepfung || 0) > 0);
+    if (!alt.length) return;
+    alt.forEach(t => {
+      const h = (helden || []).find(x => x.id === t.charId);
+      if (h && !+h.erschoepfung) onHeldAendern(h.id, {
+        erschoepfung: +t.erschoepfung
+      }, h.name);
+    });
+    setKampf(k => k && {
+      ...k,
+      teilnehmer: k.teilnehmer.map(t => t.art === 'held' ? {
+        ...t,
+        erschoepfung: 0
+      } : t)
+    });
+  }, []);
+
   // Wer am Zug ist, gehoert ins Protokoll — und zwar gleich, wodurch er
   // es wurde. Am Knopf "Naechster Zug" zu haengen liess genau die Faelle
   // aus, in denen niemand ihn drueckt: die allererste Runde, das
@@ -5285,6 +5308,9 @@ const KampfAnsicht = ({
       dex: w.dex,
       tempMaxHp: +c.tempMaxHp || 0,
       deathSaves: c.deathSaves || TODES_LEER,
+      // Die Erschöpfung steht seit v5.7 im Bogen — die Rast setzt sie,
+      // und der Tracker liest sie von dort, statt eine eigene zu führen.
+      erschoepfung: Math.max(0, Math.min(6, +c.erschoepfung || 0)),
       notiz: (heldNotizen || {})[c.id] || '',
       bild: c.portrait || null,
       passive: w.passive,
@@ -5714,7 +5740,11 @@ const KampfAnsicht = ({
       wer: t.name,
       wert: neu
     });
-    aendernKampf(id, t2 => ({
+    // Beim Helden in den Bogen, wie die Trefferpunkte — beim Gegner bleibt
+    // sie im Kampf.
+    if (t && t.art === 'held' && !t.fehlt) heldAendern(t.charId, {
+      erschoepfung: neu
+    }, t.name);else aendernKampf(id, t2 => ({
       ...t2,
       erschoepfung: neu
     }));
@@ -16315,9 +16345,12 @@ const KampfSichtZeile = ({
     className: "ks-marke gut"
   }, "\uD83D\uDC4D Vorteil"), t.nachteil && /*#__PURE__*/React.createElement("span", {
     className: "ks-marke schlecht"
-  }, "\uD83D\uDC4E Nachteil"), (t.erschoepfung || 0) > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "ks-marke ersch"
-  }, "Ersch\xF6pfung ", t.erschoepfung), (t.zustaende || []).map(z => /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDC4E Nachteil"), (() => {
+    const e = held ? +(c || {}).erschoepfung || 0 : +t.erschoepfung || 0;
+    return e > 0 ? /*#__PURE__*/React.createElement("span", {
+      className: "ks-marke ersch"
+    }, "Ersch\xF6pfung ", e) : null;
+  })(), (t.zustaende || []).map(z => /*#__PURE__*/React.createElement("span", {
     className: "ks-marke",
     key: z
   }, z)), (wirkungen || []).map(w => /*#__PURE__*/React.createElement("span", {
@@ -26305,6 +26338,12 @@ function App() {
           bild,
           ...rest
         } = t;
+        // Die Erschöpfung eines Helden steht im Bogen; der Spiegel nimmt
+        // sie von dort, damit auch der Server die richtige hat.
+        if (t.art === 'held') {
+          const h = chars.find(x => x.id === t.charId);
+          if (h) rest.erschoepfung = +h.erschoepfung || 0;
+        }
         return rest;
       }),
       log: kampf.log || [],
@@ -26322,7 +26361,7 @@ function App() {
       }); // beim naechsten Mal erneut
     }, 1200);
     return () => clearTimeout(uhr);
-  }, [kampf, isDmMode, konto, advId, svCode, advDms]);
+  }, [kampf, chars, isDmMode, konto, advId, svCode, advDms]);
 
   // Beim Wechsel des Abenteuers faengt das Spiegeln von vorn an — sonst
   // hielte der Merker den Stand des vorigen Abenteuers fuer den eigenen.

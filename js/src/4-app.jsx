@@ -1863,6 +1863,12 @@ function App() {
       karte: karteFuerSpieler(kampf.karte),
       teilnehmer: (kampf.teilnehmer || []).map(t => {
         const {bild, ...rest} = t;
+        // Die Erschöpfung eines Helden steht im Bogen; der Spiegel nimmt
+        // sie von dort, damit auch der Server die richtige hat.
+        if (t.art === 'held') {
+          const h = chars.find(x => x.id === t.charId);
+          if (h) rest.erschoepfung = +h.erschoepfung || 0;
+        }
         return rest;
       }),
       log: kampf.log || [],
@@ -1879,7 +1885,7 @@ function App() {
         .catch(() => { kampfGespiegelt.current = null; });   // beim naechsten Mal erneut
     }, 1200);
     return () => clearTimeout(uhr);
-  }, [kampf, isDmMode, konto, advId, svCode, advDms]);
+  }, [kampf, chars, isDmMode, konto, advId, svCode, advDms]);
 
   // Beim Wechsel des Abenteuers faengt das Spiegeln von vorn an — sonst
   // hielte der Merker den Stand des vorigen Abenteuers fuer den eigenen.

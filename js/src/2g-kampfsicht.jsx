@@ -46,7 +46,9 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
           {eigenerHeld && <span className="ks-eigen">dein Held</span>}
           {t.vorteil  && <span className="ks-marke gut">👍 Vorteil</span>}
           {t.nachteil && <span className="ks-marke schlecht">👎 Nachteil</span>}
-          {(t.erschoepfung || 0) > 0 && <span className="ks-marke ersch">Erschöpfung {t.erschoepfung}</span>}
+          {/* Beim Helden aus dem Bogen, beim Gegner aus dem Kampf. */}
+          {(() => { const e = held ? (+((c || {}).erschoepfung) || 0) : (+t.erschoepfung || 0);
+                    return e > 0 ? <span className="ks-marke ersch">Erschöpfung {e}</span> : null; })()}
           {(t.zustaende || []).map(z => <span className="ks-marke" key={z}>{z}</span>)}
           {/* Was die Helden halten und was auf wem liegt. Wirkungen der
               Gegner kommen gar nicht erst an — das filtert der Server. */}
