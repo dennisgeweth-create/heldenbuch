@@ -96,6 +96,9 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
   // Reaktion. Wer alles in einen Satz schreibt, macht der Spielleitung
   // Arbeit — also drei Knöpfe und so viele Ansagen, wie man will.
   const [typ, setTyp] = React.useState('aktion');
+  // Heimlich: nur die Spielleitung sieht die Ansage. Die Mitspieler
+  // bekommen sie vom Server gar nicht erst.
+  const [geheim, setGeheim] = React.useState(false);
   // Was dieses Fenster schon abgeschickt hat. Der Abgleich braucht ein
   // paar Sekunden; solange steht es hier, damit die Zusammenfassung
   // sofort stimmt.
@@ -142,6 +145,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
       // beim Hochzaubern da; hier steht er immer, denn daran haengt der
       // Platz.
       stufe: (wahl.art === 'zauber' && gegenstand) ? grad : 0,
+      geheim,
     });
     // Das Fenster bleibt offen: die nächste Ansage kommt meistens
     // gleich hinterher. Was gewählt war, bleibt stehen — der zweite
@@ -177,6 +181,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
                   <div className="an-zeile" key={a.id}>
                     <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
                     <span className="an-was">
+                      {a.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
                       {a.was ? <b>{a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
                       {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                       {a.text ? <i>„{a.text}“</i> : null}
@@ -222,6 +227,11 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
               maxLength={500} aria-label="Beschreibung deiner Aktion"
               placeholder="Ich springe hinter den Karren und schleudere Feuer über die Lichtung." />
           </div>
+
+          <label className="zug-lauf-an an-geheim">
+            <input type="checkbox" checked={geheim} onChange={e=>setGeheim(e.target.checked)} />
+            <span>🔒 Nur für die Spielleitung — die anderen sehen diese Ansage nicht</span>
+          </label>
 
           <div className="zug-block">
             <div className="zug-label">Das geht so an die Spielleitung</div>
@@ -387,8 +397,8 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
             {(kampf.ansagen || []).slice(-6).map(a => (
               <div className="ks-ansage" key={a.id}>
                 <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
-                <b>{((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'}</b>
-                {a.was ? <span>{a.art === 'zauber' ? ' zaubert ' : ' greift an mit '}{a.was}
+                <b>{a.geheim ? '🔒 ' : ''}{((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'}</b>
+                {a.was ? <span>{' · ' + (AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
                   {a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
                 {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                 {a.text ? <i>„{a.text}“</i> : null}

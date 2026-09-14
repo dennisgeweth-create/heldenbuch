@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -4013,7 +4013,9 @@ const ZugFenster = ({
   }, ansageTyp(a).kurz), /*#__PURE__*/React.createElement("span", {
     className: "za-was",
     onClick: () => waehlenUm(a.id)
-  }, a.was ? /*#__PURE__*/React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null), /*#__PURE__*/React.createElement("button", {
+  }, a.geheim ? /*#__PURE__*/React.createElement("span", {
+    title: "Nur f\xFCr die Spielleitung"
+  }, "\uD83D\uDD12 ") : null, a.was ? /*#__PURE__*/React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn-icon",
     onClick: () => ansageNehmen(a),
@@ -6132,7 +6134,7 @@ const KampfAnsicht = ({
       key: a.id
     }, /*#__PURE__*/React.createElement("span", {
       className: "ka-wer"
-    }, held ? held.name : 'Jemand'), /*#__PURE__*/React.createElement("span", {
+    }, a.geheim ? '🔒 ' : '', held ? held.name : 'Jemand'), /*#__PURE__*/React.createElement("span", {
       className: "ka-was"
     }, a.was ? /*#__PURE__*/React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null), zeile && /*#__PURE__*/React.createElement("button", {
       className: "btn-icon",
@@ -16352,6 +16354,9 @@ const AnsageFenster = ({
   // Reaktion. Wer alles in einen Satz schreibt, macht der Spielleitung
   // Arbeit — also drei Knöpfe und so viele Ansagen, wie man will.
   const [typ, setTyp] = React.useState('aktion');
+  // Heimlich: nur die Spielleitung sieht die Ansage. Die Mitspieler
+  // bekommen sie vom Server gar nicht erst.
+  const [geheim, setGeheim] = React.useState(false);
   // Was dieses Fenster schon abgeschickt hat. Der Abgleich braucht ein
   // paar Sekunden; solange steht es hier, damit die Zusammenfassung
   // sofort stimmt.
@@ -16405,7 +16410,8 @@ const AnsageFenster = ({
       // Auf welchem Grad wirklich gezaubert wird. „grad" oben steht nur
       // beim Hochzaubern da; hier steht er immer, denn daran haengt der
       // Platz.
-      stufe: wahl.art === 'zauber' && gegenstand ? grad : 0
+      stufe: wahl.art === 'zauber' && gegenstand ? grad : 0,
+      geheim
     });
     // Das Fenster bleibt offen: die nächste Ansage kommt meistens
     // gleich hinterher. Was gewählt war, bleibt stehen — der zweite
@@ -16448,7 +16454,9 @@ const AnsageFenster = ({
     className: 'an-typ ' + (a.typ || 'aktion')
   }, ansageTyp(a).kurz), /*#__PURE__*/React.createElement("span", {
     className: "an-was"
-  }, a.was ? /*#__PURE__*/React.createElement("b", null, a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null))))), /*#__PURE__*/React.createElement("div", {
+  }, a.geheim ? /*#__PURE__*/React.createElement("span", {
+    title: "Nur f\xFCr die Spielleitung"
+  }, "\uD83D\uDD12 ") : null, a.was ? /*#__PURE__*/React.createElement("b", null, a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null))))), /*#__PURE__*/React.createElement("div", {
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-label"
@@ -16490,7 +16498,13 @@ const AnsageFenster = ({
     maxLength: 500,
     "aria-label": "Beschreibung deiner Aktion",
     placeholder: "Ich springe hinter den Karren und schleudere Feuer \xFCber die Lichtung."
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "zug-lauf-an an-geheim"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: geheim,
+    onChange: e => setGeheim(e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "\uD83D\uDD12 Nur f\xFCr die Spielleitung \u2014 die anderen sehen diese Ansage nicht")), /*#__PURE__*/React.createElement("div", {
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "zug-label"
@@ -16636,7 +16650,7 @@ const KampfSicht = ({
     key: a.id
   }, /*#__PURE__*/React.createElement("span", {
     className: 'an-typ ' + (a.typ || 'aktion')
-  }, ansageTyp(a).kurz), /*#__PURE__*/React.createElement("b", null, ((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'), a.was ? /*#__PURE__*/React.createElement("span", null, a.art === 'zauber' ? ' zaubert ' : ' greift an mit ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null))), /*#__PURE__*/React.createElement("div", {
+  }, ansageTyp(a).kurz), /*#__PURE__*/React.createElement("b", null, a.geheim ? '🔒 ' : '', ((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'), a.was ? /*#__PURE__*/React.createElement("span", null, ' · ' + (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? /*#__PURE__*/React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? /*#__PURE__*/React.createElement("i", null, "\u201E", a.text, "\u201C") : null))), /*#__PURE__*/React.createElement("div", {
     className: "ks-erklaerung"
   }, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")), onAnsage ? /*#__PURE__*/React.createElement("div", {
     className: "ks-fuss"
@@ -18222,6 +18236,180 @@ const HeldTextFenster = ({
     className: 'btn-save hb-kopf-knopf' + (stand ? ' ' + stand : ''),
     onClick: kopieren
   }, stand === 'gut' ? '✓ In der Zwischenablage' : stand === 'weg' ? '✕ Ging nicht — siehe oben' : '📋 Alles kopieren'))));
+};
+
+// ==== js/src/2l-post.jsx ====
+// Heldenbuch — Post an die Spielleitung.
+//
+// Am Tisch schiebt man der Spielleitung einen Zettel hin: „Ich stecke den
+// Ring ein, bevor die anderen hinsehen." Im Kampf geht das über die Ansage
+// mit dem Schloss; hier geht es jederzeit — auch zwischen zwei Sitzungen.
+//
+// Was geschrieben ist, liegt auf dem Server (hb_post) und nicht in der
+// Bibliothek: die sieht jede Spielleitung der Gruppe und wird als ein Stück
+// gespeichert. Der Server entscheidet auch, wer was liest — die Runde sieht
+// nur ihre eigenen Zettel, die Spielleitung alle aus ihrem Abenteuer.
+
+// Wann ein Zettel kam, so, wie man es am Tisch sagt.
+const postZeit = sek => {
+  if (!sek) return '';
+  const d = new Date(sek * 1000);
+  const heute = new Date();
+  const gleicherTag = d.toDateString() === heute.toDateString();
+  return gleicherTag ? 'heute ' + d.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }) : d.toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'numeric'
+  }) + ' ' + d.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// Die Seite des Spielers: schreiben, und sehen, was aus den eigenen
+// Zetteln geworden ist.
+const PostFenster = ({
+  helden,
+  post,
+  onSenden,
+  onZuruecknehmen,
+  onSchliessen
+}) => {
+  const [wer, setWer] = React.useState((helden[0] || {}).id || '');
+  const [text, setText] = React.useState('');
+  const [laeuft, setLaeuft] = React.useState(false);
+  const [meldung, setMeldung] = React.useState(null);
+  const senden = async () => {
+    if (!text.trim() || !wer) return;
+    setLaeuft(true);
+    const fehler = await onSenden(wer, text.trim());
+    setLaeuft(false);
+    if (fehler) {
+      setMeldung({
+        gut: false,
+        text: fehler
+      });
+      return;
+    }
+    setText('');
+    setMeldung({
+      gut: true,
+      text: 'Liegt bei der Spielleitung. Die Runde sieht davon nichts.'
+    });
+  };
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onClick: onSchliessen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal post-fenster",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\u2709 An die Spielleitung"), /*#__PURE__*/React.createElement("div", {
+    className: "post-wink"
+  }, "Nur die Spielleitung liest das \u2014 f\xFCr heimliche Handgriffe, Fragen unter vier Augen, einen Plan, den die anderen noch nicht kennen sollen."), helden.length > 1 && /*#__PURE__*/React.createElement("div", {
+    className: "form-group form-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Wer schreibt"), /*#__PURE__*/React.createElement("select", {
+    className: "form-select",
+    value: wer,
+    onChange: e => setWer(e.target.value)
+  }, helden.map(h => /*#__PURE__*/React.createElement("option", {
+    key: h.id,
+    value: h.id
+  }, h.name)))), /*#__PURE__*/React.createElement("textarea", {
+    className: "form-input post-text",
+    value: text,
+    maxLength: 1000,
+    rows: 5,
+    "aria-label": "Nachricht an die Spielleitung",
+    placeholder: "W\xE4hrend die anderen streiten, stecke ich den Schl\xFCssel vom Tisch ein.",
+    onChange: e => {
+      setText(e.target.value);
+      setMeldung(null);
+    }
+  }), meldung && /*#__PURE__*/React.createElement("div", {
+    className: 'post-meldung' + (meldung.gut ? ' gut' : ' weg')
+  }, meldung.text), post.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "form-label",
+    style: {
+      marginTop: 12
+    }
+  }, "Deine Zettel"), /*#__PURE__*/React.createElement("div", {
+    className: "post-liste"
+  }, post.map(p => /*#__PURE__*/React.createElement("div", {
+    className: 'post-zettel' + (p.gelesen ? ' gelesen' : ''),
+    key: p.id
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "post-kopf"
+  }, /*#__PURE__*/React.createElement("b", null, p.name || 'Held'), /*#__PURE__*/React.createElement("span", null, postZeit(p.zeit)), /*#__PURE__*/React.createElement("span", {
+    className: "post-stand"
+  }, p.gelesen ? '✓ gelesen' : 'noch ungelesen'), !p.gelesen && /*#__PURE__*/React.createElement("button", {
+    className: "konz-weg",
+    title: "Zur\xFCcknehmen",
+    onClick: () => onZuruecknehmen(p.id)
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "post-inhalt"
+  }, p.text))))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onSchliessen
+  }, "Schlie\xDFen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: !text.trim() || !wer || laeuft,
+    onClick: senden
+  }, laeuft ? 'Wird gesendet…' : '✉ Senden'))));
+};
+
+// Die Seite der Spielleitung: was gekommen ist, das Ungelesene oben.
+const PostfachFenster = ({
+  post,
+  onGelesen,
+  onLoeschen,
+  onSchliessen
+}) => {
+  const sortiert = [...post].sort((a, b) => a.gelesen - b.gelesen || b.zeit - a.zeit);
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onClick: onSchliessen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal post-fenster",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\u2709 Post von der Runde"), /*#__PURE__*/React.createElement("div", {
+    className: "post-liste"
+  }, sortiert.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Noch kein Zettel gekommen."), sortiert.map(p => /*#__PURE__*/React.createElement("div", {
+    className: 'post-zettel' + (p.gelesen ? ' gelesen' : ' neu'),
+    key: p.id
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "post-kopf"
+  }, /*#__PURE__*/React.createElement("b", null, p.name || 'Held'), /*#__PURE__*/React.createElement("span", null, postZeit(p.zeit)), /*#__PURE__*/React.createElement("button", {
+    className: "bj-taste",
+    onClick: () => onGelesen(p.id, !p.gelesen)
+  }, p.gelesen ? 'Wieder ungelesen' : '✓ Gelesen'), /*#__PURE__*/React.createElement("button", {
+    className: "konz-weg",
+    title: "Wegwerfen",
+    onClick: () => onLoeschen(p.id)
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "post-inhalt"
+  }, p.text)))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onSchliessen
+  }, "Schlie\xDFen"))));
 };
 
 // ==== js/src/3-sheet.jsx ====
@@ -25171,6 +25359,73 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Post an die Spielleitung ───────────────────────────────────
+  // Die Spielleitung fragt alle zwanzig Sekunden, ob etwas gekommen ist —
+  // ein Zettel ist nicht eilig wie ein Zug, aber er soll auch nicht erst
+  // nach der Sitzung auffallen. Ein Spieler fragt nur, wenn er sein
+  // Fenster aufmacht: er will wissen, ob seins gelesen wurde.
+  const [post, setPost] = useState([]);
+  const [postOffen, setPostOffen] = useState(false);
+  const postLaden = async () => {
+    const creds = serverCreds();
+    if (!verbunden(creds) || !advId) return;
+    try {
+      const d = await apiPostListe(creds.url, creds.code, advId);
+      setPost(d && d.post || []);
+    } catch {}
+  };
+  useEffect(() => {
+    setPost([]);
+    if (!isDmMode || !advId || !konto) return;
+    let lebt = true,
+      uhr = null;
+    const takt = async () => {
+      if (!document.hidden) await postLaden();
+      if (lebt) uhr = setTimeout(takt, 20000);
+    };
+    takt();
+    return () => {
+      lebt = false;
+      clearTimeout(uhr);
+    };
+  }, [isDmMode, advId, svCode, konto]);
+  useEffect(() => {
+    if (postOffen) postLaden();
+  }, [postOffen]);
+  const postUngelesen = isDmMode ? post.filter(p => !p.gelesen).length : 0;
+  const postSenden = async (charId, text) => {
+    const creds = serverCreds();
+    if (!verbunden(creds)) return 'Ohne Verbindung zum Server geht keine Post.';
+    try {
+      await apiPostSenden(creds.url, creds.code, advId, charId, text);
+      await postLaden();
+      return null;
+    } catch (e) {
+      return e.message || 'Das ging nicht.';
+    }
+  };
+  const postGelesen = async (id, gelesen) => {
+    setPost(l => l.map(p => p.id === id ? {
+      ...p,
+      gelesen
+    } : p));
+    const creds = serverCreds();
+    try {
+      await apiPostGelesen(creds.url, creds.code, advId, id, gelesen);
+    } catch {
+      postLaden();
+    }
+  };
+  const postLoeschen = async id => {
+    setPost(l => l.filter(p => p.id !== id));
+    const creds = serverCreds();
+    try {
+      await apiPostLoeschen(creds.url, creds.code, advId, id);
+    } catch {
+      postLaden();
+    }
+  };
+
   // ── Der Laden ──────────────────────────────────────────────────
   // Die Auslage steht in der Bibliothek der Gruppe, je Abenteuer eine.
   // Sie braucht keinen eigenen Abgleich: die Bibliothek kommt ohnehin
@@ -27546,7 +27801,11 @@ function App() {
       // Dasselbe hier: pass ist seit Stufe 7 immer leer.
       if (url && code) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
     }
-  }, "\uD83D\uDCD6 Abenteuerlog"), (laden || isDmMode) && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCD6 Abenteuerlog"), svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && /*#__PURE__*/React.createElement("button", {
+    className: 'btn-tool' + (postUngelesen ? ' post-neu' : ''),
+    onClick: () => setPostOffen(true),
+    title: isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'
+  }, "\u2709 ", isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'), (laden || isDmMode) && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setLadenOffen(true),
     title: "Kaufen und verkaufen"
@@ -30344,7 +30603,18 @@ function App() {
   }, "\u2715 Schlie\xDFen"))), showAdventLog && /*#__PURE__*/React.createElement(AdventureLog, {
     onClose: () => setShowAdventLog(false),
     isDmMode: isDmMode
-  }), ladenOffen && /*#__PURE__*/React.createElement(LadenFenster, {
+  }), postOffen && (isDmMode ? /*#__PURE__*/React.createElement(PostfachFenster, {
+    post: post,
+    onGelesen: postGelesen,
+    onLoeschen: id => appConfirm('Diesen Zettel wegwerfen?', () => postLoeschen(id), 'Wegwerfen'),
+    onSchliessen: () => setPostOffen(false)
+  }) : /*#__PURE__*/React.createElement(PostFenster, {
+    helden: advChars.filter(c => eigeneHeldenIds.includes(c.id) && !c.archived),
+    post: post,
+    onSenden: postSenden,
+    onZuruecknehmen: postLoeschen,
+    onSchliessen: () => setPostOffen(false)
+  })), ladenOffen && /*#__PURE__*/React.createElement(LadenFenster, {
     laden: laden,
     isDmMode: isDmMode,
     helden: chars.filter(c => !c.archived && (c.adventure || advId) === advId && darfSchreiben(c)),

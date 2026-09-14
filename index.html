@@ -133,6 +133,16 @@
     const apiBeuteStand  = (url, code, pass, advId, seit) =>
       apiRequest(url, 'beute_stand',  { code, password: pass, adv_id: advId, seit });
 
+    // ── Post an die Spielleitung ─────────────────────────────────
+    const apiPostSenden   = (url, code, advId, charId, text) =>
+      apiRequest(url, 'post_senden',   { code, adv_id: advId, char_id: charId, text });
+    const apiPostListe    = (url, code, advId) =>
+      apiRequest(url, 'post_liste',    { code, adv_id: advId });
+    const apiPostGelesen  = (url, code, advId, id, gelesen) =>
+      apiRequest(url, 'post_gelesen',  { code, adv_id: advId, id, gelesen });
+    const apiPostLoeschen = (url, code, advId, id) =>
+      apiRequest(url, 'post_loeschen', { code, adv_id: advId, id });
+
     // ── Proben auf Ansage ───────────────────────────────────────
     const apiProbeSetzen  = (url, code, pass, advId, probe) =>
       apiRequest(url, 'probe_setzen',  { code, password: pass, adv_id: advId, probe });

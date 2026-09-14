@@ -4388,3 +4388,25 @@
     font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); }
   .zug-lauf-an input { width:14px; height:14px; accent-color:#9060c0; }
   .zug-lauf-name { width:170px; }
+
+  /* Post an die Spielleitung */
+  .post-fenster { max-width:560px; }
+  .post-wink { font-size:12.5px; color:var(--text-muted); line-height:1.5; margin:-4px 0 12px; }
+  .post-text { width:100%; resize:vertical; min-height:96px; font-family:'Roboto',sans-serif; line-height:1.5; }
+  .post-meldung { margin-top:7px; font-size:12px; }
+  .post-meldung.gut { color:#8fd9ae; }
+  .post-meldung.weg { color:#f0a0a0; }
+  .post-liste { display:flex; flex-direction:column; gap:7px; max-height:46vh; overflow-y:auto; }
+  .post-zettel { padding:9px 11px; border-radius:5px; background:var(--bg-card);
+    border:1px solid var(--border); }
+  .post-zettel.neu { border-color:var(--gold-dim); box-shadow:0 0 0 1px rgba(201,168,76,0.18) inset; }
+  .post-zettel.gelesen { opacity:0.72; }
+  .post-kopf { display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+    font-family:'Roboto Condensed',sans-serif; font-size:11.5px; color:var(--text-muted); }
+  .post-kopf b { color:var(--text-primary); font-weight:400; font-size:13px; }
+  .post-kopf .bj-taste { margin-left:auto; padding:4px 9px; font-size:11px; }
+  .post-stand { margin-left:auto; }
+  .post-inhalt { margin-top:5px; font-size:13px; line-height:1.55; color:var(--text-secondary);
+    white-space:pre-wrap; overflow-wrap:anywhere; }
+  .btn-tool.post-neu { border-color:var(--gold-dim); color:var(--gold); }
+  .an-geheim { margin:2px 0 10px; }

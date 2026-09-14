@@ -779,6 +779,23 @@ ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'ka
 $r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
 pruefe('mitgeschickt raeumt sie ab', count((array)($r['body']['kampf']['ansagen'] ?? [])) === 0);
 
+abschnitt('Eine geheime Ansage');
+$r = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'char_id' => 'h1', 'ansage' => ['art' => 'frei', 'text' => 'Ich stehle dem Ork den Beutel.', 'geheim' => true]]);
+pruefe('sie wird angenommen (200)', $r['status'] === 200, kurz($r));
+pruefe('und bleibt geheim', ($r['body']['ansage']['geheim'] ?? false) === true);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+pruefe('ein Mitspieler liest den Kampf (200)', $r['status'] === 200, kurz($r));
+pruefe('aber nicht die geheime Ansage',
+       count((array)($r['body']['kampf']['ansagen'] ?? [])) === 0
+       && strpos(json_encode($r['body'], JSON_UNESCAPED_UNICODE), 'Beutel') === false);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('wer sie gemacht hat, sieht sie', count((array)($r['body']['kampf']['ansagen'] ?? [])) === 1);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung auch', count((array)($r['body']['kampf']['ansagen'] ?? [])) === 1);
+$kampf2['ansagen'] = [];
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf2]);
+
 // Seit dem Zugfenster steht im Bogen mehr als Waffe und Zauber: ein
 // Trank aus dem Inventar und ein Merkmal des Charakters. Die Liste der
 // erlaubten Arten muss beides durchlassen, sonst kommt beim
@@ -989,6 +1006,41 @@ pruefe('die Spielleitung raeumt weg (200)', $r['status'] === 200, kurz($r));
 $r = ruf('beute_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
 pruefe('danach liegt nichts mehr',
        array_key_exists('beute', $r['body']) && $r['body']['beute'] === null, kurz($r));
+
+abschnitt('Post an die Spielleitung');
+$r = ruf('post_senden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                         'char_id' => 'h1', 'text' => 'Ich stecke den Schlüssel heimlich ein.']);
+pruefe('der Besitzer schreibt (201)', $r['status'] === 201, kurz($r));
+$r = ruf('post_senden', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd',
+                         'char_id' => 'h1', 'text' => 'Untergeschoben']);
+pruefe('mit fremdem Bogen nicht (403)', $r['status'] === 403, kurz($r));
+$r = ruf('post_senden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                         'char_id' => 'h1', 'text' => '   ']);
+pruefe('ein leerer Zettel wird abgelehnt (400)', $r['status'] === 400, kurz($r));
+
+$r = ruf('post_liste', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$pl = (array)($r['body']['post'] ?? []);
+pruefe('der Schreiber sieht seinen Zettel', count($pl) === 1 && ($pl[0]['gelesen'] ?? true) === false, kurz($r));
+pruefe('  … mit dem Namen des Helden', ($pl[0]['charId'] ?? '') === 'h1');
+$postId = (int)($pl[0]['id'] ?? 0);
+$r = ruf('post_liste', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+pruefe('ein Mitspieler sieht nichts davon', count((array)($r['body']['post'] ?? [])) === 0, kurz($r));
+$r = ruf('post_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung sieht ihn', count((array)($r['body']['post'] ?? [])) === 1
+       && ($r['body']['ungelesen'] ?? 0) === 1, kurz($r));
+
+$r = ruf('post_gelesen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'id' => $postId, 'gelesen' => true]);
+pruefe('gelesen setzt nur die Spielleitung (403)', $r['status'] === 403, kurz($r));
+$r = ruf('post_gelesen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'id' => $postId, 'gelesen' => true]);
+pruefe('die Spielleitung hakt ab (200)', $r['status'] === 200, kurz($r));
+$r = ruf('post_liste', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('und der Schreiber sieht es', (($r['body']['post'][0]['gelesen'] ?? false) === true));
+$r = ruf('post_loeschen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'id' => $postId]);
+pruefe('Gelesenes nimmt der Schreiber nicht mehr zurueck (404)', $r['status'] === 404, kurz($r));
+$r = ruf('post_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'id' => $postId]);
+pruefe('die Spielleitung wirft ihn weg (200)', $r['status'] === 200, kurz($r));
+$r = ruf('post_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('danach ist das Postfach leer', count((array)($r['body']['post'] ?? [])) === 0);
 
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);

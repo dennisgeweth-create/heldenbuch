@@ -1990,6 +1990,51 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Post an die Spielleitung ───────────────────────────────────
+  // Die Spielleitung fragt alle zwanzig Sekunden, ob etwas gekommen ist —
+  // ein Zettel ist nicht eilig wie ein Zug, aber er soll auch nicht erst
+  // nach der Sitzung auffallen. Ein Spieler fragt nur, wenn er sein
+  // Fenster aufmacht: er will wissen, ob seins gelesen wurde.
+  const [post, setPost] = useState([]);
+  const [postOffen, setPostOffen] = useState(false);
+  const postLaden = async () => {
+    const creds = serverCreds();
+    if (!verbunden(creds) || !advId) return;
+    try {
+      const d = await apiPostListe(creds.url, creds.code, advId);
+      setPost((d && d.post) || []);
+    } catch {}
+  };
+  useEffect(() => {
+    setPost([]);
+    if (!isDmMode || !advId || !konto) return;
+    let lebt = true, uhr = null;
+    const takt = async () => {
+      if (!document.hidden) await postLaden();
+      if (lebt) uhr = setTimeout(takt, 20000);
+    };
+    takt();
+    return () => { lebt = false; clearTimeout(uhr); };
+  }, [isDmMode, advId, svCode, konto]);
+  useEffect(() => { if (postOffen) postLaden(); }, [postOffen]);
+  const postUngelesen = isDmMode ? post.filter(p => !p.gelesen).length : 0;
+  const postSenden = async (charId, text) => {
+    const creds = serverCreds();
+    if (!verbunden(creds)) return 'Ohne Verbindung zum Server geht keine Post.';
+    try { await apiPostSenden(creds.url, creds.code, advId, charId, text); await postLaden(); return null; }
+    catch (e) { return e.message || 'Das ging nicht.'; }
+  };
+  const postGelesen = async (id, gelesen) => {
+    setPost(l => l.map(p => p.id === id ? {...p, gelesen} : p));
+    const creds = serverCreds();
+    try { await apiPostGelesen(creds.url, creds.code, advId, id, gelesen); } catch { postLaden(); }
+  };
+  const postLoeschen = async (id) => {
+    setPost(l => l.filter(p => p.id !== id));
+    const creds = serverCreds();
+    try { await apiPostLoeschen(creds.url, creds.code, advId, id); } catch { postLaden(); }
+  };
+
   // ── Der Laden ──────────────────────────────────────────────────
   // Die Auslage steht in der Bibliothek der Gruppe, je Abenteuer eine.
   // Sie braucht keinen eigenen Abgleich: die Bibliothek kommt ohnehin
@@ -3477,6 +3522,15 @@ function App() {
                 // Dasselbe hier: pass ist seit Stufe 7 immer leer.
                 if(url&&code) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
+              {/* Post: die Spielleitung sieht, was gekommen ist; wer
+                  einen eigenen Helden im Abenteuer hat, kann schreiben. */}
+              {svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && (
+                <button className={'btn-tool' + (postUngelesen ? ' post-neu' : '')}
+                  onClick={()=>setPostOffen(true)}
+                  title={isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'}>
+                  ✉ {isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'}
+                </button>
+              )}
               {/* Der Laden steht da, sobald die Spielleitung eine Auslage
                   hingelegt hat — vorher sieht ihn nur sie. */}
               {(laden || isDmMode) && (
@@ -4804,6 +4858,16 @@ function App() {
 
       {/* Adventure Log Modal */}
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
+
+      {postOffen && (isDmMode ? (
+        <PostfachFenster post={post} onGelesen={postGelesen}
+          onLoeschen={(id)=>appConfirm('Diesen Zettel wegwerfen?', ()=>postLoeschen(id), 'Wegwerfen')}
+          onSchliessen={()=>setPostOffen(false)} />
+      ) : (
+        <PostFenster helden={advChars.filter(c => eigeneHeldenIds.includes(c.id) && !c.archived)}
+          post={post} onSenden={postSenden} onZuruecknehmen={postLoeschen}
+          onSchliessen={()=>setPostOffen(false)} />
+      ))}
 
       {ladenOffen && (
         <LadenFenster laden={laden} isDmMode={isDmMode}

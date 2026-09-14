@@ -31,6 +31,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2i-beute.jsx` | Beute — hinlegen, nehmen, in die Bögen eintragen |
 | ↳ `2j-laden.jsx` | Laden — Auslage (auch als Liste einfügbar), kaufen, verkaufen |
 | ↳ `2k-heldtext.jsx` | Der ganze Bogen als Text — zum Vorlegen an eine KI, samt Fenster |
+| ↳ `2l-post.jsx` | Post an die Spielleitung — Fenster des Spielers und Postfach der Spielleitung (Server: `hb_post`) |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |

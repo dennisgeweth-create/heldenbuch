@@ -1326,6 +1326,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                     title={ansageTyp(a).l + ' — auswählen'}
                     onClick={()=>waehlenUm(a.id)}>{ansageTyp(a).kurz}</button>
                   <span className="za-was" onClick={()=>waehlenUm(a.id)}>
+                    {a.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
                     {a.was ? <b>{(AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
                       {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
                     {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
@@ -2960,7 +2961,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               const zeile = liste.find(x => x.art === 'held' && x.charId === a.charId);
               return (
                 <div className="kampf-ansage" key={a.id}>
-                  <span className="ka-wer">{held ? held.name : 'Jemand'}</span>
+                  <span className="ka-wer">{a.geheim ? '🔒 ' : ''}{held ? held.name : 'Jemand'}</span>
                   <span className="ka-was">
                     {a.was ? <b>{(AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
                       {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}

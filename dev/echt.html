@@ -103,6 +103,10 @@
                    9:{max:0,used:0}},
     };
     localStorage.setItem('dnd_chars', JSON.stringify([WB_HELD]));
+    // Ein Abenteuer, damit alles, was je Abenteuer gilt — Laden, Post —,
+    // einen Ort hat. Der Held steht ohne eigenes darin.
+    localStorage.setItem('hb_library', JSON.stringify({_adventures: [{id: 'wb', name: 'Werkbank'}]}));
+    localStorage.setItem('hb_adventure', 'wb');
 
     // ── Ein laufender Kampf ────────────────────────────────────────
     // Brunhilde ist am Zug, ein Goblin steht gegenüber. Liegt er schon im
@@ -162,6 +166,21 @@
     const apiProbeNachricht = wbStumm;
     const apiProbeSetzen = wbStumm;
     const apiProbeStand = wbStumm;
+    // Post: die Werkbank hat einen Briefkasten im Arbeitsspeicher, damit
+    // sich das Fenster der Spielleitung pruefen laesst.
+    const wbPost = [{id: 1, charId: 'wb1', name: 'Brunhilde Eisenfaust',
+                     text: 'Ich stecke den Schlüssel heimlich ein.', gelesen: false,
+                     zeit: Math.floor(Date.now() / 1000)}];
+    const apiPostListe = () => Promise.resolve({post: wbPost.map(p => ({...p})), dm: true});
+    const apiPostGelesen = (u, c, a, id, gelesen) => {
+      const p = wbPost.find(x => x.id === id); if (p) p.gelesen = !!gelesen;
+      return Promise.resolve({});
+    };
+    const apiPostLoeschen = (u, c, a, id) => {
+      const i = wbPost.findIndex(x => x.id === id); if (i >= 0) wbPost.splice(i, 1);
+      return Promise.resolve({});
+    };
+    const apiPostSenden = wbStumm;
     const apiRequest = wbStumm;
     const apiRolleSetzen = wbStumm;
     const apiSaveChar = wbStumm;
@@ -809,6 +828,86 @@
             if (ab) { ab.click(); await ruhe(120); }
           }
         }
+
+        // ── Post von der Runde ─────────────────────────────────────
+        melden('lauf', 'Post');
+        const postK = await warten(() => knopfMit('✉ Post'));
+        // Im Hintergrund fragt die Anwendung nicht nach — und diese Seite
+        // läuft oft in einem verborgenen Fenster. Also erst aufmachen,
+        // dann zählen: beim Öffnen wird immer gefragt.
+        if (ja('Die Spielleitung hat einen Postknopf', !!postK)) {
+          postK.click();
+          const zettel = await warten(() => document.querySelector('.post-zettel'));
+          ja('  … der zählt, was ungelesen ist', /· 1/.test(knopfMit('✉ Post').textContent),
+             knopfMit('✉ Post').textContent);
+          ja('Der Zettel steht im Postfach', !!zettel && /Schlüssel heimlich/.test(zettel.textContent));
+          const gel = zettel && [...zettel.querySelectorAll('button')].find(b => /Gelesen/.test(b.textContent));
+          if (ja('  … und lässt sich abhaken', !!gel)) {
+            gel.click(); await ruhe(150);
+            ja('  … danach zählt der Knopf ihn nicht mehr', !/· 1/.test(knopfMit('✉ Post').textContent));
+          }
+          const weg = document.querySelector('.post-zettel .konz-weg');
+          if (weg) {
+            weg.click(); await ruhe(120);
+            const okP = document.querySelector('.confirm-ok'); if (okP) { okP.click(); await ruhe(150); }
+            ja('Weggeworfen ist er fort', !document.querySelector('.post-zettel'));
+          }
+          const zuP = knopfMit('Schließen'); if (zuP) { zuP.click(); await ruhe(100); }
+        }
+
+        // ── Die Seite des Spielers ─────────────────────────────────
+        // Diese Seite fährt als Spielleitung. Die beiden Fenster, die nur
+        // Spieler sehen, werden deshalb für sich aufgestellt — dieselben
+        // Bausteine aus derselben app.js, nur ohne den Weg dorthin.
+        melden('lauf', 'Spielerseite: Post und geheime Ansage');
+        const buehne = document.createElement('div');
+        document.body.appendChild(buehne);
+        const setzA = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+        let gesendet = null;
+        ReactDOM.render(React.createElement(PostFenster, {
+          helden: [WB_HELD], post: [{id: 7, name: WB_HELD.name, text: 'Alter Zettel', gelesen: true, zeit: 0}],
+          onSenden: (wer, text) => { gesendet = {wer, text}; return Promise.resolve(null); },
+          onZuruecknehmen: () => {}, onSchliessen: () => {},
+        }), buehne);
+        await ruhe(100);
+        const feldP = buehne.querySelector('.post-text');
+        if (ja('Das Postfenster des Spielers steht', !!feldP)) {
+          setzA.call(feldP, 'Ich lenke die Wache ab.');
+          feldP.dispatchEvent(new Event('input', {bubbles: true}));
+          await ruhe(60);
+          [...buehne.querySelectorAll('button')].find(b => /Senden/.test(b.textContent)).click();
+          await ruhe(150);
+          ja('  … schickt Held und Text', !!gesendet && gesendet.wer === 'wb1'
+             && gesendet.text === 'Ich lenke die Wache ab.', JSON.stringify(gesendet));
+          ja('  … und sagt, dass es angekommen ist', /Liegt bei der Spielleitung/.test(buehne.textContent));
+          ja('  … der gelesene Zettel steht als gelesen da', /✓ gelesen/.test(buehne.textContent));
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+
+        let angesagt = null;
+        ReactDOM.render(React.createElement(AnsageFenster, {
+          held: WB_HELD, helden: [WB_HELD], runde: 1,
+          kampf: JSON.parse(wbSpeicher.hb_kampf || '{}'),
+          onAbbrechen: () => {}, onPlatz: () => null,
+          onSenden: (a) => { angesagt = a; return Promise.resolve({...a, id: 'x1'}); },
+        }), buehne);
+        await ruhe(100);
+        const schloss = buehne.querySelector('.an-geheim input');
+        if (ja('Die Ansage hat das Schloss', !!schloss)) {
+          schloss.click();
+          [...buehne.querySelectorAll('button')].find(b => /Nur beschreiben/.test(b.textContent)).click();
+          await ruhe(60);
+          const tx = buehne.querySelector('.zug-frei');
+          setzA.call(tx, 'Ich schneide heimlich den Beutel ab.');
+          tx.dispatchEvent(new Event('input', {bubbles: true}));
+          await ruhe(60);
+          [...buehne.querySelectorAll('button')].find(b => /An die Spielleitung/.test(b.textContent)).click();
+          await ruhe(150);
+          ja('  … und die Ansage geht als geheim hinaus', !!angesagt && angesagt.geheim === true,
+             JSON.stringify(angesagt));
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+        buehne.remove();
 
         ja('Nichts ist unterwegs abgestürzt', kaputt.length === 0, kaputt.join(' · '));
         schluss();
