@@ -219,7 +219,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
             <div className="zug-vorschau">
               <div className="pr-zeile zug">▸ {held ? held.name : 'Du'} sagt an</div>
               {gegenstand && (
-                <div className="pr-zeile">   {wahl.art === 'zauber' ? 'Zauber' : 'Angriff'}: {gegenstand.name}
+                <div className="pr-zeile">   {AKTION_WORT[wahl.art] || 'Angriff'}: {gegenstand.name}
                   {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
                   {wurf ? ' (' + wurf + ')' : ''}</div>
               )}

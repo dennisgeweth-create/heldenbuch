@@ -173,6 +173,8 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
   const habe = muenzenSumme(beutel);
   const waren = (laden && laden.waren) || [];
   const kauf = (laden && laden.kauf) || 0;
+  const inventar = (held && held.inventory) || [];
+  const [reiter, setReiter] = React.useState('kaufen');
 
   // Was der Laden für ein Stück aus dem Inventar bietet: der Anteil vom
   // Ladenpreis, wenn er die Ware führt — sonst muss jemand eine Zahl
@@ -190,7 +192,7 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
 
         {helden.length > 1 && (
           <div className="form-group form-full">
-            <div className="form-label">Wer kauft</div>
+            <div className="form-label">Wer handelt</div>
             <select className="form-select" value={wer} onChange={e=>setWer(e.target.value)}>
               {helden.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
             </select>
@@ -204,33 +206,50 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
           </div>
         )}
 
-        <div className="form-label" style={{marginTop:10}}>Auslage</div>
-        <div className="beute-liste">
-          {waren.length === 0 && <div className="probe-leer">Der Ort führt noch nichts.</div>}
-          {waren.map(w => {
-            const reicht = habe >= w.preis;
-            return (
-              <div className="beute-stueck" key={w.id}>
-                <div className="beute-was">
-                  <b>{w.name}</b>
-                  {w.notiz && <i>{w.notiz}</i>}
-                </div>
-                <span className="laden-schild">{preisText(w.preis)}</span>
-                <button className="bj-taste" disabled={!held || !reicht}
-                  title={reicht ? '' : 'Dafür reicht der Beutel nicht'}
-                  onClick={()=>onKaufen(held, w)}>Kaufen</button>
-              </div>
-            );
-          })}
+        {/* Zwei Reiter statt beides untereinander. Am Tisch will man
+            entweder kaufen oder loswerden — und mit vollem Rucksack stand
+            die Auslage über einer Liste, die länger war als sie selbst. */}
+        <div className="laden-reiter" role="tablist">
+          <button type="button" role="tab" aria-selected={reiter === 'kaufen'}
+            className={'bj-taste' + (reiter === 'kaufen' ? ' haupt' : '')}
+            onClick={()=>setReiter('kaufen')}>Kaufen · {waren.length}</button>
+          <button type="button" role="tab" aria-selected={reiter === 'verkaufen'}
+            className={'bj-taste' + (reiter === 'verkaufen' ? ' haupt' : '')}
+            onClick={()=>setReiter('verkaufen')}>Verkaufen · {inventar.length}</button>
         </div>
 
-        {held && (held.inventory || []).length > 0 && kauf > 0 && (
-          <>
-            <div className="form-label" style={{marginTop:12}}>
-              Verkaufen — der Ort zahlt {Math.round(kauf * 100)} %
-            </div>
+        {reiter === 'kaufen' && (
+          <div className="beute-liste" role="tabpanel">
+            {waren.length === 0 && <div className="probe-leer">Der Ort führt noch nichts.</div>}
+            {waren.map(w => {
+              const reicht = habe >= w.preis;
+              return (
+                <div className="beute-stueck" key={w.id}>
+                  <div className="beute-was">
+                    <b>{w.name}</b>
+                    {w.notiz && <i>{w.notiz}</i>}
+                  </div>
+                  <span className="laden-schild">{preisText(w.preis)}</span>
+                  <button className="bj-taste" disabled={!held || !reicht}
+                    title={reicht ? '' : 'Dafür reicht der Beutel nicht'}
+                    onClick={()=>onKaufen(held, w)}>Kaufen</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {reiter === 'verkaufen' && (
+          <div role="tabpanel">
+            {kauf > 0 && inventar.length > 0 && (
+              <div className="laden-kauft">Der Ort zahlt {Math.round(kauf * 100)} % vom Ladenpreis</div>
+            )}
             <div className="beute-liste">
-              {(held.inventory || []).map(i => {
+              {kauf <= 0 ? (
+                <div className="probe-leer">Hier wird nichts angekauft.</div>
+              ) : inventar.length === 0 ? (
+                <div className="probe-leer">{held ? held.name + ' hat nichts im Inventar.' : 'Niemand gewählt.'}</div>
+              ) : inventar.map(i => {
                 const g = gebot(i);
                 return (
                   <div className="beute-stueck" key={i.id}>
@@ -238,6 +257,7 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
                       <b>{i.name}{(+i.qty || 1) > 1 ? ' ×' + i.qty : ''}</b>
                     </div>
                     <input className="form-input laden-preis"
+                      aria-label={'Preis für ' + (i.name || 'das Stück')}
                       value={preise[i.id] !== undefined ? preise[i.id] : kupferZuGold(g)}
                       onChange={e=>setPreise(p => ({...p, [i.id]: e.target.value}))} />
                     <button className="bj-taste" disabled={g <= 0}
@@ -247,7 +267,7 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
                 );
               })}
             </div>
-          </>
+          </div>
         )}
 
         <div className="form-actions" style={{marginTop:14}}>

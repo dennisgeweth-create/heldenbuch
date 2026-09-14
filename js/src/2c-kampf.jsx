@@ -621,6 +621,23 @@ const aktionsStand = (held, wahl) => {
           wurf: wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad) : ''};
 };
 
+// Im Zugfenster steht je Ziel nicht der Zustand danach, sondern was
+// umgeschaltet wird — `ziele[id].zustand` ist die Liste der angetippten
+// Chips. Daraus die Zeilen fuers Protokoll und die Handgriffe fuer den
+// Kampf: an, wenn das Ziel ihn noch nicht hat, sonst aus. Wer denselben
+// Chip zweimal antippt, hat nichts geaendert; das erledigt das Fenster.
+const zustandsWechsel = (ziele, liste) => {
+  const raus = [];
+  Object.keys(ziele || {}).forEach(id => {
+    const ziel = (liste || []).find(x => x.id === id);
+    if (!ziel) return;
+    const hat = ziel.zustaende || [];
+    [...new Set((ziele[id] || {}).zustand || [])].forEach(z =>
+      raus.push({id, art: 'zustand', wer: ziel.name, was: z, an: !hat.includes(z)}));
+  });
+  return raus;
+};
+
 const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
@@ -728,6 +745,19 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
                 );
               })}
             </div>
+          )}
+          {/* Was das Gewaehlte eigentlich kann. Am Tisch schlug man dafuer
+              den Bogen auf — bei einem Merkmal oft das Einzige, was es gibt,
+              denn Wuerfel oder Wirkung traegt es selten. Merkmale sind
+              schlichter Text, alles andere kommt als HTML. */}
+          {gegenstand && gegenstand.description && (
+            <details className="zug-beschreibung">
+              <summary>Beschreibung — {gegenstand.name || 'Ohne Namen'}</summary>
+              {wahl.art === 'merkmal'
+                ? <div className="zug-beschreibung-text">{gegenstand.description}</div>
+                : <div className="zug-beschreibung-text"
+                    dangerouslySetInnerHTML={{__html: sanitizeHtml(gegenstand.description)}} />}
+            </details>
           )}
         </div>
       )}
@@ -907,7 +937,12 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     let platz = null;
     // Die Waffe bleibt nach "und weiter" stehen — ohne Ziel und ohne Text
     // waere "Angriff: Langschwert" allein aber eine leere Zeile.
-    if (gegenstand && (Object.keys(ziele).length || text.trim())) {
+    // Alles andere zaehlt schon durch die Wahl: Zweiter Atem, Tatendrang,
+    // Schild oder ein Trank auf sich selbst haben kein Ziel und muessen
+    // trotzdem ins Protokoll. Damit das nach "und weiter" nicht doppelt
+    // geschieht, laesst uebernehmen() die Wahl dort los.
+    const ohneZiel = art === 'merkmal' || art === 'zauber' || art === 'gegenstand';
+    if (gegenstand && (Object.keys(ziele).length || text.trim() || ohneZiel)) {
       eintraege.push({art: 'aktion', wer: t.name, was: gegenstand.name, modus: art,
         grad: (art === 'zauber' && grad > grundGrad) ? grad : 0,
         wurf: wurfJetzt || ''});
@@ -978,25 +1013,36 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
       konz = {charId: held.id, wert: {id: gegenstand.id, name: gegenstand.name}};
       eintraege.push({art: 'konzAn', wer: t.name, was: gegenstand.name});
     }
-    return {eintraege, treffer, platz, verbrauch, konz};
+    // Was an den Zielen haengen bleibt. Die Zeilen stehen nach dem
+    // Schaden — erst trifft der Hieb, dann liegt der Ork am Boden —,
+    // deshalb nicht in eintraege, sondern eigens.
+    const zustaende = zustandsWechsel(ziele, liste);
+    return {eintraege, treffer, platz, verbrauch, konz, zustaende};
   };
 
-  const {eintraege, treffer} = bauen();
+  const {eintraege, treffer, zustaende} = bauen();
   const summe = treffer.reduce((s, x) => s + x.n, 0);
+  const [zustOffen, setZustOffen] = React.useState(null);
+  const zustandUm = (id, z) => setZiele(zs => {
+    const liste2 = (zs[id] || {}).zustand || [];
+    return {...zs, [id]: {...zs[id], zustand: liste2.includes(z)
+      ? liste2.filter(x => x !== z) : [...liste2, z]}};
+  });
 
   // Ein Zug ist selten eine Sache: Angriff und Bonusaktion, zwei Hiebe
   // des Kaempfers, Zauber und Trank. "Und weiter" traegt ein und raeumt
-  // das Fenster fuer die naechste Aktion ab — Waffe, Zauber und Grad
-  // bleiben stehen, weil der zweite Hieb meistens derselbe ist.
+  // das Fenster fuer die naechste Aktion ab — die Waffe bleibt stehen,
+  // weil der zweite Hieb meistens derselbe ist.
   const uebernehmen = (weiter) => {
     const gebaut = bauen();
     onAnwenden(gebaut, weiter, genommen);
-    if (weiter) { setZiele({}); setText(''); setGenommen(null);
+    if (weiter) { setZiele({}); setText(''); setGenommen(null); setZustOffen(null);
                   setGemeinsam(0); setGemeinsamZusatz([]);
-                  // Nach dem Trank ordnet sich die Liste neu — an derselben
-                  // Stelle steht dann etwas anderes. Also die Wahl los, statt
-                  // aus Versehen den naechsten Gegenstand zu verbrauchen.
-                  if (gebaut.verbrauch) setWahl(w => ({...w, i: null})); }
+                  // Alles ausser der Waffe zaehlt schon durch die Wahl (siehe
+                  // bauen) — bliebe sie stehen, stuende derselbe Zauber gleich
+                  // noch einmal im Protokoll und kostete einen zweiten Platz.
+                  // Nach dem Trank ordnet sich die Liste ohnehin neu.
+                  if (art !== 'angriff' || gebaut.verbrauch) setWahl(w => ({...w, i: null})); }
   };
 
   // Die Vorschau zeigt dieselben Zeilen, die gleich im Protokoll stehen —
@@ -1011,6 +1057,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     vorschau.push({art: modus, r: runde, wer: ziel.name, wert: n, von, auf, teile, minderung});
     if (von > 0 && auf <= 0) vorschau.push({art: 'nieder', r: runde, wer: ziel.name});
   });
+  zustaende.forEach(({id, ...e}) => vorschau.push({...e, r: runde}));
+  const leer = !eintraege.length && !treffer.length && !zustaende.length;
 
   const knopf = summe
     ? (richtung === 'heilung' ? '✓ Übernehmen — heilt ' + summe + ' TP'
@@ -1235,6 +1283,30 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                         </span>
                       )}
                       <span className="zug-w-notiz">RK {ziel.ac} · {ziel.hp}/{ziel.hpMax}</span>
+                      {/* Liegend nach dem Stoss, vergiftet nach dem Biss —
+                          gleich hier, statt nach dem Fenster noch einmal
+                          an die Kampfzeile zu muessen. */}
+                      <button type="button"
+                        className={'zug-plus zug-zust-knopf' + ((z.zustand || []).length ? ' an' : '')}
+                        aria-expanded={zustOffen === id}
+                        onClick={()=>setZustOffen(zustOffen === id ? null : id)}>
+                        {(z.zustand || []).length
+                          ? 'Zustände · ' + (z.zustand || []).length + ' geändert'
+                          : '＋ Zustand'}</button>
+                      {zustOffen === id && (
+                        <span className="zug-zustaende">
+                          {CONDITIONS.map(c => {
+                            const umgelegt = (z.zustand || []).includes(c);
+                            const an = (ziel.zustaende || []).includes(c) !== umgelegt;
+                            return (
+                              <button type="button" key={c}
+                                className={'zust-chip' + (an ? ' an' : '') + (umgelegt ? ' neu' : '')}
+                                aria-pressed={an}
+                                onClick={()=>zustandUm(id, c)}>{c}</button>
+                            );
+                          })}
+                        </span>
+                      )}
 
                       {richtung === 'schaden' && (z.zusatz || []).map((x, i) => (
                         <span className="zug-zusatz" key={i}>
@@ -1279,9 +1351,9 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
           <button className="btn-cancel" onClick={onAbbrechen}>Schließen</button>
           <button className="btn-icon" onClick={()=>uebernehmen(true)}
             title="Eintragen und das Fenster für die nächste Aktion dieses Zuges offen lassen"
-            disabled={!eintraege.length && !treffer.length}>+ und weiter</button>
+            disabled={leer}>+ und weiter</button>
           <button className="btn-save" onClick={()=>uebernehmen(false)}
-            disabled={!eintraege.length && !treffer.length}>{knopf}</button>
+            disabled={leer}>{knopf}</button>
         </div>
       </div>
     </Fenster>
@@ -2080,7 +2152,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Was im Zugfenster steht, geht denselben Weg wie alles andere: erst die
   // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
-  const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz}, weiter, ansageId) => {
+  const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz, zustaende}, weiter, ansageId) => {
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
     // Steht noch etwas in der Reihe, wird nicht zugemacht: es geht
@@ -2095,6 +2167,16 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     (eintraege || []).forEach(e => protokollieren(e));
     (treffer || []).forEach(({id, modus, n, teile, minderung}) =>
       wertDirekt(id, modus, n, (teile || minderung) ? {teile, minderung} : null));
+    // Die Zustaende nach dem Schaden, in derselben Reihenfolge wie in der
+    // Vorschau. Nicht ueber zustand(): das schriebe die Zeile ein zweites
+    // Mal, und es schaltet nur um, statt an oder aus zu setzen.
+    (zustaende || []).forEach(({id, ...e}) => {
+      protokollieren(e);
+      aendernKampf(id, t2 => {
+        const hat = (t2.zustaende || []).filter(x => x !== e.was);
+        return {...t2, zustaende: e.an ? [...hat, e.was] : hat};
+      });
+    });
     // Was gehalten wird, gehoert in den Bogen: es ueberlebt den Kampf,
     // und der Bogen zeigt es an.
     if (konz) {

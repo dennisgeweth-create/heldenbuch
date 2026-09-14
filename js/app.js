@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.4.1';
+const HB_VERSION = 'v5.5';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -2898,6 +2898,28 @@ const aktionsStand = (held, wahl) => {
     wurf: wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad) : ''
   };
 };
+
+// Im Zugfenster steht je Ziel nicht der Zustand danach, sondern was
+// umgeschaltet wird — `ziele[id].zustand` ist die Liste der angetippten
+// Chips. Daraus die Zeilen fuers Protokoll und die Handgriffe fuer den
+// Kampf: an, wenn das Ziel ihn noch nicht hat, sonst aus. Wer denselben
+// Chip zweimal antippt, hat nichts geaendert; das erledigt das Fenster.
+const zustandsWechsel = (ziele, liste) => {
+  const raus = [];
+  Object.keys(ziele || {}).forEach(id => {
+    const ziel = (liste || []).find(x => x.id === id);
+    if (!ziel) return;
+    const hat = ziel.zustaende || [];
+    [...new Set((ziele[id] || {}).zustand || [])].forEach(z => raus.push({
+      id,
+      art: 'zustand',
+      wer: ziel.name,
+      was: z,
+      an: !hat.includes(z)
+    }));
+  });
+  return raus;
+};
 const AktionsWahl = ({
   held,
   wahl,
@@ -3024,6 +3046,15 @@ const AktionsWahl = ({
     }, /*#__PURE__*/React.createElement("b", null, g.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("i", null, unterZeile(g))), /*#__PURE__*/React.createElement("span", {
       className: "zug-wirkt"
     }, rechts(g)));
+  })), gegenstand && gegenstand.description && /*#__PURE__*/React.createElement("details", {
+    className: "zug-beschreibung"
+  }, /*#__PURE__*/React.createElement("summary", null, "Beschreibung \u2014 ", gegenstand.name || 'Ohne Namen'), wahl.art === 'merkmal' ? /*#__PURE__*/React.createElement("div", {
+    className: "zug-beschreibung-text"
+  }, gegenstand.description) : /*#__PURE__*/React.createElement("div", {
+    className: "zug-beschreibung-text",
+    dangerouslySetInnerHTML: {
+      __html: sanitizeHtml(gegenstand.description)
+    }
   }))), wahl.art === 'zauber' && gegenstand && grundGrad > 0 && /*#__PURE__*/React.createElement("div", {
     className: "zug-grad"
   }, /*#__PURE__*/React.createElement("span", {
@@ -3276,7 +3307,12 @@ const ZugFenster = ({
     let platz = null;
     // Die Waffe bleibt nach "und weiter" stehen — ohne Ziel und ohne Text
     // waere "Angriff: Langschwert" allein aber eine leere Zeile.
-    if (gegenstand && (Object.keys(ziele).length || text.trim())) {
+    // Alles andere zaehlt schon durch die Wahl: Zweiter Atem, Tatendrang,
+    // Schild oder ein Trank auf sich selbst haben kein Ziel und muessen
+    // trotzdem ins Protokoll. Damit das nach "und weiter" nicht doppelt
+    // geschieht, laesst uebernehmen() die Wahl dort los.
+    const ohneZiel = art === 'merkmal' || art === 'zauber' || art === 'gegenstand';
+    if (gegenstand && (Object.keys(ziele).length || text.trim() || ohneZiel)) {
       eintraege.push({
         art: 'aktion',
         wer: t.name,
@@ -3405,24 +3441,41 @@ const ZugFenster = ({
         was: gegenstand.name
       });
     }
+    // Was an den Zielen haengen bleibt. Die Zeilen stehen nach dem
+    // Schaden — erst trifft der Hieb, dann liegt der Ork am Boden —,
+    // deshalb nicht in eintraege, sondern eigens.
+    const zustaende = zustandsWechsel(ziele, liste);
     return {
       eintraege,
       treffer,
       platz,
       verbrauch,
-      konz
+      konz,
+      zustaende
     };
   };
   const {
     eintraege,
-    treffer
+    treffer,
+    zustaende
   } = bauen();
   const summe = treffer.reduce((s, x) => s + x.n, 0);
+  const [zustOffen, setZustOffen] = React.useState(null);
+  const zustandUm = (id, z) => setZiele(zs => {
+    const liste2 = (zs[id] || {}).zustand || [];
+    return {
+      ...zs,
+      [id]: {
+        ...zs[id],
+        zustand: liste2.includes(z) ? liste2.filter(x => x !== z) : [...liste2, z]
+      }
+    };
+  });
 
   // Ein Zug ist selten eine Sache: Angriff und Bonusaktion, zwei Hiebe
   // des Kaempfers, Zauber und Trank. "Und weiter" traegt ein und raeumt
-  // das Fenster fuer die naechste Aktion ab — Waffe, Zauber und Grad
-  // bleiben stehen, weil der zweite Hieb meistens derselbe ist.
+  // das Fenster fuer die naechste Aktion ab — die Waffe bleibt stehen,
+  // weil der zweite Hieb meistens derselbe ist.
   const uebernehmen = weiter => {
     const gebaut = bauen();
     onAnwenden(gebaut, weiter, genommen);
@@ -3430,12 +3483,14 @@ const ZugFenster = ({
       setZiele({});
       setText('');
       setGenommen(null);
+      setZustOffen(null);
       setGemeinsam(0);
       setGemeinsamZusatz([]);
-      // Nach dem Trank ordnet sich die Liste neu — an derselben
-      // Stelle steht dann etwas anderes. Also die Wahl los, statt
-      // aus Versehen den naechsten Gegenstand zu verbrauchen.
-      if (gebaut.verbrauch) setWahl(w => ({
+      // Alles ausser der Waffe zaehlt schon durch die Wahl (siehe
+      // bauen) — bliebe sie stehen, stuende derselbe Zauber gleich
+      // noch einmal im Protokoll und kostete einen zweiten Platz.
+      // Nach dem Trank ordnet sich die Liste ohnehin neu.
+      if (art !== 'angriff' || gebaut.verbrauch) setWahl(w => ({
         ...w,
         i: null
       }));
@@ -3478,6 +3533,14 @@ const ZugFenster = ({
       wer: ziel.name
     });
   });
+  zustaende.forEach(({
+    id,
+    ...e
+  }) => vorschau.push({
+    ...e,
+    r: runde
+  }));
+  const leer = !eintraege.length && !treffer.length && !zustaende.length;
   const knopf = summe ? richtung === 'heilung' ? '✓ Übernehmen — heilt ' + summe + ' TP' : '✓ Übernehmen — trägt ' + summe + ' TP ab' : '✓ Übernehmen';
   return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onAbbrechen
@@ -3754,7 +3817,24 @@ const ZugFenster = ({
       })
     }, "immun")), /*#__PURE__*/React.createElement("span", {
       className: "zug-w-notiz"
-    }, "RK ", ziel.ac, " \xB7 ", ziel.hp, "/", ziel.hpMax), richtung === 'schaden' && (z.zusatz || []).map((x, i) => /*#__PURE__*/React.createElement("span", {
+    }, "RK ", ziel.ac, " \xB7 ", ziel.hp, "/", ziel.hpMax), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: 'zug-plus zug-zust-knopf' + ((z.zustand || []).length ? ' an' : ''),
+      "aria-expanded": zustOffen === id,
+      onClick: () => setZustOffen(zustOffen === id ? null : id)
+    }, (z.zustand || []).length ? 'Zustände · ' + (z.zustand || []).length + ' geändert' : '＋ Zustand'), zustOffen === id && /*#__PURE__*/React.createElement("span", {
+      className: "zug-zustaende"
+    }, CONDITIONS.map(c => {
+      const umgelegt = (z.zustand || []).includes(c);
+      const an = (ziel.zustaende || []).includes(c) !== umgelegt;
+      return /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        key: c,
+        className: 'zust-chip' + (an ? ' an' : '') + (umgelegt ? ' neu' : ''),
+        "aria-pressed": an,
+        onClick: () => zustandUm(id, c)
+      }, c);
+    })), richtung === 'schaden' && (z.zusatz || []).map((x, i) => /*#__PURE__*/React.createElement("span", {
       className: "zug-zusatz",
       key: i
     }, /*#__PURE__*/React.createElement("span", null, "zus\xE4tzlich"), /*#__PURE__*/React.createElement("input", {
@@ -3817,11 +3897,11 @@ const ZugFenster = ({
     className: "btn-icon",
     onClick: () => uebernehmen(true),
     title: "Eintragen und das Fenster f\xFCr die n\xE4chste Aktion dieses Zuges offen lassen",
-    disabled: !eintraege.length && !treffer.length
+    disabled: leer
   }, "+ und weiter"), /*#__PURE__*/React.createElement("button", {
     className: "btn-save",
     onClick: () => uebernehmen(false),
-    disabled: !eintraege.length && !treffer.length
+    disabled: leer
   }, knopf))));
 };
 
@@ -4834,7 +4914,8 @@ const KampfAnsicht = ({
     treffer,
     platz,
     verbrauch,
-    konz
+    konz,
+    zustaende
   }, weiter, ansageId) => {
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
@@ -4857,6 +4938,22 @@ const KampfAnsicht = ({
       teile,
       minderung
     } : null));
+    // Die Zustaende nach dem Schaden, in derselben Reihenfolge wie in der
+    // Vorschau. Nicht ueber zustand(): das schriebe die Zeile ein zweites
+    // Mal, und es schaltet nur um, statt an oder aus zu setzen.
+    (zustaende || []).forEach(({
+      id,
+      ...e
+    }) => {
+      protokollieren(e);
+      aendernKampf(id, t2 => {
+        const hat = (t2.zustaende || []).filter(x => x !== e.was);
+        return {
+          ...t2,
+          zustaende: e.an ? [...hat, e.was] : hat
+        };
+      });
+    });
     // Was gehalten wird, gehoert in den Bogen: es ueberlebt den Kampf,
     // und der Bogen zeigt es an.
     if (konz) {
@@ -15693,7 +15790,7 @@ const AnsageFenster = ({
     className: "pr-zeile zug"
   }, "\u25B8 ", held ? held.name : 'Du', " sagt an"), gegenstand && /*#__PURE__*/React.createElement("div", {
     className: "pr-zeile"
-  }, "   ", wahl.art === 'zauber' ? 'Zauber' : 'Angriff', ": ", gegenstand.name, wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), Object.keys(ziele).length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "   ", AKTION_WORT[wahl.art] || 'Angriff', ": ", gegenstand.name, wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), Object.keys(ziele).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "pr-zeile"
   }, "   auf ", Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')), text.trim() && /*#__PURE__*/React.createElement("div", {
     className: "pr-zeile frei"
@@ -16838,6 +16935,8 @@ const LadenFenster = ({
   const habe = muenzenSumme(beutel);
   const waren = laden && laden.waren || [];
   const kauf = laden && laden.kauf || 0;
+  const inventar = held && held.inventory || [];
+  const [reiter, setReiter] = React.useState('kaufen');
 
   // Was der Laden für ein Stück aus dem Inventar bietet: der Anteil vom
   // Ladenpreis, wenn er die Ware führt — sonst muss jemand eine Zahl
@@ -16858,7 +16957,7 @@ const LadenFenster = ({
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-label"
-  }, "Wer kauft"), /*#__PURE__*/React.createElement("select", {
+  }, "Wer handelt"), /*#__PURE__*/React.createElement("select", {
     className: "form-select",
     value: wer,
     onChange: e => setWer(e.target.value)
@@ -16868,12 +16967,23 @@ const LadenFenster = ({
   }, h.name)))), held && /*#__PURE__*/React.createElement("div", {
     className: "laden-beutel"
   }, /*#__PURE__*/React.createElement("span", null, held.name, " hat"), /*#__PURE__*/React.createElement("b", null, preisText(habe))), /*#__PURE__*/React.createElement("div", {
-    className: "form-label",
-    style: {
-      marginTop: 10
-    }
-  }, "Auslage"), /*#__PURE__*/React.createElement("div", {
-    className: "beute-liste"
+    className: "laden-reiter",
+    role: "tablist"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    role: "tab",
+    "aria-selected": reiter === 'kaufen',
+    className: 'bj-taste' + (reiter === 'kaufen' ? ' haupt' : ''),
+    onClick: () => setReiter('kaufen')
+  }, "Kaufen \xB7 ", waren.length), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    role: "tab",
+    "aria-selected": reiter === 'verkaufen',
+    className: 'bj-taste' + (reiter === 'verkaufen' ? ' haupt' : ''),
+    onClick: () => setReiter('verkaufen')
+  }, "Verkaufen \xB7 ", inventar.length)), reiter === 'kaufen' && /*#__PURE__*/React.createElement("div", {
+    className: "beute-liste",
+    role: "tabpanel"
   }, waren.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "probe-leer"
   }, "Der Ort f\xFChrt noch nichts."), waren.map(w => {
@@ -16891,14 +17001,17 @@ const LadenFenster = ({
       title: reicht ? '' : 'Dafür reicht der Beutel nicht',
       onClick: () => onKaufen(held, w)
     }, "Kaufen"));
-  })), held && (held.inventory || []).length > 0 && kauf > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "form-label",
-    style: {
-      marginTop: 12
-    }
-  }, "Verkaufen \u2014 der Ort zahlt ", Math.round(kauf * 100), " %"), /*#__PURE__*/React.createElement("div", {
+  })), reiter === 'verkaufen' && /*#__PURE__*/React.createElement("div", {
+    role: "tabpanel"
+  }, kauf > 0 && inventar.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "laden-kauft"
+  }, "Der Ort zahlt ", Math.round(kauf * 100), " % vom Ladenpreis"), /*#__PURE__*/React.createElement("div", {
     className: "beute-liste"
-  }, (held.inventory || []).map(i => {
+  }, kauf <= 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, "Hier wird nichts angekauft.") : inventar.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "probe-leer"
+  }, held ? held.name + ' hat nichts im Inventar.' : 'Niemand gewählt.') : inventar.map(i => {
     const g = gebot(i);
     return /*#__PURE__*/React.createElement("div", {
       className: "beute-stueck",
@@ -16907,6 +17020,7 @@ const LadenFenster = ({
       className: "beute-was"
     }, /*#__PURE__*/React.createElement("b", null, i.name, (+i.qty || 1) > 1 ? ' ×' + i.qty : '')), /*#__PURE__*/React.createElement("input", {
       className: "form-input laden-preis",
+      "aria-label": 'Preis für ' + (i.name || 'das Stück'),
       value: preise[i.id] !== undefined ? preise[i.id] : kupferZuGold(g),
       onChange: e => setPreise(p => ({
         ...p,

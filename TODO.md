@@ -5,28 +5,9 @@ Offene Vorhaben. Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 ## Vom Spielabend (September 2026)
 
 Zehn Wünsche vom Tisch, hier nach Bauplan sortiert — zusammen, was
-dieselben Daten anfasst, und das Kleine zuerst. Die Nummer in Klammern
+dieselben Daten anfasst, und das Kleine zuerst. Teil A ist mit v5.5 erledigt. Die Nummer in Klammern
 ist die Stelle in der Liste vom Abend. Größe: **S** ein Abend, **M** zwei
 bis drei, **L** mehr.
-
-### A · Schnell, und sofort am Tisch zu merken
-
-- [ ] **Merkmale ohne Ziel eintragen** (1) · S
-  Die Wahl ⭐ Merkmal gibt es schon. Das Zugfenster schreibt eine Aktion
-  aber nur, wenn ein Ziel angekreuzt oder Text getippt ist
-  (`bauen()` in `2c-kampf.jsx`, „gegenstand && (ziele || text)“). Zweiter
-  Atem, Tatendrang, Kampfrausch haben kein Ziel — also bleibt der Knopf
-  grau und im Protokoll steht nichts. Fix: bei Merkmal (und Zauber mit
-  Reichweite „Selbst“) reicht die Wahl. Dazu die Beschreibung des
-  Merkmals aufklappbar im Fenster, damit niemand im Bogen nachschlagen muss.
-- [ ] **Zustände im Zugfenster setzen** (8) · S
-  Heute nur über den Knopf „Zustände“ in der Kampfzeile. Im Zugfenster
-  bekommt jedes angekreuzte Ziel eine Zeile Zustands-Chips — dieselbe
-  `ZustandWahl`, derselbe Protokolleintrag `zustand`. Gilt auch für den
-  Zug eines Gegners (`nurWerte`).
-- [ ] **Händlerfenster mit zwei Reitern** (6) · S
-  „Kaufen“ und „Verkaufen“ statt beides untereinander in `LadenFenster`.
-  Geldbeutel und Heldenwahl bleiben über den Reitern stehen.
 
 ### B · Rückgängig
 
@@ -107,6 +88,8 @@ bis drei, **L** mehr.
 
 ## Erledigt
 
+- ~~Merkmale ohne Ziel eintragen, Zustände im Zugfenster, Laden mit zwei
+  Reitern~~ — Teil A vom Spielabend, siehe **v5.5**.
 - ~~Tränke mit Wirkung~~ — ein Gegenstand trägt dieselben Wirkungsfelder
   wie ein Zauber; das Zugfenster rechnet und stellt sich bei einem
   Heiltrank selbst auf Heilung.

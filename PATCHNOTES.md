@@ -1,5 +1,48 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.5
+
+Drei Wünsche vom letzten Spielabend.
+
+### ⭐ Merkmale ohne Ziel kommen ins Protokoll
+
+Zweiter Atem, Tatendrang, Kampfrausch — im Zugfenster ließen sie sich
+auswählen, aber nicht eintragen: ohne angekreuztes Ziel blieb
+„Übernehmen" grau, und im Protokoll stand nichts. Die Wahl allein genügt
+jetzt, bei Merkmalen, Zaubern und Gegenständen. Nur der Angriff will
+weiter ein Ziel.
+
+Damit derselbe Zauber nach **„+ und weiter"** nicht gleich ein zweites
+Mal im Protokoll landet und einen zweiten Platz kostet, ist die Wahl
+danach frei. Die Waffe bleibt stehen wie bisher — der zweite Hieb ist
+meistens derselbe.
+
+Unter der Auswahl steht außerdem die **Beschreibung** des Gewählten zum
+Aufklappen. Bei einem Merkmal ist sie oft das Einzige, was es gibt, und
+niemand muss dafür mehr den Bogen aufschlagen.
+
+Nebenbei: in der Vorschau der Spieleransage stand vor jedem Merkmal und
+Trank „Angriff:". Jetzt steht dort, was es ist.
+
+### 🩸 Zustände gleich im Zugfenster
+
+Der Goblin geht nach dem Stoß zu Boden, der Held ist nach dem Biss
+vergiftet — bisher hieß das: Zugfenster übernehmen, dann an der
+Kampfzeile noch einmal „Zustände". Jetzt hat jedes angekreuzte Ziel im
+Zugfenster **„＋ Zustand"**. Was schon gilt, ist markiert; was man
+antippt, wird umgelegt und gestrichelt umrandet. Im Protokoll steht es
+nach dem Schaden — erst trifft der Hieb, dann liegt der Ork.
+
+Das geht auch im Zug eines Gegners, und ein Zustand allein reicht zum
+Übernehmen.
+
+### 🏪 Der Laden hat zwei Reiter
+
+**Kaufen** und **Verkaufen** stehen nicht mehr untereinander. Mit vollem
+Rucksack war die Auslage oben kaum noch zu finden, weil das Inventar
+darunter länger war als sie. Jeder Reiter nennt, wie viel darin steht;
+kauft der Ort nichts an, sagt der zweite das, statt zu fehlen.
+
 ## v5.4.1
 
 ### 🧹 Den Laden wieder abräumen

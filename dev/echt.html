@@ -93,6 +93,22 @@
     };
     localStorage.setItem('dnd_chars', JSON.stringify([WB_HELD]));
 
+    // ── Ein laufender Kampf ────────────────────────────────────────
+    // Brunhilde ist am Zug, ein Goblin steht gegenüber. Liegt er schon im
+    // Speicher, faehrt der Tracker damit hoch wie nach einem Neuladen
+    // mitten im Kampf — der Weg dahin ist nicht, worum es hier geht.
+    localStorage.setItem('hb_kampf', JSON.stringify({
+      aktiv: true, phase: 'kampf', name: 'Werkbank', runde: 1, zug: 0, zwischen: null,
+      teilnehmer: [
+        {id: 'held-wb1', art: 'held', charId: 'wb1', ini: 15, zustaende: [],
+         erschoepfung: 0, vorteil: false, nachteil: false},
+        {id: 'wb-goblin', art: 'gegner', vorlageId: 'goblin', name: 'Goblin',
+         ac: 15, hpMax: 7, hp: 7, tempHp: 0, ini: 10, dex: 14,
+         zustaende: [], erschoepfung: 0, notiz: '', bild: null},
+      ],
+      log: [{art: 'start', wer: 'Werkbank', r: 1}],
+    }));
+
     // ── Die Schnittstelle ──────────────────────────────────────────
     // Kein Server, und nichts, wogegen man sich anmelden koennte. Was
     // Daten liefern muss, damit die Spielleitung hineinkommt, liefert
@@ -423,6 +439,27 @@
                .map(b => b.textContent.trim()).join(' · '));
           if (name) { name.click(); await ruhe(200); }
 
+          // ── Zwei Reiter ──
+          const reiter = [...document.querySelectorAll('.laden-reiter [role=tab]')];
+          ja('Das Fenster hat zwei Reiter', reiter.length === 2,
+             reiter.map(r => r.textContent.trim()).join(' · '));
+          if (reiter.length === 2) {
+            const zeilenText = () => [...document.querySelectorAll('.laden-fenster .beute-stueck')]
+              .map(z => z.textContent).join(' | ');
+            ja('  … „Kaufen" ist vorn und zeigt die Auslage',
+               reiter[0].getAttribute('aria-selected') === 'true'
+               && /Trank der Heilung/.test(zeilenText()) && !/Kettenhemd/.test(zeilenText()),
+               zeilenText());
+            reiter[1].click(); await ruhe(120);
+            ja('  … „Verkaufen" zeigt das Inventar statt der Auslage',
+               /Kettenhemd/.test(zeilenText()) && !/Trank der Heilung/.test(zeilenText()),
+               zeilenText());
+            ja('  … mit dem Ankauf des Ortes',
+               /zahlt 40 %/.test((document.querySelector('.laden-kauft') || {}).textContent || ''));
+            reiter[0].click(); await ruhe(120);
+            ja('  … und zurück', /Trank der Heilung/.test(zeilenText()));
+          }
+
           const raeumen = knopfMit('Abräumen');
           if (ja('Der Knopf zum Abräumen steht da', !!raeumen)) {
             raeumen.click(); await ruhe(150);
@@ -456,6 +493,92 @@
               if (zuLaden) { zuLaden.click(); await ruhe(120); }
             }
           }
+        }
+
+        // ── Der Kampf: das Zugfenster ──────────────────────────────
+        // Zwei Dinge vom Spielabend: ein Merkmal ohne Ziel kommt ins
+        // Protokoll, und ein Zustand am Gegner lässt sich gleich im
+        // Zugfenster setzen. Geprüft wird am Speicher, denn dorthin
+        // schreibt der Tracker — und am Schirm.
+        melden('lauf', 'Der Kampf');
+        const kampfStand = () => JSON.parse(wbSpeicher.hb_kampf || 'null') || {};
+        const logText = () => (kampfStand().log || []).map(e => protokollZeile(e, true)).join('\n');
+        const kampfKnopf = await warten(() => knopfMit('⚔ Kampf'));
+        if (ja('Der Tracker steht der Spielleitung offen', !!kampfKnopf)) {
+          kampfKnopf.click();
+          const zug = await warten(() => knopfMit('Zug eintragen'));
+          if (ja('Brunhilde ist am Zug, der Knopf steht da', !!zug)) {
+            zug.click();
+            const merkmal = await warten(() => knopfMit('⭐ Merkmal'));
+            if (ja('Das Zugfenster bietet Merkmale an', !!merkmal && !merkmal.disabled)) {
+              merkmal.click(); await ruhe(80);
+              const eintrag = await warten(() => [...document.querySelectorAll('.zug-zeile')]
+                .find(z => /Aktionsschub/.test(z.textContent)));
+              if (ja('  … Aktionsschub steht zur Wahl', !!eintrag)) {
+                eintrag.click(); await ruhe(100);
+                const besch = document.querySelector('.zug-beschreibung');
+                ja('Die Beschreibung des Merkmals steht im Fenster',
+                   !!besch && /zusätzliche Aktion/.test(besch.textContent));
+                const ueber = document.querySelector('.zug-fuss .btn-save');
+                ja('Ohne Ziel lässt es sich trotzdem übernehmen', !!ueber && !ueber.disabled,
+                   'bis v5.4.1 blieb der Knopf grau');
+                ja('  … die Vorschau nennt es',
+                   /Merkmal: Aktionsschub/.test((document.querySelector('.zug-vorschau') || {}).textContent || ''));
+                if (ueber && !ueber.disabled) {
+                  ueber.click(); await ruhe(300);
+                  ja('  … und es steht im Protokoll', /Merkmal: Aktionsschub/.test(logText()),
+                     logText().split('\n').slice(-3).join(' / '));
+                }
+              }
+            }
+          }
+
+          // Derselbe Zug, zweite Handlung: der Goblin geht zu Boden.
+          const zug2 = await warten(() => knopfMit('Zug eintragen'));
+          if (zug2) {
+            zug2.click();
+            const ziel = await warten(() => [...document.querySelectorAll('.zug-ziel')]
+              .find(z => /Goblin/.test(z.textContent)));
+            if (ja('Der Goblin lässt sich als Ziel wählen', !!ziel)) {
+              ziel.click(); await ruhe(100);
+              const zk = await warten(() => document.querySelector('.zug-zust-knopf'));
+              if (ja('  … und hat einen Knopf für Zustände', !!zk)) {
+                zk.click(); await ruhe(80);
+                const liegend = [...document.querySelectorAll('.zug-zustaende .zust-chip')]
+                  .find(b => b.textContent.trim() === 'Liegend');
+                if (ja('  … „Liegend" steht zur Wahl', !!liegend)) {
+                  liegend.click(); await ruhe(80);
+                  ja('  … angetippt ist er markiert',
+                     liegend.classList.contains('an') && liegend.classList.contains('neu'));
+                  ja('  … und die Vorschau sagt es',
+                     /Goblin ist Liegend/.test((document.querySelector('.zug-vorschau') || {}).textContent || ''));
+                  liegend.click(); await ruhe(60);
+                  // Der Knopf bleibt dabei offen: ein angekreuztes Ziel ist im
+                  // Angriff schon „Treffer" — also zählt die Vorschau.
+                  ja('Zweimal angetippt ist nichts geändert',
+                     !liegend.classList.contains('an')
+                     && !/Liegend/.test((document.querySelector('.zug-vorschau') || {}).textContent || ''));
+                  liegend.click(); await ruhe(60);
+                  const ueber2 = document.querySelector('.zug-fuss .btn-save');
+                  ja('Nur ein Zustand reicht zum Übernehmen', !!ueber2 && !ueber2.disabled);
+                  if (ueber2 && !ueber2.disabled) {
+                    ueber2.click(); await ruhe(300);
+                    const gob = (kampfStand().teilnehmer || []).find(t => t.id === 'wb-goblin') || {};
+                    ja('  … der Goblin liegt jetzt', (gob.zustaende || []).indexOf('Liegend') >= 0,
+                       JSON.stringify(gob.zustaende));
+                    ja('  … einmal, nicht doppelt', (gob.zustaende || []).length === 1);
+                    ja('  … und das Protokoll sagt es einmal',
+                       (logText().match(/Goblin ist Liegend/g) || []).length === 1,
+                       logText().split('\n').slice(-3).join(' / '));
+                    ja('  … die Kampfzeile zeigt ihn',
+                       [...document.querySelectorAll('.kampf-zustand')].some(b => /Liegend/.test(b.textContent)));
+                  }
+                }
+              }
+            }
+          }
+          const x = document.querySelector('.kampf-kopf-x');
+          if (x) { x.click(); await ruhe(150); }
         }
 
         ja('Nichts ist unterwegs abgestürzt', kaputt.length === 0, kaputt.join(' · '));
