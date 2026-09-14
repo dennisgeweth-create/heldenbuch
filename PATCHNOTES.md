@@ -1,5 +1,23 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.10.3
+
+### Abenteuerlog und Patchnotes schweben
+
+Das **📖 Abenteuerlog** und **📜 Was sich geändert hat** lagen noch hinter
+einem Schleier und ließen sich nicht minimieren. Jetzt sind beide
+schwebende Fenster in der Leiste, wie Datenbank oder Laden. Der Knopf in
+der Seitenleiste holt ein minimiertes Log zurück, mit der Suche, die darin
+stand.
+
+Nebenbei behoben: **Suche und Filter im Abenteuerlog gingen verloren**,
+sobald die Anwendung sich im Hintergrund abglich. Das Fenster fing dann
+von vorn an. Jetzt bleibt stehen, was man eingetippt und angeklickt hat.
+
+Alle übrigen Fenster, die noch hinter einem Schleier liegen, sind
+Formulare, Auswahlen, Rückfragen oder die Anmeldung, und die sollen das
+Heldenbuch dahinter sperren.
+
 ## v5.10.2
 
 ### Das Kreuz klebt nicht mehr am Rand

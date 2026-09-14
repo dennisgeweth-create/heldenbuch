@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.10.2';
+const HB_VERSION = 'v5.10.3';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -455,7 +455,7 @@ const PatchnotesFenster = ({ onSchliessen }) => {
   const ausgaben = text ? patchnotesAusgaben(text) : [];
 
   return (
-    <Fenster onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen} leiste={{id: 'patchnotes', titel: 'Was sich geändert hat', symbol: '📜'}}>
       <div className="form-modal pn-fenster">
         <div className="form-title">📜 Was sich geändert hat</div>
         <div className="pn-inhalt">

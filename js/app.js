@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.10.2';
+const HB_VERSION = 'v5.10.3';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -591,7 +591,12 @@ const PatchnotesFenster = ({
   }, []);
   const ausgaben = text ? patchnotesAusgaben(text) : [];
   return /*#__PURE__*/React.createElement(Fenster, {
-    onClick: onSchliessen
+    onClick: onSchliessen,
+    leiste: {
+      id: 'patchnotes',
+      titel: 'Was sich geändert hat',
+      symbol: '📜'
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal pn-fenster"
   }, /*#__PURE__*/React.createElement("div", {
@@ -27183,6 +27188,8 @@ function App() {
   useEffect(() => {
     flOeffnen('taverne', true, () => setShowAutomat(true));
     flOeffnen('datenbank', true, () => setShowDB(true));
+    flOeffnen('abenteuerlog', true, () => setShowAdventLog(true));
+    flOeffnen('patchnotes', true, () => setPatchnotesOffen(true));
     flOeffnen('kampf', isDmMode && !!kampf && kampf.aktiv, () => setShowKampf(true));
     flOeffnen('laden', !!laden, () => setLadenOffen(true));
     flOeffnen('beute', !!beute, () => setBeuteOffen(true));
@@ -28772,293 +28779,6 @@ function App() {
   } : c));
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
-  const AdventureLog = ({
-    onClose,
-    isDmMode
-  }) => {
-    // Bei einer Gruppe mit einem Abenteuer sagt der Name nichts, was
-    // man nicht schon weiss — dann bleibt er weg.
-    const advName = id => {
-      if (!id || abenteuer.length < 2) return '';
-      const a = abenteuer.find(x => x.id === id);
-      return a ? a.name : '';
-    };
-    const fmt = ts => new Date(ts.replace(' ', 'T') + 'Z').toLocaleString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    const tabColor = t => LOG_TAB_FARBEN[t] || 'var(--border-bright)';
-    const TAB_ICONS2 = LOG_TAB_ICONS; // wortgleiche Kopie, jetzt nur noch ein Ort
-    const TABS2 = LOG_TABS; // eine Liste, nicht zwei
-    const dmCharIds = new Set(JSON.parse(localStorage.getItem('dnd_chars') || '[]').filter(c => c.dmOnly === true).map(c => c.id));
-    const [alEntries, setAlEntries] = useState([]);
-    const [alLoading, setAlLoading] = useState(false);
-    const [alHasMore, setAlHasMore] = useState(true);
-    const [alSearchInput, setAlSearchInput] = useState('');
-    const [alTabs, setAlTabs] = useState([]); // include filter
-    const [alExclude, setAlExclude] = useState([]); // exclude filter
-    const scrollRef = useRef(null);
-    const searchTimer = useRef(null);
-    const alTabsRef = useRef([]);
-    const alExcludeRef = useRef([]);
-    const alSearchRef = useRef('');
-    const fetchPage = (offset, search, tabs, reset) => {
-      const {
-        url,
-        code,
-        pass,
-        token
-      } = serverCreds();
-      if (!verbunden({
-        url,
-        code,
-        pass,
-        token
-      })) return;
-      setAlLoading(true);
-      apiLoadLogs(url, code, pass, null, {
-        limit: 50,
-        offset,
-        search,
-        tabFilter: tabs
-      }).then(d => {
-        const excl = alExcludeRef.current;
-        const logs = (d.logs || []).filter(e => (isDmMode || !dmCharIds.has(e.char_id)) && (excl.length === 0 || !excl.includes(e.tab)));
-        setAlEntries(prev => reset ? logs : [...prev, ...logs]);
-        setAlHasMore(!!d.has_more);
-        setAlLoading(false);
-      }).catch(() => setAlLoading(false));
-    };
-    useEffect(() => {
-      fetchPage(0, '', [], true);
-    }, []);
-    const handleSearch = val => {
-      setAlSearchInput(val);
-      clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(() => {
-        alSearchRef.current = val;
-        fetchPage(0, val, alTabsRef.current, true);
-      }, 400);
-    };
-    const handleTabClick = t => {
-      const inc = alTabsRef.current.includes(t);
-      const exc = alExcludeRef.current.includes(t);
-      if (!inc && !exc) {
-        // off → include
-        alTabsRef.current = [...alTabsRef.current, t];
-        setAlTabs([...alTabsRef.current]);
-        fetchPage(0, alSearchRef.current, alTabsRef.current, true);
-      } else if (inc) {
-        // include → exclude
-        alTabsRef.current = alTabsRef.current.filter(x => x !== t);
-        setAlTabs([...alTabsRef.current]);
-        alExcludeRef.current = [...alExcludeRef.current, t];
-        setAlExclude([...alExcludeRef.current]);
-        fetchPage(0, alSearchRef.current, alTabsRef.current, true);
-      } else {
-        // exclude → off
-        alExcludeRef.current = alExcludeRef.current.filter(x => x !== t);
-        setAlExclude([...alExcludeRef.current]);
-        fetchPage(0, alSearchRef.current, alTabsRef.current, true);
-      }
-    };
-    const loadMore = () => {
-      if (!alLoading && alHasMore) fetchPage(alEntries.length, alSearchRef.current, alTabsRef.current, false);
-    };
-
-    // Das Kreuz stellt das Fenster selbst hin — zusammen mit dem Knopf
-    // zum Zuklappen. Ein zweites daneben war eines zu viel.
-    return /*#__PURE__*/React.createElement(Fenster, {
-      onClick: onClose
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "form-modal",
-      style: {
-        maxWidth: 640,
-        height: '85vh',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 0,
-        overflow: 'hidden'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        padding: '14px 18px 10px',
-        borderBottom: '1px solid var(--border)',
-        flexShrink: 0,
-        background: 'var(--bg-deep)'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 10
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "form-title",
-      style: {
-        margin: 0,
-        flex: 1
-      }
-    }, "\uD83D\uDCD6 Abenteuerlog")), /*#__PURE__*/React.createElement("input", {
-      className: "form-input",
-      style: {
-        marginBottom: 8,
-        padding: '6px 10px',
-        fontSize: 12
-      },
-      placeholder: "Suchen...",
-      value: alSearchInput,
-      onChange: e => handleSearch(e.target.value)
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "marken-reihe",
-      style: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 4
-      }
-    }, TABS2.map(t => {
-      const inc = alTabs.includes(t);
-      const exc = alExclude.includes(t);
-      return /*#__PURE__*/React.createElement("button", {
-        key: t,
-        onClick: () => handleTabClick(t),
-        title: inc ? 'Klicken zum Ausschließen' : exc ? 'Klicken zum Zurücksetzen' : 'Klicken zum Einschließen',
-        style: {
-          padding: '3px 8px',
-          borderRadius: 12,
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 9,
-          cursor: 'pointer',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          border: '1px solid',
-          background: inc ? 'var(--gold)' : exc ? 'rgba(200,60,60,0.25)' : 'var(--bg-card)',
-          borderColor: inc ? 'var(--gold)' : exc ? '#c83c3c' : 'var(--border)',
-          color: inc ? 'var(--bg-deep)' : exc ? '#e07070' : 'var(--text-muted)',
-          textDecoration: exc ? 'line-through' : 'none'
-        }
-      }, (TAB_ICONS2[t] || '📌') + ' ' + t);
-    }))), /*#__PURE__*/React.createElement("div", {
-      ref: scrollRef,
-      style: {
-        flex: 1,
-        overflowY: 'auto',
-        padding: '10px 14px'
-      },
-      onScroll: e => {
-        const el = e.target;
-        if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) loadMore();
-      }
-    }, alEntries.length === 0 && !alLoading && /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: 'var(--text-muted)',
-        fontStyle: 'italic',
-        fontSize: 13,
-        marginTop: 20,
-        textAlign: 'center'
-      }
-    }, "Keine Eintr\xE4ge gefunden."), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4
-      }
-    }, alEntries.map((e, i) => /*#__PURE__*/React.createElement("div", {
-      key: e.id || i,
-      style: {
-        display: 'flex',
-        gap: 8,
-        padding: '7px 10px',
-        background: 'var(--bg-card)',
-        borderRadius: 4,
-        borderLeft: '3px solid ' + tabColor(e.tab),
-        alignItems: 'flex-start'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 13,
-        flexShrink: 0
-      }
-    }, TAB_ICONS2[e.tab] || '📌'), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        minWidth: 0
-      }
-    }, (e.char_name || advName(e.adv_id)) && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        color: 'var(--gold-dim)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        marginBottom: 2
-      }
-    }, e.char_name, e.char_name && advName(e.adv_id) ? ' · ' : '', advName(e.adv_id)), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 11,
-        color: 'var(--text-primary)',
-        lineHeight: 1.3
-      }
-    }, e.action), e.details && Object.keys(e.details).length > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 10,
-        color: 'var(--text-muted)',
-        marginTop: 2
-      }
-    }, logEinzelheiten(e.details).join(' · '))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        color: 'var(--text-muted)',
-        whiteSpace: 'nowrap',
-        flexShrink: 0,
-        textAlign: 'right'
-      }
-    }, /*#__PURE__*/React.createElement("div", null, fmt(e.created_at)), e.user_name && /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: 'var(--gold-dim)',
-        marginTop: 2
-      }
-    }, e.user_name))))), alLoading && /*#__PURE__*/React.createElement("div", {
-      style: {
-        textAlign: 'center',
-        padding: '12px',
-        color: 'var(--text-muted)',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 11
-      }
-    }, "Lade..."), !alLoading && alHasMore && /*#__PURE__*/React.createElement("div", {
-      style: {
-        textAlign: 'center',
-        padding: '10px'
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: loadMore,
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 11,
-        padding: '6px 16px',
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        color: 'var(--text-muted)',
-        borderRadius: 4,
-        cursor: 'pointer'
-      }
-    }, "Mehr laden")), !alHasMore && alEntries.length > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        textAlign: 'center',
-        padding: '10px',
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 10,
-        color: 'var(--text-muted)'
-      }
-    }, "Alle ", alEntries.length, " Eintr\xE4ge geladen"))));
-  };
   const CharList = () => {
     const active = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
     const archived = advChars.filter(c => c.archived && (c.dmOnly !== true || isDmMode));
@@ -29398,7 +29118,10 @@ function App() {
     className: "sidebar-wort"
   }, "Heldenbuch", /*#__PURE__*/React.createElement("button", {
     className: "app-version",
-    onClick: () => setPatchnotesOffen(true),
+    onClick: () => {
+      setPatchnotesOffen(true);
+      leiste.zeigen('patchnotes');
+    },
     title: "Was sich ge\xE4ndert hat"
   }, HB_VERSION))), /*#__PURE__*/React.createElement("div", {
     className: "char-list"
@@ -29490,6 +29213,12 @@ function App() {
   }, "\uD83D\uDCDA Datenbank"), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => {
+      // Schon offen, nur in der Leiste: zurückholen, mit der
+      // Suche, die darin steht.
+      if (showAdventLog) {
+        leiste.zeigen('abenteuerlog');
+        return;
+      }
       setAdventSearch('');
       setAdventTabFilter([]);
       setShowAdventLog(true);
@@ -29621,7 +29350,10 @@ function App() {
     className: "sidebar-wort"
   }, "Heldenbuch", /*#__PURE__*/React.createElement("button", {
     className: "app-version",
-    onClick: () => setPatchnotesOffen(true),
+    onClick: () => {
+      setPatchnotesOffen(true);
+      leiste.zeigen('patchnotes');
+    },
     title: "Was sich ge\xE4ndert hat"
   }, HB_VERSION)), svCode && (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -29659,6 +29391,10 @@ function App() {
   }, "\uD83D\uDCDA Datenbank"), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => {
+      if (showAdventLog) {
+        leiste.zeigen('abenteuerlog');
+        return;
+      }
       setAdventSearch('');
       setAdventTabFilter([]);
       setShowAdventLog(true);
@@ -32320,7 +32056,8 @@ function App() {
     }
   }, "\u2715 Schlie\xDFen"))), showAdventLog && /*#__PURE__*/React.createElement(AdventureLog, {
     onClose: () => setShowAdventLog(false),
-    isDmMode: isDmMode
+    isDmMode: isDmMode,
+    abenteuer: abenteuer
   }), rastAnsage && /*#__PURE__*/React.createElement(RastAnsage, {
     regel: rastRegel,
     onAbbrechen: () => setRastAnsage(false),
@@ -35373,6 +35110,302 @@ function App() {
     onClick: () => setShowTpl(null)
   }, "Schlie\xDFen")))), /*#__PURE__*/React.createElement(FensterLeiste, null)));
 }
+
+// ── Das Abenteuerlog ────────────────────────────────────────────
+// Stand bis v5.10.2 innerhalb von App. Damit war es bei jedem Neuzeichnen
+// der Anwendung eine neue Komponente und fing von vorn an — die Suche,
+// die Filter, die geladenen Seiten waren beim nächsten Abgleich weg. Als
+// Fenster der Leiste hätte es sich dabei ständig ab- und angemeldet.
+const AdventureLog = ({
+  onClose,
+  isDmMode,
+  abenteuer
+}) => {
+  // Bei einer Gruppe mit einem Abenteuer sagt der Name nichts, was
+  // man nicht schon weiss — dann bleibt er weg.
+  const advName = id => {
+    if (!id || abenteuer.length < 2) return '';
+    const a = abenteuer.find(x => x.id === id);
+    return a ? a.name : '';
+  };
+  const fmt = ts => new Date(ts.replace(' ', 'T') + 'Z').toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const tabColor = t => LOG_TAB_FARBEN[t] || 'var(--border-bright)';
+  const TAB_ICONS2 = LOG_TAB_ICONS; // wortgleiche Kopie, jetzt nur noch ein Ort
+  const TABS2 = LOG_TABS; // eine Liste, nicht zwei
+  const dmCharIds = new Set(JSON.parse(localStorage.getItem('dnd_chars') || '[]').filter(c => c.dmOnly === true).map(c => c.id));
+  const [alEntries, setAlEntries] = useState([]);
+  const [alLoading, setAlLoading] = useState(false);
+  const [alHasMore, setAlHasMore] = useState(true);
+  const [alSearchInput, setAlSearchInput] = useState('');
+  const [alTabs, setAlTabs] = useState([]); // include filter
+  const [alExclude, setAlExclude] = useState([]); // exclude filter
+  const scrollRef = useRef(null);
+  const searchTimer = useRef(null);
+  const alTabsRef = useRef([]);
+  const alExcludeRef = useRef([]);
+  const alSearchRef = useRef('');
+  const fetchPage = (offset, search, tabs, reset) => {
+    const {
+      url,
+      code,
+      pass,
+      token
+    } = serverCreds();
+    // Dieselbe Frage wie verbunden() in App — die steht dort, dieses
+    // Fenster steht außerhalb.
+    if (!(url && code && token)) return;
+    setAlLoading(true);
+    apiLoadLogs(url, code, pass, null, {
+      limit: 50,
+      offset,
+      search,
+      tabFilter: tabs
+    }).then(d => {
+      const excl = alExcludeRef.current;
+      const logs = (d.logs || []).filter(e => (isDmMode || !dmCharIds.has(e.char_id)) && (excl.length === 0 || !excl.includes(e.tab)));
+      setAlEntries(prev => reset ? logs : [...prev, ...logs]);
+      setAlHasMore(!!d.has_more);
+      setAlLoading(false);
+    }).catch(() => setAlLoading(false));
+  };
+  useEffect(() => {
+    fetchPage(0, '', [], true);
+  }, []);
+  const handleSearch = val => {
+    setAlSearchInput(val);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      alSearchRef.current = val;
+      fetchPage(0, val, alTabsRef.current, true);
+    }, 400);
+  };
+  const handleTabClick = t => {
+    const inc = alTabsRef.current.includes(t);
+    const exc = alExcludeRef.current.includes(t);
+    if (!inc && !exc) {
+      // off → include
+      alTabsRef.current = [...alTabsRef.current, t];
+      setAlTabs([...alTabsRef.current]);
+      fetchPage(0, alSearchRef.current, alTabsRef.current, true);
+    } else if (inc) {
+      // include → exclude
+      alTabsRef.current = alTabsRef.current.filter(x => x !== t);
+      setAlTabs([...alTabsRef.current]);
+      alExcludeRef.current = [...alExcludeRef.current, t];
+      setAlExclude([...alExcludeRef.current]);
+      fetchPage(0, alSearchRef.current, alTabsRef.current, true);
+    } else {
+      // exclude → off
+      alExcludeRef.current = alExcludeRef.current.filter(x => x !== t);
+      setAlExclude([...alExcludeRef.current]);
+      fetchPage(0, alSearchRef.current, alTabsRef.current, true);
+    }
+  };
+  const loadMore = () => {
+    if (!alLoading && alHasMore) fetchPage(alEntries.length, alSearchRef.current, alTabsRef.current, false);
+  };
+
+  // Das Kreuz stellt das Fenster selbst hin — zusammen mit dem Knopf
+  // zum Zuklappen. Ein zweites daneben war eines zu viel.
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onClick: onClose,
+    leiste: {
+      id: 'abenteuerlog',
+      titel: 'Abenteuerlog',
+      symbol: '📖'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal",
+    style: {
+      maxWidth: 640,
+      height: '85vh',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '14px 18px 10px',
+      borderBottom: '1px solid var(--border)',
+      flexShrink: 0,
+      background: 'var(--bg-deep)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title",
+    style: {
+      margin: 0,
+      flex: 1
+    }
+  }, "\uD83D\uDCD6 Abenteuerlog")), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    style: {
+      marginBottom: 8,
+      padding: '6px 10px',
+      fontSize: 12
+    },
+    placeholder: "Suchen...",
+    value: alSearchInput,
+    onChange: e => handleSearch(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "marken-reihe",
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 4
+    }
+  }, TABS2.map(t => {
+    const inc = alTabs.includes(t);
+    const exc = alExclude.includes(t);
+    return /*#__PURE__*/React.createElement("button", {
+      key: t,
+      onClick: () => handleTabClick(t),
+      title: inc ? 'Klicken zum Ausschließen' : exc ? 'Klicken zum Zurücksetzen' : 'Klicken zum Einschließen',
+      style: {
+        padding: '3px 8px',
+        borderRadius: 12,
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 9,
+        cursor: 'pointer',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        border: '1px solid',
+        background: inc ? 'var(--gold)' : exc ? 'rgba(200,60,60,0.25)' : 'var(--bg-card)',
+        borderColor: inc ? 'var(--gold)' : exc ? '#c83c3c' : 'var(--border)',
+        color: inc ? 'var(--bg-deep)' : exc ? '#e07070' : 'var(--text-muted)',
+        textDecoration: exc ? 'line-through' : 'none'
+      }
+    }, (TAB_ICONS2[t] || '📌') + ' ' + t);
+  }))), /*#__PURE__*/React.createElement("div", {
+    ref: scrollRef,
+    style: {
+      flex: 1,
+      overflowY: 'auto',
+      padding: '10px 14px'
+    },
+    onScroll: e => {
+      const el = e.target;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) loadMore();
+    }
+  }, alEntries.length === 0 && !alLoading && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--text-muted)',
+      fontStyle: 'italic',
+      fontSize: 13,
+      marginTop: 20,
+      textAlign: 'center'
+    }
+  }, "Keine Eintr\xE4ge gefunden."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 4
+    }
+  }, alEntries.map((e, i) => /*#__PURE__*/React.createElement("div", {
+    key: e.id || i,
+    style: {
+      display: 'flex',
+      gap: 8,
+      padding: '7px 10px',
+      background: 'var(--bg-card)',
+      borderRadius: 4,
+      borderLeft: '3px solid ' + tabColor(e.tab),
+      alignItems: 'flex-start'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      flexShrink: 0
+    }
+  }, TAB_ICONS2[e.tab] || '📌'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, (e.char_name || advName(e.adv_id)) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 9,
+      color: 'var(--gold-dim)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      marginBottom: 2
+    }
+  }, e.char_name, e.char_name && advName(e.adv_id) ? ' · ' : '', advName(e.adv_id)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 11,
+      color: 'var(--text-primary)',
+      lineHeight: 1.3
+    }
+  }, e.action), e.details && Object.keys(e.details).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--text-muted)',
+      marginTop: 2
+    }
+  }, logEinzelheiten(e.details).join(' · '))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 9,
+      color: 'var(--text-muted)',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
+      textAlign: 'right'
+    }
+  }, /*#__PURE__*/React.createElement("div", null, fmt(e.created_at)), e.user_name && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--gold-dim)',
+      marginTop: 2
+    }
+  }, e.user_name))))), alLoading && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: '12px',
+      color: 'var(--text-muted)',
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 11
+    }
+  }, "Lade..."), !alLoading && alHasMore && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: '10px'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: loadMore,
+    style: {
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 11,
+      padding: '6px 16px',
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      color: 'var(--text-muted)',
+      borderRadius: 4,
+      cursor: 'pointer'
+    }
+  }, "Mehr laden")), !alHasMore && alEntries.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: '10px',
+      fontFamily: "'Roboto Condensed',sans-serif",
+      fontSize: 10,
+      color: 'var(--text-muted)'
+    }
+  }, "Alle ", alEntries.length, " Eintr\xE4ge geladen"))));
+};
 const container = document.getElementById('root');
 const rootEl = ReactDOM.createRoot(container);
 rootEl.render( /*#__PURE__*/React.createElement(App, null));

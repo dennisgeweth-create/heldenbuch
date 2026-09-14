@@ -331,6 +331,49 @@
           ja('  … und über die Leiste geschlossen', !eintragL('Datenbank'));
         }
 
+        // ── Abenteuerlog und Patchnotes: schwebend, in der Leiste ──
+        melden('lauf', 'Abenteuerlog und Patchnotes');
+        const logK = knopfMit('📖 Abenteuerlog');
+        if (ja('Das Abenteuerlog lässt sich öffnen', !!logK)) {
+          logK.click();
+          const logOv = await warten(() => [...document.querySelectorAll('.form-overlay')]
+            .find(o => /Abenteuerlog/.test(o.textContent)));
+          ja('  … ohne Schleier, als schwebendes Fenster', !!logOv && logOv.classList.contains('schwebend'),
+             logOv ? logOv.className : 'kein Fenster');
+          ja('  … und steht in der Leiste', !!eintragL('Abenteuerlog'));
+          const suche = logOv && logOv.querySelector('input');
+          if (suche) {
+            const setzI = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            setzI.call(suche, 'Hammer'); suche.dispatchEvent(new Event('input', {bubbles: true}));
+            await ruhe(80);
+            // Die Anwendung zeichnet neu — hier über den DM-Schalter hin und zurück.
+            knopfMit('🔮 aus').click(); await ruhe(150);
+            knopfMit('🔮 DM').click(); await ruhe(250);
+            const suche2 = [...document.querySelectorAll('.form-overlay')].find(o => /Abenteuerlog/.test(o.textContent));
+            ja('  … die Suche übersteht ein Neuzeichnen der Anwendung',
+               !!suche2 && suche2.querySelector('input').value === 'Hammer',
+               suche2 ? '„' + suche2.querySelector('input').value + '"' : 'Fenster weg');
+          }
+          const miniL = document.querySelector('.form-overlay.schwebend .fl-mini');
+          if (miniL) { miniL.click(); await ruhe(150); }
+          ja('  … minimiert', eintragL('Abenteuerlog') && eintragL('Abenteuerlog').classList.contains('zu'));
+          knopfMit('📖 Abenteuerlog').click(); await ruhe(150);
+          ja('  … der Knopf in der Seitenleiste holt es zurück',
+             eintragL('Abenteuerlog') && eintragL('Abenteuerlog').classList.contains('offen'));
+          const xL = eintragL('Abenteuerlog') && eintragL('Abenteuerlog').querySelector('.fl-x');
+          if (xL) { xL.click(); await ruhe(150); }
+          ja('  … und über die Leiste geschlossen', !eintragL('Abenteuerlog'));
+        }
+        const verK = document.querySelector('.app-version');
+        if (verK) {
+          verK.click();
+          const pn = await warten(() => document.querySelector('.form-overlay .pn-fenster'));
+          ja('„Was sich geändert hat" schwebt und steht in der Leiste',
+             !!pn && pn.closest('.form-overlay').classList.contains('schwebend') && !!eintragL('Was sich geändert'));
+          const xP = eintragL('Was sich geändert') && eintragL('Was sich geändert').querySelector('.fl-x');
+          if (xP) { xP.click(); await ruhe(150); }
+        }
+
         // ── Der Held ──
         const held = await warten(() =>
           [...document.querySelectorAll('*')].find(e =>
