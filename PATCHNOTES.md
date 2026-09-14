@@ -1,5 +1,65 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.7
+
+### ☾ Rast auf Ansage
+
+In der Leiste hat die Spielleitung jetzt **☾ Rast**. Sie sagt eine
+**kurze** oder **lange Rast** an und wählt, wer rastet. Bei jedem
+Spieler, dessen Held dabei ist, geht ein Fenster auf. Dort entscheidet er,
+was er aus der Rast macht, und übernimmt es mit einem Knopf in seinen
+Bogen. Die Spielleitung sieht in derselben Liste, wer schon fertig ist und
+was herausgekommen ist, und beendet die Rast, wenn alle durch sind.
+
+**Welche Regel gilt, steht in den Einstellungen des Abenteuers:**
+
+- **Standard.** Kurze Rast: Trefferwürfel werfen und heilen.
+  Lange Rast: volle Trefferpunkte, die Hälfte der Trefferwürfel, alle
+  Zauberplätze, eine Erschöpfungsstufe weniger.
+- **Gradueller Rauer Realismus** (A.B. Funing, DMsGuild). Eine lange Rast
+  gibt nur einen Teil zurück, und wie viel, hängt vom Lager ab.
+  Das Heldenbuch rechnet die Zahlen der Variante, die Regeln selbst
+  stehen im Heft.
+
+**Mit der Variante** hat das Ansagefenster einen **Rechner**: Grundlage
+(Wildnis, Gasthaus …), Niederschlag, Temperatur, Wind und was die Gruppe
+dagegen tut (Lagerfeuer, Zelt, Schlafsack, Decke, Winterkleidung,
+Sonnenschirm, Winzige Hütte …). Daraus schlägt er eine der sieben
+**Rastbedingungen** von *Erbärmlich* bis *Edel* vor und zeigt, woraus
+sie sich zusammensetzt. Die Spielleitung übernimmt den Vorschlag oder
+tippt eine andere Stufe an. Dazu ein Haken, ob es Essen und Trinken gab.
+
+**Im Fenster des Spielers:**
+
+- **Lange Rast:** die Trefferpunkte nach der Rastbedingung, ein
+  Trefferwürfel zurück und, je nach Lager, eine Erschöpfungsstufe weniger.
+  Zauberwirker holen **Zauberplätze bis zu ihren Zauberpunkten** zurück.
+  Das sind volle Stufe, halbe oder ein Drittel, plus oder minus die
+  Bedingung, und der Spieler wählt die Plätze selbst mit − und +.
+  Der Hexenmeister bekommt seinen Pakt ganz. Ressourcen und
+  Zauberei-Punkte kommen wie gewohnt zurück.
+- **Erbärmliche Nacht:** ein Konstitutionsrettungswurf gegen SG 10,
+  gewürfelt oder eingetippt. Misslingt er, folgt der W6: Erschöpfung,
+  Trefferpunkte, vergiftet oder eine der drei Krankheiten.
+- **Kurze Rast:** Trefferwürfel einzeln werfen, jeder Wurf lässt sich
+  korrigieren. Nach Standard heilen sie, nach der Variante geben sie
+  temporäre Trefferpunkte.
+
+Unter jedem Helden steht vorher, was genau passiert. Übernommen wird erst
+auf Knopfdruck, und im Log des Helden steht die Rast mit Ergebnis.
+
+### Neu im Bogen
+
+Unter den Trefferpunkten steht jetzt eine Zeile ☾:
+
+- **Trefferwürfel** je Würfelgröße, verbraucht und gesamt. Antippen
+  verbraucht einen, Rechtsklick gibt einen zurück.
+- **Erschöpfung** mit − und +.
+- **Was man sich im Lager eingefangen hat** („Vergiftet“, „Kanalpest“),
+  mit ✕, wenn es geheilt ist.
+
+„Als Text“ nennt alles davon mit.
+
 ## v5.6
 
 Der Rest der Wunschliste vom Spielabend — alles, was im Kampf mehr

@@ -548,6 +548,37 @@ const Sheet = () => {
               </div>
             )}
 
+            {/* Was die Rast braucht und hinterlässt: Trefferwürfel,
+                Erschöpfung, und was man sich im Lager eingefangen hat.
+                Antippen der Würfel und Stufen stellt sie von Hand. */}
+            <div className="rast-zeile">
+              <span className="rast-zeile-titel">☾</span>
+              {trefferwuerfelVorrat(cur).map(v => (
+                <span className="rast-tw" key={v.w} title="Trefferwürfel übrig — antippen verbraucht einen, rechts klicken gibt einen zurück">
+                  <button type="button" disabled={!darfBearbeiten || v.verbraucht >= v.gesamt}
+                    onClick={()=>patchCurrent(c => ({trefferwuerfel: {...(c.trefferwuerfel || {}), [v.w]: v.verbraucht + 1}}))}
+                    onContextMenu={e=>{ e.preventDefault(); if (darfBearbeiten && v.verbraucht > 0)
+                      patchCurrent(c => ({trefferwuerfel: {...(c.trefferwuerfel || {}), [v.w]: v.verbraucht - 1}})); }}>
+                    W{v.w} <b>{v.gesamt - v.verbraucht}</b>/{v.gesamt}
+                  </button>
+                </span>
+              ))}
+              <span className="rast-ersch" title="Erschöpfung">
+                Erschöpfung
+                {darfBearbeiten && <button type="button" disabled={!(+cur.erschoepfung)}
+                  onClick={()=>patchCurrent(c => ({erschoepfung: Math.max(0, (+c.erschoepfung || 0) - 1)}))}>−</button>}
+                <b className={(+cur.erschoepfung || 0) > 0 ? 'an' : ''}>{+cur.erschoepfung || 0}</b>
+                {darfBearbeiten && <button type="button" disabled={(+cur.erschoepfung || 0) >= 6}
+                  onClick={()=>patchCurrent(c => ({erschoepfung: Math.min(6, (+c.erschoepfung || 0) + 1)}))}>+</button>}
+              </span>
+              {(cur.rastLeiden || []).map((l, i) => (
+                <span className="kampf-zustand" key={l + i}>{l}
+                  {darfBearbeiten && <button type="button" className="konz-weg" title="Geheilt"
+                    onClick={()=>patchCurrent(c => ({rastLeiden: (c.rastLeiden || []).filter((_, j) => j !== i)}))}>✕</button>}
+                </span>
+              ))}
+            </div>
+
             {itemFx.length > 0 && (() => {
               const bySource = [];
               itemFx.forEach(e => {

@@ -9,8 +9,12 @@
 const fs = require('fs');
 // Alles bis zum Schnitt: dahinter steht React, und das gibt es hier nicht.
 const heldtext = fs.readFileSync('js/src/2k-heldtext.jsx', 'utf8');
+// Die Rast steht mit im Text (Trefferwürfel, Erschöpfung) — ihre Rechnung
+// kommt aus 2m-rast.jsx.
+const rast = fs.readFileSync('js/src/2m-rast.jsx', 'utf8');
 const quelle = fs.readFileSync('js/data.js', 'utf8') + '\n'
              + fs.readFileSync('js/util.js', 'utf8') + '\n'
+             + rast.slice(0, rast.indexOf('// ══ Ende der reinen Rechnung')) + '\n'
              + heldtext.slice(0, heldtext.indexOf('// ══ Ende der reinen Rechnung'));
 const namen = [...quelle.matchAll(/^const ([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
 eval(quelle + ';globalThis.M = {' + namen.join(', ') + '};');

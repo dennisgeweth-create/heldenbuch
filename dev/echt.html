@@ -105,7 +105,7 @@
     localStorage.setItem('dnd_chars', JSON.stringify([WB_HELD]));
     // Ein Abenteuer, damit alles, was je Abenteuer gilt — Laden, Post —,
     // einen Ort hat. Der Held steht ohne eigenes darin.
-    localStorage.setItem('hb_library', JSON.stringify({_adventures: [{id: 'wb', name: 'Werkbank'}]}));
+    localStorage.setItem('hb_library', JSON.stringify({_adventures: [{id: 'wb', name: 'Werkbank', rastRegel: 'grr'}]}));
     localStorage.setItem('hb_adventure', 'wb');
 
     // ── Ein laufender Kampf ────────────────────────────────────────
@@ -181,6 +181,21 @@
       return Promise.resolve({});
     };
     const apiPostSenden = wbStumm;
+    // Die Rast: angesagt wird in den Arbeitsspeicher, und was dort steht,
+    // bekommt die Anwendung beim naechsten Fragen zurueck.
+    let wbRast = null, wbRastStand = 0;
+    const apiRastSetzen = (u, c, a, r) => {
+      wbRast = r ? {...r, id: 'rast' + (++wbRastStand), zeit: Math.floor(Date.now() / 1000), antworten: []} : null;
+      wbRastStand++;
+      return Promise.resolve(wbRast ? {rast: wbRast} : {});
+    };
+    const apiRastStand = (u, c, a, seit) => Promise.resolve(seit === wbRastStand
+      ? {stand: wbRastStand} : {stand: wbRastStand, rast: wbRast});
+    const apiRastAntwort = (u, c, a, rastId, charId, name, text) => {
+      if (wbRast) wbRast.antworten = [...wbRast.antworten.filter(x => x.charId !== charId), {charId, name, text}];
+      wbRastStand++;
+      return Promise.resolve({});
+    };
     const apiRequest = wbStumm;
     const apiRolleSetzen = wbStumm;
     const apiSaveChar = wbStumm;
@@ -853,6 +868,64 @@
             ja('Weggeworfen ist er fort', !document.querySelector('.post-zettel'));
           }
           const zuP = knopfMit('Schließen'); if (zuP) { zuP.click(); await ruhe(100); }
+        }
+
+        // ── Die Rast ───────────────────────────────────────────────
+        melden('lauf', 'Rast');
+        const heldJetzt = () => JSON.parse(wbSpeicher.dnd_chars)[0];
+        const rastK = await warten(() => knopfMit('☾ Rast'));
+        if (ja('Die Spielleitung hat einen Rastknopf', !!rastK)) {
+          rastK.click();
+          const ansage = await warten(() => document.querySelector('.rast-rechner'));
+          if (ja('Die Variante zeigt den Rechner', !!ansage)) {
+            const sel = [...document.querySelectorAll('.rast-rechner select')];
+            const setzS = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+            const waehle = (i, v) => { setzS.call(sel[i], v); sel[i].dispatchEvent(new Event('change', {bubbles: true})); };
+            waehle(1, 'regen'); waehle(2, 'kalt'); await ruhe(100);
+            const stufeText = () => ((document.querySelector('.rast-stufe.an') || {}).textContent || '');
+            ja('Kalt und Regen: erbärmlich', stufeText() === 'Erbärmlich', stufeText());
+            ['Zelt', 'Schlafsack oder Bettrolle', 'Lagerfeuer'].forEach(n =>
+              [...document.querySelectorAll('.rast-massnahmen .zust-chip')].find(b => b.textContent === n).click());
+            await ruhe(100);
+            ja('  … mit Zelt, Schlafsack und Feuer wieder ärmlich', stufeText() === 'Ärmlich', stufeText());
+            ja('  … und die Posten stehen da', document.querySelectorAll('.rast-teile span').length >= 4);
+            knopfMit('☾ Ansagen').click();
+            const panel = await warten(() => document.querySelector('.rast-held'));
+            if (ja('Nach dem Ansagen steht Brunhildes Rast da', !!panel)) {
+              const vorher = heldJetzt();
+              ja('  … mit dem, was sie bekommt', /\+10 TP \(Ärmlich\)/.test(panel.textContent)
+                 || /\+\d+ TP \(Ärmlich\)/.test(panel.textContent), panel.querySelector('.rast-ergebnis').textContent);
+              panel.querySelector('.btn-save').click();
+              const nach = await warten(() => heldJetzt().hp !== vorher.hp ? heldJetzt() : null, 3000);
+              ja('  … übernommen: 10 TP mehr, höchstens bis zum Maximum',
+                 !!nach && nach.hp === Math.min(44, vorher.hp + 10), (vorher.hp) + ' → ' + (nach && nach.hp));
+              const fertig = await warten(() => /✓ übernommen/.test((document.querySelector('.rast-fenster') || {}).textContent || ''), 3000);
+              ja('Die Spielleitung sieht sie als fertig', !!fertig);
+            }
+            const ende = knopfMit('Rast beenden');
+            if (ende) { ende.click(); await ruhe(120); const okR = document.querySelector('.confirm-ok'); if (okR) { okR.click(); await ruhe(300); } }
+            ja('Beendet ist die Rast weg', !document.querySelector('.rast-fenster') && !!knopfMit('☾ Rast'));
+          }
+
+          // Die kurze Rast: ein Trefferwürfel, temporäre TP.
+          knopfMit('☾ Rast').click();
+          const kurz = await warten(() => [...document.querySelectorAll('.einst-option')].find(b => /Kurze Rast/.test(b.textContent)));
+          if (kurz) {
+            kurz.click(); await ruhe(80);
+            knopfMit('☾ Ansagen').click();
+            const w10 = await warten(() => [...document.querySelectorAll('.rast-held button')].find(b => /W10/.test(b.textContent)));
+            if (ja('Die kurze Rast bietet den W10 an', !!w10)) {
+              const tw0 = trefferwuerfelVorrat(heldJetzt())[0];
+              w10.click(); await ruhe(80);
+              document.querySelector('.rast-held .btn-save').click();
+              const nachK = await warten(() => (+heldJetzt().tempHp || 0) > 0 ? heldJetzt() : null, 3000);
+              ja('  … gibt temporäre TP', !!nachK, JSON.stringify({tempHp: heldJetzt().tempHp}));
+              ja('  … und verbraucht den Würfel',
+                 trefferwuerfelVorrat(heldJetzt())[0].verbraucht === tw0.verbraucht + 1);
+            }
+            const ende2 = knopfMit('Rast beenden');
+            if (ende2) { ende2.click(); await ruhe(120); const ok2 = document.querySelector('.confirm-ok'); if (ok2) { ok2.click(); await ruhe(300); } }
+          }
         }
 
         // ── Die Seite des Spielers ─────────────────────────────────

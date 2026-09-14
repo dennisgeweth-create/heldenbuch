@@ -1042,6 +1042,41 @@ pruefe('die Spielleitung wirft ihn weg (200)', $r['status'] === 200, kurz($r));
 $r = ruf('post_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
 pruefe('danach ist das Postfach leer', count((array)($r['body']['post'] ?? [])) === 0);
 
+abschnitt('Die Rast');
+$rast = ['art' => 'lang', 'regel' => 'grr', 'stufe' => 2, 'essen' => true,
+         'teile' => ['Regen −1'], 'text' => 'Am Fluss', 'fuer' => ['h1'], 'antworten' => [['charId' => 'x']]];
+$r = ruf('rast_setzen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'rast' => $rast]);
+pruefe('ein Spieler sagt keine Rast an (403)', $r['status'] === 403, kurz($r));
+$r = ruf('rast_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'rast' => $rast]);
+pruefe('die Spielleitung sagt an (201)', $r['status'] === 201, kurz($r));
+$rastId = (string)($r['body']['rast']['id'] ?? '');
+pruefe('mitgeschickte Antworten zaehlen nicht', count((array)($r['body']['rast']['antworten'] ?? [1])) === 0);
+$r = ruf('rast_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                         'rast' => ['art' => 'lang', 'fuer' => []]]);
+pruefe('ohne jemanden, der rastet, nicht (400)', $r['status'] === 400, kurz($r));
+$r = ruf('rast_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('der Spieler sieht die Rast', ($r['body']['rast']['stufe'] ?? 0) === 2
+       && ($r['body']['rast']['regel'] ?? '') === 'grr', kurz($r));
+$stand = (int)($r['body']['stand'] ?? 0);
+$r = ruf('rast_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'seit' => $stand]);
+pruefe('bei gleichem Stand nur die Zahl', !array_key_exists('rast', $r['body']));
+$r = ruf('rast_antwort', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd', 'rast_id' => $rastId,
+                          'char_id' => 'h1', 'name' => 'Fremd', 'text' => 'Untergeschoben']);
+pruefe('fuer fremde Boegen antwortet niemand (403)', $r['status'] === 403, kurz($r));
+$r = ruf('rast_antwort', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'rast_id' => 'alt',
+                          'char_id' => 'h1', 'name' => 'Armin', 'text' => '+9 TP']);
+pruefe('eine alte Rast wird abgewiesen (409)', $r['status'] === 409, kurz($r));
+$r = ruf('rast_antwort', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'rast_id' => $rastId,
+                          'char_id' => 'h1', 'name' => 'Armin', 'text' => '+9 TP (Ärmlich)']);
+pruefe('der Besitzer uebernimmt (200)', $r['status'] === 200, kurz($r));
+$r = ruf('rast_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$an = (array)($r['body']['rast']['antworten'] ?? []);
+pruefe('die Spielleitung sieht, wer fertig ist', count($an) === 1 && ($an[0]['text'] ?? '') === '+9 TP (Ärmlich)', kurz($r));
+$r = ruf('rast_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'rast' => null]);
+pruefe('die Spielleitung beendet sie (200)', $r['status'] === 200, kurz($r));
+$r = ruf('rast_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('danach ist keine mehr da', array_key_exists('rast', $r['body']) && $r['body']['rast'] === null, kurz($r));
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

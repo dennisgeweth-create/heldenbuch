@@ -133,6 +133,14 @@
     const apiBeuteStand  = (url, code, pass, advId, seit) =>
       apiRequest(url, 'beute_stand',  { code, password: pass, adv_id: advId, seit });
 
+    // ── Die Rast ────────────────────────────────────────────────
+    const apiRastSetzen  = (url, code, advId, rast) =>
+      apiRequest(url, 'rast_setzen',  { code, adv_id: advId, rast });
+    const apiRastStand   = (url, code, advId, seit) =>
+      apiRequest(url, 'rast_stand',   { code, adv_id: advId, seit });
+    const apiRastAntwort = (url, code, advId, rastId, charId, name, text) =>
+      apiRequest(url, 'rast_antwort', { code, adv_id: advId, rast_id: rastId, char_id: charId, name, text });
+
     // ── Post an die Spielleitung ─────────────────────────────────
     const apiPostSenden   = (url, code, advId, charId, text) =>
       apiRequest(url, 'post_senden',   { code, adv_id: advId, char_id: charId, text });

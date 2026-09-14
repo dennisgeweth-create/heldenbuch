@@ -1990,6 +1990,73 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Die Rast ───────────────────────────────────────────────────
+  // Eine je Abenteuer. Gefragt wird wie bei der Beute: öfter, solange
+  // eine angesagt ist, sonst selten. Kommt eine neue, geht das Fenster
+  // bei jedem auf, der noch einen Helden darin hat.
+  const [rast, setRast] = useState(null);
+  const [rastOffen, setRastOffen] = useState(false);
+  const [rastAnsage, setRastAnsage] = useState(false);
+  const rastRef = useRef(null);
+  const rastStandRef = useRef(-1);
+  const rastGesehen = useRef(null);
+  useEffect(() => { rastRef.current = rast; }, [rast]);
+  useEffect(() => {
+    const creds = serverCreds();
+    setRast(null); rastRef.current = null; rastStandRef.current = -1;
+    if (!advId || !verbunden(creds)) return;
+    let lebt = true, uhr = null;
+    const frage = async () => {
+      if (!document.hidden) {
+        try {
+          const d = await apiRastStand(creds.url, creds.code, advId, rastStandRef.current);
+          if (!lebt) return;
+          if (Object.prototype.hasOwnProperty.call(d, 'rast')) { rastRef.current = d.rast || null; setRast(d.rast || null); }
+          rastStandRef.current = +d.stand || 0;
+        } catch {}
+      }
+      if (lebt) uhr = setTimeout(frage, document.hidden ? 20000 : (rastRef.current ? 4000 : 12000));
+    };
+    frage();
+    jetztFragen.current.rast = () => { if (lebt) { clearTimeout(uhr); frage(); } };
+    return () => { lebt = false; clearTimeout(uhr); };
+  }, [advId, svCode, konto]);
+  const rastRegel = ((abenteuer || []).find(a => a.id === advId) || {}).rastRegel === 'grr' ? 'grr' : 'standard';
+  const rastSetzen = async (r) => {
+    const creds = serverCreds();
+    try {
+      const d = await apiRastSetzen(creds.url, creds.code, advId, r);
+      setRastAnsage(false);
+      if (d && d.rast) { rastRef.current = d.rast; setRast(d.rast); rastGesehen.current = d.rast.id; setRastOffen(true); }
+      rastStandRef.current = -1;
+      if (!r) { setRast(null); rastRef.current = null; setRastOffen(false); }
+    } catch (e) { appAlert('Das kam nicht durch: ' + (e.message || 'unbekannter Fehler')); }
+  };
+  // Übernehmen: erst in den Bogen, dann die Zeile an die Spielleitung.
+  // Der Bogen geht seinen gewohnten Weg — gespeichert, abgeglichen, im
+  // Log des Helden vermerkt.
+  const rastUebernehmen = async (held, wahl) => {
+    const r = rastRef.current;
+    const c = charsRef.current.find(x => x.id === held.id);
+    if (!r || !c) return;
+    const {patch, saetze} = rastAnwenden(c, charWerte(c, setDefs), r, wahl);
+    save(charsRef.current.map(x => x.id === c.id ? {...x, ...patch} : x));
+    addLog(c.id, c.name, 'attribute', (r.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast')
+      + (r.regel === 'grr' && r.art === 'lang' ? ' (' + rastStufe(r.stufe).name + ')' : ''),
+      {ergebnis: saetze.join(' · ')});
+    const text = saetze.join(' · ');
+    setRast(x => {
+      if (!x) return x;
+      const neu = {...x, antworten: [...(x.antworten || []).filter(a => a.charId !== c.id),
+                                     {charId: c.id, name: c.name, text, zeit: Math.floor(Date.now() / 1000)}]};
+      rastRef.current = neu;
+      return neu;
+    });
+    const creds = serverCreds();
+    try { await apiRastAntwort(creds.url, creds.code, advId, r.id, c.id, c.name, text); rastStandRef.current = -1; }
+    catch (e) { appAlert('Im Bogen steht es — bei der Spielleitung kam es nicht an: ' + (e.message || '')); }
+  };
+
   // ── Post an die Spielleitung ───────────────────────────────────
   // Die Spielleitung fragt alle zwanzig Sekunden, ob etwas gekommen ist —
   // ein Zettel ist nicht eilig wie ein Zug, aber er soll auch nicht erst
@@ -3522,6 +3589,17 @@ function App() {
                 // Dasselbe hier: pass ist seit Stufe 7 immer leer.
                 if(url&&code) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
+              {/* Die Rast: die Spielleitung sagt an, alle anderen sehen
+                  sie, solange eine läuft. */}
+              {svCode && advId && (isDmMode || rast) && (
+                <button className={'btn-tool' + (rast ? ' post-neu' : '')}
+                  onClick={()=> rast ? setRastOffen(true) : setRastAnsage(true)}
+                  title={rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'}>
+                  ☾ {rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast')
+                           + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '')
+                         : 'Rast'}
+                </button>
+              )}
               {/* Post: die Spielleitung sieht, was gekommen ist; wer
                   einen eigenen Helden im Abenteuer hat, kann schreiben. */}
               {svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && (
@@ -4858,6 +4936,23 @@ function App() {
 
       {/* Adventure Log Modal */}
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} />}
+
+      {rastAnsage && (
+        <RastAnsage regel={rastRegel} onAbbrechen={()=>setRastAnsage(false)} onAnsagen={rastSetzen}
+          helden={advChars.filter(c => !c.archived && c.dmOnly !== true)} />
+      )}
+      {rast && (rastOffen || (rastGesehen.current !== rast.id
+          && chars.some(c => (rast.fuer || []).includes(c.id) && darfSchreiben(c) && !isDmMode
+                             && !(rast.antworten || []).some(a => a.charId === c.id)))) && (
+        <RastFenster rast={rast} isDmMode={isDmMode} setDefs={setDefs}
+          helden={advChars}
+          meine={chars.filter(c => !c.archived && (rast.fuer || []).includes(c.id)
+            && (isDmMode ? true : eigeneHeldenIds.includes(c.id)) && darfSchreiben(c))}
+          onUebernehmen={rastUebernehmen}
+          onAbraeumen={()=>appConfirm('Die Rast beenden? Wer noch nicht übernommen hat, kann es danach nicht mehr.',
+            ()=>rastSetzen(null), 'Beenden')}
+          onSchliessen={()=>{ rastGesehen.current = rast.id; setRastOffen(false); }} />
+      )}
 
       {postOffen && (isDmMode ? (
         <PostfachFenster post={post} onGelesen={postGelesen}

@@ -274,6 +274,16 @@ const heldText = (c, opts) => {
     });
   }
 
+  // ── Rast ──────────────────────────────────────────────────────
+  {
+    const tw = trefferwuerfelVorrat(c).map(v => (v.gesamt - v.verbraucht) + '/' + v.gesamt + ' W' + v.w).join(', ');
+    const zeile = ['Trefferwürfel ' + tw,
+      (+c.erschoepfung || 0) > 0 ? 'Erschöpfung ' + c.erschoepfung : '',
+      (c.rastLeiden || []).length ? 'Leidet an: ' + c.rastLeiden.join(', ') : ''].filter(Boolean).join(' · ');
+    titel('RAST');
+    t.push('  ' + zeile);
+  }
+
   // ── Zauber ─────────────────────────────────────────────────────
   const zauber = c.spells || [];
   if (zauber.length) {

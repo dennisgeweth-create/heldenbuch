@@ -111,6 +111,28 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
             )}
           </EinstBlock>
 
+          {/* ── Die Rast ── */}
+          <EinstBlock titel="☾ Rast"
+            kurz={adv.rastRegel === 'grr' ? 'Gradueller Rauer Realismus' : 'Standard'}>
+            <div className="einst-wahl">
+              <button type="button" className={'einst-option' + (adv.rastRegel !== 'grr' ? ' aktiv' : '')}
+                onClick={()=>setzen({rastRegel: 'standard'})}>
+                <b>Standard</b><i>Nach der langen Rast ist alles wieder da.</i>
+              </button>
+              <button type="button" className={'einst-option' + (adv.rastRegel === 'grr' ? ' aktiv' : '')}
+                onClick={()=>setzen({rastRegel: 'grr'})}>
+                <b>Gradueller Rauer Realismus</b>
+                <i>Eine lange Rast gibt nur einen Teil zurück — wie viel, hängt vom Lager ab.</i>
+              </button>
+            </div>
+            <div className="einst-hinweis">
+              Die Variante ist von A.B. Funing (DMsGuild). Das Heldenbuch rechnet nur ihre Zahlen:
+              Trefferpunkte je Stufe, ein Trefferwürfel, Zauberpunkte zum Einlösen, sieben
+              Rastbedingungen, Wetter und Ausrüstung, Komplikationen. Die Regeln selbst stehen
+              im Heft. Angesagt wird über <b>☾ Rast</b> in der Leiste.
+            </div>
+          </EinstBlock>
+
           {/* ── Der Kampf ── */}
           <EinstBlock titel="⚔ Kampftracker"
             kurz={(adv.zugfenster === false ? 'ohne Zugfenster' : 'mit Zugfenster')

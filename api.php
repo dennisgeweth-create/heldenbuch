@@ -286,6 +286,18 @@ $pdo->exec("
         CONSTRAINT fk_hbpo_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    -- Eine Rast je Abenteuer: kurz oder lang, unter welchen Umstaenden,
+    -- und wer sie schon in seinen Bogen uebernommen hat.
+    CREATE TABLE IF NOT EXISTS hb_rast (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        rast_json    TEXT        NOT NULL,
+        stand        BIGINT      NOT NULL DEFAULT 1,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_code, adv_id),
+        CONSTRAINT fk_hbra_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_logs (
         id           INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
         session_code VARCHAR(20)  NOT NULL,
@@ -2121,6 +2133,99 @@ switch ($action) {
         }
         if ($seit === $stand) respond(200, 'OK', ['stand' => $stand, 'dm' => true]);
         respond(200, 'OK', ['stand' => $stand, 'kampf' => $k, 'dm' => true]);
+    }
+
+    // ── Die Rast ─────────────────────────────────────────────────
+    // Die Spielleitung sagt an, jeder uebernimmt fuer seinen Helden, und
+    // alle sehen, wer schon fertig ist. Was eine Rast mit einem Bogen
+    // macht, rechnet der Browser — der Bogen geht danach seinen normalen
+    // Weg ueber save_char. Hier steht nur, was angesagt ist.
+    case 'rast_setzen': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $roh = $body['rast'] ?? null;
+        if ($roh === null) {
+            $pdo->prepare("DELETE FROM hb_rast WHERE session_code=? AND adv_id=?")->execute([$code, $advId]);
+            respond(200, 'Die Rast ist vorbei.');
+        }
+        if (!is_array($roh)) respond(400, 'Fehlende Rast.');
+        $fuer = [];
+        foreach ((array)($roh['fuer'] ?? []) as $cid) {
+            $cid = mb_substr(trim((string)$cid), 0, 50);
+            if ($cid !== '' && !in_array($cid, $fuer, true)) $fuer[] = $cid;
+            if (count($fuer) >= 24) break;
+        }
+        if (!$fuer) respond(400, 'Niemand rastet.');
+        $teile = [];
+        foreach ((array)($roh['teile'] ?? []) as $t) {
+            if (count($teile) >= 16) break;
+            $teile[] = mb_substr((string)$t, 0, 60);
+        }
+        $rast = [
+            'id'     => bin2hex(random_bytes(6)),
+            'art'    => ($roh['art'] ?? '') === 'kurz' ? 'kurz' : 'lang',
+            'regel'  => ($roh['regel'] ?? '') === 'grr' ? 'grr' : 'standard',
+            'stufe'  => max(0, min(7, (int)($roh['stufe'] ?? 0))),
+            'essen'  => !array_key_exists('essen', $roh) || !empty($roh['essen']),
+            'teile'  => $teile,
+            'text'   => mb_substr(trim((string)($roh['text'] ?? '')), 0, 160),
+            'fuer'   => $fuer,
+            'zeit'   => time(),
+            'antworten' => [],
+        ];
+        $pdo->prepare("INSERT INTO hb_rast (session_code, adv_id, rast_json, stand) VALUES(?,?,?,1)
+                       ON DUPLICATE KEY UPDATE rast_json=VALUES(rast_json), stand=stand+1")
+            ->execute([$code, $advId, json_encode($rast, JSON_UNESCAPED_UNICODE)]);
+        respond(201, 'Angesagt.', ['rast' => $rast]);
+    }
+
+    case 'rast_stand': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
+        $st = $pdo->prepare("SELECT rast_json, stand FROM hb_rast WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(200, 'OK', ['stand' => 0, 'rast' => null]);
+        $stand = (int)$row['stand'];
+        if (isset($body['seit']) && (int)$body['seit'] === $stand) respond(200, 'OK', ['stand' => $stand]);
+        $rast = json_decode($row['rast_json'], true);
+        // Eine Rast, die einen Tag lang offen steht, hat sich erledigt.
+        if (is_array($rast) && time() - (int)($rast['zeit'] ?? 0) > 86400) $rast = null;
+        respond(200, 'OK', ['stand' => $stand, 'rast' => $rast]);
+    }
+
+    case 'rast_antwort': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId  = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $charId = mb_substr((string)($body['char_id'] ?? ''), 0, 50);
+        if ($advId === '' || $charId === '') respond(400, 'Fehlende Daten.');
+        besitzPruefen($pdo, $z, $code, $charId);
+        $st = $pdo->prepare("SELECT rast_json FROM hb_rast WHERE session_code=? AND adv_id=?");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(404, 'Es ist keine Rast angesagt.');
+        $rast = json_decode($row['rast_json'], true);
+        if (!is_array($rast)) respond(404, 'Es ist keine Rast angesagt.');
+        if ((string)($body['rast_id'] ?? '') !== (string)$rast['id']) respond(409, 'Die Rast hat sich geändert.');
+        if (!in_array($charId, (array)$rast['fuer'], true)) respond(403, 'Dieser Held rastet hier nicht.');
+        $liste = [];
+        foreach ((array)($rast['antworten'] ?? []) as $a) {
+            if (is_array($a) && (string)($a['charId'] ?? '') !== $charId) $liste[] = $a;
+        }
+        $liste[] = ['charId' => $charId,
+                    'name'   => mb_substr(trim((string)($body['name'] ?? '')), 0, 60),
+                    'text'   => mb_substr(trim((string)($body['text'] ?? '')), 0, 400),
+                    'zeit'   => time()];
+        $rast['antworten'] = $liste;
+        $pdo->prepare("UPDATE hb_rast SET rast_json=?, stand=stand+1 WHERE session_code=? AND adv_id=?")
+            ->execute([json_encode($rast, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        respond(200, 'Übernommen.');
     }
 
     // ── Post an die Spielleitung ─────────────────────────────────
