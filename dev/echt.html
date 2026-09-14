@@ -959,6 +959,32 @@
         }
 
         // ── Der Merkmal-Editor ─────────────────────────────────────
+        // ── Waffe ansehen: schwebend, ein Kreuz, minimierbar ──
+        melden('lauf', 'Waffe ansehen');
+        const reiterA = [...document.querySelectorAll('button')].find(b => /Aktionen/.test(b.textContent));
+        if (reiterA) { reiterA.click(); await ruhe(200); }
+        const waffeK = await warten(() => document.querySelector('[aria-label="Kriegshammer — Details"]'));
+        if (ja('Die Waffe lässt sich ansehen', !!waffeK)) {
+          waffeK.click();
+          const ov = await warten(() => [...document.querySelectorAll('.form-overlay')]
+            .find(o => /Kriegshammer/.test(o.textContent)));
+          ja('  … ohne Schleier, als schwebendes Fenster', !!ov && ov.classList.contains('schwebend'),
+             ov ? ov.className : 'kein Fenster');
+          const kreuze = ov ? [...ov.querySelectorAll('.fenster-kopf button, .fenster-knoepfe button')]
+            .filter(b => b.textContent.trim() === '✕') : [];
+          ja('  … mit genau einem Kreuz im Kopf', kreuze.length === 1, kreuze.length + ' Kreuze');
+          const eintragW = [...document.querySelectorAll('.fl-eintrag')].find(e => /Kriegshammer/.test(e.textContent));
+          ja('  … und steht in der Leiste', !!eintragW);
+          const miniW = ov && ov.querySelector('.fl-mini');
+          if (ja('  … lässt sich minimieren', !!miniW)) {
+            miniW.click(); await ruhe(150);
+            ja('  … und ist dann versteckt', !!document.querySelector('.fl-huelle[hidden] .form-overlay'));
+            eintragW.querySelector('.fl-x').click(); await ruhe(150);
+            ja('  … ✕ in der Leiste schließt sie',
+               ![...document.querySelectorAll('.form-overlay')].some(o => /Kriegshammer/.test(o.textContent)));
+          }
+        }
+
         melden('lauf', 'Merkmal bearbeiten');
         const reiterM = await warten(() => [...document.querySelectorAll('button')]
           .find(b => /Merkmale/.test(b.textContent)));

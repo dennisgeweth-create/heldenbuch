@@ -4789,7 +4789,7 @@ function App() {
         const r = RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
         const icon = item.icon || '🎒';
         return (
-          <Fenster onClick={()=>setItemViewer(null)}>
+          <Fenster onClick={()=>setItemViewer(null)} leiste={{id: 'gegenstand', titel: item.name || 'Gegenstand', symbol: icon}}>
             <div className="form-modal" style={{maxWidth:460,padding:0,overflow:'hidden',maxHeight:'85vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
               {/* Header */}
               <div style={{background:`linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`,borderBottom:`1px solid ${r.color}55`,padding:'16px 18px 14px',display:'flex',gap:14,alignItems:'flex-start'}}>
@@ -4802,8 +4802,8 @@ function App() {
                     {item.weight?` · ${item.weight} kg`:''}
                   </div>
                 </div>
-                <button onClick={()=>setItemViewer(null)}
-                  style={{background:'rgba(0,0,0,0.3)',border:'none',color:'var(--text-secondary)',cursor:'pointer',fontSize:16,lineHeight:1,padding:'4px 7px',borderRadius:4,flexShrink:0}}>✕</button>
+                {/* Minimieren und Schließen setzt der Fensterrahmen daneben —
+                    ein eigenes Kreuz hier stand doppelt. */}
               </div>
               {/* Body */}
               <div style={{padding:'14px 18px',background:'var(--bg-panel)',display:'flex',gap:14,overflowY:'auto',flex:1}}>
@@ -4899,7 +4899,7 @@ function App() {
           {l:"Übung",     v:w.proficient?"Ja":"Nein",      c:w.proficient?"var(--gold)":"var(--text-muted)"},
         ];
         return (
-          <Fenster onClick={()=>setWeaponViewer(null)}>
+          <Fenster onClick={()=>setWeaponViewer(null)} leiste={{id: 'waffe', titel: w.name || 'Waffe', symbol: '⚔'}}>
             <div className="form-modal" style={{maxWidth:460,padding:0,overflow:'hidden',maxHeight:'85vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
               {/* Kopf: nach Schadensart getoenter Balken, wie bei den Gegenständen */}
               <div style={{background:`linear-gradient(180deg, ${dc}30 0%, ${dc}14 100%), var(--bg-card)`,borderBottom:`1px solid ${dc}55`,padding:'14px 18px 12px',display:'flex',gap:12,alignItems:'flex-start'}}>
@@ -4909,8 +4909,7 @@ function App() {
                     {w.equipped ? "Ausgerüstet" : "Abgelegt"}{w.damageType?` · ${w.damageType}`:''}
                   </div>
                 </div>
-                <button onClick={()=>setWeaponViewer(null)}
-                  style={{background:'rgba(0,0,0,0.3)',border:'none',color:'var(--text-secondary)',cursor:'pointer',fontSize:16,lineHeight:1,padding:'4px 7px',borderRadius:4,flexShrink:0}}>✕</button>
+                {/* Das Kreuz setzt der Fensterrahmen — siehe Gegenstand. */}
               </div>
               {/* Körper */}
               <div style={{padding:'14px 18px',background:'var(--bg-panel)',overflowY:'auto',flex:1}}>

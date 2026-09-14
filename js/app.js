@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.10';
+const HB_VERSION = 'v5.10.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -1911,7 +1911,12 @@ const GegnerBlatt = ({
   const attr = GEGNER_ATTR;
   const listen = GEGNER_LISTEN.filter(l => (g[l.key] || []).length > 0);
   return /*#__PURE__*/React.createElement(Fenster, {
-    onClick: onSchliessen
+    onClick: onSchliessen,
+    leiste: {
+      id: 'gegnerblatt',
+      titel: g.name || 'Gegner',
+      symbol: '💀'
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal gegner-blatt",
     onClick: e => e.stopPropagation()
@@ -1931,11 +1936,7 @@ const GegnerBlatt = ({
     className: "gegner-blatt-name"
   }, g.name), /*#__PURE__*/React.createElement("div", {
     className: "gegner-blatt-sub"
-  }, g.size, " \xB7 ", g.type, " \xB7 Herausforderung ", g.cr)), /*#__PURE__*/React.createElement("button", {
-    className: "gegner-blatt-zu",
-    onClick: onSchliessen,
-    "aria-label": "Schlie\xDFen"
-  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+  }, g.size, " \xB7 ", g.type, " \xB7 Herausforderung ", g.cr))), /*#__PURE__*/React.createElement("div", {
     className: "gegner-blatt-koerper"
   }, /*#__PURE__*/React.createElement("div", {
     className: "gegner-kernwerte"
@@ -31751,7 +31752,12 @@ function App() {
     const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
     const icon = item.icon || '🎒';
     return /*#__PURE__*/React.createElement(Fenster, {
-      onClick: () => setItemViewer(null)
+      onClick: () => setItemViewer(null),
+      leiste: {
+        id: 'gegenstand',
+        titel: item.name || 'Gegenstand',
+        symbol: icon
+      }
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
@@ -31802,20 +31808,7 @@ function App() {
         marginTop: 4,
         fontStyle: 'italic'
       }
-    }, r.label, item.qty > 1 ? ` · ×${item.qty}` : '', item.weight ? ` · ${item.weight} kg` : '')), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setItemViewer(null),
-      style: {
-        background: 'rgba(0,0,0,0.3)',
-        border: 'none',
-        color: 'var(--text-secondary)',
-        cursor: 'pointer',
-        fontSize: 16,
-        lineHeight: 1,
-        padding: '4px 7px',
-        borderRadius: 4,
-        flexShrink: 0
-      }
-    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    }, r.label, item.qty > 1 ? ` · ×${item.qty}` : '', item.weight ? ` · ${item.weight} kg` : ''))), /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '14px 18px',
         background: 'var(--bg-panel)',
@@ -32041,7 +32034,12 @@ function App() {
       c: w.proficient ? "var(--gold)" : "var(--text-muted)"
     }];
     return /*#__PURE__*/React.createElement(Fenster, {
-      onClick: () => setWeaponViewer(null)
+      onClick: () => setWeaponViewer(null),
+      leiste: {
+        id: 'waffe',
+        titel: w.name || 'Waffe',
+        symbol: '⚔'
+      }
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {
@@ -32085,20 +32083,7 @@ function App() {
         marginTop: 4,
         fontStyle: 'italic'
       }
-    }, w.equipped ? "Ausgerüstet" : "Abgelegt", w.damageType ? ` · ${w.damageType}` : '')), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setWeaponViewer(null),
-      style: {
-        background: 'rgba(0,0,0,0.3)',
-        border: 'none',
-        color: 'var(--text-secondary)',
-        cursor: 'pointer',
-        fontSize: 16,
-        lineHeight: 1,
-        padding: '4px 7px',
-        borderRadius: 4,
-        flexShrink: 0
-      }
-    }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    }, w.equipped ? "Ausgerüstet" : "Abgelegt", w.damageType ? ` · ${w.damageType}` : ''))), /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '14px 18px',
         background: 'var(--bg-panel)',

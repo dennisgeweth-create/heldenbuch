@@ -73,7 +73,7 @@ const GegnerBlatt = ({ gegner, onSchliessen, onBearbeiten, onLoeschen, onBild })
   const attr = GEGNER_ATTR;
   const listen = GEGNER_LISTEN.filter(l => (g[l.key]||[]).length > 0);
   return (
-    <Fenster onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen} leiste={{id: 'gegnerblatt', titel: g.name || 'Gegner', symbol: '💀'}}>
       <div className="form-modal gegner-blatt" onClick={e=>e.stopPropagation()}>
         <div className="gegner-blatt-kopf">
           {g.image && (
@@ -84,7 +84,7 @@ const GegnerBlatt = ({ gegner, onSchliessen, onBearbeiten, onLoeschen, onBild })
             <div className="gegner-blatt-name">{g.name}</div>
             <div className="gegner-blatt-sub">{g.size} · {g.type} · Herausforderung {g.cr}</div>
           </div>
-          <button className="gegner-blatt-zu" onClick={onSchliessen} aria-label="Schließen">✕</button>
+          
         </div>
 
         <div className="gegner-blatt-koerper">

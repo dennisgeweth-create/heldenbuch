@@ -1,5 +1,19 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.10.1
+
+### Waffe, Gegenstand und Gegnerblatt schweben auch
+
+Wer eine Waffe oder einen Gegenstand im Bogen antippte, bekam noch das
+alte Fenster: mit Schleier über dem Heldenbuch, ohne Minimieren, und mit
+**zwei Kreuzen** im Kopf — dem eigenen des Fensters und dem, das der
+Rahmen daneben setzt.
+
+Jetzt sind **Waffe**, **Gegenstand** und das **Gegnerblatt** der
+Spielleitung schwebende Fenster wie Laden oder Beute: kein Schleier,
+**—** zum Minimieren, ein einziges **✕**, und sie stehen mit ihrem Namen
+in der Fensterleiste.
+
 ## v5.10
 
 ### ▭ Mehr Fenster in der Leiste — und die Leiste merkt sich alles
