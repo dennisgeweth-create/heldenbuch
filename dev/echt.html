@@ -75,7 +75,13 @@
         range: '1,5 m', attackBonus: 0, damage: '1W8', damageType: 'Wucht',
         description: 'Der Hammer ihres Vaters, nachgeschmiedet.',
         properties: ['Vielseitig'], equipped: false, imageData: '', effects: []}],
-      spells: [], skillProfs: ['athletik', 'einschuechtern'], expertiseProfs: [],
+      // Kein Zauberwirker, aber fuer die Werkbank einer: der Zauber traegt
+      // eine Wirkung mit Rettungswurf und Zustand.
+      spells: [{id: 's1', name: 'Person festhalten', level: 2, school: 'Verzauberung',
+        castingTime: '1 Aktion', range: '18 m', duration: 'Konzentration, bis zu 1 Minute',
+        components: 'V, G, M', description: 'Das Ziel ist gelähmt.', prepared: true,
+        wirkung: {art: '', wuerfel: '', rettung: 'wis', halb: false, zustaende: ['Gelähmt']}}],
+      skillProfs: ['athletik', 'einschuechtern'], expertiseProfs: [],
       jackOfAllTrades: false, languages: ['Gemeinsprache', 'Zwergisch'],
       toolProfs: ['Schmiedewerkzeug'], weaponProfs: ['Kriegswaffen'],
       armorProfs: ['Schwer'], savingThrowProfs: ['str', 'con'],
@@ -87,7 +93,7 @@
       currency: {pp: 0, gp: 12, ep: 0, sp: 0, cp: 0}, equipment: [], acBonuses: [],
       gear: {ruestung: {k: 'i', id: 'i1'}, haupthand: {k: 'w', id: 'w1'}},
       gearMigrated: 3, adventure: '',
-      spellSlots: {1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},
+      spellSlots: {1:{max:0,used:0},2:{max:2,used:0},3:{max:0,used:0},4:{max:0,used:0},
                    5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},
                    9:{max:0,used:0}},
     };
@@ -612,6 +618,41 @@
                ![...document.querySelectorAll('#root *')].some(e => e.children.length === 0
                  && /Trotzdem auf den Stand davor/.test(e.textContent || '')));
           }
+          // ── Ein Zauber, der lähmt ──
+          melden('lauf', 'Zauber mit Zustand');
+          const zug3 = await warten(() => knopfMit('Zug eintragen'));
+          if (zug3) {
+            zug3.click();
+            const zb = await warten(() => knopfMit('✨ Zauber'));
+            if (zb) { zb.click(); await ruhe(80); }
+            const sp = await warten(() => [...document.querySelectorAll('.zug-zeile')]
+              .find(z => /Person festhalten/.test(z.textContent)));
+            if (ja('Person festhalten steht zur Wahl', !!sp)) {
+              sp.click(); await ruhe(80);
+              const ziel = [...document.querySelectorAll('.zug-ziel')].find(z => /Goblin/.test(z.textContent));
+              ziel.click(); await ruhe(120);
+              const zk = document.querySelector('.zug-zust-knopf');
+              ja('Ohne Zutun steht am Goblin „→ Gelähmt"', !!zk && /→ Gelähmt/.test(zk.textContent),
+                 zk ? zk.textContent : 'kein Knopf');
+              const best = [...document.querySelectorAll('.zug-schalter button')].find(b => b.textContent === 'bestanden');
+              if (ja('Der Rettungswurf hat seinen Schalter', !!best)) {
+                best.click(); await ruhe(80);
+                ja('  … bestanden: kein Zustand in der Vorschau',
+                   !/Gelähmt/.test(document.querySelector('.zug-vorschau').textContent));
+                [...document.querySelectorAll('.zug-schalter button')].find(b => b.textContent === 'misslungen').click();
+                await ruhe(80);
+                ja('  … misslungen: er ist wieder da',
+                   /Goblin ist Gelähmt/.test(document.querySelector('.zug-vorschau').textContent));
+              }
+              document.querySelector('.zug-fuss .btn-save').click(); await ruhe(300);
+              const gob3 = (kampfStand().teilnehmer || []).find(t => t.id === 'wb-goblin') || {};
+              ja('Der Goblin ist gelähmt', (gob3.zustaende || []).indexOf('Gelähmt') >= 0,
+                 JSON.stringify(gob3.zustaende));
+              ja('  … der Zauberplatz ist gestrichen',
+                 ((JSON.parse(wbSpeicher.dnd_chars)[0].spellSlots || {})[2] || {}).used === 1);
+            }
+          }
+
           const x = document.querySelector('.kampf-kopf-x');
           if (x) { x.click(); await ruhe(150); }
         }

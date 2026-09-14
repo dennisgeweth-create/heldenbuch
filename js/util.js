@@ -1572,6 +1572,31 @@ const wuerfelAufGrad = (wirkung, grundGrad, grad) => {
 // Haelfte", "steigt der Schaden fuer jeden Grad darueber um 1W6". Was
 // hier herauskommt, ist ein Vorschlag — korrigieren kostet einen Klick,
 // alles von Hand einzutragen kostet einen Abend.
+// Welche Zustaende der Text dem Ziel anhaengt. Gelesen wird nur in Saetzen,
+// die nicht von Immunitaet oder Vorteil sprechen — „Kreaturen, die nicht
+// bezaubert werden koennen, sind nicht betroffen" soll keinen Zustand
+// ergeben. Ein Vorschlag wie alles hier.
+// Umlaute zaehlen fuer \b nicht als Buchstaben — „taub" fande sonst auch
+// „Staub", und „gelähmt" am Satzende gar nichts. Also eine eigene Grenze,
+// und die gebeugten Formen („gelähmte", „bezauberten") gleich mit.
+const zustandWort = (w) => new RegExp('(^|[^a-zäöüß])(' + w + ')(e[nrsm]?)?(?![a-zäöüß])', 'i');
+const ZUSTAND_WORTE = [
+  ['Geblendet', zustandWort('geblendet')], ['Betäubt', zustandWort('betäubt')],
+  ['Bezaubert', zustandWort('bezaubert')], ['Verängstigt', zustandWort('verängstigt')],
+  ['Gepackt', zustandWort('gepackt')], ['Handlungsunfähig', zustandWort('handlungsunfähig')],
+  ['Gelähmt', zustandWort('gelähmt')], ['Versteinert', zustandWort('versteinert')],
+  ['Vergiftet', zustandWort('vergiftet')],
+  ['Liegend', zustandWort('liegend|umgestoßen|umgestossen|zu Boden geworfen')],
+  ['Festgesetzt', zustandWort('festgesetzt')], ['Bewusstlos', zustandWort('bewusstlos')],
+  ['Taub', zustandWort('taub')],
+];
+const zustaendeAusText = (text) => {
+  const saetze = String(text || '').split(/(?<=[.!?])\s+/)
+    .filter(s => !/immun|nicht betroffen|Vorteil auf|kann nicht .{0,30}werden/i.test(s));
+  const t = saetze.join(' ');
+  return ZUSTAND_WORTE.filter(([, re]) => re.test(t)).map(([name]) => name);
+};
+
 const wirkungAusText = (text, damageTags) => {
   const roh = String(text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
   const stelle = roh.search(/Auf h(ö|oe)heren Graden/i);
@@ -1609,11 +1634,12 @@ const wirkungAusText = (text, damageTags) => {
   if (/ein weiterer? \w+|ein weiteres \w+|eine weitere \w+/i.test(schwanz)) w.zieleProGrad = 1;
 
   if (Array.isArray(damageTags) && damageTags.length) w.schadensart = damageTags[0];
+  w.zustaende = zustaendeAusText(haupt);
   return w;
 };
 
 // Hat der Zauber ueberhaupt etwas eingetragen?
-const hatWirkung = (w) => !!(w && (w.wuerfel || w.art || w.rettung));
+const hatWirkung = (w) => !!(w && (w.wuerfel || w.art || w.rettung || (w.zustaende || []).length));
 
 const newSpell  = () => ({id:Date.now().toString(),name:"",level:1,school:"Hervorrufung",castingTime:"1 Aktion",range:"9 m",duration:"Sofort",components:"V, S",description:"",prepared:true});
 // gearKind: in welchen Ausruestungsplatz das Stueck passt (leer = keiner).

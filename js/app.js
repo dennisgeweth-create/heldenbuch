@@ -1139,6 +1139,36 @@ const EffectEditor = ({
   }, EFFECT_LABELS[e.target] || e.target, " ", effectText(e)))));
 };
 
+// ── Zustaende einer Wirkung ─────────────────────────────────────
+// Was ein Zauber, ein Gegenstand oder ein Merkmal am Ziel hinterlaesst:
+// Person festhalten laehmt, Schlaf schickt in die Bewusstlosigkeit. Die
+// drei Editoren teilen sich diese Reihe, damit sie gleich aussieht und
+// dasselbe Feld schreibt — `wirkung.zustaende`.
+const WirkungZustaende = ({
+  wirkung,
+  onWirkung
+}) => {
+  const w = wirkung || {};
+  const an = w.zustaende || [];
+  const um = z => onWirkung({
+    ...w,
+    zustaende: an.includes(z) ? an.filter(x => x !== z) : [...an, z]
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "zw-zustaende"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "zw-zustaende-label"
+  }, "Zustand am Ziel ", w.rettung ? '— wenn der Rettungswurf misslingt' : '— bei Treffer'), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-zust-chips"
+  }, CONDITIONS.map(z => /*#__PURE__*/React.createElement("button", {
+    key: z,
+    type: "button",
+    "aria-pressed": an.includes(z),
+    className: 'zust-chip' + (an.includes(z) ? ' an' : ''),
+    onClick: () => um(z)
+  }, z))));
+};
+
 // ── LogTab component ─────────────────────────────────────────────
 
 // ==== js/src/2-logtab.jsx ====
@@ -2906,21 +2936,44 @@ const aktionsStand = (held, wahl) => {
 // Chips. Daraus die Zeilen fuers Protokoll und die Handgriffe fuer den
 // Kampf: an, wenn das Ziel ihn noch nicht hat, sonst aus. Wer denselben
 // Chip zweimal antippt, hat nichts geaendert; das erledigt das Fenster.
-const zustandsWechsel = (ziele, liste) => {
+//
+// Dazu kommt, was die Wirkung selbst mitbringt (`auto(id)`): Person
+// festhalten laehmt, wer den Rettungswurf nicht schafft. Diese Zustaende
+// gehen nur an, nie aus, und wer einen davon abwaehlt, steht in `ohne`.
+const zustandsWechsel = (ziele, liste, auto) => {
   const raus = [];
   Object.keys(ziele || {}).forEach(id => {
     const ziel = (liste || []).find(x => x.id === id);
     if (!ziel) return;
+    const z = ziele[id] || {};
     const hat = ziel.zustaende || [];
-    [...new Set((ziele[id] || {}).zustand || [])].forEach(z => raus.push({
+    const vonSelbst = (auto ? auto(id) : []) || [];
+    vonSelbst.filter(n => !hat.includes(n) && !(z.ohne || []).includes(n)).forEach(n => raus.push({
       id,
       art: 'zustand',
       wer: ziel.name,
-      was: z,
-      an: !hat.includes(z)
+      was: n,
+      an: true
+    }));
+    [...new Set(z.zustand || [])].filter(n => !vonSelbst.includes(n)).forEach(n => raus.push({
+      id,
+      art: 'zustand',
+      wer: ziel.name,
+      was: n,
+      an: !hat.includes(n)
     }));
   });
   return raus;
+};
+
+// Welche Zustaende die Wirkung an einem Ziel ausloest: mit Rettungswurf
+// nur, wenn er misslingt; mit Angriffswurf nur bei Treffer; sonst immer.
+const zustaendeVonWirkung = (wirkung, z, mitRettung, mitSchalter) => {
+  const ws = wirkung && wirkung.zustaende || [];
+  if (!ws.length || !z) return [];
+  if (mitRettung) return z.bestanden ? [] : ws;
+  if (mitSchalter) return z.treffer ? ws : [];
+  return ws;
 };
 
 // ── Rückgängig ───────────────────────────────────────────────────
@@ -3355,6 +3408,7 @@ const ZugFenster = ({
       ...p
     }
   }));
+  const autoZustaende = id => zustaendeVonWirkung(wirkung, ziele[id], mitRettung, mitSchalter);
   // Eine brennende Klinge macht zweierlei Schaden. Der Grundschaden
   // steht im Feld, alles Weitere kommt als eigene Zeile mit eigener Art
   // dazu — im Protokoll steht dann "10 Schaden (7 Hieb + 3 Feuer)".
@@ -3557,7 +3611,7 @@ const ZugFenster = ({
     // Was an den Zielen haengen bleibt. Die Zeilen stehen nach dem
     // Schaden — erst trifft der Hieb, dann liegt der Ork am Boden —,
     // deshalb nicht in eintraege, sondern eigens.
-    const zustaende = zustandsWechsel(ziele, liste);
+    const zustaende = zustandsWechsel(ziele, liste, autoZustaende);
     return {
       eintraege,
       treffer,
@@ -3574,13 +3628,17 @@ const ZugFenster = ({
   } = bauen();
   const summe = treffer.reduce((s, x) => s + x.n, 0);
   const [zustOffen, setZustOffen] = React.useState(null);
+  // Was die Wirkung mitbringt, wird abgewaehlt statt umgelegt — sonst
+  // hiesse ein Tippen auf „Gelähmt" beim Festhalten: doch nicht gelähmt,
+  // und ein zweites: jetzt aber aus. Alles andere wird umgelegt.
   const zustandUm = (id, z) => setZiele(zs => {
-    const liste2 = (zs[id] || {}).zustand || [];
+    const feld = autoZustaende(id).includes(z) ? 'ohne' : 'zustand';
+    const liste2 = (zs[id] || {})[feld] || [];
     return {
       ...zs,
       [id]: {
         ...zs[id],
-        zustand: liste2.includes(z) ? liste2.filter(x => x !== z) : [...liste2, z]
+        [feld]: liste2.includes(z) ? liste2.filter(x => x !== z) : [...liste2, z]
       }
     };
   });
@@ -3932,14 +3990,19 @@ const ZugFenster = ({
       className: "zug-w-notiz"
     }, "RK ", ziel.ac, " \xB7 ", ziel.hp, "/", ziel.hpMax), /*#__PURE__*/React.createElement("button", {
       type: "button",
-      className: 'zug-plus zug-zust-knopf' + ((z.zustand || []).length ? ' an' : ''),
+      className: 'zug-plus zug-zust-knopf' + (zustaende.some(x => x.id === id) ? ' an' : ''),
       "aria-expanded": zustOffen === id,
       onClick: () => setZustOffen(zustOffen === id ? null : id)
-    }, (z.zustand || []).length ? 'Zustände · ' + (z.zustand || []).length + ' geändert' : '＋ Zustand'), zustOffen === id && /*#__PURE__*/React.createElement("span", {
+    }, (() => {
+      const wechsel = zustaende.filter(x => x.id === id);
+      return !wechsel.length ? '＋ Zustand' : wechsel.length <= 2 ? wechsel.map(x => (x.an ? '→ ' : '✕ ') + x.was).join(' · ') : 'Zustände · ' + wechsel.length + ' geändert';
+    })()), zustOffen === id && /*#__PURE__*/React.createElement("span", {
       className: "zug-zustaende"
     }, CONDITIONS.map(c => {
-      const umgelegt = (z.zustand || []).includes(c);
-      const an = (ziel.zustaende || []).includes(c) !== umgelegt;
+      const hat = (ziel.zustaende || []).includes(c);
+      const vonSelbst = autoZustaende(id).includes(c) && !(z.ohne || []).includes(c);
+      const umgelegt = autoZustaende(id).includes(c) ? vonSelbst && !hat : (z.zustand || []).includes(c);
+      const an = autoZustaende(id).includes(c) ? hat || vonSelbst : hat !== umgelegt;
       return /*#__PURE__*/React.createElement("button", {
         type: "button",
         key: c,
@@ -28063,7 +28126,13 @@ function App() {
         zieleProGrad: e.target.checked ? 1 : 0
       }
     }))
-  }), /*#__PURE__*/React.createElement("span", null, "Ein Ziel mehr je Grad"))), hatWirkung(sf.wirkung) && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "Ein Ziel mehr je Grad"))), /*#__PURE__*/React.createElement(WirkungZustaende, {
+    wirkung: sf.wirkung,
+    onWirkung: w => setSf(f => ({
+      ...f,
+      wirkung: w
+    }))
+  }), hatWirkung(sf.wirkung) && /*#__PURE__*/React.createElement("div", {
     className: "zw-probe"
   }, "Auf Grad ", Math.max(1, sf.level || 1), ": ", /*#__PURE__*/React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'), (sf.wirkung || {}).proGrad && (sf.level || 0) < 9 && /*#__PURE__*/React.createElement(React.Fragment, null, ' · ', "auf Grad ", Math.min(9, (sf.level || 1) + 1), ":", ' ', /*#__PURE__*/React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, Math.min(9, (sf.level || 1) + 1)))), (sf.wirkung || {}).rettung && /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 ", RETTUNG_KURZ[(sf.wirkung || {}).rettung], (sf.wirkung || {}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'), (sf.wirkung || {}).flaeche && /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 ", /*#__PURE__*/React.createElement("b", null, "Fl\xE4che"), ": eine Zahl f\xFCr alle Ziele"))), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
@@ -28723,7 +28792,13 @@ function App() {
         flaeche: e.target.checked
       }
     }))
-  }), /*#__PURE__*/React.createElement("span", null, "Fl\xE4che \u2014 eine Zahl f\xFCr alle"))), hatWirkung(itf.wirkung) && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "Fl\xE4che \u2014 eine Zahl f\xFCr alle"))), /*#__PURE__*/React.createElement(WirkungZustaende, {
+    wirkung: itf.wirkung,
+    onWirkung: w => setItf(f => ({
+      ...f,
+      wirkung: w
+    }))
+  }), hatWirkung(itf.wirkung) && /*#__PURE__*/React.createElement("div", {
     className: "zw-probe"
   }, "Im Zugfenster steht dann: ", /*#__PURE__*/React.createElement("b", null, (itf.wirkung || {}).wuerfel || '—'), (itf.wirkung || {}).art === 'heilung' ? ' als Heilung' : (itf.wirkung || {}).art === 'temp' ? ' als temporäre TP' : '', (itf.wirkung || {}).rettung ? ' · Rettungswurf ' + (RETTUNG_KURZ[(itf.wirkung || {}).rettung] || '') : '')), /*#__PURE__*/React.createElement("div", {
     className: "form-group"

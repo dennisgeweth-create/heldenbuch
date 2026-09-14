@@ -4364,3 +4364,7 @@
     .kk-ablage { width:100%; flex-direction:row; flex-wrap:wrap; }
     .kk-marke { flex:0 1 auto; }
   }
+  /* Zustaende einer Wirkung — in den Editoren von Zauber, Gegenstand, Merkmal. */
+  .zw-zustaende { margin-top:9px; display:flex; flex-direction:column; gap:5px; }
+  .zw-zustaende-label { font-family:'Roboto Condensed',sans-serif; font-size:10.5px;
+    letter-spacing:0.08em; color:var(--text-muted); }

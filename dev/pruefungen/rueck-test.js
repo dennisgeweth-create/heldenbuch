@@ -47,6 +47,39 @@ ist('ein Ziel, das nicht mehr im Kampf ist, faellt weg',
 ist('die Zeile liest sich', protokollZeile(zustandsWechsel({g: {zustand: ['Vergiftet']}}, LISTE)[0]),
   '   Goblin ist Vergiftet');
 
+// ── Zustaende, die eine Wirkung mitbringt ────────────────────────
+const halten = {rettung: 'wis', zustaende: ['Gelähmt']};
+ist('misslungener Rettungswurf: der Zustand kommt',
+  zustaendeVonWirkung(halten, {bestanden: false}, true, false), ['Gelähmt']);
+ist('bestanden: nichts', zustaendeVonWirkung(halten, {bestanden: true}, true, false), []);
+ist('mit Angriffswurf nur bei Treffer',
+  [zustaendeVonWirkung({zustaende: ['Liegend']}, {treffer: true}, false, true),
+   zustaendeVonWirkung({zustaende: ['Liegend']}, {treffer: false}, false, true)],
+  [['Liegend'], []]);
+ist('ohne Wurf immer', zustaendeVonWirkung({zustaende: ['Taub']}, {}, false, false), ['Taub']);
+ist('ohne Zustaende nichts', zustaendeVonWirkung({wuerfel: '1W6'}, {}, false, false), []);
+const auto = () => ['Gelähmt'];
+ist('was die Wirkung bringt, geht an',
+  zustandsWechsel({h: {}}, LISTE, auto).map(x => [x.was, x.an]), [['Gelähmt', true]]);
+ist('  … ausser die Spielleitung hat es abgewaehlt',
+  zustandsWechsel({h: {ohne: ['Gelähmt']}}, LISTE, auto), []);
+ist('  … und nie aus, wenn das Ziel ihn schon hat',
+  zustandsWechsel({g: {}}, [{id: 'g', name: 'Goblin', zustaende: ['Gelähmt']}], auto), []);
+ist('von Hand Umgelegtes kommt dazu',
+  zustandsWechsel({h: {zustand: ['Taub']}}, LISTE, auto).map(x => x.was), ['Gelähmt', 'Taub']);
+ist('eine Wirkung nur mit Zustand zaehlt als Wirkung', hatWirkung({zustaende: ['Taub']}), true);
+
+// ── Aus dem Text gelesen ─────────────────────────────────────────
+ist('„gelähmt" wird gelesen',
+  zustaendeAusText('Scheitert der Rettungswurf, ist das Ziel für die Wirkungsdauer gelähmt.'), ['Gelähmt']);
+ist('„Staub" ist nicht taub', zustaendeAusText('Der Staub legt sich.'), []);
+ist('umgestoßen heisst liegend', zustaendeAusText('Die Kreatur wird umgestoßen.'), ['Liegend']);
+ist('wer immun ist, zaehlt nicht',
+  zustaendeAusText('Kreaturen, die immun gegen bezaubert sind, sind nicht betroffen.'), []);
+ist('die Wirkung aus dem Text traegt sie',
+  wirkungAusText('Das Ziel muss einen Weisheitsrettungswurf ablegen. Bei einem Misserfolg ist es gelähmt.').zustaende,
+  ['Gelähmt']);
+
 // ── Ein Schritt merkt sich den Helden ────────────────────────────
 const held = {id: 'h', name: 'Brunhilde', hp: 31, tempHp: 0,
               spellSlots: {1: {max: 2, used: 0}}};

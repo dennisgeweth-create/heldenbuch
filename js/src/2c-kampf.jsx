@@ -627,16 +627,34 @@ const aktionsStand = (held, wahl) => {
 // Chips. Daraus die Zeilen fuers Protokoll und die Handgriffe fuer den
 // Kampf: an, wenn das Ziel ihn noch nicht hat, sonst aus. Wer denselben
 // Chip zweimal antippt, hat nichts geaendert; das erledigt das Fenster.
-const zustandsWechsel = (ziele, liste) => {
+//
+// Dazu kommt, was die Wirkung selbst mitbringt (`auto(id)`): Person
+// festhalten laehmt, wer den Rettungswurf nicht schafft. Diese Zustaende
+// gehen nur an, nie aus, und wer einen davon abwaehlt, steht in `ohne`.
+const zustandsWechsel = (ziele, liste, auto) => {
   const raus = [];
   Object.keys(ziele || {}).forEach(id => {
     const ziel = (liste || []).find(x => x.id === id);
     if (!ziel) return;
+    const z = ziele[id] || {};
     const hat = ziel.zustaende || [];
-    [...new Set((ziele[id] || {}).zustand || [])].forEach(z =>
-      raus.push({id, art: 'zustand', wer: ziel.name, was: z, an: !hat.includes(z)}));
+    const vonSelbst = (auto ? auto(id) : []) || [];
+    vonSelbst.filter(n => !hat.includes(n) && !(z.ohne || []).includes(n)).forEach(n =>
+      raus.push({id, art: 'zustand', wer: ziel.name, was: n, an: true}));
+    [...new Set(z.zustand || [])].filter(n => !vonSelbst.includes(n)).forEach(n =>
+      raus.push({id, art: 'zustand', wer: ziel.name, was: n, an: !hat.includes(n)}));
   });
   return raus;
+};
+
+// Welche Zustaende die Wirkung an einem Ziel ausloest: mit Rettungswurf
+// nur, wenn er misslingt; mit Angriffswurf nur bei Treffer; sonst immer.
+const zustaendeVonWirkung = (wirkung, z, mitRettung, mitSchalter) => {
+  const ws = (wirkung && wirkung.zustaende) || [];
+  if (!ws.length || !z) return [];
+  if (mitRettung) return z.bestanden ? [] : ws;
+  if (mitSchalter) return z.treffer ? ws : [];
+  return ws;
 };
 
 // ── Rückgängig ───────────────────────────────────────────────────
@@ -1003,6 +1021,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   };
 
   const zielSetzen = (id, p) => setZiele(z => ({...z, [id]: {...z[id], ...p}}));
+  const autoZustaende = (id) => zustaendeVonWirkung(wirkung, ziele[id], mitRettung, mitSchalter);
   // Eine brennende Klinge macht zweierlei Schaden. Der Grundschaden
   // steht im Feld, alles Weitere kommt als eigene Zeile mit eigener Art
   // dazu — im Protokoll steht dann "10 Schaden (7 Hieb + 3 Feuer)".
@@ -1108,16 +1127,20 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     // Was an den Zielen haengen bleibt. Die Zeilen stehen nach dem
     // Schaden — erst trifft der Hieb, dann liegt der Ork am Boden —,
     // deshalb nicht in eintraege, sondern eigens.
-    const zustaende = zustandsWechsel(ziele, liste);
+    const zustaende = zustandsWechsel(ziele, liste, autoZustaende);
     return {eintraege, treffer, platz, verbrauch, konz, zustaende};
   };
 
   const {eintraege, treffer, zustaende} = bauen();
   const summe = treffer.reduce((s, x) => s + x.n, 0);
   const [zustOffen, setZustOffen] = React.useState(null);
+  // Was die Wirkung mitbringt, wird abgewaehlt statt umgelegt — sonst
+  // hiesse ein Tippen auf „Gelähmt" beim Festhalten: doch nicht gelähmt,
+  // und ein zweites: jetzt aber aus. Alles andere wird umgelegt.
   const zustandUm = (id, z) => setZiele(zs => {
-    const liste2 = (zs[id] || {}).zustand || [];
-    return {...zs, [id]: {...zs[id], zustand: liste2.includes(z)
+    const feld = autoZustaende(id).includes(z) ? 'ohne' : 'zustand';
+    const liste2 = (zs[id] || {})[feld] || [];
+    return {...zs, [id]: {...zs[id], [feld]: liste2.includes(z)
       ? liste2.filter(x => x !== z) : [...liste2, z]}};
   });
 
@@ -1379,17 +1402,24 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                           gleich hier, statt nach dem Fenster noch einmal
                           an die Kampfzeile zu muessen. */}
                       <button type="button"
-                        className={'zug-plus zug-zust-knopf' + ((z.zustand || []).length ? ' an' : '')}
+                        className={'zug-plus zug-zust-knopf' + (zustaende.some(x => x.id === id) ? ' an' : '')}
                         aria-expanded={zustOffen === id}
                         onClick={()=>setZustOffen(zustOffen === id ? null : id)}>
-                        {(z.zustand || []).length
-                          ? 'Zustände · ' + (z.zustand || []).length + ' geändert'
-                          : '＋ Zustand'}</button>
+                        {(() => {
+                          const wechsel = zustaende.filter(x => x.id === id);
+                          return !wechsel.length ? '＋ Zustand'
+                            : wechsel.length <= 2
+                              ? wechsel.map(x => (x.an ? '→ ' : '✕ ') + x.was).join(' · ')
+                              : 'Zustände · ' + wechsel.length + ' geändert';
+                        })()}</button>
                       {zustOffen === id && (
                         <span className="zug-zustaende">
                           {CONDITIONS.map(c => {
-                            const umgelegt = (z.zustand || []).includes(c);
-                            const an = (ziel.zustaende || []).includes(c) !== umgelegt;
+                            const hat = (ziel.zustaende || []).includes(c);
+                            const vonSelbst = autoZustaende(id).includes(c) && !(z.ohne || []).includes(c);
+                            const umgelegt = autoZustaende(id).includes(c)
+                              ? (vonSelbst && !hat) : (z.zustand || []).includes(c);
+                            const an = autoZustaende(id).includes(c) ? (hat || vonSelbst) : hat !== umgelegt;
                             return (
                               <button type="button" key={c}
                                 className={'zust-chip' + (an ? ' an' : '') + (umgelegt ? ' neu' : '')}

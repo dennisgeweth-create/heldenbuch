@@ -4040,6 +4040,8 @@ function App() {
                     <span>Ein Ziel mehr je Grad</span>
                   </label>
                 </div>
+                <WirkungZustaende wirkung={sf.wirkung}
+                  onWirkung={w=>setSf(f=>({...f, wirkung: w}))} />
                 {hatWirkung(sf.wirkung) && (
                   <div className="zw-probe">
                     Auf Grad {Math.max(1, sf.level || 1)}: <b>{wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'}</b>
@@ -4335,6 +4337,8 @@ function App() {
                       <span>Fläche — eine Zahl für alle</span>
                     </label>
                   </div>
+                  <WirkungZustaende wirkung={itf.wirkung}
+                    onWirkung={w=>setItf(f=>({...f, wirkung: w}))} />
                   {hatWirkung(itf.wirkung) && (
                     <div className="zw-probe">
                       Im Zugfenster steht dann: <b>{(itf.wirkung||{}).wuerfel || '—'}</b>

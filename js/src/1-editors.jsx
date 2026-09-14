@@ -151,4 +151,29 @@ const EffectEditor = ({ effects, onChange, hint }) => {
   );
 };
 
+// ── Zustaende einer Wirkung ─────────────────────────────────────
+// Was ein Zauber, ein Gegenstand oder ein Merkmal am Ziel hinterlaesst:
+// Person festhalten laehmt, Schlaf schickt in die Bewusstlosigkeit. Die
+// drei Editoren teilen sich diese Reihe, damit sie gleich aussieht und
+// dasselbe Feld schreibt — `wirkung.zustaende`.
+const WirkungZustaende = ({ wirkung, onWirkung }) => {
+  const w = wirkung || {};
+  const an = w.zustaende || [];
+  const um = (z) => onWirkung({...w, zustaende: an.includes(z) ? an.filter(x => x !== z) : [...an, z]});
+  return (
+    <div className="zw-zustaende">
+      <span className="zw-zustaende-label">
+        Zustand am Ziel {w.rettung ? '— wenn der Rettungswurf misslingt' : '— bei Treffer'}
+      </span>
+      <div className="kampf-zust-chips">
+        {CONDITIONS.map(z => (
+          <button key={z} type="button" aria-pressed={an.includes(z)}
+            className={'zust-chip' + (an.includes(z) ? ' an' : '')}
+            onClick={()=>um(z)}>{z}</button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ── LogTab component ─────────────────────────────────────────────
