@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.10.3';
+const HB_VERSION = 'v5.10.4';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -22677,7 +22677,14 @@ const Sheet = () => {
           textAlign: 'center',
           display: item.qty > 1 ? 'block' : 'none'
         }
-      }, item.qty), /*#__PURE__*/React.createElement("div", {
+      }, item.qty), (+item.wert || 0) > 0 && /*#__PURE__*/React.createElement("div", {
+        className: "inv-wert",
+        title: 'Wert je Stück: ' + preisText(item.wert) + ((+item.qty || 1) > 1 ? ' · zusammen ' + preisText(item.wert * item.qty) : ''),
+        "aria-label": 'Wert ' + preisText(item.wert)
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "inv-taler",
+        "aria-hidden": "true"
+      }), kupferZuGold(item.wert)), /*#__PURE__*/React.createElement("div", {
         className: "inv-card-icon"
       }, icon), /*#__PURE__*/React.createElement("div", {
         className: "inv-card-name"
@@ -23069,7 +23076,8 @@ const AusruestungsPuppe = () => {
     setItf,
     setItfEditId,
     setShowIF,
-    setImgViewer
+    setImgViewer,
+    darfBearbeiten
   } = React.useContext(SheetCtx);
   if (!cur) return null;
   const belegt = {};
@@ -23119,18 +23127,24 @@ const AusruestungsPuppe = () => {
     const beschriftung = gesperrt ? 'durch Zweihänder belegt' : o ? o.name : 'leer';
     // Der Platz selbst zeigt, was darin steckt; gewechselt wird ueber den
     // kleinen Knopf daneben. Ein leerer Platz hat nichts zu zeigen und
-    // oeffnet deshalb gleich die Auswahl.
+    // oeffnet deshalb gleich die Auswahl — beim eigenen Bogen. Beim fremden
+    // bleibt er einfach leer, und ein belegter zeigt, was darin steckt.
+    //
+    // Bis v5.10.3 war der ganze Platz beim fremden Bogen ausgeblendet: er
+    // ist ein Knopf, und Knoepfe verschwanden dort. Mit ihm verschwand die
+    // Ausruestung selbst.
+    const leerUndFremd = !o && !darfBearbeiten;
     return /*#__PURE__*/React.createElement("div", {
       key: s.key,
       className: klassen
     }, /*#__PURE__*/React.createElement("button", {
       className: "gear-slot-btn",
-      disabled: gesperrt,
+      disabled: gesperrt || leerUndFremd,
       onClick: () => {
         if (gesperrt) return;
-        if (o) oeffneAnsicht(eintrag);else setGearPick(s.key);
+        if (o) oeffneAnsicht(eintrag);else if (darfBearbeiten) setGearPick(s.key);
       },
-      title: gesperrt ? 'Die Haupthand führt einen Zweihänder' : o ? o.name + ' — tippen für Einzelheiten' : s.label + ' belegen',
+      title: gesperrt ? 'Die Haupthand führt einen Zweihänder' : o ? o.name + ' — tippen für Einzelheiten' : darfBearbeiten ? s.label + ' belegen' : s.label + ' — leer',
       "aria-label": s.label + ': ' + beschriftung
     }, /*#__PURE__*/React.createElement("span", {
       className: "gear-slot-ic"
@@ -23141,7 +23155,7 @@ const AusruestungsPuppe = () => {
       className: "gear-slot-emoji"
     }, o && o.icon || s.icon)), /*#__PURE__*/React.createElement("span", {
       className: "gear-slot-txt"
-    }, /*#__PURE__*/React.createElement("b", null, s.label), /*#__PURE__*/React.createElement("i", null, beschriftung))), o && !gesperrt && /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("b", null, s.label), /*#__PURE__*/React.createElement("i", null, beschriftung))), o && !gesperrt && darfBearbeiten && /*#__PURE__*/React.createElement("button", {
       className: "gear-slot-info",
       title: s.label + ' wechseln oder ablegen',
       onClick: () => setGearPick(s.key),

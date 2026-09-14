@@ -1,5 +1,29 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.10.4
+
+### Die Ausrüstung anderer Helden ist wieder zu sehen
+
+Wer den Bogen eines Helden ansah, der jemand anderem gehört, sah dessen
+**Ausrüstung nicht**: Rüstung, Waffen, Ringe, alle Plätze fehlten. Beim
+eigenen Helden war alles da.
+
+Der Grund: Ein fremder Bogen ist seit v4.x nur zum Ansehen da, und dafür
+werden seine Bedienknöpfe ausgeblendet. Jeder Ausrüstungsplatz ist aber
+selbst ein Knopf, zum Antippen für die Einzelheiten. Mit dem Knopf
+verschwand der Platz.
+
+Jetzt stehen alle Plätze da. Ein belegter Platz öffnet wie beim eigenen
+Bogen die Ansicht der Waffe oder des Gegenstands. Nur das **⇄ Wechseln**
+fehlt, und ein leerer Platz bietet keine Auswahl an.
+
+### Der Wert steht auf der Karte
+
+Jede Gegenstandskarte im Inventar zeigt jetzt oben rechts einen
+**Goldtaler mit dem Wert** in Gold („50“, „2,5“). Der Tooltip nennt den
+Wert ausgeschrieben („2 GM 5 SM“), bei mehreren Stücken auch die Summe.
+Stücke ohne Wert bleiben ohne Taler.
+
 ## v5.10.3
 
 ### Abenteuerlog und Patchnotes schweben

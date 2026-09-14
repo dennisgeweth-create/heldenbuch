@@ -1037,6 +1037,31 @@
           }
         }
 
+        // ── Inventar: der Wert auf der Karte, die Ausrüstung beim fremden Bogen ──
+        melden('lauf', 'Inventar und Ausrüstung');
+        const reiterI = [...document.querySelectorAll('button')].find(b => /Inventar/.test(b.textContent));
+        if (reiterI) { reiterI.click(); await ruhe(250); }
+        const hemd = [...document.querySelectorAll('.inv-card')].find(c => /Kettenhemd/.test(c.textContent));
+        ja('Die Karte des Kettenhemds zeigt seinen Wert mit Taler',
+           !!hemd && !!hemd.querySelector('.inv-wert .inv-taler')
+           && hemd.querySelector('.inv-wert').textContent.trim() === '50',
+           hemd ? ((hemd.querySelector('.inv-wert') || {}).textContent || 'kein Wert') : 'keine Karte');
+        // Der fremde Bogen ist hier nicht zu haben (die Werkbank leitet
+        // alles). Geprüft wird deshalb die Darstellung: unter
+        // sheet-nur-lesen dürfen die Ausrüstungsplätze nicht verschwinden —
+        // bis v5.10.3 taten sie genau das.
+        const bogen = document.querySelector('.sheet');
+        if (bogen) {
+          bogen.classList.add('sheet-nur-lesen');
+          const plaetze = [...document.querySelectorAll('.gear-slot-btn')];
+          ja('Beim fremden Bogen bleiben die Ausrüstungsplätze sichtbar',
+             plaetze.length > 0 && plaetze.every(b => getComputedStyle(b).display !== 'none'),
+             plaetze.filter(b => getComputedStyle(b).display === 'none').length + ' versteckt');
+          ja('  … nur das Wechseln fällt weg',
+             [...document.querySelectorAll('.gear-slot-info')].every(b => getComputedStyle(b).display === 'none'));
+          bogen.classList.remove('sheet-nur-lesen');
+        }
+
         melden('lauf', 'Merkmal bearbeiten');
         const reiterM = await warten(() => [...document.querySelectorAll('button')]
           .find(b => /Merkmale/.test(b.textContent)));

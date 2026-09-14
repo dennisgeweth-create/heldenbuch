@@ -1599,6 +1599,18 @@ const Sheet = () => {
                                 display:item.qty>1?'block':'none'}}>
                                 {item.qty}
                               </div>
+                              {/* Was ein Stück wert ist: ein Taler oben rechts, der
+                                  Betrag in Gold daneben. Ausgeschrieben — und bei
+                                  mehreren Stücken die Summe — steht es im Tooltip. */}
+                              {(+item.wert || 0) > 0 && (
+                                <div className="inv-wert"
+                                  title={'Wert je Stück: ' + preisText(item.wert)
+                                         + ((+item.qty || 1) > 1 ? ' · zusammen ' + preisText(item.wert * item.qty) : '')}
+                                  aria-label={'Wert ' + preisText(item.wert)}>
+                                  <span className="inv-taler" aria-hidden="true" />
+                                  {kupferZuGold(item.wert)}
+                                </div>
+                              )}
                               <div className="inv-card-icon">{icon}</div>
                               <div className="inv-card-name">{item.name}</div>
                             </div>

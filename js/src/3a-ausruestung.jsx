@@ -14,6 +14,7 @@ const AusruestungsPuppe = () => {
     gearWornList, nhGesperrt, setGearSlot, gearArmor, gearShield, gearAusVorlage, gearSetList,
     gearPick, setGearPick, fxOn, fxTitle, patchChar, appAlert, appConfirm,
     setItemViewer, setWeaponViewer, setItf, setItfEditId, setShowIF, setImgViewer,
+    darfBearbeiten,
   } = React.useContext(SheetCtx);
 
   if (!cur) return null;
@@ -60,12 +61,20 @@ const AusruestungsPuppe = () => {
     const beschriftung = gesperrt ? 'durch Zweihänder belegt' : o ? o.name : 'leer';
     // Der Platz selbst zeigt, was darin steckt; gewechselt wird ueber den
     // kleinen Knopf daneben. Ein leerer Platz hat nichts zu zeigen und
-    // oeffnet deshalb gleich die Auswahl.
+    // oeffnet deshalb gleich die Auswahl — beim eigenen Bogen. Beim fremden
+    // bleibt er einfach leer, und ein belegter zeigt, was darin steckt.
+    //
+    // Bis v5.10.3 war der ganze Platz beim fremden Bogen ausgeblendet: er
+    // ist ein Knopf, und Knoepfe verschwanden dort. Mit ihm verschwand die
+    // Ausruestung selbst.
+    const leerUndFremd = !o && !darfBearbeiten;
     return (
       <div key={s.key} className={klassen}>
-        <button className="gear-slot-btn" disabled={gesperrt}
-          onClick={()=>{ if (gesperrt) return; if (o) oeffneAnsicht(eintrag); else setGearPick(s.key); }}
-          title={gesperrt ? 'Die Haupthand führt einen Zweihänder' : (o ? o.name+' — tippen für Einzelheiten' : s.label+' belegen')}
+        <button className="gear-slot-btn" disabled={gesperrt || leerUndFremd}
+          onClick={()=>{ if (gesperrt) return; if (o) oeffneAnsicht(eintrag); else if (darfBearbeiten) setGearPick(s.key); }}
+          title={gesperrt ? 'Die Haupthand führt einen Zweihänder'
+                 : o ? o.name+' — tippen für Einzelheiten'
+                 : darfBearbeiten ? s.label+' belegen' : s.label+' — leer'}
           aria-label={s.label+': '+beschriftung}>
           <span className="gear-slot-ic">
             {o && o.imageData
@@ -77,7 +86,7 @@ const AusruestungsPuppe = () => {
             <i>{beschriftung}</i>
           </span>
         </button>
-        {o && !gesperrt && (
+        {o && !gesperrt && darfBearbeiten && (
           <button className="gear-slot-info" title={s.label+' wechseln oder ablegen'}
             onClick={()=>setGearPick(s.key)} aria-label={s.label+' wechseln oder ablegen'}>⇄</button>
         )}
