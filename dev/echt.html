@@ -655,6 +655,16 @@
                  JSON.stringify(gob3.zustaende));
               ja('  … der Zauberplatz ist gestrichen',
                  ((JSON.parse(wbSpeicher.dnd_chars)[0].spellSlots || {})[2] || {}).used === 1);
+              const lw = kampfStand().laufend || [];
+              ja('Person festhalten läuft — zehn Runden, mit Konzentration, auf dem Goblin',
+                 lw.length === 1 && lw[0].name === 'Person festhalten' && lw[0].konz
+                 && lw[0].bisRunde === 11 && (lw[0].zielIds || [])[0] === 'wb-goblin',
+                 JSON.stringify(lw));
+              const marken = [...document.querySelectorAll('.kampf-wirkung')].map(b => b.textContent);
+              ja('  … Brunhilde trägt den Ring, der Goblin die Wirkung',
+                 marken.some(m => /◎ Person festhalten · 10/.test(m))
+                 && marken.some(m => /◉ Person festhalten · Brunhilde/.test(m)),
+                 marken.join(' | '));
             }
           }
 
@@ -691,6 +701,59 @@
               const zurueck = await warten(() =>
                 ((heldGespeichert().resources || [])[0] || {}).used === 0 ? true : null, 3000);
               ja('Zurücknehmen gibt Kanalisieren zurück', !!zurueck);
+              const lw2 = kampfStand().laufend || [];
+              ja('  … und die Wirkung liegt wieder auf dem Goblin',
+                 lw2.length === 1 && (lw2[0].zielIds || [])[0] === 'wb-goblin', JSON.stringify(lw2));
+            }
+          }
+
+          // ── Eine Wirkung läuft ab ──
+          melden('lauf', 'Wirkungen mit Dauer');
+          const weiterK = knopfMit('Nächster');
+          if (ja('Weiter zum Goblin', !!weiterK)) {
+            weiterK.click(); await ruhe(300);
+            const zg = await warten(() => knopfMit('Zug eintragen'));
+            if (ja('Der Goblin ist am Zug', !!zg && kampfStand().zug === 1)) {
+              zg.click(); await ruhe(200);
+              const an = [...document.querySelectorAll('.zug-lauf-an input')][0];
+              if (ja('Beim Gegner lässt sich eine Wirkung von Hand eintragen', !!an && !an.checked)) {
+                an.click(); await ruhe(80);
+                const setzI = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                const nameF = document.querySelector('.zug-lauf-name');
+                setzI.call(nameF, 'Netz'); nameF.dispatchEvent(new Event('input', {bubbles: true}));
+                const rundenF = document.querySelector('.zug-lauf .zug-zahl');
+                setzI.call(rundenF, '1'); rundenF.dispatchEvent(new Event('input', {bubbles: true}));
+                await ruhe(100);
+                const ziel = [...document.querySelectorAll('.zug-ziel')].find(z => /Brunhilde/.test(z.textContent));
+                ziel.click(); await ruhe(100);
+                ja('  … die Vorschau nennt sie', /Netz wirkt · 1 Runde auf Brunhilde/.test(
+                   document.querySelector('.zug-vorschau').textContent),
+                   document.querySelector('.zug-vorschau').textContent.slice(-120));
+                document.querySelector('.zug-fuss .btn-save').click(); await ruhe(300);
+                const netz = (kampfStand().laufend || []).find(w => w.name === 'Netz');
+                ja('  … sie steht als Gegnerwirkung in der Liste',
+                   !!netz && netz.seite === 'gegner' && netz.bisRunde === 2, JSON.stringify(netz));
+              }
+            }
+            knopfMit('Nächster').click(); await ruhe(300);
+            ja('In Runde 2 bei Brunhilde läuft das Netz noch',
+               (kampfStand().laufend || []).some(w => w.name === 'Netz') && kampfStand().runde === 2);
+            knopfMit('Nächster').click(); await ruhe(300);
+            ja('Zu Beginn des Goblinzugs in Runde 2 ist es vorbei',
+               !(kampfStand().laufend || []).some(w => w.name === 'Netz'),
+               JSON.stringify(kampfStand().laufend));
+            ja('  … und das Protokoll sagt es', /Netz endet \(Goblin\)/.test(logText()),
+               logText().split('\n').slice(-3).join(' / '));
+            ja('Person festhalten läuft weiter',
+               (kampfStand().laufend || []).some(w => w.name === 'Person festhalten'));
+            // Von Hand beenden: die Konzentration im Bogen geht mit.
+            const ring = [...document.querySelectorAll('.kampf-wirkung')].find(b => /◎ Person festhalten/.test(b.textContent));
+            if (ja('Der Ring lässt sich antippen', !!ring)) {
+              ring.click();
+              const los = await warten(() => !(JSON.parse(wbSpeicher.dnd_chars)[0].konzentration || {}).name ? true : null, 3000);
+              ja('  … die Wirkung ist weg', !(kampfStand().laufend || []).length);
+              ja('  … und Brunhilde hält nichts mehr', !!los,
+                 JSON.stringify(JSON.parse(wbSpeicher.dnd_chars)[0].konzentration));
             }
           }
 

@@ -1866,6 +1866,7 @@ function App() {
         return rest;
       }),
       log: kampf.log || [],
+      laufend: kampf.laufend || [],
     } : null;
     // Nichts zu spiegeln und nichts gespiegelt: dann auch keine Anfrage.
     const text = JSON.stringify(schlank);
@@ -3944,6 +3945,14 @@ function App() {
                       <span>Wie viel</span>
                       <ZahlFeld className="form-input" min={1} wert={ff.ressourceKosten || 1} leerWert={1}
                         onWert={v=>setFf({...ff, ressourceKosten: Math.max(1, v || 1)})} />
+                    </label>
+                  )}
+                  {!ff.zauber && (
+                    <label className="zw-feld">
+                      <span>Dauer</span>
+                      <input className="form-input" placeholder="1 Minute" value={ff.dauer || ''}
+                        title="Wie lange es im Kampf weiterwirkt — „1 Minute“ sind 10 Runden. Leer: sofort vorbei."
+                        onChange={e=>setFf({...ff, dauer: e.target.value})} />
                     </label>
                   )}
                   <label className="zw-feld">

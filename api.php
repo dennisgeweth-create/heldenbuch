@@ -594,6 +594,25 @@ function kampfFuerSpieler(array $k, bool $hpOffen): array {
         $teil[] = $e;
     }
     $raus['teilnehmer'] = $teil;
+    // Was laeuft — aber nur, was Helden gewirkt haben. Was ein Gegner
+    // haelt, soll die Runde am Tisch herausfinden und nicht im Fenster
+    // ablesen. Auch der Name eines Gegners als Ziel bleibt, was er ist:
+    // sichtbar steht der Gegner ohnehin in der Reihe.
+    $lauf = [];
+    foreach ((array)($k['laufend'] ?? []) as $w) {
+        if (!is_array($w) || (string)($w['seite'] ?? '') !== 'held') continue;
+        $lauf[] = [
+            'id'       => (string)($w['id'] ?? ''),
+            'vonId'    => (string)($w['vonId'] ?? ''),
+            'von'      => (string)($w['von'] ?? ''),
+            'seite'    => 'held',
+            'name'     => (string)($w['name'] ?? ''),
+            'konz'     => !empty($w['konz']),
+            'bisRunde' => isset($w['bisRunde']) && $w['bisRunde'] !== null ? (int)$w['bisRunde'] : null,
+            'zielIds'  => array_values(array_map('strval', (array)($w['zielIds'] ?? []))),
+        ];
+    }
+    $raus['laufend'] = $lauf;
     // Die Karte, wenn die Spielleitung sie zeigt. Der Tracker filtert
     // die verborgenen Figuren schon vor dem Senden heraus; hier steht
     // dieselbe Grenze noch einmal, damit eine aeltere Fassung des

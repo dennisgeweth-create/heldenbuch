@@ -15,7 +15,7 @@
 const zustandFarbe = (label) =>
   (TP_ZUSTAENDE.find(z => z.label === label) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1]).color;
 
-const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHeld }) => {
+const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHeld, wirkungen }) => {
   const held = t.art === 'held';
   const c    = held ? (helden || []).find(h => h.id === t.charId) : null;
   const w    = c ? charWerte(c, setDefs) : null;
@@ -48,6 +48,15 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
           {t.nachteil && <span className="ks-marke schlecht">👎 Nachteil</span>}
           {(t.erschoepfung || 0) > 0 && <span className="ks-marke ersch">Erschöpfung {t.erschoepfung}</span>}
           {(t.zustaende || []).map(z => <span className="ks-marke" key={z}>{z}</span>)}
+          {/* Was die Helden halten und was auf wem liegt. Wirkungen der
+              Gegner kommen gar nicht erst an — das filtert der Server. */}
+          {(wirkungen || []).map(w => (
+            <span key={w.id + w.rolle} className={'ks-marke wirkung' + (w.konz ? ' konz' : '')}
+              title={w.rolle === 'auf' ? 'Von ' + w.von : 'Gewirkt'}>
+              {w.rolle === 'von' ? (w.konz ? '◎ ' : '⏳ ') : '◉ '}{w.name}
+              {w.rest != null ? ' · ' + w.rest : ''}
+            </span>
+          ))}
         </div>
       </div>
       <div className="ks-tp">
@@ -349,7 +358,8 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                 <KampfSichtZeile key={t.id || i} t={t} dran={i === aktivIdx}
                   wartet={zwIdx >= 0 && i === dranIdx}
                   helden={helden} setDefs={setDefs} tpOffen={tpOffen}
-                  eigenerHeld={t.art === 'held' && (eigeneIds || []).includes(t.charId)} />
+                  eigenerHeld={t.art === 'held' && (eigeneIds || []).includes(t.charId)}
+                  wirkungen={laufendAn(kampf.laufend, t.id, kampf.runde)} />
               ))}
         </div>
 

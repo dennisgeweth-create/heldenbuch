@@ -2516,6 +2516,10 @@ const protokollZeile = (e, mitZahlen) => {
       return '   − ' + e.wer + ' verlässt den Kampf';
     case 'rueck':
       return '   ↶ Zurückgenommen: ' + e.was;
+    case 'wirkungAn':
+      return '   ⏳ ' + e.was + ' wirkt' + (e.runden ? ' · ' + e.runden + (e.runden === 1 ? ' Runde' : ' Runden') : '') + ((e.ziele || []).length ? ' auf ' + e.ziele.join(', ') : '');
+    case 'wirkungAus':
+      return '   ⏳ ' + e.was + ' endet' + (e.wer ? ' (' + e.wer + ')' : '');
     default:
       return '   ' + (e.wer || '');
   }
@@ -3203,6 +3207,74 @@ const rueckKampf = (jetzt, schritt) => {
     }]
   };
 };
+
+// ── Was gerade läuft ─────────────────────────────────────────────
+// Segen haelt eine Minute, Heiligtum der Daemmerung auch, ein Netz eine
+// Stunde. Am Tisch vergisst man das nach der dritten Runde. Der Kampf
+// fuehrt deshalb eine Liste:
+//
+//   kampf.laufend = [{id, vonId, von, seite, name, konz, bisRunde, zielIds, ziele}]
+//
+// Eine Wirkung endet zu Beginn des Zuges dessen, der sie gewirkt hat, in
+// der Runde `bisRunde` — so, wie „1 Minute" im Regelwerk gemeint ist:
+// zehn eigene Zuege. Ohne Zahl (`bisRunde: null`) laeuft sie, bis jemand
+// sie beendet oder die Konzentration reisst.
+
+// Die Dauer aus dem Text des Zaubers. 0 heisst: nichts, das weiterlaeuft.
+// null heisst: laeuft, aber ohne Zahl — „bis sie gebannt wird".
+const dauerRunden = text => {
+  const t = String(text || '').toLowerCase().trim();
+  if (!t || /sofort|unmittelbar|augenblick/.test(t)) return 0;
+  const m = /(\d+)\s*(runde|minute|stunde|tag)/.exec(t);
+  if (m) return +m[1] * {
+    runde: 1,
+    minute: 10,
+    stunde: 600,
+    tag: 14400
+  }[m[2]];
+  // „1 Aktion" steht bei manchen Vorlagen versehentlich als Dauer.
+  if (/aktion|reaktion/.test(t)) return 0;
+  return null;
+};
+
+// Was bei jemandem zu sehen ist: was er gewirkt hat und was auf ihm liegt.
+const laufendAn = (laufend, tId, runde) => (laufend || []).filter(w => w.vonId === tId || (w.zielIds || []).includes(tId)).map(w => ({
+  ...w,
+  rolle: w.vonId === tId ? 'von' : 'auf',
+  rest: w.bisRunde == null ? null : Math.max(0, w.bisRunde - (+runde || 0))
+}));
+
+// Zu Beginn eines Zuges: was dessen Wirkender jetzt nicht mehr haelt.
+const laufendAmZugbeginn = (laufend, runde, dranId) => {
+  const endet = (laufend || []).filter(w => w.vonId === dranId && w.bisRunde != null && (+runde || 0) >= w.bisRunde);
+  return {
+    endet,
+    bleibt: (laufend || []).filter(w => !endet.includes(w))
+  };
+};
+
+// Zeilen anhaengen, ohne auf die Phase zu schauen — der Aufrufer weiss es.
+const mitLogRoh = (k, eintraege) => ({
+  ...k,
+  log: [...(k.log || []), ...eintraege]
+});
+
+// Welcher Teilnehmer einen Zug haette, wenn jetzt weitergeklickt wird —
+// dieselbe Rechnung wie „Naechster" im Tracker.
+const naechsterStand = k => {
+  const n = (k.teilnehmer || []).length;
+  if (!n) return {
+    zug: 0,
+    runde: k.runde
+  };
+  return k.zug + 1 < n ? {
+    zug: k.zug + 1,
+    runde: k.runde
+  } : {
+    zug: 0,
+    runde: k.runde + 1
+  };
+};
 const AktionsWahl = ({
   held,
   wahl,
@@ -3424,6 +3496,14 @@ const ZugFenster = ({
     };
   });
   const [richtung, setRichtung] = React.useState('schaden');
+  // Was nach dem Zug weiterwirkt. Vorbelegt aus der Dauer des Gewaehlten,
+  // aenderbar — und beim Gegner von Hand, der hat keine Zauberliste.
+  const [lauf, setLauf] = React.useState({
+    an: false,
+    name: '',
+    runden: '',
+    konz: false
+  });
   // Kommt das Fenster aus einer Ansage, sind die Ziele des Spielers
   // schon angekreuzt — was inzwischen aus dem Kampf ist, faellt weg.
   const [ziele, setZiele] = React.useState(() => {
@@ -3501,6 +3581,20 @@ const ZugFenster = ({
   React.useEffect(() => {
     const a = wirkung && wirkung.art;
     if (a === 'heilung' || a === 'temp') setRichtung('heilung');else if (a === 'schaden') setRichtung('schaden');
+  }, [wahl.art, wahl.i]);
+  React.useEffect(() => {
+    if (nurWerte) return;
+    // Beim Merkmal zaehlt der Zauber, den es ausloest — sonst seine
+    // eigene Dauer.
+    const q = art === 'zauber' ? gegenstand : art === 'merkmal' ? verknuepft || gegenstand : null;
+    const text = q ? q.duration || q.dauer || '' : '';
+    const r = q ? dauerRunden(text) : 0;
+    setLauf({
+      an: !!q && r !== 0,
+      name: q ? q.name || '' : '',
+      runden: r == null || r === 0 ? '' : r,
+      konz: /konzentration/i.test(text)
+    });
   }, [wahl.art, wahl.i]);
   // Flaechenzauber: ein Wurf fuer alle. Der Schaden steht dann einmal
   // oben, und bei jedem Ziel nur noch, ob der Rettungswurf gelang.
@@ -3756,6 +3850,32 @@ const ZugFenster = ({
         was: gehalten.name
       });
     }
+    // Was weiterwirkt. Nur wenn auch etwas geschieht — ein Haken allein,
+    // ohne dass der Zauber eingetragen wird, legt nichts in die Liste.
+    let laufend = null;
+    const geschieht = eintraege.some(e => e.art === 'aktion') || nurWerte || art === 'frei';
+    if (lauf.an && (lauf.name || '').trim() && geschieht) {
+      const runden = lauf.runden === '' || lauf.runden == null ? null : Math.max(1, Math.round(+lauf.runden || 1));
+      const zielIds = Object.keys(ziele).filter(id => liste.some(x => x.id === id));
+      const zielNamen = zielIds.map(id => (liste.find(x => x.id === id) || {}).name || '');
+      laufend = {
+        vonId: t.id,
+        von: t.name,
+        seite: t.art === 'held' ? 'held' : 'gegner',
+        name: lauf.name.trim(),
+        konz: !!lauf.konz,
+        runden,
+        zielIds,
+        ziele: zielNamen
+      };
+      eintraege.push({
+        art: 'wirkungAn',
+        wer: t.name,
+        was: laufend.name,
+        runden,
+        ziele: zielNamen
+      });
+    }
     // Was an den Zielen haengen bleibt. Die Zeilen stehen nach dem
     // Schaden — erst trifft der Hieb, dann liegt der Ork am Boden —,
     // deshalb nicht in eintraege, sondern eigens.
@@ -3767,7 +3887,8 @@ const ZugFenster = ({
       verbrauch,
       konz,
       zustaende,
-      ressource
+      ressource,
+      laufend
     };
   };
   const {
@@ -4190,6 +4311,53 @@ const ZugFenster = ({
   }))), /*#__PURE__*/React.createElement("div", {
     className: "zug-block"
   }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-lauf"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "zug-lauf-an"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: lauf.an,
+    onChange: e => setLauf(l => ({
+      ...l,
+      an: e.target.checked
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, "\u23F3 Wirkt weiter")), lauf.an && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("input", {
+    className: "zug-art zug-lauf-name",
+    value: lauf.name,
+    placeholder: "Segen",
+    "aria-label": "Was weiterwirkt",
+    onChange: e => setLauf(l => ({
+      ...l,
+      name: e.target.value
+    }))
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "zug-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Runden"), /*#__PURE__*/React.createElement(ZahlFeld, {
+    className: "zug-zahl",
+    sofort: true,
+    min: 1,
+    wert: lauf.runden,
+    leerWert: "",
+    placeholder: "\u221E",
+    "aria-label": "Wie viele Runden",
+    onWert: v => setLauf(l => ({
+      ...l,
+      runden: v
+    }))
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "zug-lauf-an"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: lauf.konz,
+    onChange: e => setLauf(l => ({
+      ...l,
+      konz: e.target.checked
+    }))
+  }), /*#__PURE__*/React.createElement("span", null, "Konzentration")), /*#__PURE__*/React.createElement("span", {
+    className: "zug-flaeche-hinweis"
+  }, lauf.runden ? 'endet zu Beginn von ' + t.name + 's Zug in Runde ' + (runde + (+lauf.runden || 0)) : 'läuft, bis es jemand beendet')))), /*#__PURE__*/React.createElement("div", {
+    className: "zug-block"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "zug-label"
   }, "Beschreibung \u2014 freiwillig"), /*#__PURE__*/React.createElement("textarea", {
     className: "zug-frei",
@@ -4301,7 +4469,9 @@ const KampfZeile = ({
   zustandOffen,
   setZustandOffen,
   detailOffen,
-  setDetailOffen
+  setDetailOffen,
+  wirkungen,
+  onWirkungEnde
 }) => {
   // Wer dran ist, rueckt ins Bild. Auf dem Telefon steht sonst nach
   // "Naechster Zug" jemand anderes auf dem Schirm als der, der handelt.
@@ -4372,7 +4542,13 @@ const KampfZeile = ({
     className: "kampf-zustand",
     onClick: () => onZustand(z),
     title: "Entfernen"
-  }, z, " \u2715")), (t.flags || []).map(f => /*#__PURE__*/React.createElement("span", {
+  }, z, " \u2715")), (wirkungen || []).map(w => /*#__PURE__*/React.createElement("button", {
+    key: w.id + w.rolle,
+    type: "button",
+    className: 'kampf-wirkung' + (w.rolle === 'auf' ? ' auf' : '') + (w.konz ? ' konz' : ''),
+    onClick: () => onWirkungEnde && onWirkungEnde(w.id),
+    title: (w.rolle === 'von' ? 'Hält ' : 'Von ' + w.von + ': ') + w.name + (w.konz ? ' (Konzentration)' : '') + ' — antippen beendet es'
+  }, w.rolle === 'von' ? w.konz ? '◎ ' : '⏳ ' : '◉ ', w.name, w.rolle === 'auf' && w.von ? /*#__PURE__*/React.createElement("i", null, " \xB7 ", w.von) : null, w.rest != null ? /*#__PURE__*/React.createElement("b", null, " \xB7 ", w.rest) : null, " \u2715")), (t.flags || []).map(f => /*#__PURE__*/React.createElement("span", {
     key: f,
     className: "kampf-flag"
   }, f))), dran && onZug && /*#__PURE__*/React.createElement("button", {
@@ -5045,6 +5221,29 @@ const KampfAnsicht = ({
   // zielen, den niemand mehr vor Augen hat. `offen` ist der Schritt, in
   // den der laufende Handgriff gerade schreibt; er schliesst sich, sobald
   // der Handgriff durch ist.
+  // Hat ein Held seine Konzentration inzwischen geloest — im Bogen, auf
+  // seinem Geraet —, endet auch, was er damit hielt. Nur bei leerer
+  // Konzentration: beim Wechsel auf einen neuen Zauber stehen Bogen und
+  // Liste einen Augenblick lang verschieden da, und das ist kein Ende.
+  React.useEffect(() => {
+    if (!kampf || !kampf.aktiv || inVorbereitung(kampf)) return;
+    const weg = (kampf.laufend || []).filter(w => {
+      if (!w.konz || w.seite !== 'held') return false;
+      const t = (kampf.teilnehmer || []).find(x => x.id === w.vonId);
+      const h = t && (helden || []).find(x => x.id === t.charId);
+      return !!h && !(h.konzentration && h.konzentration.name);
+    });
+    if (!weg.length) return;
+    setKampf(k => k && mitLogRoh({
+      ...k,
+      laufend: (k.laufend || []).filter(w => !weg.some(x => x.id === w.id))
+    }, weg.map(w => ({
+      art: 'wirkungAus',
+      r: k.runde,
+      was: w.name,
+      wer: w.von
+    }))));
+  }, [helden]);
   const rueckStapel = React.useRef([]);
   const rueckOffen = React.useRef(null);
   const [, setRueckZahl] = React.useState(0);
@@ -5250,6 +5449,10 @@ const KampfAnsicht = ({
             wer: t.name,
             was: h.konzentration.name
           });
+          setKampf(k => k && {
+            ...k,
+            laufend: (k.laufend || []).filter(w => !(w.vonId === t.id && w.konz))
+          });
         }
       }
       heldAendern(t.charId, p, t.name);
@@ -5301,7 +5504,8 @@ const KampfAnsicht = ({
     verbrauch,
     konz,
     zustaende,
-    ressource
+    ressource,
+    laufend
   }, weiter, ansageId) => {
     merken('Zug');
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
@@ -5367,6 +5571,30 @@ const KampfAnsicht = ({
           }
         }, c.name);
       }
+    }
+    // Wer eine neue Konzentration beginnt, laesst die alte fallen — auch
+    // in der Liste dessen, was laeuft. Dann kommt das Neue hinzu.
+    if (konz || laufend) {
+      const vonId = laufend ? laufend.vonId : (liste.find(x => x.art === 'held' && x.charId === konz.charId) || {}).id;
+      const neuName = konz ? konz.wert.name : null;
+      setKampf(k => {
+        let l = (k.laufend || []).filter(w => !(w.vonId === vonId && w.konz && (laufend && laufend.konz || neuName && w.name !== neuName)));
+        if (laufend) {
+          const {
+            runden,
+            ...rest
+          } = laufend;
+          l = [...l, {
+            ...rest,
+            id: 'lw-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            bisRunde: runden == null ? null : k.runde + runden
+          }];
+        }
+        return {
+          ...k,
+          laufend: l
+        };
+      });
     }
     // Was das Merkmal gekostet hat, geht vom Zaehler im Bogen ab.
     if (ressource) {
@@ -5631,25 +5859,78 @@ const KampfAnsicht = ({
       enemies: []
     }, enemies, helden, setDefs));
   }, 'Beenden');
+
+  // Beendet eine Wirkung — von Hand oder weil ihre Zeit um ist. Haelt ein
+  // Held sie mit Konzentration, ist die im Bogen danach auch weg.
+  const heldKonzLoesen = w => {
+    if (!w.konz || w.seite !== 'held') return;
+    const t = liste.find(x => x.id === w.vonId);
+    const h = t && (helden || []).find(x => x.id === t.charId);
+    if (h && h.konzentration && h.konzentration.name === w.name) heldAendern(h.id, {
+      konzentration: null
+    }, h.name);
+  };
+  const wirkungEnde = id => {
+    const w = (kampf.laufend || []).find(x => x.id === id);
+    if (!w) return;
+    merken('Wirkung beendet');
+    heldKonzLoesen(w);
+    setKampf(k => mitLog({
+      ...k,
+      laufend: (k.laufend || []).filter(x => x.id !== id)
+    }, [{
+      art: 'wirkungAus',
+      r: k.runde,
+      was: w.name,
+      wer: w.von
+    }]));
+  };
   const naechster = () => {
     merken('Zugwechsel');
+    // Was zu Beginn des naechsten Zuges endet, wird vorher bestimmt — die
+    // Konzentration im Bogen muss ausserhalb von setKampf geloest werden.
+    if (!inVorbereitung(kampf)) {
+      const st = naechsterStand(kampf);
+      const dran = (kampf.teilnehmer || [])[st.zug];
+      laufendAmZugbeginn(kampf.laufend, st.runde, dran && dran.id).endet.forEach(heldKonzLoesen);
+    }
     setKampf(k => {
-      if (!k.teilnehmer.length) return k;
-      const naechsterZug = k.zug + 1;
-      if (naechsterZug < k.teilnehmer.length) return {
-        ...k,
-        zwischen: null,
-        zug: naechsterZug
-      };
-      // Die Runde ist um. Bevor die naechste anfaengt, haelt der Verlauf
-      // fest, wie das Feld danach aussah — sonst stuende darin nur, wer
-      // wohin gezogen ist, und nie, was dabei herauskam.
+      const vorher = k;
+      const weiter = (() => {
+        if (!k.teilnehmer.length) return k;
+        const naechsterZug = k.zug + 1;
+        if (naechsterZug < k.teilnehmer.length) return {
+          ...k,
+          zwischen: null,
+          zug: naechsterZug
+        };
+        // Die Runde ist um. Bevor die naechste anfaengt, haelt der Verlauf
+        // fest, wie das Feld danach aussah — sonst stuende darin nur, wer
+        // wohin gezogen ist, und nie, was dabei herauskam.
+        return {
+          ...k,
+          zwischen: null,
+          zug: 0,
+          runde: k.runde + 1,
+          log: inVorbereitung(k) ? k.log : logMitAufnahme(k.log, karteAufnahme(k.karte, liste), k.runde)
+        };
+      })();
+      if (inVorbereitung(vorher) || weiter === vorher) return weiter;
+      const dran = (weiter.teilnehmer || [])[weiter.zug];
+      const {
+        endet,
+        bleibt
+      } = laufendAmZugbeginn(weiter.laufend, weiter.runde, dran && dran.id);
+      if (!endet.length) return weiter;
       return {
-        ...k,
-        zwischen: null,
-        zug: 0,
-        runde: k.runde + 1,
-        log: inVorbereitung(k) ? k.log : logMitAufnahme(k.log, karteAufnahme(k.karte, liste), k.runde)
+        ...weiter,
+        laufend: bleibt,
+        log: [...(weiter.log || []), ...endet.map(w => ({
+          art: 'wirkungAus',
+          r: weiter.runde,
+          was: w.name,
+          wer: w.von
+        }))]
       };
     });
   };
@@ -6033,6 +6314,8 @@ const KampfAnsicht = ({
     }),
     onEntfernen: () => entfernen(t.id),
     onBlatt: onGegnerBlatt,
+    wirkungen: laufendAn(kampf.laufend, t.id, kampf.runde),
+    onWirkungEnde: wirkungEnde,
     auf: handelnd && handelnd.id === t.id || zeileOffen === t.id,
     onAufklappen: () => setZeileOffen(o => o === t.id ? null : t.id)
   })))), karteOffen && /*#__PURE__*/React.createElement(Schiebefenster, {
@@ -15974,7 +16257,8 @@ const KampfSichtZeile = ({
   helden,
   setDefs,
   tpOffen,
-  eigenerHeld
+  eigenerHeld,
+  wirkungen
 }) => {
   const held = t.art === 'held';
   const c = held ? (helden || []).find(h => h.id === t.charId) : null;
@@ -16011,7 +16295,11 @@ const KampfSichtZeile = ({
   }, "Ersch\xF6pfung ", t.erschoepfung), (t.zustaende || []).map(z => /*#__PURE__*/React.createElement("span", {
     className: "ks-marke",
     key: z
-  }, z)))), /*#__PURE__*/React.createElement("div", {
+  }, z)), (wirkungen || []).map(w => /*#__PURE__*/React.createElement("span", {
+    key: w.id + w.rolle,
+    className: 'ks-marke wirkung' + (w.konz ? ' konz' : ''),
+    title: w.rolle === 'auf' ? 'Von ' + w.von : 'Gewirkt'
+  }, w.rolle === 'von' ? w.konz ? '◎ ' : '⏳ ' : '◉ ', w.name, w.rest != null ? ' · ' + w.rest : '')))), /*#__PURE__*/React.createElement("div", {
     className: "ks-tp"
   }, held && tpOffen && w ? /*#__PURE__*/React.createElement("span", {
     className: "ks-zahl",
@@ -16326,7 +16614,8 @@ const KampfSicht = ({
     helden: helden,
     setDefs: setDefs,
     tpOffen: tpOffen,
-    eigenerHeld: t.art === 'held' && (eigeneIds || []).includes(t.charId)
+    eigenerHeld: t.art === 'held' && (eigeneIds || []).includes(t.charId),
+    wirkungen: laufendAn(kampf.laufend, t.id, kampf.runde)
   }))), onReaktion && reaktionsSprueche(eigenerHeld).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "ks-reaktion"
   }, /*#__PURE__*/React.createElement("div", {
@@ -24716,7 +25005,8 @@ function App() {
         } = t;
         return rest;
       }),
-      log: kampf.log || []
+      log: kampf.log || [],
+      laufend: kampf.laufend || []
     } : null;
     // Nichts zu spiegeln und nichts gespiegelt: dann auch keine Anfrage.
     const text = JSON.stringify(schlank);
@@ -28075,6 +28365,17 @@ function App() {
     onWert: v => setFf({
       ...ff,
       ressourceKosten: Math.max(1, v || 1)
+    })
+  })), !ff.zauber && /*#__PURE__*/React.createElement("label", {
+    className: "zw-feld"
+  }, /*#__PURE__*/React.createElement("span", null, "Dauer"), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    placeholder: "1 Minute",
+    value: ff.dauer || '',
+    title: "Wie lange es im Kampf weiterwirkt \u2014 \u201E1 Minute\u201C sind 10 Runden. Leer: sofort vorbei.",
+    onChange: e => setFf({
+      ...ff,
+      dauer: e.target.value
     })
   })), /*#__PURE__*/React.createElement("label", {
     className: "zw-feld"

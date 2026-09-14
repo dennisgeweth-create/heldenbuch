@@ -80,6 +80,40 @@ ist('die Wirkung aus dem Text traegt sie',
   wirkungAusText('Das Ziel muss einen Weisheitsrettungswurf ablegen. Bei einem Misserfolg ist es gelähmt.').zustaende,
   ['Gelähmt']);
 
+// ── Was laeuft ───────────────────────────────────────────────────
+ist('„Sofort" laeuft nicht weiter', dauerRunden('Sofort'), 0);
+ist('eine Minute sind zehn Runden', dauerRunden('Konzentration, bis zu 1 Minute'), 10);
+ist('zehn Minuten hundert', dauerRunden('10 Minuten'), 100);
+ist('eine Stunde', dauerRunden('1 Stunde'), 600);
+ist('eine Runde', dauerRunden('1 Runde'), 1);
+ist('„bis er gebannt wird" laeuft ohne Zahl', dauerRunden('Bis er gebannt wird'), null);
+ist('„1 Aktion" als Dauer ist ein Versehen', dauerRunden('1 Aktion'), 0);
+ist('leer: nichts', dauerRunden(''), 0);
+
+const LAUF = [
+  {id: 'a', vonId: 'held-h', von: 'Brunhilde', name: 'Segen', konz: true, bisRunde: 12, zielIds: ['held-x']},
+  {id: 'b', vonId: 'g', von: 'Goblin', name: 'Netz', konz: false, bisRunde: 3, zielIds: ['held-h']},
+  {id: 'c', vonId: 'held-h', von: 'Brunhilde', name: 'Licht', konz: false, bisRunde: null, zielIds: []},
+];
+ist('an Brunhilde: was sie haelt und was auf ihr liegt',
+  laufendAn(LAUF, 'held-h', 2).map(w => [w.name, w.rolle, w.rest]),
+  [['Segen', 'von', 10], ['Netz', 'auf', 1], ['Licht', 'von', null]]);
+ist('am Ziel steht die Wirkung eines anderen', laufendAn(LAUF, 'held-x', 2).map(w => w.rolle), ['auf']);
+ist('zu Beginn von Goblins Zug in Runde 3 endet das Netz',
+  laufendAmZugbeginn(LAUF, 3, 'g').endet.map(w => w.name), ['Netz']);
+ist('  … aber nicht bei Brunhildes Zug', laufendAmZugbeginn(LAUF, 3, 'held-h').endet, []);
+ist('  … und nicht eine Runde frueher', laufendAmZugbeginn(LAUF, 2, 'g').endet, []);
+ist('viel spaeter endet Segen, Licht ohne Zahl aber nicht',laufendAmZugbeginn(LAUF, 999, 'held-h').endet.map(w => w.name), ['Segen']);
+ist('der naechste Zug in der Runde', naechsterStand({zug: 0, runde: 2, teilnehmer: [1, 2]}), {zug: 1, runde: 2});
+ist('  … und ueber das Rundenende', naechsterStand({zug: 1, runde: 2, teilnehmer: [1, 2]}), {zug: 0, runde: 3});
+ist('die Zeile beim Wirken', protokollZeile({art: 'wirkungAn', was: 'Segen', runden: 10, ziele: ['Alvara']}),
+  '   ⏳ Segen wirkt · 10 Runden auf Alvara');
+ist('die Zeile beim Ende', protokollZeile({art: 'wirkungAus', was: 'Netz', wer: 'Goblin'}),
+  '   ⏳ Netz endet (Goblin)');
+ist('Rueckgaengig bringt die Liste zurueck',
+  rueckKampf({teilnehmer: [], log: [], laufend: []},
+             {kampf: {teilnehmer: [], log: [], laufend: LAUF}, helden: {}}).laufend.length, 3);
+
 // ── Ein Schritt merkt sich den Helden ────────────────────────────
 const held = {id: 'h', name: 'Brunhilde', hp: 31, tempHp: 0,
               spellSlots: {1: {max: 2, used: 0}}};

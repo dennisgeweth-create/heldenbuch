@@ -648,6 +648,27 @@ $r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'str
 pruefe('die Freigabe laesst sich zurueckehmen',
        !array_key_exists('karte', (array)($r['body']['kampf'] ?? [])), kurz($r));
 
+abschnitt('Was laeuft — nur von Helden');
+$mitLauf = $kampf;
+$mitLauf['laufend'] = [
+    ['id' => 'lw1', 'vonId' => 'held-h1', 'von' => 'Brunhilde', 'seite' => 'held',
+     'name' => 'Segen', 'konz' => true, 'bisRunde' => 12, 'zielIds' => ['held-h1'], 'ziele' => ['Brunhilde']],
+    ['id' => 'lw2', 'vonId' => 'g1', 'von' => 'Wolf 1', 'seite' => 'gegner',
+     'name' => 'Geheuel des Rudels', 'konz' => false, 'bisRunde' => 4, 'zielIds' => ['g1']],
+];
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $mitLauf]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$lauf = (array)($r['body']['kampf']['laufend'] ?? []);
+pruefe('der Spieler sieht, was Helden wirken', count($lauf) === 1 && ($lauf[0]['name'] ?? '') === 'Segen',
+       json_encode($lauf, JSON_UNESCAPED_UNICODE));
+pruefe('mit Runde, Konzentration und Ziel',
+       ($lauf[0]['bisRunde'] ?? 0) === 12 && ($lauf[0]['konz'] ?? false) === true
+       && ($lauf[0]['zielIds'][0] ?? '') === 'held-h1');
+pruefe('was der Gegner wirkt, kommt nicht an',
+       strpos(json_encode($r['body']['kampf'] ?? [], JSON_UNESCAPED_UNICODE), 'Geheuel') === false);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung sieht beides', count((array)($r['body']['kampf']['laufend'] ?? [])) === 2);
+
 // Und der alte Kampf ohne Karte darf keine erfinden.
 ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
 $r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);

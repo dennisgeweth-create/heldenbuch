@@ -4368,3 +4368,22 @@
   .zw-zustaende { margin-top:9px; display:flex; flex-direction:column; gap:5px; }
   .zw-zustaende-label { font-family:'Roboto Condensed',sans-serif; font-size:10.5px;
     letter-spacing:0.08em; color:var(--text-muted); }
+
+  /* Was laeuft: Wirkungen mit Dauer. Violett wie das Arkane, damit sie
+     neben den roten Zustaenden und blauen Merkmalen nicht verwechselt
+     werden. Konzentration traegt einen Ring. */
+  .kampf-wirkung { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; padding:2px 7px;
+    border-radius:9px; cursor:pointer; background:rgba(144,96,192,0.14);
+    border:1px solid #6a4a8c; color:#c9a6ec; }
+  .kampf-wirkung:hover { background:rgba(144,96,192,0.28); }
+  .kampf-wirkung.auf { border-style:dashed; }
+  .kampf-wirkung.konz { box-shadow:0 0 0 1px rgba(201,166,236,0.35) inset; }
+  .kampf-wirkung i { font-style:normal; opacity:0.75; }
+  .kampf-wirkung b { font-weight:400; color:#e7d4fa; }
+  .ks-marke.wirkung { border-color:#6a4a8c; color:#c9a6ec; }
+  .zug-lauf { display:flex; align-items:center; gap:9px; flex-wrap:wrap; padding:8px 10px;
+    border-radius:5px; background:rgba(144,96,192,0.07); border:1px solid rgba(144,96,192,0.35); }
+  .zug-lauf-an { display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-secondary); }
+  .zug-lauf-an input { width:14px; height:14px; accent-color:#9060c0; }
+  .zug-lauf-name { width:170px; }
