@@ -134,6 +134,11 @@ Eingerückte Zeilen gehören zum Zug darüber.
 | `⚡ … hält „X" — Konstitutions-Rettungswurf gegen SG N` | **Erinnerung**, nicht das Ergebnis. Gewürfelt wird am Tisch |
 | `⚡ … hält jetzt „X"` / `„X" endet` | Konzentration beginnt bzw. endet |
 | `… verbraucht · noch N` | ein Gegenstand ist aufgebraucht |
+| `Merkmal: X → Y` | ein Merkmal, das den Zauber Y auslöst — ohne Zauberplatz |
+| `Kanalisieren −1 · noch N` / `: nichts mehr übrig` | was ein Merkmal von einer Ressource verbraucht hat |
+| `⏳ X wirkt · 10 Runden auf …` | eine Wirkung läuft; sie endet zu Beginn des Zuges dessen, der sie gewirkt hat, nach so vielen Runden |
+| `⏳ X endet (Name)` | abgelaufen, beendet oder mit der Konzentration gefallen |
+| `↶ Zurückgenommen: …` | die Spielleitung hat einen Handgriff rückgängig gemacht; was danach steht, zählt nicht mehr — die aufgezählten Zeilen sind nicht geschehen |
 | `… ist kampfunfähig` / `ist wieder auf den Beinen` | auf 0 TP bzw. wieder darüber |
 | `… ist Verängstigt` / `ist nicht mehr Verängstigt` | Zustand an oder aus |
 | `… hat Vorteil` / `hat keinen Nachteil mehr` | Marke |

@@ -54,7 +54,7 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
             <span key={w.id + w.rolle} className={'ks-marke wirkung' + (w.konz ? ' konz' : '')}
               title={w.rolle === 'auf' ? 'Von ' + w.von : 'Gewirkt'}>
               {w.rolle === 'von' ? (w.konz ? '◎ ' : '⏳ ') : '◉ '}{w.name}
-              {w.rest != null ? ' · ' + w.rest : ''}
+              {w.rest != null ? ' · ' + wirkungRest(w.rest) : ''}
             </span>
           ))}
         </div>

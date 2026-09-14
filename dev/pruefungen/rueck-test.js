@@ -104,6 +104,8 @@ ist('zu Beginn von Goblins Zug in Runde 3 endet das Netz',
 ist('  … aber nicht bei Brunhildes Zug', laufendAmZugbeginn(LAUF, 3, 'held-h').endet, []);
 ist('  … und nicht eine Runde frueher', laufendAmZugbeginn(LAUF, 2, 'g').endet, []);
 ist('viel spaeter endet Segen, Licht ohne Zahl aber nicht',laufendAmZugbeginn(LAUF, 999, 'held-h').endet.map(w => w.name), ['Segen']);
+ist('was bleibt, in Runden', [wirkungRest(9), wirkungRest(null)], ['9', '']);
+ist('  … ab hundert in Minuten, ab sechshundert in Stunden', [wirkungRest(100), wirkungRest(600)], ['~10 Min.', '~1 Std.']);
 ist('der naechste Zug in der Runde', naechsterStand({zug: 0, runde: 2, teilnehmer: [1, 2]}), {zug: 1, runde: 2});
 ist('  … und ueber das Rundenende', naechsterStand({zug: 1, runde: 2, teilnehmer: [1, 2]}), {zug: 0, runde: 3});
 ist('die Zeile beim Wirken', protokollZeile({art: 'wirkungAn', was: 'Segen', runden: 10, ziele: ['Alvara']}),

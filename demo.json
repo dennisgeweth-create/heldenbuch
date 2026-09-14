@@ -80,6 +80,7 @@
         "name": "Trank der Heilung",
         "qty": 1,
         "weight": "0,25",
+        "wert": 0,
         "rarity": "gewöhnlich",
         "description": "Heilt 2W4 + 2 Trefferpunkte. Eine Aktion.",
         "tags": [],
@@ -97,6 +98,7 @@
         "name": "Fackel",
         "qty": 1,
         "weight": "0,5",
+        "wert": 0,
         "rarity": "gewöhnlich",
         "description": "Brennt eine Stunde und leuchtet 6 m weit hell.",
         "tags": [],
@@ -114,6 +116,7 @@
         "name": "Weihwasser",
         "qty": 1,
         "weight": "0,5",
+        "wert": 0,
         "rarity": "gewöhnlich",
         "description": "Als improvisierte Wurfwaffe: 2W6 gleißender Schaden gegen Untote und Unholde.",
         "tags": [],
@@ -180,7 +183,7 @@
           "description": "Solange sie eine Rüstung trägt: +1 auf die Rüstungsklasse.",
           "effects": [
             {
-              "id": "e6vr5n",
+              "id": "eocuxu",
               "target": "ac",
               "mode": "bonus",
               "value": 1
@@ -303,6 +306,7 @@
           "name": "Kettenpanzer",
           "qty": 1,
           "weight": "25",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "Schwer, laut, und sie schläft darin.",
           "tags": [],
@@ -320,6 +324,7 @@
           "name": "Schild",
           "qty": 1,
           "weight": "3",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -337,6 +342,7 @@
           "name": "Trank der Heilung",
           "qty": 2,
           "weight": "0,25",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "Heilt 2W4 + 2 Trefferpunkte.",
           "tags": [],
@@ -354,6 +360,7 @@
           "name": "Seil aus Hanf (15 m)",
           "qty": 1,
           "weight": "5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -614,6 +621,7 @@
           "name": "Lederrüstung",
           "qty": 1,
           "weight": "5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -631,13 +639,14 @@
           "name": "Umhang der Elfen",
           "qty": 1,
           "weight": "0,5",
+          "wert": 0,
           "rarity": "selten",
           "description": "Wer ihn trägt, verschwindet im Unterholz, sobald er stillsteht.",
           "tags": [],
           "source": "",
           "effects": [
             {
-              "id": "e754zy",
+              "id": "eldlea",
               "target": "adv_stealth",
               "mode": "bonus",
               "value": 0
@@ -655,6 +664,7 @@
           "name": "Köcher mit 20 Pfeilen",
           "qty": 1,
           "weight": "0,5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -672,6 +682,7 @@
           "name": "Reiserationen",
           "qty": 6,
           "weight": "1",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -971,6 +982,7 @@
           "name": "Schuppenpanzer",
           "qty": 1,
           "weight": "22.5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -988,6 +1000,7 @@
           "name": "Schild mit Sonnenzeichen",
           "qty": 1,
           "weight": "3",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "Das Zeichen ist frisch aufgemalt. Der Schild darunter ist es nicht.",
           "tags": [],
@@ -1005,6 +1018,7 @@
           "name": "Heiliges Symbol",
           "qty": 1,
           "weight": "0,5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -1022,6 +1036,7 @@
           "name": "Weihwasser",
           "qty": 2,
           "weight": "0,5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "Als Aktion werfen: 2W6 gleißender Schaden gegen Untote.",
           "tags": [],
@@ -1282,6 +1297,7 @@
           "name": "Lederrüstung",
           "qty": 1,
           "weight": "5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -1299,6 +1315,7 @@
           "name": "Diebeswerkzeug",
           "qty": 1,
           "weight": "0,5",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "Feilen, Dietriche, ein kleiner Spiegel an einem Stiel.",
           "tags": [],
@@ -1316,6 +1333,7 @@
           "name": "Armbrustbolzen",
           "qty": 20,
           "weight": "0,05",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "",
           "tags": [],
@@ -1333,6 +1351,7 @@
           "name": "Silberring mit Wappen",
           "qty": 1,
           "weight": "0",
+          "wert": 0,
           "rarity": "gewöhnlich",
           "description": "Gehört jemandem, der ihn noch nicht vermisst.",
           "tags": [],
@@ -1579,6 +1598,34 @@
         "zustand": "Unversehrt",
         "balken": 1,
         "erschoepfung": 0
+      }
+    ],
+    "laufend": [
+      {
+        "id": "lw-segen",
+        "vonId": "t2",
+        "von": "Alvara Sonnenhand",
+        "seite": "held",
+        "name": "Segen",
+        "konz": true,
+        "bisRunde": 12,
+        "zielIds": [
+          "t2",
+          "t1",
+          "t4"
+        ]
+      },
+      {
+        "id": "lw-mal",
+        "vonId": "t3",
+        "von": "Dämmerlicht",
+        "seite": "held",
+        "name": "Mal des Jägers",
+        "konz": true,
+        "bisRunde": 603,
+        "zielIds": [
+          "t5"
+        ]
       }
     ],
     "log": []

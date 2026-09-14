@@ -804,6 +804,13 @@ const laufendAn = (laufend, tId, runde) => (laufend || [])
   .map(w => ({...w, rolle: w.vonId === tId ? 'von' : 'auf',
               rest: w.bisRunde == null ? null : Math.max(0, w.bisRunde - (+runde || 0))}));
 
+// Was noch bleibt, lesbar: zehn Runden sind zehn, aber sechshundert
+// Runden sind eine Stunde, und so sagt man es auch.
+const wirkungRest = (rest) => rest == null ? ''
+  : rest >= 600 ? '~' + Math.round(rest / 600) + ' Std.'
+  : rest >= 100 ? '~' + Math.round(rest / 10) + ' Min.'
+  : String(rest);
+
 // Zu Beginn eines Zuges: was dessen Wirkender jetzt nicht mehr haelt.
 const laufendAmZugbeginn = (laufend, runde, dranId) => {
   const endet = (laufend || []).filter(w => w.vonId === dranId && w.bisRunde != null
@@ -1738,7 +1745,7 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
                      + (w.konz ? ' (Konzentration)' : '') + ' — antippen beendet es'}>
               {w.rolle === 'von' ? (w.konz ? '◎ ' : '⏳ ') : '◉ '}{w.name}
               {w.rolle === 'auf' && w.von ? <i> · {w.von}</i> : null}
-              {w.rest != null ? <b> · {w.rest}</b> : null} ✕
+              {w.rest != null ? <b> · {wirkungRest(w.rest)}</b> : null} ✕
             </button>
           ))}
           {(t.flags||[]).map(f => <span key={f} className="kampf-flag">{f}</span>)}

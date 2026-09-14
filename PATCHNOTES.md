@@ -1,5 +1,111 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.6
+
+Der Rest der Wunschliste vom Spielabend — alles, was im Kampf mehr
+können sollte als Trefferpunkte, dazu Geld und heimliche Zettel.
+
+### ↶ Rückgängig im Kampftracker
+
+Oben neben **Nächster ▶** steht jetzt **↶**. Er nimmt den letzten Handgriff
+zurück — einen eingetragenen Zug, Schaden über die Schnelltasten, einen
+Zustand, einen Zugwechsel, wer dazukam oder ging. Mehrmals gedrückt geht
+es Schritt für Schritt weiter zurück, bis zu zwanzig.
+
+Zurück kommt auch, was schon in den Bögen stand: Trefferpunkte,
+Zauberplätze, verbrauchte Tränke, Ressourcen, Konzentration.
+**Hat ein Spieler inzwischen selbst etwas daran geändert**, setzt der
+Tracker nicht einfach zurück, sondern fragt und nennt, was sich geändert
+hat.
+
+Im Protokoll verschwindet der Handgriff nicht spurlos. An seiner Stelle
+steht *„↶ Zurückgenommen: …"* mit dem, was nicht mehr gilt. Bewegungen auf
+der Karte bleiben, ebenso von Hand getippte Initiativen.
+
+Nebenbei: Wer im Zugfenster nur ein Ziel ankreuzt, ohne Waffe oder Zauber,
+bekommt keine Zeile *„Goblin: Treffer"* mehr ins Protokoll.
+
+### 🩸 Zauber lösen Zustände aus
+
+Die Wirkung eines Zaubers — und eines Gegenstands — hat jetzt eine Reihe
+**Zustand am Ziel**. Person festhalten lähmt, Schlaf schickt in die
+Bewusstlosigkeit. Im Zugfenster steht der Zustand dann von selbst am
+Ziel: **mit Rettungswurf nur, wenn er misslingt**, mit Angriffswurf nur
+bei Treffer. Wird der Schalter auf „bestanden" gelegt, verschwindet er
+wieder. Die Spielleitung kann ihn trotzdem abwählen.
+
+„Aus der Beschreibung lesen" und „Würfel nachtragen" finden die Zustände
+im Zaubertext mit: *gelähmt*, *verängstigt*, *umgestoßen* und so weiter.
+Sätze über Immunität zählen nicht mit.
+
+### ⭐ Merkmale lösen Zauber aus, zehren von Ressourcen, wirken selbst
+
+Im Merkmal-Editor gibt es einen neuen Abschnitt **⚔ Im Kampf**:
+
+- **Verbraucht** — eine Ressource aus dem Reiter Attribute (Kanalisieren,
+  Ki, Kampfrausch) und wie viel. Im Zugfenster steht der Vorrat am
+  Merkmal, und beim Übernehmen geht er vom Zähler ab. Reicht er nicht,
+  sagt es das Protokoll.
+- **Löst einen Zauber aus** — ein Zauber aus dem Zauberbuch des Helden.
+  Das Merkmal wirkt dann mit dessen Würfeln, Rettungswurf, Zuständen und
+  Konzentration, **aber ohne Zauberplatz**.
+- **Eigene Wirkung** — Würfel, Schadensart, Rettungswurf, Fläche und
+  Zustand, wie beim Trank. Dazu eine **Dauer**.
+
+Im Text für die KI („Als Text") stehen diese Angaben beim Merkmal mit.
+
+### ⏳ Was gerade wirkt — mit Dauer
+
+Segen hält eine Minute, ein Netz eine Stunde, und nach der dritten Runde
+weiß es niemand mehr. Der Tracker führt deshalb eine Liste.
+
+**Im Zugfenster** steht unten *„⏳ Wirkt weiter"*, vorbelegt aus der Dauer
+des Zaubers oder Merkmals: „1 Minute" sind 10 Runden. Name, Runden und
+Konzentration lassen sich vor dem Übernehmen ändern, und im Zug eines
+Gegners trägt man es von Hand ein.
+
+**Die Wirkung endet zu Beginn des Zuges dessen, der sie gewirkt hat** —
+zehn Runden sind zehn eigene Züge. Dann steht *„⏳ Segen endet"* im
+Protokoll. Mit der Konzentration fällt sie ebenfalls: bei einem neuen
+Konzentrationszauber, bei 0 TP oder wenn der Spieler sie im Bogen
+löst.
+
+**An den Kampfzeilen** steht, wer was hält und worauf es liegt:
+*◎ Segen · 9* beim Wirkenden, *◉ Segen · Alvara* bei den Zielen.
+Antippen beendet eine Wirkung.
+
+**Die Spieler sehen dasselbe in ihrem Kampffenster — aber nur, was Helden
+gewirkt haben.** Was ein Gegner hält, soll die Runde am Tisch
+herausfinden. Das filtert der Server, nicht das Gerät.
+
+### 💰 Gegenstände haben einen Wert
+
+- Im Inventar und in der Datenbank gibt es **Wert je Stück** in Gold. Der
+  Wert steht auch an der Karte des Gegenstands.
+- **Beim Verkaufen** bietet der Laden jetzt einen Anteil davon, auch wenn
+  er die Ware selbst nicht führt. Bisher stand dann nur ein leeres Feld da.
+- **Beim Kaufen** trägt das Stück den Ladenpreis als Wert.
+- **Die Beute-Liste** liest Werte mit: `Ring des Schutzes | schimmert blau
+  | 3500 GM`, `Silberkelch 25 GM` oder *„im Wert von 500 Gold"* in der
+  Notiz. Die Anweisung für die KI fragt jetzt danach, und der Wert geht
+  beim Verteilen mit in die Bögen.
+
+### 🔒 Heimlich an die Spielleitung
+
+**Im Kampf** hat das Ansagefenster einen Haken
+*„🔒 Nur für die Spielleitung"*. Eine solche Ansage sehen nur die
+Spielleitung und wer sie gemacht hat. Die Mitspieler bekommen sie vom
+Server gar nicht erst.
+
+**Außerhalb des Kampfes** gibt es in der Leiste **✉ An die Spielleitung**,
+für jeden mit eigenem Helden im Abenteuer. Dort schreibt man einen Zettel
+und sieht bei den eigenen, ob sie gelesen wurden. Ungelesenes lässt sich
+zurücknehmen.
+
+Die Spielleitung hat **✉ Post** mit der Zahl des Ungelesenen. Im Postfach
+hakt sie ab oder wirft weg. Nachgesehen wird alle zwanzig Sekunden, solange
+das Heldenbuch im Vordergrund ist.
+
 ## v5.5
 
 Drei Wünsche vom letzten Spielabend.

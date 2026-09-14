@@ -378,6 +378,15 @@ const kampf = {
     {id: 't7', art: 'gegner', name: 'Etwas über dem Mühlrad', ini: 6,
      zustaende: [], zustand: 'Unversehrt', balken: 1, erschoepfung: 0},
   ],
+  // Was gerade wirkt — so, wie es der Server an die Runde gibt: nur, was
+  // Helden gewirkt haben. Alvara hält Segen seit Runde 2, auf ihr selbst,
+  // Brunhilde und Fitz; Dämmerlichts Jagdbeute liegt auf dem vorderen Ghul.
+  laufend: [
+    {id: 'lw-segen', vonId: 't2', von: 'Alvara Sonnenhand', seite: 'held', name: 'Segen',
+     konz: true, bisRunde: 12, zielIds: ['t2', 't1', 't4']},
+    {id: 'lw-mal', vonId: 't3', von: 'Dämmerlicht', seite: 'held', name: 'Mal des Jägers',
+     konz: true, bisRunde: 603, zielIds: ['t5']},
+  ],
   log: [],
 };
 

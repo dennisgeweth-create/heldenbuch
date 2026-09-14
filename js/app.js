@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.5';
+const HB_VERSION = 'v5.6';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -3244,6 +3244,10 @@ const laufendAn = (laufend, tId, runde) => (laufend || []).filter(w => w.vonId =
   rest: w.bisRunde == null ? null : Math.max(0, w.bisRunde - (+runde || 0))
 }));
 
+// Was noch bleibt, lesbar: zehn Runden sind zehn, aber sechshundert
+// Runden sind eine Stunde, und so sagt man es auch.
+const wirkungRest = rest => rest == null ? '' : rest >= 600 ? '~' + Math.round(rest / 600) + ' Std.' : rest >= 100 ? '~' + Math.round(rest / 10) + ' Min.' : String(rest);
+
 // Zu Beginn eines Zuges: was dessen Wirkender jetzt nicht mehr haelt.
 const laufendAmZugbeginn = (laufend, runde, dranId) => {
   const endet = (laufend || []).filter(w => w.vonId === dranId && w.bisRunde != null && (+runde || 0) >= w.bisRunde);
@@ -4550,7 +4554,7 @@ const KampfZeile = ({
     className: 'kampf-wirkung' + (w.rolle === 'auf' ? ' auf' : '') + (w.konz ? ' konz' : ''),
     onClick: () => onWirkungEnde && onWirkungEnde(w.id),
     title: (w.rolle === 'von' ? 'Hält ' : 'Von ' + w.von + ': ') + w.name + (w.konz ? ' (Konzentration)' : '') + ' — antippen beendet es'
-  }, w.rolle === 'von' ? w.konz ? '◎ ' : '⏳ ' : '◉ ', w.name, w.rolle === 'auf' && w.von ? /*#__PURE__*/React.createElement("i", null, " \xB7 ", w.von) : null, w.rest != null ? /*#__PURE__*/React.createElement("b", null, " \xB7 ", w.rest) : null, " \u2715")), (t.flags || []).map(f => /*#__PURE__*/React.createElement("span", {
+  }, w.rolle === 'von' ? w.konz ? '◎ ' : '⏳ ' : '◉ ', w.name, w.rolle === 'auf' && w.von ? /*#__PURE__*/React.createElement("i", null, " \xB7 ", w.von) : null, w.rest != null ? /*#__PURE__*/React.createElement("b", null, " \xB7 ", wirkungRest(w.rest)) : null, " \u2715")), (t.flags || []).map(f => /*#__PURE__*/React.createElement("span", {
     key: f,
     className: "kampf-flag"
   }, f))), dran && onZug && /*#__PURE__*/React.createElement("button", {
@@ -16301,7 +16305,7 @@ const KampfSichtZeile = ({
     key: w.id + w.rolle,
     className: 'ks-marke wirkung' + (w.konz ? ' konz' : ''),
     title: w.rolle === 'auf' ? 'Von ' + w.von : 'Gewirkt'
-  }, w.rolle === 'von' ? w.konz ? '◎ ' : '⏳ ' : '◉ ', w.name, w.rest != null ? ' · ' + w.rest : '')))), /*#__PURE__*/React.createElement("div", {
+  }, w.rolle === 'von' ? w.konz ? '◎ ' : '⏳ ' : '◉ ', w.name, w.rest != null ? ' · ' + wirkungRest(w.rest) : '')))), /*#__PURE__*/React.createElement("div", {
     className: "ks-tp"
   }, held && tpOffen && w ? /*#__PURE__*/React.createElement("span", {
     className: "ks-zahl",
