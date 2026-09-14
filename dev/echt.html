@@ -843,6 +843,63 @@
             }
           }
 
+          // ── Die Fensterleiste ──
+          melden('lauf', 'Fensterleiste');
+          const sichtbarF = (el) => !!el && el.offsetParent !== null
+            || (!!el && getComputedStyle(el).position === 'fixed' && getComputedStyle(el).display !== 'none'
+                && !el.closest('.fl-huelle[hidden]'));
+          const eintrag = (t) => [...document.querySelectorAll('.fl-eintrag')].find(e => e.textContent.includes(t));
+          ja('Der offene Tracker steht in der Leiste', !!eintrag('Kampftracker')
+             && /Runde \d/.test(eintrag('Kampftracker').textContent),
+             (document.querySelector('.fl-leiste') || {}).textContent || 'keine Leiste');
+          const mini = document.querySelector('.kampf-schirm .kampf-kopf-mini');
+          if (ja('  … und hat im Kopf einen Knopf zum Minimieren', !!mini)) {
+            mini.click(); await ruhe(150);
+            ja('Minimiert ist er weg', !sichtbarF(document.querySelector('.kampf-schirm')));
+            ja('  … aber noch da — nicht abgebaut', !!document.querySelector('.kampf-schirm'));
+            ja('  … und die Leiste zeigt ihn als zu', eintrag('Kampftracker').classList.contains('zu'));
+            eintrag('Kampftracker').querySelector('.fl-knopf').click(); await ruhe(150);
+            ja('Aus der Leiste zurückgeholt', sichtbarF(document.querySelector('.kampf-schirm')));
+            mini.click(); await ruhe(120);
+            knopfMit('⚔ Kampf').click(); await ruhe(150);
+            ja('  … auch über den Knopf in der Seitenleiste', sichtbarF(document.querySelector('.kampf-schirm')));
+
+            // Die Karte steht im Tracker: mit ihm versteckt, mit ihr zurück.
+            const karteK = [...document.querySelectorAll('.kampf-schirm button')].find(b => /🗺 Karte/.test(b.textContent));
+            if (karteK) {
+              karteK.click(); await ruhe(200);
+              ja('Die Karte meldet sich in der Leiste an', !!eintrag('Karte'));
+              document.querySelector('.kampf-schirm .kampf-kopf-mini').click(); await ruhe(150);
+              ja('  … mit dem Tracker ist auch sie versteckt', eintrag('Karte').classList.contains('zu'));
+              eintrag('Karte').querySelector('.fl-knopf').click(); await ruhe(150);
+              ja('  … wer sie zurückholt, holt den Tracker mit',
+                 sichtbarF(document.querySelector('.kampf-schirm')) && eintrag('Kampftracker').classList.contains('offen'));
+              eintrag('Karte').querySelector('.fl-x').click(); await ruhe(150);
+              ja('  … ✕ in der Leiste schließt die Karte', !eintrag('Karte') && !document.querySelector('.sf-fenster'));
+            }
+          }
+          const xLeiste = eintrag('Kampftracker') && eintrag('Kampftracker').querySelector('.fl-x');
+          if (xLeiste) { xLeiste.click(); await ruhe(150); }
+          ja('✕ in der Leiste schließt den Tracker', !document.querySelector('.kampf-schirm') && !eintrag('Kampftracker'));
+
+          // Die Taverne: minimieren, zurückholen, über die Leiste schließen.
+          const tav = knopfMit('🎰 Taverne');
+          if (tav) {
+            tav.click();
+            const schirm = await warten(() => document.querySelector('.automat-schirm'));
+            if (ja('Die Taverne steht in der Leiste', !!schirm && !!eintrag('Taverne'))) {
+              schirm.querySelector('.automat-mini').click(); await ruhe(120);
+              ja('  … minimiert', eintrag('Taverne').classList.contains('zu'));
+              knopfMit('🎰 Taverne').click(); await ruhe(120);
+              ja('  … der Tavernenknopf holt sie zurück statt sie zu schließen',
+                 !!document.querySelector('.automat-schirm') && eintrag('Taverne').classList.contains('offen'));
+              eintrag('Taverne').querySelector('.fl-x').click(); await ruhe(150);
+              ja('  … und die Leiste schließt sie', !document.querySelector('.automat-schirm') && !eintrag('Taverne'));
+            }
+          }
+          ja('Ohne offene Fenster ist die Leiste weg', !document.querySelector('.fl-leiste'));
+          knopfMit('⚔ Kampf').click(); await ruhe(200);
+
           const x = document.querySelector('.kampf-kopf-x');
           if (x) { x.click(); await ruhe(150); }
         }

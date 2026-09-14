@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.8.1';
+const HB_VERSION = 'v5.9';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -680,11 +680,160 @@ const useEingeklappt = (schluessel, anfang) => {
   })];
 };
 
+// ── Die Fensterleiste ───────────────────────────────────────────
+// Fenster, die man länger offen hat — Tracker, Kampffenster, Karte,
+// Taverne —, lassen sich in eine Leiste am unteren Rand legen und von
+// dort zurückholen. Minimiert heißt nur versteckt: das Fenster bleibt
+// aufgebaut, mit allem, was darin halb getan ist.
+//
+// Die App hält die Liste (useFensterLeiste) und reicht sie über den
+// Kontext weiter. Ein Fenster meldet sich an, indem es in LeistenFenster
+// steht; in seinen Kopf setzt es MiniKnopf. Liegt ein Fenster in einem
+// anderen — die Karte im Tracker —, merkt es sich das: wer die Karte
+// zurückholt, holt den Tracker mit.
+const FensterLeisteCtx = React.createContext(null);
+const FensterIdCtx = React.createContext(null);
+
+const useFensterLeiste = () => {
+  const [fenster, setFenster] = React.useState({});     // id → {titel, symbol, zaehler, eltern, reihe}
+  const [versteckt, setVersteckt] = React.useState({}); // id → true
+  const schliesser = React.useRef({});
+  const reihe = React.useRef(0);
+  const fensterRef = React.useRef(fenster);
+  fensterRef.current = fenster;
+  const anmelden = React.useCallback((id, info) => {
+    schliesser.current[id] = info.schliessen;
+    setFenster(f => {
+      const alt = f[id];
+      if (alt && alt.titel === info.titel && alt.symbol === info.symbol
+          && alt.zaehler === info.zaehler && alt.eltern === info.eltern) return f;
+      return {...f, [id]: {titel: info.titel, symbol: info.symbol, zaehler: info.zaehler,
+                           eltern: info.eltern || null, reihe: alt ? alt.reihe : ++reihe.current}};
+    });
+  }, []);
+  const abmelden = React.useCallback((id) => {
+    delete schliesser.current[id];
+    setFenster(f => { if (!f[id]) return f; const n = {...f}; delete n[id]; return n; });
+    setVersteckt(v => { if (!v[id]) return v; const n = {...v}; delete n[id]; return n; });
+  }, []);
+  const minimieren = React.useCallback((id) => setVersteckt(v => ({...v, [id]: true})), []);
+  // Zeigen holt die Eltern mit — sonst stünde die Karte sichtbar in einem
+  // versteckten Tracker.
+  const zeigen = React.useCallback((id) => setVersteckt(v => {
+    const f = fensterRef.current;
+    let k = id, schritte = 0, geaendert = false;
+    const n = {...v};
+    while (k && schritte++ < 5) {
+      if (n[k]) { delete n[k]; geaendert = true; }
+      k = f[k] && f[k].eltern;
+    }
+    return geaendert ? n : v;
+  }), []);
+  const schliessen = React.useCallback((id) => {
+    const s = schliesser.current[id];
+    if (s) s();
+  }, []);
+  return React.useMemo(() => ({fenster, versteckt, anmelden, abmelden, minimieren, zeigen, schliessen}),
+                       [fenster, versteckt]);
+};
+
+// Ob ein Fenster gerade zu sehen ist — es selbst und alle, in denen es steht.
+const leisteSichtbar = (leiste, id) => {
+  let k = id, schritte = 0;
+  while (k && schritte++ < 5) {
+    if (leiste.versteckt[k]) return false;
+    k = (leiste.fenster[k] || {}).eltern;
+  }
+  return true;
+};
+
+const LeistenFenster = ({ id, titel, symbol, zaehler, onSchliessen, children }) => {
+  const ctx = React.useContext(FensterLeisteCtx);
+  const eltern = React.useContext(FensterIdCtx);
+  const zu = React.useRef(onSchliessen);
+  zu.current = onSchliessen;
+  const anmelden = ctx && ctx.anmelden;
+  const abmelden = ctx && ctx.abmelden;
+  React.useEffect(() => {
+    if (!anmelden) return;
+    anmelden(id, {titel, symbol, zaehler: zaehler == null ? '' : String(zaehler), eltern,
+                  schliessen: () => zu.current && zu.current()});
+  }, [anmelden, id, titel, symbol, zaehler, eltern]);
+  React.useEffect(() => () => { if (abmelden) abmelden(id); }, [abmelden, id]);
+  const versteckt = !!(ctx && ctx.versteckt[id]);
+  return (
+    <FensterIdCtx.Provider value={id}>
+      <div className="fl-huelle" hidden={versteckt}>{children}</div>
+    </FensterIdCtx.Provider>
+  );
+};
+
+// Der Knopf „—" im Kopf eines Fensters. Steht das Fenster in keiner
+// Leiste, gibt es ihn nicht.
+const MiniKnopf = ({ className }) => {
+  const ctx = React.useContext(FensterLeisteCtx);
+  const id = React.useContext(FensterIdCtx);
+  if (!ctx || !id) return null;
+  return (
+    <button type="button" className={'fl-mini' + (className ? ' ' + className : '')}
+      onClick={(e)=>{ e.stopPropagation(); ctx.minimieren(id); }}
+      title="In die Fensterleiste" aria-label="Minimieren">—</button>
+  );
+};
+
+// Die Leiste selbst. Ein Knopf je Fenster: antippen legt ein offenes Fenster
+// hinein und holt ein verstecktes heraus, das Kreuz schließt es.
+const FensterLeiste = () => {
+  const ctx = React.useContext(FensterLeisteCtx);
+  if (!ctx) return null;
+  const liste = Object.keys(ctx.fenster).map(id => ({id, ...ctx.fenster[id]}))
+    .sort((a, b) => a.reihe - b.reihe);
+  if (!liste.length) return null;
+  return (
+    <div className="fl-leiste" role="toolbar" aria-label="Fensterleiste">
+      {liste.map(f => {
+        const sichtbar = leisteSichtbar(ctx, f.id);
+        return (
+          <div className={'fl-eintrag' + (sichtbar ? ' offen' : ' zu')} key={f.id}>
+            <button type="button" className="fl-knopf" aria-pressed={sichtbar}
+              title={sichtbar ? f.titel + ' — in die Leiste' : f.titel + ' — zurückholen'}
+              onClick={()=> sichtbar ? ctx.minimieren(f.id) : ctx.zeigen(f.id)}>
+              <span className="fl-symbol">{f.symbol}</span>
+              <span className="fl-titel">{f.titel}</span>
+              {f.zaehler ? <span className="fl-zaehler">{f.zaehler}</span> : null}
+            </button>
+            <button type="button" className="fl-x" title={f.titel + ' schließen'}
+              aria-label={f.titel + ' schließen'} onClick={()=>ctx.schliessen(f.id)}>✕</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // Und das Fenster selbst. Kopf zum Schieben, ein Dreieck zum Ein- und
 // Ausklappen, ein Kreuz zum Schliessen — beides gemerkt, damit der
 // Kampf nicht jedes Mal wieder aufgeraeumt werden muss.
 const Schiebefenster = ({ schluessel, standard, breite, titel, kopfExtra,
-                          zuAnfang, groessbar, onSchliessen, klasse, children }) => {
+                          zuAnfang, groessbar, onSchliessen, klasse, children, leiste }) => {
+  // Mit `leiste` ({id, titel, symbol, zaehler}) steht das Fenster in der
+  // Fensterleiste und hat einen Knopf zum Minimieren.
+  if (leiste) {
+    return (
+      <LeistenFenster id={leiste.id} titel={leiste.titel} symbol={leiste.symbol}
+        zaehler={leiste.zaehler} onSchliessen={onSchliessen}>
+        <Schiebefenster schluessel={schluessel} standard={standard} breite={breite} titel={titel}
+          kopfExtra={kopfExtra} zuAnfang={zuAnfang} groessbar={groessbar}
+          onSchliessen={onSchliessen} klasse={klasse}>{children}</Schiebefenster>
+      </LeistenFenster>
+    );
+  }
+  return <SchiebefensterLeib schluessel={schluessel} standard={standard} breite={breite} titel={titel}
+    kopfExtra={kopfExtra} zuAnfang={zuAnfang} groessbar={groessbar}
+    onSchliessen={onSchliessen} klasse={klasse}>{children}</SchiebefensterLeib>;
+};
+const SchiebefensterLeib = ({ schluessel, standard, breite, titel, kopfExtra,
+                              zuAnfang, groessbar, onSchliessen, klasse, children }) => {
   const {pos, griff, masz} = useSchiebefenster(schluessel + '_pos', standard, breite);
   const [zu, setZu] = useEingeklappt(schluessel + '_zu', zuAnfang);
   return (
@@ -699,6 +848,7 @@ const Schiebefenster = ({ schluessel, standard, breite, titel, kopfExtra,
           onClick={()=>setZu(z => !z)}>{zu ? '▸' : '▾'}</button>
         <span className="sf-titel">{titel}</span>
         {kopfExtra}
+        <MiniKnopf className="sf-mini" />
         {onSchliessen && (
           <button type="button" className="sf-x" onClick={onSchliessen}
             title="Schließen" aria-label="Schließen">✕</button>

@@ -1352,7 +1352,11 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
     beo.observe(el);
   };
 
+  // In der Fensterleiste meldet sich die Taverne selbst an: geschlossen
+  // wird von dort über denselben Weg wie über ihr Kreuz — mit der
+  // Abrechnung des Abends.
   return (
+    <LeistenFenster id="taverne" titel="Taverne" symbol="🍺" onSchliessen={hinaus}>
     <div className="automat-schirm" ref={fensterMasz}
       style={{left: pos.x, top: pos.y,
               // Die entworfene Breite steht als Eigenschaft da und nicht
@@ -1396,6 +1400,7 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
           <span>{waehrung.kurz}</span><b>{marken}</b>
           <i>{waehrung.name}</i>
         </div>
+        <MiniKnopf className="automat-mini" />
         <button className="automat-x" onClick={hinaus} aria-label="Schließen">✕</button>
       </div>
 
@@ -1441,5 +1446,6 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
         </div>
       )}
     </div>
+    </LeistenFenster>
   );
 };

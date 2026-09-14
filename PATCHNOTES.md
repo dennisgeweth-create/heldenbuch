@@ -1,5 +1,43 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.9
+
+### ▭ Die Fensterleiste
+
+Fenster, die man länger offen hat, lassen sich jetzt **minimieren** und
+aus einer **Leiste unten rechts** zurückholen, ungefähr wie in der
+Taskleiste des Rechners. Den Anfang machen:
+
+- **⚔ Kampftracker** der Spielleitung, mit der Runde im Knopf
+- **⚔ Kampf**, das Kampffenster der Spieler
+- **🗺 Karte**, im Tracker wie im Kampffenster
+- **🍺 Taverne**
+
+**So geht es:**
+
+- Im Kopf jedes dieser Fenster steht neben dem Kreuz ein **—**. Damit
+  wandert das Fenster in die Leiste.
+- Ein Knopf in der Leiste holt das Fenster zurück. Ist es offen, legt
+  derselbe Knopf es wieder hinein.
+- Das **✕** in der Leiste schließt das Fenster, wie das Kreuz im Fenster
+  selbst. Die Taverne rechnet dabei wie gewohnt den Abend ab.
+- Die Knöpfe in der Seitenleiste (**⚔ Kampf**, **🎰 Taverne**) holen ein
+  minimiertes Fenster ebenfalls zurück, statt nichts zu tun oder es zu
+  schließen.
+
+**Minimiert heißt nur versteckt.** Das Fenster bleibt, wie es war: ein
+halb eingetragener Zug, die gewählte Ansicht, die Stelle auf der Karte.
+
+Die Karte hängt am Tracker. Wird er minimiert, geht sie mit, und wer die
+Karte aus der Leiste zurückholt, bekommt den Tracker dazu.
+
+Ohne offene Fenster ist die Leiste nicht zu sehen. Auf dem Telefon zeigt
+sie nur die Symbole.
+
+Als Nächstes sollen Laden, Beute, Rast, Post, Proben, „Als Text“ und die
+Datenbank in die Leiste. Die sind heute noch Dialoge, die alles dahinter
+sperren.
+
 ## v5.8
 
 ### ✎ Ein Bearbeiten für den ganzen Bogen

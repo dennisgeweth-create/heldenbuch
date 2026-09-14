@@ -354,6 +354,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
               🗺 Karte
             </button>
           )}
+          <MiniKnopf className="kampf-kopf-mini" />
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Schließen — der Kampf läuft weiter" aria-label="Schließen">✕</button>
         </div>

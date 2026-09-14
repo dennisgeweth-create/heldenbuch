@@ -2969,6 +2969,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
             aria-label="Letzten Handgriff zurücknehmen"
             title={rueckLetzter ? 'Zurücknehmen: ' + rueckLetzter.was
                                 : 'Noch nichts zum Zurücknehmen'}>↶</button>
+          <MiniKnopf className="kampf-kopf-mini" />
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
         </div>
@@ -3172,6 +3173,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           sich das Geraet. */}
       {karteOffen && (
         <Schiebefenster schluessel="hb_kampfkarte" groessbar
+          leiste={{id: 'kampfkarte', titel: 'Karte', symbol: '🗺',
+                   zaehler: kampf.karte ? kampf.karte.breite + '×' + kampf.karte.hoehe : ''}}
           standard={{x: 40, y: 90}}
           titel={<>🗺 Karte{kampf.karte
             ? ' · ' + kampf.karte.breite + '×' + kampf.karte.hoehe : ''}</>}

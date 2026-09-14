@@ -261,6 +261,10 @@ function App() {
   // Der Automat in der Taverne. Zeitvertreib fuer alle, nicht nur die
   // Spielleitung — und ohne jede Verbindung zum Charakterbogen.
   const [showAutomat, setShowAutomat] = useState(false);
+  // Die Fensterleiste. Wer ein Fenster über seinen Knopf in der Seite
+  // öffnet, das schon offen, aber minimiert ist, bekommt es zurück — statt
+  // dass nichts geschieht oder es zugeht.
+  const leiste = useFensterLeiste();
   const [zeitOffen, setZeitOffen] = useState(false);
   const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
@@ -3513,6 +3517,7 @@ function App() {
   };
 
   return (
+    <FensterLeisteCtx.Provider value={leiste}>
     <SheetCtx.Provider value={sheetCtx}>
       <div className={"app"+(sidebarCollapsed?" sb-collapsed":"")}>
 
@@ -3647,7 +3652,7 @@ function App() {
                   title="Alle würfeln auf dieselbe Fertigkeit">🎲 Probe</button>
               )}
               {isDmMode && (
-                <button className="btn-tool" onClick={()=>setShowKampf(true)}>
+                <button className="btn-tool" onClick={()=>{ setShowKampf(true); leiste.zeigen('kampf'); }}>
                   ⚔ Kampf{!kampf || !kampf.aktiv ? ''
                     : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
                 </button>
@@ -3661,12 +3666,12 @@ function App() {
                   steht nur da, wenn gerade einer laeuft und das Abenteuer
                   ihn zeigt. */}
               {!isDmMode && kampfSichtDaten && (
-                <button className="btn-tool" onClick={()=>setShowKampfSicht(true)}>
+                <button className="btn-tool" onClick={()=>{ setShowKampfSicht(true); leiste.zeigen('kampfsicht'); }}>
                   ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
                 </button>
               )}
               <button className={"btn-tool"+(showAutomat?" an":"")}
-                onClick={()=>setShowAutomat(o=>!o)}>🎰 Taverne</button>
+                onClick={()=>{ if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne'); else setShowAutomat(o=>!o); }}>🎰 Taverne</button>
             </div>
             {svCode ? (
               <>
@@ -3750,13 +3755,13 @@ function App() {
                     📖 Abenteuerlog
                   </button>
                   {isDmMode && (
-                    <button className="btn-tool" onClick={()=>setShowKampf(true)}>
+                    <button className="btn-tool" onClick={()=>{ setShowKampf(true); leiste.zeigen('kampf'); }}>
                       ⚔ Kampf{!kampf || !kampf.aktiv ? ''
                         : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
                     </button>
                   )}
                   {!isDmMode && kampfSichtDaten && (
-                    <button className="btn-tool" onClick={()=>setShowKampfSicht(true)}>
+                    <button className="btn-tool" onClick={()=>{ setShowKampfSicht(true); leiste.zeigen('kampfsicht'); }}>
                       ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
                     </button>
                   )}
@@ -3766,7 +3771,7 @@ function App() {
                     </button>
                   )}
                   <button className={"btn-tool"+(showAutomat?" an":"")}
-                onClick={()=>setShowAutomat(o=>!o)}>🎰 Taverne</button>
+                onClick={()=>{ if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne'); else setShowAutomat(o=>!o); }}>🎰 Taverne</button>
                 </div>
 
                 {/* Konto, Spielleitung und Abmelden standen nur in der
@@ -6149,12 +6154,16 @@ function App() {
       )}
 
       {showKampfSicht && kampfSichtDaten && !isDmMode && (
+        <LeistenFenster id="kampfsicht" titel="Kampf" symbol="⚔"
+          zaehler={'Runde ' + (kampfSichtDaten.runde || 1)}
+          onSchliessen={()=>setShowKampfSicht(false)}>
         <KampfSicht kampf={kampfSichtDaten} helden={advChars} eigeneIds={eigeneHeldenIds}
           setDefs={setDefs} tpOffen={tpOffen}
           onAnsage={ansageHeldId ? ()=>setAnsageFuer(ansageHeldId) : null}
           eigenerHeld={chars.find(c => c.id === ansageHeldId) || null}
           onReaktion={ansageHeldId ? reaktionSenden : null}
           onSchliessen={()=>setShowKampfSicht(false)} />
+        </LeistenFenster>
       )}
 
       {ansageFuer && kampfSichtDaten && (
@@ -6165,6 +6174,9 @@ function App() {
       )}
 
       {showKampf && isDmMode && (
+        <LeistenFenster id="kampf" titel="Kampftracker" symbol="⚔"
+          zaehler={kampf && kampf.aktiv ? (kampf.phase === 'vorbereitung' ? 'Vorbereitung' : 'Runde ' + kampf.runde) : ''}
+          onSchliessen={()=>setShowKampf(false)}>
         <KampfAnsicht
           kampf={kampf} setKampf={setKampf}
           enemies={enemies} encounters={encounters}
@@ -6178,6 +6190,7 @@ function App() {
           onHeldNotizSichern={heldNotizSichern}
           ansagen={ansagen} onAnsageWeg={ansageWeg}
           onFrage={appConfirm} />
+        </LeistenFenster>
       )}
 
       {encForm && (
@@ -6572,7 +6585,9 @@ function App() {
           </div>
         </Fenster>
       )}
+      <FensterLeiste />
     </SheetCtx.Provider>
+    </FensterLeisteCtx.Provider>
   );
 }
 

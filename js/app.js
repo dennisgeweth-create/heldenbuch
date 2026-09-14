@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.8.1';
+const HB_VERSION = 'v5.9';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -860,10 +860,257 @@ const useEingeklappt = (schluessel, anfang) => {
   })];
 };
 
+// ── Die Fensterleiste ───────────────────────────────────────────
+// Fenster, die man länger offen hat — Tracker, Kampffenster, Karte,
+// Taverne —, lassen sich in eine Leiste am unteren Rand legen und von
+// dort zurückholen. Minimiert heißt nur versteckt: das Fenster bleibt
+// aufgebaut, mit allem, was darin halb getan ist.
+//
+// Die App hält die Liste (useFensterLeiste) und reicht sie über den
+// Kontext weiter. Ein Fenster meldet sich an, indem es in LeistenFenster
+// steht; in seinen Kopf setzt es MiniKnopf. Liegt ein Fenster in einem
+// anderen — die Karte im Tracker —, merkt es sich das: wer die Karte
+// zurückholt, holt den Tracker mit.
+const FensterLeisteCtx = React.createContext(null);
+const FensterIdCtx = React.createContext(null);
+const useFensterLeiste = () => {
+  const [fenster, setFenster] = React.useState({}); // id → {titel, symbol, zaehler, eltern, reihe}
+  const [versteckt, setVersteckt] = React.useState({}); // id → true
+  const schliesser = React.useRef({});
+  const reihe = React.useRef(0);
+  const fensterRef = React.useRef(fenster);
+  fensterRef.current = fenster;
+  const anmelden = React.useCallback((id, info) => {
+    schliesser.current[id] = info.schliessen;
+    setFenster(f => {
+      const alt = f[id];
+      if (alt && alt.titel === info.titel && alt.symbol === info.symbol && alt.zaehler === info.zaehler && alt.eltern === info.eltern) return f;
+      return {
+        ...f,
+        [id]: {
+          titel: info.titel,
+          symbol: info.symbol,
+          zaehler: info.zaehler,
+          eltern: info.eltern || null,
+          reihe: alt ? alt.reihe : ++reihe.current
+        }
+      };
+    });
+  }, []);
+  const abmelden = React.useCallback(id => {
+    delete schliesser.current[id];
+    setFenster(f => {
+      if (!f[id]) return f;
+      const n = {
+        ...f
+      };
+      delete n[id];
+      return n;
+    });
+    setVersteckt(v => {
+      if (!v[id]) return v;
+      const n = {
+        ...v
+      };
+      delete n[id];
+      return n;
+    });
+  }, []);
+  const minimieren = React.useCallback(id => setVersteckt(v => ({
+    ...v,
+    [id]: true
+  })), []);
+  // Zeigen holt die Eltern mit — sonst stünde die Karte sichtbar in einem
+  // versteckten Tracker.
+  const zeigen = React.useCallback(id => setVersteckt(v => {
+    const f = fensterRef.current;
+    let k = id,
+      schritte = 0,
+      geaendert = false;
+    const n = {
+      ...v
+    };
+    while (k && schritte++ < 5) {
+      if (n[k]) {
+        delete n[k];
+        geaendert = true;
+      }
+      k = f[k] && f[k].eltern;
+    }
+    return geaendert ? n : v;
+  }), []);
+  const schliessen = React.useCallback(id => {
+    const s = schliesser.current[id];
+    if (s) s();
+  }, []);
+  return React.useMemo(() => ({
+    fenster,
+    versteckt,
+    anmelden,
+    abmelden,
+    minimieren,
+    zeigen,
+    schliessen
+  }), [fenster, versteckt]);
+};
+
+// Ob ein Fenster gerade zu sehen ist — es selbst und alle, in denen es steht.
+const leisteSichtbar = (leiste, id) => {
+  let k = id,
+    schritte = 0;
+  while (k && schritte++ < 5) {
+    if (leiste.versteckt[k]) return false;
+    k = (leiste.fenster[k] || {}).eltern;
+  }
+  return true;
+};
+const LeistenFenster = ({
+  id,
+  titel,
+  symbol,
+  zaehler,
+  onSchliessen,
+  children
+}) => {
+  const ctx = React.useContext(FensterLeisteCtx);
+  const eltern = React.useContext(FensterIdCtx);
+  const zu = React.useRef(onSchliessen);
+  zu.current = onSchliessen;
+  const anmelden = ctx && ctx.anmelden;
+  const abmelden = ctx && ctx.abmelden;
+  React.useEffect(() => {
+    if (!anmelden) return;
+    anmelden(id, {
+      titel,
+      symbol,
+      zaehler: zaehler == null ? '' : String(zaehler),
+      eltern,
+      schliessen: () => zu.current && zu.current()
+    });
+  }, [anmelden, id, titel, symbol, zaehler, eltern]);
+  React.useEffect(() => () => {
+    if (abmelden) abmelden(id);
+  }, [abmelden, id]);
+  const versteckt = !!(ctx && ctx.versteckt[id]);
+  return /*#__PURE__*/React.createElement(FensterIdCtx.Provider, {
+    value: id
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "fl-huelle",
+    hidden: versteckt
+  }, children));
+};
+
+// Der Knopf „—" im Kopf eines Fensters. Steht das Fenster in keiner
+// Leiste, gibt es ihn nicht.
+const MiniKnopf = ({
+  className
+}) => {
+  const ctx = React.useContext(FensterLeisteCtx);
+  const id = React.useContext(FensterIdCtx);
+  if (!ctx || !id) return null;
+  return /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'fl-mini' + (className ? ' ' + className : ''),
+    onClick: e => {
+      e.stopPropagation();
+      ctx.minimieren(id);
+    },
+    title: "In die Fensterleiste",
+    "aria-label": "Minimieren"
+  }, "\u2014");
+};
+
+// Die Leiste selbst. Ein Knopf je Fenster: antippen legt ein offenes Fenster
+// hinein und holt ein verstecktes heraus, das Kreuz schließt es.
+const FensterLeiste = () => {
+  const ctx = React.useContext(FensterLeisteCtx);
+  if (!ctx) return null;
+  const liste = Object.keys(ctx.fenster).map(id => ({
+    id,
+    ...ctx.fenster[id]
+  })).sort((a, b) => a.reihe - b.reihe);
+  if (!liste.length) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fl-leiste",
+    role: "toolbar",
+    "aria-label": "Fensterleiste"
+  }, liste.map(f => {
+    const sichtbar = leisteSichtbar(ctx, f.id);
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'fl-eintrag' + (sichtbar ? ' offen' : ' zu'),
+      key: f.id
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fl-knopf",
+      "aria-pressed": sichtbar,
+      title: sichtbar ? f.titel + ' — in die Leiste' : f.titel + ' — zurückholen',
+      onClick: () => sichtbar ? ctx.minimieren(f.id) : ctx.zeigen(f.id)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "fl-symbol"
+    }, f.symbol), /*#__PURE__*/React.createElement("span", {
+      className: "fl-titel"
+    }, f.titel), f.zaehler ? /*#__PURE__*/React.createElement("span", {
+      className: "fl-zaehler"
+    }, f.zaehler) : null), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "fl-x",
+      title: f.titel + ' schließen',
+      "aria-label": f.titel + ' schließen',
+      onClick: () => ctx.schliessen(f.id)
+    }, "\u2715"));
+  }));
+};
+
 // Und das Fenster selbst. Kopf zum Schieben, ein Dreieck zum Ein- und
 // Ausklappen, ein Kreuz zum Schliessen — beides gemerkt, damit der
 // Kampf nicht jedes Mal wieder aufgeraeumt werden muss.
 const Schiebefenster = ({
+  schluessel,
+  standard,
+  breite,
+  titel,
+  kopfExtra,
+  zuAnfang,
+  groessbar,
+  onSchliessen,
+  klasse,
+  children,
+  leiste
+}) => {
+  // Mit `leiste` ({id, titel, symbol, zaehler}) steht das Fenster in der
+  // Fensterleiste und hat einen Knopf zum Minimieren.
+  if (leiste) {
+    return /*#__PURE__*/React.createElement(LeistenFenster, {
+      id: leiste.id,
+      titel: leiste.titel,
+      symbol: leiste.symbol,
+      zaehler: leiste.zaehler,
+      onSchliessen: onSchliessen
+    }, /*#__PURE__*/React.createElement(Schiebefenster, {
+      schluessel: schluessel,
+      standard: standard,
+      breite: breite,
+      titel: titel,
+      kopfExtra: kopfExtra,
+      zuAnfang: zuAnfang,
+      groessbar: groessbar,
+      onSchliessen: onSchliessen,
+      klasse: klasse
+    }, children));
+  }
+  return /*#__PURE__*/React.createElement(SchiebefensterLeib, {
+    schluessel: schluessel,
+    standard: standard,
+    breite: breite,
+    titel: titel,
+    kopfExtra: kopfExtra,
+    zuAnfang: zuAnfang,
+    groessbar: groessbar,
+    onSchliessen: onSchliessen,
+    klasse: klasse
+  }, children);
+};
+const SchiebefensterLeib = ({
   schluessel,
   standard,
   breite,
@@ -903,7 +1150,9 @@ const Schiebefenster = ({
     onClick: () => setZu(z => !z)
   }, zu ? '▸' : '▾'), /*#__PURE__*/React.createElement("span", {
     className: "sf-titel"
-  }, titel), kopfExtra, onSchliessen && /*#__PURE__*/React.createElement("button", {
+  }, titel), kopfExtra, /*#__PURE__*/React.createElement(MiniKnopf, {
+    className: "sf-mini"
+  }), onSchliessen && /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "sf-x",
     onClick: onSchliessen,
@@ -6149,7 +6398,9 @@ const KampfAnsicht = ({
     disabled: !rueckLetzter,
     "aria-label": "Letzten Handgriff zur\xFCcknehmen",
     title: rueckLetzter ? 'Zurücknehmen: ' + rueckLetzter.was : 'Noch nichts zum Zurücknehmen'
-  }, "\u21B6"), /*#__PURE__*/React.createElement("button", {
+  }, "\u21B6"), /*#__PURE__*/React.createElement(MiniKnopf, {
+    className: "kampf-kopf-mini"
+  }), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
     title: "Nur schlie\xDFen, der Kampf l\xE4uft weiter",
@@ -6357,6 +6608,12 @@ const KampfAnsicht = ({
   })))), karteOffen && /*#__PURE__*/React.createElement(Schiebefenster, {
     schluessel: "hb_kampfkarte",
     groessbar: true,
+    leiste: {
+      id: 'kampfkarte',
+      titel: 'Karte',
+      symbol: '🗺',
+      zaehler: kampf.karte ? kampf.karte.breite + '×' + kampf.karte.hoehe : ''
+    },
     standard: {
       x: 40,
       y: 90
@@ -10774,7 +11031,16 @@ const TaverneSchirm = ({
     });
     beo.observe(el);
   };
-  return /*#__PURE__*/React.createElement("div", {
+
+  // In der Fensterleiste meldet sich die Taverne selbst an: geschlossen
+  // wird von dort über denselben Weg wie über ihr Kreuz — mit der
+  // Abrechnung des Abends.
+  return /*#__PURE__*/React.createElement(LeistenFenster, {
+    id: "taverne",
+    titel: "Taverne",
+    symbol: "\uD83C\uDF7A",
+    onSchliessen: hinaus
+  }, /*#__PURE__*/React.createElement("div", {
     className: "automat-schirm",
     ref: fensterMasz,
     style: {
@@ -10819,7 +11085,9 @@ const TaverneSchirm = ({
     value: h.id
   }, h.name))) : stall.length === 1 ? stall[0].name : offen.length + (offen.length === 1 ? ' Tisch' : ' Tische'))), /*#__PURE__*/React.createElement("div", {
     className: "automat-kasse"
-  }, /*#__PURE__*/React.createElement("span", null, waehrung.kurz), /*#__PURE__*/React.createElement("b", null, marken), /*#__PURE__*/React.createElement("i", null, waehrung.name)), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("span", null, waehrung.kurz), /*#__PURE__*/React.createElement("b", null, marken), /*#__PURE__*/React.createElement("i", null, waehrung.name)), /*#__PURE__*/React.createElement(MiniKnopf, {
+    className: "automat-mini"
+  }), /*#__PURE__*/React.createElement("button", {
     className: "automat-x",
     onClick: hinaus,
     "aria-label": "Schlie\xDFen"
@@ -10881,7 +11149,7 @@ const TaverneSchirm = ({
     className: stat.zurueck - stat.gesetzt >= 0 ? 'gut' : 'schlecht'
   }, /*#__PURE__*/React.createElement("b", null, stat.zurueck - stat.gesetzt >= 0 ? '+' : '−', Math.abs(stat.zurueck - stat.gesetzt)), " unterm Strich"), /*#__PURE__*/React.createElement("span", null, "l\xE4ngste Serie ", /*#__PURE__*/React.createElement("b", null, stat.siegSerie), "\u2009\u2713 / ", /*#__PURE__*/React.createElement("b", null, stat.pechSerie), "\u2009\u2717")), /*#__PURE__*/React.createElement("div", {
     className: "halle-fuss"
-  }, waehrung.gold ? 'Gespielt wird mit echtem Gold aus dem Bogen — die Spielleitung hat es so eingestellt.' : 'Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden — nichts davon berührt einen Bogen.', ' ', "Was ein Tisch zahlt, steht am Tisch.")));
+  }, waehrung.gold ? 'Gespielt wird mit echtem Gold aus dem Bogen — die Spielleitung hat es so eingestellt.' : 'Gespielt wird mit Spielmarken, und die liegen im Beutel des Helden — nichts davon berührt einen Bogen.', ' ', "Was ein Tisch zahlt, steht am Tisch."))));
 };
 
 // ==== js/src/2f2-blackjack.jsx ====
@@ -16665,7 +16933,9 @@ const KampfSicht = ({
     className: 'ks-kartenknopf' + (karteAuf ? ' an' : ''),
     onClick: () => setKarteAuf(a => !a),
     title: karteAuf ? 'Die Karte zuklappen' : 'Wer wo steht — in einem eigenen Fenster'
-  }, "\uD83D\uDDFA Karte"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDDFA Karte"), /*#__PURE__*/React.createElement(MiniKnopf, {
+    className: "kampf-kopf-mini"
+  }), /*#__PURE__*/React.createElement("button", {
     className: "kampf-kopf-x",
     onClick: onSchliessen,
     title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
@@ -24115,6 +24385,10 @@ function App() {
   // Der Automat in der Taverne. Zeitvertreib fuer alle, nicht nur die
   // Spielleitung — und ohne jede Verbindung zum Charakterbogen.
   const [showAutomat, setShowAutomat] = useState(false);
+  // Die Fensterleiste. Wer ein Fenster über seinen Knopf in der Seite
+  // öffnet, das schon offen, aber minimiert ist, bekommt es zurück — statt
+  // dass nichts geschieht oder es zugeht.
+  const leiste = useFensterLeiste();
   const [zeitOffen, setZeitOffen] = useState(false);
   const [encNurAktives, setEncNurAktives] = useState(true);
   const [enemySuche, setEnemySuche] = useState('');
@@ -28890,7 +29164,9 @@ function App() {
     weaponStats,
     wsExpand
   };
-  return /*#__PURE__*/React.createElement(SheetCtx.Provider, {
+  return /*#__PURE__*/React.createElement(FensterLeisteCtx.Provider, {
+    value: leiste
+  }, /*#__PURE__*/React.createElement(SheetCtx.Provider, {
     value: sheetCtx
   }, /*#__PURE__*/React.createElement("div", {
     className: "app" + (sidebarCollapsed ? " sb-collapsed" : "")
@@ -29044,16 +29320,24 @@ function App() {
     title: "Alle w\xFCrfeln auf dieselbe Fertigkeit"
   }, "\uD83C\uDFB2 Probe"), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
-    onClick: () => setShowKampf(true)
+    onClick: () => {
+      setShowKampf(true);
+      leiste.zeigen('kampf');
+    }
   }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), !isDmMode && kampfSichtDaten && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
-    onClick: () => setShowKampfSicht(true)
+    onClick: () => {
+      setShowKampfSicht(true);
+      leiste.zeigen('kampfsicht');
+    }
   }, "\u2694 Kampf \xB7 Runde ", kampfSichtDaten.runde || 1), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showAutomat ? " an" : ""),
-    onClick: () => setShowAutomat(o => !o)
+    onClick: () => {
+      if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne');else setShowAutomat(o => !o);
+    }
   }, "\uD83C\uDFB0 Taverne")), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     className: "sync-line"
   }, /*#__PURE__*/React.createElement("div", {
@@ -29162,16 +29446,24 @@ function App() {
     }
   }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
-    onClick: () => setShowKampf(true)
+    onClick: () => {
+      setShowKampf(true);
+      leiste.zeigen('kampf');
+    }
   }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), !isDmMode && kampfSichtDaten && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
-    onClick: () => setShowKampfSicht(true)
+    onClick: () => {
+      setShowKampfSicht(true);
+      leiste.zeigen('kampfsicht');
+    }
   }, "\u2694 Kampf \xB7 Runde ", kampfSichtDaten.runde || 1), isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showChronik ? " an" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool" + (showAutomat ? " an" : ""),
-    onClick: () => setShowAutomat(o => !o)
+    onClick: () => {
+      if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne');else setShowAutomat(o => !o);
+    }
   }, "\uD83C\uDFB0 Taverne")), svCode && /*#__PURE__*/React.createElement("div", {
     className: "sync-actions",
     style: {
@@ -34059,7 +34351,13 @@ function App() {
     onAnwenden: zeitAnwenden,
     onUhrStellen: uhrStellen,
     onAbbrechen: () => setZeitOffen(false)
-  }), showKampfSicht && kampfSichtDaten && !isDmMode && /*#__PURE__*/React.createElement(KampfSicht, {
+  }), showKampfSicht && kampfSichtDaten && !isDmMode && /*#__PURE__*/React.createElement(LeistenFenster, {
+    id: "kampfsicht",
+    titel: "Kampf",
+    symbol: "\u2694",
+    zaehler: 'Runde ' + (kampfSichtDaten.runde || 1),
+    onSchliessen: () => setShowKampfSicht(false)
+  }, /*#__PURE__*/React.createElement(KampfSicht, {
     kampf: kampfSichtDaten,
     helden: advChars,
     eigeneIds: eigeneHeldenIds,
@@ -34069,7 +34367,7 @@ function App() {
     eigenerHeld: chars.find(c => c.id === ansageHeldId) || null,
     onReaktion: ansageHeldId ? reaktionSenden : null,
     onSchliessen: () => setShowKampfSicht(false)
-  }), ansageFuer && kampfSichtDaten && /*#__PURE__*/React.createElement(AnsageFenster, {
+  })), ansageFuer && kampfSichtDaten && /*#__PURE__*/React.createElement(AnsageFenster, {
     held: chars.find(c => c.id === ansageFuer),
     kampf: kampfSichtDaten,
     helden: advChars,
@@ -34077,7 +34375,13 @@ function App() {
     onAbbrechen: () => setAnsageFuer(null),
     onSenden: ansageSenden,
     onPlatz: grad => zauberplatzStreichen(ansageFuer, grad)
-  }), showKampf && isDmMode && /*#__PURE__*/React.createElement(KampfAnsicht, {
+  }), showKampf && isDmMode && /*#__PURE__*/React.createElement(LeistenFenster, {
+    id: "kampf",
+    titel: "Kampftracker",
+    symbol: "\u2694",
+    zaehler: kampf && kampf.aktiv ? kampf.phase === 'vorbereitung' ? 'Vorbereitung' : 'Runde ' + kampf.runde : '',
+    onSchliessen: () => setShowKampf(false)
+  }, /*#__PURE__*/React.createElement(KampfAnsicht, {
     kampf: kampf,
     setKampf: setKampf,
     enemies: enemies,
@@ -34098,7 +34402,7 @@ function App() {
     ansagen: ansagen,
     onAnsageWeg: ansageWeg,
     onFrage: appConfirm
-  }), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
+  })), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
     form: encForm,
     setForm: setEncForm,
     enemies: enemies,
@@ -34859,7 +35163,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: () => setShowTpl(null)
-  }, "Schlie\xDFen")))));
+  }, "Schlie\xDFen")))), /*#__PURE__*/React.createElement(FensterLeiste, null)));
 }
 const container = document.getElementById('root');
 const rootEl = ReactDOM.createRoot(container);
