@@ -258,6 +258,18 @@ const heldText = (c, opts) => {
       t.push('  ' + (f.name || 'Merkmal') + (f.source ? '   — ' + f.source : ''));
       const fxText = htEffekte(f.effects);
       if (fxText) t.push('      ' + (f.effectsActive === false ? 'Ruht: ' : 'Wirkt: ') + fxText);
+      // Was es im Kampf tut: wovon es zehrt, welchen Zauber es auslöst,
+      // was es selbst würfelt. Sonst wüsste die KI nur den Text.
+      const res = f.ressource && (c.resources || []).find(r => r.id === f.ressource);
+      if (res) t.push('      Verbraucht: ' + Math.max(1, +f.ressourceKosten || 1) + ' × ' + res.name);
+      if (f.zauber) t.push('      Löst aus: ' + f.zauber + ' (ohne Zauberplatz)');
+      const fw = !f.zauber && f.wirkung;
+      if (fw && (fw.wuerfel || fw.rettung || (fw.zustaende || []).length)) {
+        t.push('      Im Kampf: ' + [fw.wuerfel ? fw.wuerfel + (fw.schadensart ? ' ' + fw.schadensart : '') : '',
+          fw.rettung ? 'Rettungswurf ' + (RETTUNG_KURZ[fw.rettung] || fw.rettung) + (fw.halb ? ', halbiert' : '') : '',
+          (fw.zustaende || []).length ? 'Zustand: ' + fw.zustaende.join(', ') : '']
+          .filter(Boolean).join(' · '));
+      }
       if (f.description) htUmbruch(f.description, '      ').forEach(z => t.push(z));
     });
   }

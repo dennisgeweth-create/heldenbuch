@@ -70,7 +70,11 @@
       portrait: '', notes: 'Sucht den Hammer ihres Vaters.', notesList: [],
       features: [{id: 'f1', name: 'Aktionsschub', source: 'Kämpfer 2',
         description: 'Einmal je Rast eine zusätzliche Aktion.',
-        effects: [], effectsActive: true}],
+        effects: [], effectsActive: true},
+        // Ein Merkmal, das einen Zauber auslöst und davon zehrt.
+        {id: 'f2', name: 'Bannstrahl', source: 'Werkbank',
+         description: 'Löst Person festhalten aus.', effects: [], effectsActive: true,
+         ressource: 'r1', ressourceKosten: 1, zauber: 'Person festhalten'}],
       weapons: [{id: 'w1', name: 'Kriegshammer', attrKey: 'str', proficient: true,
         range: '1,5 m', attackBonus: 0, damage: '1W8', damageType: 'Wucht',
         description: 'Der Hammer ihres Vaters, nachgeschmiedet.',
@@ -85,7 +89,8 @@
       jackOfAllTrades: false, languages: ['Gemeinsprache', 'Zwergisch'],
       toolProfs: ['Schmiedewerkzeug'], weaponProfs: ['Kriegswaffen'],
       armorProfs: ['Schwer'], savingThrowProfs: ['str', 'con'],
-      sorceryPoints: {max: 0, used: 0}, resources: [], wsFavorites: [],
+      sorceryPoints: {max: 0, used: 0}, wsFavorites: [],
+      resources: [{id: 'r1', name: 'Kanalisieren', max: 1, used: 0, color: '#c9a84c', restType: 'kurz'}],
       inventory: [{id: 'i1', name: 'Kettenhemd', qty: 1, weight: '25',
         rarity: 'gewöhnlich', description: '', tags: [], source: '', effects: [],
         effectsActive: false, kampf: false, gearKind: 'ruestung',
@@ -653,8 +658,63 @@
             }
           }
 
+          // ── Ein Merkmal, das einen Zauber auslöst ──
+          melden('lauf', 'Merkmal löst Zauber aus');
+          const heldGespeichert = () => JSON.parse(wbSpeicher.dnd_chars)[0];
+          const zug4 = await warten(() => knopfMit('Zug eintragen'));
+          if (zug4) {
+            zug4.click();
+            const mk = await warten(() => knopfMit('⭐ Merkmal'));
+            if (mk) { mk.click(); await ruhe(80); }
+            const bann = await warten(() => [...document.querySelectorAll('.zug-zeile')]
+              .find(z => /Bannstrahl/.test(z.textContent)));
+            if (ja('Bannstrahl steht zur Wahl — mit Zauber und Vorrat',
+                   !!bann && /→ Person festhalten/.test(bann.textContent) && /Kanalisieren 1\/1/.test(bann.textContent),
+                   bann ? bann.textContent : '')) {
+              bann.click(); await ruhe(80);
+              const ich = [...document.querySelectorAll('.zug-ziel')].find(z => /Brunhilde/.test(z.textContent));
+              ich.click(); await ruhe(120);
+              const vs = document.querySelector('.zug-vorschau').textContent;
+              ja('  … die Vorschau nennt den Zauber', /Merkmal: Bannstrahl → Person festhalten/.test(vs), vs);
+              ja('  … und was es kostet', /Kanalisieren −1 · noch 0/.test(vs));
+              ja('  … der Zustand des Zaubers kommt mit', /Gelähmt/.test(vs));
+              // Die Vorschau zeigt den ganzen Zug — der Platz vom Zauber
+              // davor steht darüber. Gezählt wird ab dem Merkmal.
+              ja('  … aber kein Zauberplatz', !/Zauberplatz/.test(vs.split('Bannstrahl')[1] || ''));
+              document.querySelector('.zug-fuss .btn-save').click();
+              const verbraucht = await warten(() =>
+                ((heldGespeichert().resources || [])[0] || {}).used === 1 ? true : null, 3000);
+              ja('Kanalisieren ist im Bogen verbraucht', !!verbraucht,
+                 JSON.stringify(heldGespeichert().resources));
+              ja('  … der Zauberplatz nicht', ((heldGespeichert().spellSlots || {})[2] || {}).used === 1);
+              document.querySelector('.kampf-rueck').click();
+              const zurueck = await warten(() =>
+                ((heldGespeichert().resources || [])[0] || {}).used === 0 ? true : null, 3000);
+              ja('Zurücknehmen gibt Kanalisieren zurück', !!zurueck);
+            }
+          }
+
           const x = document.querySelector('.kampf-kopf-x');
           if (x) { x.click(); await ruhe(150); }
+        }
+
+        // ── Der Merkmal-Editor ─────────────────────────────────────
+        melden('lauf', 'Merkmal bearbeiten');
+        const reiterM = await warten(() => [...document.querySelectorAll('button')]
+          .find(b => /Merkmale/.test(b.textContent)));
+        if (ja('Der Reiter Merkmale steht da', !!reiterM)) {
+          reiterM.click(); await ruhe(200);
+          const karte = [...document.querySelectorAll('.feature-card')].find(k => /Bannstrahl/.test(k.textContent));
+          const stift = karte && karte.querySelector('.spell-edit-btn');
+          if (ja('  … Bannstrahl lässt sich bearbeiten', !!stift)) {
+            stift.click(); await ruhe(200);
+            const selects = [...document.querySelectorAll('.form-modal select')];
+            ja('Der Editor zeigt den ausgelösten Zauber',
+               selects.some(x => x.value === 'Person festhalten'));
+            ja('  … und die verknüpfte Ressource', selects.some(x => x.value === 'r1'));
+            const ab = knopfMit('Abbrechen');
+            if (ab) { ab.click(); await ruhe(120); }
+          }
         }
 
         ja('Nichts ist unterwegs abgestürzt', kaputt.length === 0, kaputt.join(' · '));

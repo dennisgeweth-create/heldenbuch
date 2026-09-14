@@ -3925,6 +3925,52 @@ function App() {
                   </label>
                 )}
               </div>
+              {/* Was das Merkmal im Kampf tut. Alles freiwillig — ohne diese
+                  Angaben steht es im Zugfenster zur Wahl und kommt ins
+                  Protokoll, mehr nicht. */}
+              <div className="form-group form-full">
+                <div className="form-label">⚔ Im Kampf</div>
+                <div className="zauber-wirkung">
+                  <label className="zw-feld">
+                    <span>Verbraucht</span>
+                    <select className="form-select" value={ff.ressource || ''}
+                      onChange={e=>setFf({...ff, ressource: e.target.value})}>
+                      <option value="">— nichts —</option>
+                      {resources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.max - r.used}/{r.max})</option>)}
+                    </select>
+                  </label>
+                  {ff.ressource && (
+                    <label className="zw-feld">
+                      <span>Wie viel</span>
+                      <ZahlFeld className="form-input" min={1} wert={ff.ressourceKosten || 1} leerWert={1}
+                        onWert={v=>setFf({...ff, ressourceKosten: Math.max(1, v || 1)})} />
+                    </label>
+                  )}
+                  <label className="zw-feld">
+                    <span>Löst einen Zauber aus</span>
+                    <select className="form-select" value={ff.zauber || ''}
+                      onChange={e=>setFf({...ff, zauber: e.target.value})}>
+                      <option value="">— keinen —</option>
+                      {(cur.spells || []).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
+                  </label>
+                </div>
+                {resources.length === 0 && (
+                  <div className="zw-probe">Was sich verbraucht — Kanalisieren, Ki, Kampfrausch — steht unter
+                    Ressourcen im Reiter Attribute. Erst dort anlegen, dann hier verknüpfen.</div>
+                )}
+                {ff.zauber ? (
+                  <div className="zw-probe">Im Zugfenster wirkt das Merkmal wie <b>{ff.zauber}</b> —
+                    mit dessen Würfeln, Rettungswurf und Zuständen, aber ohne Zauberplatz.</div>
+                ) : (
+                  <details className="zug-beschreibung" open={hatWirkung(ff.wirkung)}>
+                    <summary>Eigene Wirkung — Würfel, Rettungswurf, Zustand</summary>
+                    <div style={{padding:'4px 10px 10px'}}>
+                      <WirkungFelder wirkung={ff.wirkung} onWirkung={w=>setFf(f=>({...f, wirkung: w}))} />
+                    </div>
+                  </details>
+                )}
+              </div>
             </div>
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowFF(false);setFfEditId(null);}}>Abbrechen</button>

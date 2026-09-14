@@ -176,4 +176,58 @@ const WirkungZustaende = ({ wirkung, onWirkung }) => {
   );
 };
 
+// ── Die Wirkung eines Merkmals ──────────────────────────────────
+// Dieselben Felder wie beim Trank: ein Merkmal hat keinen Grad, aber es
+// kann wuerfeln, einen Rettungswurf verlangen und einen Zustand
+// hinterlassen — der Odem eines Drachenbluetigen, das Zurueckweisen der
+// Untoten.
+const WirkungFelder = ({ wirkung, onWirkung }) => {
+  const w = wirkung || {};
+  const setzen = (p) => onWirkung({...w, ...p});
+  return (
+    <>
+      <datalist id="hb-arten-merkmal">
+        {SCHADENSARTEN.map(a => <option key={a} value={a} />)}
+      </datalist>
+      <div className="zauber-wirkung">
+        <label className="zw-feld">
+          <span>Art</span>
+          <select className="form-select" value={w.art || ''} onChange={e=>setzen({art: e.target.value})}>
+            <option value="">— keine —</option>
+            <option value="schaden">Schaden</option>
+            <option value="heilung">Heilung</option>
+            <option value="temp">Temporäre TP</option>
+          </select>
+        </label>
+        <label className="zw-feld">
+          <span>Würfel</span>
+          <input className="form-input" placeholder="2W6" value={w.wuerfel || ''}
+            onChange={e=>setzen({wuerfel: e.target.value})} />
+        </label>
+        <label className="zw-feld">
+          <span>Schadensart</span>
+          <input className="form-input" list="hb-arten-merkmal" placeholder="Feuer"
+            value={w.schadensart || ''} onChange={e=>setzen({schadensart: e.target.value})} />
+        </label>
+        <label className="zw-feld">
+          <span>Rettungswurf</span>
+          <select className="form-select" value={w.rettung || ''} onChange={e=>setzen({rettung: e.target.value})}>
+            <option value="">— keiner —</option>
+            {RETTUNGEN.map(r => <option key={r.k} value={r.k}>{r.l}</option>)}
+          </select>
+        </label>
+        <label className="zw-schalter">
+          <input type="checkbox" checked={!!w.halb} onChange={e=>setzen({halb: e.target.checked})} />
+          <span>Bestanden = halber Schaden</span>
+        </label>
+        <label className="zw-schalter">
+          <input type="checkbox" checked={!!w.flaeche} onChange={e=>setzen({flaeche: e.target.checked})} />
+          <span>Fläche — eine Zahl für alle</span>
+        </label>
+      </div>
+      <WirkungZustaende wirkung={w} onWirkung={onWirkung} />
+    </>
+  );
+};
+
 // ── LogTab component ─────────────────────────────────────────────

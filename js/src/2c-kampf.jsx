@@ -170,6 +170,7 @@ const protokollZeile = (e, mitZahlen) => {
     // Folgen: erst was jemand tut, dann was daraus wird.
     case 'frei':     return '   „' + e.text + '“';
     case 'aktion':   return '   ' + (AKTION_WORT[e.modus] || 'Angriff') + ': ' + e.was
+                            + (e.zauber ? ' → ' + e.zauber : '')
                             + (e.grad ? ' · ' + e.grad + '. Grad' : '')
                             + (e.wurf ? ' (' + e.wurf + ')' : '');
     case 'rettung':  return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': Rettungswurf '
@@ -177,6 +178,9 @@ const protokollZeile = (e, mitZahlen) => {
                             + (e.wurf !== '' && e.wurf != null && e.sg
                                ? ' (' + e.wurf + ' gegen SG ' + e.sg + ')' : '');
     case 'platz':    return '   Zauberplatz ' + e.grad + '. Grad abgehakt';
+    // Was ein Merkmal kostet: Kanalisieren, Ki, Kampfrausch.
+    case 'ressource': return '   ' + e.was + (e.leer ? ': nichts mehr übrig'
+                            : ' −' + (e.kosten || 1) + ' · noch ' + e.rest);
     // Die Erinnerung, die am Tisch am haeufigsten fehlt. Sie sagt nicht,
     // wie es ausging — gewuerfelt wird mit der Hand.
     case 'konz':     return '   ⚡ ' + e.wer + ' hält „' + e.was + '“ — '
@@ -583,6 +587,21 @@ const kampfMerkmale = (held) => [...((held && held.features) || [])]
   .sort((a, b) => (a.source || '').localeCompare(b.source || '', 'de')
                   || (a.name || '').localeCompare(b.name || '', 'de'));
 
+// Der Zauber, den ein Merkmal ausloest — aus dem Zauberbuch des Helden,
+// ueber den Namen. Heisst der Zauber inzwischen anders, loest es eben
+// keinen mehr aus; das Merkmal bleibt trotzdem waehlbar.
+const merkmalZauber = (held, merkmal) => (merkmal && merkmal.zauber)
+  ? (((held && held.spells) || []).find(z => z.name === merkmal.zauber) || null) : null;
+// Die Ressource, die ein Merkmal verbraucht, und was davon uebrig ist.
+const merkmalRessource = (held, merkmal) => {
+  if (!merkmal || !merkmal.ressource) return null;
+  const r = ((held && held.resources) || []).find(x => x.id === merkmal.ressource);
+  if (!r) return null;
+  const kosten = Math.max(1, +merkmal.ressourceKosten || 1);
+  const rest = Math.max(0, (+r.max || 0) - (+r.used || 0));
+  return {r, kosten, rest, reicht: rest >= kosten};
+};
+
 const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held)
   : art === 'angriff'    ? ((held && held.weapons) || [])
   : art === 'gegenstand' ? kampfGegenstaende(held)
@@ -614,12 +633,19 @@ const aktionsStand = (held, wahl) => {
   // Felder, dieselbe Rechnung. Der Gradwähler bleibt beim Zauber: ein
   // Trank hat keinen Grad, und wuerfelAufGrad gibt bei Grad 0 den Würfel
   // unverändert zurück.
-  const mitWirkung = wahl.art === 'zauber' || wahl.art === 'gegenstand';
-  const wirkung = (mitWirkung && gegenstand && hatWirkung(gegenstand.wirkung))
-    ? gegenstand.wirkung : null;
+  // Ein Merkmal wirkt wie der Zauber, den es ausloest, oder mit eigenen
+  // Feldern — ohne Grad, der Wurf bleibt, wie er dasteht.
+  const mitWirkung = wahl.art === 'zauber' || wahl.art === 'gegenstand' || wahl.art === 'merkmal';
+  const verknuepft = wahl.art === 'merkmal' ? merkmalZauber(held, gegenstand) : null;
+  const quelleWirkung = verknuepft ? verknuepft.wirkung : (gegenstand && gegenstand.wirkung);
+  const wirkung = (mitWirkung && gegenstand && hatWirkung(quelleWirkung))
+    ? quelleWirkung : null;
   const grad = wahl.grad || grundGrad;
-  return {quelle, gegenstand, grundGrad, wirkung, grad,
-          wurf: wirkung ? wuerfelAufGrad(wirkung, grundGrad, grad) : ''};
+  const ohneGrad = wahl.art === 'merkmal';
+  return {quelle, gegenstand, grundGrad: ohneGrad ? 0 : grundGrad, wirkung,
+          grad: ohneGrad ? 0 : grad, verknuepft,
+          wurf: !wirkung ? '' : ohneGrad ? (wirkung.wuerfel || '')
+                                         : wuerfelAufGrad(wirkung, grundGrad, grad)};
 };
 
 // Im Zugfenster steht je Ziel nicht der Zustand danach, sondern was
@@ -668,7 +694,7 @@ const zustaendeVonWirkung = (wirkung, z, mitRettung, mitSchalter) => {
 const RUECK_MAX = 20;
 const RUECK_FELD = {hp: 'Trefferpunkte', tempHp: 'temporäre TP', tempMaxHp: 'temporäres Maximum',
   deathSaves: 'Todesrettungswürfe', spellSlots: 'Zauberplätze', inventory: 'Inventar',
-  konzentration: 'Konzentration', features: 'Merkmale'};
+  konzentration: 'Konzentration', features: 'Merkmale', resources: 'Ressourcen'};
 // Was ein Handgriff an einer Kampfzeile aendert. Die Initiative gehoert
 // nicht dazu: sie wird getippt, und das soll ein Rueckgaengig nicht
 // nebenbei wieder wegnehmen.
@@ -775,14 +801,18 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
       : wahl.art === 'gegenstand'
         ? (((RARITIES.find(r => r.key === g.rarity) || {}).label || '')
            + ((g.tags || []).length ? ' · ' + (g.tags || []).join(', ') : ''))
-        : (g.source || '');
+        : [g.source || '',
+           g.zauber ? '→ ' + g.zauber : '',
+           (() => { const m = merkmalRessource(held, g);
+                    return m ? m.r.name + ' ' + m.rest + '/' + (+m.r.max || 0) : ''; })()]
+          .filter(Boolean).join(' · ');
   const rechts = (g) => wahl.art === 'zauber'
     ? (hatWirkung(g.wirkung) ? (g.wirkung.wuerfel || '') : '')
     : wahl.art === 'angriff'    ? (g.damage || '')
     : wahl.art === 'gegenstand'
       ? ((hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '')
          + (+g.qty || 0) + '×')
-      : '';
+      : (((merkmalZauber(held, g) || {}).wirkung || g.wirkung || {}).wuerfel || '');
 
   // Die Plaetze des Helden: nur Grade, fuer die er welche hat — und der
   // eigene Grad des Zaubers, damit immer etwas dasteht.
@@ -981,8 +1011,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
   const art = nurWerte ? 'frei' : wahl.art;
-  const {gegenstand, grundGrad, wirkung, grad, wurf: wurfJetzt} =
-    nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:''}
+  const {gegenstand, grundGrad, wirkung, grad, wurf: wurfJetzt, verknuepft} =
+    nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:'', verknuepft:null}
              : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
   // Ein Heiltrank heilt. Wer ihn wählt, soll den Schalter nicht erst
@@ -1043,7 +1073,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   // dem abweichen, was danach im Protokoll steht.
   const bauen = () => {
     const eintraege = [], treffer = [];
-    let verbrauch = null;
+    let verbrauch = null, ressource = null;
     if (text.trim()) eintraege.push({art: 'frei', wer: t.name, text: text.trim()});
     let platz = null;
     // Die Waffe bleibt nach "und weiter" stehen — ohne Ziel und ohne Text
@@ -1056,7 +1086,16 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     if (gegenstand && (Object.keys(ziele).length || text.trim() || ohneZiel)) {
       eintraege.push({art: 'aktion', wer: t.name, was: gegenstand.name, modus: art,
         grad: (art === 'zauber' && grad > grundGrad) ? grad : 0,
+        zauber: verknuepft ? verknuepft.name : undefined,
         wurf: wurfJetzt || ''});
+      // Was das Merkmal kostet. Reicht es nicht, steht das im Protokoll —
+      // am Tisch entscheidet die Spielleitung, ob es trotzdem geht.
+      const kostet = held && art === 'merkmal' ? merkmalRessource(held, gegenstand) : null;
+      if (kostet) {
+        if (kostet.reicht) ressource = {charId: held.id, resId: kostet.r.id, kosten: kostet.kosten};
+        eintraege.push({art: 'ressource', wer: t.name, was: kostet.r.name, kosten: kostet.kosten,
+          rest: kostet.reicht ? kostet.rest - kostet.kosten : kostet.rest, leer: !kostet.reicht});
+      }
       // Der Zauberplatz gehoert zum Wirken und steht deshalb gleich
       // darunter, nicht hinter den Rettungswuerfen.
       if (held && art === 'zauber' && grundGrad > 0 && platzRest(grad) > 0) {
@@ -1117,18 +1156,22 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     // laesst den vorigen fallen. Beides steht im Protokoll, damit
     // niemand spaeter zwei gleichzeitig zu halten glaubt.
     let konz = null;
-    if (held && art === 'zauber' && gegenstand && brauchtKonzentration(gegenstand)) {
+    // Der Zauber, der gehalten wird — gewirkt oder von einem Merkmal
+    // ausgeloest. Nur wenn er auch wirklich eingetragen wird.
+    const gehalten = art === 'zauber' ? gegenstand : (art === 'merkmal' ? verknuepft : null);
+    if (held && gegenstand && gehalten && brauchtKonzentration(gehalten)
+        && eintraege.some(e => e.art === 'aktion')) {
       const alt = held.konzentration;
-      if (alt && alt.name && alt.name !== gegenstand.name)
+      if (alt && alt.name && alt.name !== gehalten.name)
         eintraege.push({art: 'konzAus', wer: t.name, was: alt.name});
-      konz = {charId: held.id, wert: {id: gegenstand.id, name: gegenstand.name}};
-      eintraege.push({art: 'konzAn', wer: t.name, was: gegenstand.name});
+      konz = {charId: held.id, wert: {id: gehalten.id, name: gehalten.name}};
+      eintraege.push({art: 'konzAn', wer: t.name, was: gehalten.name});
     }
     // Was an den Zielen haengen bleibt. Die Zeilen stehen nach dem
     // Schaden — erst trifft der Hieb, dann liegt der Ork am Boden —,
     // deshalb nicht in eintraege, sondern eigens.
     const zustaende = zustandsWechsel(ziele, liste, autoZustaende);
-    return {eintraege, treffer, platz, verbrauch, konz, zustaende};
+    return {eintraege, treffer, platz, verbrauch, konz, zustaende, ressource};
   };
 
   const {eintraege, treffer, zustaende} = bauen();
@@ -2329,7 +2372,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Was im Zugfenster steht, geht denselben Weg wie alles andere: erst die
   // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
-  const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz, zustaende}, weiter, ansageId) => {
+  const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz, zustaende, ressource}, weiter, ansageId) => {
     merken('Zug');
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
@@ -2369,6 +2412,13 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
         heldAendern(platz.charId, {spellSlots: {...(c.spellSlots || {}),
           [platz.grad]: {...alt, used: Math.min(+alt.max || 0, (+alt.used || 0) + 1)}}}, c.name);
       }
+    }
+    // Was das Merkmal gekostet hat, geht vom Zaehler im Bogen ab.
+    if (ressource) {
+      const c = helden.find(h => h.id === ressource.charId);
+      if (c) heldAendern(ressource.charId, {resources: (c.resources || []).map(r =>
+        r.id === ressource.resId
+          ? {...r, used: Math.min(+r.max || 0, (+r.used || 0) + ressource.kosten)} : r)}, c.name);
     }
     // Ebenso der verbrauchte Gegenstand. Bei null bleibt er im Inventar
     // stehen — leer, aber auffindbar; nachgefuellt wird im Bogen.
