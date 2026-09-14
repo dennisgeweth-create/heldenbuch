@@ -446,12 +446,14 @@ const Sheet = () => {
               Leiste — immer an derselben Stelle, aber nicht mehr im Weg. */}
           <div className="leiste-werkzeug">
             {/* Welche Werte in der Leiste stehen, ist eine Einstellung
-                wie jede andere am Bogen — also nur im Bearbeitungsmodus. */}
-            <button className={"leiste-zahnrad"+(bogenModus?" aktiv":"")}
-              disabled={!bogenModus}
-              onClick={()=>setLeisteWahlOffen(true)}
-              title={bogenModus ? "Werte in der Leiste auswählen" : "Zum Einstellen oben auf Bearbeiten"}
-              aria-label="Leiste einstellen">⚙</button>
+                wie jede andere am Bogen — also nur im Bearbeitungsmodus,
+                und sonst gar nicht da. */}
+            {bogenModus && (
+              <button className="leiste-zahnrad aktiv"
+                onClick={()=>setLeisteWahlOffen(true)}
+                title="Werte in der Leiste auswählen"
+                aria-label="Leiste einstellen">⚙</button>
+            )}
           </div>
         </div>
 
@@ -1052,7 +1054,7 @@ const Sheet = () => {
                         <button className="chip-remove" onClick={()=>del(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13,lineHeight:1}}>✕</button>
                       </div>
                     ))}
-                    <div style={{display:'flex',gap:6,padding:'6px 10px'}}>
+                    <div className="prof-neu" style={{display:'flex',gap:6,padding:'6px 10px'}}>
                       <input
                         className="form-input"
                         style={{flex:1,padding:'4px 8px',fontSize:13,background:'transparent',border:'none',borderBottom:'1px solid var(--border)',borderRadius:0,color:'var(--text-primary)'}}
@@ -1360,7 +1362,7 @@ const Sheet = () => {
 
             {(cur.charClass==="Druide" || (cur.multiclasses||[]).some(m=>m.charClass==="Druide")) && (
               <>
-                <button className="btn-add" style={{marginTop:8,borderColor:"#52b788",color:"#52b788",width:"100%"}} onClick={()=>openTpl('wildshape')}>🐺 Tierverwandlungs-Bestiar</button>
+                <button className="btn-add bleibt" style={{marginTop:8,borderColor:"#52b788",color:"#52b788",width:"100%"}} onClick={()=>openTpl('wildshape')}>🐺 Tierverwandlungs-Bestiar</button>
                 {(cur.wsFavorites||[]).length > 0 && tplData && tplData.wildshapes && (() => {
                   const statMod = v => { const m=Math.floor((v-10)/2); return (m>=0?'+':'')+m; };
                   const favAnimals = tplData.wildshapes.filter(w => (cur.wsFavorites||[]).includes(w.name));
@@ -1468,7 +1470,7 @@ const Sheet = () => {
               <div className="section-title" style={{marginBottom:0,flex:1}}>🎒 Gegenstände</div>
               {!transferMode ? (
                 <>
-                  <button className="btn-icon" style={{padding:"4px 10px",fontSize:11,borderColor:"var(--border-bright)",color:"var(--text-secondary)"}}
+                  <button className="btn-icon inv-neu" style={{padding:"4px 10px",fontSize:11,borderColor:"var(--border-bright)",color:"var(--text-secondary)"}}
                     onClick={()=>{setItf(newItem());setItfEditId(null);setShowIF(true);}}>+ Hinzufügen</button>
                   {inv.length > 0 && chars.filter(c=>c.id!==sel && !c.archived && (!c.dmOnly || isDmMode)).length > 0 && (
                     <button className="btn-icon" style={{padding:"4px 10px",fontSize:11,borderColor:"#7ab8f5",color:"#7ab8f5"}}

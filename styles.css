@@ -4470,6 +4470,12 @@
   .sheet-lesen .note-del,
   .sheet-lesen .note-edit,
   .sheet-lesen .chip-remove,
-  .sheet-lesen .inv-card-actions { display:none !important; }
-  .leiste-zahnrad:disabled { opacity:0.3; cursor:default; }
+  .sheet-lesen .inv-card-actions,
+  /* … und nichts Neues anlegen: Zauber, Waffen, Merkmale, Gegenstände,
+     Notizen, Sprachen und Übungen. Das Bestiar der Tierverwandlung
+     bleibt, das braucht man am Tisch. */
+  .sheet-lesen .btn-add:not(.bleibt),
+  .sheet-lesen .inv-neu,
+  .sheet-lesen .prof-neu,
+  .sheet-lesen .gear-pick-neu { display:none !important; }
   .kopf-knopf.modus { border-color:var(--gold); color:var(--gold-bright); background:rgba(201,168,76,0.14); }

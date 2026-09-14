@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.8';
+const HB_VERSION = 'v5.8.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -20290,11 +20290,10 @@ const Sheet = () => {
     }, "\u2726")));
   }), /*#__PURE__*/React.createElement("div", {
     className: "leiste-werkzeug"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "leiste-zahnrad" + (bogenModus ? " aktiv" : ""),
-    disabled: !bogenModus,
+  }, bogenModus && /*#__PURE__*/React.createElement("button", {
+    className: "leiste-zahnrad aktiv",
     onClick: () => setLeisteWahlOffen(true),
-    title: bogenModus ? "Werte in der Leiste auswählen" : "Zum Einstellen oben auf Bearbeiten",
+    title: "Werte in der Leiste ausw\xE4hlen",
     "aria-label": "Leiste einstellen"
   }, "\u2699"))), (() => {
     const activeSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(l => slots[l] && slots[l].max > 0);
@@ -21147,6 +21146,7 @@ const Sheet = () => {
       lineHeight: 1
     }
   }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+    className: "prof-neu",
     style: {
       display: 'flex',
       gap: 6,
@@ -21785,7 +21785,7 @@ const Sheet = () => {
       }, unpreparedSpells.map(renderSpell))));
     })());
   }), (cur.charClass === "Druide" || (cur.multiclasses || []).some(m => m.charClass === "Druide")) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-    className: "btn-add",
+    className: "btn-add bleibt",
     style: {
       marginTop: 8,
       borderColor: "#52b788",
@@ -22003,7 +22003,7 @@ const Sheet = () => {
       flex: 1
     }
   }, "\uD83C\uDF92 Gegenst\xE4nde"), !transferMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-    className: "btn-icon",
+    className: "btn-icon inv-neu",
     style: {
       padding: "4px 10px",
       fontSize: 11,

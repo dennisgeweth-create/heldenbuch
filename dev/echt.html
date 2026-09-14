@@ -859,7 +859,9 @@
           // Ohne ihn ist der Bogen zum Lesen: kein Stift an der Karte,
           // das Zahnrad der Leiste gesperrt, keine Abschnittsknöpfe.
           ja('Ohne Bearbeitungsmodus kein Stift an der Karte', !sichtbar(karte && karte.querySelector('.spell-edit-btn')));
-          ja('  … das Zahnrad der Leiste ist gesperrt', !!document.querySelector('.leiste-zahnrad:disabled'));
+          ja('  … das Zahnrad der Leiste ist gar nicht da', !document.querySelector('.leiste-zahnrad'));
+          ja('  … und nichts zum Hinzufügen', !sichtbar(knopfMit('Fähigkeit hinzufügen'))
+             && ![...document.querySelectorAll('.prof-neu')].some(sichtbar));
           ja('  … und es gibt keine Bearbeiten-Knöpfe in den Abschnitten',
              !document.querySelector('.sheet .panel-edit-btn'));
           const kopfB = [...document.querySelectorAll('.kopf-knopf')].find(b => /Bearbeiten/.test(b.textContent));
@@ -868,7 +870,8 @@
             ja('  … er schaltet auf Fertig', /Fertig/.test(kopfB.textContent));
             ja('  … daneben stehen die Stammdaten',
                [...document.querySelectorAll('.kopf-knopf')].some(b => /Stammdaten/.test(b.textContent)));
-            ja('  … das Zahnrad ist frei', !document.querySelector('.leiste-zahnrad:disabled'));
+            ja('  … das Zahnrad ist da', !!document.querySelector('.leiste-zahnrad'));
+            ja('  … und Hinzufügen auch', sichtbar(knopfMit('Fähigkeit hinzufügen')));
           }
           const stift = karte && karte.querySelector('.spell-edit-btn');
           if (ja('  … Bannstrahl lässt sich bearbeiten', sichtbar(stift))) {

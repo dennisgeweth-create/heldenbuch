@@ -24,6 +24,11 @@ Jetzt gibt es **einen Schalter: ✎ Bearbeiten im Kopf des Bogens**.
   Trefferpunkte, das früher hinter dem Bearbeiten-Knopf lag — steht im
   Modus direkt daneben.
 
+**Seit v5.8.1** ist zum Lesen auch das Zahnrad ganz weg statt nur
+gesperrt, und es fehlen die Knöpfe zum Anlegen: Zauber, Waffen, Merkmale,
+Gegenstände, Notizen, Ressourcen, Sprachen und Übungen. Das Bestiar der
+Tierverwandlung bleibt stehen — das braucht man am Tisch.
+
 Wer den Helden wechselt, landet wieder beim Lesen. Auf dem Telefon
 schaltet der Stift in der oberen Leiste denselben Modus.
 
