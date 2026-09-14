@@ -577,6 +577,41 @@
               }
             }
           }
+          // ── Rückgängig ──
+          melden('lauf', 'Rückgängig');
+          const rueck = document.querySelector('.kampf-rueck');
+          if (ja('Der Knopf zum Zurücknehmen steht im Kopf', !!rueck && !rueck.disabled)) {
+            rueck.click(); await ruhe(300);
+            const gob2 = (kampfStand().teilnehmer || []).find(t => t.id === 'wb-goblin') || {};
+            ja('Der Goblin liegt nicht mehr', (gob2.zustaende || []).length === 0,
+               JSON.stringify(gob2.zustaende));
+            ja('  … und das Protokoll sagt, was zurückgenommen wurde',
+               /Zurückgenommen: .*Goblin ist Liegend/.test(logText()),
+               logText().split('\n').slice(-2).join(' / '));
+            ja('  … die Zeile „ist Liegend" selbst ist fort',
+               !/^\s*Goblin ist Liegend/m.test(logText()));
+          }
+          // Schaden an einem Helden geht in den Bogen — und von dort zurück.
+          const tpHeld = () => (JSON.parse(wbSpeicher.dnd_chars || '[]')[0] || {}).hp;
+          const zeileHeld = [...document.querySelectorAll('.kampf-liste > *')]
+            .find(z => /Brunhilde/.test(z.textContent));
+          const minus5 = zeileHeld && [...zeileHeld.querySelectorAll('button')]
+            .find(b => b.textContent.trim() === '-5' || b.textContent.trim() === '−5');
+          if (ja('Brunhilde hat ihre Schnelltasten', !!minus5)) {
+            const vorher = tpHeld();
+            minus5.click();
+            const nach = await warten(() => tpHeld() !== vorher ? tpHeld() : null, 3000);
+            ja('  … −5 kommt im Bogen an', nach === vorher - 5, vorher + ' → ' + nach);
+            document.querySelector('.kampf-rueck').click();
+            const wieder = await warten(() => tpHeld() === vorher ? true : null, 3000);
+            ja('  … und Zurücknehmen stellt die TP im Bogen wieder her', !!wieder,
+               'jetzt ' + tpHeld() + ', vorher ' + vorher);
+            ja('  … ohne Rückfrage, denn niemand sonst hat gedreht',
+               // Die Werkbank meldet daneben, dass sie nichts speichern
+               // kann — gesucht wird deshalb nach dem Wortlaut der Frage.
+               ![...document.querySelectorAll('#root *')].some(e => e.children.length === 0
+                 && /Trotzdem auf den Stand davor/.test(e.textContent || '')));
+          }
           const x = document.querySelector('.kampf-kopf-x');
           if (x) { x.click(); await ruhe(150); }
         }

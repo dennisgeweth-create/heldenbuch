@@ -210,6 +210,7 @@ const protokollZeile = (e, mitZahlen) => {
                             + (e.lage === 'stabil' ? ' — stabilisiert' : e.lage === 'tot' ? ' — tot' : '');
     case 'dazu':     return '   + ' + e.wer + (mitZahlen && e.hp !== undefined ? ' (' + e.hp + ' TP, RK ' + e.ac + ')' : '');
     case 'weg':      return '   − ' + e.wer + ' verlässt den Kampf';
+    case 'rueck':    return '   ↶ Zurückgenommen: ' + e.was;
     default:         return '   ' + (e.wer || '');
   }
 };
@@ -638,6 +639,93 @@ const zustandsWechsel = (ziele, liste) => {
   return raus;
 };
 
+// ── Rückgängig ───────────────────────────────────────────────────
+// Vor jedem Handgriff im Tracker legt er einen Schritt ab: den Kampf,
+// wie er davor war, und von jedem Helden die Felder, die der Handgriff
+// in den Bogen schreibt — alt und neu. Zurueckgenommen wird der letzte.
+//
+// Die Helden werden nicht blind zurueckgesetzt. Steht im Bogen inzwischen
+// etwas anderes als das, was der Tracker hineingeschrieben hat, war das
+// jemand anders — meist der Spieler selbst —, und dann wird gefragt.
+const RUECK_MAX = 20;
+const RUECK_FELD = {hp: 'Trefferpunkte', tempHp: 'temporäre TP', tempMaxHp: 'temporäres Maximum',
+  deathSaves: 'Todesrettungswürfe', spellSlots: 'Zauberplätze', inventory: 'Inventar',
+  konzentration: 'Konzentration', features: 'Merkmale'};
+// Was ein Handgriff an einer Kampfzeile aendert. Die Initiative gehoert
+// nicht dazu: sie wird getippt, und das soll ein Rueckgaengig nicht
+// nebenbei wieder wegnehmen.
+const RUECK_KAMPF_FELDER = ['hp', 'hpMax', 'tempHp', 'tempMaxHp', 'zustaende', 'erschoepfung',
+  'vorteil', 'nachteil', 'deathSaves', 'laufend'];
+
+// Vergleicht ohne auf die Reihenfolge der Schluessel zu achten — was vom
+// Server zurueckkommt, ist dasselbe Objekt, aber nicht zwingend gleich
+// geschrieben.
+const festText = (v) => JSON.stringify(v === undefined ? null : v, (k, x) =>
+  (x && typeof x === 'object' && !Array.isArray(x))
+    ? Object.keys(x).sort().reduce((o, kk) => { o[kk] = x[kk]; return o; }, {}) : x);
+
+// Traegt in einen Schritt ein, was an einen Helden geht. Der alte Wert
+// zaehlt nur beim ersten Mal — schreibt ein Handgriff dasselbe Feld
+// zweimal, war davor trotzdem der Stand vor dem ersten.
+const rueckHeldMerken = (schritt, held, patch) => {
+  if (!schritt || !held) return;
+  const rec = schritt.helden[held.id] || (schritt.helden[held.id] = {name: held.name || '', alt: {}, neu: {}});
+  Object.keys(patch || {}).forEach(key => {
+    if (!(key in rec.alt)) rec.alt[key] = held[key] === undefined ? null : held[key];
+    rec.neu[key] = patch[key];
+  });
+};
+
+// Welche Felder seitdem jemand anders angefasst hat.
+const rueckKonflikte = (schritt, helden) => {
+  const raus = [];
+  Object.keys((schritt && schritt.helden) || {}).forEach(id => {
+    const rec = schritt.helden[id];
+    const h = (helden || []).find(x => x.id === id);
+    if (!h) return;
+    Object.keys(rec.neu).forEach(key => {
+      if (festText(h[key]) !== festText(rec.neu[key]))
+        raus.push(rec.name + ' · ' + (RUECK_FELD[key] || key));
+    });
+  });
+  return raus;
+};
+
+// Der Kampf nach dem Zuruecknehmen. Was seitdem auf der Karte gezogen
+// wurde, bleibt — das war nicht der Handgriff. Alles andere, was seitdem
+// ins Protokoll kam, faellt heraus und steht als eine Zeile da, damit
+// man sieht, dass etwas zurueckgenommen wurde und was.
+const rueckKampf = (jetzt, schritt) => {
+  const vor = schritt.kampf;
+  const vorLog = vor.log || [];
+  const nachher = (jetzt.log || []).slice(vorLog.length);
+  const bleibt = nachher.filter(e => e.art === 'bewegung' || e.art === 'hoehe');
+  const weg = nachher.filter(e => e.art !== 'bewegung' && e.art !== 'hoehe'
+                                  && e.art !== 'karte' && e.art !== 'zug')
+    .map(e => protokollZeile(e, false).trim()).filter(Boolean);
+  let teilnehmer;
+  if (schritt.ganz) {
+    // Wer dazukam oder ging, kommt oder geht zurueck — mit der Reihe.
+    teilnehmer = vor.teilnehmer;
+  } else {
+    const alt = new Map((vor.teilnehmer || []).map(t => [t.id, t]));
+    teilnehmer = (jetzt.teilnehmer || []).map(t => {
+      const a = alt.get(t.id);
+      if (!a) return t;
+      const n = {...t};
+      RUECK_KAMPF_FELDER.forEach(f => { if (f in a) n[f] = a[f]; else delete n[f]; });
+      return n;
+    });
+  }
+  const dranId = ((vor.teilnehmer || [])[vor.zug] || {}).id;
+  const zug = Math.max(0, teilnehmer.findIndex(t => t.id === dranId));
+  const was = weg.length ? weg.join(' · ') : (schritt.was || 'letzter Handgriff');
+  return {...jetzt, teilnehmer, runde: vor.runde, zug, zwischen: vor.zwischen,
+    laufend: vor.laufend,
+    log: inVorbereitung(vor) ? vorLog
+      : [...vorLog, ...bleibt, {art: 'rueck', r: vor.runde, was}]};
+};
+
 const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
@@ -892,7 +980,11 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   const flaeche = !!(wirkung && wirkung.flaeche);
   const [gemeinsam, setGemeinsam] = React.useState(0);
   const [gemeinsamZusatz, setGemeinsamZusatz] = React.useState([]);
-  const mitSchalter = !nurWerte && art !== 'frei' && richtung === 'schaden' && !mitRettung;
+  // Treffer oder daneben gibt es nur, wenn womit feststeht. Ein Ziel allein
+  // — etwa weil ihm nur ein Zustand angehaengt wird — ist kein Angriff und
+  // soll im Protokoll auch nicht „Goblin: Treffer" heissen.
+  const mitSchalter = !nurWerte && art !== 'frei' && !!gegenstand
+                      && richtung === 'schaden' && !mitRettung;
   const platzRest = (l) => {
     const p = ((held && held.spellSlots) || {})[l] || ((held && held.spellSlots) || {})[String(l)];
     return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
@@ -2023,6 +2115,15 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       wer: name + (unter ? ' (' + unter + ')' : '')});
   }, [zugSchluessel]);
 
+  // Die Schritte zum Zuruecknehmen. Sie leben nur, solange der Tracker
+  // offen ist — ein Rueckgaengig nach dem Neuladen wuerde auf einen Stand
+  // zielen, den niemand mehr vor Augen hat. `offen` ist der Schritt, in
+  // den der laufende Handgriff gerade schreibt; er schliesst sich, sobald
+  // der Handgriff durch ist.
+  const rueckStapel = React.useRef([]);
+  const rueckOffen  = React.useRef(null);
+  const [, setRueckZahl] = React.useState(0);
+
   // Ein Bild lang gibt es noch keinen Kampf — der Effekt oben stellt ihn
   // auf. Etwas anzuzeigen, das sofort wieder verschwindet, waere Flackern.
   if (!kampf || !kampf.aktiv) return null;
@@ -2066,6 +2167,52 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Was zum Kampf gehoert, bleibt im Kampf.
   const aendernKampf = (id, fn) =>
     setKampf(k => ({...k, teilnehmer: k.teilnehmer.map(t => t.id===id ? fn(t) : t)}));
+
+  // Vor einem Handgriff: den Stand ablegen. `ganz` heisst, die Reihe
+  // selbst aendert sich (jemand kommt dazu oder geht, Initiativen), und
+  // beim Zuruecknehmen kommt die ganze Aufstellung zurueck.
+  const merken = (was, ganz) => {
+    const schritt = {was, ganz: !!ganz, kampf, helden: {}};
+    rueckStapel.current = [...rueckStapel.current.slice(-(RUECK_MAX - 1)), schritt];
+    rueckOffen.current = schritt;
+    // Alles, was der Handgriff schreibt, geschieht in diesem Durchlauf.
+    setTimeout(() => { if (rueckOffen.current === schritt) rueckOffen.current = null; }, 0);
+    setRueckZahl(n => n + 1);
+  };
+  // Derselbe Weg in den Bogen wie vorher — nur dass der offene Schritt
+  // mitschreibt, was dort vorher stand.
+  const heldAendern = (charId, patch, name) => {
+    rueckHeldMerken(rueckOffen.current, (helden || []).find(h => h.id === charId), patch);
+    onHeldAendern(charId, patch, name);
+  };
+  const rueckLetzter = rueckStapel.current[rueckStapel.current.length - 1] || null;
+  const rueckgaengig = () => {
+    const schritt = rueckStapel.current[rueckStapel.current.length - 1];
+    if (!schritt) return;
+    const ausfuehren = () => {
+      rueckStapel.current = rueckStapel.current.slice(0, -1);
+      rueckOffen.current = null;
+      Object.keys(schritt.helden).forEach(id => {
+        const rec = schritt.helden[id];
+        if ((helden || []).some(h => h.id === id)) onHeldAendern(id, rec.alt, rec.name);
+      });
+      // Wer davor dran war, steht schon im Protokoll — ohne das hier
+      // schriebe der Zugwechsel ihn gleich ein zweites Mal hinein.
+      const vor = schritt.kampf;
+      const dran = (vor.teilnehmer || [])[vor.zug];
+      zuletztAmZug.current = dran ? vor.runde + ':' + dran.id : null;
+      setKampf(k => k ? rueckKampf(k, schritt) : k);
+      setRueckZahl(n => n + 1);
+    };
+    const konflikte = rueckKonflikte(schritt, helden);
+    if (konflikte.length) {
+      onFrage('Seit diesem Handgriff hat jemand außerhalb des Trackers etwas geändert — '
+        + konflikte.join(', ') + '. Trotzdem auf den Stand davor zurück? '
+        + 'Was dort seitdem eingetragen wurde, geht dann verloren.', ausfuehren, 'Zurücknehmen');
+    } else {
+      ausfuehren();
+    }
+  };
 
   // Eine Zeile ins Protokoll. Die Runde kommt aus dem Kampf selbst, nicht
   // aus dem Aufrufer — sonst stuende ein Eintrag in der falschen Runde,
@@ -2127,7 +2274,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
           protokollieren({art: 'konzAus', wer: t.name, was: h.konzentration.name});
         }
       }
-      onHeldAendern(t.charId, p, t.name);
+      heldAendern(t.charId, p, t.name);
     } else {
       aendernKampf(id, fn);
     }
@@ -2153,6 +2300,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
   const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz, zustaende}, weiter, ansageId) => {
+    merken('Zug');
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
     // Steht noch etwas in der Reihe, wird nicht zugemacht: es geht
@@ -2181,14 +2329,14 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     // und der Bogen zeigt es an.
     if (konz) {
       const c = helden.find(h => h.id === konz.charId);
-      if (c) onHeldAendern(konz.charId, {konzentration: konz.wert}, c.name);
+      if (c) heldAendern(konz.charId, {konzentration: konz.wert}, c.name);
     }
     // Der Zauberplatz gehoert in den Bogen, nicht in den Kampf.
     if (platz) {
       const c = helden.find(h => h.id === platz.charId);
       if (c) {
         const alt = (c.spellSlots || {})[platz.grad] || {max:0, used:0};
-        onHeldAendern(platz.charId, {spellSlots: {...(c.spellSlots || {}),
+        heldAendern(platz.charId, {spellSlots: {...(c.spellSlots || {}),
           [platz.grad]: {...alt, used: Math.min(+alt.max || 0, (+alt.used || 0) + 1)}}}, c.name);
       }
     }
@@ -2197,7 +2345,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     if (verbrauch) {
       const c = helden.find(h => h.id === verbrauch.charId);
       if (c) {
-        onHeldAendern(verbrauch.charId, {inventory: (c.inventory || []).map(i =>
+        heldAendern(verbrauch.charId, {inventory: (c.inventory || []).map(i =>
           i.id === verbrauch.itemId ? {...i, qty: Math.max(0, (+i.qty || 0) - 1)} : i)}, c.name);
       }
     }
@@ -2207,6 +2355,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     const {id, modus} = wertDlg;
     setWertDlg(null);
     if (!n) return;
+    merken('Trefferpunkte');
     if (modus === 'schaden') aendernWerte(id, t => n > 0 ? schaden(t, n) : heilen(t, -n),
                                           n > 0 ? {art:'schaden', wert:n} : {art:'heilung', wert:-n});
     if (modus === 'heilung') aendernWerte(id, t => n > 0 ? heilen(t, n) : schaden(t, -n),
@@ -2226,17 +2375,20 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   };
 
   const zustand = (id, z) => {
+    merken('Zustand');
     const t = liste.find(x => x.id === id);
     if (t) protokollieren({art:'zustand', wer: t.name, was: z, an: !(t.zustaende||[]).includes(z)});
     aendernKampf(id, t2 => ({...t2,
       zustaende: (t2.zustaende||[]).includes(z) ? (t2.zustaende||[]).filter(x=>x!==z) : [...(t2.zustaende||[]), z]}));
   };
   const marke = (id, k) => {
+    merken('Vorteil/Nachteil');
     const t = liste.find(x => x.id === id);
     if (t) protokollieren({art:'marke', wer: t.name, was: k === 'vorteil' ? 'Vorteil' : 'Nachteil', an: !t[k]});
     aendernKampf(id, t2 => ({...t2, [k]: !t2[k]}));
   };
   const erschoepfung = (id, stufe) => {
+    merken('Erschöpfung');
     const t = liste.find(x => x.id === id);
     const neu = Math.max(0, Math.min(6, stufe));
     if (t && (t.erschoepfung||0) !== neu) protokollieren({art:'ersch', wer: t.name, wert: neu});
@@ -2280,18 +2432,18 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     return neuOrdnen(k, k.teilnehmer.map(t => t.id===id ? {...t, ini: Number.isFinite(n) ? n : null} : t));
   });
 
-  const entfernen = (id) => setKampf(k => {
+  const entfernen = (id) => { merken('Entfernen', true); setKampf(k => {
     const raus = k.teilnehmer.find(t => t.id === id);
     const idx = k.teilnehmer.findIndex(t => t.id === id);
     const teilnehmer = k.teilnehmer.filter(t => t.id !== id);
     const zug = idx < k.zug ? Math.max(0, k.zug-1) : Math.min(k.zug, Math.max(0, teilnehmer.length-1));
     return mitLog({...k, teilnehmer, zug},
       [{art:'weg', r: k.runde, wer: (raus && (heldName(raus) || raus.name)) || 'Jemand'}]);
-  });
+  }); };
 
-  const dazu = (neue) => setKampf(k => mitLog(neuOrdnen(k, [...k.teilnehmer, ...neue]),
+  const dazu = (neue) => { merken('Dazu', true); setKampf(k => mitLog(neuOrdnen(k, [...k.teilnehmer, ...neue]),
     neue.map(t => ({art:'dazu', r: k.runde,
-                    wer: heldName(t) || t.name, hp: t.hpMax, ac: t.ac}))));
+                    wer: heldName(t) || t.name, hp: t.hpMax, ac: t.ac})))); };
 
   // Eine vorbereitete Begegnung in den laufenden Kampf. Steht noch kein
   // Gegner drin und heisst der Kampf noch wie der leere, uebernimmt er den
@@ -2301,6 +2453,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     setBegegnungOffen(false);
     const neue = gegnerAusBegegnung(b, enemies);
     if (!neue.length) return;
+    merken('Begegnung', true);
     setKampf(k => {
       const leer = !k.teilnehmer.some(t => t.art === 'gegner');
       return neuOrdnen({...k, name: (leer && b.name) ? b.name : k.name},
@@ -2344,10 +2497,11 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
         setArchivStand(n => n + 1);
       }
       zuletztAmZug.current = null;
+      rueckStapel.current = [];
       setKampf(kampfAufstellen({name: 'Kampf', enemies: []}, enemies, helden, setDefs));
     }, 'Beenden');
 
-  const naechster = () => setKampf(k => {
+  const naechster = () => { merken('Zugwechsel'); setKampf(k => {
     if (!k.teilnehmer.length) return k;
     const naechsterZug = k.zug + 1;
     if (naechsterZug < k.teilnehmer.length)
@@ -2358,11 +2512,12 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
     return {...k, zwischen: null, zug: 0, runde: k.runde + 1,
       log: inVorbereitung(k) ? k.log
         : logMitAufnahme(k.log, karteAufnahme(k.karte, liste), k.runde)};
-  });
+  }); };
 
   // Jemand kommt dazwischen — und danach geht es weiter, wo es
   // unterbrochen wurde. Deshalb ruehrt das den Zug nicht an.
   const dazwischen = (t) => {
+    merken('Dazwischen');
     setKampf(k => k && ({...k, zwischen: t.id}));
     protokollieren({art: 'zwischen', id: t.id, wer: t.name});
   };
@@ -2370,7 +2525,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
 
   // Wuerfelt nur fuer die, bei denen noch nichts steht — eine angesagte
   // Zahl wird nicht ueberschrieben.
-  const alleIni = () => setKampf(k => neuOrdnen(k, k.teilnehmer.map(t =>
+  const alleIni = () => merken('Initiativen', true) || setKampf(k => neuOrdnen(k, k.teilnehmer.map(t =>
     t.ini !== null ? t : {...t, ini: w20() + mod(heldDex(t))})));
 
   const protokollKopieren = async () => {
@@ -2501,6 +2656,12 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
               <button className="kampf-weiter" onClick={naechster}>Nächster ▶</button>
             )
           )}
+          {/* Neben dem Weiterklicken, nicht hinter den drei Punkten: gebraucht
+              wird es genau dann, wenn man sich gerade verklickt hat. */}
+          <button className="kampf-rueck" onClick={rueckgaengig} disabled={!rueckLetzter}
+            aria-label="Letzten Handgriff zurücknehmen"
+            title={rueckLetzter ? 'Zurücknehmen: ' + rueckLetzter.was
+                                : 'Noch nichts zum Zurücknehmen'}>↶</button>
           <button className="kampf-kopf-x" onClick={onSchliessen}
             title="Nur schließen, der Kampf läuft weiter" aria-label="Kampftracker schließen">✕</button>
         </div>
@@ -2681,14 +2842,14 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                 ? ()=>dazwischen(t) : undefined}
               zustandOffen={zustandOffen} setZustandOffen={setZustandOffen}
               detailOffen={detailOffen} setDetailOffen={setDetailOffen}
-              onWert={(modus,n)=>wertDirekt(t.id, modus, n)}
+              onWert={(modus,n)=>{ merken('Trefferpunkte'); wertDirekt(t.id, modus, n); }}
               onFenster={(modus)=>setWertDlg({id:t.id, modus})}
               onZug={zugfensterAn ? ()=>setZugFenster({id: t.id}) : undefined}
               onIni={v=>ini(t.id,v)} onNotiz={v=>notiz(t.id,v)}
               onNotizFertig={t.art === 'held' ? onHeldNotizSichern : undefined}
               onZustand={z=>zustand(t.id,z)} onMarke={k=>marke(t.id,k)}
               onErschoepfung={st=>erschoepfung(t.id,st)}
-              onTodes={(d)=>aendernWerte(t.id, alt => ({...alt, deathSaves:d}), {art:'todes'})}
+              onTodes={(d)=>merken('Todesrettungswurf') || aendernWerte(t.id, alt => ({...alt, deathSaves:d}), {art:'todes'})}
               onEntfernen={()=>entfernen(t.id)} onBlatt={onGegnerBlatt}
               auf={(handelnd && handelnd.id === t.id) || zeileOffen === t.id}
               onAufklappen={()=>setZeileOffen(o => o === t.id ? null : t.id)} />
