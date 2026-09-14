@@ -392,7 +392,7 @@ const HeldTextFenster = ({char, klassen, setDefs, onZu}) => {
   };
 
   return (
-    <Fenster onZu={onZu}>
+    <Fenster onZu={onZu} leiste={{id: 'heldtext', titel: 'Als Text', symbol: '📋', zaehler: (char && char.name) || ''}}>
       <div className="form-modal breit" style={{maxWidth:900}}>
         <div className="form-title">📋 {char.name} als Text</div>
         <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:12,lineHeight:1.5}}>

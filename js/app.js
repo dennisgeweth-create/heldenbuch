@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.9';
+const HB_VERSION = 'v5.10';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -278,10 +278,42 @@ const fensterAusgang = el => {
 // Fuss mal "Schließen" und mal "Abbrechen", je nachdem, ob gerade ein
 // Eintrag bearbeitet wird, und das Kreuz soll beide Male dasselbe tun.
 // onClick bleibt, was es war: der Klick auf den Hintergrund.
+// Mit `leiste` ({id, titel, symbol, zaehler}) ist das Fenster kein Vorhang,
+// sondern schwebt: das Heldenbuch dahinter bleibt bedienbar, das Fenster
+// steht in der Fensterleiste und hat statt des Zuklappens ein Minimieren.
+// So sind die Fenster gebaut, die man länger offen hat — Laden, Beute,
+// Rast, Post, der Bogen als Text, die Datenbank. Formulare bleiben Vorhang.
 const Fenster = ({
+  leiste,
+  ...props
+}) => {
+  if (!leiste) return /*#__PURE__*/React.createElement(FensterLeib, props);
+  return /*#__PURE__*/React.createElement(FensterMitLeiste, _extends({
+    leiste: leiste
+  }, props));
+};
+const FensterMitLeiste = ({
+  leiste,
+  ...props
+}) => {
+  const zu = React.useRef(null);
+  return /*#__PURE__*/React.createElement(LeistenFenster, {
+    id: leiste.id,
+    titel: leiste.titel,
+    symbol: leiste.symbol,
+    zaehler: leiste.zaehler,
+    onSchliessen: () => zu.current && zu.current()
+  }, /*#__PURE__*/React.createElement(FensterLeib, _extends({}, props, {
+    schwebend: true,
+    schliesserRef: zu
+  })));
+};
+const FensterLeib = ({
   onClick,
   onZu,
   children,
+  schwebend,
+  schliesserRef,
   ...rest
 }) => {
   const [pos, setPos] = useState(null); // null = mittig, wie bisher
@@ -306,6 +338,7 @@ const Fenster = ({
     const k = fensterAusgang(haus.current);
     if (k) k.click();
   };
+  if (schliesserRef) schliesserRef.current = schliessen;
 
   // Geschoben wird am Kopf — und nur dort, damit ein Griff daneben nicht
   // aus Versehen das ganze Fenster mitnimmt.
@@ -401,7 +434,9 @@ const Fenster = ({
     innen.splice(kopfI, 0, /*#__PURE__*/React.createElement("div", {
       className: "fenster-knoepfe",
       key: "hb-fenster-knoepfe"
-    }, /*#__PURE__*/React.createElement("button", {
+    }, schwebend ? /*#__PURE__*/React.createElement(MiniKnopf, {
+      className: "fenster-knopf"
+    }) : /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "fenster-knopf",
       onClick: () => setZu(z => !z),
@@ -450,8 +485,8 @@ const Fenster = ({
   // Der Vorhang verschwindet deshalb, sobald das Fenster verschoben ist
   // - genau wie beim Zuklappen.
   return /*#__PURE__*/React.createElement("div", _extends({
-    className: 'form-overlay' + (zu ? ' zu' : '') + (pos ? ' los' : ''),
-    onClick: onClick
+    className: 'form-overlay' + (zu ? ' zu' : '') + (pos ? ' los' : '') + (schwebend ? ' schwebend' : ''),
+    onClick: schwebend ? undefined : onClick
   }, rest), gehaeuse);
 };
 
@@ -873,18 +908,46 @@ const useEingeklappt = (schluessel, anfang) => {
 // zurückholt, holt den Tracker mit.
 const FensterLeisteCtx = React.createContext(null);
 const FensterIdCtx = React.createContext(null);
+
+// Was das Gerät sich merkt: welche Fenster offen waren, welche davon in
+// der Leiste lagen und welches vorn stand. Gelesen wird einmal beim
+// Start — bevor die Anwendung selbst etwas hineinschreibt.
+const FL_SPEICHER = 'hb_fensterleiste';
+const flGemerkt = (() => {
+  try {
+    const d = JSON.parse(localStorage.getItem(FL_SPEICHER) || 'null') || {};
+    return {
+      offen: Array.isArray(d.offen) ? d.offen : [],
+      versteckt: d.versteckt && typeof d.versteckt === 'object' ? d.versteckt : {},
+      vorne: Array.isArray(d.vorne) ? d.vorne : []
+    };
+  } catch (e) {
+    return {
+      offen: [],
+      versteckt: {},
+      vorne: []
+    };
+  }
+})();
 const useFensterLeiste = () => {
-  const [fenster, setFenster] = React.useState({}); // id → {titel, symbol, zaehler, eltern, reihe}
-  const [versteckt, setVersteckt] = React.useState({}); // id → true
+  const [fenster, setFenster] = React.useState({}); // id → {titel, symbol, zaehler, eltern, reihe, schliessbar}
+  const [versteckt, setVersteckt] = React.useState(() => ({
+    ...flGemerkt.versteckt
+  }));
+  const [vorne, setVorne] = React.useState(() => [...flGemerkt.vorne]); // hinten … vorn
   const schliesser = React.useRef({});
   const reihe = React.useRef(0);
   const fensterRef = React.useRef(fenster);
   fensterRef.current = fenster;
+  const nachVorn = React.useCallback(id => setVorne(v => v[v.length - 1] === id ? v : [...v.filter(x => x !== id), id]), []);
   const anmelden = React.useCallback((id, info) => {
     schliesser.current[id] = info.schliessen;
+    let neu = false;
     setFenster(f => {
       const alt = f[id];
-      if (alt && alt.titel === info.titel && alt.symbol === info.symbol && alt.zaehler === info.zaehler && alt.eltern === info.eltern) return f;
+      const schliessbar = !!info.schliessbar;
+      if (alt && alt.titel === info.titel && alt.symbol === info.symbol && alt.zaehler === info.zaehler && alt.eltern === info.eltern && alt.schliessbar === schliessbar) return f;
+      if (!alt) neu = true;
       return {
         ...f,
         [id]: {
@@ -892,10 +955,14 @@ const useFensterLeiste = () => {
           symbol: info.symbol,
           zaehler: info.zaehler,
           eltern: info.eltern || null,
+          schliessbar,
           reihe: alt ? alt.reihe : ++reihe.current
         }
       };
     });
+    // Was neu aufgeht, steht vorn — ausser es war beim letzten Mal schon
+    // da, dann behält es seinen Platz.
+    if (!flGemerkt.vorne.includes(id)) nachVorn(id);
   }, []);
   const abmelden = React.useCallback(id => {
     delete schliesser.current[id];
@@ -915,43 +982,71 @@ const useFensterLeiste = () => {
       delete n[id];
       return n;
     });
+    setVorne(v => v.includes(id) ? v.filter(x => x !== id) : v);
   }, []);
   const minimieren = React.useCallback(id => setVersteckt(v => ({
     ...v,
     [id]: true
   })), []);
   // Zeigen holt die Eltern mit — sonst stünde die Karte sichtbar in einem
-  // versteckten Tracker.
-  const zeigen = React.useCallback(id => setVersteckt(v => {
-    const f = fensterRef.current;
-    let k = id,
-      schritte = 0,
-      geaendert = false;
-    const n = {
-      ...v
-    };
-    while (k && schritte++ < 5) {
-      if (n[k]) {
-        delete n[k];
-        geaendert = true;
+  // versteckten Tracker — und stellt das Fenster nach vorn.
+  const zeigen = React.useCallback(id => {
+    setVersteckt(v => {
+      const f = fensterRef.current;
+      let k = id,
+        schritte = 0,
+        geaendert = false;
+      const n = {
+        ...v
+      };
+      while (k && schritte++ < 5) {
+        if (n[k]) {
+          delete n[k];
+          geaendert = true;
+        }
+        k = f[k] && f[k].eltern;
       }
-      k = f[k] && f[k].eltern;
-    }
-    return geaendert ? n : v;
-  }), []);
+      return geaendert ? n : v;
+    });
+    nachVorn(id);
+  }, []);
   const schliessen = React.useCallback(id => {
     const s = schliesser.current[id];
     if (s) s();
   }, []);
+
+  // Merken. Was beim Start gemerkt war und noch nicht wieder aufging,
+  // bleibt eine Weile stehen — die Anwendung braucht ein paar Sekunden,
+  // bis Beute, Rast und Laden vom Server da sind.
+  const start = React.useRef(Date.now());
+  React.useEffect(() => {
+    const frisch = Date.now() - start.current < 20000;
+    const offen = Object.keys(fenster);
+    const merkOffen = frisch ? [...new Set([...offen, ...flGemerkt.offen])] : offen;
+    const merkVersteckt = {};
+    Object.keys(versteckt).forEach(id => {
+      if (versteckt[id] && (fenster[id] || frisch && flGemerkt.offen.includes(id))) merkVersteckt[id] = true;
+    });
+    try {
+      localStorage.setItem(FL_SPEICHER, JSON.stringify({
+        offen: merkOffen,
+        versteckt: merkVersteckt,
+        vorne: vorne.filter(id => merkOffen.includes(id))
+      }));
+    } catch (e) {}
+  }, [fenster, versteckt, vorne]);
   return React.useMemo(() => ({
     fenster,
     versteckt,
+    vorne,
     anmelden,
     abmelden,
     minimieren,
     zeigen,
-    schliessen
-  }), [fenster, versteckt]);
+    schliessen,
+    nachVorn,
+    gemerkt: flGemerkt
+  }), [fenster, versteckt, vorne]);
 };
 
 // Ob ein Fenster gerade zu sehen ist — es selbst und alle, in denen es steht.
@@ -978,6 +1073,7 @@ const LeistenFenster = ({
   zu.current = onSchliessen;
   const anmelden = ctx && ctx.anmelden;
   const abmelden = ctx && ctx.abmelden;
+  const schliessbar = !!onSchliessen;
   React.useEffect(() => {
     if (!anmelden) return;
     anmelden(id, {
@@ -985,18 +1081,28 @@ const LeistenFenster = ({
       symbol,
       zaehler: zaehler == null ? '' : String(zaehler),
       eltern,
+      schliessbar,
       schliessen: () => zu.current && zu.current()
     });
-  }, [anmelden, id, titel, symbol, zaehler, eltern]);
+  }, [anmelden, id, titel, symbol, zaehler, eltern, schliessbar]);
   React.useEffect(() => () => {
     if (abmelden) abmelden(id);
   }, [abmelden, id]);
   const versteckt = !!(ctx && ctx.versteckt[id]);
+  // Wer vorn steht, bekommt die höchste Ebene. Die Zahl reicht über eine
+  // CSS-Variable an das Fenster darin — die Hülle selbst hat keine Box.
+  const rang = ctx ? Math.max(0, ctx.vorne.indexOf(id)) : 0;
   return /*#__PURE__*/React.createElement(FensterIdCtx.Provider, {
     value: id
   }, /*#__PURE__*/React.createElement("div", {
     className: "fl-huelle",
-    hidden: versteckt
+    hidden: versteckt,
+    style: {
+      '--fl-z': Math.min(rang, 9)
+    },
+    onPointerDownCapture: () => {
+      if (ctx && ctx.vorne[ctx.vorne.length - 1] !== id) ctx.nachVorn(id);
+    }
   }, children));
 };
 
@@ -1051,7 +1157,7 @@ const FensterLeiste = () => {
       className: "fl-titel"
     }, f.titel), f.zaehler ? /*#__PURE__*/React.createElement("span", {
       className: "fl-zaehler"
-    }, f.zaehler) : null), /*#__PURE__*/React.createElement("button", {
+    }, f.zaehler) : null), f.schliessbar && /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "fl-x",
       title: f.titel + ' schließen',
@@ -17200,7 +17306,17 @@ const ProbenBalken = ({
       onClick: () => setZu(false)
     }, "\uD83C\uDFB2 ", probeWort(probe));
   }
-  return /*#__PURE__*/React.createElement("div", {
+
+  // In der Fensterleiste statt eines eigenen Knopfs am Rand. Schließen
+  // gibt es dort nur für die Spielleitung — für alle anderen geht die
+  // Probe von selbst, wenn sie abgeräumt wird.
+  return /*#__PURE__*/React.createElement(LeistenFenster, {
+    id: "probe",
+    titel: probeWort(probe),
+    symbol: "\uD83C\uDFB2",
+    zaehler: (probe.antworten || []).length ? (probe.antworten || []).length + ' gewürfelt' : '',
+    onSchliessen: isDmMode ? onAbraeumen : undefined
+  }, /*#__PURE__*/React.createElement("div", {
     className: "probe-balken"
   }, /*#__PURE__*/React.createElement("div", {
     className: "probe-kopf"
@@ -17210,11 +17326,9 @@ const ProbenBalken = ({
     className: "probe-sg"
   }, "SG ", probe.sg), probe.verdeckt && /*#__PURE__*/React.createElement("span", {
     className: "probe-sg verdeckt"
-  }, "verdeckt"), /*#__PURE__*/React.createElement("button", {
-    className: "automat-x",
-    onClick: () => setZu(true),
-    title: "Einklappen"
-  }, "\u25BE")), probe.text && /*#__PURE__*/React.createElement("div", {
+  }, "verdeckt"), /*#__PURE__*/React.createElement(MiniKnopf, {
+    className: "automat-mini"
+  })), probe.text && /*#__PURE__*/React.createElement("div", {
     className: "probe-text"
   }, probe.text), gefragt.map(c => {
     const a = antwortVon(c.id);
@@ -17343,7 +17457,7 @@ const ProbenBalken = ({
       },
       onClick: onAbraeumen
     }, "Abr\xE4umen"));
-  })());
+  })()));
 };
 
 // ==== js/src/2i-beute.jsx ====
@@ -17666,7 +17780,13 @@ const BeuteFenster = ({
   }));
   if (!beute) return null;
   return /*#__PURE__*/React.createElement(Fenster, {
-    onClick: onSchliessen
+    onClick: onSchliessen,
+    leiste: {
+      id: 'beute',
+      titel: 'Beute',
+      symbol: '💰',
+      zaehler: (beute && beute.stuecke || []).filter(x => !x.an).length || ''
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal",
     style: {
@@ -18034,7 +18154,12 @@ const LadenFenster = ({
     return (+i.wert || 0) > 0 ? Math.round(+i.wert * kauf) : 0;
   };
   return /*#__PURE__*/React.createElement(Fenster, {
-    onClick: onSchliessen
+    onClick: onSchliessen,
+    leiste: {
+      id: 'laden',
+      titel: laden && laden.name || 'Laden',
+      symbol: '🏪'
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal laden-fenster",
     onClick: e => e.stopPropagation()
@@ -18530,7 +18655,13 @@ const HeldTextFenster = ({
     setTimeout(() => setStand(null), 4000);
   };
   return /*#__PURE__*/React.createElement(Fenster, {
-    onZu: onZu
+    onZu: onZu,
+    leiste: {
+      id: 'heldtext',
+      titel: 'Als Text',
+      symbol: '📋',
+      zaehler: char && char.name || ''
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal breit",
     style: {
@@ -18635,7 +18766,12 @@ const PostFenster = ({
     });
   };
   return /*#__PURE__*/React.createElement(Fenster, {
-    onClick: onSchliessen
+    onClick: onSchliessen,
+    leiste: {
+      id: 'post',
+      titel: 'An die Spielleitung',
+      symbol: '✉'
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal post-fenster",
     onClick: e => e.stopPropagation()
@@ -18711,7 +18847,13 @@ const PostfachFenster = ({
 }) => {
   const sortiert = [...post].sort((a, b) => a.gelesen - b.gelesen || b.zeit - a.zeit);
   return /*#__PURE__*/React.createElement(Fenster, {
-    onClick: onSchliessen
+    onClick: onSchliessen,
+    leiste: {
+      id: 'post',
+      titel: 'Post',
+      symbol: '✉',
+      zaehler: post.filter(p => !p.gelesen).length || ''
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal post-fenster",
     onClick: e => e.stopPropagation()
@@ -19683,7 +19825,13 @@ const RastFenster = ({
   const lage = rastStufe(rast.stufe);
   const offen = meine.filter(h => (rast.fuer || []).includes(h.id) && !erledigt(h.id));
   return /*#__PURE__*/React.createElement(Fenster, {
-    onClick: onSchliessen
+    onClick: onSchliessen,
+    leiste: {
+      id: 'rast',
+      titel: rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast',
+      symbol: '☾',
+      zaehler: (rast.antworten || []).length + '/' + (rast.fuer || []).length
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal rast-fenster",
     onClick: e => e.stopPropagation()
@@ -19904,6 +20052,7 @@ const Sheet = () => {
   // Spielleitung offen: sie ist es, die den Abend vorbereitet, und ein
   // fremder Bogen im Textfeld waere sonst mit einem Griff kopiert.
   const [textOffen, setTextOffen] = useState(false);
+  const fensterLeiste = React.useContext(FensterLeisteCtx);
   const [invSuche, setInvSuche] = useState("");
   const [betrag, setBetrag] = useState(""); // Gold, ausgeben oder einnehmen
   const [beutelMeldung, setBeutelMeldung] = useState("");
@@ -20225,7 +20374,10 @@ const Sheet = () => {
   }, isDmMode && /*#__PURE__*/React.createElement("button", {
     className: "kopf-knopf",
     title: "Den ganzen Bogen als Text \u2014 zum Weitergeben an eine KI",
-    onClick: () => setTextOffen(true)
+    onClick: () => {
+      setTextOffen(true);
+      if (fensterLeiste) fensterLeiste.zeigen('heldtext');
+    }
   }, /*#__PURE__*/React.createElement("span", {
     className: "kopf-zeichen"
   }, "\uD83D\uDCCB"), /*#__PURE__*/React.createElement("span", {
@@ -26722,6 +26874,25 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
+  // ── Die Fensterleiste nach dem Neuladen ────────────────────────
+  // Was beim letzten Mal offen war, geht wieder auf — sobald es das, was
+  // darin stehen soll, wieder gibt: der Laden, die Beute, die Rast kommen
+  // erst nach ein paar Sekunden vom Server. Wer bis dahin nicht da ist,
+  // bleibt zu. Minimiert war, bleibt minimiert (das weiß die Leiste selbst).
+  const flWartet = useRef(new Set(leiste.gemerkt.offen));
+  const flStart = useRef(Date.now());
+  const flOeffnen = (id, geht, oeffnen) => {
+    if (!flWartet.current.has(id)) return;
+    if (Date.now() - flStart.current > 20000) {
+      flWartet.current.delete(id);
+      return;
+    }
+    if (geht) {
+      flWartet.current.delete(id);
+      oeffnen();
+    }
+  };
+
   // ── Die Rast ───────────────────────────────────────────────────
   // Eine je Abenteuer. Gefragt wird wie bei der Beute: öfter, solange
   // eine angesagt ist, sonst selten. Kommt eine neue, geht das Fenster
@@ -26791,6 +26962,10 @@ function App() {
       appAlert('Das kam nicht durch: ' + (e.message || 'unbekannter Fehler'));
     }
   };
+  useEffect(() => {
+    flOeffnen('rast', !!rast, () => setRastOffen(true));
+  }, [rast]);
+
   // Übernehmen: erst in den Bogen, dann die Zeile an die Spielleitung.
   // Der Bogen geht seinen gewohnten Weg — gespeichert, abgeglichen, im
   // Log des Helden vermerkt.
@@ -26986,6 +27161,15 @@ function App() {
   useEffect(() => {
     beuteRef.current = beute;
   }, [beute]);
+  // Die übrigen Fenster der Leiste nach dem Neuladen (siehe flOeffnen).
+  useEffect(() => {
+    flOeffnen('taverne', true, () => setShowAutomat(true));
+    flOeffnen('datenbank', true, () => setShowDB(true));
+    flOeffnen('kampf', isDmMode && !!kampf && kampf.aktiv, () => setShowKampf(true));
+    flOeffnen('laden', !!laden, () => setLadenOffen(true));
+    flOeffnen('beute', !!beute, () => setBeuteOffen(true));
+    flOeffnen('post', !!(advId && konto), () => setPostOffen(true));
+  }, [isDmMode, kampf && kampf.aktiv, laden, beute, advId, konto]);
   useEffect(() => {
     const creds = serverCreds();
     if (!advId || !verbunden(creds)) {
@@ -29277,6 +29461,10 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => {
+      if (showDB) {
+        leiste.zeigen('datenbank');
+        return;
+      }
       setShowDB(true);
       setDbForm(null);
       setDbFormId(null);
@@ -29297,19 +29485,28 @@ function App() {
     }
   }, "\uD83D\uDCD6 Abenteuerlog"), svCode && advId && (isDmMode || rast) && /*#__PURE__*/React.createElement("button", {
     className: 'btn-tool' + (rast ? ' post-neu' : ''),
-    onClick: () => rast ? setRastOffen(true) : setRastAnsage(true),
+    onClick: () => rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true),
     title: rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'
   }, "\u263E ", rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast') + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '') : 'Rast'), svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && /*#__PURE__*/React.createElement("button", {
     className: 'btn-tool' + (postUngelesen ? ' post-neu' : ''),
-    onClick: () => setPostOffen(true),
+    onClick: () => {
+      setPostOffen(true);
+      leiste.zeigen('post');
+    },
     title: isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'
   }, "\u2709 ", isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'), (laden || isDmMode) && /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
-    onClick: () => setLadenOffen(true),
+    onClick: () => {
+      setLadenOffen(true);
+      leiste.zeigen('laden');
+    },
     title: "Kaufen und verkaufen"
   }, "\uD83C\uDFEA ", laden && laden.name || 'Laden'), beute ? /*#__PURE__*/React.createElement("button", {
     className: "btn-tool beute-knopf",
-    onClick: () => setBeuteOffen(true)
+    onClick: () => {
+      setBeuteOffen(true);
+      leiste.zeigen('beute');
+    }
   }, "\uD83D\uDCB0 Beute", /*#__PURE__*/React.createElement("span", null, (beute.stuecke || []).filter(s => !s.an).length || '')) : isDmMode ? /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => setBeuteAnlegen(true),
@@ -29433,6 +29630,10 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => {
+      if (showDB) {
+        leiste.zeigen('datenbank');
+        return;
+      }
       setShowDB(true);
       setDbForm(null);
       setDbFormId(null);
@@ -32252,7 +32453,12 @@ function App() {
     const DMG_TYPES = ['Hieb', 'Stich', 'Wucht', 'Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekro', 'Psycho', 'Energie', 'Kraft'];
     const WPN_PROPS = ['Finesse', 'Weit', 'Leicht', 'Schwer', 'Werfbar', 'Zweihändig', 'Vielseitig', 'Ladezeit', 'Besondere'];
     return /*#__PURE__*/React.createElement(Fenster, {
-      onZu: () => setShowDB(false)
+      onZu: () => setShowDB(false),
+      leiste: {
+        id: 'datenbank',
+        titel: 'Datenbank',
+        symbol: '📚'
+      }
     }, /*#__PURE__*/React.createElement("div", {
       className: "form-modal",
       style: {

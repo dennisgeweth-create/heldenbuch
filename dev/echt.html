@@ -107,6 +107,9 @@
     // einen Ort hat. Der Held steht ohne eigenes darin.
     localStorage.setItem('hb_library', JSON.stringify({_adventures: [{id: 'wb', name: 'Werkbank', rastRegel: 'grr'}]}));
     localStorage.setItem('hb_adventure', 'wb');
+    // Die Fensterleiste vom „letzten Mal": die Datenbank war offen und
+    // lag minimiert in der Leiste. Nach dem Start muss sie dort wieder stehen.
+    localStorage.setItem('hb_fensterleiste', JSON.stringify({offen: ['datenbank'], versteckt: {datenbank: true}, vorne: ['datenbank']}));
 
     // ── Ein laufender Kampf ────────────────────────────────────────
     // Brunhilde ist am Zug, ein Goblin steht gegenüber. Liegt er schon im
@@ -314,6 +317,20 @@
         if (!ja('Der DM-Modus geht auf', !!(await warten(() => knopfMit('🔮 aus')))))
           return schluss();
 
+        // ── Die Fensterleiste vom letzten Mal ──
+        const eintragL = (t) => [...document.querySelectorAll('.fl-eintrag')].find(e => e.textContent.includes(t));
+        const dbE = await warten(() => eintragL('Datenbank'), 4000);
+        ja('Die Datenbank vom letzten Mal steht wieder in der Leiste', !!dbE,
+           (document.querySelector('.fl-leiste') || {}).textContent || 'keine Leiste');
+        ja('  … minimiert, wie sie lag', !!dbE && dbE.classList.contains('zu'));
+        if (dbE) {
+          dbE.querySelector('.fl-knopf').click(); await ruhe(200);
+          ja('  … zurückgeholt ist sie ein schwebendes Fenster',
+             !!document.querySelector('.fl-huelle:not([hidden]) > .form-overlay.schwebend'));
+          eintragL('Datenbank').querySelector('.fl-x').click(); await ruhe(200);
+          ja('  … und über die Leiste geschlossen', !eintragL('Datenbank'));
+        }
+
         // ── Der Held ──
         const held = await warten(() =>
           [...document.querySelectorAll('*')].find(e =>
@@ -335,6 +352,8 @@
            kaputt.slice(vorher).join(' · '));
 
         const feld = await warten(() => document.querySelector('.hb-text-feld'));
+        ja('„Als Text" schwebt und steht in der Leiste',
+           !!document.querySelector('.form-overlay.schwebend .hb-text-feld') && !!eintragL('Als Text'));
         if (!ja('Das Textfenster geht auf', !!feld,
                 'genau das tat es bis v5.3.5 nicht')) return schluss();
 
@@ -400,6 +419,38 @@
           if (echt) { try { Object.defineProperty(navigator, 'clipboard', echt); } catch (e) {} }
         }
 
+        // ── Minimieren und über den Knopf im Kopf zurück ──
+        const miniT = document.querySelector('.form-overlay.schwebend .fl-mini');
+        if (ja('„Als Text" lässt sich minimieren', !!miniT)) {
+          miniT.click(); await ruhe(150);
+          ja('  … danach ist es versteckt', !!document.querySelector('.fl-huelle[hidden] .hb-text-feld'));
+          knopfMit('Als Text').click(); await ruhe(150);
+          ja('  … der Knopf im Kopf holt es zurück', !document.querySelector('.fl-huelle[hidden] .hb-text-feld')
+             && !!document.querySelector('.hb-text-feld'));
+        }
+
+        // ── Wer vorn liegt ──
+        const tavK = knopfMit('🎰 Taverne');
+        if (tavK) {
+          tavK.click(); await warten(() => document.querySelector('.automat-schirm'));
+          const zVon = (sel) => {
+            const el = document.querySelector(sel);
+            const h = el && el.closest('.fl-huelle');
+            return h ? +getComputedStyle(h).getPropertyValue('--fl-z') : -1;
+          };
+          ja('Die Taverne ist neu und liegt vorn', zVon('.automat-schirm') > zVon('.hb-text-feld'),
+             zVon('.automat-schirm') + ' / ' + zVon('.hb-text-feld'));
+          document.querySelector('.hb-text-feld').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
+          await ruhe(120);
+          ja('  … wer „Als Text" antippt, holt es nach vorn', zVon('.hb-text-feld') > zVon('.automat-schirm'),
+             zVon('.hb-text-feld') + ' / ' + zVon('.automat-schirm'));
+          const gem = JSON.parse(wbSpeicher.hb_fensterleiste || '{}');
+          ja('Das Gerät merkt sich, was offen ist und was vorn liegt',
+             (gem.offen || []).includes('taverne') && (gem.offen || []).includes('heldtext')
+             && (gem.vorne || [])[(gem.vorne || []).length - 1] === 'heldtext', JSON.stringify(gem));
+          eintragL('Taverne').querySelector('.fl-x').click(); await ruhe(150);
+        }
+
         // ── Zu und wieder auf ──
         const zu = knopfMit('Schließen');
         if (ja('Es lässt sich schließen', !!zu)) {
@@ -423,6 +474,9 @@
         const laden = await warten(() => knopfMit('🏪'));
         if (ja('Der Laden steht der Spielleitung offen', !!laden)) {
           laden.click();
+          await warten(() => document.querySelector('.laden-fenster'));
+          ja('  … als schwebendes Fenster in der Leiste',
+             !!document.querySelector('.form-overlay.schwebend .laden-fenster') && !!eintragL('Laden'));
           const aendern = await warten(() => knopfMit('Auslage ändern'));
           if (ja('  … und lässt sich ändern', !!aendern)) {
             aendern.click();

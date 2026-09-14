@@ -40,7 +40,7 @@ const PostFenster = ({ helden, post, onSenden, onZuruecknehmen, onSchliessen }) 
   };
 
   return (
-    <Fenster onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen} leiste={{id: 'post', titel: 'An die Spielleitung', symbol: '✉'}}>
       <div className="form-modal post-fenster" onClick={e=>e.stopPropagation()}>
         <div className="form-title">✉ An die Spielleitung</div>
         <div className="post-wink">
@@ -99,7 +99,8 @@ const PostFenster = ({ helden, post, onSenden, onZuruecknehmen, onSchliessen }) 
 const PostfachFenster = ({ post, onGelesen, onLoeschen, onSchliessen }) => {
   const sortiert = [...post].sort((a, b) => (a.gelesen - b.gelesen) || (b.zeit - a.zeit));
   return (
-    <Fenster onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen}
+      leiste={{id: 'post', titel: 'Post', symbol: '✉', zaehler: post.filter(p => !p.gelesen).length || ''}}>
       <div className="form-modal post-fenster" onClick={e=>e.stopPropagation()}>
         <div className="form-title">✉ Post von der Runde</div>
         <div className="post-liste">

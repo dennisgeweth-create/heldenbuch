@@ -241,7 +241,9 @@ const BeuteFenster = ({ beute, helden, isDmMode, darfNehmen, onNehmen, onSchlies
   if (!beute) return null;
 
   return (
-    <Fenster onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen}
+      leiste={{id: 'beute', titel: 'Beute', symbol: '💰',
+               zaehler: ((beute && beute.stuecke) || []).filter(x => !x.an).length || ''}}>
       <div className="form-modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
         <div className="form-title">💰 {beute.titel || 'Was gefunden wurde'}</div>
 

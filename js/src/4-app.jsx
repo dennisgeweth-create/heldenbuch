@@ -2000,7 +2000,20 @@ function App() {
     };
   }, [isDmMode, advId, svCode, konto]);
 
-  // ── Die Rast ───────────────────────────────────────────────────
+  // ── Die Fensterleiste nach dem Neuladen ────────────────────────
+  // Was beim letzten Mal offen war, geht wieder auf — sobald es das, was
+  // darin stehen soll, wieder gibt: der Laden, die Beute, die Rast kommen
+  // erst nach ein paar Sekunden vom Server. Wer bis dahin nicht da ist,
+  // bleibt zu. Minimiert war, bleibt minimiert (das weiß die Leiste selbst).
+  const flWartet = useRef(new Set(leiste.gemerkt.offen));
+  const flStart = useRef(Date.now());
+  const flOeffnen = (id, geht, oeffnen) => {
+    if (!flWartet.current.has(id)) return;
+    if (Date.now() - flStart.current > 20000) { flWartet.current.delete(id); return; }
+    if (geht) { flWartet.current.delete(id); oeffnen(); }
+  };
+
+    // ── Die Rast ───────────────────────────────────────────────────
   // Eine je Abenteuer. Gefragt wird wie bei der Beute: öfter, solange
   // eine angesagt ist, sonst selten. Kommt eine neue, geht das Fenster
   // bei jedem auf, der noch einen Helden darin hat.
@@ -2042,6 +2055,8 @@ function App() {
       if (!r) { setRast(null); rastRef.current = null; setRastOffen(false); }
     } catch (e) { appAlert('Das kam nicht durch: ' + (e.message || 'unbekannter Fehler')); }
   };
+  useEffect(() => { flOeffnen('rast', !!rast, () => setRastOffen(true)); }, [rast]);
+
   // Übernehmen: erst in den Bogen, dann die Zeile an die Spielleitung.
   // Der Bogen geht seinen gewohnten Weg — gespeichert, abgeglichen, im
   // Log des Helden vermerkt.
@@ -2177,6 +2192,15 @@ function App() {
   const beuteRef = useRef(null);
   const beuteStandRef = useRef(-1);
   useEffect(() => { beuteRef.current = beute; }, [beute]);
+  // Die übrigen Fenster der Leiste nach dem Neuladen (siehe flOeffnen).
+  useEffect(() => {
+    flOeffnen('taverne', true, () => setShowAutomat(true));
+    flOeffnen('datenbank', true, () => setShowDB(true));
+    flOeffnen('kampf', isDmMode && !!kampf && kampf.aktiv, () => setShowKampf(true));
+    flOeffnen('laden', !!laden, () => setLadenOffen(true));
+    flOeffnen('beute', !!beute, () => setBeuteOffen(true));
+    flOeffnen('post', !!(advId && konto), () => setPostOffen(true));
+  }, [isDmMode, kampf && kampf.aktiv, laden, beute, advId, konto]);
 
   useEffect(() => {
     const creds = serverCreds();
@@ -3602,7 +3626,7 @@ function App() {
                 verabschiedet. */}
             <button className="btn-new" onClick={openAssistent}>✦ Neuer Charakter</button>
             <div className="sidebar-tools">
-              <button className="btn-tool" onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
+              <button className="btn-tool" onClick={()=>{ if (showDB) { leiste.zeigen('datenbank'); return; } setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
               <button className="btn-tool" onClick={()=>{
                 setAdventSearch(''); setAdventTabFilter([]);
                 setShowAdventLog(true);
@@ -3614,7 +3638,7 @@ function App() {
                   sie, solange eine läuft. */}
               {svCode && advId && (isDmMode || rast) && (
                 <button className={'btn-tool' + (rast ? ' post-neu' : '')}
-                  onClick={()=> rast ? setRastOffen(true) : setRastAnsage(true)}
+                  onClick={()=> rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true)}
                   title={rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'}>
                   ☾ {rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast')
                            + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '')
@@ -3625,7 +3649,7 @@ function App() {
                   einen eigenen Helden im Abenteuer hat, kann schreiben. */}
               {svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && (
                 <button className={'btn-tool' + (postUngelesen ? ' post-neu' : '')}
-                  onClick={()=>setPostOffen(true)}
+                  onClick={()=>{ setPostOffen(true); leiste.zeigen('post'); }}
                   title={isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'}>
                   ✉ {isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'}
                 </button>
@@ -3633,13 +3657,13 @@ function App() {
               {/* Der Laden steht da, sobald die Spielleitung eine Auslage
                   hingelegt hat — vorher sieht ihn nur sie. */}
               {(laden || isDmMode) && (
-                <button className="btn-tool" onClick={()=>setLadenOffen(true)}
+                <button className="btn-tool" onClick={()=>{ setLadenOffen(true); leiste.zeigen('laden'); }}
                   title="Kaufen und verkaufen">🏪 {(laden && laden.name) || 'Laden'}</button>
               )}
               {/* Liegt ein Fund, sieht ihn jeder — sonst legt nur die
                   Spielleitung einen hin. */}
               {beute ? (
-                <button className="btn-tool beute-knopf" onClick={()=>setBeuteOffen(true)}>
+                <button className="btn-tool beute-knopf" onClick={()=>{ setBeuteOffen(true); leiste.zeigen('beute'); }}>
                   💰 Beute<span>{(beute.stuecke || []).filter(s => !s.an).length || ''}</span>
                 </button>
               ) : isDmMode ? (
@@ -3745,7 +3769,7 @@ function App() {
                   </div>
                 )}
                 <div className="sidebar-tools" style={{marginTop:10}}>
-                  <button className="btn-tool" onClick={()=>{setShowDB(true);setDbForm(null);setDbFormId(null);}}>
+                  <button className="btn-tool" onClick={()=>{ if (showDB) { leiste.zeigen('datenbank'); return; } setShowDB(true);setDbForm(null);setDbFormId(null);}}>
                     📚 Datenbank
                   </button>
                   <button className="btn-tool" onClick={()=>{
@@ -5061,7 +5085,7 @@ function App() {
         const DMG_TYPES = ['Hieb','Stich','Wucht','Feuer','Kälte','Blitz','Säure','Gift','Nekro','Psycho','Energie','Kraft'];
         const WPN_PROPS = ['Finesse','Weit','Leicht','Schwer','Werfbar','Zweihändig','Vielseitig','Ladezeit','Besondere'];
         return (
-          <Fenster onZu={()=>setShowDB(false)}>
+          <Fenster onZu={()=>setShowDB(false)} leiste={{id: 'datenbank', titel: 'Datenbank', symbol: '📚'}}>
             <div className="form-modal" style={{maxWidth:600,height:'85vh',display:'flex',flexDirection:'column'}}>
               <div className="form-title">📚 Datenbank verwalten {isDmMode && <span style={{fontSize:11,color:'#c060a0',fontFamily:"'Roboto Condensed',sans-serif",marginLeft:8}}>🔮 DM-Modus</span>}</div>
 

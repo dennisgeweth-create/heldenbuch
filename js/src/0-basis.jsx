@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.9';
+const HB_VERSION = 'v5.10';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -228,7 +228,25 @@ const fensterAusgang = (el) => {
 // Fuss mal "Schließen" und mal "Abbrechen", je nachdem, ob gerade ein
 // Eintrag bearbeitet wird, und das Kreuz soll beide Male dasselbe tun.
 // onClick bleibt, was es war: der Klick auf den Hintergrund.
-const Fenster = ({ onClick, onZu, children, ...rest }) => {
+// Mit `leiste` ({id, titel, symbol, zaehler}) ist das Fenster kein Vorhang,
+// sondern schwebt: das Heldenbuch dahinter bleibt bedienbar, das Fenster
+// steht in der Fensterleiste und hat statt des Zuklappens ein Minimieren.
+// So sind die Fenster gebaut, die man länger offen hat — Laden, Beute,
+// Rast, Post, der Bogen als Text, die Datenbank. Formulare bleiben Vorhang.
+const Fenster = ({ leiste, ...props }) => {
+  if (!leiste) return <FensterLeib {...props} />;
+  return <FensterMitLeiste leiste={leiste} {...props} />;
+};
+const FensterMitLeiste = ({ leiste, ...props }) => {
+  const zu = React.useRef(null);
+  return (
+    <LeistenFenster id={leiste.id} titel={leiste.titel} symbol={leiste.symbol} zaehler={leiste.zaehler}
+      onSchliessen={() => zu.current && zu.current()}>
+      <FensterLeib {...props} schwebend schliesserRef={zu} />
+    </LeistenFenster>
+  );
+};
+const FensterLeib = ({ onClick, onZu, children, schwebend, schliesserRef, ...rest }) => {
   const [pos, setPos] = useState(null);    // null = mittig, wie bisher
   const [zu, setZu]   = useState(false);
   const [ausgang, setAusgang] = useState(false);
@@ -244,6 +262,7 @@ const Fenster = ({ onClick, onZu, children, ...rest }) => {
     const k = fensterAusgang(haus.current);
     if (k) k.click();
   };
+  if (schliesserRef) schliesserRef.current = schliessen;
 
   // Geschoben wird am Kopf — und nur dort, damit ein Griff daneben nicht
   // aus Versehen das ganze Fenster mitnimmt.
@@ -315,9 +334,11 @@ const Fenster = ({ onClick, onZu, children, ...rest }) => {
     });
     innen.splice(kopfI, 0, (
       <div className="fenster-knoepfe" key="hb-fenster-knoepfe">
+        {schwebend ? <MiniKnopf className="fenster-knopf" /> : (
         <button type="button" className="fenster-knopf" onClick={()=>setZu(z=>!z)}
           aria-expanded={!zu} title={zu ? 'Wieder aufklappen' : 'Zuklappen — an das Heldenbuch dahinter'}
           aria-label={zu ? 'Fenster aufklappen' : 'Fenster zuklappen'}>{zu ? '▴' : '▾'}</button>
+        )}
         {ausgang && (
           <button type="button" className="fenster-knopf" onClick={schliessen}
             title="Schließen" aria-label="Fenster schließen">✕</button>
@@ -353,8 +374,8 @@ const Fenster = ({ onClick, onZu, children, ...rest }) => {
   // Der Vorhang verschwindet deshalb, sobald das Fenster verschoben ist
   // - genau wie beim Zuklappen.
   return (
-    <div className={'form-overlay' + (zu ? ' zu' : '') + (pos ? ' los' : '')}
-      onClick={onClick} {...rest}>
+    <div className={'form-overlay' + (zu ? ' zu' : '') + (pos ? ' los' : '') + (schwebend ? ' schwebend' : '')}
+      onClick={schwebend ? undefined : onClick} {...rest}>
       {gehaeuse}
     </div>
   );
@@ -694,47 +715,94 @@ const useEingeklappt = (schluessel, anfang) => {
 const FensterLeisteCtx = React.createContext(null);
 const FensterIdCtx = React.createContext(null);
 
+// Was das Gerät sich merkt: welche Fenster offen waren, welche davon in
+// der Leiste lagen und welches vorn stand. Gelesen wird einmal beim
+// Start — bevor die Anwendung selbst etwas hineinschreibt.
+const FL_SPEICHER = 'hb_fensterleiste';
+const flGemerkt = (() => {
+  try {
+    const d = JSON.parse(localStorage.getItem(FL_SPEICHER) || 'null') || {};
+    return {offen: Array.isArray(d.offen) ? d.offen : [],
+            versteckt: (d.versteckt && typeof d.versteckt === 'object') ? d.versteckt : {},
+            vorne: Array.isArray(d.vorne) ? d.vorne : []};
+  } catch (e) { return {offen: [], versteckt: {}, vorne: []}; }
+})();
+
 const useFensterLeiste = () => {
-  const [fenster, setFenster] = React.useState({});     // id → {titel, symbol, zaehler, eltern, reihe}
-  const [versteckt, setVersteckt] = React.useState({}); // id → true
+  const [fenster, setFenster] = React.useState({});     // id → {titel, symbol, zaehler, eltern, reihe, schliessbar}
+  const [versteckt, setVersteckt] = React.useState(() => ({...flGemerkt.versteckt}));
+  const [vorne, setVorne] = React.useState(() => [...flGemerkt.vorne]);   // hinten … vorn
   const schliesser = React.useRef({});
   const reihe = React.useRef(0);
   const fensterRef = React.useRef(fenster);
   fensterRef.current = fenster;
+  const nachVorn = React.useCallback((id) => setVorne(v =>
+    v[v.length - 1] === id ? v : [...v.filter(x => x !== id), id]), []);
   const anmelden = React.useCallback((id, info) => {
     schliesser.current[id] = info.schliessen;
+    let neu = false;
     setFenster(f => {
       const alt = f[id];
-      if (alt && alt.titel === info.titel && alt.symbol === info.symbol
-          && alt.zaehler === info.zaehler && alt.eltern === info.eltern) return f;
+      const schliessbar = !!info.schliessbar;
+      if (alt && alt.titel === info.titel && alt.symbol === info.symbol && alt.zaehler === info.zaehler
+          && alt.eltern === info.eltern && alt.schliessbar === schliessbar) return f;
+      if (!alt) neu = true;
       return {...f, [id]: {titel: info.titel, symbol: info.symbol, zaehler: info.zaehler,
-                           eltern: info.eltern || null, reihe: alt ? alt.reihe : ++reihe.current}};
+                           eltern: info.eltern || null, schliessbar,
+                           reihe: alt ? alt.reihe : ++reihe.current}};
     });
+    // Was neu aufgeht, steht vorn — ausser es war beim letzten Mal schon
+    // da, dann behält es seinen Platz.
+    if (!flGemerkt.vorne.includes(id)) nachVorn(id);
   }, []);
   const abmelden = React.useCallback((id) => {
     delete schliesser.current[id];
     setFenster(f => { if (!f[id]) return f; const n = {...f}; delete n[id]; return n; });
     setVersteckt(v => { if (!v[id]) return v; const n = {...v}; delete n[id]; return n; });
+    setVorne(v => v.includes(id) ? v.filter(x => x !== id) : v);
   }, []);
   const minimieren = React.useCallback((id) => setVersteckt(v => ({...v, [id]: true})), []);
   // Zeigen holt die Eltern mit — sonst stünde die Karte sichtbar in einem
-  // versteckten Tracker.
-  const zeigen = React.useCallback((id) => setVersteckt(v => {
-    const f = fensterRef.current;
-    let k = id, schritte = 0, geaendert = false;
-    const n = {...v};
-    while (k && schritte++ < 5) {
-      if (n[k]) { delete n[k]; geaendert = true; }
-      k = f[k] && f[k].eltern;
-    }
-    return geaendert ? n : v;
-  }), []);
+  // versteckten Tracker — und stellt das Fenster nach vorn.
+  const zeigen = React.useCallback((id) => {
+    setVersteckt(v => {
+      const f = fensterRef.current;
+      let k = id, schritte = 0, geaendert = false;
+      const n = {...v};
+      while (k && schritte++ < 5) {
+        if (n[k]) { delete n[k]; geaendert = true; }
+        k = f[k] && f[k].eltern;
+      }
+      return geaendert ? n : v;
+    });
+    nachVorn(id);
+  }, []);
   const schliessen = React.useCallback((id) => {
     const s = schliesser.current[id];
     if (s) s();
   }, []);
-  return React.useMemo(() => ({fenster, versteckt, anmelden, abmelden, minimieren, zeigen, schliessen}),
-                       [fenster, versteckt]);
+
+  // Merken. Was beim Start gemerkt war und noch nicht wieder aufging,
+  // bleibt eine Weile stehen — die Anwendung braucht ein paar Sekunden,
+  // bis Beute, Rast und Laden vom Server da sind.
+  const start = React.useRef(Date.now());
+  React.useEffect(() => {
+    const frisch = Date.now() - start.current < 20000;
+    const offen = Object.keys(fenster);
+    const merkOffen = frisch ? [...new Set([...offen, ...flGemerkt.offen])] : offen;
+    const merkVersteckt = {};
+    Object.keys(versteckt).forEach(id => {
+      if (versteckt[id] && (fenster[id] || (frisch && flGemerkt.offen.includes(id)))) merkVersteckt[id] = true;
+    });
+    try {
+      localStorage.setItem(FL_SPEICHER, JSON.stringify({offen: merkOffen, versteckt: merkVersteckt,
+        vorne: vorne.filter(id => merkOffen.includes(id))}));
+    } catch (e) {}
+  }, [fenster, versteckt, vorne]);
+
+  return React.useMemo(() => ({fenster, versteckt, vorne, anmelden, abmelden, minimieren, zeigen,
+                               schliessen, nachVorn, gemerkt: flGemerkt}),
+                       [fenster, versteckt, vorne]);
 };
 
 // Ob ein Fenster gerade zu sehen ist — es selbst und alle, in denen es steht.
@@ -754,16 +822,23 @@ const LeistenFenster = ({ id, titel, symbol, zaehler, onSchliessen, children }) 
   zu.current = onSchliessen;
   const anmelden = ctx && ctx.anmelden;
   const abmelden = ctx && ctx.abmelden;
+  const schliessbar = !!onSchliessen;
   React.useEffect(() => {
     if (!anmelden) return;
-    anmelden(id, {titel, symbol, zaehler: zaehler == null ? '' : String(zaehler), eltern,
+    anmelden(id, {titel, symbol, zaehler: zaehler == null ? '' : String(zaehler), eltern, schliessbar,
                   schliessen: () => zu.current && zu.current()});
-  }, [anmelden, id, titel, symbol, zaehler, eltern]);
+  }, [anmelden, id, titel, symbol, zaehler, eltern, schliessbar]);
   React.useEffect(() => () => { if (abmelden) abmelden(id); }, [abmelden, id]);
   const versteckt = !!(ctx && ctx.versteckt[id]);
+  // Wer vorn steht, bekommt die höchste Ebene. Die Zahl reicht über eine
+  // CSS-Variable an das Fenster darin — die Hülle selbst hat keine Box.
+  const rang = ctx ? Math.max(0, ctx.vorne.indexOf(id)) : 0;
   return (
     <FensterIdCtx.Provider value={id}>
-      <div className="fl-huelle" hidden={versteckt}>{children}</div>
+      <div className="fl-huelle" hidden={versteckt} style={{'--fl-z': Math.min(rang, 9)}}
+        onPointerDownCapture={() => { if (ctx && ctx.vorne[ctx.vorne.length - 1] !== id) ctx.nachVorn(id); }}>
+        {children}
+      </div>
     </FensterIdCtx.Provider>
   );
 };
@@ -802,8 +877,10 @@ const FensterLeiste = () => {
               <span className="fl-titel">{f.titel}</span>
               {f.zaehler ? <span className="fl-zaehler">{f.zaehler}</span> : null}
             </button>
-            <button type="button" className="fl-x" title={f.titel + ' schließen'}
-              aria-label={f.titel + ' schließen'} onClick={()=>ctx.schliessen(f.id)}>✕</button>
+            {f.schliessbar && (
+              <button type="button" className="fl-x" title={f.titel + ' schließen'}
+                aria-label={f.titel + ' schließen'} onClick={()=>ctx.schliessen(f.id)}>✕</button>
+            )}
           </div>
         );
       })}

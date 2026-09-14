@@ -4484,7 +4484,7 @@
   /* ── Die Fensterleiste ── */
   .fl-huelle { display:contents; }
   .fl-huelle[hidden] { display:none !important; }
-  .fl-leiste { position:fixed; right:12px; bottom:62px; z-index:70; display:flex; gap:6px;
+  .fl-leiste { position:fixed; right:12px; bottom:62px; z-index:90; display:flex; gap:6px;
     flex-wrap:wrap-reverse; justify-content:flex-end; max-width:calc(100vw - 24px); pointer-events:none; }
   .fl-eintrag { pointer-events:auto; display:flex; align-items:stretch; border-radius:6px; overflow:hidden;
     background:var(--bg-deep); border:1px solid var(--border-bright);
@@ -4505,3 +4505,14 @@
     .fl-leiste { left:8px; right:8px; justify-content:flex-start; flex-wrap:nowrap; overflow-x:auto; }
     .fl-titel { display:none; }
   }
+
+  /* Schwebende Fenster: kein Vorhang, und wer zuletzt angetippt wurde,
+     liegt oben. --fl-z kommt von der Hülle der Fensterleiste (0 … 9). */
+  .form-overlay.schwebend { background:transparent; backdrop-filter:none; pointer-events:none; }
+  .form-overlay.schwebend > .fenster { pointer-events:auto; box-shadow:0 24px 64px rgba(0,0,0,0.72); }
+  .fl-huelle > .form-overlay.schwebend { z-index:calc(60 + var(--fl-z, 0)); }
+  .fl-huelle > .kampf-schirm   { z-index:calc(60 + var(--fl-z, 0)); }
+  .fl-huelle > .ks-fenster     { z-index:calc(60 + var(--fl-z, 0)); }
+  .fl-huelle > .automat-schirm { z-index:calc(60 + var(--fl-z, 0)); }
+  .fl-huelle > .sf-fenster     { z-index:calc(60 + var(--fl-z, 0)); }
+  .fl-huelle > .probe-balken   { z-index:calc(60 + var(--fl-z, 0)); }

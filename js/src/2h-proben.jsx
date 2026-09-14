@@ -164,13 +164,19 @@ const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen,
     );
   }
 
+  // In der Fensterleiste statt eines eigenen Knopfs am Rand. Schließen
+  // gibt es dort nur für die Spielleitung — für alle anderen geht die
+  // Probe von selbst, wenn sie abgeräumt wird.
   return (
+    <LeistenFenster id="probe" titel={probeWort(probe)} symbol="🎲"
+      zaehler={(probe.antworten || []).length ? (probe.antworten || []).length + ' gewürfelt' : ''}
+      onSchliessen={isDmMode ? onAbraeumen : undefined}>
     <div className="probe-balken">
       <div className="probe-kopf">
         <span className="probe-titel">🎲 {probeWort(probe)}</span>
         {(!probe.verdeckt || isDmMode) && <span className="probe-sg">SG {probe.sg}</span>}
         {probe.verdeckt && <span className="probe-sg verdeckt">verdeckt</span>}
-        <button className="automat-x" onClick={()=>setZu(true)} title="Einklappen">▾</button>
+        <MiniKnopf className="automat-mini" />
       </div>
       {probe.text && <div className="probe-text">{probe.text}</div>}
 
@@ -290,5 +296,6 @@ const ProbenBalken = ({ probe, meine, isDmMode, setDefs, onAntwort, onAbraeumen,
         );
       })()}
     </div>
+    </LeistenFenster>
   );
 };

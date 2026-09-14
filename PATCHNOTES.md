@@ -1,5 +1,40 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.10
+
+### ▭ Mehr Fenster in der Leiste — und die Leiste merkt sich alles
+
+**Neu in der Fensterleiste:**
+
+- **🏪 Laden**
+- **💰 Beute**, mit der Zahl der Stücke, die noch niemand hat
+- **☾ Rast**, mit „2/3 fertig“
+- **✉ Post** und **An die Spielleitung**, mit dem Ungelesenen
+- **🎲 Probe**, statt des eigenen Knopfs am linken Rand. Schließen kann
+  eine Probe von dort nur die Spielleitung.
+- **📋 Als Text**, mit dem Namen des Helden
+- **📚 Datenbank**
+
+**Diese Fenster sind jetzt kein Vorhang mehr.** Sie liegen über dem
+Heldenbuch, ohne es abzudunkeln oder zu sperren. Man kann im Bogen
+nachsehen, während der Laden offen ist, oder die Beute verteilen, während
+die Datenbank daneben steht. Statt des Zuklappens (▾) haben sie jetzt
+Minimieren (—).
+
+Formulare bleiben, wie sie waren: Zauber, Waffe oder Gegenstand bearbeiten,
+Beute hinlegen, Rast ansagen, Rückfragen. Die sperren das Heldenbuch
+dahinter, damit nichts nebenher geändert wird.
+
+**Wer vorn liegt:** Das Fenster, das man zuletzt angetippt oder
+zurückgeholt hat, liegt über den anderen. Vorher lagen sie in fester
+Reihenfolge übereinander.
+
+**Nach dem Neuladen** geht wieder auf, was offen war, und was minimiert
+war, liegt wieder in der Leiste, in derselben Reihenfolge. Laden, Beute
+und Rast kommen erst, wenn sie vom Server da sind. Gibt es sie nicht mehr
+(der Laden ist abgeräumt, die Beute verteilt), bleiben sie zu. Nicht
+wieder auf geht „Als Text“: das gehört zu einem Bogen und nicht zur Leiste.
+
 ## v5.9
 
 ### ▭ Die Fensterleiste

@@ -200,7 +200,8 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
   };
 
   return (
-    <Fenster onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen}
+      leiste={{id: 'laden', titel: (laden && laden.name) || 'Laden', symbol: '🏪'}}>
       <div className="form-modal laden-fenster" onClick={e=>e.stopPropagation()}>
         <div className="form-title">🏪 {(laden && laden.name) || 'Der Laden'}</div>
 

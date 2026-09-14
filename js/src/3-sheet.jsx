@@ -52,6 +52,7 @@ const Sheet = () => {
   // Spielleitung offen: sie ist es, die den Abend vorbereitet, und ein
   // fremder Bogen im Textfeld waere sonst mit einem Griff kopiert.
   const [textOffen, setTextOffen] = useState(false);
+  const fensterLeiste = React.useContext(FensterLeisteCtx);
   const [invSuche, setInvSuche] = useState("");
   const [betrag, setBetrag] = useState("");            // Gold, ausgeben oder einnehmen
   const [beutelMeldung, setBeutelMeldung] = useState("");
@@ -259,7 +260,7 @@ const Sheet = () => {
                   Spielleitung der KI hinlegen. */}
               {isDmMode && (
                 <button className="kopf-knopf" title="Den ganzen Bogen als Text — zum Weitergeben an eine KI"
-                  onClick={()=>setTextOffen(true)}>
+                  onClick={()=>{ setTextOffen(true); if (fensterLeiste) fensterLeiste.zeigen('heldtext'); }}>
                   <span className="kopf-zeichen">📋</span><span className="kopf-wort">Als Text</span>
                 </button>
               )}

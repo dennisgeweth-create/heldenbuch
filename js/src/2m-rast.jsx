@@ -570,7 +570,9 @@ const RastFenster = ({ rast, helden, meine, isDmMode, setDefs, onUebernehmen, on
   const lage = rastStufe(rast.stufe);
   const offen = meine.filter(h => (rast.fuer || []).includes(h.id) && !erledigt(h.id));
   return (
-    <Fenster onClick={onSchliessen}>
+    <Fenster onClick={onSchliessen}
+      leiste={{id: 'rast', titel: rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast', symbol: '☾',
+               zaehler: (rast.antworten || []).length + '/' + (rast.fuer || []).length}}>
       <div className="form-modal rast-fenster" onClick={e=>e.stopPropagation()}>
         <div className="form-title">☾ {rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast'}
           {rast.art === 'lang' && rast.regel === 'grr' ? ' · ' + lage.name : ''}</div>
