@@ -3161,6 +3161,7 @@
   .beute-neu { display:flex; gap:5px; align-items:center; }
   .beute-neu .form-input { flex:1; min-width:0; }
   .beute-anzahl { flex:0 0 58px !important; text-align:center; }
+  .beute-wert { flex:0 0 78px !important; text-align:right; }
 
 
   .beute-kasse { padding:9px 11px; border-radius:7px; margin-bottom:10px;

@@ -2028,7 +2028,7 @@ function App() {
     const i = inv.findIndex(x => (x.name || '').toLowerCase() === ware.name.toLowerCase());
     if (i >= 0) inv[i] = {...inv[i], qty: (+inv[i].qty || 1) + 1};
     else inv.push(dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, ware.name),
-                                  ware.name, 1, ware.notiz));
+                                  ware.name, 1, ware.notiz, ware.preis));
     save(charsRef.current.map(x => x.id === c.id ? {...x, currency: beutel, inventory: inv} : x));
     addLog(c.id, c.name, 'inventar', 'Gekauft: ' + ware.name,
       {preis: preisText(ware.preis), laden: (laden && laden.name) || undefined});
@@ -2142,7 +2142,7 @@ function App() {
       // eine Stueck.
       const inv = [...(c.inventory || []), ...t.stuecke.map(st =>
         dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name),
-                        st.name, st.anzahl, st.notiz))];
+                        st.name, st.anzahl, st.notiz, st.wert))];
       const w = {...(c.currency || {pp:0,gp:0,ep:0,sp:0,cp:0})};
       if (t.muenzen) for (const m of ['pp','gp','ep','sp','cp']) w[m] = (+w[m] || 0) + (t.muenzen[m] || 0);
       return {...c, inventory: inv, currency: w};
@@ -4316,6 +4316,13 @@ function App() {
                 <div className="form-label">Gewicht (kg, optional)</div>
                 <input className="form-input" type="number" min="0" step="0.1" placeholder="z.B. 1.5" value={itf.weight} onChange={e=>setItf({...itf,weight:e.target.value})} />
               </div>
+              {/* Was ein Stück wert ist — daran rechnet der Laden, was er
+                  beim Verkaufen bietet. */}
+              <div className="form-group">
+                <div className="form-label">Wert je Stück (GM, optional)</div>
+                <GoldFeld className="form-input" placeholder="z.B. 50" kupfer={itf.wert}
+                  onKupfer={k=>setItf(f=>({...f, wert: k}))} />
+              </div>
               {/* Nur was hier angehakt ist, steht im Kampftracker zur Wahl —
                   Tränke, Schriftrollen, Öle. Sonst stünden dort auch das
                   Seil und die Winterdecke. */}
@@ -5292,6 +5299,7 @@ function App() {
                         </select>
                       </div>
                       <div><label className="form-label">Gewicht (kg)</label><input className="form-input" value={dbForm.weight||''} onChange={e=>setDbForm(f=>({...f,weight:e.target.value}))} placeholder="0.5"/></div>
+                      <div><label className="form-label">Wert (GM)</label><GoldFeld className="form-input" placeholder="50" kupfer={dbForm.wert} onKupfer={k=>setDbForm(f=>({...f,wert:k}))}/></div>
                       <div><label className="form-label">Menge (Standard)</label><ZahlFeld className="form-input" min={1} wert={dbForm.qty||1} onWert={v =>setDbForm(f=>({...f,qty:v}))}/></div>
                       <div className="form-group form-full"><label className="form-label">Tags <span style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>(kommagetrennt)</span></label>
                         <input className="form-input" value={(dbForm.tags||[]).join(', ')} onChange={e=>setDbForm(f=>({...f,tags:e.target.value.split(',').map(t=>t.trim()).filter(Boolean)}))} placeholder="z.B. Verbrauchsgut, Magie"/>

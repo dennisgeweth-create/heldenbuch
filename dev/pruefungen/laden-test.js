@@ -153,5 +153,25 @@ ist('  … und vier Waren mit Preis', ausBeispiel.waren.map(w => [w.name, w.prei
 wahr('  … samt der Notiz, die dabeisteht',
   ausBeispiel.waren[0].notiz === 'brennt eine Stunde');
 
+// ── Der Wert eines Fundstuecks ───────────────────────────────────
+// Dieselben Preise, eine Tuer weiter: in der Beute wird aus dem Preis
+// der Wert des Stuecks, und an dem rechnet spaeter der Laden.
+const fund = beuteAusText([
+  'Ring des Schutzes | schimmert blau | 350 GM',
+  'Schmuck | im Wert von 500 Gold',
+  'Silberkelch 25 GM',
+  '8x Fackel',
+  'Seil, 15 m',
+].join('\n')).stuecke;
+ist('ein Preisfeld hinter der Notiz wird Wert', [fund[0].wert, fund[0].notiz], [35000, 'schimmert blau']);
+ist('„im Wert von 500 Gold" auch — der Satz bleibt stehen', [fund[1].wert, fund[1].notiz],
+  [50000, 'im Wert von 500 Gold']);
+ist('ein Preis am Namen faellt vom Namen ab', [fund[2].name, fund[2].wert], ['Silberkelch', 2500]);
+ist('ohne Preis ist nichts wert', fund[3].wert, 0);
+ist('„15 m" bleibt am Seil', [fund[4].name, fund[4].wert], ['Seil, 15 m', 0]);
+ist('ein neuer Gegenstand ist nichts wert', newItem().wert, 0);
+ist('der Wert vom Fund sticht die Datenbank', dbAlsGegenstand({name: 'Ring', wert: 500}, 'Ring', 1, '', 900).wert, 900);
+ist('  … ohne ihn gilt die Datenbank', dbAlsGegenstand({name: 'Ring', wert: 500}, 'Ring', 1, '', 0).wert, 500);
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

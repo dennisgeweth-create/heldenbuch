@@ -1592,7 +1592,8 @@ const Sheet = () => {
                                         onClick={e=>{e.stopPropagation();if(!transferMode)setInvTagFilter(invTagFilter.includes(t)?invTagFilter.filter(x=>x!==t):[...invTagFilter,t]);}}>{t}</span>)}
                                     </div>
                                   )}
-                                  {item.weight && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase'}}>{item.weight} kg</div>}
+                                  {(item.weight || (+item.wert || 0) > 0) && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase'}}>
+                                    {[item.weight ? item.weight + ' kg' : '', (+item.wert || 0) > 0 ? 'Wert ' + preisText(item.wert) : ''].filter(Boolean).join(' · ')}</div>}
                                 </div>
                                 <div className="inv-card-footer">
                                   {transferMode

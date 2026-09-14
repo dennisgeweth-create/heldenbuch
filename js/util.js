@@ -703,10 +703,29 @@ const beuteAusText = (text) => {
     if (vorn)        { anzahl = +vorn[1];   z = vorn[2].trim(); }
     else if (hinten) { anzahl = +hinten[2]; z = hinten[1].trim(); }
 
+    // Der Wert eines Stuecks: als eigenes Feld hinter einem Strich
+    // („Ring | 50 GM"), am Namen („Schmuck 500 GM") oder im Satz der
+    // Notiz („im Wert von 500 Gold"). Ein Feld, das nur Preis ist, faellt
+    // aus der Notiz heraus; der Satz bleibt stehen.
+    let wert = 0;
+    if (notiz) {
+      const felder = notiz.split(/\s*\|\s*/);
+      const rest = felder.filter(f => {
+        const p = /[A-Za-zÄÖÜäöüß]/.test(f) ? ladenPreisKupfer(f) : null;
+        if (p !== null && !wert) { wert = p; return false; }
+        return true;
+      });
+      notiz = rest.join(' · ');
+      const imSatz = /Wert von\s+(\d+(?:[.,]\d+)?\s*(?:Gold|GM|Silber|SM|Kupfer|KM|Platin|PM)\w*)/i.exec(notiz);
+      if (!wert && imSatz) wert = ladenPreisKupfer(imSatz[1].replace(/^(\d+(?:[.,]\d+)?)\s*(Gold|Silber|Kupfer|Platin)\w*$/i, '$1 $2')) || 0;
+    }
+    const amEnde = ladenPreisAmEnde(z);
+    if (amEnde) { z = amEnde.name; if (!wert) wert = amEnde.preis; }
+
     z = z.replace(/[.,;]+$/, '').trim();
     if (!z) return;
     stuecke.push({name: z.slice(0, 80), anzahl: Math.max(1, Math.min(999, anzahl)),
-                  notiz: notiz.slice(0, 120)});
+                  notiz: notiz.slice(0, 120), wert});
   });
 
   return {titel, muenzen, stuecke};
@@ -996,7 +1015,9 @@ const dbGegenstand = dbEintrag;
 // Aus einem Datenbankeintrag ein Stueck fuers Inventar. Was jemand
 // dazugeschrieben hat — „im Wert von 500 Gold" — sticht die
 // Beschreibung aus der Datenbank: sie gilt fuer dieses eine Stueck.
-const dbAlsGegenstand = (eintrag, name, anzahl, notiz) => ({
+// `wert` wie die Notiz: steht an diesem Stueck ein Preis (aus der Beute-
+// liste, aus dem Laden), gilt der — sonst der aus der Datenbank.
+const dbAlsGegenstand = (eintrag, name, anzahl, notiz, wert) => ({
   ...newItem(),
   ...(eintrag || {}),
   id: 'db' + Date.now() + Math.floor(Math.random() * 1000),
@@ -1005,6 +1026,7 @@ const dbAlsGegenstand = (eintrag, name, anzahl, notiz) => ({
   description: (notiz && notiz.trim())
     ? notiz.trim()
     : ((eintrag && eintrag.description) || ''),
+  wert: (+wert > 0) ? Math.round(+wert) : (+(eintrag && eintrag.wert) || 0),
 });
 // Der lange Beschreibungstext der Datenbank taugt nicht als Notiz an
 // einem Fundstueck: er traegt Auszeichnungen und ist zu lang.
@@ -1644,7 +1666,8 @@ const hatWirkung = (w) => !!(w && (w.wuerfel || w.art || w.rettung || (w.zustaen
 const newSpell  = () => ({id:Date.now().toString(),name:"",level:1,school:"Hervorrufung",castingTime:"1 Aktion",range:"9 m",duration:"Sofort",components:"V, S",description:"",prepared:true});
 // gearKind: in welchen Ausruestungsplatz das Stueck passt (leer = keiner).
 // armorType/baseAC/acBonus nur bei Ruestungen und Schilden gefuellt.
-const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false,kampf:false,gearKind:"",armorType:"",baseAC:0,acBonus:0});
+// wert: was ein Stueck wert ist, in Kupfer — wie die Preise im Laden.
+const newItem   = () => ({id:Date.now().toString(),name:"",qty:1,weight:"",wert:0,rarity:"gewöhnlich",description:"",tags:[],source:"",effects:[],effectsActive:false,kampf:false,gearKind:"",armorType:"",baseAC:0,acBonus:0});
 
 // Lightweight fuzzy search: returns score > 0 if all query chars appear in order in str
 const fuzzyMatch = (str, query) => {

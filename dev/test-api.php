@@ -945,8 +945,8 @@ pruefe('ohne Fund liegt nichts (200)', $r['status'] === 200
        && array_key_exists('beute', $r['body']) && $r['body']['beute'] === null, kurz($r));
 
 $fund = ['titel' => 'Aus der Truhe', 'muenzen' => ['gp' => 17, 'sp' => 3],
-         'stuecke' => [['name' => 'Ring des Schutzes', 'anzahl' => 1, 'notiz' => 'schimmert'],
-                       ['name' => 'Fackel', 'anzahl' => 5, 'notiz' => '']]];
+         'stuecke' => [['name' => 'Ring des Schutzes', 'anzahl' => 1, 'notiz' => 'schimmert', 'wert' => 350000],
+                       ['name' => 'Fackel', 'anzahl' => 5, 'notiz' => '', 'wert' => 'viel']]];
 $r = ruf('beute_setzen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'beute' => $fund]);
 pruefe('ein Spieler legt nichts hin (403)', $r['status'] === 403, kurz($r));
 
@@ -957,6 +957,8 @@ pruefe('zwei Stuecke liegen da', count($stuecke) === 2, 'Stuecke: ' . count($stu
 pruefe('und sie sind noch niemandem zugeteilt',
        array_key_exists('an', $stuecke[0]) && $stuecke[0]['an'] === null);
 $stId = (string)($stuecke[0]['id'] ?? '');
+pruefe('der Wert eines Stuecks kommt mit', ($stuecke[0]['wert'] ?? null) === 350000, kurz($r));
+pruefe('ein unsinniger Wert wird zu nichts', ($stuecke[1]['wert'] ?? null) === 0);
 
 $r = ruf('beute_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
                           'beute' => ['muenzen' => [], 'stuecke' => []]]);

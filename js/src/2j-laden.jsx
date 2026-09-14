@@ -16,6 +16,19 @@ const goldZuKupfer = (t) => {
 };
 const kupferZuGold = (k) => String(Math.round((+k || 0)) / 100).replace('.', ',');
 
+// Ein Feld fuer Gold, das Kupfer speichert. Der getippte Text bleibt,
+// wie er ist — sonst wuerde aus „2," beim Tippen sofort „2".
+const GoldFeld = ({ kupfer, onKupfer, ...rest }) => {
+  const [text, setText] = React.useState(+kupfer ? kupferZuGold(kupfer) : '');
+  React.useEffect(() => {
+    if (goldZuKupfer(text) !== (+kupfer || 0)) setText(+kupfer ? kupferZuGold(kupfer) : '');
+  }, [kupfer]);
+  return (
+    <input {...rest} inputMode="decimal" value={text} placeholder={rest.placeholder || 'GM'}
+      onChange={e => { setText(e.target.value); onKupfer(goldZuKupfer(e.target.value)); }} />
+  );
+};
+
 // Was einer KI vorgelegt wird, damit sie eine Auslage schreibt, die der
 // Leser auch einliest. Derselbe Bau wie bei der Beute: erst die Form,
 // dann die Regeln, dann ein Beispiel — und ganz zum Schluss die Frage,
@@ -177,12 +190,13 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
   const [reiter, setReiter] = React.useState('kaufen');
 
   // Was der Laden für ein Stück aus dem Inventar bietet: der Anteil vom
-  // Ladenpreis, wenn er die Ware führt — sonst muss jemand eine Zahl
-  // hinschreiben, und das ist die Spielleitung.
+  // Ladenpreis, wenn er die Ware führt — sonst der Anteil vom Wert, der
+  // am Stück steht. Hat es keinen, schreibt jemand eine Zahl hin.
   const gebot = (i) => {
     if (preise[i.id] !== undefined) return goldZuKupfer(preise[i.id]);
     const w = waren.find(x => x.name.toLowerCase() === (i.name || '').toLowerCase());
-    return w ? Math.round(w.preis * kauf) : 0;
+    if (w) return Math.round(w.preis * kauf);
+    return (+i.wert || 0) > 0 ? Math.round(+i.wert * kauf) : 0;
   };
 
   return (
@@ -255,6 +269,7 @@ const LadenFenster = ({ laden, helden, isDmMode, onKaufen, onVerkaufen,
                   <div className="beute-stueck" key={i.id}>
                     <div className="beute-was">
                       <b>{i.name}{(+i.qty || 1) > 1 ? ' ×' + i.qty : ''}</b>
+                      {(+i.wert || 0) > 0 && <i>Wert {preisText(i.wert)}</i>}
                     </div>
                     <input className="form-input laden-preis"
                       aria-label={'Preis für ' + (i.name || 'das Stück')}

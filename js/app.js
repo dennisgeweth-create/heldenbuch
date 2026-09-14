@@ -17050,7 +17050,7 @@ const beuteMuenzText = m => COINS.filter(c => (m || {})[c.key] > 0).map(c => m[c
 // Was die Spielleitung einer KI vorlegt, damit hinten eine Liste
 // herauskommt, die dieses Fenster lesen kann. Der letzte Absatz bleibt
 // absichtlich offen — dort steht, was diesmal gefunden werden soll.
-const BEUTE_KI_ANWEISUNG = ['Erstelle mir eine Beuteliste für Dungeons & Dragons 5e auf Deutsch.', 'Antworte nur mit der Liste: keine Einleitung, keine Erklärung, keine', 'Tabelle, keine Überschriften, keine Fettschrift.', '', 'Eine Zeile je Eintrag, in dieser Form:', '  Titel: woher die Beute stammt        (höchstens einmal, ganz oben)', '  <Zahl> <Münzart>                     (nur Münzen in der Zeile; PM, GM, EM, SM, KM)', '  <Anzahl>x <Gegenstand> | <Notiz>     (Anzahl und Notiz darfst du weglassen)', '', 'Dabei gilt:', '- Gegenstände mit ihrem deutschen Namen, so wie er im Regelwerk steht:', '  „Ring des Schutzes", „Trank der Heilung", „Fackel".', '- Die Notiz hinter dem senkrechten Strich ist ein kurzer Satz für den', '  Tisch, kein Regeltext: „schimmert blau", „im Wert von 500 Gold".', '- Jede Münzart in eine eigene Zeile, ohne Punkt als Tausendertrennung.', '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.', '', 'Beispiel:', 'Titel: Aus der Truhe im Keller', '340 GM', '22 SM', 'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist', '8x Fackel', 'Schmuck | im Wert von 500 Gold', '', 'Und das soll gefunden werden:', ''].join('\n');
+const BEUTE_KI_ANWEISUNG = ['Erstelle mir eine Beuteliste für Dungeons & Dragons 5e auf Deutsch.', 'Antworte nur mit der Liste: keine Einleitung, keine Erklärung, keine', 'Tabelle, keine Überschriften, keine Fettschrift.', '', 'Eine Zeile je Eintrag, in dieser Form:', '  Titel: woher die Beute stammt        (höchstens einmal, ganz oben)', '  <Zahl> <Münzart>                     (nur Münzen in der Zeile; PM, GM, EM, SM, KM)', '  <Anzahl>x <Gegenstand> | <Notiz> | <Wert je Stück>   (Anzahl, Notiz und Wert darfst du weglassen)', '', 'Dabei gilt:', '- Gegenstände mit ihrem deutschen Namen, so wie er im Regelwerk steht:', '  „Ring des Schutzes", „Trank der Heilung", „Fackel".', '- Die Notiz hinter dem senkrechten Strich ist ein kurzer Satz für den', '  Tisch, kein Regeltext: „schimmert blau", „im Wert von 500 Gold".', '- Der Wert je Stück mit Münzart, etwa 350 GM — nur bei Stücken, die man verkaufen kann.', '- Jede Münzart in eine eigene Zeile, ohne Punkt als Tausendertrennung.', '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.', '', 'Beispiel:', 'Titel: Aus der Truhe im Keller', '340 GM', '22 SM', 'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist | 3500 GM', '8x Fackel', 'Schmuck | im Wert von 500 Gold', '', 'Und das soll gefunden werden:', ''].join('\n');
 const BeuteAnlegen = ({
   gegenstaende,
   onAbbrechen,
@@ -17067,7 +17067,8 @@ const BeuteAnlegen = ({
   const [zeilen, setZeilen] = React.useState([{
     name: '',
     anzahl: 1,
-    notiz: ''
+    notiz: '',
+    wert: 0
   }]);
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {
     ...x,
@@ -17107,7 +17108,8 @@ const BeuteAnlegen = ({
         name: t && t.name || st.name,
         anzahl: st.anzahl,
         notiz: st.notiz || (t ? dbKurz(t) : ''),
-        ausDb: !!t
+        ausDb: !!t,
+        wert: st.wert || +(t && t.wert) || 0
       };
     });
     if (reihen.length) setZeilen(z => z.filter(x => x.name.trim()).concat(reihen.map(({
@@ -17116,7 +17118,8 @@ const BeuteAnlegen = ({
     }) => r), [{
       name: '',
       anzahl: 1,
-      notiz: ''
+      notiz: '',
+      wert: 0
     }]));
     const was = [];
     if (reihen.length) was.push(reihen.length + (reihen.length === 1 ? ' Stück' : ' Stücke'));
@@ -17197,7 +17200,8 @@ const BeuteAnlegen = ({
       // wer selbst etwas geschrieben hat, behaelt es.
       setZeile(i, {
         name: v,
-        notiz: z.notiz || (t ? dbKurz(t) : '')
+        notiz: z.notiz || (t ? dbKurz(t) : ''),
+        wert: +z.wert || 0 || +(t && t.wert) || 0
       });
     }
   }), /*#__PURE__*/React.createElement(ZahlFeld, {
@@ -17215,6 +17219,14 @@ const BeuteAnlegen = ({
     onChange: e => setZeile(i, {
       notiz: e.target.value
     })
+  }), /*#__PURE__*/React.createElement(GoldFeld, {
+    className: "form-input beute-wert",
+    placeholder: "Wert GM",
+    kupfer: z.wert,
+    "aria-label": "Wert je St\xFCck in Gold",
+    onKupfer: k => setZeile(i, {
+      wert: k
+    })
   }), /*#__PURE__*/React.createElement("button", {
     className: "konz-weg",
     title: "Zeile weg",
@@ -17224,7 +17236,8 @@ const BeuteAnlegen = ({
     onClick: () => setZeilen(z => [...z, {
       name: '',
       anzahl: 1,
-      notiz: ''
+      notiz: '',
+      wert: 0
     }])
   }, "+ Noch eine Zeile")), /*#__PURE__*/React.createElement("div", {
     className: "form-actions",
@@ -17382,7 +17395,7 @@ const BeuteFenster = ({
     key: s.id
   }, /*#__PURE__*/React.createElement("div", {
     className: "beute-was"
-  }, /*#__PURE__*/React.createElement("b", null, s.name, s.anzahl > 1 ? ' ×' + s.anzahl : ''), s.notiz && /*#__PURE__*/React.createElement("i", null, s.notiz)), s.an ? /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("b", null, s.name, s.anzahl > 1 ? ' ×' + s.anzahl : ''), (s.notiz || (+s.wert || 0) > 0) && /*#__PURE__*/React.createElement("i", null, [s.notiz, (+s.wert || 0) > 0 ? 'Wert ' + preisText(s.wert) : ''].filter(Boolean).join(' · '))), s.an ? /*#__PURE__*/React.createElement("div", {
     className: "beute-an"
   }, /*#__PURE__*/React.createElement("span", null, s.anName || 'vergeben'), /*#__PURE__*/React.createElement("button", {
     className: "konz-weg",
@@ -17443,6 +17456,28 @@ const goldZuKupfer = t => {
   return Number.isFinite(n) ? Math.max(0, Math.round(n * 100)) : 0;
 };
 const kupferZuGold = k => String(Math.round(+k || 0) / 100).replace('.', ',');
+
+// Ein Feld fuer Gold, das Kupfer speichert. Der getippte Text bleibt,
+// wie er ist — sonst wuerde aus „2," beim Tippen sofort „2".
+const GoldFeld = ({
+  kupfer,
+  onKupfer,
+  ...rest
+}) => {
+  const [text, setText] = React.useState(+kupfer ? kupferZuGold(kupfer) : '');
+  React.useEffect(() => {
+    if (goldZuKupfer(text) !== (+kupfer || 0)) setText(+kupfer ? kupferZuGold(kupfer) : '');
+  }, [kupfer]);
+  return /*#__PURE__*/React.createElement("input", _extends({}, rest, {
+    inputMode: "decimal",
+    value: text,
+    placeholder: rest.placeholder || 'GM',
+    onChange: e => {
+      setText(e.target.value);
+      onKupfer(goldZuKupfer(e.target.value));
+    }
+  }));
+};
 
 // Was einer KI vorgelegt wird, damit sie eine Auslage schreibt, die der
 // Leser auch einliest. Derselbe Bau wie bei der Beute: erst die Form,
@@ -17650,12 +17685,13 @@ const LadenFenster = ({
   const [reiter, setReiter] = React.useState('kaufen');
 
   // Was der Laden für ein Stück aus dem Inventar bietet: der Anteil vom
-  // Ladenpreis, wenn er die Ware führt — sonst muss jemand eine Zahl
-  // hinschreiben, und das ist die Spielleitung.
+  // Ladenpreis, wenn er die Ware führt — sonst der Anteil vom Wert, der
+  // am Stück steht. Hat es keinen, schreibt jemand eine Zahl hin.
   const gebot = i => {
     if (preise[i.id] !== undefined) return goldZuKupfer(preise[i.id]);
     const w = waren.find(x => x.name.toLowerCase() === (i.name || '').toLowerCase());
-    return w ? Math.round(w.preis * kauf) : 0;
+    if (w) return Math.round(w.preis * kauf);
+    return (+i.wert || 0) > 0 ? Math.round(+i.wert * kauf) : 0;
   };
   return /*#__PURE__*/React.createElement(Fenster, {
     onClick: onSchliessen
@@ -17729,7 +17765,7 @@ const LadenFenster = ({
       key: i.id
     }, /*#__PURE__*/React.createElement("div", {
       className: "beute-was"
-    }, /*#__PURE__*/React.createElement("b", null, i.name, (+i.qty || 1) > 1 ? ' ×' + i.qty : '')), /*#__PURE__*/React.createElement("input", {
+    }, /*#__PURE__*/React.createElement("b", null, i.name, (+i.qty || 1) > 1 ? ' ×' + i.qty : ''), (+i.wert || 0) > 0 && /*#__PURE__*/React.createElement("i", null, "Wert ", preisText(i.wert))), /*#__PURE__*/React.createElement("input", {
       className: "form-input laden-preis",
       "aria-label": 'Preis für ' + (i.name || 'das Stück'),
       value: preise[i.id] !== undefined ? preise[i.id] : kupferZuGold(g),
@@ -20989,14 +21025,14 @@ const Sheet = () => {
           e.stopPropagation();
           if (!transferMode) setInvTagFilter(invTagFilter.includes(t) ? invTagFilter.filter(x => x !== t) : [...invTagFilter, t]);
         }
-      }, t))), item.weight && /*#__PURE__*/React.createElement("div", {
+      }, t))), (item.weight || (+item.wert || 0) > 0) && /*#__PURE__*/React.createElement("div", {
         style: {
           fontFamily: "'Roboto Condensed',sans-serif",
           fontSize: 9,
           color: 'var(--text-muted)',
           textTransform: 'uppercase'
         }
-      }, item.weight, " kg")), /*#__PURE__*/React.createElement("div", {
+      }, [item.weight ? item.weight + ' kg' : '', (+item.wert || 0) > 0 ? 'Wert ' + preisText(item.wert) : ''].filter(Boolean).join(' · '))), /*#__PURE__*/React.createElement("div", {
         className: "inv-card-footer"
       }, transferMode ? /*#__PURE__*/React.createElement("input", {
         type: "checkbox",
@@ -25180,7 +25216,7 @@ function App() {
     if (i >= 0) inv[i] = {
       ...inv[i],
       qty: (+inv[i].qty || 1) + 1
-    };else inv.push(dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, ware.name), ware.name, 1, ware.notiz));
+    };else inv.push(dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, ware.name), ware.name, 1, ware.notiz, ware.preis));
     save(charsRef.current.map(x => x.id === c.id ? {
       ...x,
       currency: beutel,
@@ -25339,7 +25375,7 @@ function App() {
       // haengt — Seltenheit, Gewicht, Ausruestungsplatz, Effekte. Die
       // Notiz vom Fund sticht die Beschreibung: sie gilt fuer dieses
       // eine Stueck.
-      const inv = [...(c.inventory || []), ...t.stuecke.map(st => dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name), st.name, st.anzahl, st.notiz))];
+      const inv = [...(c.inventory || []), ...t.stuecke.map(st => dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name), st.name, st.anzahl, st.notiz, st.wert))];
       const w = {
         ...(c.currency || {
           pp: 0,
@@ -29187,6 +29223,18 @@ function App() {
       weight: e.target.value
     })
   })), /*#__PURE__*/React.createElement("div", {
+    className: "form-group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-label"
+  }, "Wert je St\xFCck (GM, optional)"), /*#__PURE__*/React.createElement(GoldFeld, {
+    className: "form-input",
+    placeholder: "z.B. 50",
+    kupfer: itf.wert,
+    onKupfer: k => setItf(f => ({
+      ...f,
+      wert: k
+    }))
+  })), /*#__PURE__*/React.createElement("div", {
     className: "form-group form-full"
   }, /*#__PURE__*/React.createElement("label", {
     style: {
@@ -31471,6 +31519,16 @@ function App() {
         weight: e.target.value
       })),
       placeholder: "0.5"
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+      className: "form-label"
+    }, "Wert (GM)"), /*#__PURE__*/React.createElement(GoldFeld, {
+      className: "form-input",
+      placeholder: "50",
+      kupfer: dbForm.wert,
+      onKupfer: k => setDbForm(f => ({
+        ...f,
+        wert: k
+      }))
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       className: "form-label"
     }, "Menge (Standard)"), /*#__PURE__*/React.createElement(ZahlFeld, {

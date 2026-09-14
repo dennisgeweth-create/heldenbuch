@@ -91,7 +91,7 @@
       armorProfs: ['Schwer'], savingThrowProfs: ['str', 'con'],
       sorceryPoints: {max: 0, used: 0}, wsFavorites: [],
       resources: [{id: 'r1', name: 'Kanalisieren', max: 1, used: 0, color: '#c9a84c', restType: 'kurz'}],
-      inventory: [{id: 'i1', name: 'Kettenhemd', qty: 1, weight: '25',
+      inventory: [{id: 'i1', name: 'Kettenhemd', qty: 1, weight: '25', wert: 5000,
         rarity: 'gewöhnlich', description: '', tags: [], source: '', effects: [],
         effectsActive: false, kampf: false, gearKind: 'ruestung',
         armorType: 'heavy', baseAC: 16, acBonus: 0}],
@@ -467,6 +467,12 @@
                zeilenText());
             ja('  … mit dem Ankauf des Ortes',
                /zahlt 40 %/.test((document.querySelector('.laden-kauft') || {}).textContent || ''));
+            // Das Kettenhemd führt der Laden nicht — sein Gebot kommt aus
+            // dem Wert am Stück: 50 GM, davon 40 %.
+            const gebotFeld = document.querySelector('.laden-fenster .laden-preis');
+            ja('  … das Gebot fürs Kettenhemd kommt aus seinem Wert',
+               !!gebotFeld && gebotFeld.value === '20', gebotFeld ? gebotFeld.value : 'kein Feld');
+            ja('  … und der Wert steht dabei', /Wert 50 GM/.test(zeilenText()), zeilenText());
             reiter[0].click(); await ruhe(120);
             ja('  … und zurück', /Trank der Heilung/.test(zeilenText()));
           }
@@ -504,6 +510,30 @@
               if (zuLaden) { zuLaden.click(); await ruhe(120); }
             }
           }
+        }
+
+        // ── Beute mit Wert ─────────────────────────────────────────
+        melden('lauf', 'Beute mit Wert');
+        const beuteK = await warten(() => [...document.querySelectorAll('.btn-tool')]
+          .find(b => /Beute/.test(b.textContent)));
+        if (ja('Die Spielleitung kann Beute hinlegen', !!beuteK)) {
+          beuteK.click();
+          const ein = await warten(() => [...document.querySelectorAll('button')]
+            .find(b => /einfügen/i.test(b.textContent) && b.closest('.form-modal')));
+          if (ja('  … und eine Liste einfügen', !!ein)) {
+            ein.click(); await ruhe(120);
+            const feldB = document.querySelector('.liste-roh');
+            const setzT = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+            setzT.call(feldB, 'Ring des Schutzes | schimmert blau | 350 GM\n8x Fackel');
+            feldB.dispatchEvent(new Event('input', {bubbles: true}));
+            await ruhe(80);
+            knopfMit('Übernehmen').click(); await ruhe(200);
+            const werte = [...document.querySelectorAll('.beute-wert')].map(i => i.value);
+            ja('Der Wert steht in der Zeile des Rings', werte[0] === '350', werte.join(' | '));
+            ja('  … die Fackeln bleiben ohne', werte[1] === '', werte.join(' | '));
+          }
+          const abb = [...document.querySelectorAll('.form-modal button')].find(b => /Abbrechen/.test(b.textContent));
+          if (abb) { abb.click(); await ruhe(120); }
         }
 
         // ── Der Kampf: das Zugfenster ──────────────────────────────

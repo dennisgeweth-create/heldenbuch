@@ -44,13 +44,14 @@ const BEUTE_KI_ANWEISUNG = [
   'Eine Zeile je Eintrag, in dieser Form:',
   '  Titel: woher die Beute stammt        (höchstens einmal, ganz oben)',
   '  <Zahl> <Münzart>                     (nur Münzen in der Zeile; PM, GM, EM, SM, KM)',
-  '  <Anzahl>x <Gegenstand> | <Notiz>     (Anzahl und Notiz darfst du weglassen)',
+  '  <Anzahl>x <Gegenstand> | <Notiz> | <Wert je Stück>   (Anzahl, Notiz und Wert darfst du weglassen)',
   '',
   'Dabei gilt:',
   '- Gegenstände mit ihrem deutschen Namen, so wie er im Regelwerk steht:',
   '  „Ring des Schutzes", „Trank der Heilung", „Fackel".',
   '- Die Notiz hinter dem senkrechten Strich ist ein kurzer Satz für den',
   '  Tisch, kein Regeltext: „schimmert blau", „im Wert von 500 Gold".',
+  '- Der Wert je Stück mit Münzart, etwa 350 GM — nur bei Stücken, die man verkaufen kann.',
   '- Jede Münzart in eine eigene Zeile, ohne Punkt als Tausendertrennung.',
   '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.',
   '',
@@ -58,7 +59,7 @@ const BEUTE_KI_ANWEISUNG = [
   'Titel: Aus der Truhe im Keller',
   '340 GM',
   '22 SM',
-  'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist',
+  'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist | 3500 GM',
   '8x Fackel',
   'Schmuck | im Wert von 500 Gold',
   '',
@@ -69,7 +70,7 @@ const BEUTE_KI_ANWEISUNG = [
 const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
   const [titel, setTitel] = React.useState('');
   const [muenzen, setMuenzen] = React.useState({pp:0, gp:0, ep:0, sp:0, cp:0});
-  const [zeilen, setZeilen] = React.useState([{name:'', anzahl:1, notiz:''}]);
+  const [zeilen, setZeilen] = React.useState([{name:'', anzahl:1, notiz:'', wert:0}]);
 
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {...x, ...p} : x));
   const stuecke = zeilen.filter(z => z.name.trim());
@@ -96,10 +97,11 @@ const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
     const reihen = g.stuecke.map(st => {
       const t = dbGegenstand(gegenstaende, st.name);
       return {name: (t && t.name) || st.name, anzahl: st.anzahl,
-              notiz: st.notiz || (t ? dbKurz(t) : ''), ausDb: !!t};
+              notiz: st.notiz || (t ? dbKurz(t) : ''), ausDb: !!t,
+              wert: st.wert || (+(t && t.wert) || 0)};
     });
     if (reihen.length) setZeilen(z => z.filter(x => x.name.trim())
-      .concat(reihen.map(({ausDb, ...r}) => r), [{name:'', anzahl:1, notiz:''}]));
+      .concat(reihen.map(({ausDb, ...r}) => r), [{name:'', anzahl:1, notiz:'', wert:0}]));
 
     const was = [];
     if (reihen.length) was.push(reihen.length + (reihen.length === 1 ? ' Stück' : ' Stücke'));
@@ -158,17 +160,20 @@ const BeuteAnlegen = ({ gegenstaende, onAbbrechen, onHinlegen }) => {
                   const t = dbGegenstand(gegenstaende, v);
                   // Die Notiz nur vorschlagen, solange keine dasteht —
                   // wer selbst etwas geschrieben hat, behaelt es.
-                  setZeile(i, {name: v, notiz: (z.notiz || (t ? dbKurz(t) : ''))});
+                  setZeile(i, {name: v, notiz: (z.notiz || (t ? dbKurz(t) : '')),
+                               wert: (+z.wert || 0) || (+(t && t.wert) || 0)});
                 }} />
               <ZahlFeld className="form-input beute-anzahl" min={1} wert={z.anzahl}
                 onWert={v=>setZeile(i, {anzahl: v})} />
               <input className="form-input" value={z.notiz} maxLength={120} placeholder="Notiz"
                 onChange={e=>setZeile(i, {notiz: e.target.value})} />
+              <GoldFeld className="form-input beute-wert" placeholder="Wert GM" kupfer={z.wert}
+                aria-label="Wert je Stück in Gold" onKupfer={k=>setZeile(i, {wert: k})} />
               <button className="konz-weg" title="Zeile weg"
                 onClick={()=>setZeilen(z2 => z2.filter((_, j) => j !== i))}>✕</button>
             </div>
           ))}
-          <button className="bj-taste" onClick={()=>setZeilen(z => [...z, {name:'', anzahl:1, notiz:''}])}>
+          <button className="bj-taste" onClick={()=>setZeilen(z => [...z, {name:'', anzahl:1, notiz:'', wert:0}])}>
             + Noch eine Zeile
           </button>
         </div>
@@ -315,7 +320,8 @@ const BeuteFenster = ({ beute, helden, isDmMode, darfNehmen, onNehmen, onSchlies
             <div className={'beute-stueck' + (s.an ? ' vergeben' : '')} key={s.id}>
               <div className="beute-was">
                 <b>{s.name}{s.anzahl > 1 ? ' ×' + s.anzahl : ''}</b>
-                {s.notiz && <i>{s.notiz}</i>}
+                {(s.notiz || (+s.wert || 0) > 0) && <i>{[s.notiz, (+s.wert || 0) > 0 ? 'Wert ' + preisText(s.wert) : '']
+                  .filter(Boolean).join(' · ')}</i>}
               </div>
               {s.an ? (
                 <div className="beute-an">

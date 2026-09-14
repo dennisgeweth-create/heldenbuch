@@ -1363,6 +1363,9 @@ switch ($action) {
                 'name'   => $name,
                 'anzahl' => max(1, min(999, (int)($st['anzahl'] ?? 1))),
                 'notiz'  => mb_substr(trim((string)($st['notiz'] ?? '')), 0, 120),
+                // Was ein Stueck wert ist, in Kupfer. Kommt es als Unsinn,
+                // ist es eben nichts wert.
+                'wert'   => max(0, min(100000000, (int)($st['wert'] ?? 0))),
                 'an'     => null,
                 'anName' => '',
             ];
