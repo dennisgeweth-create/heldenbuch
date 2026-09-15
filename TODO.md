@@ -2,8 +2,8 @@
 
 Offene Vorhaben. Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 
-- **Abenteuerplaner Stufe 4** — Spielersicht: Nebel, entdeckte Orte,
-  Handouts, Beamerfenster. Stufenplan in `PLANER.md`.
+- **Abenteuerplaner Stufe 5** — Figuren (NSC-Wege, Zeitschieber) und
+  lokale Dateien (Ordnerfreigabe, Planer-Brücke). Stufenplan in `PLANER.md`.
 
 ## Erledigt
 

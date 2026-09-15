@@ -160,7 +160,7 @@ const WetterWahl = ({ wetter, onWetter }) => {
   );
 };
 
-const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, begegnungen, onSpeichern, onLoeschen, onSchliessen, onMeldung }) => {
+const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, begegnungen, onSpeichern, onLoeschen, onSchliessen, onMeldung, onNebelAufdecken }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
   const [uebergabe, setUebergabe] = useState('');
   const m = karte.massstab;
@@ -205,6 +205,10 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
                       gewaltmarsch: heute.gewaltmarsch, teile: heute.teile.map(t => ({ gelaende: t.gelaende, strecke: t.strecke })),
                       pruefungen: pruefungen.map(pruefungKurz) };
     onSpeichern({ ...entwurf, pos: heute.bis, tagebuch: [...(entwurf.tagebuch || []), eintrag] });
+    // Wo die Gruppe hinkam, weicht der Nebel — so weit, wie sie sieht.
+    if (nebelVon(karte).an && (+entwurf.sichtweite || 0) > 0 && onNebelAufdecken) {
+      onNebelAufdecken(kreiseEntlang(st.r, m, heute.von, heute.bis, +entwurf.sichtweite));
+    }
   };
   const tagZuruecknehmen = () => {
     const liste = [...(entwurf.tagebuch || [])];
@@ -265,6 +269,11 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
           <label>Aufbruch um
             <input className="pl-feld" type="number" min={0} max={23} value={entwurf.startStunde ?? 8}
               onChange={e => setze('startStunde', Math.max(0, Math.min(23, Math.round(+e.target.value || 0))))} />
+          </label>
+          <label>Sichtweite ({einh})
+            <input className="pl-feld" type="number" min={0} step="any" value={entwurf.sichtweite ?? 0}
+              title="Wie weit der Nebel entlang des Wegs aufgeht; 0 heißt gar nicht"
+              onChange={e => setze('sichtweite', Math.max(0, +e.target.value || 0))} />
           </label>
           <label>Personen
             <input className="pl-feld" type="number" min={0} max={999} value={entwurf.personen ?? 4} onChange={e => setze('personen', Math.max(0, +e.target.value || 0))} />

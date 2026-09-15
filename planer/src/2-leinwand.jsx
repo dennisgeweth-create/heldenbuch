@@ -11,6 +11,7 @@ const LEINWAND_KLICK_PX = 5;
 const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, gedaechtnis,
                           routen, gruppen, routeWahl, reiseWahl, onRouteWahl, onReiseWahl,
                           regionen, regionWahl, onRegionWahl,
+                          nebel, nebelDeckend, vorgabeAnsicht, onAnsicht,
                           onKlick, onOrtWahl, onOrtVerschieben, onBildWaehlen }) => {
   const box = useRef(null);
   const [g, setG] = useState({ breite: 0, hoehe: 0 });
@@ -41,6 +42,19 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
   }, [schluessel, !!plan, g.breite > 0]);
   useEffect(() => { if (a && gedaechtnis) gedaechtnis.current[schluessel] = a; }, [a]);
   useEffect(() => { if (a && plan && g.breite) setA(v => v && ansichtBegrenzen(v, plan, g)); }, [g.breite, g.hoehe]);
+
+  // Das Tischfenster bekommt den Ausschnitt der Spielleitung: dieselbe
+  // Mitte und dieselbe Breite in Bildpixeln, gleich wie gross sein Schirm ist.
+  useEffect(() => {
+    const v = vorgabeAnsicht;
+    if (!v || !plan || !g.breite || (v.karteId && v.karteId !== karte.id)) return;
+    const zoom = plan.maxZ + Math.log2(Math.max(1e-6, g.breite / Math.max(1, v.breite || plan.breite)));
+    setA(ansichtBegrenzen({ zoom, x: v.x, y: v.y }, plan, g));
+  }, [vorgabeAnsicht && vorgabeAnsicht.n, !!plan, g.breite]);
+  useEffect(() => {
+    if (!onAnsicht || !a || !plan || !g.breite) return;
+    onAnsicht({ x: Math.round(a.x), y: Math.round(a.y), breite: Math.round(g.breite / ansichtMass(a, plan)) });
+  }, [a && a.x, a && a.y, a && a.zoom, g.breite]);
 
   // Ein Ort aus der Liste: dorthin, und nah genug heran.
   useEffect(() => {
@@ -111,7 +125,7 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
     z.punkte.delete(e.pointerId);
     if (einzeln && z.weg <= LEINWAND_KLICK_PX && e.type === 'pointerup' && a && plan) {
       const p = schirmZuBild(punktAus(e), a, g, plan);
-      if (p.x >= 0 && p.y >= 0 && p.x <= plan.breite && p.y <= plan.hoehe) onKlick && onKlick({ x: Math.round(p.x), y: Math.round(p.y) });
+      if (p.x >= 0 && p.y >= 0 && p.x <= plan.breite && p.y <= plan.hoehe) onKlick && onKlick({ x: Math.round(p.x), y: Math.round(p.y) }, ansichtMass(a, plan));
     }
   };
 
@@ -168,6 +182,31 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
               style={{ left: t.links, top: t.oben, width: t.breite + 0.6, height: t.hoehe + 0.6 }} />
           ))}
         </div>
+        {nebel && nebel.an && (() => {
+          const s = ansichtMass(a, plan);
+          const maskeId = 'nebel-' + karte.id;
+          return (
+            <svg className={'pl-nebel' + (nebelDeckend ? ' deckend' : '')} width={g.breite} height={g.hoehe} aria-hidden="true">
+              <defs>
+                <filter id={maskeId + '-weich'} x="-10%" y="-10%" width="120%" height="120%">
+                  <feGaussianBlur stdDeviation={nebelDeckend ? 10 : 4} />
+                </filter>
+                <mask id={maskeId} maskUnits="userSpaceOnUse" x="0" y="0" width={g.breite} height={g.hoehe}>
+                  <rect x="0" y="0" width={g.breite} height={g.hoehe} fill="white" />
+                  <g filter={'url(#' + maskeId + '-weich)'}>
+                    {nebel.flaechen.map((f, i) => {
+                      if (f.art === 'alles') return <rect key={i} x="0" y="0" width={g.breite} height={g.hoehe} fill="black" />;
+                      if (f.art === 'kreis') { const m = schirm(f); return <circle key={i} cx={m.x} cy={m.y} r={f.r * s} fill="black" />; }
+                      if (f.art === 'vieleck') return <polygon key={i} points={(f.punkte || []).map(q => { const m = schirm(q); return m.x + ',' + m.y; }).join(' ')} fill="black" />;
+                      return null;
+                    })}
+                  </g>
+                </mask>
+              </defs>
+              <rect className="pl-nebel-flaeche" x="0" y="0" width={g.breite} height={g.hoehe} mask={'url(#' + maskeId + ')'} />
+            </svg>
+          );
+        })()}
         <svg className="pl-ueberlage" width={g.breite} height={g.hoehe}>
           {(regionen || []).map(r => {
             const ps = (r.punkte || []).map(schirm);

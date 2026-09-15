@@ -249,7 +249,7 @@ const HBPLAN_MANIFEST = 'hbplan.json';
 // annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
-const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle'];
+const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout'];
 
 const planNeueId = (vorsilbe) => {
   const b = new Uint8Array(8);
@@ -268,7 +268,8 @@ const planManifest = ({ abenteuer, karten, objekte, dateien, programm, jetzt }) 
   programm: programm || '',
   abenteuer: abenteuer ? { id: abenteuer.id, name: abenteuer.name } : null,
   karten: karten.map(planKarteFuerPaket),
-  objekte,
+  // Auch der Ordner eines Handouts ist Sache des Servers.
+  objekte: objekte.map(planKarteFuerPaket),
   dateien,
 });
 
@@ -292,17 +293,20 @@ const planManifestPruefen = (m) => {
     if (!o || !PLAN_ID_RE.test(String(o.id || ''))) return 'Ein Eintrag im Paket hat keine gültige Kennung.';
     if (objekte.has(o.id) || karten.has(o.id)) return 'Die Kennung ' + o.id + ' steht doppelt im Paket.';
     if (!PLAN_ARTEN.includes(o.art)) return 'Unbekannte Art im Paket: ' + String(o.art).slice(0, 20);
-    if (!karten.has(o.karteId)) return 'Der Eintrag ' + o.id + ' gehört zu keiner Karte im Paket.';
+    // Ein Handout gehoert zum Abenteuer, nicht zu einer Karte.
+    if (!(o.art === 'handout' && !o.karteId) && !karten.has(o.karteId)) return 'Der Eintrag ' + o.id + ' gehört zu keiner Karte im Paket.';
     objekte.add(o.id);
   }
   for (const d of m.dateien) {
-    if (!d || !karten.has(d.karte)) return 'Eine Datei im Paket gehört zu keiner Karte.';
+    if (!d || (d.objekt ? !objekte.has(d.objekt) : !karten.has(d.karte))) return 'Eine Datei im Paket gehört zu keiner Karte und keinem Eintrag.';
     if (!PLAN_PFAD_RE.test(String(d.pfad || ''))) return 'Ungültiger Dateiname im Paket: ' + String(d.pfad).slice(0, 80);
   }
   return '';
 };
 
 const planPaketName = (karte, pfad) => 'karten/' + karte + '/' + pfad;
+// Dateien mit eigenem Ordner (Handouts) liegen unter objekte/.
+const planPaketDatei = (d) => d.objekt ? 'objekte/' + d.objekt + '/' + d.pfad : planPaketName(d.karte, d.pfad);
 
 // Beim Einspielen bekommt alles neue Kennungen, damit ein Paket in
 // dasselbe Abenteuer zweimal passt und nie etwas Vorhandenes
@@ -385,8 +389,12 @@ const planExportieren = async ({ daten, abenteuer, dateienListe, dateiHolen, pro
   const dateien = [];
   for (const k of daten.karten) {
     m('Dateien von ' + k.name + ' suchen …');
-    const liste = await dateienListe(k);
+    const liste = await dateienListe(k, 'karte');
     liste.forEach(d => dateien.push({ karte: k.id, ablage: k.ablage, pfad: d.pfad, bytes: d.bytes }));
+  }
+  for (const o of daten.objekte.filter(x => x.ablage)) {
+    const liste = await dateienListe(o, 'objekt');
+    liste.forEach(d => dateien.push({ objekt: o.id, ablage: o.ablage, pfad: d.pfad, bytes: d.bytes }));
   }
   const inhalte = new Array(dateien.length);
   let fertig = 0;
@@ -398,11 +406,11 @@ const planExportieren = async ({ daten, abenteuer, dateienListe, dateiHolen, pro
   const manifest = planManifest({
     abenteuer, programm, jetzt,
     karten: daten.karten, objekte: daten.objekte,
-    dateien: dateien.map((d, j) => ({ karte: d.karte, pfad: d.pfad, bytes: inhalte[j].length })),
+    dateien: dateien.map((d, j) => ({ ...(d.objekt ? { objekt: d.objekt } : { karte: d.karte }), pfad: d.pfad, bytes: inhalte[j].length })),
   });
   m('Paket schnüren …');
   const eintraege = [{ name: HBPLAN_MANIFEST, daten: JSON.stringify(manifest, null, 1), packen: true }]
-    .concat(dateien.map((d, j) => ({ name: planPaketName(d.karte, d.pfad), daten: inhalte[j], packen: /\.json$/.test(d.pfad) })));
+    .concat(dateien.map((d, j) => ({ name: planPaketDatei(d), daten: inhalte[j], packen: /\.json$/.test(d.pfad) })));
   const blob = await zipSchreiben(eintraege, { jetzt });
   const bytes = inhalte.reduce((s, x) => s + x.length, 0);
   return { blob, manifest, dateien: dateien.length, bytes };
@@ -418,53 +426,67 @@ const planPaketOeffnen = async (blob) => {
   catch (err) { throw new Error(/beschädigt/.test(err.message) ? err.message : 'Die Beschreibung im Paket ist kein gültiges JSON.'); }
   const fehler = planManifestPruefen(manifest);
   if (fehler) throw new Error(fehler);
-  const fehlt = manifest.dateien.filter(d => !zip.finden(planPaketName(d.karte, d.pfad)));
-  if (fehlt.length) throw new Error(fehlt.length + ' Datei(en) fehlen im Paket, z. B. ' + planPaketName(fehlt[0].karte, fehlt[0].pfad) + '.');
+  const fehlt = manifest.dateien.filter(d => !zip.finden(planPaketDatei(d)));
+  if (fehlt.length) throw new Error(fehlt.length + ' Datei(en) fehlen im Paket, z. B. ' + planPaketDatei(fehlt[0]) + '.');
   const bytes = manifest.dateien.reduce((s, d) => s + (+d.bytes || 0), 0);
   return { zip, manifest, bytes };
 };
 
-const planEinspielen = async ({ paket, karteSpeichern, objSpeichern, dateienHoch, karteLoeschen,
+// dateienHoch(ziel, liste): ziel ist die neue Kennung einer Karte, oder
+// {objId} fuer einen Eintrag mit eigenem Ordner.
+const planEinspielen = async ({ paket, karteSpeichern, objSpeichern, dateienHoch, karteLoeschen, objLoeschen,
                                 neueId, namenZusatz, buendelBytes, melde }) => {
   const m = melde || (() => {});
   const { zip, manifest } = paket;
   const { zuordnung, karten, objekte } = planNeueKennungen(manifest, neueId || planNeueId);
   const angelegt = [];
+  const angelegteObjekte = [];
   try {
     for (const k of karten) {
       const { ablage, ...ohne } = k;
       await karteSpeichern({ ...ohne, name: String(k.name) + (namenZusatz ? namenZusatz(k.name) : '') });
       angelegt.push(k.id);
     }
-    const nachKarte = new Map();
-    manifest.dateien.forEach(d => {
-      const neu = zuordnung.get(d.karte);
-      if (!nachKarte.has(neu)) nachKarte.set(neu, []);
-      nachKarte.get(neu).push({ ...d, eintrag: zip.finden(planPaketName(d.karte, d.pfad)), bytes: 0 });
-    });
     const gesamt = manifest.dateien.length;
     let fertig = 0;
-    for (const [karteId, liste] of nachKarte) {
-      liste.forEach(d => { d.bytes = d.eintrag.roh; });
-      for (const buendel of planBuendel(liste, buendelBytes || 2500000)) {
-        const teil = [];
-        for (const d of buendel) teil.push({ pfad: d.pfad, daten: base64AusBytes(await zip.lesen(d.eintrag)) });
-        await dateienHoch(karteId, teil);
-        fertig += buendel.length;
-        m('Dateien hochladen: ' + fertig + ' von ' + gesamt, fertig / Math.max(1, gesamt));
+    const hochladen = async (gruppen, ziel) => {
+      for (const [schluessel, liste] of gruppen) {
+        liste.forEach(d => { d.bytes = d.eintrag.roh; });
+        for (const buendel of planBuendel(liste, buendelBytes || 2500000)) {
+          const teil = [];
+          for (const d of buendel) teil.push({ pfad: d.pfad, daten: base64AusBytes(await zip.lesen(d.eintrag)) });
+          await dateienHoch(ziel(schluessel), teil);
+          fertig += buendel.length;
+          m('Dateien hochladen: ' + fertig + ' von ' + gesamt, fertig / Math.max(1, gesamt));
+        }
       }
-    }
+    };
+    const gruppieren = (liste, feld) => {
+      const g = new Map();
+      liste.forEach(d => {
+        const neu = zuordnung.get(d[feld]);
+        if (!g.has(neu)) g.set(neu, []);
+        g.get(neu).push({ ...d, eintrag: zip.finden(planPaketDatei(d)), bytes: 0 });
+      });
+      return g;
+    };
+    await hochladen(gruppieren(manifest.dateien.filter(d => !d.objekt), 'karte'), (id) => id);
     let n = 0;
     for (const o of objekte) {
-      await objSpeichern(o);
+      const { ablage, ...ohne } = o;
+      await objSpeichern(ohne);
+      angelegteObjekte.push(o.id);
       n++;
       if (n % 20 === 0) m('Einträge anlegen: ' + n + ' von ' + objekte.length);
     }
+    // Erst jetzt gibt es die Eintraege — und mit ihnen ihre Ordner.
+    await hochladen(gruppieren(manifest.dateien.filter(d => d.objekt), 'objekt'), (id) => ({ objId: id }));
     return { karten: karten.length, objekte: objekte.length, dateien: gesamt, zuordnung };
   } catch (err) {
     // Halb eingespielt ist schlechter als gar nicht: was schon angelegt
     // ist, geht wieder weg — samt seinen Dateien.
     for (const id of angelegt) { try { await karteLoeschen(id); } catch (e) { /* weiter aufraeumen */ } }
+    if (objLoeschen) for (const id of angelegteObjekte) { try { await objLoeschen(id); } catch (e) { /* weiter aufraeumen */ } }
     throw err;
   }
 };

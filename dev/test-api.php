@@ -1190,6 +1190,53 @@ pruefe('die Ablage hat ihre .htaccess', is_file(__DIR__ . '/../planer-dateien/.h
 $r = ruf('planer_dateien_liste', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
 pruefe('die Dateiliste ist Sache der Spielleitung (403)', $r['status'] === 403, kurz($r));
 
+abschnitt('Abenteuerplaner: Handouts');
+$r = ruf('member_list', ['code' => $code, 'token' => $tDm]);
+$uids = [];
+foreach ((array)($r['body']['mitglieder'] ?? []) as $mm) $uids[(string)$mm['name']] = (int)$mm['id'];
+$idSpieler = $uids[$spieler] ?? 0;
+$idZweiter = $uids[$zweiter] ?? 0;
+pruefe('die Kennungen der Spieler sind bekannt', $idSpieler > 0 && $idZweiter > 0, json_encode($uids));
+$hAlle = ['id' => 'h_testbrief01', 'art' => 'handout', 'karteId' => '', 'sichtbar' => true, 'titel' => 'Brief an alle',
+          'ablage' => str_repeat('a', 32), 'an' => [], 'dm' => ['notiz' => 'gefaelscht']];
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj' => $hAlle]);
+$ablageH = (string)($r['body']['ablage'] ?? '');
+pruefe('ein Handout braucht keine Karte (201)', $r['status'] === 201, kurz($r));
+pruefe('  … seinen Ordner vergibt der Server, nicht die Anwendung', preg_match('/^[0-9a-f]{32}$/', $ablageH) === 1 && $ablageH !== str_repeat('a', 32), $ablageH);
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj' => array_merge($hAlle, ['titel' => 'Brief (neu)'])]);
+pruefe('  … und er bleibt beim erneuten Speichern', ($r['body']['ablage'] ?? '') === $ablageH, kurz($r));
+$hEiner = ['id' => 'h_testgeheim1', 'art' => 'handout', 'karteId' => '', 'sichtbar' => true, 'titel' => 'Nur für einen',
+           'an' => [$idSpieler, $idSpieler, 'x']];
+ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj' => $hEiner]);
+$hZu = ['id' => 'h_testzu00001', 'art' => 'handout', 'karteId' => '', 'sichtbar' => false, 'titel' => 'Noch nicht verteilt'];
+ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj' => $hZu]);
+$r = $hoch($tDm, '', [['pfad' => 'brief.png', 'daten' => base64_encode($png)]]);
+pruefe('ohne Karte und ohne Eintrag gibt es keine Ablage (404)', $r['status'] === 404, kurz($r));
+$r = ruf('planer_dateien_hoch', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'h_testbrief01',
+                                 'dateien' => [['pfad' => 'brief.png', 'daten' => base64_encode($png)]]]);
+pruefe('ein Bild kommt in den Ordner des Handouts (201)', $r['status'] === 201, kurz($r));
+pruefe('  … und liegt dort', is_file(__DIR__ . '/../planer-dateien/' . $ablageH . '/brief.png'));
+$r = ruf('planer_dateien_hoch', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'o_testdorf01',
+                                 'dateien' => [['pfad' => 'x.png', 'daten' => base64_encode($png)]]]);
+pruefe('ein Ort hat keinen eigenen Ordner (404)', $r['status'] === 404, kurz($r));
+$r = ruf('planer_dateien_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'h_testbrief01']);
+pruefe('die Dateiliste des Handouts', array_column((array)($r['body']['dateien'] ?? []), 'pfad') === ['brief.png'], kurz($r));
+$handouts = fn(array $antwort) => array_column(array_filter((array)($antwort['body']['objekte'] ?? []), fn($o) => ($o['art'] ?? '') === 'handout'), 'id');
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$h1 = $handouts($r); sort($h1);
+pruefe('der Spieler bekommt den Brief an alle und den an ihn, nicht den unverteilten', $h1 === ['h_testbrief01', 'h_testgeheim1'], json_encode($h1));
+$brief = array_values(array_filter($r['body']['objekte'], fn($o) => $o['id'] === 'h_testbrief01'))[0] ?? [];
+pruefe('  … ohne Notiz, mit dem Ordner für das Bild', !array_key_exists('dm', $brief) && ($brief['ablage'] ?? '') === $ablageH);
+$geheim = array_values(array_filter($r['body']['objekte'], fn($o) => $o['id'] === 'h_testgeheim1'))[0] ?? [];
+pruefe('  … die Empfänger ohne Doppel und ohne Unfug', ($geheim['an'] ?? null) === [$idSpieler], json_encode($geheim['an'] ?? null));
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+pruefe('ein anderer Spieler bekommt nur den Brief an alle', $handouts($r) === ['h_testbrief01'], json_encode($handouts($r)));
+$r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'h_testbrief01']);
+pruefe('ein Handout wird gelöscht (200)', $r['status'] === 200, kurz($r));
+pruefe('  … samt seinem Ordner', !is_dir(__DIR__ . '/../planer-dateien/' . $ablageH));
+ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'h_testgeheim1']);
+ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'h_testzu00001']);
+
 abschnitt('Abenteuerplaner: Loeschen');
 $r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'o_testburg01']);
 pruefe('ein Ort wird geloescht (200)', $r['status'] === 200, kurz($r));

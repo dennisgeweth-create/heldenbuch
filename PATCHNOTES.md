@@ -1,5 +1,38 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.15.0
+
+### Abenteuerplaner Stufe 4: Nebel, Handouts, der Tisch
+
+- **☁ Nebel:** Die Spielleitung legt Nebel über eine Karte und deckt ihn
+  auf, mit kleinen, mittleren oder großen Kreisen, als Fläche oder alles
+  auf einmal. **↶ Zurück** nimmt die letzte Fläche wieder weg.
+  - Spieler sehen nur, was aufgedeckt ist; die Spielleitung sieht den
+    Nebel halb durchsichtig oder blendet ihn aus.
+  - **Mit der Reise:** Hat eine Reise eine Sichtweite, weicht der Nebel
+    beim Abschließen eines Tages entlang des Wegs.
+  - **Entdeckte Orte:** Ein verborgener Ort kann „sichtbar werden, sobald
+    der Nebel über ihm aufgeht“. Dann taucht er bei den Spielern von selbst
+    auf.
+  - Der Nebel verdeckt nur die Anzeige. Wer die Adresse einer Kachel kennt,
+    kann sie abrufen. Wirklich geheim bleibt eine verborgene Karte.
+- **📜 Handouts:** Briefe, Karten oder Bilder für die Spieler, mit Titel,
+  Text und Bild, an alle oder an einzelne Konten der Gruppe.
+  - **📜 An die Spieler geben** verteilt sie; bei den Spielern geht ein
+    neues Handout von selbst auf und steht danach in ihrer Liste.
+  - Wer es nicht bekommen soll, bekommt es auch vom Server nicht.
+- **📺 Tisch:** öffnet ein Fenster für Beamer oder zweiten Bildschirm, mit
+  Vollbild.
+  - Es zeigt nur, was die Runde sehen darf, mit deckendem Nebel und ohne
+    Werkzeuge.
+  - Mit **folgt mir** zeigt es die Karte und den Ausschnitt der
+    Spielleitung.
+  - **📺 Auf dem Tisch zeigen** legt ein Handout groß darüber, **📺 Karte
+    zeigen** nimmt es wieder weg.
+- Spieler gleichen jetzt alle 5 Sekunden ab statt alle 15.
+
+Export und Import nehmen Nebel und Handouts samt Bildern mit.
+
 ## v5.14.0
 
 ### Abenteuerplaner Stufe 3: Regionen und Zufallsbegegnungen

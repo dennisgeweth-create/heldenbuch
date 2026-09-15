@@ -81,6 +81,9 @@
     }
   </script>
   <script src="planer.js?v=dev"></script>
-  <script>planerStarten(document.getElementById('root'));</script>
+  <script>
+    // ?tisch=1 — das Fenster fuer Beamer oder zweiten Bildschirm.
+    planerStarten(document.getElementById('root'), { tisch: /[?&]tisch=1/.test(location.search) });
+  </script>
 </body>
 </html>

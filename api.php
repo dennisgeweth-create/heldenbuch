@@ -947,7 +947,7 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
 // durch PHP zu schicken den Server in die Knie zwingt.
 const PLAN_MAX_JSON   = 400000;     // eine Karte oder ein Ort, ohne Bilder
 const PLAN_MAX_DATEI  = 25000000;   // eine einzelne Datei
-const PLAN_ARTEN      = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle'];
+const PLAN_ARTEN      = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout'];
 // Nur Namen, die der Planer selbst vergibt: Kleinbuchstaben, Ziffern,
 // Strich und Unterstrich; Punkte nur vor der Endung. Damit gibt es kein
 // .. und keine versteckte Datei, und die Endung ist immer eine der vier.
@@ -1018,6 +1018,23 @@ function planInhaltPasst(string $endung, string $daten): bool {
     }
     return false;
 }
+// Wohin die Dateien einer Anfrage gehoeren: in den Ordner einer Karte
+// (karte_id) oder in den eigenen Ordner eines Handouts (obj_id). Ein
+// Handout hat seinen eigenen, damit ein Spieler, der ein Handout bekommt,
+// nicht den Ordner einer verborgenen Karte erfaehrt.
+function planAblageAus(PDO $pdo, string $code, string $advId, array $body): string {
+    $objId = (string)($body['obj_id'] ?? '');
+    if ($objId !== '' && empty($body['karte_id'])) {
+        $st = $pdo->prepare("SELECT art, obj_json FROM hb_plan_obj WHERE session_code=? AND adv_id=? AND obj_id=?");
+        $st->execute([$code, $advId, $objId]);
+        $r = $st->fetch();
+        $o = $r ? (json_decode((string)$r['obj_json'], true) ?: []) : [];
+        if (!$r || !preg_match('/^[0-9a-f]{32}$/', (string)($o['ablage'] ?? ''))) respond(404, 'Eintrag mit eigener Ablage nicht gefunden.');
+        return (string)$o['ablage'];
+    }
+    return (string)planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''))['ablage'];
+}
+
 // Karte lesen und dabei pruefen, dass sie zu diesem Abenteuer gehoert.
 function planKarte(PDO $pdo, string $code, string $advId, string $karteId): array {
     $st = $pdo->prepare("SELECT karte_id, ablage, sichtbar, karte_json FROM hb_plan_karte
@@ -2508,7 +2525,16 @@ switch ($action) {
                              WHERE session_code=? AND adv_id=?" . ($dm ? '' : ' AND sichtbar=1'));
         $st->execute([$code, $advId]);
         $objekte = [];
+        $ich = (int)($z['user']['id'] ?? 0);
         foreach ($st->fetchAll() as $r) {
+            if (!$dm && (string)$r['art'] === 'handout') {
+                // Ein Handout gehoert zu keiner Karte. Ist es an bestimmte
+                // Konten gerichtet, bekommen es nur diese.
+                $an = array_map('intval', (array)((json_decode((string)$r['obj_json'], true) ?: [])['an'] ?? []));
+                if ($an && !in_array($ich, $an, true)) continue;
+                $objekte[] = planObjAntwort($r, $dm);
+                continue;
+            }
             // Ein sichtbarer Ort auf einer verborgenen Karte verriete die Karte.
             if (!$dm && empty($offen[(string)$r['karte_id']])) continue;
             $objekte[] = planObjAntwort($r, $dm);
@@ -2569,18 +2595,30 @@ switch ($action) {
         $art = (string)($o['art'] ?? '');
         if (!planId($id)) respond(400, 'Der Eintrag hat keine gültige Kennung.');
         if (!in_array($art, PLAN_ARTEN, true)) respond(400, 'Unbekannte Art: ' . mb_substr($art, 0, 20));
-        $karte = planKarte($pdo, $code, $advId, (string)($o['karteId'] ?? ''));
-        $json = planJson($o, ['id', 'karteId', 'art', 'sichtbar']);
-        $st = $pdo->prepare("SELECT adv_id FROM hb_plan_obj WHERE session_code=? AND obj_id=?");
+        $st = $pdo->prepare("SELECT adv_id, obj_json FROM hb_plan_obj WHERE session_code=? AND obj_id=?");
         $st->execute([$code, $id]);
         $alt = $st->fetch();
         if ($alt && (string)$alt['adv_id'] !== $advId) respond(409, 'Diese Kennung gehört zu einem anderen Abenteuer.');
+        if ($art === 'handout') {
+            // Ein Handout gehoert zum Abenteuer, nicht zu einer Karte. Seinen
+            // Ordner vergibt der Server — was die Anwendung schickt, zaehlt nicht.
+            $karte = ['karte_id' => ''];
+            $altAblage = (string)(($alt ? (json_decode((string)$alt['obj_json'], true) ?: []) : [])['ablage'] ?? '');
+            $o['ablage'] = preg_match('/^[0-9a-f]{32}$/', $altAblage) ? $altAblage : bin2hex(random_bytes(16));
+            $an = [];
+            foreach ((array)($o['an'] ?? []) as $u) { $u = (int)$u; if ($u > 0 && !in_array($u, $an, true)) $an[] = $u; }
+            $o['an'] = array_slice($an, 0, 50);
+        } else {
+            $karte = planKarte($pdo, $code, $advId, (string)($o['karteId'] ?? ''));
+        }
+        $json = planJson($o, ['id', 'karteId', 'art', 'sichtbar']);
         $pdo->prepare("INSERT INTO hb_plan_obj (session_code, adv_id, obj_id, karte_id, art, sichtbar, obj_json)
                        VALUES (?,?,?,?,?,?,?)
                        ON DUPLICATE KEY UPDATE karte_id=VALUES(karte_id), art=VALUES(art),
                                                sichtbar=VALUES(sichtbar), obj_json=VALUES(obj_json)")
             ->execute([$code, $advId, $id, $karte['karte_id'], $art, empty($o['sichtbar']) ? 0 : 1, $json]);
-        respond($alt ? 200 : 201, 'Gespeichert.', ['stand' => planStandHoch($pdo, $code, $advId)]);
+        respond($alt ? 200 : 201, 'Gespeichert.', ['stand' => planStandHoch($pdo, $code, $advId),
+                                                  'ablage' => $art === 'handout' ? $o['ablage'] : null]);
     }
 
     case 'planer_obj_loeschen': {
@@ -2588,9 +2626,15 @@ switch ($action) {
         $z = zugang($pdo, $code, $pass, $body);
         $advId = (string)($body['adv_id'] ?? '');
         if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $objId = (string)($body['obj_id'] ?? '');
+        $st = $pdo->prepare("SELECT obj_json FROM hb_plan_obj WHERE session_code=? AND adv_id=? AND obj_id=?");
+        $st->execute([$code, $advId, $objId]);
+        $weg = $st->fetch();
         $st = $pdo->prepare("DELETE FROM hb_plan_obj WHERE session_code=? AND adv_id=? AND obj_id=?");
-        $st->execute([$code, $advId, (string)($body['obj_id'] ?? '')]);
+        $st->execute([$code, $advId, $objId]);
         if (!$st->rowCount()) respond(404, 'Nicht gefunden.');
+        $wegAblage = (string)(($weg ? (json_decode((string)$weg['obj_json'], true) ?: []) : [])['ablage'] ?? '');
+        if (preg_match('/^[0-9a-f]{32}$/', $wegAblage)) planOrdnerLeeren(planOrdner($wegAblage, false), true);
         respond(200, 'Gelöscht.', ['stand' => planStandHoch($pdo, $code, $advId)]);
     }
 
@@ -2602,7 +2646,7 @@ switch ($action) {
         $z = zugang($pdo, $code, $pass, $body);
         $advId = (string)($body['adv_id'] ?? '');
         if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
-        $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
+        $k = ['ablage' => planAblageAus($pdo, $code, $advId, $body)];
         $liste = $body['dateien'] ?? null;
         if (!is_array($liste) || !$liste) respond(400, 'Keine Dateien.');
         if (count($liste) > 500) respond(413, 'Höchstens 500 Dateien je Anfrage.');
@@ -2638,7 +2682,7 @@ switch ($action) {
         $z = zugang($pdo, $code, $pass, $body);
         $advId = (string)($body['adv_id'] ?? '');
         if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
-        $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
+        $k = ['ablage' => planAblageAus($pdo, $code, $advId, $body)];
         $ordner = planOrdner((string)$k['ablage'], false);
         $dateien = []; $summe = 0;
         if (is_dir($ordner)) {
@@ -2660,7 +2704,7 @@ switch ($action) {
         $z = zugang($pdo, $code, $pass, $body);
         $advId = (string)($body['adv_id'] ?? '');
         if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
-        $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
+        $k = ['ablage' => planAblageAus($pdo, $code, $advId, $body)];
         $ordner = planOrdner((string)$k['ablage'], false);
         // Drei Weisen: einzelne Dateien (pfade), ein Unterordner (praefix,
         // hoechstens zwei Ebenen: ein altes Kartenbild b3, die Bilder eines

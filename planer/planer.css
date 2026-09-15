@@ -272,3 +272,31 @@ a { color: var(--gold); }
   background: var(--bg-panel); border: 1px solid var(--border); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 12px; }
 .pl-wurf.treffer .pl-wurf-zahl { border-color: var(--gold); color: var(--gold-bright); }
 .pl-wurf-zeile { padding: 6px 8px; border-radius: 5px; background: var(--bg-card); font-size: 13px; }
+
+/* ── Stufe 4: Nebel, Handouts, Tisch ─────────────────────────────── */
+.pl-nebel { position: absolute; inset: 0; pointer-events: none; }
+.pl-nebel-flaeche { fill: rgba(28,32,38,.58); }
+.pl-nebel.deckend .pl-nebel-flaeche { fill: #0c0d0f; }
+.pl-nebel-steuer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pl-knopfgruppe { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.pl-nebel-zeigen, .pl-tisch-folgt { font-size: 12px; color: var(--text-secondary); }
+.pl-tisch-folgt.an { color: var(--gut); }
+.pl-neu-punkt { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #111; background: var(--warn); border-radius: 3px; padding: 0 5px; }
+.pl-etikett { font-family: 'Roboto Condensed', sans-serif; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.pl-handout-leser { width: min(640px, 100%); }
+.pl-handout-bild { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 6px; background: #000; }
+.pl-handout-vorschau { display: grid; gap: 6px; justify-items: start; }
+.pl-handout-vorschau img { max-width: 100%; max-height: 180px; border-radius: 5px; border: 1px solid var(--border); }
+.pl-empfaenger { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px 8px; display: grid; gap: 4px; }
+.pl-empfaenger legend { font-size: 12px; color: var(--text-muted); padding: 0 4px; }
+.pl-tisch { position: fixed; inset: 0; background: #000; }
+.pl-tisch .pl-leinwand-karte { height: 100vh; min-height: 0; border: 0; border-radius: 0; }
+.pl-tisch .pl-zoom { display: none; }
+.pl-tisch-leer { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 22px; background: #000; }
+.pl-tisch-handout { position: fixed; inset: 5vh 8vw; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: rgba(8,8,10,.94); border: 1px solid var(--border-bright); border-radius: 12px; padding: 24px; text-align: center; }
+.pl-tisch-handout img { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 6px; }
+.pl-tisch-handout p { font-size: clamp(16px, 2vw, 26px); max-width: 60ch; white-space: pre-wrap; color: #eee; }
+.pl-tisch-handout .pl-etikett { font-size: clamp(14px, 1.6vw, 22px); }
+.pl-tisch-voll { position: fixed; right: 10px; bottom: 10px; opacity: .25; background: rgba(20,22,24,.8); }
+.pl-tisch-voll:hover { opacity: 1; }

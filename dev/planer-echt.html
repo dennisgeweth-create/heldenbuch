@@ -17,12 +17,18 @@
   #bericht .grund { color:var(--text-muted); font-size:12px; }
   #bericht .summe { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); font-size:14px; }
   body { padding-bottom:42vh; }
+  /* Das Tischfenster, klein in der Ecke statt ueber dem ganzen Schirm. */
+  #tisch-probe { position:fixed; right:8px; top:8px; width:420px; height:280px; overflow:hidden; z-index:9999;
+    border:2px solid #7fd39b; pointer-events:none; }
+  #tisch-probe .pl-tisch, #tisch-probe .pl-tisch-leer, #tisch-probe .pl-tisch-handout { position:absolute; }
+  #tisch-probe .pl-tisch .pl-leinwand-karte { height:280px; }
 </style>
 <script src="../vendor/react.production.min.js?v=dev"></script>
 <script src="../vendor/react-dom.production.min.js?v=dev"></script>
 </head>
 <body>
   <div id="root"></div>
+  <div id="tisch-probe" hidden></div>
   <div id="bericht"><h3>Der echte Planer &mdash; Durchgang l&auml;uft&hellip;</h3><div id="zeilen"></div></div>
 
   <script>
@@ -36,6 +42,17 @@
       karten: new Map(), objekte: new Map(), ablagen: new Map(), aufrufe: [], gespeichert: [], logs: [],
       begegnungen: [{ id: 'enc_woelfe', name: 'Wolfsrudel', difficulty: 'Mittel', enemies: [{ enemyId: 'g1', count: 4 }], adventure: 'strahd' },
                     { id: 'enc_eberron', name: 'Nur in Eberron', difficulty: 'Leicht', enemies: [], adventure: 'eberron' }],
+    };
+    // Die Ablage einer Anfrage: der Ordner einer Karte oder eines Eintrags mit eigenem Ordner.
+    const ablageVon = (p, adv) => {
+      if (p.obj_id && !p.karte_id) {
+        const o = FAKE.objekte.get(p.obj_id);
+        if (!o || !o.daten.ablage) throw fakeFehler(404, 'Eintrag mit eigener Ablage nicht gefunden.');
+        return o.daten.ablage;
+      }
+      const k = FAKE.karten.get(p.karte_id);
+      if (!k || k.adv !== adv) throw fakeFehler(404, 'Karte nicht gefunden.');
+      return k.ablage;
     };
     const hex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
     const ohneDm = (o) => { const { dm, ...r } = o; return r; };
@@ -52,14 +69,15 @@
       const nurDm = () => { if (!dm) throw fakeFehler(403, 'Das darf nur die Spielleitung.'); };
       switch (action) {
         case 'planer_start':
-          return { ok: true, nutzer: { id: 7, name: dm ? 'Meisterin' : 'Armin' }, rolle: FAKE.rolle,
+          return { ok: true, nutzer: { id: dm ? 7 : 8, name: dm ? 'Meisterin' : 'Armin' }, rolle: FAKE.rolle,
                    abenteuer: [{ id: 'strahd', name: 'Fluch des Strahd', leitest: dm }, { id: 'eberron', name: 'Eberron', leitest: dm }] };
         case 'planer_stand': return { ok: true, stand: FAKE.stand[adv] || 0 };
         case 'planer_laden': {
           const karten = [...FAKE.karten.values()].filter(k => k.adv === adv && (dm || k.daten.sichtbar))
             .map(k => ({ ...(dm ? k.daten : ohneDm(k.daten)), ablage: k.ablage }));
           const offen = new Set(karten.map(k => k.id));
-          const objekte = [...FAKE.objekte.values()].filter(o => o.adv === adv && offen.has(o.daten.karteId) && (dm || o.daten.sichtbar))
+          const objekte = [...FAKE.objekte.values()].filter(o => o.adv === adv && (dm || o.daten.sichtbar)
+              && (o.daten.art === 'handout' ? (dm || !(o.daten.an || []).length || o.daten.an.includes(8)) : offen.has(o.daten.karteId)))
             .map(o => dm ? o.daten : ohneDm(o.daten));
           return { ok: true, dm, stand: FAKE.stand[adv] || 0, karten, objekte };
         }
@@ -84,13 +102,26 @@
         }
         case 'planer_obj_speichern': {
           nurDm();
-          karteVon(p.obj.karteId);
-          FAKE.objekte.set(p.obj.id, { adv, daten: p.obj });
+          const o = { ...p.obj };
+          if (o.art === 'handout') {
+            const alt = FAKE.objekte.get(o.id);
+            o.ablage = alt && alt.daten.ablage ? alt.daten.ablage : hex(16);
+          } else karteVon(o.karteId);
+          FAKE.objekte.set(o.id, { adv, daten: o });
+          return { ok: true, stand: hoch(), ablage: o.ablage || null };
+        }
+        case 'planer_obj_loeschen': {
+          nurDm();
+          const o = FAKE.objekte.get(p.obj_id);
+          if (!o) throw fakeFehler(404, 'Nicht gefunden.');
+          FAKE.objekte.delete(p.obj_id);
+          if (o.daten.ablage) FAKE.ablagen.delete(o.daten.ablage);
           return { ok: true, stand: hoch() };
         }
+        case 'member_list': nurDm(); return { ok: true, mitglieder: [{ id: 7, name: 'Meisterin', rolle: 'dm' }, { id: 8, name: 'Armin', rolle: 'spieler' }, { id: 9, name: 'Bea', rolle: 'spieler' }] };
         case 'planer_dateien_hoch': {
           nurDm();
-          const k = karteVon(p.karte_id);
+          const k = { ablage: ablageVon(p, adv) };
           if (!FAKE.ablagen.has(k.ablage)) FAKE.ablagen.set(k.ablage, new Map());
           for (const d of p.dateien) {
             if (!PLAN_PFAD_RE.test(d.pfad)) throw fakeFehler(400, 'Ungültiger Dateiname: ' + d.pfad);
@@ -103,7 +134,7 @@
         case 'save_log': FAKE.logs.push(p.entry); return { ok: true };
         case 'planer_dateien_weg': {
           nurDm();
-          const k = karteVon(p.karte_id);
+          const k = { ablage: ablageVon(p, adv) };
           const ab = FAKE.ablagen.get(k.ablage) || new Map();
           if (p.pfade) p.pfade.forEach(pf => ab.delete(pf));
           else if (p.praefix) [...ab.keys()].filter(pf => pf.startsWith(p.praefix + '/')).forEach(pf => ab.delete(pf));
@@ -112,7 +143,7 @@
         }
         case 'planer_dateien_liste': {
           nurDm();
-          const k = karteVon(p.karte_id);
+          const k = { ablage: ablageVon(p, adv) };
           const dateien = [...(FAKE.ablagen.get(k.ablage) || new Map())].map(([pfad, b]) => ({ pfad, bytes: b.length })).sort((a, b) => a.pfad < b.pfad ? -1 : 1);
           return { ok: true, ablage: k.ablage, dateien, bytes: dateien.reduce((s, d) => s + d.bytes, 0) };
         }
@@ -398,6 +429,13 @@
         await ruhe();
         knopf(/^Speichern$/, root.querySelector('.pl-tafel.pl-reise')).click();
         ja('zehn Stunden: Gewaltmarsch mit SG 11 und 12', !!(await warte(() => /SG 11, 12/.test((root.querySelector('.pl-tafel.pl-reise') || {}).textContent || ''))));
+        // Das gewürfelte Wetter ist zufällig — erst ruhiges Wetter festlegen, dann den Sturm.
+        waehle(root.querySelector('.pl-wetter-wahl select[aria-label="wind"]'), 'flaute');
+        await warte(() => ((FAKE.objekte.get(reiseId).daten.wetterVorgaben || {})[0] || {}).wind === 'flaute');
+        await ruhe(150);
+        waehle(root.querySelector('.pl-wetter-wahl select[aria-label="niederschlag"]'), 'klar');
+        await warte(() => ((FAKE.objekte.get(reiseId).daten.wetterVorgaben || {})[0] || {}).niederschlag === 'klar');
+        await ruhe(150);
         const vorSturm = heuteZeile();
         waehle(root.querySelector('.pl-wetter-wahl select[aria-label="niederschlag"]'), 'sturm');
         ja('Sturm von Hand: gilt für den Tag', !!(await warte(() => ((FAKE.objekte.get(reiseId).daten.wetterVorgaben || {})[0] || {}).niederschlag === 'sturm')));
@@ -489,17 +527,115 @@
         ja('  … und nicht ein zweites Mal', !!(await warte(() => { const b = knopf(/Steht im Abenteuerlog/); return b && b.disabled; })));
         ja('der erste Reisetag (vor den Regionen) hatte keine Wachen', (FAKE.objekte.get(reiseId).daten.tagebuch[0].pruefungen || []).length === 0);
 
+        // ── Nebel ─────────────────────────────────────────────────
+        melden('lauf', 'Nebel');
+        [...root.querySelectorAll('.pl-liste[aria-label="Orte auf dieser Karte"] .pl-eintrag-name')][0].click();
+        const nTafel = await warte(() => root.querySelector('.pl-tafel[aria-label^="Ort bearbeiten"]'));
+        [...nTafel.querySelectorAll('label.pl-schalter')].find(l => /Für Spieler sichtbar/.test(l.textContent)).querySelector('input').click();
+        await ruhe();
+        const mitNebelFeld = await warte(() => [...root.querySelectorAll('.pl-tafel label.pl-schalter')].find(l => /sobald der Nebel/.test(l.textContent)));
+        ja('ein verborgener Ort kann mit dem Nebel aufgehen', !!mitNebelFeld);
+        mitNebelFeld.querySelector('input').click();
+        await ruhe();
+        knopf(/^Speichern$/, root.querySelector('.pl-tafel')).click();
+        const ortD = () => [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten;
+        await warte(() => ortD().mitNebel && !ortD().sichtbar);
+        knopf(/☁ Nebel/).click();
+        await ruhe();
+        const nebelAn = [...root.querySelectorAll('label.pl-schalter')].find(l => /Nebel für Spieler/.test(l.textContent)).querySelector('input');
+        nebelAn.click();
+        const karteN = () => karteVon('Barovia-Tal').daten.nebel || {};
+        ja('„Nebel für Spieler“ legt Nebel über die Karte', !!(await warte(() => karteN().an === true)));
+        ja('  … die Spielleitung sieht ihn halb durchsichtig', !!(await warte(() => root.querySelector('.pl-nebel:not(.deckend)'))));
+        knopf(/◯ Klein/).click();
+        await ruhe();
+        tippeKarte(-300, -150);
+        ja('ein Klick deckt einen Kreis auf', !!(await warte(() => (karteN().flaechen || []).length === 1 && karteN().flaechen[0].art === 'kreis')));
+        ja('  … noch geht der Ort nicht auf', !ortD().sichtbar);
+        knopf(/◯ Groß/).click();
+        await ruhe();
+        const marke3 = [...root.querySelectorAll('.pl-ort')].find(b => /Dorf Barovia/.test(b.textContent));
+        const m3 = marke3.getBoundingClientRect(), lw = leinwand().getBoundingClientRect();
+        tippeKarte(m3.left + m3.width / 2 - (lw.left + lw.width / 2), m3.bottom + 25 - (lw.top + lw.height / 2));
+        ja('ein großer Kreis über dem Ort gibt ihn frei', !!(await warte(() => ortD().sichtbar === true)));
+        ja('  … und die Seite sagt es', !!(await warte(() => textDa(/Der Nebel gibt frei: Dorf Barovia/))));
+        knopf(/↶ Zurück/).click();
+        ja('„↶ Zurück“ nimmt die letzte Fläche wieder weg', !!(await warte(() => karteN().flaechen.length === 1)));
+        knopf(/^Fertig$/).click();
+        [...root.querySelectorAll('.pl-liste[aria-label="Routen und Reisen"] .pl-eintrag-name')].find(b => /Reise/.test(b.textContent)).click();
+        const sT = await warte(() => root.querySelector('.pl-tafel.pl-reise'));
+        tippe([...sT.querySelectorAll('label')].find(l => /Sichtweite/.test(l.textContent)).querySelector('input'), '5');
+        await ruhe();
+        knopf(/^Speichern$/, root.querySelector('.pl-tafel.pl-reise')).click();
+        await warte(() => FAKE.objekte.get(reiseId).daten.sichtweite === 5);
+        const vorReise = karteN().flaechen.length;
+        knopf(/Tag 3 abschließen/).click();
+        ja('ein Reisetag mit Sichtweite lichtet den Nebel entlang des Wegs', !!(await warte(() => karteN().flaechen.length > vorReise + 3)), vorReise + ' → ' + karteN().flaechen.length);
+
+        // ── Handouts ──────────────────────────────────────────────
+        melden('lauf', 'Handouts');
+        knopf(/＋ Handout/).click();
+        const hT = await warte(() => root.querySelector('.pl-tafel[aria-label^="Handout"]'));
+        ja('„＋ Handout“ legt eines an, noch nicht verteilt', !!hT && /Noch nicht verteilt/.test(hT.textContent));
+        const hId = [...FAKE.objekte.values()].find(o => o.daten.art === 'handout').daten.id;
+        ja('  … mit eigenem Ordner vom Server', /^[0-9a-f]{32}$/.test(FAKE.objekte.get(hId).daten.ablage));
+        tippe(hT.querySelector('input.pl-feld'), 'Brief von Kolyan');
+        tippe(hT.querySelector('textarea'), 'Kommt nach Barovia, bevor es zu spät ist.');
+        await ruhe();
+        knopf(/^Speichern$/, hT).click();
+        await warte(() => FAKE.objekte.get(hId).daten.titel === 'Brief von Kolyan');
+        legeDatei(root.querySelector('.pl-tafel[aria-label^="Handout"] input[type=file]'), await testbild(900, 600));
+        ja('ein Bild kommt in den Ordner des Handouts', !!(await warte(() => { const d = FAKE.objekte.get(hId).daten; return d.bild && FAKE.ablagen.get(d.ablage) && FAKE.ablagen.get(d.ablage).has(d.bild); }, 8000)));
+        ja('  … und steht in der Tafel', !!(await warte(() => root.querySelector('.pl-tafel .pl-handout-vorschau img') && !root.querySelector('.pl-schleier'), 8000)));
+        ja('  … die Mitglieder stehen als Empfänger zur Wahl', !!(await warte(() => /Bea/.test((root.querySelector('.pl-empfaenger') || {}).textContent || ''))));
+        knopf(/An die Spieler geben/).click();
+        ja('„📜 An die Spieler geben“ verteilt es an alle', !!(await warte(() => FAKE.objekte.get(hId).daten.sichtbar === true && !(FAKE.objekte.get(hId).daten.an || []).length)));
+        knopf(/＋ Handout/).click();
+        const h2T = await warte(() => root.querySelector('.pl-tafel[aria-label="Handout: Neues Handout"]'));
+        const h2Id = [...FAKE.objekte.values()].filter(o => o.daten.art === 'handout').map(o => o.daten.id).find(id => id !== hId);
+        tippe(h2T.querySelector('input.pl-feld'), 'Nur für Bea');
+        [...h2T.querySelectorAll('.pl-empfaenger label')].find(l => /Bea/.test(l.textContent)).querySelector('input').click();
+        await ruhe();
+        knopf(/^Speichern$/, h2T).click();
+        await warte(() => (FAKE.objekte.get(h2Id).daten.an || []).join() === '9');
+        knopf(/An die Spieler geben/, root.querySelector('.pl-tafel')).click();
+        ja('ein zweites nur an Bea', !!(await warte(() => FAKE.objekte.get(h2Id).daten.sichtbar && FAKE.objekte.get(h2Id).daten.an.join() === '9')));
+
+        // ── Der Tisch ─────────────────────────────────────────────
+        melden('lauf', 'Der Tisch');
+        const tisch = document.getElementById('tisch-probe');
+        tisch.hidden = false;
+        planerStarten(tisch, { tisch: true, adv: 'strahd' });
+        ja('das Tischfenster lädt', !!(await warte(() => tisch.querySelector('.pl-tisch'), 4000)));
+        const folgt = root.querySelector('.pl-tisch-folgt input');
+        if (!folgt.checked) folgt.click();
+        [...root.querySelectorAll('.pl-liste[aria-label="Karten"] .pl-eintrag-name')].find(b => /Barovia-Tal/.test(b.textContent)).click();
+        ja('„folgt mir“: der Tisch zeigt die Karte, mit deckendem Nebel', !!(await warte(() => tisch.querySelector('.pl-kacheln img') && tisch.querySelector('.pl-nebel.deckend'), 5000)));
+        ja('  … keine Werkzeuge, keine Notizen, keine verborgene Region', !tisch.querySelector('.pl-werkzeuge') && !/Ireena|Nebel steigt/.test(tisch.textContent) && !tisch.querySelector('.pl-region'));
+        [...root.querySelectorAll('.pl-liste[aria-label="Handouts"] .pl-eintrag-name')].find(b => /Kolyan/.test(b.textContent)).click();
+        knopf(/Auf dem Tisch zeigen/, await warte(() => root.querySelector('.pl-tafel[aria-label="Handout: Brief von Kolyan"]'))).click();
+        ja('„📺 Auf dem Tisch zeigen“ legt das Handout groß auf den Tisch', !!(await warte(() => {
+          const h = tisch.querySelector('.pl-tisch-handout'); return h && /Brief von Kolyan/.test(h.textContent) && h.querySelector('img');
+        }, 4000)));
+        knopf(/📺 Karte zeigen/).click();
+        ja('„📺 Karte zeigen“ nimmt es wieder weg', !!(await warte(() => !tisch.querySelector('.pl-tisch-handout'))));
+        planerWurzeln.get(tisch).unmount();
+        tisch.hidden = true;
+
         // ── Exportieren ─────────────────────────────────────────
         melden('lauf', 'Exportieren');
         const anzahlDateien = FAKE.ablagen.get(ab).size;
+        const handoutDateien = [...FAKE.objekte.values()].filter(o => o.daten.art === 'handout').reduce((s, o) => s + (FAKE.ablagen.get(o.daten.ablage) || new Map()).size, 0);
         knopf(/Exportieren/).click();
         const gespeichert = await warte(() => FAKE.gespeichert[0], 8000);
         ja('Exportieren gibt eine Datei heraus', !!gespeichert);
         ja('  … benannt nach Abenteuer und Tag', gespeichert && /^Fluch des Strahd \d{4}-\d{2}-\d{2}\.hbplan$/.test(gespeichert.name), gespeichert && gespeichert.name);
         const paket = await planPaketOeffnen(gespeichert.blob);
         ja('das Paket enthält beide Karten, Ort, Route, Reise, Region und alle Dateien',
-          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 4 && paket.manifest.dateien.length === anzahlDateien,
-          paket.manifest.karten.length + '/' + paket.manifest.objekte.length + '/' + paket.manifest.dateien.length + ' von ' + anzahlDateien);
+          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 6 && paket.manifest.dateien.length === anzahlDateien + handoutDateien,
+          paket.manifest.karten.length + '/' + paket.manifest.objekte.length + '/' + paket.manifest.dateien.length + ' von ' + anzahlDateien + '+' + handoutDateien);
+        ja('  … auch das Bild des Handouts', handoutDateien === 1 && paket.manifest.dateien.some(d => d.objekt === hId));
+        ja('  … und den Nebel der Karte', paket.manifest.karten.some(k => k.nebel && k.nebel.an && k.nebel.flaechen.length > 3));
         ja('  … mit dem Kartenbild, dem Maßstab und der Notiz', paket.manifest.karten.some(k => k.bild && k.bild.ordner === 'b2' && k.massstab) && paket.manifest.objekte.find(o => o.art === 'ort').dm.notiz === 'Ireena wohnt hier.');
         ja('  … ohne die Ablage des Servers', !paket.manifest.karten.some(k => 'ablage' in k));
 
@@ -512,18 +648,22 @@
           knopf(/^Löschen$/, dlg).click();
           await warte(() => ![...root.querySelectorAll('.pl-eintrag-name')].some(b => b.textContent.includes(name)));
         }
-        ja('beide Karten sind gelöscht, samt Dateien und Orten', FAKE.karten.size === 0 && !FAKE.ablagen.has(ab) && FAKE.objekte.size === 0);
+        ja('beide Karten sind gelöscht, samt Dateien und Orten; die Handouts bleiben', FAKE.karten.size === 0 && !FAKE.ablagen.has(ab)
+           && [...FAKE.objekte.values()].every(o => o.daten.art === 'handout'));
         legeDatei(root.querySelector('input[type=file][accept^=".hbplan"]'), gespeichert.blob, gespeichert.name);
         const vorschau = await warte(() => root.querySelector('.pl-import'));
         ja('die Vorschau zeigt, was kommt', vorschau && /Barovia-Tal/.test(vorschau.textContent) && /Burg Ravenloft/.test(vorschau.textContent));
         knopf(/^Einspielen$/, vorschau).click();
-        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 4 Einträge, \d+ Dateien/), 10000)));
+        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 6 Einträge, \d+ Dateien/), 10000)));
+        const kopien = [...FAKE.objekte.values()].filter(o => o.daten.art === 'handout' && o.daten.titel === 'Brief von Kolyan');
+        ja('  … das Handout kommt als Kopie mit neuem Ordner und seinem Bild', kopien.length === 2
+           && kopien[0].daten.ablage !== kopien[1].daten.ablage && kopien.every(o => FAKE.ablagen.get(o.daten.ablage) && FAKE.ablagen.get(o.daten.ablage).has(o.daten.bild)));
         const neuTal = karteVon('Barovia-Tal'), neuBurg = karteVon('Burg Ravenloft');
         ja('  … unter neuen Kennungen', !!neuTal && !!neuBurg && !altIds.includes(neuTal.daten.id));
         const neuOrt = [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten;
         const neuRoute = [...FAKE.objekte.values()].find(o => o.daten.art === 'route').daten;
         const neuReise = [...FAKE.objekte.values()].find(o => o.daten.art === 'reise').daten;
-        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 2);
+        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 3);
         ja('  … der Ort zeigt auf die neue Karte und die neue Unterkarte', neuOrt.karteId === neuTal.daten.id && neuOrt.unterkarte === neuBurg.daten.id);
         ja('  … alle Kacheln sind wieder da', FAKE.ablagen.get(neuTal.ablage).size === anzahlDateien, FAKE.ablagen.get(neuTal.ablage).size);
         ja('  … und das Kartenbild wird angezeigt', !!(await warte(() => root.querySelectorAll('.pl-kacheln img').length > 0 && !root.querySelector('.pl-kacheln img[src="data:,fehlt"]'))));
@@ -537,6 +677,16 @@
         neuBurg.daten.sichtbar = false;
         await starten(() => { FAKE.rolle = 'spieler'; });
         ja('der Spieler sieht seine Rolle', !!(await warte(() => root.querySelector('.pl-rolle.spieler'))));
+        try { localStorage.removeItem('hb_planer_gesehen_strahd'); } catch (e) {}
+        await starten(() => {});
+        const leser = await warte(() => root.querySelector('.pl-handout-leser'), 4000);
+        ja('ein neues Handout geht beim Spieler von selbst auf', !!leser && /Brief von Kolyan/.test(leser.textContent) && !!leser.querySelector('img'));
+        let gelesenZaehler = 0;
+        while (root.querySelector('.pl-handout-leser') && gelesenZaehler < 6) { knopf(/^Gelesen$/, root.querySelector('.pl-handout-leser')).click(); gelesenZaehler++; await ruhe(150); }
+        ja('  … nach „Gelesen“ bleibt es zu — auch nach dem Neuladen', !root.querySelector('.pl-handout-leser') && (await (async () => { await starten(() => {}); await ruhe(500); return !root.querySelector('.pl-handout-leser'); })()));
+        const hListe = [...root.querySelectorAll('.pl-liste[aria-label="Handouts"] .pl-eintrag-name')].map(b => b.textContent);
+        ja('  … Bea\'s Handout bekommt Armin nicht', hListe.length === 2 && hListe.every(t => /Kolyan/.test(t)), hListe.join(' | '));
+        ja('  … der Spieler sieht den Nebel deckend', !!(await warte(() => root.querySelector('.pl-nebel.deckend'))));
         ja('  … keine Knöpfe zum Exportieren, Anlegen, Bild, Ort oder Maßstab', !knopf(/Exportieren|Importieren|Neue Karte|Kartenbild|Bild ersetzen|Ort setzen|Maßstab/));
         ja('  … aber das Lineal', !!(await warte(() => knopf(/Messen/))));
         const sichtbar = [...root.querySelectorAll('.pl-liste[aria-label="Karten"] .pl-eintrag-name')].map(b => b.textContent);

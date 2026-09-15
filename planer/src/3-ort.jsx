@@ -204,6 +204,12 @@ const OrtTafel = ({ ort, dm, karte, karten, arbeitet, onSpeichern, onLoeschen, o
           <input type="checkbox" checked={!!entwurf.sichtbar} onChange={e => setze('sichtbar', e.target.checked)} />
           <span>Für Spieler sichtbar</span>
         </label>
+        {!entwurf.sichtbar && (
+          <label className="pl-schalter">
+            <input type="checkbox" checked={!!entwurf.mitNebel} onChange={e => setze('mitNebel', e.target.checked)} />
+            <span>Sichtbar, sobald der Nebel über ihm aufgeht</span>
+          </label>
+        )}
         {bildLeiste}
         <div className="pl-zeile">
           <button type="button" className="pl-knopf pl-klein" disabled={arbeitet} onClick={() => bildEingabe.current && bildEingabe.current.click()}>＋ Bild</button>

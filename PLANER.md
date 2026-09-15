@@ -34,10 +34,12 @@ Eigene Seite, eigenes Bündel, **gemeinsamer Server**:
 | ↳ `1b-kacheln.jsx` | **reine Rechnung:** Bildmaße aus dem Dateikopf, Kachelpyramide, Ansicht und Zoom, Maßstab und Lineal, Reihenfolge beim Schneiden und Hochladen |
 | ↳ `1c-reise.jsx` | **reine Rechnung:** Gelände, Tempo, Fortbewegung, Reise Tag für Tag, Gewaltmarsch, Wetter nach Klima und Jahreszeit, Aufträge ans Heldenbuch |
 | ↳ `1d-begegnung.jsx` | **reine Rechnung:** Punkt in der Fläche, innerste Region, Wachen eines Reisetags, Begegnungswurf, Reisetagebuch als Text |
-| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Ziehen, Mausrad, zwei Finger, Orte, Regionen, Routen, Gruppen, Linien |
+| ↳ `1e-sicht.jsx` | **reine Rechnung:** Nebel (aufgedeckt, Kreise entlang der Reise, Orte darunter), Spielersicht für den Tisch, ungesehene Handouts |
+| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Nebel, Ziehen, Mausrad, zwei Finger, Orte, Regionen, Routen, Gruppen, Linien |
 | ↳ `3-ort.jsx` | Bilder im Browser öffnen, verkleinern und schneiden; Maßstabsdialog; die Tafel eines Orts |
 | ↳ `3b-reise.jsx` | die Tafeln einer Route und einer Reise, die Übergabe ans Heldenbuch |
 | ↳ `3c-begegnung.jsx` | die Tafel einer Region, der Tabelleneditor, die Liste der Wachen |
+| ↳ `3d-sicht.jsx` | Handouts (Tafel, Lesefenster, Liste) und das Tischfenster (`?tisch=1`) |
 | ↳ `4-app.jsx` | die Seite |
 | `planer/planer.js` | daraus gebaut von `node build.js`, **mitcommittet** wie `js/app.js` |
 | `planer/planer.css` | eigene Oberfläche, dieselben Farben wie `styles.css` |
@@ -70,6 +72,7 @@ Ein ZIP, das jedes Entpackprogramm öffnet:
 ```
 hbplan.json                 Beschreibung, Karten, Einträge, Dateiliste
 karten/<karte>/<pfad>       die Dateien jeder Karte, so wie abgelegt
+objekte/<eintrag>/<pfad>    die Dateien eines Eintrags mit eigenem Ordner (Handouts, seit v5.15.0)
 ```
 
 `hbplan.json`:
@@ -111,7 +114,8 @@ C:/xampp/php/php.exe dev/test-api.php --neu  # Abschnitte "Abenteuerplaner"
 und im Browser **http://localhost:8777/dev/planer-echt.html**. Die Seite
 fährt den echten Planer gegen einen Server im Arbeitsspeicher und klickt
 sich durch: Anlegen, Sichtbarkeit, Kartenbild, Maßstab, Orte, Routen,
-Reisen, Übergabe, Export, Löschen, Einspielen, Spielersicht. Die Übergabe
+Reisen, Übergabe, Regionen, Nebel, Handouts, das Tischfenster (in einer
+Ecke derselben Seite), Export, Löschen, Einspielen, Spielersicht. Die Übergabe
 auf der Seite des Heldenbuchs prüft `dev/echt.html`.
 
 ---
@@ -280,9 +284,54 @@ auch in einen laufenden Kampf.
 in `details`. Der Tagebucheintrag merkt sich `geloggt`, damit er nicht
 doppelt hineingeht.
 
-### Stufe 4 · Spielersicht
+### ✅ Stufe 4 · Spielersicht (v5.15.0)
 
-Nebel, entdeckte Orte, Heldenmarker live, Handouts, Beamerfenster.
+**Nebel** (`karte.nebel`): `{ an, flaechen: [{art:'kreis', x, y, r} | {art:'vieleck', punkte} | {art:'alles'}] }`.
+
+- Er steht nicht unter `dm`, weil Spieler ihn zum Zeichnen brauchen.
+- Er ist eine SVG-Maske über den Kacheln: bei Spielern und am Tisch
+  deckend, bei der Spielleitung halb durchsichtig oder ausgeblendet.
+- **Grenze:** Er verdeckt die Anzeige, nicht die Kacheln. Die Kacheln
+  einer sichtbaren Karte bleiben über ihre Adresse abrufbar.
+- Kreisradien kommen als Schirmpixel (45/110/240) und werden über das
+  Zoommaß in Bildpixel umgerechnet, das `onKlick` mitliefert.
+- Eine Reise mit `sichtweite` legt beim Abschließen eines Tages
+  `kreiseEntlang(route, massstab, von, bis, sichtweite)` dazu.
+- Nach jeder Änderung schaltet `orteImAufgedeckten` Orte mit `mitNebel`
+  sichtbar.
+- `nebelAufraeumen` wirft Kreise weg, die ganz in anderen liegen.
+
+**Handout** (Art `handout`, ohne Karte): `titel`, `text`, `bild`, `an`
+(Kennungen von Konten; leer heißt alle), `sichtbar` (verteilt), `geaendert`.
+
+- **Eigener Ordner:** `ablage` vergibt der Server beim ersten Speichern.
+  Dateien gehen mit `obj_id` statt `karte_id` durch `planer_dateien_*`.
+  So erfährt ein Spieler durch ein Handout nie den Ordner einer
+  verborgenen Karte.
+- **Empfänger:** `planer_laden` gibt Spielern nur Handouts an alle oder an
+  sie selbst.
+- **Gelesen:** Was ein Spieler gelesen hat, merkt sich sein Browser
+  (`hb_planer_gesehen_<adv>`), je Fassung. Ein neu verteiltes oder
+  geändertes Handout kommt wieder.
+
+**Tisch** (`planer/?tisch=1&adv=…`, `TischApp`):
+
+- Lädt mit der Anmeldung der Spielleitung und filtert selbst mit
+  `spielerSicht`, nach derselben Regel wie der Server. Handouts an
+  einzelne gehören nicht dazu.
+- Die Seite der Spielleitung spricht mit ihm über
+  `BroadcastChannel('hb-planer-tisch')`:
+
+  | Nachricht | Wirkung |
+  |---|---|
+  | `karte` | andere Karte; ein gezeigtes Handout verschwindet |
+  | `ansicht` | Mitte und sichtbare Breite in Bildpixeln; das Handout bleibt |
+  | `handout` | Handout groß darüber |
+  | `leer` | Handout weg |
+  | `neu` | neu laden |
+
+**Abgleich:** Spieler fragen alle 5 Sekunden nach dem Stand, die
+Spielleitung alle 15.
 
 ### Stufe 5 · Figuren und lokale Dateien
 

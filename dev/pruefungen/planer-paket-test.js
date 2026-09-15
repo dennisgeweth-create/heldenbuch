@@ -151,37 +151,49 @@ const gleich = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   alt.ablage(ablageA).set('kacheln/1/0/0.webp', bild.subarray(0, 500));
   alt.ablage(ablageA).set('karte.json', text('{"stufen":2}'));
   objekte.forEach(o => alt.objekte.set(o.id, o));
+  const ablageH = 'c'.repeat(32);
+  alt.objekte.set('h_eeeeeeee', { id: 'h_eeeeeeee', karteId: '', art: 'handout', ablage: ablageH, titel: 'Brief', bild: 'brief.png', sichtbar: true });
+  alt.ablage(ablageH).set('brief.png', bild.subarray(0, 77));
   const meldungen = [];
   const aus = await planExportieren({
     daten: { karten: [...alt.karten.values()], objekte: [...alt.objekte.values()] },
     abenteuer: { id: 'strahd', name: 'Fluch des Strahd' },
-    dateienListe: async (k) => k.ablage ? [...alt.ablage(k.ablage)].map(([pfad, b]) => ({ pfad, bytes: b.length })) : [],
+    dateienListe: async (k, art) => { if (art === 'objekt' && !k.id.startsWith('h_')) throw new Error('falsches Ziel'); return k.ablage ? [...alt.ablage(k.ablage)].map(([pfad, b]) => ({ pfad, bytes: b.length })) : []; },
     dateiHolen: async (ablage, pfad) => alt.ablage(ablage).get(pfad),
     programm: 'Pruefung', jetzt, melde: (t) => meldungen.push(t),
   });
-  ist('der Export zaehlt drei Dateien', aus.dateien, 3);
-  ist('  … und ihre Bytes', aus.bytes, 3000 + 500 + 12);
+  ist('der Export zaehlt vier Dateien — drei der Karte, eine des Handouts', aus.dateien, 4);
+  ist('  … und ihre Bytes', aus.bytes, 3000 + 500 + 12 + 77);
+  ist('  … die Datei des Handouts liegt unter objekte/', aus.manifest.dateien.some(d => d.objekt === 'h_eeeeeeee' && d.pfad === 'brief.png' && !('karte' in d)), true);
+  ist('  … ohne den Ordner des Servers im Handout', aus.manifest.objekte.some(o => 'ablage' in o), false);
   ist('  … er meldet, was er tut', meldungen.some(t => /Paket schnüren/.test(t)), true);
 
   const offen = await planPaketOeffnen(aus.blob);
-  ist('das Paket oeffnet sich wieder', [offen.manifest.karten.length, offen.manifest.objekte.length, offen.manifest.dateien.length], [2, 2, 3]);
-  ist('  … mit Groesse fuer die Vorschau', offen.bytes, 3512);
+  ist('das Paket oeffnet sich wieder', [offen.manifest.karten.length, offen.manifest.objekte.length, offen.manifest.dateien.length], [2, 3, 4]);
+  ist('  … mit Groesse fuer die Vorschau', offen.bytes, 3589);
 
   const neuS = server();
   let nr = 0;
   const wege = {
     karteSpeichern: async (k) => { neuS.aufrufe.push('karte'); neuS.karten.set(k.id, { ...k, ablage: 'b'.repeat(31) + (nr++) }); },
-    objSpeichern: async (o) => { if (!neuS.karten.has(o.karteId)) throw new Error('Karte fehlt'); neuS.objekte.set(o.id, o); },
-    dateienHoch: async (karteId, liste) => {
+    objSpeichern: async (o) => {
+      if (o.art !== 'handout' && !neuS.karten.has(o.karteId)) throw new Error('Karte fehlt');
+      if ('ablage' in o) throw new Error('die Ablage vergibt der Server');
+      neuS.objekte.set(o.id, o.art === 'handout' ? { ...o, ablage: 'd'.repeat(32) } : o);
+    },
+    dateienHoch: async (ziel, liste) => {
       neuS.aufrufe.push('hoch:' + liste.length);
-      const ab = neuS.ablage(neuS.karten.get(karteId).ablage);
+      const abl = typeof ziel === 'string' ? neuS.karten.get(ziel).ablage : neuS.objekte.get(ziel.objId).ablage;
+      const ab = neuS.ablage(abl);
       liste.forEach(d => ab.set(d.pfad, new Uint8Array(Buffer.from(d.daten, 'base64'))));
     },
     karteLoeschen: async (id) => { neuS.aufrufe.push('weg:' + id); neuS.karten.delete(id); },
   };
   const erg = await planEinspielen({ paket: offen, ...wege, namenZusatz: (n) => n === 'Barovia' ? ' (importiert)' : '',
                                      buendelBytes: 3100 });
-  ist('eingespielt: zwei Karten, zwei Orte, drei Dateien', [erg.karten, erg.objekte, erg.dateien], [2, 2, 3]);
+  ist('eingespielt: zwei Karten, drei Eintraege, vier Dateien', [erg.karten, erg.objekte, erg.dateien], [2, 3, 4]);
+  const neuH = [...neuS.objekte.values()].find(o => o.art === 'handout');
+  ist('  … das Handout bekommt neue Kennung und seinen Brief in den eigenen Ordner', !!neuH && neuH.id !== 'h_eeeeeeee' && neuS.ablage('d'.repeat(32)).get('brief.png').length === 77, true);
   const nk = [...neuS.karten.values()];
   ist('  … mit neuen Kennungen', nk.every(k => !['k_aaaaaaaa', 'k_bbbbbbbb'].includes(k.id)), true);
   ist('  … der Namenszusatz steht nur, wo er gewuenscht ist', nk.map(k => k.name), ['Barovia (importiert)', 'Tempel']);
@@ -189,9 +201,9 @@ const gleich = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   const neuA = neuS.ablage(nk[0].ablage);
   ist('  … jede Datei liegt Byte fuer Byte gleich in der neuen Ablage',
     ['kacheln/0/0/0.webp', 'kacheln/1/0/0.webp', 'karte.json'].every(p => gleich(neuA.get(p), alt.ablage(ablageA).get(p))), true);
-  ist('  … in Buendeln unter der Grenze hochgeladen', neuS.aufrufe.filter(a => /^hoch/.test(a)), ['hoch:1', 'hoch:2']);
+  ist('  … in Buendeln unter der Grenze hochgeladen', neuS.aufrufe.filter(a => /^hoch/.test(a)), ['hoch:1', 'hoch:2', 'hoch:1']);
   const no = [...neuS.objekte.values()];
-  ist('  … die Orte zeigen auf die neuen Karten', no.every(o => neuS.karten.has(o.karteId)), true);
+  ist('  … die Orte zeigen auf die neuen Karten', no.filter(o => o.art !== 'handout').every(o => neuS.karten.has(o.karteId)), true);
 
   // Scheitert es in der Mitte, bleibt nichts halb liegen.
   const kaputtS = server();
@@ -201,6 +213,7 @@ const gleich = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
     objSpeichern: async () => {},
     dateienHoch: async () => { throw new Error('Speicher voll'); },
     karteLoeschen: async (id) => { kaputtS.karten.delete(id); },
+    objLoeschen: async () => {},
   }), /Speicher voll/);
   ist('  … und raeumt die angelegten Karten wieder weg', kaputtS.karten.size, 0);
 

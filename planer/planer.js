@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus planer/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 1d-begegnung.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 3c-begegnung.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 1d-begegnung.jsx, 1e-sicht.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 3c-begegnung.jsx, 3d-sicht.jsx, 4-app.jsx
 // ==== planer/src/0-basis.jsx ====
 // ── Abenteuerplaner: Grundlagen ──────────────────────────────────
 // Der Planer ist eine eigene Seite neben dem Heldenbuch, mit eigenem
@@ -19,7 +19,7 @@ const {
 
 // Die Ausgabe des Planers zaehlt eigenstaendig: er waechst in Stufen,
 // die mit den Ausgaben des Heldenbuchs nichts zu tun haben.
-const PLANER_VERSION = 'Stufe 3';
+const PLANER_VERSION = 'Stufe 4';
 
 // ==== planer/src/1-paket.jsx ====
 // ── Das Paket: Im- und Export als .hbplan ────────────────────────
@@ -319,7 +319,7 @@ const HBPLAN_MANIFEST = 'hbplan.json';
 // annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
-const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle'];
+const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout'];
 const planNeueId = vorsilbe => {
   const b = new Uint8Array(8);
   crypto.getRandomValues(b);
@@ -352,7 +352,8 @@ const planManifest = ({
     name: abenteuer.name
   } : null,
   karten: karten.map(planKarteFuerPaket),
-  objekte,
+  // Auch der Ordner eines Handouts ist Sache des Servers.
+  objekte: objekte.map(planKarteFuerPaket),
   dateien
 });
 
@@ -376,16 +377,19 @@ const planManifestPruefen = m => {
     if (!o || !PLAN_ID_RE.test(String(o.id || ''))) return 'Ein Eintrag im Paket hat keine gültige Kennung.';
     if (objekte.has(o.id) || karten.has(o.id)) return 'Die Kennung ' + o.id + ' steht doppelt im Paket.';
     if (!PLAN_ARTEN.includes(o.art)) return 'Unbekannte Art im Paket: ' + String(o.art).slice(0, 20);
-    if (!karten.has(o.karteId)) return 'Der Eintrag ' + o.id + ' gehört zu keiner Karte im Paket.';
+    // Ein Handout gehoert zum Abenteuer, nicht zu einer Karte.
+    if (!(o.art === 'handout' && !o.karteId) && !karten.has(o.karteId)) return 'Der Eintrag ' + o.id + ' gehört zu keiner Karte im Paket.';
     objekte.add(o.id);
   }
   for (const d of m.dateien) {
-    if (!d || !karten.has(d.karte)) return 'Eine Datei im Paket gehört zu keiner Karte.';
+    if (!d || (d.objekt ? !objekte.has(d.objekt) : !karten.has(d.karte))) return 'Eine Datei im Paket gehört zu keiner Karte und keinem Eintrag.';
     if (!PLAN_PFAD_RE.test(String(d.pfad || ''))) return 'Ungültiger Dateiname im Paket: ' + String(d.pfad).slice(0, 80);
   }
   return '';
 };
 const planPaketName = (karte, pfad) => 'karten/' + karte + '/' + pfad;
+// Dateien mit eigenem Ordner (Handouts) liegen unter objekte/.
+const planPaketDatei = d => d.objekt ? 'objekte/' + d.objekt + '/' + d.pfad : planPaketName(d.karte, d.pfad);
 
 // Beim Einspielen bekommt alles neue Kennungen, damit ein Paket in
 // dasselbe Abenteuer zweimal passt und nie etwas Vorhandenes
@@ -479,10 +483,19 @@ const planExportieren = async ({
   const dateien = [];
   for (const k of daten.karten) {
     m('Dateien von ' + k.name + ' suchen …');
-    const liste = await dateienListe(k);
+    const liste = await dateienListe(k, 'karte');
     liste.forEach(d => dateien.push({
       karte: k.id,
       ablage: k.ablage,
+      pfad: d.pfad,
+      bytes: d.bytes
+    }));
+  }
+  for (const o of daten.objekte.filter(x => x.ablage)) {
+    const liste = await dateienListe(o, 'objekt');
+    liste.forEach(d => dateien.push({
+      objekt: o.id,
+      ablage: o.ablage,
       pfad: d.pfad,
       bytes: d.bytes
     }));
@@ -501,7 +514,11 @@ const planExportieren = async ({
     karten: daten.karten,
     objekte: daten.objekte,
     dateien: dateien.map((d, j) => ({
-      karte: d.karte,
+      ...(d.objekt ? {
+        objekt: d.objekt
+      } : {
+        karte: d.karte
+      }),
       pfad: d.pfad,
       bytes: inhalte[j].length
     }))
@@ -512,7 +529,7 @@ const planExportieren = async ({
     daten: JSON.stringify(manifest, null, 1),
     packen: true
   }].concat(dateien.map((d, j) => ({
-    name: planPaketName(d.karte, d.pfad),
+    name: planPaketDatei(d),
     daten: inhalte[j],
     packen: /\.json$/.test(d.pfad)
   })));
@@ -541,8 +558,8 @@ const planPaketOeffnen = async blob => {
   }
   const fehler = planManifestPruefen(manifest);
   if (fehler) throw new Error(fehler);
-  const fehlt = manifest.dateien.filter(d => !zip.finden(planPaketName(d.karte, d.pfad)));
-  if (fehlt.length) throw new Error(fehlt.length + ' Datei(en) fehlen im Paket, z. B. ' + planPaketName(fehlt[0].karte, fehlt[0].pfad) + '.');
+  const fehlt = manifest.dateien.filter(d => !zip.finden(planPaketDatei(d)));
+  if (fehlt.length) throw new Error(fehlt.length + ' Datei(en) fehlen im Paket, z. B. ' + planPaketDatei(fehlt[0]) + '.');
   const bytes = manifest.dateien.reduce((s, d) => s + (+d.bytes || 0), 0);
   return {
     zip,
@@ -550,12 +567,16 @@ const planPaketOeffnen = async blob => {
     bytes
   };
 };
+
+// dateienHoch(ziel, liste): ziel ist die neue Kennung einer Karte, oder
+// {objId} fuer einen Eintrag mit eigenem Ordner.
 const planEinspielen = async ({
   paket,
   karteSpeichern,
   objSpeichern,
   dateienHoch,
   karteLoeschen,
+  objLoeschen,
   neueId,
   namenZusatz,
   buendelBytes,
@@ -572,6 +593,7 @@ const planEinspielen = async ({
     objekte
   } = planNeueKennungen(manifest, neueId || planNeueId);
   const angelegt = [];
+  const angelegteObjekte = [];
   try {
     for (const k of karten) {
       const {
@@ -584,39 +606,54 @@ const planEinspielen = async ({
       });
       angelegt.push(k.id);
     }
-    const nachKarte = new Map();
-    manifest.dateien.forEach(d => {
-      const neu = zuordnung.get(d.karte);
-      if (!nachKarte.has(neu)) nachKarte.set(neu, []);
-      nachKarte.get(neu).push({
-        ...d,
-        eintrag: zip.finden(planPaketName(d.karte, d.pfad)),
-        bytes: 0
-      });
-    });
     const gesamt = manifest.dateien.length;
     let fertig = 0;
-    for (const [karteId, liste] of nachKarte) {
-      liste.forEach(d => {
-        d.bytes = d.eintrag.roh;
-      });
-      for (const buendel of planBuendel(liste, buendelBytes || 2500000)) {
-        const teil = [];
-        for (const d of buendel) teil.push({
-          pfad: d.pfad,
-          daten: base64AusBytes(await zip.lesen(d.eintrag))
+    const hochladen = async (gruppen, ziel) => {
+      for (const [schluessel, liste] of gruppen) {
+        liste.forEach(d => {
+          d.bytes = d.eintrag.roh;
         });
-        await dateienHoch(karteId, teil);
-        fertig += buendel.length;
-        m('Dateien hochladen: ' + fertig + ' von ' + gesamt, fertig / Math.max(1, gesamt));
+        for (const buendel of planBuendel(liste, buendelBytes || 2500000)) {
+          const teil = [];
+          for (const d of buendel) teil.push({
+            pfad: d.pfad,
+            daten: base64AusBytes(await zip.lesen(d.eintrag))
+          });
+          await dateienHoch(ziel(schluessel), teil);
+          fertig += buendel.length;
+          m('Dateien hochladen: ' + fertig + ' von ' + gesamt, fertig / Math.max(1, gesamt));
+        }
       }
-    }
+    };
+    const gruppieren = (liste, feld) => {
+      const g = new Map();
+      liste.forEach(d => {
+        const neu = zuordnung.get(d[feld]);
+        if (!g.has(neu)) g.set(neu, []);
+        g.get(neu).push({
+          ...d,
+          eintrag: zip.finden(planPaketDatei(d)),
+          bytes: 0
+        });
+      });
+      return g;
+    };
+    await hochladen(gruppieren(manifest.dateien.filter(d => !d.objekt), 'karte'), id => id);
     let n = 0;
     for (const o of objekte) {
-      await objSpeichern(o);
+      const {
+        ablage,
+        ...ohne
+      } = o;
+      await objSpeichern(ohne);
+      angelegteObjekte.push(o.id);
       n++;
       if (n % 20 === 0) m('Einträge anlegen: ' + n + ' von ' + objekte.length);
     }
+    // Erst jetzt gibt es die Eintraege — und mit ihnen ihre Ordner.
+    await hochladen(gruppieren(manifest.dateien.filter(d => d.objekt), 'objekt'), id => ({
+      objId: id
+    }));
     return {
       karten: karten.length,
       objekte: objekte.length,
@@ -629,6 +666,11 @@ const planEinspielen = async ({
     for (const id of angelegt) {
       try {
         await karteLoeschen(id);
+      } catch (e) {/* weiter aufraeumen */}
+    }
+    if (objLoeschen) for (const id of angelegteObjekte) {
+      try {
+        await objLoeschen(id);
       } catch (e) {/* weiter aufraeumen */}
     }
     throw err;
@@ -1916,6 +1958,137 @@ const auftragKampf = (advId, begegnungId, name) => ({
 });
 // ══ Ende der reinen Rechnung
 
+// ==== planer/src/1e-sicht.jsx ====
+// ── Spielersicht: Nebel, Handouts, der Tisch ─────────────────────
+// Nebel liegt an der Karte (karte.nebel) und nicht unter dm: die Spieler
+// brauchen ihn, um ihn zu zeichnen. Er ist eine Liste aufgedeckter
+// Flaechen — Kreise, Vielecke, oder alles.
+//
+//     { an: true, flaechen: [ {art:'kreis', x, y, r}, {art:'vieleck', punkte:[…]}, {art:'alles'} ] }
+//
+// Er verdeckt die Anzeige, nicht die Kacheln selbst: wer die Adresse
+// einer Kachel einer sichtbaren Karte kennt, bekommt sie. Wirklich geheim
+// bleibt nur, was an einer verborgenen Karte haengt.
+//
+// Alles bis zur Markierung ist reine Rechnung.
+
+const NEBEL_RADIEN = [{
+  k: 'klein',
+  l: 'Klein',
+  px: 45
+}, {
+  k: 'mittel',
+  l: 'Mittel',
+  px: 110
+}, {
+  k: 'gross',
+  l: 'Groß',
+  px: 240
+}];
+const nebelVon = karte => {
+  const n = karte && karte.nebel || {};
+  return {
+    an: !!n.an,
+    flaechen: Array.isArray(n.flaechen) ? n.flaechen : []
+  };
+};
+const flaecheAufgedeckt = (p, f) => {
+  if (!f) return false;
+  if (f.art === 'alles') return true;
+  if (f.art === 'kreis') return Math.hypot(p.x - f.x, p.y - f.y) <= f.r;
+  if (f.art === 'vieleck') return (f.punkte || []).length >= 3 && punktInPolygon(p, f.punkte);
+  return false;
+};
+const punktAufgedeckt = (p, nebel) => !nebel || !nebel.an || (nebel.flaechen || []).some(f => flaecheAufgedeckt(p, f));
+const nebelKreis = (p, r) => ({
+  art: 'kreis',
+  x: Math.round(p.x),
+  y: Math.round(p.y),
+  r: Math.max(1, Math.round(r))
+});
+
+// Kreise entlang eines Stuecks Route: so dicht, dass sie sich ueberlappen
+// und kein Streifen Nebel zwischen ihnen stehen bleibt.
+const kreiseEntlang = (route, massstab, von, bis, sichtweite) => {
+  if (!massstab || !(sichtweite > 0) || !(bis >= von)) return [];
+  const rPx = sichtweite * pxJeEinheit(massstab);
+  const schritt = sichtweite;
+  const aus = [];
+  for (let pos = von; pos < bis; pos += schritt) {
+    const p = punktAufRoute(route, massstab, pos);
+    if (p) aus.push(nebelKreis(p, rPx));
+  }
+  const ende = punktAufRoute(route, massstab, bis);
+  if (ende) aus.push(nebelKreis(ende, rPx));
+  return aus;
+};
+
+// Orte, die aufgehen, sobald der Nebel ueber ihnen weicht.
+const orteImAufgedeckten = (orte, nebel) => (orte || []).filter(o => o.art === 'ort' && o.mitNebel && !o.sichtbar && typeof o.x === 'number' && (nebel.flaechen || []).some(f => flaecheAufgedeckt(o, f)));
+
+// Wird der Nebel zu gross, fasst ein Kreis, der ganz in einem anderen
+// liegt, nichts zusammen — er faellt weg.
+const nebelAufraeumen = flaechen => {
+  if (flaechen.some(f => f.art === 'alles')) return [{
+    art: 'alles'
+  }];
+  return flaechen.filter((f, i) => !(f.art === 'kreis' && flaechen.some((g, j) => j !== i && g.art === 'kreis' && Math.hypot(f.x - g.x, f.y - g.y) + f.r <= g.r && (g.r > f.r || j < i))));
+};
+
+// ── Was ein Spieler sieht ────────────────────────────────────────
+// Dieselbe Regel wie planer_laden auf dem Server — hier fuer das
+// Tischfenster, das mit der Anmeldung der Spielleitung laedt und doch nur
+// zeigen darf, was die Runde sehen soll. Handouts an einzelne gehoeren
+// nicht auf den Tisch.
+const ohneDmFeld = o => {
+  const {
+    dm,
+    ...rest
+  } = o;
+  return rest;
+};
+const spielerSicht = daten => {
+  const karten = (daten.karten || []).filter(k => k.sichtbar).map(ohneDmFeld);
+  const offen = new Set(karten.map(k => k.id));
+  const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout' ? !(o.an || []).length : offen.has(o.karteId))).map(ohneDmFeld);
+  return {
+    ...daten,
+    dm: false,
+    karten,
+    objekte
+  };
+};
+
+// ── Handouts ─────────────────────────────────────────────────────
+const neuesHandout = () => ({
+  id: planNeueId('h'),
+  karteId: '',
+  art: 'handout',
+  titel: 'Neues Handout',
+  text: '',
+  bild: '',
+  an: [],
+  sichtbar: false,
+  dm: {
+    notiz: ''
+  }
+});
+// Welche verteilten Handouts dieser Spieler noch nicht gesehen hat.
+// Gesehen heisst: in dieser Fassung — ein geaenderter Brief kommt wieder.
+const handoutFassung = h => h.id + ':' + String(h.geaendert || '');
+const ungeseheneHandouts = (objekte, gesehen) => (objekte || []).filter(o => o.art === 'handout' && o.sichtbar && !(gesehen || []).includes(handoutFassung(o)));
+
+// ── Nachrichten an den Tisch ─────────────────────────────────────
+// Das Tischfenster laeuft im selben Browser wie die Seite der
+// Spielleitung; beide hoeren auf denselben Kanal.
+const TISCH_KANAL = 'hb-planer-tisch';
+const tischNachricht = (art, inhalt) => ({
+  art,
+  ...inhalt,
+  zeit: Date.now()
+});
+// ══ Ende der reinen Rechnung
+
 // ==== planer/src/2-leinwand.jsx ====
 // ── Die Kartenleinwand ───────────────────────────────────────────
 // Zeigt die Kachelpyramide einer Karte: ziehen zum Verschieben, Mausrad
@@ -1944,6 +2117,10 @@ const KartenLeinwand = ({
   regionen,
   regionWahl,
   onRegionWahl,
+  nebel,
+  nebelDeckend,
+  vorgabeAnsicht,
+  onAnsicht,
   onKlick,
   onOrtWahl,
   onOrtVerschieben,
@@ -1993,6 +2170,27 @@ const KartenLeinwand = ({
   useEffect(() => {
     if (a && plan && g.breite) setA(v => v && ansichtBegrenzen(v, plan, g));
   }, [g.breite, g.hoehe]);
+
+  // Das Tischfenster bekommt den Ausschnitt der Spielleitung: dieselbe
+  // Mitte und dieselbe Breite in Bildpixeln, gleich wie gross sein Schirm ist.
+  useEffect(() => {
+    const v = vorgabeAnsicht;
+    if (!v || !plan || !g.breite || v.karteId && v.karteId !== karte.id) return;
+    const zoom = plan.maxZ + Math.log2(Math.max(1e-6, g.breite / Math.max(1, v.breite || plan.breite)));
+    setA(ansichtBegrenzen({
+      zoom,
+      x: v.x,
+      y: v.y
+    }, plan, g));
+  }, [vorgabeAnsicht && vorgabeAnsicht.n, !!plan, g.breite]);
+  useEffect(() => {
+    if (!onAnsicht || !a || !plan || !g.breite) return;
+    onAnsicht({
+      x: Math.round(a.x),
+      y: Math.round(a.y),
+      breite: Math.round(g.breite / ansichtMass(a, plan))
+    });
+  }, [a && a.x, a && a.y, a && a.zoom, g.breite]);
 
   // Ein Ort aus der Liste: dorthin, und nah genug heran.
   useEffect(() => {
@@ -2092,7 +2290,7 @@ const KartenLeinwand = ({
       if (p.x >= 0 && p.y >= 0 && p.x <= plan.breite && p.y <= plan.hoehe) onKlick && onKlick({
         x: Math.round(p.x),
         y: Math.round(p.y)
-      });
+      }, ansichtMass(a, plan));
     }
   };
 
@@ -2168,7 +2366,74 @@ const KartenLeinwand = ({
         width: t.breite + 0.6,
         height: t.hoehe + 0.6
       }
-    }))), /*#__PURE__*/React.createElement("svg", {
+    }))), nebel && nebel.an && (() => {
+      const s = ansichtMass(a, plan);
+      const maskeId = 'nebel-' + karte.id;
+      return /*#__PURE__*/React.createElement("svg", {
+        className: 'pl-nebel' + (nebelDeckend ? ' deckend' : ''),
+        width: g.breite,
+        height: g.hoehe,
+        "aria-hidden": "true"
+      }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("filter", {
+        id: maskeId + '-weich',
+        x: "-10%",
+        y: "-10%",
+        width: "120%",
+        height: "120%"
+      }, /*#__PURE__*/React.createElement("feGaussianBlur", {
+        stdDeviation: nebelDeckend ? 10 : 4
+      })), /*#__PURE__*/React.createElement("mask", {
+        id: maskeId,
+        maskUnits: "userSpaceOnUse",
+        x: "0",
+        y: "0",
+        width: g.breite,
+        height: g.hoehe
+      }, /*#__PURE__*/React.createElement("rect", {
+        x: "0",
+        y: "0",
+        width: g.breite,
+        height: g.hoehe,
+        fill: "white"
+      }), /*#__PURE__*/React.createElement("g", {
+        filter: 'url(#' + maskeId + '-weich)'
+      }, nebel.flaechen.map((f, i) => {
+        if (f.art === 'alles') return /*#__PURE__*/React.createElement("rect", {
+          key: i,
+          x: "0",
+          y: "0",
+          width: g.breite,
+          height: g.hoehe,
+          fill: "black"
+        });
+        if (f.art === 'kreis') {
+          const m = schirm(f);
+          return /*#__PURE__*/React.createElement("circle", {
+            key: i,
+            cx: m.x,
+            cy: m.y,
+            r: f.r * s,
+            fill: "black"
+          });
+        }
+        if (f.art === 'vieleck') return /*#__PURE__*/React.createElement("polygon", {
+          key: i,
+          points: (f.punkte || []).map(q => {
+            const m = schirm(q);
+            return m.x + ',' + m.y;
+          }).join(' '),
+          fill: "black"
+        });
+        return null;
+      })))), /*#__PURE__*/React.createElement("rect", {
+        className: "pl-nebel-flaeche",
+        x: "0",
+        y: "0",
+        width: g.breite,
+        height: g.hoehe,
+        mask: 'url(#' + maskeId + ')'
+      }));
+    })(), /*#__PURE__*/React.createElement("svg", {
       className: "pl-ueberlage",
       width: g.breite,
       height: g.hoehe
@@ -2661,7 +2926,13 @@ const OrtTafel = ({
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: e => setze('sichtbar', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), bildLeiste, /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), !entwurf.sichtbar && /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!entwurf.mitNebel,
+    onChange: e => setze('mitNebel', e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "Sichtbar, sobald der Nebel \xFCber ihm aufgeht")), bildLeiste, /*#__PURE__*/React.createElement("div", {
     className: "pl-zeile"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -3020,7 +3291,8 @@ const ReiseTafel = ({
   onSpeichern,
   onLoeschen,
   onSchliessen,
-  onMeldung
+  onMeldung,
+  onNebelAufdecken
 }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
   const [uebergabe, setUebergabe] = useState('');
@@ -3129,6 +3401,10 @@ const ReiseTafel = ({
       pos: heute.bis,
       tagebuch: [...(entwurf.tagebuch || []), eintrag]
     });
+    // Wo die Gruppe hinkam, weicht der Nebel — so weit, wie sie sieht.
+    if (nebelVon(karte).an && (+entwurf.sichtweite || 0) > 0 && onNebelAufdecken) {
+      onNebelAufdecken(kreiseEntlang(st.r, m, heute.von, heute.bis, +entwurf.sichtweite));
+    }
   };
   const tagZuruecknehmen = () => {
     const liste = [...(entwurf.tagebuch || [])];
@@ -3222,6 +3498,14 @@ const ReiseTafel = ({
     max: 23,
     value: entwurf.startStunde ?? 8,
     onChange: e => setze('startStunde', Math.max(0, Math.min(23, Math.round(+e.target.value || 0))))
+  })), /*#__PURE__*/React.createElement("label", null, "Sichtweite (", einh, ")", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    type: "number",
+    min: 0,
+    step: "any",
+    value: entwurf.sichtweite ?? 0,
+    title: "Wie weit der Nebel entlang des Wegs aufgeht; 0 hei\xDFt gar nicht",
+    onChange: e => setze('sichtweite', Math.max(0, +e.target.value || 0))
   })), /*#__PURE__*/React.createElement("label", null, "Personen", /*#__PURE__*/React.createElement("input", {
     className: "pl-feld",
     type: "number",
@@ -3696,6 +3980,347 @@ const RegionTafel = ({
   }, "Speichern"))));
 };
 
+// ==== planer/src/3d-sicht.jsx ====
+// ── Spielersicht: Handouts und der Tisch ─────────────────────────
+// Rechnung in 1e-sicht.jsx. Hier: die Tafel eines Handouts fuer die
+// Spielleitung, das Lesefenster fuer Spieler, die Liste, und das
+// Tischfenster fuer Beamer oder zweiten Bildschirm.
+
+const PlanerHandoutListe = ({
+  handouts,
+  wahl,
+  dm,
+  gesehen,
+  onWahl,
+  onNeu
+}) => {
+  if (!dm && !handouts.length) return null;
+  return /*#__PURE__*/React.createElement("nav", {
+    className: "pl-liste",
+    "aria-label": "Handouts"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pl-liste-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "Handouts \xB7 ", handouts.length), dm && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: onNeu
+  }, "\uFF0B Handout")), /*#__PURE__*/React.createElement("ul", null, handouts.map(h => /*#__PURE__*/React.createElement("li", {
+    key: h.id,
+    className: 'pl-eintrag' + (h.id === wahl ? ' aktiv' : '')
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "pl-eintrag-name",
+    onClick: () => onWahl(h.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    "aria-hidden": "true"
+  }, "\uD83D\uDCDC"), /*#__PURE__*/React.createElement("span", {
+    className: 'pl-eintrag-text' + (dm && !h.sichtbar ? ' pl-verborgen-text' : '')
+  }, h.titel || 'Ohne Titel'), dm && h.sichtbar && /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, (h.an || []).length ? 'an ' + h.an.length : 'an alle'), !dm && gesehen && !gesehen.includes(handoutFassung(h)) && /*#__PURE__*/React.createElement("span", {
+    className: "pl-neu-punkt",
+    title: "Neu"
+  }, "neu"))))));
+};
+
+// Das Lesefenster: fuer Spieler, wenn etwas Neues kommt, und aus der Liste.
+const HandoutLeser = ({
+  handout,
+  onZu
+}) => /*#__PURE__*/React.createElement("div", {
+  className: "pl-schleier",
+  onClick: onZu
+}, /*#__PURE__*/React.createElement("article", {
+  className: "pl-dialog pl-handout-leser",
+  role: "dialog",
+  "aria-modal": "true",
+  "aria-label": 'Handout: ' + handout.titel,
+  onClick: e => e.stopPropagation()
+}, /*#__PURE__*/React.createElement("div", {
+  className: "pl-etikett"
+}, "\uD83D\uDCDC Handout"), /*#__PURE__*/React.createElement("h2", null, handout.titel || 'Ohne Titel'), handout.bild && handout.ablage && /*#__PURE__*/React.createElement("img", {
+  className: "pl-handout-bild",
+  src: planerDateiUrl(handout.ablage, handout.bild),
+  alt: ""
+}), handout.text && /*#__PURE__*/React.createElement("p", {
+  className: "pl-ort-text"
+}, handout.text), /*#__PURE__*/React.createElement("div", {
+  className: "pl-dialog-knoepfe"
+}, /*#__PURE__*/React.createElement("button", {
+  className: "pl-knopf pl-haupt",
+  onClick: onZu
+}, "Gelesen"))));
+const HandoutTafel = ({
+  handout,
+  mitglieder,
+  arbeitet,
+  onSpeichern,
+  onVerteilen,
+  onLoeschen,
+  onSchliessen,
+  onBild,
+  onTisch
+}) => {
+  const [entwurf, setEntwurf, geaendert] = useEntwurf(handout);
+  const bildEingabe = useRef(null);
+  const setze = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    [feld]: wert
+  }));
+  const an = entwurf.an || [];
+  const um = id => setze('an', an.includes(id) ? an.filter(x => x !== id) : [...an, id]);
+  return /*#__PURE__*/React.createElement("aside", {
+    className: "pl-tafel",
+    "aria-label": 'Handout: ' + handout.titel
+  }, /*#__PURE__*/React.createElement(TafelKopf, {
+    symbol: "\uD83D\uDCDC",
+    titel: entwurf.titel || 'Ohne Titel',
+    onSchliessen: onSchliessen
+  }), /*#__PURE__*/React.createElement("p", {
+    className: 'pl-sicht ' + (handout.sichtbar ? 'an' : 'aus')
+  }, handout.sichtbar ? 'Verteilt ' + ((handout.an || []).length ? 'an ' + handout.an.length + (handout.an.length === 1 ? ' Spieler' : ' Spieler') : 'an alle') : 'Noch nicht verteilt'), /*#__PURE__*/React.createElement("form", {
+    className: "pl-formular",
+    onSubmit: e => {
+      e.preventDefault();
+      if (geaendert) onSpeichern(entwurf);
+    }
+  }, /*#__PURE__*/React.createElement("label", null, "Titel", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    value: entwurf.titel || '',
+    maxLength: 120,
+    onChange: e => setze('titel', e.target.value)
+  })), /*#__PURE__*/React.createElement("label", null, "Text", /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld",
+    rows: 5,
+    value: entwurf.text || '',
+    maxLength: 20000,
+    onChange: e => setze('text', e.target.value)
+  })), entwurf.bild && handout.ablage && /*#__PURE__*/React.createElement("div", {
+    className: "pl-handout-vorschau"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: planerDateiUrl(handout.ablage, entwurf.bild),
+    alt: ""
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setze('bild', '')
+  }, "Bild entfernen")), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: arbeitet || geaendert,
+    title: geaendert ? 'Erst speichern' : '',
+    onClick: () => bildEingabe.current && bildEingabe.current.click()
+  }, "\uD83D\uDDBC ", entwurf.bild ? 'Anderes Bild' : 'Bild'), /*#__PURE__*/React.createElement("input", {
+    ref: bildEingabe,
+    type: "file",
+    accept: "image/*",
+    hidden: true,
+    onChange: e => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) onBild(entwurf, f);
+    }
+  })), /*#__PURE__*/React.createElement("fieldset", {
+    className: "pl-empfaenger"
+  }, /*#__PURE__*/React.createElement("legend", null, "F\xFCr wen"), /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    name: 'an-' + handout.id,
+    checked: !an.length,
+    onChange: () => setze('an', [])
+  }), /*#__PURE__*/React.createElement("span", null, "Alle in der Gruppe")), (mitglieder || []).map(m => /*#__PURE__*/React.createElement("label", {
+    key: m.id,
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: an.includes(+m.id),
+    onChange: () => um(+m.id)
+  }), /*#__PURE__*/React.createElement("span", null, m.name, m.rolle === 'dm' ? ' (Spielleitung)' : ''))), mitglieder === null && /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, "Die Mitglieder der Gruppe werden geladen \u2026")), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld pl-dm-feld",
+    rows: 2,
+    value: entwurf.dm && entwurf.dm.notiz || '',
+    maxLength: 20000,
+    onChange: e => setEntwurf(v => ({
+      ...v,
+      dm: {
+        ...(v.dm || {}),
+        notiz: e.target.value
+      }
+    }))
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein pl-haupt",
+    disabled: geaendert || arbeitet,
+    title: geaendert ? 'Erst speichern' : '',
+    onClick: () => onVerteilen(handout, !handout.sichtbar)
+  }, handout.sichtbar ? '↶ Zurücknehmen' : '📜 An die Spieler geben'), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => onTisch(entwurf)
+  }, "\uD83D\uDCFA Auf dem Tisch zeigen")), /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-gefahr pl-klein",
+    onClick: () => onLoeschen(handout)
+  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: !geaendert,
+    onClick: () => setEntwurf(handout)
+  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "pl-knopf pl-haupt pl-klein",
+    disabled: !geaendert
+  }, "Speichern"))));
+};
+
+// ── Das Tischfenster ─────────────────────────────────────────────
+// Oeffnet die Spielleitung mit 📺 Tisch. Es laedt mit ihrer Anmeldung,
+// zeigt aber nur, was die Runde sehen darf (spielerSicht), mit deckendem
+// Nebel und ohne jedes Werkzeug. Welche Karte, welcher Ausschnitt und ob
+// ein Handout gross zu sehen ist, sagt die Seite der Spielleitung ueber
+// den gemeinsamen Kanal.
+const TischApp = ({
+  adv
+}) => {
+  const zugang = planerZugang();
+  const angemeldet = !!(zugang.token && zugang.code);
+  const advId = adv || (() => {
+    try {
+      return new URLSearchParams(location.search).get('adv') || '';
+    } catch (e) {
+      return '';
+    }
+  })();
+  const [daten, setDaten] = useState(null);
+  const [karteId, setKarteId] = useState('');
+  const [vorgabe, setVorgabe] = useState(null);
+  const [zeigen, setZeigen] = useState(null);
+  const [fehlerText, setFehlerText] = useState('');
+  const gedaechtnis = useRef({});
+  const standRef = useRef(-1);
+  const laden = useCallback(async () => {
+    const d = await planerApi('planer_laden', {
+      adv_id: advId
+    });
+    standRef.current = d.stand;
+    setDaten(spielerSicht(d));
+  }, []);
+  useEffect(() => {
+    if (!angemeldet || !advId) return;
+    laden().catch(e => setFehlerText(e.message));
+    const t = setInterval(() => {
+      planerApi('planer_stand', {
+        adv_id: advId
+      }).then(s => {
+        if (s.stand !== standRef.current) return laden();
+      }).catch(() => {});
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    const k = new BroadcastChannel(TISCH_KANAL);
+    k.onmessage = ev => {
+      const n = ev.data || {};
+      if (n.advId && n.advId !== advId) return;
+      // Ein anderer Ausschnitt laesst ein gezeigtes Handout liegen; erst eine
+      // andere Karte oder „Karte zeigen“ nimmt es weg.
+      if (n.art === 'karte') setZeigen(null);
+      if (n.art === 'karte' || n.art === 'ansicht') {
+        setKarteId(n.karteId);
+        if (n.ansicht) setVorgabe({
+          ...n.ansicht,
+          karteId: n.karteId,
+          n: n.zeit
+        });
+      }
+      if (n.art === 'handout') setZeigen({
+        art: 'handout',
+        id: n.id,
+        handout: n.handout
+      });
+      if (n.art === 'leer') setZeigen(null);
+      if (n.art === 'neu') laden().catch(() => {});
+    };
+    k.postMessage(tischNachricht('hallo', {
+      advId
+    }));
+    return () => k.close();
+  }, []);
+  if (!angemeldet) return /*#__PURE__*/React.createElement(PlanerNichtAngemeldet, null);
+  if (fehlerText) return /*#__PURE__*/React.createElement("div", {
+    className: "pl-tisch-leer"
+  }, /*#__PURE__*/React.createElement("p", null, fehlerText));
+  if (!daten) return /*#__PURE__*/React.createElement("div", {
+    className: "pl-tisch-leer"
+  }, /*#__PURE__*/React.createElement("p", null, "\uD83D\uDDFA Der Tisch l\xE4dt \u2026"));
+  const karte = daten.karten.find(k => k.id === karteId) || daten.karten[0] || null;
+  const aufKarte = art => karte ? daten.objekte.filter(o => o.art === art && o.karteId === karte.id) : [];
+  const routen = aufKarte('route');
+  const gruppen = karte ? aufKarte('reise').map(j => {
+    const r = routen.find(x => x.id === j.routeId);
+    if (!r || !karte.massstab) return null;
+    return {
+      id: j.id,
+      name: j.name,
+      sichtbar: true,
+      punkt: punktAufRoute(routeInRichtung(r, j.richtung), karte.massstab, j.pos || 0)
+    };
+  }).filter(Boolean) : [];
+  // Ein Handout, das an einzelne geht, schickt die Spielleitung trotzdem
+  // mit; auf dem Tisch zeigt es, wer es zeigt.
+  const handout = zeigen && zeigen.art === 'handout' ? zeigen.handout || daten.objekte.find(o => o.id === zeigen.id) : null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "pl-tisch"
+  }, karte ? /*#__PURE__*/React.createElement(KartenLeinwand, {
+    karte: karte,
+    orte: aufKarte('ort'),
+    dm: false,
+    werkzeug: "ansehen",
+    ortWahl: "",
+    linie: null,
+    fokus: null,
+    gedaechtnis: gedaechtnis,
+    routen: routen,
+    gruppen: gruppen,
+    regionen: aufKarte('region'),
+    nebel: nebelVon(karte),
+    nebelDeckend: true,
+    vorgabeAnsicht: vorgabe,
+    onKlick: () => {},
+    onOrtWahl: () => {},
+    onRouteWahl: () => {},
+    onReiseWahl: () => {},
+    onRegionWahl: () => {}
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "pl-tisch-leer"
+  }, /*#__PURE__*/React.createElement("p", null, "Noch keine Karte f\xFCr die Runde.")), handout && /*#__PURE__*/React.createElement("div", {
+    className: "pl-tisch-handout"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pl-etikett"
+  }, "\uD83D\uDCDC ", handout.titel), handout.bild && handout.ablage && /*#__PURE__*/React.createElement("img", {
+    src: planerDateiUrl(handout.ablage, handout.bild),
+    alt: ""
+  }), handout.text && /*#__PURE__*/React.createElement("p", null, handout.text)), /*#__PURE__*/React.createElement("button", {
+    className: "pl-tisch-voll pl-symbol",
+    "aria-label": "Vollbild",
+    title: "Vollbild",
+    onClick: () => {
+      const el = document.documentElement;
+      if (document.fullscreenElement) document.exitFullscreen();else if (el.requestFullscreen) el.requestFullscreen();
+    }
+  }, "\u26F6"));
+};
+
 // ==== planer/src/4-app.jsx ====
 // ── Abenteuerplaner: die Seite ───────────────────────────────────
 // Wer bin ich, welches Abenteuer, welche Karten — und auf der Karte das
@@ -3709,6 +4334,8 @@ const RegionTafel = ({
 
 const PLANER_ADV_SPEICHER = 'hb_planer_adv';
 const PLANER_ABGLEICH_MS = 15000;
+const PLANER_ABGLEICH_SPIELER_MS = 5000;
+const PLANER_GESEHEN = 'hb_planer_gesehen_';
 const planerAdvAnfang = liste => {
   const ids = liste.map(a => a.id);
   let ausAdresse = '';
@@ -4040,6 +4667,7 @@ const PlanerRegionListe = ({
   }, "\uD83C\uDFB2"))))));
 };
 const WERKZEUG_HINWEIS = {
+  nebel: 'Klicke, wo der Nebel weichen soll.',
   region: 'Klicke die Eckpunkte der Region. Die Fläche schließt sich von selbst.',
   route: 'Klicke Punkt für Punkt den Weg. Das Gelände je Abschnitt stellst du danach ein.',
   ort: 'Klicke auf die Karte, wo der neue Ort liegen soll.',
@@ -4067,6 +4695,16 @@ const PlanerApp = () => {
   const [reiseWahl, setReiseWahl] = useState('');
   const [regionWahl, setRegionWahl] = useState('');
   const [begegnungen, setBegegnungen] = useState(null);
+  const [handoutWahl, setHandoutWahl] = useState('');
+  const [lesen, setLesen] = useState(null);
+  const [mitglieder, setMitglieder] = useState(null);
+  const [nebelArt, setNebelArt] = useState('kreis');
+  const [nebelRadius, setNebelRadius] = useState('mittel');
+  const [nebelZeigen, setNebelZeigen] = useState(true);
+  const [tischFolgt, setTischFolgt] = useState(false);
+  const [gesehen, setGesehen] = useState([]);
+  const kanal = useRef(null);
+  const tischZeit = useRef(0);
   const [chronikZeit, setChronikZeit] = useState(null);
   const [fokus, setFokus] = useState(null);
   const standRef = useRef(0);
@@ -4106,6 +4744,8 @@ const PlanerApp = () => {
   }, [advId]);
 
   // Der Abgleich: nur die Zahl fragen, und nur laden, wenn sie sich bewegt.
+  // Spieler fragen oefter — sie warten auf das, was die Spielleitung tut.
+  const dmFuerAbgleich = !!(daten && daten.dm);
   useEffect(() => {
     if (!advId) return;
     const t = setInterval(() => {
@@ -4115,9 +4755,9 @@ const PlanerApp = () => {
       }).then(s => {
         if (s.stand !== standRef.current) return laden(advId);
       }).catch(() => {});
-    }, PLANER_ABGLEICH_MS);
+    }, dmFuerAbgleich ? PLANER_ABGLEICH_MS : PLANER_ABGLEICH_SPIELER_MS);
     return () => clearInterval(t);
-  }, [advId]);
+  }, [advId, dmFuerAbgleich]);
   const dm = !!(daten && daten.dm);
   const karten = daten ? daten.karten : [];
   const karte = karten.find(k => k.id === auswahl) || null;
@@ -4148,6 +4788,68 @@ const PlanerApp = () => {
     setRouteWahl('');
     setReiseWahl('');
     setRegionWahl('');
+    setHandoutWahl('');
+  };
+  const handouts = daten ? daten.objekte.filter(o => o.art === 'handout') : [];
+  const handout = handouts.find(h => h.id === handoutWahl) || null;
+  const nebel = nebelVon(karte);
+
+  // Was dieser Spieler schon gelesen hat, merkt sich sein Browser.
+  useEffect(() => {
+    try {
+      setGesehen(JSON.parse(localStorage.getItem(PLANER_GESEHEN + advId) || '[]'));
+    } catch (e) {
+      setGesehen([]);
+    }
+  }, [advId]);
+  const gelesen = h => {
+    const neu = [...gesehen.filter(x => !x.startsWith(h.id + ':')), handoutFassung(h)];
+    setGesehen(neu);
+    try {
+      localStorage.setItem(PLANER_GESEHEN + advId, JSON.stringify(neu));
+    } catch (e) {/* ohne Speicher */}
+  };
+  const ungelesen = daten && !daten.dm ? ungeseheneHandouts(handouts, gesehen) : [];
+
+  // Der Kanal zum Tischfenster.
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    kanal.current = new BroadcastChannel(TISCH_KANAL);
+    return () => {
+      kanal.current.close();
+      kanal.current = null;
+    };
+  }, []);
+  const anTisch = (art, inhalt) => {
+    if (kanal.current) kanal.current.postMessage(tischNachricht(art, {
+      advId,
+      ...inhalt
+    }));
+  };
+  const ansichtRef = useRef(null);
+  const ansichtGemeldet = v => {
+    ansichtRef.current = v;
+    if (!tischFolgt || !karte) return;
+    const jetzt = Date.now();
+    if (jetzt - tischZeit.current < 250) return;
+    tischZeit.current = jetzt;
+    anTisch('ansicht', {
+      karteId: karte.id,
+      ansicht: v
+    });
+  };
+  useEffect(() => {
+    if (tischFolgt && karte) anTisch('karte', {
+      karteId: karte.id,
+      ansicht: ansichtRef.current
+    });
+  }, [tischFolgt, karte && karte.id]);
+  useEffect(() => {
+    if (dm) anTisch('neu', {});
+  }, [daten && daten.stand]);
+  const tischOeffnen = () => {
+    window.open('?tisch=1&adv=' + encodeURIComponent(advId), 'hb-planer-tisch');
+    setTischFolgt(true);
   };
   const waehleOrt = id => {
     if (id) tafelZu();
@@ -4165,6 +4867,16 @@ const PlanerApp = () => {
     if (id) tafelZu();
     setRegionWahl(id);
   };
+  const waehleHandout = id => {
+    if (id) tafelZu();
+    setHandoutWahl(id);
+  };
+
+  // Die Mitglieder der Gruppe, fuer die Empfaenger eines Handouts.
+  useEffect(() => {
+    if (!dm || !handoutWahl || mitglieder) return;
+    planerApi('member_list', {}).then(r => setMitglieder(r.mitglieder || [])).catch(() => setMitglieder([]));
+  }, [dm, handoutWahl]);
 
   // Die Begegnungen des Heldenbuchs, auf die Tabellen verweisen. Nur lesen.
   useEffect(() => {
@@ -4444,7 +5156,37 @@ const PlanerApp = () => {
   };
 
   // ── Klicks auf die Karte ────────────────────────────────────────
-  const aufKarteGeklickt = async p => {
+  // ── Nebel ───────────────────────────────────────────────────────
+  // Jede Aenderung wird gleich gespeichert; die Spieler sehen sie mit dem
+  // naechsten Abgleich. Orte, die mit dem Nebel aufgehen sollen, werden
+  // dabei sichtbar geschaltet.
+  const nebelSetzen = async (flaechen, an) => {
+    if (!karte) return;
+    const neu = {
+      an: an === undefined ? nebel.an : an,
+      flaechen: nebelAufraeumen(flaechen)
+    };
+    try {
+      await karteSpeichern({
+        ...karte,
+        nebel: neu
+      });
+      const frei = orteImAufgedeckten(daten.objekte.filter(o => o.karteId === karte.id), neu);
+      for (const o of frei) await objSpeichern({
+        ...o,
+        sichtbar: true
+      });
+      await laden(advId);
+      if (frei.length) setMeldung({
+        art: 'gut',
+        text: '☁ Der Nebel gibt frei: ' + frei.map(o => o.name).join(', ') + '.'
+      });
+    } catch (e) {
+      fehler(e);
+    }
+  };
+  const nebelAufdecken = kreise => nebelSetzen([...nebel.flaechen, ...kreise]);
+  const aufKarteGeklickt = async (p, mass) => {
     if (werkzeug === 'ort' && dm && karte) {
       const neu = {
         id: planNeueId('o'),
@@ -4474,6 +5216,15 @@ const PlanerApp = () => {
       const neu = [...punkte, p].slice(-2);
       setPunkte(neu);
       if (neu.length === 2) setMassstabFrage(neu);
+      return;
+    }
+    if (werkzeug === 'nebel' && dm && karte) {
+      if (nebelArt === 'vieleck') {
+        setPunkte(v => [...v, p]);
+        return;
+      }
+      const r = (NEBEL_RADIEN.find(x => x.k === nebelRadius) || NEBEL_RADIEN[1]).px / (mass || 1);
+      nebelSetzen([...nebel.flaechen, nebelKreis(p, r)]);
       return;
     }
     if (werkzeug === 'lineal' || werkzeug === 'route' || werkzeug === 'region') {
@@ -4710,9 +5461,12 @@ const PlanerApp = () => {
             id: advId,
             name: advName
           },
-          dateienListe: async k => (await planerApi('planer_dateien_liste', {
+          dateienListe: async (z, art) => (await planerApi('planer_dateien_liste', art === 'objekt' ? {
             adv_id: advId,
-            karte_id: k.id
+            obj_id: z.id
+          } : {
+            adv_id: advId,
+            karte_id: z.id
           })).dateien,
           dateiHolen: (ablage, pfad) => planerDateiHolen(ablage, pfad),
           programm: 'Abenteuerplaner ' + PLANER_VERSION,
@@ -4754,10 +5508,18 @@ const PlanerApp = () => {
         paket: v.paket,
         karteSpeichern,
         objSpeichern,
-        dateienHoch: (karteId, liste) => planerApi('planer_dateien_hoch', {
+        dateienHoch: (ziel, liste) => planerApi('planer_dateien_hoch', typeof ziel === 'string' ? {
           adv_id: advId,
-          karte_id: karteId,
+          karte_id: ziel,
           dateien: liste
+        } : {
+          adv_id: advId,
+          obj_id: ziel.objId,
+          dateien: liste
+        }),
+        objLoeschen: id => planerApi('planer_obj_loeschen', {
+          adv_id: advId,
+          obj_id: id
         }),
         karteLoeschen: id => planerApi('planer_karte_loeschen', {
           adv_id: advId,
@@ -4782,9 +5544,9 @@ const PlanerApp = () => {
     }
   };
   if (!angemeldet) return /*#__PURE__*/React.createElement(PlanerNichtAngemeldet, null);
-  const linie = ['lineal', 'massstab', 'route', 'region'].includes(werkzeug) ? {
-    punkte: werkzeug === 'region' && punkte.length > 2 ? [...punkte, punkte[0]] : punkte,
-    art: werkzeug
+  const linie = ['lineal', 'massstab', 'route', 'region', 'nebel'].includes(werkzeug) ? {
+    punkte: (werkzeug === 'region' || werkzeug === 'nebel') && punkte.length > 2 ? [...punkte, punkte[0]] : punkte,
+    art: werkzeug === 'nebel' ? 'region' : werkzeug
   } : null;
   const strecke = werkzeug === 'lineal' && karte && karte.massstab && punkte.length > 1 ? wegLaenge(punkte, karte.massstab) : 0;
   const vorige = verlauf.length ? karten.find(k => k.id === verlauf[verlauf.length - 1]) : null;
@@ -4826,7 +5588,22 @@ const PlanerApp = () => {
     accept: ".hbplan,.zip,application/zip",
     hidden: true,
     onChange: dateiGewaehlt
-  })), start && /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf",
+    onClick: tischOeffnen,
+    title: "Ein Fenster f\xFCr Beamer oder zweiten Bildschirm: zeigt, was die Runde sehen darf"
+  }, "\uD83D\uDCFA Tisch"), /*#__PURE__*/React.createElement("label", {
+    className: 'pl-schalter pl-tisch-folgt' + (tischFolgt ? ' an' : ''),
+    title: "Der Tisch zeigt deine Karte und deinen Ausschnitt"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: tischFolgt,
+    onChange: e => setTischFolgt(e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "folgt mir")), /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => anTisch('leer', {}),
+    title: "Ein gezeigtes Handout vom Tisch nehmen"
+  }, "\uD83D\uDCFA Karte zeigen")), start && /*#__PURE__*/React.createElement("span", {
     className: "pl-nutzer"
   }, start.nutzer.name), /*#__PURE__*/React.createElement("a", {
     className: "pl-knopf pl-zurueck",
@@ -4843,7 +5620,7 @@ const PlanerApp = () => {
   }, /*#__PURE__*/React.createElement("p", null, "In dieser Gruppe gibt es noch kein Abenteuer. Lege im Heldenbuch eines an.")) : !daten ? /*#__PURE__*/React.createElement("div", {
     className: "pl-buehne-leer"
   }, /*#__PURE__*/React.createElement("p", null, "L\xE4dt \u2026")) : /*#__PURE__*/React.createElement("main", {
-    className: 'pl-haupt-flaeche' + (ort || route || region || reise && reiseRoute ? ' mit-tafel' : '')
+    className: 'pl-haupt-flaeche' + (ort || route || region || handout || reise && reiseRoute ? ' mit-tafel' : '')
   }, /*#__PURE__*/React.createElement("div", {
     className: "pl-spalte"
   }, /*#__PURE__*/React.createElement(PlanerKartenListe, {
@@ -4873,6 +5650,30 @@ const PlanerApp = () => {
         y: o.y,
         n: Date.now()
       });
+    }
+  }), /*#__PURE__*/React.createElement(PlanerHandoutListe, {
+    handouts: handouts,
+    wahl: handoutWahl,
+    dm: dm,
+    gesehen: gesehen,
+    onWahl: id => {
+      if (dm) waehleHandout(id);else {
+        const h = handouts.find(x => x.id === id);
+        if (h) {
+          setLesen(h);
+          gelesen(h);
+        }
+      }
+    },
+    onNeu: async () => {
+      const h = neuesHandout();
+      try {
+        await objSpeichern(h);
+        await laden(advId);
+        waehleHandout(h.id);
+      } catch (e) {
+        fehler(e);
+      }
     }
   }), karte && /*#__PURE__*/React.createElement(PlanerRegionListe, {
     regionen: regionen,
@@ -4918,7 +5719,14 @@ const PlanerApp = () => {
     onClick: zurueck
   }, "\u2190 ", vorige.name), /*#__PURE__*/React.createElement("h1", null, karte.name), dm && /*#__PURE__*/React.createElement("span", {
     className: 'pl-sicht ' + (karte.sichtbar ? 'an' : 'aus')
-  }, karte.sichtbar ? 'für Spieler sichtbar' : 'für Spieler verborgen'), /*#__PURE__*/React.createElement("div", {
+  }, karte.sichtbar ? 'für Spieler sichtbar' : 'für Spieler verborgen'), dm && nebel.an && /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter pl-nebel-zeigen",
+    title: "Nur f\xFCr dich: den Nebel halb durchsichtig dar\xFCberlegen"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: nebelZeigen,
+    onChange: e => setNebelZeigen(e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "\u2601 Nebel zeigen")), /*#__PURE__*/React.createElement("div", {
     className: "pl-werkzeuge",
     role: "toolbar",
     "aria-label": "Werkzeuge"
@@ -4934,6 +5742,10 @@ const PlanerApp = () => {
     "aria-pressed": werkzeug === 'massstab',
     onClick: () => werkzeugWaehlen('massstab')
   }, "\uD83D\uDCCF Ma\xDFstab"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+    className: 'pl-knopf pl-klein' + (werkzeug === 'nebel' ? ' an' : ''),
+    "aria-pressed": werkzeug === 'nebel',
+    onClick: () => werkzeugWaehlen('nebel')
+  }, "\u2601 Nebel"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'region' ? ' an' : ''),
     "aria-pressed": werkzeug === 'region',
     onClick: () => werkzeugWaehlen('region')
@@ -4971,7 +5783,59 @@ const PlanerApp = () => {
     className: "pl-knopf pl-klein pl-haupt",
     disabled: punkte.length < 2,
     onClick: () => routeAnlegen(punkte)
-  }, "Route anlegen"), werkzeug === 'region' && karte.bild && punkte.length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, "Route anlegen"), werkzeug === 'nebel' && /*#__PURE__*/React.createElement("span", {
+    className: "pl-nebel-steuer"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: nebel.an,
+    onChange: e => nebelSetzen(nebel.flaechen, e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "Nebel f\xFCr Spieler")), /*#__PURE__*/React.createElement("span", {
+    className: "pl-knopfgruppe",
+    role: "radiogroup",
+    "aria-label": "Aufdecken"
+  }, NEBEL_RADIEN.map(x => /*#__PURE__*/React.createElement("button", {
+    key: x.k,
+    role: "radio",
+    "aria-checked": nebelArt === 'kreis' && nebelRadius === x.k,
+    className: 'pl-knopf pl-klein' + (nebelArt === 'kreis' && nebelRadius === x.k ? ' an' : ''),
+    onClick: () => {
+      setNebelArt('kreis');
+      setNebelRadius(x.k);
+      setPunkte([]);
+    }
+  }, "\u25EF ", x.l)), /*#__PURE__*/React.createElement("button", {
+    role: "radio",
+    "aria-checked": nebelArt === 'vieleck',
+    className: 'pl-knopf pl-klein' + (nebelArt === 'vieleck' ? ' an' : ''),
+    onClick: () => {
+      setNebelArt('vieleck');
+      setPunkte([]);
+    }
+  }, "\u2B21 Fl\xE4che")), nebelArt === 'vieleck' && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein pl-haupt",
+    disabled: punkte.length < 3,
+    onClick: () => {
+      nebelSetzen([...nebel.flaechen, {
+        art: 'vieleck',
+        punkte
+      }]);
+      setPunkte([]);
+    }
+  }, "Aufdecken"), /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    disabled: !nebel.flaechen.length,
+    onClick: () => nebelSetzen(nebel.flaechen.slice(0, -1))
+  }, "\u21B6 Zur\xFCck"), /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => nebelSetzen([{
+      art: 'alles'
+    }])
+  }, "Alles aufdecken"), /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => nebelSetzen([])
+  }, "Alles zudecken")), werkzeug === 'region' && karte.bild && punkte.length === 0 && /*#__PURE__*/React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => regionAnlegen([{
       x: 0,
@@ -5014,6 +5878,9 @@ const PlanerApp = () => {
     regionen: regionen,
     regionWahl: regionWahl,
     onRegionWahl: waehleRegion,
+    nebel: dm && !nebelZeigen && werkzeug !== 'nebel' ? null : nebel,
+    nebelDeckend: !dm,
+    onAnsicht: dm ? ansichtGemeldet : null,
     onKlick: aufKarteGeklickt,
     onOrtWahl: waehleOrt,
     onOrtVerschieben: ortVerschieben,
@@ -5033,6 +5900,75 @@ const PlanerApp = () => {
     onUnterkarte: zurUnterkarte,
     onBilderHoch: ortBilderHoch,
     onBildWeg: ortBildWeg
+  }), handout && dm && /*#__PURE__*/React.createElement(HandoutTafel, {
+    key: handout.id,
+    handout: handout,
+    mitglieder: mitglieder,
+    arbeitet: !!arbeit,
+    onSpeichern: h => objAendern({
+      ...h,
+      titel: String(h.titel || '').trim() || 'Ohne Titel'
+    }),
+    onVerteilen: (h, an) => objAendern({
+      ...h,
+      sichtbar: an,
+      geaendert: an ? Date.now() : h.geaendert
+    }),
+    onLoeschen: h => objWeg(h, 'Handout löschen?', '„' + h.titel + '“ wird mit seinem Bild gelöscht — auch bei den Spielern.', async () => setHandoutWahl('')),
+    onSchliessen: () => setHandoutWahl(''),
+    onTisch: h => {
+      anTisch('handout', {
+        id: h.id,
+        handout: {
+          titel: h.titel,
+          text: h.text,
+          bild: h.bild,
+          ablage: handout.ablage
+        }
+      });
+      setMeldung({
+        art: 'gut',
+        text: '📺 „' + h.titel + '“ ist an den Tisch geschickt.'
+      });
+    },
+    onBild: async (h, datei) => {
+      try {
+        // Speichern und Neuladen gehoeren mit in die Arbeit: sonst
+        // verteilt ein schneller Klick die alte Fassung ohne Bild.
+        await ausfuehren('Bild', async melde => {
+          melde('Bild verkleinern …');
+          const format = await bildFormat();
+          const {
+            bitmap
+          } = await bildOeffnen(datei, bildMasse(await dateiKopf(datei)));
+          const bytes = await bildVerkleinert(bitmap, 2000, format);
+          if (bitmap.close) bitmap.close();
+          const neuPfad = 'bild-' + planNeueId('b').slice(2) + '.' + format.endung;
+          await planerApi('planer_dateien_hoch', {
+            adv_id: advId,
+            obj_id: h.id,
+            dateien: [{
+              pfad: neuPfad,
+              daten: base64AusBytes(bytes)
+            }]
+          });
+          if (h.bild) await planerApi('planer_dateien_weg', {
+            adv_id: advId,
+            obj_id: h.id,
+            pfade: [h.bild]
+          }).catch(() => {});
+          melde('Speichern …');
+          await objSpeichern({
+            ...h,
+            bild: neuPfad,
+            geaendert: h.sichtbar ? Date.now() : h.geaendert
+          });
+          await laden(advId);
+        });
+      } catch (e) {
+        fehler(e);
+      }
+    }
   }), region && karte && /*#__PURE__*/React.createElement(RegionTafel, {
     key: region.id,
     region: region,
@@ -5071,6 +6007,7 @@ const PlanerApp = () => {
     chronikZeit: chronikZeit,
     regionen: regionen,
     begegnungen: begegnungen || [],
+    onNebelAufdecken: nebelAufdecken,
     onSpeichern: j => objAendern({
       ...j,
       name: String(j.name || '').trim() || 'Reise'
@@ -5078,7 +6015,13 @@ const PlanerApp = () => {
     onLoeschen: j => objWeg(j, 'Reise löschen?', '„' + j.name + '“ wird gelöscht. Die Route bleibt.', async () => setReiseWahl('')),
     onSchliessen: () => setReiseWahl(''),
     onMeldung: setMeldung
-  })), massstabFrage && /*#__PURE__*/React.createElement(MassstabDialog, {
+  })), !dm && (lesen || ungelesen[0]) && /*#__PURE__*/React.createElement(HandoutLeser, {
+    handout: lesen || ungelesen[0],
+    onZu: () => {
+      gelesen(lesen || ungelesen[0]);
+      setLesen(null);
+    }
+  }), massstabFrage && /*#__PURE__*/React.createElement(MassstabDialog, {
     punkte: massstabFrage,
     alt: karte && karte.massstab,
     onSpeichern: massstabSpeichern,
@@ -5106,9 +6049,12 @@ const PlanerApp = () => {
 };
 
 // Der Einstieg — aus planer/index.html und aus dev/planer-echt.html.
-let planerWurzel = null;
-const planerStarten = el => {
-  if (planerWurzel) planerWurzel.unmount();
-  planerWurzel = ReactDOM.createRoot(el);
-  planerWurzel.render( /*#__PURE__*/React.createElement(PlanerApp, null));
+const planerWurzeln = new Map();
+const planerStarten = (el, optionen) => {
+  if (planerWurzeln.has(el)) planerWurzeln.get(el).unmount();
+  const w = ReactDOM.createRoot(el);
+  planerWurzeln.set(el, w);
+  w.render(optionen && optionen.tisch ? /*#__PURE__*/React.createElement(TischApp, {
+    adv: optionen.adv
+  }) : /*#__PURE__*/React.createElement(PlanerApp, null));
 };

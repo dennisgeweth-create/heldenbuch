@@ -10,6 +10,8 @@
 
 const PLANER_ADV_SPEICHER = 'hb_planer_adv';
 const PLANER_ABGLEICH_MS = 15000;
+const PLANER_ABGLEICH_SPIELER_MS = 5000;
+const PLANER_GESEHEN = 'hb_planer_gesehen_';
 
 const planerAdvAnfang = (liste) => {
   const ids = liste.map(a => a.id);
@@ -232,6 +234,7 @@ const PlanerRegionListe = ({ regionen, regionWahl, dm, onWahl }) => {
 };
 
 const WERKZEUG_HINWEIS = {
+  nebel: 'Klicke, wo der Nebel weichen soll.',
   region: 'Klicke die Eckpunkte der Region. Die Fläche schließt sich von selbst.',
   route: 'Klicke Punkt für Punkt den Weg. Das Gelände je Abschnitt stellst du danach ein.',
   ort: 'Klicke auf die Karte, wo der neue Ort liegen soll.',
@@ -260,6 +263,16 @@ const PlanerApp = () => {
   const [reiseWahl, setReiseWahl] = useState('');
   const [regionWahl, setRegionWahl] = useState('');
   const [begegnungen, setBegegnungen] = useState(null);
+  const [handoutWahl, setHandoutWahl] = useState('');
+  const [lesen, setLesen] = useState(null);
+  const [mitglieder, setMitglieder] = useState(null);
+  const [nebelArt, setNebelArt] = useState('kreis');
+  const [nebelRadius, setNebelRadius] = useState('mittel');
+  const [nebelZeigen, setNebelZeigen] = useState(true);
+  const [tischFolgt, setTischFolgt] = useState(false);
+  const [gesehen, setGesehen] = useState([]);
+  const kanal = useRef(null);
+  const tischZeit = useRef(0);
   const [chronikZeit, setChronikZeit] = useState(null);
   const [fokus, setFokus] = useState(null);
   const standRef = useRef(0);
@@ -296,6 +309,8 @@ const PlanerApp = () => {
   }, [advId]);
 
   // Der Abgleich: nur die Zahl fragen, und nur laden, wenn sie sich bewegt.
+  // Spieler fragen oefter — sie warten auf das, was die Spielleitung tut.
+  const dmFuerAbgleich = !!(daten && daten.dm);
   useEffect(() => {
     if (!advId) return;
     const t = setInterval(() => {
@@ -303,9 +318,9 @@ const PlanerApp = () => {
       planerApi('planer_stand', { adv_id: advId })
         .then(s => { if (s.stand !== standRef.current) return laden(advId); })
         .catch(() => {});
-    }, PLANER_ABGLEICH_MS);
+    }, dmFuerAbgleich ? PLANER_ABGLEICH_MS : PLANER_ABGLEICH_SPIELER_MS);
     return () => clearInterval(t);
-  }, [advId]);
+  }, [advId, dmFuerAbgleich]);
 
   const dm = !!(daten && daten.dm);
   const karten = daten ? daten.karten : [];
@@ -328,11 +343,55 @@ const PlanerApp = () => {
              punkt: karte.massstab ? punktAufRoute(rr, karte.massstab, j.pos || 0) : (rr.punkte || [])[0] };
   }).filter(Boolean) : [];
   // Nur eine Tafel zugleich.
-  const tafelZu = () => { setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); };
+  const tafelZu = () => { setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); setHandoutWahl(''); };
+  const handouts = daten ? daten.objekte.filter(o => o.art === 'handout') : [];
+  const handout = handouts.find(h => h.id === handoutWahl) || null;
+  const nebel = nebelVon(karte);
+
+  // Was dieser Spieler schon gelesen hat, merkt sich sein Browser.
+  useEffect(() => {
+    try { setGesehen(JSON.parse(localStorage.getItem(PLANER_GESEHEN + advId) || '[]')); } catch (e) { setGesehen([]); }
+  }, [advId]);
+  const gelesen = (h) => {
+    const neu = [...gesehen.filter(x => !x.startsWith(h.id + ':')), handoutFassung(h)];
+    setGesehen(neu);
+    try { localStorage.setItem(PLANER_GESEHEN + advId, JSON.stringify(neu)); } catch (e) { /* ohne Speicher */ }
+  };
+  const ungelesen = daten && !daten.dm ? ungeseheneHandouts(handouts, gesehen) : [];
+
+  // Der Kanal zum Tischfenster.
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    kanal.current = new BroadcastChannel(TISCH_KANAL);
+    return () => { kanal.current.close(); kanal.current = null; };
+  }, []);
+  const anTisch = (art, inhalt) => { if (kanal.current) kanal.current.postMessage(tischNachricht(art, { advId, ...inhalt })); };
+  const ansichtRef = useRef(null);
+  const ansichtGemeldet = (v) => {
+    ansichtRef.current = v;
+    if (!tischFolgt || !karte) return;
+    const jetzt = Date.now();
+    if (jetzt - tischZeit.current < 250) return;
+    tischZeit.current = jetzt;
+    anTisch('ansicht', { karteId: karte.id, ansicht: v });
+  };
+  useEffect(() => { if (tischFolgt && karte) anTisch('karte', { karteId: karte.id, ansicht: ansichtRef.current }); }, [tischFolgt, karte && karte.id]);
+  useEffect(() => { if (dm) anTisch('neu', {}); }, [daten && daten.stand]);
+  const tischOeffnen = () => {
+    window.open('?tisch=1&adv=' + encodeURIComponent(advId), 'hb-planer-tisch');
+    setTischFolgt(true);
+  };
   const waehleOrt = (id) => { if (id) tafelZu(); setOrtWahl(id); };
   const waehleRoute = (id) => { if (id) tafelZu(); setRouteWahl(id); };
   const waehleReise = (id) => { if (id) tafelZu(); setReiseWahl(id); };
   const waehleRegion = (id) => { if (id) tafelZu(); setRegionWahl(id); };
+  const waehleHandout = (id) => { if (id) tafelZu(); setHandoutWahl(id); };
+
+  // Die Mitglieder der Gruppe, fuer die Empfaenger eines Handouts.
+  useEffect(() => {
+    if (!dm || !handoutWahl || mitglieder) return;
+    planerApi('member_list', {}).then(r => setMitglieder(r.mitglieder || [])).catch(() => setMitglieder([]));
+  }, [dm, handoutWahl]);
 
   // Die Begegnungen des Heldenbuchs, auf die Tabellen verweisen. Nur lesen.
   useEffect(() => {
@@ -497,7 +556,24 @@ const PlanerApp = () => {
   };
 
   // ── Klicks auf die Karte ────────────────────────────────────────
-  const aufKarteGeklickt = async (p) => {
+  // ── Nebel ───────────────────────────────────────────────────────
+  // Jede Aenderung wird gleich gespeichert; die Spieler sehen sie mit dem
+  // naechsten Abgleich. Orte, die mit dem Nebel aufgehen sollen, werden
+  // dabei sichtbar geschaltet.
+  const nebelSetzen = async (flaechen, an) => {
+    if (!karte) return;
+    const neu = { an: an === undefined ? nebel.an : an, flaechen: nebelAufraeumen(flaechen) };
+    try {
+      await karteSpeichern({ ...karte, nebel: neu });
+      const frei = orteImAufgedeckten(daten.objekte.filter(o => o.karteId === karte.id), neu);
+      for (const o of frei) await objSpeichern({ ...o, sichtbar: true });
+      await laden(advId);
+      if (frei.length) setMeldung({ art: 'gut', text: '☁ Der Nebel gibt frei: ' + frei.map(o => o.name).join(', ') + '.' });
+    } catch (e) { fehler(e); }
+  };
+  const nebelAufdecken = (kreise) => nebelSetzen([...nebel.flaechen, ...kreise]);
+
+  const aufKarteGeklickt = async (p, mass) => {
     if (werkzeug === 'ort' && dm && karte) {
       const neu = { id: planNeueId('o'), karteId: karte.id, art: 'ort', name: 'Neuer Ort', symbol: '📍', x: p.x, y: p.y, sichtbar: false, text: '', dm: { notiz: '' } };
       setWerkzeug('ansehen');
@@ -512,6 +588,12 @@ const PlanerApp = () => {
       const neu = [...punkte, p].slice(-2);
       setPunkte(neu);
       if (neu.length === 2) setMassstabFrage(neu);
+      return;
+    }
+    if (werkzeug === 'nebel' && dm && karte) {
+      if (nebelArt === 'vieleck') { setPunkte(v => [...v, p]); return; }
+      const r = (NEBEL_RADIEN.find(x => x.k === nebelRadius) || NEBEL_RADIEN[1]).px / (mass || 1);
+      nebelSetzen([...nebel.flaechen, nebelKreis(p, r)]);
       return;
     }
     if (werkzeug === 'lineal' || werkzeug === 'route' || werkzeug === 'region') { setPunkte(v => [...v, p]); return; }
@@ -627,7 +709,8 @@ const PlanerApp = () => {
         return planExportieren({
           daten: frisch,
           abenteuer: { id: advId, name: advName },
-          dateienListe: async (k) => (await planerApi('planer_dateien_liste', { adv_id: advId, karte_id: k.id })).dateien,
+          dateienListe: async (z, art) => (await planerApi('planer_dateien_liste', art === 'objekt'
+            ? { adv_id: advId, obj_id: z.id } : { adv_id: advId, karte_id: z.id })).dateien,
           dateiHolen: (ablage, pfad) => planerDateiHolen(ablage, pfad),
           programm: 'Abenteuerplaner ' + PLANER_VERSION,
           melde,
@@ -658,7 +741,9 @@ const PlanerApp = () => {
         paket: v.paket,
         karteSpeichern,
         objSpeichern,
-        dateienHoch: (karteId, liste) => planerApi('planer_dateien_hoch', { adv_id: advId, karte_id: karteId, dateien: liste }),
+        dateienHoch: (ziel, liste) => planerApi('planer_dateien_hoch', typeof ziel === 'string'
+          ? { adv_id: advId, karte_id: ziel, dateien: liste } : { adv_id: advId, obj_id: ziel.objId, dateien: liste }),
+        objLoeschen: (id) => planerApi('planer_obj_loeschen', { adv_id: advId, obj_id: id }),
         karteLoeschen: (id) => planerApi('planer_karte_loeschen', { adv_id: advId, karte_id: id }),
         namenZusatz: (name) => vorhanden.has(name) ? ' (importiert)' : '',
         melde,
@@ -675,8 +760,8 @@ const PlanerApp = () => {
 
   if (!angemeldet) return <PlanerNichtAngemeldet />;
 
-  const linie = ['lineal', 'massstab', 'route', 'region'].includes(werkzeug)
-    ? { punkte: werkzeug === 'region' && punkte.length > 2 ? [...punkte, punkte[0]] : punkte, art: werkzeug } : null;
+  const linie = ['lineal', 'massstab', 'route', 'region', 'nebel'].includes(werkzeug)
+    ? { punkte: (werkzeug === 'region' || werkzeug === 'nebel') && punkte.length > 2 ? [...punkte, punkte[0]] : punkte, art: werkzeug === 'nebel' ? 'region' : werkzeug } : null;
   const strecke = werkzeug === 'lineal' && karte && karte.massstab && punkte.length > 1 ? wegLaenge(punkte, karte.massstab) : 0;
   const vorige = verlauf.length ? karten.find(k => k.id === verlauf[verlauf.length - 1]) : null;
 
@@ -701,6 +786,11 @@ const PlanerApp = () => {
               <button className="pl-knopf" onClick={() => dateiEingabe.current && dateiEingabe.current.click()}
                 title="Eine .hbplan-Datei in dieses Abenteuer einspielen">⇧ Importieren</button>
               <input ref={dateiEingabe} type="file" accept=".hbplan,.zip,application/zip" hidden onChange={dateiGewaehlt} />
+              <button className="pl-knopf" onClick={tischOeffnen} title="Ein Fenster für Beamer oder zweiten Bildschirm: zeigt, was die Runde sehen darf">📺 Tisch</button>
+              <label className={'pl-schalter pl-tisch-folgt' + (tischFolgt ? ' an' : '')} title="Der Tisch zeigt deine Karte und deinen Ausschnitt">
+                <input type="checkbox" checked={tischFolgt} onChange={e => setTischFolgt(e.target.checked)} /><span>folgt mir</span>
+              </label>
+              <button className="pl-knopf pl-klein" onClick={() => anTisch('leer', {})} title="Ein gezeigtes Handout vom Tisch nehmen">📺 Karte zeigen</button>
             </>
           )}
           {start && <span className="pl-nutzer">{start.nutzer.name}</span>}
@@ -720,7 +810,7 @@ const PlanerApp = () => {
       ) : !daten ? (
         <div className="pl-buehne-leer"><p>Lädt …</p></div>
       ) : (
-        <main className={'pl-haupt-flaeche' + (ort || route || region || (reise && reiseRoute) ? ' mit-tafel' : '')}>
+        <main className={'pl-haupt-flaeche' + (ort || route || region || handout || (reise && reiseRoute) ? ' mit-tafel' : '')}>
           <div className="pl-spalte">
             <PlanerKartenListe karten={karten} auswahl={auswahl} dm={dm}
               onWahl={(id) => { setAuswahl(id); setVerlauf([]); }} onNeu={neueKarte}
@@ -729,6 +819,9 @@ const PlanerApp = () => {
               onLoeschen={karteLoeschen} />
             {karte && <PlanerOrtListe orte={orte} auswahl={ortWahl} dm={dm}
               onWahl={(o) => { waehleOrt(o.id); setFokus({ x: o.x, y: o.y, n: Date.now() }); }} />}
+            <PlanerHandoutListe handouts={handouts} wahl={handoutWahl} dm={dm} gesehen={gesehen}
+              onWahl={(id) => { if (dm) waehleHandout(id); else { const h = handouts.find(x => x.id === id); if (h) { setLesen(h); gelesen(h); } } }}
+              onNeu={async () => { const h = neuesHandout(); try { await objSpeichern(h); await laden(advId); waehleHandout(h.id); } catch (e) { fehler(e); } }} />
             {karte && <PlanerRegionListe regionen={regionen} regionWahl={regionWahl} dm={dm}
               onWahl={(r) => { waehleRegion(r.id); setFokus({ ...polygonMitte(r.punkte), n: Date.now() }); }} />}
             {karte && <PlanerWegListe routen={routen} reisen={reisen} routeWahl={routeWahl} reiseWahl={reiseWahl} dm={dm}
@@ -743,10 +836,16 @@ const PlanerApp = () => {
                 {vorige && <button className="pl-knopf pl-klein" onClick={zurueck}>← {vorige.name}</button>}
                 <h1>{karte.name}</h1>
                 {dm && <span className={'pl-sicht ' + (karte.sichtbar ? 'an' : 'aus')}>{karte.sichtbar ? 'für Spieler sichtbar' : 'für Spieler verborgen'}</span>}
+                {dm && nebel.an && (
+                  <label className="pl-schalter pl-nebel-zeigen" title="Nur für dich: den Nebel halb durchsichtig darüberlegen">
+                    <input type="checkbox" checked={nebelZeigen} onChange={e => setNebelZeigen(e.target.checked)} /><span>☁ Nebel zeigen</span>
+                  </label>
+                )}
                 <div className="pl-werkzeuge" role="toolbar" aria-label="Werkzeuge">
                   {dm && <button className="pl-knopf pl-klein" onClick={() => bildEingabe.current && bildEingabe.current.click()}>🖼 {karte.bild ? 'Bild ersetzen' : 'Kartenbild'}</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'ort' ? ' an' : '')} aria-pressed={werkzeug === 'ort'} onClick={() => werkzeugWaehlen('ort')}>📍 Ort setzen</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'massstab' ? ' an' : '')} aria-pressed={werkzeug === 'massstab'} onClick={() => werkzeugWaehlen('massstab')}>📏 Maßstab</button>}
+                  {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'nebel' ? ' an' : '')} aria-pressed={werkzeug === 'nebel'} onClick={() => werkzeugWaehlen('nebel')}>☁ Nebel</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'region' ? ' an' : '')} aria-pressed={werkzeug === 'region'} onClick={() => werkzeugWaehlen('region')}>⬡ Region</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'route' ? ' an' : '')} aria-pressed={werkzeug === 'route'} onClick={() => werkzeugWaehlen('route')}>🛤 Route</button>}
                   {karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'lineal' ? ' an' : '')} aria-pressed={werkzeug === 'lineal'} onClick={() => werkzeugWaehlen('lineal')}>📐 Messen</button>}
@@ -771,6 +870,25 @@ const PlanerApp = () => {
                   {werkzeug === 'lineal' && punkte.length > 0 && <button className="pl-knopf pl-klein" onClick={() => setPunkte([])}>Neu</button>}
                   {werkzeug === 'lineal' && dm && punkte.length > 1 && <button className="pl-knopf pl-klein" onClick={() => routeAnlegen(punkte)}>🛤 Als Route speichern</button>}
                   {werkzeug === 'route' && <button className="pl-knopf pl-klein pl-haupt" disabled={punkte.length < 2} onClick={() => routeAnlegen(punkte)}>Route anlegen</button>}
+                  {werkzeug === 'nebel' && (
+                    <span className="pl-nebel-steuer">
+                      <label className="pl-schalter"><input type="checkbox" checked={nebel.an} onChange={e => nebelSetzen(nebel.flaechen, e.target.checked)} /><span>Nebel für Spieler</span></label>
+                      <span className="pl-knopfgruppe" role="radiogroup" aria-label="Aufdecken">
+                        {NEBEL_RADIEN.map(x => (
+                          <button key={x.k} role="radio" aria-checked={nebelArt === 'kreis' && nebelRadius === x.k}
+                            className={'pl-knopf pl-klein' + (nebelArt === 'kreis' && nebelRadius === x.k ? ' an' : '')}
+                            onClick={() => { setNebelArt('kreis'); setNebelRadius(x.k); setPunkte([]); }}>◯ {x.l}</button>
+                        ))}
+                        <button role="radio" aria-checked={nebelArt === 'vieleck'} className={'pl-knopf pl-klein' + (nebelArt === 'vieleck' ? ' an' : '')}
+                          onClick={() => { setNebelArt('vieleck'); setPunkte([]); }}>⬡ Fläche</button>
+                      </span>
+                      {nebelArt === 'vieleck' && <button className="pl-knopf pl-klein pl-haupt" disabled={punkte.length < 3}
+                        onClick={() => { nebelSetzen([...nebel.flaechen, { art: 'vieleck', punkte }]); setPunkte([]); }}>Aufdecken</button>}
+                      <button className="pl-knopf pl-klein" disabled={!nebel.flaechen.length} onClick={() => nebelSetzen(nebel.flaechen.slice(0, -1))}>↶ Zurück</button>
+                      <button className="pl-knopf pl-klein" onClick={() => nebelSetzen([{ art: 'alles' }])}>Alles aufdecken</button>
+                      <button className="pl-knopf pl-klein" onClick={() => nebelSetzen([])}>Alles zudecken</button>
+                    </span>
+                  )}
                   {werkzeug === 'region' && karte.bild && punkte.length === 0 && (
                     <button className="pl-knopf pl-klein" onClick={() => regionAnlegen([{ x: 0, y: 0 }, { x: karte.bild.breite, y: 0 }, { x: karte.bild.breite, y: karte.bild.hoehe }, { x: 0, y: karte.bild.hoehe }])}>▭ Ganze Karte</button>
                   )}
@@ -783,6 +901,7 @@ const PlanerApp = () => {
                 routen={routen} gruppen={gruppen} routeWahl={routeWahl} reiseWahl={reiseWahl}
                 onRouteWahl={waehleRoute} onReiseWahl={waehleReise}
                 regionen={regionen} regionWahl={regionWahl} onRegionWahl={waehleRegion}
+                nebel={dm && !nebelZeigen && werkzeug !== 'nebel' ? null : nebel} nebelDeckend={!dm} onAnsicht={dm ? ansichtGemeldet : null}
                 onKlick={aufKarteGeklickt} onOrtWahl={waehleOrt} onOrtVerschieben={ortVerschieben}
                 onBildWaehlen={() => bildEingabe.current && bildEingabe.current.click()} />
               <dl className="pl-fakten pl-fakten-quer">
@@ -798,6 +917,33 @@ const PlanerApp = () => {
               onSpeichern={ortSpeichern} onLoeschen={ortLoeschen} onSchliessen={() => setOrtWahl('')}
               onUnterkarte={zurUnterkarte} onBilderHoch={ortBilderHoch} onBildWeg={ortBildWeg} />
           )}
+          {handout && dm && (
+            <HandoutTafel key={handout.id} handout={handout} mitglieder={mitglieder} arbeitet={!!arbeit}
+              onSpeichern={(h) => objAendern({ ...h, titel: String(h.titel || '').trim() || 'Ohne Titel' })}
+              onVerteilen={(h, an) => objAendern({ ...h, sichtbar: an, geaendert: an ? Date.now() : h.geaendert })}
+              onLoeschen={(h) => objWeg(h, 'Handout löschen?', '„' + h.titel + '“ wird mit seinem Bild gelöscht — auch bei den Spielern.', async () => setHandoutWahl(''))}
+              onSchliessen={() => setHandoutWahl('')}
+              onTisch={(h) => { anTisch('handout', { id: h.id, handout: { titel: h.titel, text: h.text, bild: h.bild, ablage: handout.ablage } }); setMeldung({ art: 'gut', text: '📺 „' + h.titel + '“ ist an den Tisch geschickt.' }); }}
+              onBild={async (h, datei) => {
+                try {
+                  // Speichern und Neuladen gehoeren mit in die Arbeit: sonst
+                  // verteilt ein schneller Klick die alte Fassung ohne Bild.
+                  await ausfuehren('Bild', async (melde) => {
+                    melde('Bild verkleinern …');
+                    const format = await bildFormat();
+                    const { bitmap } = await bildOeffnen(datei, bildMasse(await dateiKopf(datei)));
+                    const bytes = await bildVerkleinert(bitmap, 2000, format);
+                    if (bitmap.close) bitmap.close();
+                    const neuPfad = 'bild-' + planNeueId('b').slice(2) + '.' + format.endung;
+                    await planerApi('planer_dateien_hoch', { adv_id: advId, obj_id: h.id, dateien: [{ pfad: neuPfad, daten: base64AusBytes(bytes) }] });
+                    if (h.bild) await planerApi('planer_dateien_weg', { adv_id: advId, obj_id: h.id, pfade: [h.bild] }).catch(() => {});
+                    melde('Speichern …');
+                    await objSpeichern({ ...h, bild: neuPfad, geaendert: h.sichtbar ? Date.now() : h.geaendert });
+                    await laden(advId);
+                  });
+                } catch (e) { fehler(e); }
+              }} />
+          )}
           {region && karte && (
             <RegionTafel key={region.id} region={region} dm={dm} karte={karte} begegnungen={begegnungen} advId={advId}
               onSpeichern={(r) => objAendern({ ...r, name: String(r.name || '').trim() || 'Ohne Namen' })}
@@ -812,7 +958,7 @@ const PlanerApp = () => {
           )}
           {reise && reiseRoute && karte && (
             <ReiseTafel key={reise.id} reise={reise} route={reiseRoute} dm={dm} karte={karte} advId={advId} chronikZeit={chronikZeit}
-              regionen={regionen} begegnungen={begegnungen || []}
+              regionen={regionen} begegnungen={begegnungen || []} onNebelAufdecken={nebelAufdecken}
               onSpeichern={(j) => objAendern({ ...j, name: String(j.name || '').trim() || 'Reise' })}
               onLoeschen={(j) => objWeg(j, 'Reise löschen?', '„' + j.name + '“ wird gelöscht. Die Route bleibt.', async () => setReiseWahl(''))}
               onSchliessen={() => setReiseWahl('')} onMeldung={setMeldung} />
@@ -820,6 +966,9 @@ const PlanerApp = () => {
         </main>
       )}
 
+      {!dm && (lesen || ungelesen[0]) && (
+        <HandoutLeser handout={lesen || ungelesen[0]} onZu={() => { gelesen(lesen || ungelesen[0]); setLesen(null); }} />
+      )}
       {massstabFrage && <MassstabDialog punkte={massstabFrage} alt={karte && karte.massstab}
         onSpeichern={massstabSpeichern} onZu={() => { setMassstabFrage(null); setPunkte([]); }} />}
       {vorschau && <PlanerImportVorschau vorschau={vorschau} onEinspielen={einspielen} onZu={() => setVorschau(null)} />}
@@ -830,9 +979,10 @@ const PlanerApp = () => {
 };
 
 // Der Einstieg — aus planer/index.html und aus dev/planer-echt.html.
-let planerWurzel = null;
-const planerStarten = (el) => {
-  if (planerWurzel) planerWurzel.unmount();
-  planerWurzel = ReactDOM.createRoot(el);
-  planerWurzel.render(<PlanerApp />);
+const planerWurzeln = new Map();
+const planerStarten = (el, optionen) => {
+  if (planerWurzeln.has(el)) planerWurzeln.get(el).unmount();
+  const w = ReactDOM.createRoot(el);
+  planerWurzeln.set(el, w);
+  w.render(optionen && optionen.tisch ? <TischApp adv={optionen.adv} /> : <PlanerApp />);
 };
