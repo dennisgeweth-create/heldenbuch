@@ -17,7 +17,7 @@ const ist = (n, a, b) => {
 };
 
 // ── Nebel ────────────────────────────────────────────────────────
-ist('ohne Angabe ist der Nebel aus', nebelVon({}), { an: false, flaechen: [] });
+ist('ohne Angabe ist der Nebel aus', nebelVon({}), { an: false, modus: 'offen', flaechen: [] });
 const nebel = { an: true, flaechen: [nebelKreis({ x: 100, y: 100 }, 50), { art: 'vieleck', punkte: [{ x: 500, y: 500 }, { x: 600, y: 500 }, { x: 600, y: 600 }] }] };
 ist('im Kreis aufgedeckt, daneben nicht', [punktAufgedeckt({ x: 130, y: 130 }, nebel), punktAufgedeckt({ x: 150, y: 150 }, nebel)], [true, false]);
 ist('im Vieleck aufgedeckt', punktAufgedeckt({ x: 590, y: 520 }, nebel), true);

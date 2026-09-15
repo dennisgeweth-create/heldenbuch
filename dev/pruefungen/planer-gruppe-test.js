@@ -63,5 +63,13 @@ ist('eine sehr lange Spur behält den Anfang und die neuesten Punkte', [gekappt.
 const sicht = spielerSicht({ karten: [{ id: 'k1', sichtbar: true }], objekte: [{ ...z1.gruppe, spurFuerSpieler: false }, { ...z1.gruppe, id: 'g2', spurFuerSpieler: true }] });
 ist('der Tisch: ohne Freigabe nur der letzte Punkt, mit Freigabe die Spur', sicht.objekte.map(o => o.spur.length), [1, 2]);
 
+// Der Nebel folgt der Gruppe
+ist('Nebelmodus: unbekannt heißt „bleibt offen“', [nebelVon({ nebel: { an: true, modus: 'quatsch' } }).modus, nebelVon({ nebel: { modus: 'dunkel' } }).modus], ['offen', 'dunkel']);
+ist('  … folgen tun nur „dämmrig“ und „dunkel“', ['offen', 'daemmrig', 'dunkel'].map(k => nebelFolgt({ an: true, modus: k })), [false, true, true]);
+const sk = sichtKreise([z1.gruppe, { ...g0, id: 'g_zu', sichtbar: false }, { ...g0, id: 'g_blind', sichtweite: 0 }], km);
+ist('Sicht: ein Kreis um den Stand jeder sichtbaren Gruppe, mit ihrer Sichtweite', sk, [{ art: 'kreis', x: 400, y: 100, r: 50 }]);
+ist('  … ohne Maßstab keine Sicht', sichtKreise([z1.gruppe], null), []);
+ist('  … beim Ziehen steht der Kreis an der Marke', sichtKreise([z1.gruppe], km, { id: z1.gruppe.id, x: 10, y: 20 }), [{ art: 'kreis', x: 10, y: 20, r: 50 }]);
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

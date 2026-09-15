@@ -456,5 +456,15 @@ die Spur für Spieler auf den letzten Punkt; das Tischfenster
 Tags zieht dann die Gruppe (mit ihrer Sichtweite); die Sichtweite der Reise
 und ihre eigene Marke treten zurück.
 
+### ✅ Nachtrag · Nebel folgt der Gruppe (v5.18.0)
+
+`karte.nebel.modus`: `offen` (Vorgabe), `daemmrig` oder `dunkel`. In den
+beiden letzten zeichnet die Leinwand die gespeicherten Flächen grau
+(dämmrig) oder gar nicht in die Maske, und darüber klar die `sichtKreise`
+jeder sichtbaren Heldengruppe um ihren letzten Spurpunkt. `alles` bleibt
+ganz klar. Die Flächen werden weiter gesammelt; Orte mit „Sichtbar, sobald
+der Nebel über ihm aufgeht“ gehen deshalb weiterhin auf, sobald die Gruppe
+sie einmal gesehen hat. Wie der übrige Nebel verdeckt das nur die Anzeige.
+
 Der Abenteuerplaner ist damit vollständig. Weitere Wünsche kommen in die
 `TODO.md`.

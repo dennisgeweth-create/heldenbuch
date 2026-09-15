@@ -63,7 +63,8 @@ const GruppeTafel = ({ gruppe, dm, karte, helden, gruppen, zieht, onSpeichern, o
           title="Der Nebel bleibt, wo er schon gewichen ist">↶ Letzten Zug zurück</button>
       </div>
       {!nebelVon(karte).an ? <p className="pl-leise pl-klein-text">Auf dieser Karte liegt kein Nebel — die Gruppe hinterlässt nur ihre Spur.</p>
-        : !m ? <p className="pl-warnung">Ohne Maßstab weicht der Nebel nicht; die Sichtweite braucht eine Einheit.</p> : null}
+        : !m ? <p className="pl-warnung">Ohne Maßstab weicht der Nebel nicht; die Sichtweite braucht eine Einheit.</p>
+        : nebelFolgt(nebelVon(karte)) ? <p className="pl-leise pl-klein-text">Der Nebel folgt der Gruppe: klar ist, was sie gerade sieht{nebelVon(karte).modus === 'daemmrig' ? ', wo sie war, bleibt es dämmrig' : ''}.{!gruppe.sichtbar ? ' Solange sie verborgen ist, sieht sie für die Spieler nichts.' : ''}</p> : null}
       <form className="pl-formular" onSubmit={e => { e.preventDefault(); if (geaendert) onSpeichern(entwurf); }}>
         <label>Name
           <input className="pl-feld" value={entwurf.name || ''} maxLength={120} onChange={e => setze('name', e.target.value)} />

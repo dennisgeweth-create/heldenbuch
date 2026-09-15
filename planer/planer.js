@@ -1966,7 +1966,13 @@ const auftragKampf = (advId, begegnungId, name) => ({
 // brauchen ihn, um ihn zu zeichnen. Er ist eine Liste aufgedeckter
 // Flaechen — Kreise, Vielecke, oder alles.
 //
-//     { an: true, flaechen: [ {art:'kreis', x, y, r}, {art:'vieleck', punkte:[…]}, {art:'alles'} ] }
+//     { an: true, modus: 'offen'|'daemmrig'|'dunkel',
+//       flaechen: [ {art:'kreis', x, y, r}, {art:'vieleck', punkte:[…]}, {art:'alles'} ] }
+//
+// Der Modus sagt, was mit Aufgedecktem geschieht, wenn die Heldengruppen
+// weiterziehen: es bleibt offen, es wird daemmrig, oder wieder dunkel. In
+// den beiden letzten ist nur klar, was eine Gruppe gerade sieht
+// (sichtKreise in 1g-gruppe.jsx). „Alles aufdecken“ gilt immer ganz.
 //
 // Er verdeckt die Anzeige, nicht die Kacheln selbst: wer die Adresse
 // einer Kachel einer sichtbaren Karte kennt, bekommt sie. Wirklich geheim
@@ -1987,13 +1993,28 @@ const NEBEL_RADIEN = [{
   l: 'Groß',
   px: 240
 }];
+const NEBEL_MODI = [{
+  k: 'offen',
+  l: 'Bleibt offen',
+  t: 'Was aufgedeckt ist, bleibt aufgedeckt'
+}, {
+  k: 'daemmrig',
+  l: 'Folgt der Gruppe',
+  t: 'Klar ist, was eine Heldengruppe gerade sieht; wo sie war, bleibt es dämmrig'
+}, {
+  k: 'dunkel',
+  l: 'Folgt, alles andere dunkel',
+  t: 'Nur, was eine Heldengruppe gerade sieht; wo sie war, wird es wieder dunkel'
+}];
 const nebelVon = karte => {
   const n = karte && karte.nebel || {};
   return {
     an: !!n.an,
+    modus: NEBEL_MODI.some(x => x.k === n.modus) ? n.modus : 'offen',
     flaechen: Array.isArray(n.flaechen) ? n.flaechen : []
   };
 };
+const nebelFolgt = nebel => !!nebel && (nebel.modus === 'daemmrig' || nebel.modus === 'dunkel');
 const flaecheAufgedeckt = (p, f) => {
   if (!f) return false;
   if (f.art === 'alles') return true;
@@ -2726,6 +2747,17 @@ const gruppenVereinen = (ziel, quelle, zeit) => {
   };
 };
 
+// Folgt der Nebel den Gruppen, ist klar, was sie gerade sehen: ein Kreis
+// mit der Sichtweite um jede Gruppe, die Spieler sehen duerfen. Waehrend
+// die Spielleitung eine Marke zieht, steht der Kreis dort, wo die Marke ist.
+const sichtKreise = (gruppen, massstab, gezogen) => {
+  if (!massstab) return [];
+  return (gruppen || []).filter(g => g.sichtbar && (+g.sichtweite || 0) > 0).map(g => {
+    const p = gezogen && gezogen.id === g.id ? gezogen : gruppePosition(g);
+    return p ? nebelKreis(p, +g.sichtweite * pxJeEinheit(massstab)) : null;
+  }).filter(Boolean);
+};
+
 // Welche Boegen noch keiner Gruppe auf dieser Karte angehoeren.
 const heldenOhneGruppe = (helden, gruppen, ausser) => {
   const vergeben = new Set((gruppen || []).filter(g => g.id !== ausser).flatMap(g => g.helden || []));
@@ -3037,6 +3069,11 @@ const KartenLeinwand = ({
     }))), nebel && nebel.an && (() => {
       const s = ansichtMass(a, plan);
       const maskeId = 'nebel-' + karte.id;
+      // Folgt der Nebel den Gruppen: Aufgedecktes wird daemmrig (grau in
+      // der Maske) oder bleibt dunkel, klar ist nur die Sicht der Gruppen.
+      const folgt = nebelFolgt(nebel);
+      const erkundet = !folgt ? 'black' : nebel.modus === 'daemmrig' ? '#8a8a8a' : null;
+      const sicht = folgt ? sichtKreise(heldengruppen, karte.massstab, zieh) : [];
       return /*#__PURE__*/React.createElement("svg", {
         className: 'pl-nebel' + (nebelDeckend ? ' deckend' : ''),
         width: g.breite,
@@ -3074,25 +3111,38 @@ const KartenLeinwand = ({
           height: g.hoehe,
           fill: "black"
         });
+        if (!erkundet) return null;
         if (f.art === 'kreis') {
           const m = schirm(f);
           return /*#__PURE__*/React.createElement("circle", {
             key: i,
+            className: "pl-nebel-erkundet",
             cx: m.x,
             cy: m.y,
             r: f.r * s,
-            fill: "black"
+            fill: erkundet
           });
         }
         if (f.art === 'vieleck') return /*#__PURE__*/React.createElement("polygon", {
           key: i,
+          className: "pl-nebel-erkundet",
           points: (f.punkte || []).map(q => {
             const m = schirm(q);
             return m.x + ',' + m.y;
           }).join(' '),
-          fill: "black"
+          fill: erkundet
         });
         return null;
+      }), sicht.map((f, i) => {
+        const m = schirm(f);
+        return /*#__PURE__*/React.createElement("circle", {
+          key: 's' + i,
+          className: "pl-nebel-sicht",
+          cx: m.x,
+          cy: m.y,
+          r: f.r * s,
+          fill: "black"
+        });
       })))), /*#__PURE__*/React.createElement("rect", {
         className: "pl-nebel-flaeche",
         x: "0",
@@ -6228,7 +6278,9 @@ const GruppeTafel = ({
     className: "pl-leise pl-klein-text"
   }, "Auf dieser Karte liegt kein Nebel \u2014 die Gruppe hinterl\xE4sst nur ihre Spur.") : !m ? /*#__PURE__*/React.createElement("p", {
     className: "pl-warnung"
-  }, "Ohne Ma\xDFstab weicht der Nebel nicht; die Sichtweite braucht eine Einheit.") : null, /*#__PURE__*/React.createElement("form", {
+  }, "Ohne Ma\xDFstab weicht der Nebel nicht; die Sichtweite braucht eine Einheit.") : nebelFolgt(nebelVon(karte)) ? /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, "Der Nebel folgt der Gruppe: klar ist, was sie gerade sieht", nebelVon(karte).modus === 'daemmrig' ? ', wo sie war, bleibt es dämmrig' : '', ".", !gruppe.sichtbar ? ' Solange sie verborgen ist, sieht sie für die Spieler nichts.' : '') : null, /*#__PURE__*/React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
@@ -7400,6 +7452,7 @@ const PlanerApp = () => {
   const nebelSetzen = async (flaechen, an) => {
     if (!karte) return;
     const neu = {
+      ...(karte.nebel || {}),
       an: an === undefined ? nebel.an : an,
       flaechen: nebelAufraeumen(flaechen)
     };
@@ -8115,7 +8168,24 @@ const PlanerApp = () => {
     type: "checkbox",
     checked: nebel.an,
     onChange: e => nebelSetzen(nebel.flaechen, e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "Nebel f\xFCr Spieler")), /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("span", null, "Nebel f\xFCr Spieler")), /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld pl-klein",
+    value: nebel.modus,
+    "aria-label": "Wenn die Gruppe weiterzieht",
+    title: (NEBEL_MODI.find(x => x.k === nebel.modus) || NEBEL_MODI[0]).t,
+    onChange: e => karteAendern(karte, {
+      nebel: {
+        ...(karte.nebel || {}),
+        an: nebel.an,
+        flaechen: nebel.flaechen,
+        modus: e.target.value
+      }
+    })
+  }, NEBEL_MODI.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.k,
+    value: x.k,
+    title: x.t
+  }, x.l))), /*#__PURE__*/React.createElement("span", {
     className: "pl-knopfgruppe",
     role: "radiogroup",
     "aria-label": "Aufdecken"

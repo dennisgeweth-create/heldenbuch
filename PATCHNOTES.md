@@ -1,5 +1,22 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.18.0
+
+### Abenteuerplaner: Der Nebel folgt der Gruppe
+
+- Unter **☁ Nebel** steht jetzt, was geschieht, wenn die Heldengruppe
+  weiterzieht:
+  - **Bleibt offen:** wie bisher, Aufgedecktes bleibt aufgedeckt.
+  - **Folgt der Gruppe:** Klar ist nur, was eine Heldengruppe gerade sieht,
+    ein Kreis mit ihrer Sichtweite. Wo sie schon war, bleibt es dämmrig.
+  - **Folgt, alles andere dunkel:** Wo sie war, wird es wieder ganz dunkel.
+- Die Sicht wandert schon beim Ziehen mit der Marke; die Spieler sehen die
+  neue Stelle beim nächsten Abgleich, das Tischfenster ebenso.
+- Verborgene Gruppen sehen für die Spieler nichts. **Alles aufdecken** gilt
+  in jedem Modus ganz.
+- Die erkundeten Flächen werden weiter gespeichert — wer zurück auf
+  „Bleibt offen“ stellt, hat die ganze aufgedeckte Karte wieder.
+
 ## v5.17.0
 
 ### Abenteuerplaner: Heldengruppen auf der Karte

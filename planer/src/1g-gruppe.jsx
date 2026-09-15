@@ -117,6 +117,17 @@ const gruppenVereinen = (ziel, quelle, zeit) => {
   return { ...ziel, name, symbol: name === quelle.name ? quelle.symbol : ziel.symbol, helden, heldenNamen: namen, spur };
 };
 
+// Folgt der Nebel den Gruppen, ist klar, was sie gerade sehen: ein Kreis
+// mit der Sichtweite um jede Gruppe, die Spieler sehen duerfen. Waehrend
+// die Spielleitung eine Marke zieht, steht der Kreis dort, wo die Marke ist.
+const sichtKreise = (gruppen, massstab, gezogen) => {
+  if (!massstab) return [];
+  return (gruppen || []).filter(g => g.sichtbar && (+g.sichtweite || 0) > 0).map(g => {
+    const p = gezogen && gezogen.id === g.id ? gezogen : gruppePosition(g);
+    return p ? nebelKreis(p, +g.sichtweite * pxJeEinheit(massstab)) : null;
+  }).filter(Boolean);
+};
+
 // Welche Boegen noch keiner Gruppe auf dieser Karte angehoeren.
 const heldenOhneGruppe = (helden, gruppen, ausser) => {
   const vergeben = new Set((gruppen || []).filter(g => g.id !== ausser).flatMap(g => g.helden || []));

@@ -673,7 +673,7 @@ const PlanerApp = () => {
   // dabei sichtbar geschaltet.
   const nebelSetzen = async (flaechen, an) => {
     if (!karte) return;
-    const neu = { an: an === undefined ? nebel.an : an, flaechen: nebelAufraeumen(flaechen) };
+    const neu = { ...(karte.nebel || {}), an: an === undefined ? nebel.an : an, flaechen: nebelAufraeumen(flaechen) };
     try {
       await karteSpeichern({ ...karte, nebel: neu });
       const frei = orteImAufgedeckten(daten.objekte.filter(o => o.karteId === karte.id), neu);
@@ -1026,6 +1026,11 @@ const PlanerApp = () => {
                   {werkzeug === 'nebel' && (
                     <span className="pl-nebel-steuer">
                       <label className="pl-schalter"><input type="checkbox" checked={nebel.an} onChange={e => nebelSetzen(nebel.flaechen, e.target.checked)} /><span>Nebel für Spieler</span></label>
+                      <select className="pl-feld pl-klein" value={nebel.modus} aria-label="Wenn die Gruppe weiterzieht"
+                        title={(NEBEL_MODI.find(x => x.k === nebel.modus) || NEBEL_MODI[0]).t}
+                        onChange={e => karteAendern(karte, { nebel: { ...(karte.nebel || {}), an: nebel.an, flaechen: nebel.flaechen, modus: e.target.value } })}>
+                        {NEBEL_MODI.map(x => <option key={x.k} value={x.k} title={x.t}>{x.l}</option>)}
+                      </select>
                       <span className="pl-knopfgruppe" role="radiogroup" aria-label="Aufdecken">
                         {NEBEL_RADIEN.map(x => (
                           <button key={x.k} role="radio" aria-checked={nebelArt === 'kreis' && nebelRadius === x.k}

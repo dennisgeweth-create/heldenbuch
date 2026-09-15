@@ -3,7 +3,13 @@
 // brauchen ihn, um ihn zu zeichnen. Er ist eine Liste aufgedeckter
 // Flaechen — Kreise, Vielecke, oder alles.
 //
-//     { an: true, flaechen: [ {art:'kreis', x, y, r}, {art:'vieleck', punkte:[…]}, {art:'alles'} ] }
+//     { an: true, modus: 'offen'|'daemmrig'|'dunkel',
+//       flaechen: [ {art:'kreis', x, y, r}, {art:'vieleck', punkte:[…]}, {art:'alles'} ] }
+//
+// Der Modus sagt, was mit Aufgedecktem geschieht, wenn die Heldengruppen
+// weiterziehen: es bleibt offen, es wird daemmrig, oder wieder dunkel. In
+// den beiden letzten ist nur klar, was eine Gruppe gerade sieht
+// (sichtKreise in 1g-gruppe.jsx). „Alles aufdecken“ gilt immer ganz.
 //
 // Er verdeckt die Anzeige, nicht die Kacheln selbst: wer die Adresse
 // einer Kachel einer sichtbaren Karte kennt, bekommt sie. Wirklich geheim
@@ -12,10 +18,16 @@
 // Alles bis zur Markierung ist reine Rechnung.
 
 const NEBEL_RADIEN = [{ k: 'klein', l: 'Klein', px: 45 }, { k: 'mittel', l: 'Mittel', px: 110 }, { k: 'gross', l: 'Groß', px: 240 }];
+const NEBEL_MODI = [
+  { k: 'offen', l: 'Bleibt offen', t: 'Was aufgedeckt ist, bleibt aufgedeckt' },
+  { k: 'daemmrig', l: 'Folgt der Gruppe', t: 'Klar ist, was eine Heldengruppe gerade sieht; wo sie war, bleibt es dämmrig' },
+  { k: 'dunkel', l: 'Folgt, alles andere dunkel', t: 'Nur, was eine Heldengruppe gerade sieht; wo sie war, wird es wieder dunkel' },
+];
 const nebelVon = (karte) => {
   const n = (karte && karte.nebel) || {};
-  return { an: !!n.an, flaechen: Array.isArray(n.flaechen) ? n.flaechen : [] };
+  return { an: !!n.an, modus: NEBEL_MODI.some(x => x.k === n.modus) ? n.modus : 'offen', flaechen: Array.isArray(n.flaechen) ? n.flaechen : [] };
 };
+const nebelFolgt = (nebel) => !!nebel && (nebel.modus === 'daemmrig' || nebel.modus === 'dunkel');
 const flaecheAufgedeckt = (p, f) => {
   if (!f) return false;
   if (f.art === 'alles') return true;

@@ -823,6 +823,33 @@
         ja('  … die größere Gruppe bleibt, mit ihrer ganzen Spur — auch wenn aus der kleinen heraus vereint wurde', gruppenD()[0].id === erste && gruppenD()[0].spur.length === 3 && gruppenD()[0].spur[0].art === 'start',
            JSON.stringify(gruppenD()[0].spur.map(p => p.art)));
         const gruppeId = gruppenD()[0].id;
+        // ── Der Nebel folgt der Gruppe ──
+        knopf(/☁ Nebel/).click();
+        await ruhe();
+        const modusWahl = await warte(() => root.querySelector('select[aria-label="Wenn die Gruppe weiterzieht"]'));
+        waehle(modusWahl, 'daemmrig');
+        ja('Nebel „folgt der Gruppe“: gespeichert an der Karte', !!(await warte(() => karteVon('Barovia-Tal').daten.nebel.modus === 'daemmrig')));
+        ja('  … klar ist ein Kreis um die Gruppe, das Erkundete wird dämmrig', !!(await warte(() => root.querySelectorAll('.pl-nebel-sicht').length === 1
+          && root.querySelector('.pl-nebel-erkundet') && root.querySelector('.pl-nebel-erkundet').getAttribute('fill') !== 'black')));
+        waehle(await warte(() => root.querySelector('select[aria-label="Wenn die Gruppe weiterzieht"]')), 'dunkel');
+        ja('„alles andere dunkel“: nur noch die Sicht der Gruppe', !!(await warte(() => karteVon('Barovia-Tal').daten.nebel.modus === 'dunkel'
+          && !root.querySelector('.pl-nebel-erkundet') && root.querySelectorAll('.pl-nebel-sicht').length === 1)));
+        ja('  … und die Flächen bleiben gespeichert', nebelZahl() > 2);
+        const sichtVor = root.querySelector('.pl-nebel-sicht').getAttribute('cx');
+        knopf(/Fertig/).click();
+        await ruhe();
+        const gM2 = root.querySelector('.pl-heldengruppe'); const gr2 = gM2.getBoundingClientRect();
+        zeiger(gM2, 'pointerdown', gr2.left + gr2.width / 2, gr2.top + gr2.height / 2); await ruhe(40);
+        zeiger(gM2, 'pointermove', gr2.left + gr2.width / 2 - 90, gr2.top + gr2.height / 2); await ruhe(40);
+        ja('  … beim Ziehen wandert die Sicht mit der Marke', !!(await warte(() => { const c = root.querySelector('.pl-nebel-sicht'); return c && +c.getAttribute('cx') < +sichtVor - 40; })));
+        zeiger(gM2, 'pointerup', gr2.left + gr2.width / 2 - 90, gr2.top + gr2.height / 2);
+        ja('  … und bleibt dort stehen', !!(await warte(() => gruppenD()[0].spur.length >= 3 && +root.querySelector('.pl-nebel-sicht').getAttribute('cx') < +sichtVor - 40)));
+        knopf(/☁ Nebel/).click();
+        await ruhe();
+        waehle(await warte(() => root.querySelector('select[aria-label="Wenn die Gruppe weiterzieht"]')), 'offen');
+        await warte(() => karteVon('Barovia-Tal').daten.nebel.modus === 'offen' && !root.querySelector('.pl-nebel-sicht'));
+        knopf(/Fertig/).click();
+        await ruhe();
         [...root.querySelectorAll('.pl-liste[aria-label="Routen und Reisen"] .pl-eintrag-name')].find(b => /Reise/.test(b.textContent)).click();
         const rgT = await warte(() => root.querySelector('.pl-tafel.pl-reise'));
         waehle([...rgT.querySelectorAll('label')].find(l => l.textContent.trim().startsWith('Heldengruppe')).querySelector('select'), gruppeId);

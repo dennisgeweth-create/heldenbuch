@@ -197,6 +197,11 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
         {nebel && nebel.an && (() => {
           const s = ansichtMass(a, plan);
           const maskeId = 'nebel-' + karte.id;
+          // Folgt der Nebel den Gruppen: Aufgedecktes wird daemmrig (grau in
+          // der Maske) oder bleibt dunkel, klar ist nur die Sicht der Gruppen.
+          const folgt = nebelFolgt(nebel);
+          const erkundet = !folgt ? 'black' : nebel.modus === 'daemmrig' ? '#8a8a8a' : null;
+          const sicht = folgt ? sichtKreise(heldengruppen, karte.massstab, zieh) : [];
           return (
             <svg className={'pl-nebel' + (nebelDeckend ? ' deckend' : '')} width={g.breite} height={g.hoehe} aria-hidden="true">
               <defs>
@@ -208,10 +213,12 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
                   <g filter={'url(#' + maskeId + '-weich)'}>
                     {nebel.flaechen.map((f, i) => {
                       if (f.art === 'alles') return <rect key={i} x="0" y="0" width={g.breite} height={g.hoehe} fill="black" />;
-                      if (f.art === 'kreis') { const m = schirm(f); return <circle key={i} cx={m.x} cy={m.y} r={f.r * s} fill="black" />; }
-                      if (f.art === 'vieleck') return <polygon key={i} points={(f.punkte || []).map(q => { const m = schirm(q); return m.x + ',' + m.y; }).join(' ')} fill="black" />;
+                      if (!erkundet) return null;
+                      if (f.art === 'kreis') { const m = schirm(f); return <circle key={i} className="pl-nebel-erkundet" cx={m.x} cy={m.y} r={f.r * s} fill={erkundet} />; }
+                      if (f.art === 'vieleck') return <polygon key={i} className="pl-nebel-erkundet" points={(f.punkte || []).map(q => { const m = schirm(q); return m.x + ',' + m.y; }).join(' ')} fill={erkundet} />;
                       return null;
                     })}
+                    {sicht.map((f, i) => { const m = schirm(f); return <circle key={'s' + i} className="pl-nebel-sicht" cx={m.x} cy={m.y} r={f.r * s} fill="black" />; })}
                   </g>
                 </mask>
               </defs>
