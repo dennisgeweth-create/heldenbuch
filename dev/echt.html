@@ -1070,6 +1070,54 @@
            planerLink ? planerLink.getAttribute('href') : 'kein Link');
         ja('  … er geht in einem eigenen Tab auf', !!planerLink && planerLink.target === '_blank');
 
+        // Aufträge aus dem Planer: ein Eintrag im Speicher, und der
+        // passende Dialog geht vorbelegt auf.
+        melden('lauf', 'Aufträge aus dem Planer');
+        const auftrag = (a) => {
+          localStorage.setItem('hb_planer_auftrag', JSON.stringify({ zeit: Date.now(), ...a }));
+          window.dispatchEvent(new StorageEvent('storage', { key: 'hb_planer_auftrag' }));
+        };
+        const dialogZu = async () => {
+          const zu = [...document.querySelectorAll('.form-modal button')].find(b => /^Abbrechen$/.test((b.textContent || '').trim()));
+          if (zu) zu.click();
+          await ruhe(120);
+        };
+        const titelDa = (t) => [...document.querySelectorAll('.form-title')].find(x => (x.textContent || '').includes(t));
+        auftrag({ id: 'a_probe1', art: 'probe', probeArt: 'rw', wert: 'con', sg: 13, text: 'Gewaltmarsch, Stunde 11' });
+        const probeTitel = await warten(() => titelDa('Probe ansagen'), 3000);
+        ja('ein Gewaltmarsch aus dem Planer öffnet „Probe ansagen“', !!probeTitel);
+        if (probeTitel) {
+          const modal = probeTitel.closest('.form-modal');
+          ja('  … als KO-Rettungswurf, SG 13, mit Text',
+             [...modal.querySelectorAll('select')].some(s => s.value === 'con')
+             && [...modal.querySelectorAll('input')].some(i => i.value === '13')
+             && [...modal.querySelectorAll('input, textarea')].some(i => i.value === 'Gewaltmarsch, Stunde 11'));
+          await dialogZu();
+        }
+        const quittung = JSON.parse(localStorage.getItem('hb_planer_quittung') || 'null');
+        ja('  … der Planer bekommt seine Quittung, der Auftrag ist verbraucht',
+           !!quittung && quittung.id === 'a_probe1' && !localStorage.getItem('hb_planer_auftrag'));
+        auftrag({ id: 'a_rast1', art: 'rast', rastArt: 'lang', basis: 2, niederschlag: 'regen', temperatur: 'kalt', wind: 'stark', massnahmen: [], text: 'Lager nach Reisetag 3' });
+        const rastTitel = await warten(() => titelDa('Rast ansagen'), 3000);
+        ja('„Lager aufschlagen“ öffnet „Rast ansagen“ mit dem Text', !!rastTitel
+           && [...rastTitel.closest('.form-modal').querySelectorAll('input, textarea')].some(i => i.value === 'Lager nach Reisetag 3'));
+        if (rastTitel) {
+          const sel = [...rastTitel.closest('.form-modal').querySelectorAll('select')].map(s => s.value);
+          ja('  … und das Wetter des Reisetags, wo die Regel es abfragt', sel.length === 0 || (sel.includes('regen') && sel.includes('kalt') && sel.includes('stark')), sel.join(','));
+          await dialogZu();
+        }
+        auftrag({ id: 'a_zeit1', art: 'zeit', stunden: 30 });
+        const zeitTitel = await warten(() => titelDa('Zeit vergeht'), 3000);
+        ja('„Chronik: +1 Tag“ öffnet „Zeit vergeht“ mit 1 Tag 6 Stunden', !!zeitTitel
+           && [...zeitTitel.closest('.form-modal').querySelectorAll('input')].map(i => i.value).join(',').startsWith('1,6'),
+           zeitTitel ? [...zeitTitel.closest('.form-modal').querySelectorAll('input')].map(i => i.value).join(',') : 'kein Dialog');
+        if (zeitTitel) await dialogZu();
+        auftrag({ id: 'a_alt1', art: 'zeit', stunden: 5, zeit: Date.now() - 40 * 60 * 1000 });
+        await ruhe(300);
+        ja('ein Auftrag älter als eine halbe Stunde bleibt liegen', !titelDa('Zeit vergeht'));
+        localStorage.removeItem('hb_planer_auftrag');
+        localStorage.removeItem('hb_planer_quittung');
+
         melden('lauf', 'Merkmal bearbeiten');
         const reiterM = await warten(() => [...document.querySelectorAll('button')]
           .find(b => /Merkmale/.test(b.textContent)));

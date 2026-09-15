@@ -344,16 +344,18 @@ const RastWahl = ({ titel, optionen, wert, onWert }) => (
     </select>
   </label>
 );
-const RastAnsage = ({ regel, helden, onAbbrechen, onAnsagen }) => {
-  const [art, setArt] = React.useState('lang');
-  const [basis, setBasis] = React.useState(2);
-  const [niederschlag, setNiederschlag] = React.useState('leicht');
-  const [temperatur, setTemperatur] = React.useState('mild');
-  const [wind, setWind] = React.useState('flaute');
-  const [massnahmen, setMassnahmen] = React.useState([]);
+// vorlage: was der Abenteuerplaner mitgibt — das Wetter des Reisetags.
+const RastAnsage = ({ regel, helden, vorlage, onAbbrechen, onAnsagen }) => {
+  const v = vorlage || {};
+  const [art, setArt] = React.useState(v.art === 'kurz' ? 'kurz' : 'lang');
+  const [basis, setBasis] = React.useState(+v.basis || 2);
+  const [niederschlag, setNiederschlag] = React.useState(RAST_NIEDERSCHLAG.some(x => x.k === v.niederschlag) ? v.niederschlag : 'leicht');
+  const [temperatur, setTemperatur] = React.useState(RAST_TEMPERATUR.some(x => x.k === v.temperatur) ? v.temperatur : 'mild');
+  const [wind, setWind] = React.useState(RAST_WIND.some(x => x.k === v.wind) ? v.wind : 'flaute');
+  const [massnahmen, setMassnahmen] = React.useState(Array.isArray(v.massnahmen) ? v.massnahmen : []);
   const [von, setVon] = React.useState(null);        // von Hand gesetzte Stufe
   const [essen, setEssen] = React.useState(true);
-  const [text, setText] = React.useState('');
+  const [text, setText] = React.useState(String(v.text || ''));
   const [fuer, setFuer] = React.useState(() => helden.map(h => h.id));
 
   const grr = regel === 'grr';

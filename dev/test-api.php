@@ -1125,6 +1125,11 @@ foreach ([$ortOffen, $ortZu, $ortTempel] as $o) {
     pruefe('Ort ' . $o['name'] . ' angelegt (201)', $r['status'] === 201, kurz($r));
 }
 $r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                                  'obj' => ['id' => 'j_testreise1', 'karteId' => 'k_testbarovia01', 'art' => 'reise', 'sichtbar' => false,
+                                            'routeId' => 'r_x', 'pos' => 12.5, 'tagebuch' => [['nr' => 1]]]]);
+pruefe('eine Reise ist eine erlaubte Art (201)', $r['status'] === 201, kurz($r));
+ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'j_testreise1']);
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
                                   'obj' => array_merge($ortOffen, ['id' => 'o_testfalsch', 'art' => 'drache'])]);
 pruefe('eine unbekannte Art wird abgewiesen (400)', $r['status'] === 400, kurz($r));
 $r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',

@@ -1,5 +1,37 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.13.0
+
+### Abenteuerplaner Stufe 2: Reisen, Wetter, Übergabe ans Heldenbuch
+
+- **🛤 Routen:** Die Spielleitung klickt einen Weg Punkt für Punkt auf die
+  Karte, oder speichert eine gemessene Strecke als Route. Jeder Abschnitt
+  bekommt ein Gelände: Straße, offenes Land, Hügel, Wald, Wüste, Sumpf,
+  Gebirge, Schnee oder Wasser. Die Linie zeigt es in Farbe.
+- **🧭 Reisen:** Auf einer Route plant die Spielleitung eine Reise mit
+  Richtung, Fortbewegung, Tempo, Stunden am Tag, Personen, Klima und
+  Jahreszeit. Der Planer rechnet sie Tag für Tag:
+  - wie weit die Gruppe kommt: normal 36 km am Tag, schwieriges Gelände
+    halbiert, Wagen kommen nicht durchs Gebirge, Schiffe fahren nur auf
+    Wasser und mit Mannschaft rund um die Uhr
+  - ab der neunten Stunde **Gewaltmarsch** mit KO-Rettungswurf SG 11, 12, …
+  - Verpflegung, und der Ankunftstag nach der Chronik
+- **Wetter** je Reisetag, passend zu Klima und Jahreszeit und über ein paar
+  Tage beständig. Die Spielleitung stellt es von Hand um oder würfelt neu.
+  Sturm halbiert die Strecke.
+- **Tag abschließen** schreibt den Tag ins Reisetagebuch und setzt die
+  Gruppe auf der Karte weiter. Ein Tag lässt sich auch zurücknehmen. Ob
+  Spieler die Gruppe sehen, stellt die Spielleitung ein.
+- **Übergabe ans Heldenbuch:** Nach einem Reisetag stehen drei Knöpfe
+  bereit: **⏩ Chronik: +1 Tag**, **☾ Lager aufschlagen** mit dem Wetter
+  des Tages als Rastbedingung, und **🎲 KO SG …** für den Gewaltmarsch.
+  Im Heldenbuch öffnet sich dann der gewohnte Dialog, schon ausgefüllt,
+  wenn es im DM-Modus offen ist. Die Spielleitung bestätigt dort. Der
+  Planer schreibt also nie selbst in Bögen oder in die Chronik. Ist gerade
+  kein Heldenbuch offen, wartet der Auftrag eine halbe Stunde.
+
+Export und Import nehmen Routen, Reisen und Reisetagebuch mit.
+
 ## v5.12.0
 
 ### Abenteuerplaner Stufe 1: Karten, Orte, Maßstab

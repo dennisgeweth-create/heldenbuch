@@ -14,12 +14,15 @@
 // Modifikator — und zwar der aus dem Bogen, mit Übung, Expertise und
 // allem, was daran hängt.
 
-const ProbenAnsage = ({ helden, onAbbrechen, onAnsagen }) => {
-  const [art, setArt] = React.useState('fert');
-  const [wert, setWert] = React.useState('aufmerksamkeit');
-  const [sg, setSg] = React.useState(15);
+// vorlage: was der Abenteuerplaner mitgibt — etwa der KO-Rettungswurf
+// eines Gewaltmarschs.
+const ProbenAnsage = ({ helden, vorlage, onAbbrechen, onAnsagen }) => {
+  const v = vorlage || {};
+  const [art, setArt] = React.useState(v.art === 'rw' ? 'rw' : 'fert');
+  const [wert, setWert] = React.useState(v.wert || (v.art === 'rw' ? 'dex' : 'aufmerksamkeit'));
+  const [sg, setSg] = React.useState(+v.sg || 15);
   const [verdeckt, setVerdeckt] = React.useState(false);
-  const [text, setText] = React.useState('');
+  const [text, setText] = React.useState(String(v.text || ''));
   // Wen es angeht. Leer heisst alle — so war es bisher, und so bleibt es,
   // solange niemand jemanden anklickt.
   const [fuer, setFuer] = React.useState([]);

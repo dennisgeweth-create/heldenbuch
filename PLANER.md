@@ -32,8 +32,10 @@ Eigene Seite, eigenes Bündel, **gemeinsamer Server**:
 | ↳ `0-basis.jsx` | Hooks, `PLANER_VERSION` |
 | ↳ `1-paket.jsx` | **reine Rechnung:** ZIP schreiben und lesen (samt ZIP64), `hbplan.json`, Export und Einspielen |
 | ↳ `1b-kacheln.jsx` | **reine Rechnung:** Bildmaße aus dem Dateikopf, Kachelpyramide, Ansicht und Zoom, Maßstab und Lineal, Reihenfolge beim Schneiden und Hochladen |
-| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Ziehen, Mausrad, zwei Finger, Orte, Linien |
+| ↳ `1c-reise.jsx` | **reine Rechnung:** Gelände, Tempo, Fortbewegung, Reise Tag für Tag, Gewaltmarsch, Wetter nach Klima und Jahreszeit, Aufträge ans Heldenbuch |
+| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Ziehen, Mausrad, zwei Finger, Orte, Routen, Gruppen, Linien |
 | ↳ `3-ort.jsx` | Bilder im Browser öffnen, verkleinern und schneiden; Maßstabsdialog; die Tafel eines Orts |
+| ↳ `3b-reise.jsx` | die Tafeln einer Route und einer Reise, die Übergabe ans Heldenbuch |
 | ↳ `4-app.jsx` | die Seite |
 | `planer/planer.js` | daraus gebaut von `node build.js`, **mitcommittet** wie `js/app.js` |
 | `planer/planer.css` | eigene Oberfläche, dieselben Farben wie `styles.css` |
@@ -106,7 +108,9 @@ C:/xampp/php/php.exe dev/test-api.php --neu  # Abschnitte "Abenteuerplaner"
 
 und im Browser **http://localhost:8777/dev/planer-echt.html**. Die Seite
 fährt den echten Planer gegen einen Server im Arbeitsspeicher und klickt
-sich durch: Anlegen, Sichtbarkeit, Export, Löschen, Einspielen, Spielersicht.
+sich durch: Anlegen, Sichtbarkeit, Kartenbild, Maßstab, Orte, Routen,
+Reisen, Übergabe, Export, Löschen, Einspielen, Spielersicht. Die Übergabe
+auf der Seite des Heldenbuchs prüft `dev/echt.html`.
 
 ---
 
@@ -177,11 +181,65 @@ Ebenen).
 **Cache.** Kacheln und Ortsbilder dürfen ein Jahr im Browser bleiben
 (`.htaccess`), weil sich ihr Name bei jeder Änderung ändert.
 
-### Stufe 2 · Reise, Zeit und Wetter
+### ✅ Stufe 2 · Reise, Zeit und Wetter (v5.13.0)
 
-Routen mit Gelände, Tempo und Fortbewegung. Der Tag läuft in der Chronik,
-Gewaltmarsch trägt Erschöpfung in den Bogen ein. Wetter nach den Stufen
-des Rastmoduls, Lager schlagen löst die Rast aus.
+**Route** (Art `route`): `punkte` in Bildpixeln, `gelaende` je Abschnitt.
+
+**Reise** (Art `reise`):
+
+```json
+{ "routeId": "r_…", "richtung": "hin",
+  "optionen": { "tempo": "normal", "fortbewegung": "fuss", "stunden": 8 },
+  "personen": 4, "klima": "gemaessigt", "jahreszeit": "sommer",
+  "samen": 12345, "wetterVorgaben": { "0": { "niederschlag": "sturm", "temperatur": "kalt", "wind": "stark" } },
+  "pos": 36, "tagebuch": [ { "nr": 1, "strecke": 36, "stunden": 8, "wetter": { }, "gewaltmarsch": [] } ] }
+```
+
+- `pos` ist die zurückgelegte Strecke in der Einheit des Maßstabs, in
+  Reiserichtung. Die Gruppe steht bei `punktAufRoute(routeInRichtung(…), pos)`.
+- Der Plan wird bei jedem Anzeigen neu gerechnet, ab `pos`. Gespeichert
+  wird nur, was geschehen ist (`tagebuch`), und was die Spielleitung
+  festgelegt hat (`wetterVorgaben`).
+
+**Zahlen.** Aus den Grundregeln, in Kilometer wie im deutschen
+Spielerhandbuch (1 Meile = 1,5 km):
+
+- Tempo: langsam 3, normal 4,5, schnell 6 km/h.
+- Gewaltmarsch: jede angefangene Stunde über 8 kostet einen
+  KO-Rettungswurf gegen SG 10 + Stunden über 8.
+- Schwieriges Gelände halbiert.
+- Wasserfahrzeuge nach ihrer Tabelle, mit Mannschaft 24 Stunden, das
+  Ruderboot 8.
+
+Vorgaben des Planers:
+
+- Hügel und Wüste zählen drei Viertel.
+- Wagen haben eine eigene Spalte je Gelände.
+- Sturm halbiert an Land, Orkan hält Schiffe fest.
+
+**Wetter.** Eigene Gewichtstafeln je Klima und Jahreszeit, keine
+Regeltabelle. Die Hälfte der Zeit bleibt ein Wert wie am Vortag oder
+rückt eine Stufe. Gewürfelt wird mit einem Samen, damit dieselbe Reise
+dasselbe Wetter behält. Die Schlüssel sind die der Rast
+(`RAST_NIEDERSCHLAG` usw.); `planer-reise-test.js` prüft die Gleichheit.
+
+**Übergabe ans Heldenbuch.** Der Planer schreibt nie in Bögen oder in die
+Chronik. Er legt einen Auftrag in `localStorage` (`hb_planer_auftrag`),
+beide Seiten wohnen unter derselben Adresse:
+
+| Auftrag | Im Heldenbuch |
+|---|---|
+| `{art:'zeit', stunden}` | `ZeitDialog`, vorbelegt |
+| `{art:'rast', rastArt, basis, niederschlag, temperatur, wind, massnahmen, text}` | `RastAnsage`, vorbelegt |
+| `{art:'probe', probeArt:'rw', wert:'con', sg, text}` | `ProbenAnsage`, vorbelegt |
+
+- Das Heldenbuch nimmt einen Auftrag nur im DM-Modus an. Es wechselt
+  dafür notfalls ins genannte Abenteuer.
+- Es quittiert in `hb_planer_quittung`, und der Planer meldet, ob der
+  Dialog aufging.
+- Aufträge älter als 30 Minuten verfallen.
+- Was an Bögen hängt, Erschöpfung, Rast oder Chronik-Effekte, läuft
+  damit durch die bestehenden Dialoge, und die Spielleitung bestätigt.
 
 ### Stufe 3 · Begegnungen und Kampftracker
 

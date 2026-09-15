@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.12.0';
+const HB_VERSION = 'v5.13.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -8832,17 +8832,19 @@ const EreignisFormular = ({
 // Zeigt vorher, was passieren wird. Was in fremde Charakterboegen
 // schreibt, steht einzeln zum Abwaehlen da — dieselbe Regel wie beim
 // Uebertragen der Trefferpunkte nach dem Kampf.
+// vorlage: {tage, std} — was der Abenteuerplaner für einen Reisetag mitgibt.
 const ZeitDialog = ({
   chronik,
   advId,
   chars,
+  vorlage,
   onAnwenden,
   onUhrStellen,
   onAbbrechen
 }) => {
   const jetzt = zeitDerUhr(chronik, advId);
-  const [tage, setTage] = React.useState(1);
-  const [std, setStd] = React.useState(0);
+  const [tage, setTage] = React.useState(vorlage ? Math.max(0, +vorlage.tage || 0) : 1);
+  const [std, setStd] = React.useState(vorlage ? Math.max(0, +vorlage.std || 0) : 0);
   const [abgewaehlt, setAbgewaehlt] = React.useState({});
   const [stellen, setStellen] = React.useState(false);
   const [zielTag, setZielTag] = React.useState(uhrTag(jetzt));
@@ -17146,16 +17148,20 @@ const KampfSicht = ({
 // Modifikator — und zwar der aus dem Bogen, mit Übung, Expertise und
 // allem, was daran hängt.
 
+// vorlage: was der Abenteuerplaner mitgibt — etwa der KO-Rettungswurf
+// eines Gewaltmarschs.
 const ProbenAnsage = ({
   helden,
+  vorlage,
   onAbbrechen,
   onAnsagen
 }) => {
-  const [art, setArt] = React.useState('fert');
-  const [wert, setWert] = React.useState('aufmerksamkeit');
-  const [sg, setSg] = React.useState(15);
+  const v = vorlage || {};
+  const [art, setArt] = React.useState(v.art === 'rw' ? 'rw' : 'fert');
+  const [wert, setWert] = React.useState(v.wert || (v.art === 'rw' ? 'dex' : 'aufmerksamkeit'));
+  const [sg, setSg] = React.useState(+v.sg || 15);
   const [verdeckt, setVerdeckt] = React.useState(false);
-  const [text, setText] = React.useState('');
+  const [text, setText] = React.useState(String(v.text || ''));
   // Wen es angeht. Leer heisst alle — so war es bisher, und so bleibt es,
   // solange niemand jemanden anklickt.
   const [fuer, setFuer] = React.useState([]);
@@ -19502,21 +19508,24 @@ const RastWahl = ({
   key: o.k,
   value: o.k
 }, o.l))));
+// vorlage: was der Abenteuerplaner mitgibt — das Wetter des Reisetags.
 const RastAnsage = ({
   regel,
   helden,
+  vorlage,
   onAbbrechen,
   onAnsagen
 }) => {
-  const [art, setArt] = React.useState('lang');
-  const [basis, setBasis] = React.useState(2);
-  const [niederschlag, setNiederschlag] = React.useState('leicht');
-  const [temperatur, setTemperatur] = React.useState('mild');
-  const [wind, setWind] = React.useState('flaute');
-  const [massnahmen, setMassnahmen] = React.useState([]);
+  const v = vorlage || {};
+  const [art, setArt] = React.useState(v.art === 'kurz' ? 'kurz' : 'lang');
+  const [basis, setBasis] = React.useState(+v.basis || 2);
+  const [niederschlag, setNiederschlag] = React.useState(RAST_NIEDERSCHLAG.some(x => x.k === v.niederschlag) ? v.niederschlag : 'leicht');
+  const [temperatur, setTemperatur] = React.useState(RAST_TEMPERATUR.some(x => x.k === v.temperatur) ? v.temperatur : 'mild');
+  const [wind, setWind] = React.useState(RAST_WIND.some(x => x.k === v.wind) ? v.wind : 'flaute');
+  const [massnahmen, setMassnahmen] = React.useState(Array.isArray(v.massnahmen) ? v.massnahmen : []);
   const [von, setVon] = React.useState(null); // von Hand gesetzte Stufe
   const [essen, setEssen] = React.useState(true);
-  const [text, setText] = React.useState('');
+  const [text, setText] = React.useState(String(v.text || ''));
   const [fuer, setFuer] = React.useState(() => helden.map(h => h.id));
   const grr = regel === 'grr';
   const vorschlag = rastVorschlag({
@@ -27939,6 +27948,64 @@ function App() {
     setMv('list');
     setAdvMenuOffen(false);
   };
+
+  // ── Aufträge aus dem Abenteuerplaner ─────────────────────────────
+  // Der Planer schreibt nie selbst in Bögen oder in die Chronik. Er legt
+  // einen Auftrag in den gemeinsamen Speicher — Zeit weiterdrehen, Lager
+  // aufschlagen, Gewaltmarsch —, und hier geht der gewohnte Dialog auf,
+  // schon ausgefüllt. Was an Bögen hängt, läuft dann den bekannten Weg,
+  // und die Spielleitung sieht es vorher. Genommen wird er nur im
+  // DM-Modus; sonst wartet er, bis jemand leitet.
+  useEffect(() => {
+    const pruefen = () => {
+      if (!isDmMode) return;
+      let a = null;
+      try {
+        a = JSON.parse(localStorage.getItem('hb_planer_auftrag') || 'null');
+      } catch {
+        a = null;
+      }
+      if (!a || !a.id || Date.now() - (+a.zeit || 0) > 30 * 60 * 1000) return;
+      if (a.advId && a.advId !== advId) {
+        if (!abenteuer.some(x => x.id === a.advId)) return;
+        advWechseln(a.advId);
+      }
+      try {
+        localStorage.removeItem('hb_planer_auftrag');
+        localStorage.setItem('hb_planer_quittung', JSON.stringify({
+          id: a.id,
+          zeit: Date.now()
+        }));
+      } catch {}
+      if (a.art === 'zeit') setZeitOffen({
+        tage: Math.floor((+a.stunden || 0) / 24),
+        std: (+a.stunden || 0) % 24
+      });else if (a.art === 'rast') setRastAnsage({
+        art: a.rastArt,
+        basis: a.basis,
+        niederschlag: a.niederschlag,
+        temperatur: a.temperatur,
+        wind: a.wind,
+        massnahmen: a.massnahmen,
+        text: a.text
+      });else if (a.art === 'probe') setProbeAnsagen({
+        art: a.probeArt,
+        wert: a.wert,
+        sg: a.sg,
+        text: a.text
+      });
+    };
+    pruefen();
+    const lauscher = e => {
+      if (!e || !e.key || e.key === 'hb_planer_auftrag') pruefen();
+    };
+    window.addEventListener('storage', lauscher);
+    window.addEventListener('focus', pruefen);
+    return () => {
+      window.removeEventListener('storage', lauscher);
+      window.removeEventListener('focus', pruefen);
+    };
+  }, [isDmMode, advId, abenteuer.length]);
   // Alles, was zum offenen Abenteuer gehoert. Ein Held ohne Zuordnung
   // taucht im ersten Abenteuer auf, damit nichts unsichtbar wird.
   const imAbenteuer = c => !advId || (c.adventure || (abenteuer[0] || {}).id) === advId;
@@ -32080,6 +32147,7 @@ function App() {
     abenteuer: abenteuer
   }), rastAnsage && /*#__PURE__*/React.createElement(RastAnsage, {
     regel: rastRegel,
+    vorlage: rastAnsage === true ? null : rastAnsage,
     onAbbrechen: () => setRastAnsage(false),
     onAnsagen: rastSetzen,
     helden: advChars.filter(c => !c.archived && c.dmOnly !== true)
@@ -32142,6 +32210,7 @@ function App() {
     onAbraeumen: probeAbraeumen,
     onNachricht: isDmMode ? probeNachricht : null
   }), probeAnsagen && /*#__PURE__*/React.createElement(ProbenAnsage, {
+    vorlage: probeAnsagen === true ? null : probeAnsagen,
     onAbbrechen: () => setProbeAnsagen(false),
     onAnsagen: probeSetzen,
     helden: advChars.filter(c => !c.archived && c.dmOnly !== true)
@@ -34310,6 +34379,7 @@ function App() {
     onSpeichern: () => ereignisSpeichern(ereignisForm.e),
     onAbbrechen: () => setEreignisForm(null)
   }), zeitOffen && isDmMode && /*#__PURE__*/React.createElement(ZeitDialog, {
+    vorlage: zeitOffen === true ? null : zeitOffen,
     chronik: chronik,
     advId: advId,
     chars: chars,

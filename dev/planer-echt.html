@@ -359,6 +359,64 @@
         ja('  … der Maßstab ebenso', m2.a.x === mA.x * 2 && m2.a.y === mA.y * 2 && m2.laenge === 30, JSON.stringify(m2));
         ja('  … das Bild des Orts bleibt', FAKE.ablagen.get(ab).has(ortBild));
 
+        // ── Routen und Reisen ───────────────────────────────────────
+        melden('lauf', 'Routen und Reisen');
+        try { localStorage.removeItem('hb_planer_auftrag'); localStorage.removeItem('hb_planer_quittung'); } catch (e) {}
+        knopf(/🛤 Route/).click();
+        await ruhe();
+        tippeKarte(-250, 0); await ruhe(); tippeKarte(0, 0); await ruhe(); tippeKarte(250, 60); await ruhe();
+        ja('das Routenwerkzeug zeigt die Länge', /\d+(,\d+)? km/.test((root.querySelector('.pl-strecke') || {}).textContent || ''), (root.querySelector('.pl-strecke') || {}).textContent);
+        knopf(/Route anlegen/).click();
+        const rTafel = await warte(() => root.querySelector('.pl-tafel[aria-label^="Route"]'));
+        ja('„Route anlegen“ speichert und öffnet die Tafel', !!rTafel);
+        const routeId = [...FAKE.objekte.values()].find(o => o.daten.art === 'route').daten.id;
+        tippe(rTafel.querySelector('input.pl-feld'), 'Svalich-Straße');
+        waehle(rTafel.querySelector('select[aria-label="Gelände Abschnitt 1"]'), 'strasse');
+        waehle(rTafel.querySelector('select[aria-label="Gelände Abschnitt 2"]'), 'wald');
+        await ruhe();
+        knopf(/^Speichern$/, rTafel).click();
+        ja('  … mit Name und Gelände je Abschnitt', !!(await warte(() => { const d = FAKE.objekte.get(routeId).daten; return d.name === 'Svalich-Straße' && d.gelaende.join() === 'strasse,wald' && d.punkte.length === 3; })));
+        ja('  … auf der Karte in den Farben des Geländes', !!(await warte(() => [...root.querySelectorAll('.pl-route-strich')].map(l => l.style.stroke).length === 2)));
+        knopf(/Reise planen/, root.querySelector('.pl-tafel')).click();
+        const jTafel = await warte(() => root.querySelector('.pl-tafel.pl-reise'));
+        ja('„Reise planen“ legt eine Reise an', !!jTafel);
+        const reiseId = [...FAKE.objekte.values()].find(o => o.daten.art === 'reise').daten.id;
+        const karteT = karteVon('Barovia-Tal').daten;
+        const rDaten = FAKE.objekte.get(routeId).daten;
+        const erwartet = reisePlan({ route: rDaten, massstab: karteT.massstab, optionen: { tempo: 'normal', fortbewegung: 'fuss' },
+                                     wetter: reiseWetter(FAKE.objekte.get(reiseId).daten, 50) });
+        const heuteZeile = () => (root.querySelector('.pl-heute-zeile') || {}).textContent || '';
+        ja('der erste Tag steht da, wie die Rechnung ihn sieht', heuteZeile().includes(laengeText(erwartet.tage[0].strecke, 'km')), heuteZeile() + ' / ' + laengeText(erwartet.tage[0].strecke, 'km'));
+        ja('  … mit dem Plan aller Tage', erwartet.tage.length < 2 || /Plan: \d+ Tage/.test(jTafel.textContent));
+        const stundenFeld = [...jTafel.querySelectorAll('label')].find(l => /Stunden am Tag/.test(l.textContent)).querySelector('input');
+        tippe(stundenFeld, '10');
+        await ruhe();
+        knopf(/^Speichern$/, root.querySelector('.pl-tafel.pl-reise')).click();
+        ja('zehn Stunden: Gewaltmarsch mit SG 11 und 12', !!(await warte(() => /SG 11, 12/.test((root.querySelector('.pl-tafel.pl-reise') || {}).textContent || ''))));
+        const vorSturm = heuteZeile();
+        waehle(root.querySelector('.pl-wetter-wahl select[aria-label="niederschlag"]'), 'sturm');
+        ja('Sturm von Hand: gilt für den Tag', !!(await warte(() => ((FAKE.objekte.get(reiseId).daten.wetterVorgaben || {})[0] || {}).niederschlag === 'sturm')));
+        ja('  … und der Tag wird kürzer', !!(await warte(() => heuteZeile() !== vorSturm)), vorSturm + ' → ' + heuteZeile());
+        knopf(/Tag 1 abschließen/).click();
+        ja('„Tag 1 abschließen“ schreibt ins Tagebuch und rückt vor', !!(await warte(() => { const d = FAKE.objekte.get(reiseId).daten; return (d.tagebuch || []).length === 1 && d.pos > 0 && d.tagebuch[0].wetter.niederschlag === 'sturm'; })));
+        ja('  … die Gruppe steht auf der Karte', !!(await warte(() => root.querySelector('.pl-gruppe'))));
+        knopf(/Lager aufschlagen/).click();
+        await ruhe(200);
+        const lager = JSON.parse(localStorage.getItem('hb_planer_auftrag') || 'null');
+        ja('„Lager aufschlagen“ legt den Auftrag für das Heldenbuch hin', !!lager && lager.art === 'rast' && lager.advId === 'strahd' && lager.niederschlag === 'sturm', JSON.stringify(lager));
+        ja('  … ohne offenes Heldenbuch wartet er, und die Seite sagt das', !!(await warte(() => textDa(/wartet eine halbe Stunde/), 4000)));
+        knopf(/KO SG 11/).click();
+        await ruhe(200);
+        const ko = JSON.parse(localStorage.getItem('hb_planer_auftrag') || 'null');
+        localStorage.setItem('hb_planer_quittung', JSON.stringify({ id: ko && ko.id, zeit: Date.now() }));
+        ja('ein Gewaltmarsch geht als KO-Rettungswurf hinüber', !!ko && ko.art === 'probe' && ko.wert === 'con' && ko.sg === 11);
+        ja('  … mit Quittung sagt die Seite, dass der Dialog offen ist', !!(await warte(() => textDa(/hat den Dialog geöffnet/), 4000)));
+        localStorage.removeItem('hb_planer_auftrag'); localStorage.removeItem('hb_planer_quittung');
+        knopf(/Tag 1 zurücknehmen/).click();
+        ja('ein Tag lässt sich zurücknehmen', !!(await warte(() => { const d = FAKE.objekte.get(reiseId).daten; return (d.tagebuch || []).length === 0 && d.pos === 0; })));
+        knopf(/Tag 1 abschließen/).click();
+        await warte(() => (FAKE.objekte.get(reiseId).daten.tagebuch || []).length === 1);
+
         // ── Exportieren ─────────────────────────────────────────
         melden('lauf', 'Exportieren');
         const anzahlDateien = FAKE.ablagen.get(ab).size;
@@ -367,10 +425,10 @@
         ja('Exportieren gibt eine Datei heraus', !!gespeichert);
         ja('  … benannt nach Abenteuer und Tag', gespeichert && /^Fluch des Strahd \d{4}-\d{2}-\d{2}\.hbplan$/.test(gespeichert.name), gespeichert && gespeichert.name);
         const paket = await planPaketOeffnen(gespeichert.blob);
-        ja('das Paket enthält beide Karten, den Ort und alle Dateien',
-          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 1 && paket.manifest.dateien.length === anzahlDateien,
+        ja('das Paket enthält beide Karten, Ort, Route, Reise und alle Dateien',
+          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 3 && paket.manifest.dateien.length === anzahlDateien,
           paket.manifest.karten.length + '/' + paket.manifest.objekte.length + '/' + paket.manifest.dateien.length + ' von ' + anzahlDateien);
-        ja('  … mit dem Kartenbild, dem Maßstab und der Notiz', paket.manifest.karten.some(k => k.bild && k.bild.ordner === 'b2' && k.massstab) && paket.manifest.objekte[0].dm.notiz === 'Ireena wohnt hier.');
+        ja('  … mit dem Kartenbild, dem Maßstab und der Notiz', paket.manifest.karten.some(k => k.bild && k.bild.ordner === 'b2' && k.massstab) && paket.manifest.objekte.find(o => o.art === 'ort').dm.notiz === 'Ireena wohnt hier.');
         ja('  … ohne die Ablage des Servers', !paket.manifest.karten.some(k => 'ablage' in k));
 
         // ── Loeschen und wieder einspielen ─────────────────────
@@ -387,10 +445,13 @@
         const vorschau = await warte(() => root.querySelector('.pl-import'));
         ja('die Vorschau zeigt, was kommt', vorschau && /Barovia-Tal/.test(vorschau.textContent) && /Burg Ravenloft/.test(vorschau.textContent));
         knopf(/^Einspielen$/, vorschau).click();
-        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 1 Einträge, \d+ Dateien/), 10000)));
+        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 3 Einträge, \d+ Dateien/), 10000)));
         const neuTal = karteVon('Barovia-Tal'), neuBurg = karteVon('Burg Ravenloft');
         ja('  … unter neuen Kennungen', !!neuTal && !!neuBurg && !altIds.includes(neuTal.daten.id));
-        const neuOrt = [...FAKE.objekte.values()][0].daten;
+        const neuOrt = [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten;
+        const neuRoute = [...FAKE.objekte.values()].find(o => o.daten.art === 'route').daten;
+        const neuReise = [...FAKE.objekte.values()].find(o => o.daten.art === 'reise').daten;
+        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 1);
         ja('  … der Ort zeigt auf die neue Karte und die neue Unterkarte', neuOrt.karteId === neuTal.daten.id && neuOrt.unterkarte === neuBurg.daten.id);
         ja('  … alle Kacheln sind wieder da', FAKE.ablagen.get(neuTal.ablage).size === anzahlDateien, FAKE.ablagen.get(neuTal.ablage).size);
         ja('  … und das Kartenbild wird angezeigt', !!(await warte(() => root.querySelectorAll('.pl-kacheln img').length > 0 && !root.querySelector('.pl-kacheln img[src="data:,fehlt"]'))));
@@ -417,12 +478,13 @@
         ja('  … seine Tafel zum Lesen', !!spTafel && /Nebel liegt über den Dächern/.test(spTafel.textContent) && !spTafel.querySelector('input, textarea'));
         ja('  … ohne die Notiz der Spielleitung', !/Ireena/.test(root.textContent));
         ja('  … und ohne Weg zur verborgenen Burg', !knopf(/Burg Ravenloft/));
-        const xVorher = [...FAKE.objekte.values()][0].daten.x;
+        const xVorher = [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten.x;
         const marke2 = [...root.querySelectorAll('.pl-ort')].find(b => /Dorf Barovia/.test(b.textContent));
         zeiger(marke2, 'pointerdown', smr.left + 5, smr.top + 5); await ruhe(40);
         zeiger(marke2, 'pointermove', smr.left + 90, smr.top + 5); await ruhe(40);
         zeiger(marke2, 'pointerup', smr.left + 90, smr.top + 5); await ruhe(200);
-        ja('  … ein Spieler kann keinen Ort verschieben', [...FAKE.objekte.values()][0].daten.x === xVorher);
+        ja('  … ein Spieler kann keinen Ort verschieben', [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten.x === xVorher);
+        ja('  … die verborgene Route und die verborgene Reise sieht er nicht', !root.querySelector('.pl-route') && !root.querySelector('.pl-gruppe'));
       } catch (e) {
         weg++;
         melden('weg', 'Abbruch: ' + e.message, e.stack);

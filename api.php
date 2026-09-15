@@ -947,7 +947,7 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
 // durch PHP zu schicken den Server in die Knie zwingt.
 const PLAN_MAX_JSON   = 400000;     // eine Karte oder ein Ort, ohne Bilder
 const PLAN_MAX_DATEI  = 25000000;   // eine einzelne Datei
-const PLAN_ARTEN      = ['ort', 'route', 'figur', 'region', 'notiz', 'tabelle'];
+const PLAN_ARTEN      = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle'];
 // Nur Namen, die der Planer selbst vergibt: Kleinbuchstaben, Ziffern,
 // Strich und Unterstrich; Punkte nur vor der Endung. Damit gibt es kein
 // .. und keine versteckte Datei, und die Endung ist immer eine der vier.

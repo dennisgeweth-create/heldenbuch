@@ -9,6 +9,7 @@
 const LEINWAND_KLICK_PX = 5;
 
 const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, gedaechtnis,
+                          routen, gruppen, routeWahl, reiseWahl, onRouteWahl, onReiseWahl,
                           onKlick, onOrtWahl, onOrtVerschieben, onBildWaehlen }) => {
   const box = useRef(null);
   const [g, setG] = useState({ breite: 0, hoehe: 0 });
@@ -69,7 +70,7 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
     if (!plan || !a) return;
     if (e.button !== undefined && e.button > 0) return;
     // Knoepfe auf der Karte bekommen ihren Klick selbst.
-    if (e.target.closest && e.target.closest('button')) return;
+    if (e.target.closest && e.target.closest('button, .pl-route-treffer')) return;
     try { box.current.setPointerCapture(e.pointerId); } catch (err) { /* ohne Fangen geht es auch */ }
     const pt = punktAus(e);
     zeiger.current.punkte.set(e.pointerId, pt);
@@ -166,13 +167,41 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
               style={{ left: t.links, top: t.oben, width: t.breite + 0.6, height: t.hoehe + 0.6 }} />
           ))}
         </div>
-        {linie && linie.punkte.length > 0 && (
-          <svg className="pl-ueberlage" width={g.breite} height={g.hoehe} aria-hidden="true">
-            <polyline points={linie.punkte.map(p => { const s = schirm(p); return s.x + ',' + s.y; }).join(' ')}
-              className={'pl-linie ' + (linie.art || '')} />
-            {linie.punkte.map((p, i) => { const s = schirm(p); return <circle key={i} cx={s.x} cy={s.y} r={4.5} className={'pl-linie-punkt ' + (linie.art || '')} />; })}
-          </svg>
-        )}
+        <svg className="pl-ueberlage" width={g.breite} height={g.hoehe}>
+          {(routen || []).map(r => {
+            const ps = (r.punkte || []).map(schirm);
+            if (ps.length < 2) return null;
+            const zug = ps.map(s => s.x + ',' + s.y).join(' ');
+            return (
+              <g key={r.id} className={'pl-route' + (r.id === routeWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : '')}>
+                <polyline points={zug} className="pl-route-grund" />
+                {ps.slice(1).map((s, i) => (
+                  <line key={i} x1={ps[i].x} y1={ps[i].y} x2={s.x} y2={s.y} className="pl-route-strich"
+                    style={{ stroke: gelaende(((r.gelaende || [])[i]) || r.standard || 'offen').farbe }} />
+                ))}
+                <polyline points={zug} className="pl-route-treffer" onClick={() => onRouteWahl && onRouteWahl(r.id)}>
+                  <title>{r.name}</title>
+                </polyline>
+              </g>
+            );
+          })}
+          {linie && linie.punkte.length > 0 && (
+            <g aria-hidden="true">
+              <polyline points={linie.punkte.map(p => { const s = schirm(p); return s.x + ',' + s.y; }).join(' ')}
+                className={'pl-linie ' + (linie.art || '')} />
+              {linie.punkte.map((p, i) => { const s = schirm(p); return <circle key={i} cx={s.x} cy={s.y} r={4.5} className={'pl-linie-punkt ' + (linie.art || '')} />; })}
+            </g>
+          )}
+        </svg>
+        {(gruppen || []).filter(gr => gr.punkt).map(gr => {
+          const s = schirm(gr.punkt);
+          return (
+            <button key={gr.id} className={'pl-gruppe' + (gr.id === reiseWahl ? ' aktiv' : '') + (dm && !gr.sichtbar ? ' verborgen' : '')}
+              style={{ left: s.x, top: s.y }} title={gr.name} onClick={() => onReiseWahl && onReiseWahl(gr.id)}>
+              <span aria-hidden="true">🧭</span><span className="pl-ort-name">{gr.name}</span>
+            </button>
+          );
+        })}
         {orte.map(o => {
           const gezogen = zieh && zieh.id === o.id ? zieh : null;
           const s = schirm(gezogen ? gezogen : o);

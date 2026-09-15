@@ -417,10 +417,11 @@ const EreignisFormular = ({ ereignis, chronik, advId, abenteuer, chars, neu,
 // Zeigt vorher, was passieren wird. Was in fremde Charakterboegen
 // schreibt, steht einzeln zum Abwaehlen da — dieselbe Regel wie beim
 // Uebertragen der Trefferpunkte nach dem Kampf.
-const ZeitDialog = ({ chronik, advId, chars, onAnwenden, onUhrStellen, onAbbrechen }) => {
+// vorlage: {tage, std} — was der Abenteuerplaner für einen Reisetag mitgibt.
+const ZeitDialog = ({ chronik, advId, chars, vorlage, onAnwenden, onUhrStellen, onAbbrechen }) => {
   const jetzt = zeitDerUhr(chronik, advId);
-  const [tage, setTage] = React.useState(1);
-  const [std,  setStd]  = React.useState(0);
+  const [tage, setTage] = React.useState(vorlage ? Math.max(0, +vorlage.tage || 0) : 1);
+  const [std,  setStd]  = React.useState(vorlage ? Math.max(0, +vorlage.std || 0) : 0);
   const [abgewaehlt, setAbgewaehlt] = React.useState({});
   const [stellen, setStellen] = React.useState(false);
   const [zielTag, setZielTag] = React.useState(uhrTag(jetzt));

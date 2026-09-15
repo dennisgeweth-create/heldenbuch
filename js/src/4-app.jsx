@@ -2770,6 +2770,39 @@ function App() {
     // weiterhin rechts stehen, waehrend links seine Gruppe fehlt.
     selectChar(null); setMv('list'); setAdvMenuOffen(false);
   };
+
+  // ── Aufträge aus dem Abenteuerplaner ─────────────────────────────
+  // Der Planer schreibt nie selbst in Bögen oder in die Chronik. Er legt
+  // einen Auftrag in den gemeinsamen Speicher — Zeit weiterdrehen, Lager
+  // aufschlagen, Gewaltmarsch —, und hier geht der gewohnte Dialog auf,
+  // schon ausgefüllt. Was an Bögen hängt, läuft dann den bekannten Weg,
+  // und die Spielleitung sieht es vorher. Genommen wird er nur im
+  // DM-Modus; sonst wartet er, bis jemand leitet.
+  useEffect(() => {
+    const pruefen = () => {
+      if (!isDmMode) return;
+      let a = null;
+      try { a = JSON.parse(localStorage.getItem('hb_planer_auftrag') || 'null'); } catch { a = null; }
+      if (!a || !a.id || Date.now() - (+a.zeit || 0) > 30 * 60 * 1000) return;
+      if (a.advId && a.advId !== advId) {
+        if (!abenteuer.some(x => x.id === a.advId)) return;
+        advWechseln(a.advId);
+      }
+      try {
+        localStorage.removeItem('hb_planer_auftrag');
+        localStorage.setItem('hb_planer_quittung', JSON.stringify({ id: a.id, zeit: Date.now() }));
+      } catch {}
+      if (a.art === 'zeit') setZeitOffen({ tage: Math.floor((+a.stunden || 0) / 24), std: (+a.stunden || 0) % 24 });
+      else if (a.art === 'rast') setRastAnsage({ art: a.rastArt, basis: a.basis, niederschlag: a.niederschlag,
+        temperatur: a.temperatur, wind: a.wind, massnahmen: a.massnahmen, text: a.text });
+      else if (a.art === 'probe') setProbeAnsagen({ art: a.probeArt, wert: a.wert, sg: a.sg, text: a.text });
+    };
+    pruefen();
+    const lauscher = (e) => { if (!e || !e.key || e.key === 'hb_planer_auftrag') pruefen(); };
+    window.addEventListener('storage', lauscher);
+    window.addEventListener('focus', pruefen);
+    return () => { window.removeEventListener('storage', lauscher); window.removeEventListener('focus', pruefen); };
+  }, [isDmMode, advId, abenteuer.length]);
   // Alles, was zum offenen Abenteuer gehoert. Ein Held ohne Zuordnung
   // taucht im ersten Abenteuer auf, damit nichts unsichtbar wird.
   const imAbenteuer = (c) => !advId || (c.adventure || (abenteuer[0]||{}).id) === advId;
@@ -4835,7 +4868,8 @@ function App() {
       {showAdventLog && <AdventureLog onClose={()=>setShowAdventLog(false)} isDmMode={isDmMode} abenteuer={abenteuer} />}
 
       {rastAnsage && (
-        <RastAnsage regel={rastRegel} onAbbrechen={()=>setRastAnsage(false)} onAnsagen={rastSetzen}
+        <RastAnsage regel={rastRegel} vorlage={rastAnsage === true ? null : rastAnsage}
+          onAbbrechen={()=>setRastAnsage(false)} onAnsagen={rastSetzen}
           helden={advChars.filter(c => !c.archived && c.dmOnly !== true)} />
       )}
       {rast && (rastOffen || (rastGesehen.current !== rast.id
@@ -4894,7 +4928,8 @@ function App() {
           onNachricht={isDmMode ? probeNachricht : null} />
       )}
       {probeAnsagen && (
-        <ProbenAnsage onAbbrechen={()=>setProbeAnsagen(false)} onAnsagen={probeSetzen}
+        <ProbenAnsage vorlage={probeAnsagen === true ? null : probeAnsagen}
+          onAbbrechen={()=>setProbeAnsagen(false)} onAnsagen={probeSetzen}
           helden={advChars.filter(c => !c.archived && c.dmOnly !== true)} />
       )}
 
@@ -6018,7 +6053,7 @@ function App() {
       )}
 
       {zeitOffen && isDmMode && (
-        <ZeitDialog
+        <ZeitDialog vorlage={zeitOffen === true ? null : zeitOffen}
           chronik={chronik} advId={advId} chars={chars}
           onAnwenden={zeitAnwenden}
           onUhrStellen={uhrStellen}

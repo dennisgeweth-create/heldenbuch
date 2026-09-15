@@ -181,7 +181,38 @@ const PlanerOrtListe = ({ orte, auswahl, dm, onWahl }) => {
   );
 };
 
+const PlanerWegListe = ({ routen, reisen, routeWahl, reiseWahl, dm, onRouteWahl, onReiseWahl }) => {
+  if (!routen.length) return null;
+  return (
+    <nav className="pl-liste" aria-label="Routen und Reisen">
+      <div className="pl-liste-kopf"><span>Routen · {routen.length}</span></div>
+      <ul>
+        {routen.map(r => (
+          <React.Fragment key={r.id}>
+            <li className={'pl-eintrag' + (r.id === routeWahl ? ' aktiv' : '')}>
+              <button className="pl-eintrag-name" onClick={() => onRouteWahl(r.id)}>
+                <span aria-hidden="true">🛤</span>
+                <span className={'pl-eintrag-text' + (dm && !r.sichtbar ? ' pl-verborgen-text' : '')}>{r.name}</span>
+              </button>
+            </li>
+            {reisen.filter(j => j.routeId === r.id).map(j => (
+              <li key={j.id} className={'pl-eintrag pl-eintrag-unter' + (j.id === reiseWahl ? ' aktiv' : '')}>
+                <button className="pl-eintrag-name" onClick={() => onReiseWahl(j.id)}>
+                  <span aria-hidden="true">🧭</span>
+                  <span className={'pl-eintrag-text' + (dm && !j.sichtbar ? ' pl-verborgen-text' : '')}>{j.name}</span>
+                  {(j.tagebuch || []).length > 0 && <span className="pl-leise">Tag {(j.tagebuch || []).length}</span>}
+                </button>
+              </li>
+            ))}
+          </React.Fragment>
+        ))}
+      </ul>
+    </nav>
+  );
+};
+
 const WERKZEUG_HINWEIS = {
+  route: 'Klicke Punkt für Punkt den Weg. Das Gelände je Abschnitt stellst du danach ein.',
   ort: 'Klicke auf die Karte, wo der neue Ort liegen soll.',
   massstab: 'Klicke zwei Punkte, deren Entfernung du kennst — zum Beispiel die Enden der Maßstabsleiste der Karte.',
   lineal: 'Klicke Punkt für Punkt eine Strecke.',
@@ -204,6 +235,9 @@ const PlanerApp = () => {
   const [punkte, setPunkte] = useState([]);
   const [massstabFrage, setMassstabFrage] = useState(null);
   const [ortWahl, setOrtWahl] = useState('');
+  const [routeWahl, setRouteWahl] = useState('');
+  const [reiseWahl, setReiseWahl] = useState('');
+  const [chronikZeit, setChronikZeit] = useState(null);
   const [fokus, setFokus] = useState(null);
   const standRef = useRef(0);
   const arbeitRef = useRef(false);
@@ -255,6 +289,34 @@ const PlanerApp = () => {
   const karte = karten.find(k => k.id === auswahl) || null;
   const orte = daten && karte ? daten.objekte.filter(o => o.art === 'ort' && o.karteId === karte.id) : [];
   const ort = orte.find(o => o.id === ortWahl) || null;
+  const routen = daten && karte ? daten.objekte.filter(o => o.art === 'route' && o.karteId === karte.id) : [];
+  const reisen = daten && karte ? daten.objekte.filter(o => o.art === 'reise' && o.karteId === karte.id) : [];
+  const route = routen.find(r => r.id === routeWahl) || null;
+  const reise = reisen.find(r => r.id === reiseWahl) || null;
+  const reiseRoute = reise ? routen.find(r => r.id === reise.routeId) || null : null;
+  // Wo jede Gruppe gerade steht.
+  const gruppen = karte ? reisen.map(j => {
+    const r = routen.find(x => x.id === j.routeId);
+    if (!r) return null;
+    const rr = routeInRichtung(r, j.richtung);
+    return { id: j.id, name: j.name, sichtbar: j.sichtbar,
+             punkt: karte.massstab ? punktAufRoute(rr, karte.massstab, j.pos || 0) : (rr.punkte || [])[0] };
+  }).filter(Boolean) : [];
+  // Nur eine Tafel zugleich.
+  const waehleOrt = (id) => { setOrtWahl(id); if (id) { setRouteWahl(''); setReiseWahl(''); } };
+  const waehleRoute = (id) => { setRouteWahl(id); if (id) { setOrtWahl(''); setReiseWahl(''); } };
+  const waehleReise = (id) => { setReiseWahl(id); if (id) { setOrtWahl(''); setRouteWahl(''); } };
+
+  // Die Uhr der Chronik, damit die Reise ihren Ankunftstag nennt. Nur
+  // lesen: gedreht wird sie im Heldenbuch.
+  useEffect(() => {
+    setChronikZeit(null);
+    if (!dm || !advId) return;
+    planerApi('dm_load_chronik', {}).then(r => {
+      const z = r.chronik && r.chronik.zeit ? r.chronik.zeit[advId] : 0;
+      setChronikZeit(+z || 0);
+    }).catch(() => {});
+  }, [dm, advId, daten && daten.stand]);
 
   useEffect(() => {
     setDateien(null);
@@ -267,7 +329,7 @@ const PlanerApp = () => {
   }, [auswahl, dm, daten && daten.stand]);
 
   // Werkzeug und Auswahl gehoeren zur Karte.
-  useEffect(() => { setWerkzeug('ansehen'); setPunkte([]); setOrtWahl(''); }, [auswahl]);
+  useEffect(() => { setWerkzeug('ansehen'); setPunkte([]); setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); }, [auswahl]);
   useEffect(() => {
     const taste = (e) => { if (e.key === 'Escape' && !frage && !massstabFrage && !arbeit) { setWerkzeug('ansehen'); setPunkte([]); } };
     window.addEventListener('keydown', taste);
@@ -405,7 +467,7 @@ const PlanerApp = () => {
       try {
         await objSpeichern(neu);
         await laden(advId);
-        setOrtWahl(neu.id);
+        waehleOrt(neu.id);
       } catch (e) { fehler(e); }
       return;
     }
@@ -415,8 +477,38 @@ const PlanerApp = () => {
       if (neu.length === 2) setMassstabFrage(neu);
       return;
     }
-    if (werkzeug === 'lineal') { setPunkte(v => [...v, p]); return; }
-    setOrtWahl('');
+    if (werkzeug === 'lineal' || werkzeug === 'route') { setPunkte(v => [...v, p]); return; }
+    waehleOrt('');
+    setRouteWahl('');
+    setReiseWahl('');
+  };
+  // ── Routen und Reisen ───────────────────────────────────────────
+  const routeAnlegen = async (punkteListe) => {
+    if (!karte || punkteListe.length < 2) return;
+    const neu = { id: planNeueId('r'), karteId: karte.id, art: 'route', name: 'Neue Route', punkte: punkteListe,
+                  gelaende: punkteListe.slice(1).map(() => 'offen'), sichtbar: false, text: '', dm: { notiz: '' } };
+    setWerkzeug('ansehen');
+    setPunkte([]);
+    try { await objSpeichern(neu); await laden(advId); waehleRoute(neu.id); } catch (e) { fehler(e); }
+  };
+  const objAendern = async (o) => {
+    try { await objSpeichern(o); await laden(advId); } catch (e) { fehler(e); }
+  };
+  const objWeg = (o, titel, text, danach) => setFrage({
+    titel, text, ja: 'Löschen', gefahr: true,
+    onJa: async () => {
+      try { await planerApi('planer_obj_loeschen', { adv_id: advId, obj_id: o.id }); if (danach) await danach(); await laden(advId); }
+      catch (e) { fehler(e); }
+    },
+  });
+  const routeLoeschen = (r) => {
+    const abh = reisen.filter(j => j.routeId === r.id);
+    objWeg(r, 'Route löschen?', '„' + r.name + '“ wird gelöscht' + (abh.length ? ', mit ' + abh.length + (abh.length === 1 ? ' Reise' : ' Reisen') + ' darauf.' : '.'),
+      async () => { for (const j of abh) await planerApi('planer_obj_loeschen', { adv_id: advId, obj_id: j.id }).catch(() => {}); setRouteWahl(''); });
+  };
+  const reiseAnlegen = async (r) => {
+    const neu = neueReise(r);
+    try { await objSpeichern(neu); await laden(advId); waehleReise(neu.id); } catch (e) { fehler(e); }
   };
   const massstabSpeichern = async (m) => {
     setMassstabFrage(null);
@@ -540,7 +632,7 @@ const PlanerApp = () => {
 
   if (!angemeldet) return <PlanerNichtAngemeldet />;
 
-  const linie = werkzeug === 'lineal' || werkzeug === 'massstab' ? { punkte, art: werkzeug } : null;
+  const linie = werkzeug === 'lineal' || werkzeug === 'massstab' || werkzeug === 'route' ? { punkte, art: werkzeug } : null;
   const strecke = werkzeug === 'lineal' && karte && karte.massstab && punkte.length > 1 ? wegLaenge(punkte, karte.massstab) : 0;
   const vorige = verlauf.length ? karten.find(k => k.id === verlauf[verlauf.length - 1]) : null;
 
@@ -584,7 +676,7 @@ const PlanerApp = () => {
       ) : !daten ? (
         <div className="pl-buehne-leer"><p>Lädt …</p></div>
       ) : (
-        <main className={'pl-haupt-flaeche' + (ort ? ' mit-tafel' : '')}>
+        <main className={'pl-haupt-flaeche' + (ort || route || (reise && reiseRoute) ? ' mit-tafel' : '')}>
           <div className="pl-spalte">
             <PlanerKartenListe karten={karten} auswahl={auswahl} dm={dm}
               onWahl={(id) => { setAuswahl(id); setVerlauf([]); }} onNeu={neueKarte}
@@ -592,7 +684,10 @@ const PlanerApp = () => {
               onSichtbar={(k) => karteAendern(k, { sichtbar: !k.sichtbar })}
               onLoeschen={karteLoeschen} />
             {karte && <PlanerOrtListe orte={orte} auswahl={ortWahl} dm={dm}
-              onWahl={(o) => { setOrtWahl(o.id); setFokus({ x: o.x, y: o.y, n: Date.now() }); }} />}
+              onWahl={(o) => { waehleOrt(o.id); setFokus({ x: o.x, y: o.y, n: Date.now() }); }} />}
+            {karte && <PlanerWegListe routen={routen} reisen={reisen} routeWahl={routeWahl} reiseWahl={reiseWahl} dm={dm}
+              onRouteWahl={(id) => { waehleRoute(id); const r = routen.find(x => x.id === id); if (r && r.punkte && r.punkte[0]) setFokus({ ...r.punkte[0], n: Date.now() }); }}
+              onReiseWahl={(id) => { waehleReise(id); const gr = gruppen.find(x => x.id === id); if (gr && gr.punkt) setFokus({ ...gr.punkt, n: Date.now() }); }} />}
           </div>
           {!karte ? (
             <div className="pl-buehne-leer"><p>{karten.length ? 'Wähle links eine Karte.' : ''}</p></div>
@@ -606,6 +701,7 @@ const PlanerApp = () => {
                   {dm && <button className="pl-knopf pl-klein" onClick={() => bildEingabe.current && bildEingabe.current.click()}>🖼 {karte.bild ? 'Bild ersetzen' : 'Kartenbild'}</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'ort' ? ' an' : '')} aria-pressed={werkzeug === 'ort'} onClick={() => werkzeugWaehlen('ort')}>📍 Ort setzen</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'massstab' ? ' an' : '')} aria-pressed={werkzeug === 'massstab'} onClick={() => werkzeugWaehlen('massstab')}>📏 Maßstab</button>}
+                  {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'route' ? ' an' : '')} aria-pressed={werkzeug === 'route'} onClick={() => werkzeugWaehlen('route')}>🛤 Route</button>}
                   {karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'lineal' ? ' an' : '')} aria-pressed={werkzeug === 'lineal'} onClick={() => werkzeugWaehlen('lineal')}>📐 Messen</button>}
                   <input ref={bildEingabe} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden onChange={bildGewaehlt} />
                 </div>
@@ -619,13 +715,23 @@ const PlanerApp = () => {
                         : punkte.length > 1 ? laengeText(strecke, karte.massstab.einheit) + ' · ' + fussZeitText(strecke, karte.massstab.einheit) : ''}
                     </strong>
                   )}
+                  {werkzeug === 'route' && (
+                    <strong className="pl-strecke">
+                      {punkte.length > 1 && karte.massstab ? laengeText(wegLaenge(punkte, karte.massstab), karte.massstab.einheit) : punkte.length + ' Punkte'}
+                    </strong>
+                  )}
+                  {(werkzeug === 'lineal' || werkzeug === 'route') && punkte.length > 0 && <button className="pl-knopf pl-klein" onClick={() => setPunkte(v => v.slice(0, -1))}>↶ Punkt</button>}
                   {werkzeug === 'lineal' && punkte.length > 0 && <button className="pl-knopf pl-klein" onClick={() => setPunkte([])}>Neu</button>}
+                  {werkzeug === 'lineal' && dm && punkte.length > 1 && <button className="pl-knopf pl-klein" onClick={() => routeAnlegen(punkte)}>🛤 Als Route speichern</button>}
+                  {werkzeug === 'route' && <button className="pl-knopf pl-klein pl-haupt" disabled={punkte.length < 2} onClick={() => routeAnlegen(punkte)}>Route anlegen</button>}
                   <button className="pl-knopf pl-klein" onClick={() => { setWerkzeug('ansehen'); setPunkte([]); }}>Fertig</button>
                 </div>
               )}
               <KartenLeinwand karte={karte} orte={orte} dm={dm} werkzeug={werkzeug} ortWahl={ortWahl}
                 linie={linie} fokus={fokus} gedaechtnis={gedaechtnis}
-                onKlick={aufKarteGeklickt} onOrtWahl={setOrtWahl} onOrtVerschieben={ortVerschieben}
+                routen={routen} gruppen={gruppen} routeWahl={routeWahl} reiseWahl={reiseWahl}
+                onRouteWahl={waehleRoute} onReiseWahl={waehleReise}
+                onKlick={aufKarteGeklickt} onOrtWahl={waehleOrt} onOrtVerschieben={ortVerschieben}
                 onBildWaehlen={() => bildEingabe.current && bildEingabe.current.click()} />
               <dl className="pl-fakten pl-fakten-quer">
                 {karte.bild && <><dt>Bild</dt><dd>{karte.bild.breite} × {karte.bild.hoehe}</dd></>}
@@ -639,6 +745,18 @@ const PlanerApp = () => {
             <OrtTafel key={ort.id} ort={ort} dm={dm} karte={karte} karten={karten} arbeitet={!!arbeit}
               onSpeichern={ortSpeichern} onLoeschen={ortLoeschen} onSchliessen={() => setOrtWahl('')}
               onUnterkarte={zurUnterkarte} onBilderHoch={ortBilderHoch} onBildWeg={ortBildWeg} />
+          )}
+          {route && karte && (
+            <RouteTafel key={route.id} route={route} dm={dm} karte={karte} reisen={reisen}
+              onSpeichern={(r) => objAendern({ ...r, name: String(r.name || '').trim() || 'Ohne Namen' })}
+              onLoeschen={routeLoeschen} onSchliessen={() => setRouteWahl('')}
+              onReiseNeu={reiseAnlegen} onReiseWahl={waehleReise} />
+          )}
+          {reise && reiseRoute && karte && (
+            <ReiseTafel key={reise.id} reise={reise} route={reiseRoute} dm={dm} karte={karte} advId={advId} chronikZeit={chronikZeit}
+              onSpeichern={(j) => objAendern({ ...j, name: String(j.name || '').trim() || 'Reise' })}
+              onLoeschen={(j) => objWeg(j, 'Reise löschen?', '„' + j.name + '“ wird gelöscht. Die Route bleibt.', async () => setReiseWahl(''))}
+              onSchliessen={() => setReiseWahl('')} onMeldung={setMeldung} />
           )}
         </main>
       )}

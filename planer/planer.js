@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus planer/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 2-leinwand.jsx, 3-ort.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 4-app.jsx
 // ==== planer/src/0-basis.jsx ====
 // ── Abenteuerplaner: Grundlagen ──────────────────────────────────
 // Der Planer ist eine eigene Seite neben dem Heldenbuch, mit eigenem
@@ -19,7 +19,7 @@ const {
 
 // Die Ausgabe des Planers zaehlt eigenstaendig: er waechst in Stufen,
 // die mit den Ausgaben des Heldenbuchs nichts zu tun haben.
-const PLANER_VERSION = 'Stufe 1';
+const PLANER_VERSION = 'Stufe 2';
 
 // ==== planer/src/1-paket.jsx ====
 // ── Das Paket: Im- und Export als .hbplan ────────────────────────
@@ -319,7 +319,7 @@ const HBPLAN_MANIFEST = 'hbplan.json';
 // annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
-const PLAN_ARTEN = ['ort', 'route', 'figur', 'region', 'notiz', 'tabelle'];
+const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle'];
 const planNeueId = vorsilbe => {
   const b = new Uint8Array(8);
   crypto.getRandomValues(b);
@@ -1047,6 +1047,626 @@ const punktSkalieren = (p, alt, neu) => ({
 const ORT_SYMBOLE = ['📍', '🏰', '🏘', '🏠', '⛪', '🏛', '🍺', '⚓', '🌲', '⛰', '🕳', '🗿', '💀', '⚔', '🔥', '💎', '❓', '⭐'];
 // ══ Ende der reinen Rechnung
 
+// ==== planer/src/1c-reise.jsx ====
+// ── Reisen: Gelände, Tempo, Tage, Wetter ─────────────────────────
+// Eine Route ist ein Linienzug auf der Karte, jeder Abschnitt mit einem
+// Gelände. Eine Reise faehrt sie ab — Tag fuer Tag, mit Tempo,
+// Fortbewegung und Stunden am Tag — und sagt, wo die Gruppe am Abend
+// steht, wie weit sie kam, wann ein Gewaltmarsch Rettungswuerfe kostet
+// und wie das Wetter war.
+//
+// Zahlen der Grundregeln (SRD 5.1), in Kilometer so umgerechnet wie im
+// deutschen Spielerhandbuch (1 Meile = 1,5 km):
+//   Tempo   langsam 3 km/h (2 mph), normal 4,5 km/h (3 mph), schnell 6 km/h (4 mph)
+//   Gewaltmarsch  jede Stunde ueber 8: KO-Rettungswurf SG 10 + Stunden ueber 8
+//   Schwieriges Gelaende halbiert die Strecke.
+//   Boote und Schiffe: die Geschwindigkeiten aus der Tabelle der Wasserfahrzeuge.
+// Was dazwischen liegt — Huegel und Wueste zu drei Vierteln, Wagen
+// abseits der Strasse, Sturm halbiert —, sind Vorgaben des Planers.
+//
+// Das Wetter nimmt dieselben Schluessel wie die Rast im Heldenbuch
+// (RAST_NIEDERSCHLAG, RAST_TEMPERATUR, RAST_WIND in js/src/2m-rast.jsx).
+// Nur so kann „Lager aufschlagen" die Rastbedingung gleich mitgeben;
+// planer-reise-test.js prueft, dass beide Listen gleich bleiben.
+//
+// Alles bis zur Markierung ist reine Rechnung.
+
+const GELAENDE = [{
+  k: 'strasse',
+  l: 'Straße oder Weg',
+  farbe: '#e8d9a8',
+  fuss: 1,
+  wagen: 1
+}, {
+  k: 'offen',
+  l: 'Offenes Land',
+  farbe: '#9fd27a',
+  fuss: 1,
+  wagen: 0.75
+}, {
+  k: 'huegel',
+  l: 'Hügel',
+  farbe: '#d6a35c',
+  fuss: 0.75,
+  wagen: 0.5
+}, {
+  k: 'wald',
+  l: 'Wald',
+  farbe: '#4fa36a',
+  fuss: 0.5,
+  wagen: 0.25
+}, {
+  k: 'wueste',
+  l: 'Wüste',
+  farbe: '#f0c060',
+  fuss: 0.75,
+  wagen: 0.5
+}, {
+  k: 'sumpf',
+  l: 'Sumpf',
+  farbe: '#7d8f5a',
+  fuss: 0.5,
+  wagen: 0
+}, {
+  k: 'gebirge',
+  l: 'Gebirge',
+  farbe: '#b0a8a0',
+  fuss: 0.5,
+  wagen: 0
+}, {
+  k: 'schnee',
+  l: 'Schnee und Eis',
+  farbe: '#dfeefa',
+  fuss: 0.5,
+  wagen: 0.25
+}, {
+  k: 'wasser',
+  l: 'Fluss, See, Meer',
+  farbe: '#5fb0e8',
+  fuss: 0,
+  wagen: 0
+}];
+const gelaende = k => GELAENDE.find(g => g.k === k) || GELAENDE[1];
+const TEMPO = [{
+  k: 'langsam',
+  l: 'Langsam',
+  kmh: 3,
+  mph: 2,
+  folge: 'Heimlichkeit möglich'
+}, {
+  k: 'normal',
+  l: 'Normal',
+  kmh: 4.5,
+  mph: 3,
+  folge: ''
+}, {
+  k: 'schnell',
+  l: 'Schnell',
+  kmh: 6,
+  mph: 4,
+  folge: '−5 auf passive Wahrnehmung'
+}];
+const tempo = k => TEMPO.find(t => t.k === k) || TEMPO[1];
+
+// art: land — Tempo zaehlt; wagen — dazu die Wagenspalte des Gelaendes;
+// wasser — nur auf Wasser, feste Geschwindigkeit, mit Mannschaft rund um die Uhr.
+const FORTBEWEGUNG = [{
+  k: 'fuss',
+  l: 'Zu Fuß',
+  art: 'land'
+}, {
+  k: 'reittier',
+  l: 'Reittier',
+  art: 'land'
+}, {
+  k: 'wagen',
+  l: 'Wagen oder Kutsche',
+  art: 'wagen'
+}, {
+  k: 'ruderboot',
+  l: 'Ruderboot',
+  art: 'wasser',
+  mph: 1.5,
+  stunden: 8
+}, {
+  k: 'kielboot',
+  l: 'Kielboot',
+  art: 'wasser',
+  mph: 1,
+  stunden: 24
+}, {
+  k: 'segelschiff',
+  l: 'Segelschiff',
+  art: 'wasser',
+  mph: 2,
+  stunden: 24
+}, {
+  k: 'kriegsschiff',
+  l: 'Kriegsschiff',
+  art: 'wasser',
+  mph: 2.5,
+  stunden: 24
+}, {
+  k: 'langschiff',
+  l: 'Langschiff',
+  art: 'wasser',
+  mph: 3,
+  stunden: 24
+}, {
+  k: 'galeere',
+  l: 'Galeere',
+  art: 'wasser',
+  mph: 4,
+  stunden: 24
+}];
+const fortbewegung = k => FORTBEWEGUNG.find(f => f.k === k) || FORTBEWEGUNG[0];
+const KM_JE_MEILE = 1.5;
+const GEWALTMARSCH_AB = 8;
+
+// Wie weit in einer Stunde, in der Einheit der Karte.
+const JE_EINHEIT = {
+  km: {
+    km: 1,
+    mi: 1 / KM_JE_MEILE
+  },
+  mi: {
+    km: KM_JE_MEILE,
+    mi: 1
+  },
+  m: {
+    km: 1000,
+    mi: 1000 * KM_JE_MEILE
+  },
+  ft: {
+    km: 3280.84,
+    mi: 5280
+  }
+};
+const grundTempo = (optionen, einh) => {
+  const f = fortbewegung(optionen.fortbewegung);
+  const u = JE_EINHEIT[einh] || JE_EINHEIT.km;
+  if (f.art === 'wasser') return einh === 'km' || einh === 'm' ? f.mph * KM_JE_MEILE * u.km : f.mph * u.mi;
+  const t = tempo(optionen.tempo);
+  return einh === 'km' || einh === 'm' ? t.kmh * u.km : t.mph * u.mi;
+};
+// Wie schnell auf diesem Gelaende — 0 heisst: geht nicht.
+const tempoAuf = (gel, optionen, einh, wetter) => {
+  const f = fortbewegung(optionen.fortbewegung);
+  const g = gelaende(gel);
+  let faktor;
+  if (f.art === 'wasser') faktor = g.k === 'wasser' ? 1 : 0;else if (f.art === 'wagen') faktor = g.wagen;else faktor = g.fuss;
+  if (faktor && wetter && f.art !== 'wasser' && (wetter.niederschlag === 'sturm' || wetter.wind === 'orkan')) faktor *= 0.5;
+  if (faktor && wetter && f.art === 'wasser' && wetter.wind === 'orkan') faktor = 0;
+  return grundTempo(optionen, einh) * faktor;
+};
+const warumNicht = (gel, optionen, wetter) => {
+  const f = fortbewegung(optionen.fortbewegung);
+  const g = gelaende(gel);
+  if (f.art === 'wasser') return g.k === 'wasser' ? 'Bei Sturm läuft kein Schiff aus.' : f.l + ' fährt nicht über ' + g.l + '.';
+  if (g.k === 'wasser') return 'Über ' + g.l + ' geht es nur mit Boot oder Schiff.';
+  return f.l + ' kommt durch ' + g.l + ' nicht durch.';
+};
+
+// ── Die Route ────────────────────────────────────────────────────
+const routeAbschnitte = (route, m) => {
+  const p = route.punkte || [];
+  const aus = [];
+  const jePx = m ? pxJeEinheit(m) : 0;
+  for (let i = 1; i < p.length; i++) {
+    const px = abstandPx(p[i - 1], p[i]);
+    aus.push({
+      i: i - 1,
+      von: p[i - 1],
+      bis: p[i],
+      px,
+      laenge: jePx ? px / jePx : 0,
+      gelaende: (route.gelaende || [])[i - 1] || route.standard || 'offen'
+    });
+  }
+  return aus;
+};
+const routeLaenge = (route, m) => routeAbschnitte(route, m).reduce((s, a) => s + a.laenge, 0);
+// Rueckwaerts ist dieselbe Route mit umgedrehten Punkten und Abschnitten.
+const routeInRichtung = (route, richtung) => richtung !== 'zurueck' ? route : {
+  ...route,
+  punkte: [...(route.punkte || [])].reverse(),
+  gelaende: [...(route.gelaende || [])].slice(0, Math.max(0, (route.punkte || []).length - 1)).reverse()
+};
+// Der Punkt, der pos Einheiten vom Start entfernt liegt.
+const punktAufRoute = (route, m, pos) => {
+  const ab = routeAbschnitte(route, m);
+  if (!ab.length) return (route.punkte || [])[0] || null;
+  let rest = Math.max(0, pos);
+  for (const a of ab) {
+    if (rest <= a.laenge || a === ab[ab.length - 1]) {
+      const t = a.laenge ? Math.min(1, rest / a.laenge) : 1;
+      return {
+        x: Math.round(a.von.x + (a.bis.x - a.von.x) * t),
+        y: Math.round(a.von.y + (a.bis.y - a.von.y) * t)
+      };
+    }
+    rest -= a.laenge;
+  }
+  return null;
+};
+
+// ── Der Plan: Tag fuer Tag ───────────────────────────────────────
+// Ohne Angabe: acht Stunden an Land, bei Schiffen mit Mannschaft rund um die Uhr.
+const reiseStunden = o => {
+  const f = fortbewegung(o && o.fortbewegung);
+  return Math.max(1, Math.min(24, +(o && o.stunden) || f.stunden || 8));
+};
+// start: bereits zurueckgelegte Strecke. wetter: je Tag (Index ab 0 vom
+// Start aus) — fehlt es, wird ohne Wetter gerechnet.
+const REISE_HOECHSTENS_TAGE = 400;
+const reisePlan = ({
+  route,
+  massstab,
+  optionen,
+  start,
+  wetter
+}) => {
+  const einh = massstab ? massstab.einheit : 'km';
+  const o = {
+    tempo: 'normal',
+    fortbewegung: 'fuss',
+    ...(optionen || {})
+  };
+  const f = fortbewegung(o.fortbewegung);
+  const stundenJeTag = reiseStunden(o);
+  const ab = routeAbschnitte(route, massstab);
+  const gesamt = ab.reduce((s, a) => s + a.laenge, 0);
+  const tage = [];
+  const warnungen = [];
+  if (!massstab) warnungen.push('Die Karte hat noch keinen Maßstab.');
+  if (ab.length === 0) warnungen.push('Die Route hat keine Strecke.');
+  if (!massstab || !ab.length) return {
+    tage,
+    gesamt,
+    einheit: einh,
+    warnungen,
+    angekommen: false,
+    stundenJeTag
+  };
+  let pos = Math.max(0, Math.min(gesamt, +start || 0));
+  let blockiert = null;
+  const abschnittBei = p => {
+    let s = 0;
+    for (const a of ab) {
+      if (p < s + a.laenge - 1e-9) return {
+        a,
+        rest: s + a.laenge - p
+      };
+      s += a.laenge;
+    }
+    return null;
+  };
+  while (pos < gesamt - 1e-9 && tage.length < REISE_HOECHSTENS_TAGE && !blockiert) {
+    const nr = tage.length;
+    const w = wetter && wetter[nr] ? wetter[nr] : null;
+    let stunden = 0;
+    const von = pos;
+    const teile = [];
+    while (stunden < stundenJeTag - 1e-9 && pos < gesamt - 1e-9) {
+      const hier = abschnittBei(pos);
+      if (!hier) break;
+      const v = tempoAuf(hier.a.gelaende, o, einh, w);
+      if (!(v > 0)) {
+        blockiert = {
+          tag: nr,
+          abschnitt: hier.a.i,
+          text: warumNicht(hier.a.gelaende, o, w)
+        };
+        break;
+      }
+      const brauche = hier.rest / v;
+      const habe = stundenJeTag - stunden;
+      const h = Math.min(brauche, habe);
+      const strecke = h === brauche ? hier.rest : h * v;
+      pos = h === brauche ? pos + hier.rest : pos + strecke;
+      stunden += h;
+      const letzter = teile[teile.length - 1];
+      if (letzter && letzter.gelaende === hier.a.gelaende) {
+        letzter.strecke += strecke;
+        letzter.stunden += h;
+      } else teile.push({
+        gelaende: hier.a.gelaende,
+        strecke,
+        stunden: h
+      });
+    }
+    if (stunden <= 1e-9) break;
+    // Gewaltmarsch: jede angefangene Stunde ueber acht, am Ende der Stunde.
+    const gewaltmarsch = [];
+    if (f.art !== 'wasser') {
+      for (let h = GEWALTMARSCH_AB + 1; h <= Math.ceil(stunden - 1e-9); h++) gewaltmarsch.push({
+        stunde: h,
+        sg: 10 + (h - GEWALTMARSCH_AB)
+      });
+    }
+    tage.push({
+      nr: nr + 1,
+      von,
+      bis: pos,
+      strecke: pos - von,
+      stunden,
+      teile,
+      gewaltmarsch,
+      wetter: w,
+      angekommen: pos >= gesamt - 1e-9
+    });
+  }
+  if (blockiert) warnungen.push('Tag ' + (blockiert.tag + 1) + ', Abschnitt ' + (blockiert.abschnitt + 1) + ': ' + blockiert.text);
+  if (tage.length >= REISE_HOECHSTENS_TAGE) warnungen.push('Mehr als ' + REISE_HOECHSTENS_TAGE + ' Tage — die Rechnung hört hier auf.');
+  if (f.art !== 'wasser' && stundenJeTag > GEWALTMARSCH_AB) warnungen.push('Mehr als acht Stunden am Tag: Gewaltmarsch.');
+  return {
+    tage,
+    gesamt,
+    einheit: einh,
+    warnungen,
+    blockiert,
+    stundenJeTag,
+    angekommen: !blockiert && pos >= gesamt - 1e-9
+  };
+};
+const stundenText = h => {
+  const ganz = Math.floor(h + 1e-9),
+    min = Math.round((h - ganz) * 60);
+  if (min === 60) return ganz + 1 + ' Std.';
+  return ganz + (min ? ':' + String(min).padStart(2, '0') : '') + ' Std.';
+};
+// Verpflegung nach den Grundregeln: eine Tagesration und gut vier Liter
+// Wasser je Person und Tag.
+const verpflegung = (tage, personen) => ({
+  rationen: tage * Math.max(0, personen || 0),
+  wasserLiter: tage * Math.max(0, personen || 0) * 4
+});
+
+// ── Wetter ───────────────────────────────────────────────────────
+const WETTER_NIEDERSCHLAG = ['klar', 'leicht', 'wolken', 'regen', 'sturm'];
+const WETTER_TEMPERATUR = ['glut', 'heiss', 'warm', 'mild', 'kuehl', 'kalt', 'arktis'];
+const WETTER_WIND = ['flaute', 'maessig', 'stark', 'boeen', 'orkan'];
+const WETTER_WORTE = {
+  klar: 'Wolkenlos',
+  leicht: 'Leicht bewölkt',
+  wolken: 'Bewölkt oder Nebel',
+  regen: 'Regen, Hagel, Schnee',
+  sturm: 'Starkregen, Sturm',
+  glut: 'Unerträglich heiß',
+  heiss: 'Heiß',
+  warm: 'Warm',
+  mild: 'Moderat',
+  kuehl: 'Kühl',
+  kalt: 'Kalt',
+  arktis: 'Arktisch kalt',
+  flaute: 'Flaute',
+  maessig: 'Mäßiger Wind',
+  stark: 'Starker Wind',
+  boeen: 'Starke Böen',
+  orkan: 'Sturm'
+};
+const WETTER_ZEICHEN = {
+  klar: '☀',
+  leicht: '🌤',
+  wolken: '☁',
+  regen: '🌧',
+  sturm: '⛈'
+};
+const KLIMA = [{
+  k: 'gemaessigt',
+  l: 'Gemäßigt'
+}, {
+  k: 'kalt',
+  l: 'Kalt, nordisch'
+}, {
+  k: 'arktisch',
+  l: 'Arktisch'
+}, {
+  k: 'heiss',
+  l: 'Heiß, trocken'
+}, {
+  k: 'tropisch',
+  l: 'Tropisch, feucht'
+}, {
+  k: 'kueste',
+  l: 'Küste, See'
+}];
+const JAHRESZEITEN = [{
+  k: 'fruehling',
+  l: 'Frühling'
+}, {
+  k: 'sommer',
+  l: 'Sommer'
+}, {
+  k: 'herbst',
+  l: 'Herbst'
+}, {
+  k: 'winter',
+  l: 'Winter'
+}];
+// Gewichte je Stufe, in der Reihenfolge der Listen oben. Eigene Vorgaben
+// des Planers, keine Regeltabelle: sie sollen plausibles Wetter geben,
+// das die Spielleitung jederzeit umstellt.
+const WETTER_TAFEL = {
+  gemaessigt: {
+    temperatur: {
+      fruehling: [0, 0, 2, 5, 3, 1, 0],
+      sommer: [0, 2, 5, 3, 1, 0, 0],
+      herbst: [0, 0, 1, 4, 4, 2, 0],
+      winter: [0, 0, 0, 1, 3, 5, 1]
+    },
+    niederschlag: {
+      fruehling: [2, 3, 3, 3, 1],
+      sommer: [4, 3, 2, 2, 1],
+      herbst: [1, 2, 4, 3, 1],
+      winter: [2, 2, 3, 3, 1]
+    },
+    wind: [4, 4, 2, 1, 0.3]
+  },
+  kalt: {
+    temperatur: {
+      fruehling: [0, 0, 0, 2, 4, 4, 1],
+      sommer: [0, 0, 2, 5, 3, 1, 0],
+      herbst: [0, 0, 0, 1, 4, 4, 2],
+      winter: [0, 0, 0, 0, 1, 5, 4]
+    },
+    niederschlag: {
+      fruehling: [2, 2, 3, 3, 1],
+      sommer: [2, 3, 3, 3, 1],
+      herbst: [1, 2, 4, 3, 2],
+      winter: [2, 2, 3, 3, 2]
+    },
+    wind: [3, 4, 3, 2, 0.6]
+  },
+  arktisch: {
+    temperatur: {
+      fruehling: [0, 0, 0, 0, 1, 4, 5],
+      sommer: [0, 0, 0, 1, 4, 4, 1],
+      herbst: [0, 0, 0, 0, 1, 4, 5],
+      winter: [0, 0, 0, 0, 0, 2, 8]
+    },
+    niederschlag: {
+      fruehling: [3, 2, 3, 2, 2],
+      sommer: [3, 3, 3, 2, 1],
+      herbst: [2, 2, 3, 3, 2],
+      winter: [3, 2, 2, 2, 3]
+    },
+    wind: [2, 3, 3, 3, 1]
+  },
+  heiss: {
+    temperatur: {
+      fruehling: [1, 4, 4, 2, 0, 0, 0],
+      sommer: [4, 5, 2, 0, 0, 0, 0],
+      herbst: [1, 3, 4, 2, 0, 0, 0],
+      winter: [0, 1, 3, 4, 2, 0, 0]
+    },
+    niederschlag: {
+      fruehling: [7, 3, 1, 0.3, 0.3],
+      sommer: [9, 2, 0.5, 0.2, 0.3],
+      herbst: [7, 3, 1, 0.3, 0.3],
+      winter: [5, 3, 2, 1, 0.3]
+    },
+    wind: [4, 3, 2, 1, 0.5]
+  },
+  tropisch: {
+    temperatur: {
+      fruehling: [0, 4, 5, 1, 0, 0, 0],
+      sommer: [1, 5, 4, 0, 0, 0, 0],
+      herbst: [0, 4, 5, 1, 0, 0, 0],
+      winter: [0, 2, 5, 3, 0, 0, 0]
+    },
+    niederschlag: {
+      fruehling: [1, 2, 3, 4, 2],
+      sommer: [1, 2, 2, 4, 3],
+      herbst: [1, 2, 3, 4, 2],
+      winter: [2, 3, 3, 2, 1]
+    },
+    wind: [4, 3, 2, 1, 0.4]
+  },
+  kueste: {
+    temperatur: {
+      fruehling: [0, 0, 1, 5, 4, 1, 0],
+      sommer: [0, 1, 5, 4, 1, 0, 0],
+      herbst: [0, 0, 1, 4, 5, 1, 0],
+      winter: [0, 0, 0, 2, 5, 3, 0]
+    },
+    niederschlag: {
+      fruehling: [2, 3, 3, 3, 1],
+      sommer: [3, 3, 3, 2, 1],
+      herbst: [1, 2, 3, 4, 2],
+      winter: [1, 2, 3, 4, 2]
+    },
+    wind: [1, 3, 4, 2, 1]
+  }
+};
+const gewichtetWaehlen = (gewichte, zufall) => {
+  const summe = gewichte.reduce((s, g) => s + g, 0);
+  let r = zufall() * summe;
+  for (let i = 0; i < gewichte.length; i++) {
+    r -= gewichte[i];
+    if (r < 0) return i;
+  }
+  return gewichte.length - 1;
+};
+// Wetter haelt sich: mit einer von zwei Chancen bleibt jeder Teil wie am
+// Vortag oder rueckt nur eine Stufe weiter.
+const wetterWuerfeln = (klima, jahreszeit, vortag, zufall) => {
+  const z = zufall || Math.random;
+  const t = WETTER_TAFEL[klima] || WETTER_TAFEL.gemaessigt;
+  const js = JAHRESZEITEN.some(j => j.k === jahreszeit) ? jahreszeit : 'sommer';
+  const teil = (liste, gewichte, alt) => {
+    if (alt && liste.includes(alt) && z() < 0.5) {
+      const i = liste.indexOf(alt);
+      const schritt = z();
+      const j = schritt < 0.6 ? i : schritt < 0.8 ? i - 1 : i + 1;
+      const k = Math.max(0, Math.min(liste.length - 1, j));
+      return gewichte[k] > 0 ? liste[k] : alt;
+    }
+    return liste[gewichtetWaehlen(gewichte, z)];
+  };
+  return {
+    temperatur: teil(WETTER_TEMPERATUR, t.temperatur[js], vortag && vortag.temperatur),
+    niederschlag: teil(WETTER_NIEDERSCHLAG, t.niederschlag[js], vortag && vortag.niederschlag),
+    wind: teil(WETTER_WIND, t.wind, vortag && vortag.wind)
+  };
+};
+const wetterText = w => w ? [WETTER_WORTE[w.niederschlag], WETTER_WORTE[w.temperatur], WETTER_WORTE[w.wind]].filter(Boolean).join(' · ') : '';
+// Ein Zufall mit Samen, damit dieselbe Reise dasselbe Wetter behaelt,
+// bis jemand neu wuerfelt (mulberry32).
+const samenZufall = samen => {
+  let a = samen >>> 0 || 1;
+  return () => {
+    a = a + 0x6D2B79F5 >>> 0;
+    let t = a;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+};
+const wetterFuerTage = (anzahl, klima, jahreszeit, samen, vorgaben) => {
+  const z = samenZufall(samen);
+  const aus = [];
+  for (let i = 0; i < anzahl; i++) {
+    const gewuerfelt = wetterWuerfeln(klima, jahreszeit, aus[i - 1], z);
+    aus.push(vorgaben && vorgaben[i] ? vorgaben[i] : gewuerfelt);
+  }
+  return aus;
+};
+
+// ── Uebergabe an das Heldenbuch ──────────────────────────────────
+// Der Planer schreibt nie selbst in Boegen oder in die Chronik. Er legt
+// einen Auftrag in den gemeinsamen Speicher; das Heldenbuch — im DM-Modus,
+// im selben Abenteuer — oeffnet daraus seinen eigenen Dialog, vorbelegt.
+// Alles, was dort an Boegen haengt, laeuft dann den gewohnten Weg.
+const PLANER_AUFTRAG = 'hb_planer_auftrag';
+const PLANER_QUITTUNG = 'hb_planer_quittung';
+const AUFTRAG_FRIST_MS = 30 * 60 * 1000;
+const auftragZeit = (advId, stunden) => ({
+  art: 'zeit',
+  advId,
+  stunden: Math.max(0, Math.round(stunden))
+});
+const auftragRast = (advId, wetter, text) => ({
+  art: 'rast',
+  advId,
+  rastArt: 'lang',
+  basis: 2,
+  niederschlag: wetter && wetter.niederschlag || 'leicht',
+  temperatur: wetter && wetter.temperatur || 'mild',
+  wind: wetter && wetter.wind || 'flaute',
+  massnahmen: [],
+  text: String(text || '').slice(0, 160)
+});
+const auftragGewaltmarsch = (advId, sg, text) => ({
+  art: 'probe',
+  advId,
+  probeArt: 'rw',
+  wert: 'con',
+  sg: Math.max(1, Math.min(40, sg)),
+  text: String(text || '').slice(0, 160)
+});
+// ══ Ende der reinen Rechnung
+
 // ==== planer/src/2-leinwand.jsx ====
 // ── Die Kartenleinwand ───────────────────────────────────────────
 // Zeigt die Kachelpyramide einer Karte: ziehen zum Verschieben, Mausrad
@@ -1066,6 +1686,12 @@ const KartenLeinwand = ({
   linie,
   fokus,
   gedaechtnis,
+  routen,
+  gruppen,
+  routeWahl,
+  reiseWahl,
+  onRouteWahl,
+  onReiseWahl,
   onKlick,
   onOrtWahl,
   onOrtVerschieben,
@@ -1156,7 +1782,7 @@ const KartenLeinwand = ({
     if (!plan || !a) return;
     if (e.button !== undefined && e.button > 0) return;
     // Knoepfe auf der Karte bekommen ihren Klick selbst.
-    if (e.target.closest && e.target.closest('button')) return;
+    if (e.target.closest && e.target.closest('button, .pl-route-treffer')) return;
     try {
       box.current.setPointerCapture(e.pointerId);
     } catch (err) {/* ohne Fangen geht es auch */}
@@ -1290,10 +1916,36 @@ const KartenLeinwand = ({
         width: t.breite + 0.6,
         height: t.hoehe + 0.6
       }
-    }))), linie && linie.punkte.length > 0 && /*#__PURE__*/React.createElement("svg", {
+    }))), /*#__PURE__*/React.createElement("svg", {
       className: "pl-ueberlage",
       width: g.breite,
-      height: g.hoehe,
+      height: g.hoehe
+    }, (routen || []).map(r => {
+      const ps = (r.punkte || []).map(schirm);
+      if (ps.length < 2) return null;
+      const zug = ps.map(s => s.x + ',' + s.y).join(' ');
+      return /*#__PURE__*/React.createElement("g", {
+        key: r.id,
+        className: 'pl-route' + (r.id === routeWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : '')
+      }, /*#__PURE__*/React.createElement("polyline", {
+        points: zug,
+        className: "pl-route-grund"
+      }), ps.slice(1).map((s, i) => /*#__PURE__*/React.createElement("line", {
+        key: i,
+        x1: ps[i].x,
+        y1: ps[i].y,
+        x2: s.x,
+        y2: s.y,
+        className: "pl-route-strich",
+        style: {
+          stroke: gelaende((r.gelaende || [])[i] || r.standard || 'offen').farbe
+        }
+      })), /*#__PURE__*/React.createElement("polyline", {
+        points: zug,
+        className: "pl-route-treffer",
+        onClick: () => onRouteWahl && onRouteWahl(r.id)
+      }, /*#__PURE__*/React.createElement("title", null, r.name)));
+    }), linie && linie.punkte.length > 0 && /*#__PURE__*/React.createElement("g", {
       "aria-hidden": "true"
     }, /*#__PURE__*/React.createElement("polyline", {
       points: linie.punkte.map(p => {
@@ -1310,7 +1962,23 @@ const KartenLeinwand = ({
         r: 4.5,
         className: 'pl-linie-punkt ' + (linie.art || '')
       });
-    })), orte.map(o => {
+    }))), (gruppen || []).filter(gr => gr.punkt).map(gr => {
+      const s = schirm(gr.punkt);
+      return /*#__PURE__*/React.createElement("button", {
+        key: gr.id,
+        className: 'pl-gruppe' + (gr.id === reiseWahl ? ' aktiv' : '') + (dm && !gr.sichtbar ? ' verborgen' : ''),
+        style: {
+          left: s.x,
+          top: s.y
+        },
+        title: gr.name,
+        onClick: () => onReiseWahl && onReiseWahl(gr.id)
+      }, /*#__PURE__*/React.createElement("span", {
+        "aria-hidden": "true"
+      }, "\uD83E\uDDED"), /*#__PURE__*/React.createElement("span", {
+        className: "pl-ort-name"
+      }, gr.name));
+    }), orte.map(o => {
       const gezogen = zieh && zieh.id === o.id ? zieh : null;
       const s = schirm(gezogen ? gezogen : o);
       if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
@@ -1756,6 +2424,576 @@ const OrtTafel = ({
   }, "Speichern"))), lupe);
 };
 
+// ==== planer/src/3b-reise.jsx ====
+// ── Routen und Reisen: die Tafeln ────────────────────────────────
+// Die Rechnung steht in 1c-reise.jsx. Hier: die Tafel einer Route
+// (Gelaende je Abschnitt) und die einer Reise (Einstellungen, Plan Tag
+// fuer Tag, Wetter, der naechste Reisetag, Uebergaben ans Heldenbuch).
+
+// Ein Auftrag an das Heldenbuch: in den gemeinsamen Speicher legen und
+// kurz auf die Quittung warten. Kommt keine, ist kein Heldenbuch im
+// DM-Modus offen — dann wartet der Auftrag dort eine halbe Stunde.
+const anHeldenbuch = auftrag => new Promise(ok => {
+  const id = planNeueId('a');
+  try {
+    localStorage.setItem(PLANER_AUFTRAG, JSON.stringify({
+      ...auftrag,
+      id,
+      zeit: Date.now()
+    }));
+  } catch (e) {
+    ok(false);
+    return;
+  }
+  const bis = Date.now() + 2500;
+  const t = setInterval(() => {
+    let q = null;
+    try {
+      q = JSON.parse(localStorage.getItem(PLANER_QUITTUNG) || 'null');
+    } catch (e) {
+      q = null;
+    }
+    if (q && q.id === id) {
+      clearInterval(t);
+      ok(true);
+    } else if (Date.now() > bis) {
+      clearInterval(t);
+      ok(false);
+    }
+  }, 120);
+});
+
+// Wie OrtTafel: der Entwurf nimmt neue Fassungen vom Server, wo hier
+// nichts geaendert ist.
+const useEntwurf = wert => {
+  const [entwurf, setEntwurf] = useState(wert);
+  const [basis, setBasis] = useState(wert);
+  const gleich = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  useEffect(() => {
+    if (gleich(wert, basis)) return;
+    setEntwurf(e => {
+      const aus = {
+        ...wert
+      };
+      new Set([...Object.keys(e), ...Object.keys(basis)]).forEach(k => {
+        if (!gleich(e[k], basis[k])) aus[k] = e[k];
+      });
+      return aus;
+    });
+    setBasis(wert);
+  }, [JSON.stringify(wert)]);
+  return [entwurf, setEntwurf, !gleich(entwurf, wert)];
+};
+const TafelKopf = ({
+  symbol,
+  titel,
+  onSchliessen
+}) => /*#__PURE__*/React.createElement("header", {
+  className: "pl-tafel-kopf"
+}, /*#__PURE__*/React.createElement("span", {
+  className: "pl-tafel-symbol",
+  "aria-hidden": "true"
+}, symbol), /*#__PURE__*/React.createElement("h2", null, titel), /*#__PURE__*/React.createElement("button", {
+  className: "pl-symbol",
+  "aria-label": "Schlie\xDFen",
+  onClick: onSchliessen
+}, "\u2715"));
+
+// ── Route ────────────────────────────────────────────────────────
+const RouteTafel = ({
+  route,
+  dm,
+  karte,
+  reisen,
+  onSpeichern,
+  onLoeschen,
+  onSchliessen,
+  onReiseNeu,
+  onReiseWahl
+}) => {
+  const [entwurf, setEntwurf, geaendert] = useEntwurf(route);
+  const m = karte.massstab;
+  const ab = routeAbschnitte(entwurf, m);
+  const laenge = ab.reduce((s, a) => s + a.laenge, 0);
+  const setze = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    [feld]: wert
+  }));
+  const setzeGelaende = (i, g) => setEntwurf(e => {
+    const liste = routeAbschnitte(e, m).map(a => a.gelaende);
+    liste[i] = g;
+    return {
+      ...e,
+      gelaende: liste
+    };
+  });
+  const eigeneReisen = reisen.filter(r => r.routeId === route.id);
+  const laengeZeile = m ? laengeText(laenge, m.einheit) : 'ohne Maßstab';
+  if (!dm) {
+    return /*#__PURE__*/React.createElement("aside", {
+      className: "pl-tafel",
+      "aria-label": 'Route: ' + route.name
+    }, /*#__PURE__*/React.createElement(TafelKopf, {
+      symbol: "\uD83D\uDEE4",
+      titel: route.name,
+      onSchliessen: onSchliessen
+    }), /*#__PURE__*/React.createElement("p", {
+      className: "pl-leise"
+    }, laengeZeile, " \xB7 ", ab.length, " Abschnitte"), route.text ? /*#__PURE__*/React.createElement("p", {
+      className: "pl-ort-text"
+    }, route.text) : null, eigeneReisen.map(r => /*#__PURE__*/React.createElement("button", {
+      key: r.id,
+      className: "pl-knopf pl-klein",
+      onClick: () => onReiseWahl(r.id)
+    }, "\uD83E\uDDED ", r.name)));
+  }
+  return /*#__PURE__*/React.createElement("aside", {
+    className: "pl-tafel",
+    "aria-label": 'Route bearbeiten: ' + route.name
+  }, /*#__PURE__*/React.createElement(TafelKopf, {
+    symbol: "\uD83D\uDEE4",
+    titel: entwurf.name || 'Ohne Namen',
+    onSchliessen: onSchliessen
+  }), /*#__PURE__*/React.createElement("form", {
+    className: "pl-formular",
+    onSubmit: e => {
+      e.preventDefault();
+      if (geaendert) onSpeichern(entwurf);
+    }
+  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    value: entwurf.name || '',
+    maxLength: 120,
+    onChange: e => setze('name', e.target.value)
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise"
+  }, laengeZeile, " \xB7 ", ab.length, " Abschnitte"), /*#__PURE__*/React.createElement("label", null, "Alle Abschnitte", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld pl-alle-gelaende",
+    value: "",
+    onChange: e => {
+      const g = e.target.value;
+      if (g) setze('gelaende', ab.map(() => g));
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 Gel\xE4nde f\xFCr alle setzen \u2014"), GELAENDE.map(g => /*#__PURE__*/React.createElement("option", {
+    key: g.k,
+    value: g.k
+  }, g.l)))), /*#__PURE__*/React.createElement("ol", {
+    className: "pl-abschnitte"
+  }, ab.map(a => /*#__PURE__*/React.createElement("li", {
+    key: a.i
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "pl-farbpunkt",
+    style: {
+      background: gelaende(a.gelaende).farbe
+    },
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "pl-abschnitt-laenge"
+  }, m ? laengeText(a.laenge, m.einheit) : Math.round(a.px) + ' px'), /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: a.gelaende,
+    "aria-label": 'Gelände Abschnitt ' + (a.i + 1),
+    onChange: e => setzeGelaende(a.i, e.target.value)
+  }, GELAENDE.map(g => /*#__PURE__*/React.createElement("option", {
+    key: g.k,
+    value: g.k
+  }, g.l)))))), /*#__PURE__*/React.createElement("label", null, "Was die Spieler lesen", /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld",
+    rows: 2,
+    value: entwurf.text || '',
+    maxLength: 20000,
+    onChange: e => setze('text', e.target.value)
+  })), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld pl-dm-feld",
+    rows: 2,
+    value: entwurf.dm && entwurf.dm.notiz || '',
+    maxLength: 20000,
+    onChange: e => setEntwurf(v => ({
+      ...v,
+      dm: {
+        ...(v.dm || {}),
+        notiz: e.target.value
+      }
+    }))
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!entwurf.sichtbar,
+    onChange: e => setze('sichtbar', e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein pl-haupt",
+    disabled: geaendert || !m,
+    onClick: () => onReiseNeu(route),
+    title: !m ? 'Die Karte braucht zuerst einen Maßstab' : geaendert ? 'Erst speichern' : ''
+  }, "\uD83E\uDDED Reise planen"), eigeneReisen.map(r => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: r.id,
+    className: "pl-knopf pl-klein",
+    onClick: () => onReiseWahl(r.id)
+  }, "\uD83E\uDDED ", r.name))), /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-gefahr pl-klein",
+    onClick: () => onLoeschen(route)
+  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: !geaendert,
+    onClick: () => setEntwurf(route)
+  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "pl-knopf pl-haupt pl-klein",
+    disabled: !geaendert
+  }, "Speichern"))));
+};
+
+// ── Reise ────────────────────────────────────────────────────────
+const neueReise = route => ({
+  id: planNeueId('j'),
+  karteId: route.karteId,
+  art: 'reise',
+  name: 'Reise: ' + route.name,
+  routeId: route.id,
+  richtung: 'hin',
+  optionen: {
+    tempo: 'normal',
+    fortbewegung: 'fuss'
+  },
+  personen: 4,
+  klima: 'gemaessigt',
+  jahreszeit: 'sommer',
+  samen: Math.floor(Math.random() * 2147483647) + 1,
+  wetterVorgaben: {},
+  pos: 0,
+  tagebuch: [],
+  sichtbar: false,
+  dm: {
+    notiz: ''
+  }
+});
+
+// Das Wetter der Tage ab dem Start: gewuerfelt aus dem Samen, und wo
+// die Spielleitung etwas festgelegt hat, das.
+const reiseWetter = (reise, anzahl) => {
+  const vorgaben = [];
+  Object.entries(reise.wetterVorgaben || {}).forEach(([i, w]) => {
+    vorgaben[+i] = w;
+  });
+  return wetterFuerTage(anzahl, reise.klima, reise.jahreszeit, reise.samen || 1, vorgaben);
+};
+const reiseStand = (reise, route, massstab) => {
+  const r = routeInRichtung(route, reise.richtung);
+  const tag = (reise.tagebuch || []).length;
+  const wetter = reiseWetter(reise, tag + REISE_HOECHSTENS_TAGE);
+  const plan = reisePlan({
+    route: r,
+    massstab,
+    optionen: reise.optionen,
+    start: reise.pos,
+    wetter: wetter.slice(tag)
+  });
+  const punkt = massstab ? punktAufRoute(r, massstab, reise.pos || 0) : (r.punkte || [])[0];
+  return {
+    r,
+    tag,
+    plan,
+    punkt,
+    heute: wetter[tag],
+    gesamt: plan.gesamt
+  };
+};
+const WetterWahl = ({
+  wetter,
+  onWetter
+}) => {
+  const feld = (name, liste) => /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: wetter[name],
+    "aria-label": name,
+    onChange: e => onWetter({
+      ...wetter,
+      [name]: e.target.value
+    })
+  }, liste.map(k => /*#__PURE__*/React.createElement("option", {
+    key: k,
+    value: k
+  }, WETTER_WORTE[k])));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "pl-wetter-wahl"
+  }, feld('niederschlag', WETTER_NIEDERSCHLAG), feld('temperatur', WETTER_TEMPERATUR), feld('wind', WETTER_WIND));
+};
+const ReiseTafel = ({
+  reise,
+  route,
+  dm,
+  karte,
+  advId,
+  chronikZeit,
+  onSpeichern,
+  onLoeschen,
+  onSchliessen,
+  onMeldung
+}) => {
+  const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
+  const [uebergabe, setUebergabe] = useState('');
+  const m = karte.massstab;
+  const st = reiseStand(entwurf, route, m);
+  const einh = m ? m.einheit : 'km';
+  const heute = st.plan.tage[0];
+  const angekommen = m && st.gesamt > 0 && (entwurf.pos || 0) >= st.gesamt - 1e-9;
+  const setze = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    [feld]: wert
+  }));
+  const setzeOpt = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    optionen: {
+      ...(e.optionen || {}),
+      [feld]: wert
+    }
+  }));
+  const f = fortbewegung(entwurf.optionen && entwurf.optionen.fortbewegung);
+  const verpf = verpflegung(st.plan.tage.length, entwurf.personen);
+  const ankunft = chronikZeit != null && st.plan.angekommen ? 'Tag ' + (Math.floor((chronikZeit + st.plan.tage.length * 24) / 24) + 1) : '';
+  const tagAbschliessen = () => {
+    if (!heute) return;
+    const eintrag = {
+      nr: st.tag + 1,
+      strecke: heute.strecke,
+      stunden: heute.stunden,
+      wetter: st.heute,
+      gewaltmarsch: heute.gewaltmarsch,
+      teile: heute.teile.map(t => ({
+        gelaende: t.gelaende,
+        strecke: t.strecke
+      }))
+    };
+    onSpeichern({
+      ...entwurf,
+      pos: heute.bis,
+      tagebuch: [...(entwurf.tagebuch || []), eintrag]
+    });
+  };
+  const tagZuruecknehmen = () => {
+    const liste = [...(entwurf.tagebuch || [])];
+    const letzter = liste.pop();
+    if (!letzter) return;
+    onSpeichern({
+      ...entwurf,
+      pos: Math.max(0, (entwurf.pos || 0) - letzter.strecke),
+      tagebuch: liste
+    });
+  };
+  const uebergeben = async (auftrag, was) => {
+    setUebergabe(was + ' …');
+    const genommen = await anHeldenbuch(auftrag);
+    setUebergabe('');
+    onMeldung(genommen ? {
+      art: 'gut',
+      text: was + ': Das Heldenbuch hat den Dialog geöffnet. Bestätige ihn dort.'
+    } : {
+      art: 'gut',
+      text: was + ': Der Auftrag wartet eine halbe Stunde. Öffne das Heldenbuch im DM-Modus, dann geht der Dialog dort auf.'
+    });
+  };
+  const letzter = (entwurf.tagebuch || [])[(entwurf.tagebuch || []).length - 1];
+  if (!dm) {
+    return /*#__PURE__*/React.createElement("aside", {
+      className: "pl-tafel",
+      "aria-label": 'Reise: ' + reise.name
+    }, /*#__PURE__*/React.createElement(TafelKopf, {
+      symbol: "\uD83E\uDDED",
+      titel: reise.name,
+      onSchliessen: onSchliessen
+    }), m && /*#__PURE__*/React.createElement("p", null, st.tag ? 'Tag ' + st.tag + ' · ' : '', laengeText(reise.pos || 0, einh), " von ", laengeText(st.gesamt, einh), angekommen ? ' · angekommen' : ''), letzter && letzter.wetter && /*#__PURE__*/React.createElement("p", {
+      className: "pl-leise"
+    }, "Zuletzt: ", WETTER_ZEICHEN[letzter.wetter.niederschlag], " ", wetterText(letzter.wetter)));
+  }
+  return /*#__PURE__*/React.createElement("aside", {
+    className: "pl-tafel pl-reise",
+    "aria-label": 'Reise: ' + reise.name
+  }, /*#__PURE__*/React.createElement(TafelKopf, {
+    symbol: "\uD83E\uDDED",
+    titel: entwurf.name || 'Reise',
+    onSchliessen: onSchliessen
+  }), /*#__PURE__*/React.createElement("form", {
+    className: "pl-formular",
+    onSubmit: e => {
+      e.preventDefault();
+      if (geaendert) onSpeichern(entwurf);
+    }
+  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    value: entwurf.name || '',
+    maxLength: 120,
+    onChange: e => setze('name', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "pl-raster2"
+  }, /*#__PURE__*/React.createElement("label", null, "Richtung", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: entwurf.richtung,
+    onChange: e => setze('richtung', e.target.value),
+    disabled: (entwurf.tagebuch || []).length > 0
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "hin"
+  }, "Vom Anfang zum Ende"), /*#__PURE__*/React.createElement("option", {
+    value: "zurueck"
+  }, "Vom Ende zum Anfang"))), /*#__PURE__*/React.createElement("label", null, "Fortbewegung", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: f.k,
+    onChange: e => setzeOpt('fortbewegung', e.target.value)
+  }, FORTBEWEGUNG.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.k,
+    value: x.k
+  }, x.l)))), f.art !== 'wasser' && /*#__PURE__*/React.createElement("label", null, "Tempo", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: tempo(entwurf.optionen && entwurf.optionen.tempo).k,
+    onChange: e => setzeOpt('tempo', e.target.value)
+  }, TEMPO.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.k,
+    value: x.k
+  }, x.l)))), /*#__PURE__*/React.createElement("label", null, "Stunden am Tag", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    type: "number",
+    min: 1,
+    max: 24,
+    value: reiseStunden(entwurf.optionen),
+    onChange: e => setzeOpt('stunden', Math.max(1, Math.min(24, +e.target.value || 1)))
+  })), /*#__PURE__*/React.createElement("label", null, "Personen", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    type: "number",
+    min: 0,
+    max: 999,
+    value: entwurf.personen ?? 4,
+    onChange: e => setze('personen', Math.max(0, +e.target.value || 0))
+  })), /*#__PURE__*/React.createElement("label", null, "Klima", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: entwurf.klima,
+    onChange: e => setze('klima', e.target.value)
+  }, KLIMA.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.k,
+    value: x.k
+  }, x.l)))), /*#__PURE__*/React.createElement("label", null, "Jahreszeit", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: entwurf.jahreszeit,
+    onChange: e => setze('jahreszeit', e.target.value)
+  }, JAHRESZEITEN.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.k,
+    value: x.k
+  }, x.l))))), /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!entwurf.sichtbar,
+    onChange: e => setze('sichtbar', e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "Spieler sehen die Gruppe auf der Karte")), geaendert && /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setEntwurf(reise)
+  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "pl-knopf pl-haupt pl-klein"
+  }, "Speichern"))), !m ? /*#__PURE__*/React.createElement("p", {
+    className: "pl-warnung"
+  }, "Die Karte braucht einen Ma\xDFstab, sonst l\xE4sst sich nichts rechnen.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dl", {
+    className: "pl-fakten pl-reise-fakten"
+  }, /*#__PURE__*/React.createElement("dt", null, "Strecke"), /*#__PURE__*/React.createElement("dd", null, laengeText(entwurf.pos || 0, einh), " von ", laengeText(st.gesamt, einh)), /*#__PURE__*/React.createElement("dt", null, "Noch"), /*#__PURE__*/React.createElement("dd", null, angekommen ? 'angekommen' : st.plan.tage.length + (st.plan.tage.length === 1 ? ' Tag' : ' Tage') + (st.plan.angekommen ? '' : ' bis zum Hindernis')), ankunft && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Ankunft"), /*#__PURE__*/React.createElement("dd", null, ankunft, " der Chronik")), entwurf.personen > 0 && st.plan.tage.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Verpflegung"), /*#__PURE__*/React.createElement("dd", null, verpf.rationen, " Rationen, ", verpf.wasserLiter, " l Wasser")), f.art !== 'wasser' && tempo(entwurf.optionen && entwurf.optionen.tempo).folge && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Tempo"), /*#__PURE__*/React.createElement("dd", null, tempo(entwurf.optionen.tempo).folge))), st.plan.warnungen.map(w => /*#__PURE__*/React.createElement("p", {
+    key: w,
+    className: "pl-warnung"
+  }, w)), heute && !angekommen && /*#__PURE__*/React.createElement("section", {
+    className: "pl-heute",
+    "aria-label": "Der n\xE4chste Reisetag"
+  }, /*#__PURE__*/React.createElement("h3", null, "Tag ", st.tag + 1), /*#__PURE__*/React.createElement("p", {
+    className: "pl-heute-zeile"
+  }, /*#__PURE__*/React.createElement("strong", null, laengeText(heute.strecke, einh)), " in ", stundenText(heute.stunden), ' · ', heute.teile.map(t => gelaende(t.gelaende).l).join(', '), heute.angekommen ? ' · Ankunft' : ''), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile pl-wetter-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, WETTER_ZEICHEN[st.heute.niederschlag], " Wetter"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    title: "Neu w\xFCrfeln",
+    onClick: () => {
+      const v = {
+        ...(entwurf.wetterVorgaben || {})
+      };
+      delete v[st.tag];
+      onSpeichern({
+        ...entwurf,
+        samen: Math.floor(Math.random() * 2147483647) + 1,
+        wetterVorgaben: v
+      });
+    }
+  }, "\uD83C\uDFB2")), /*#__PURE__*/React.createElement(WetterWahl, {
+    wetter: st.heute,
+    onWetter: w => onSpeichern({
+      ...entwurf,
+      wetterVorgaben: {
+        ...(entwurf.wetterVorgaben || {}),
+        [st.tag]: w
+      }
+    })
+  }), heute.gewaltmarsch.length > 0 && /*#__PURE__*/React.createElement("p", {
+    className: "pl-warnung"
+  }, "Gewaltmarsch: KO-Rettungsw\xFCrfe SG ", heute.gewaltmarsch.map(g => g.sg).join(', '), " \u2014 bei Misserfolg eine Stufe Ersch\xF6pfung."), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-haupt",
+    onClick: tagAbschliessen
+  }, "\u2713 Tag ", st.tag + 1, " abschlie\xDFen")), letzter && /*#__PURE__*/React.createElement("section", {
+    className: "pl-heute",
+    "aria-label": "Der letzte Reisetag"
+  }, /*#__PURE__*/React.createElement("h3", null, "Nach Tag ", letzter.nr), /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise"
+  }, laengeText(letzter.strecke, einh), " \xB7 ", letzter.wetter ? wetterText(letzter.wetter) : ''), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: !!uebergabe,
+    onClick: () => uebergeben(auftragZeit(advId, 24), '⏩ Einen Tag weiter')
+  }, "\u23E9 Chronik: +1 Tag"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: !!uebergabe,
+    onClick: () => uebergeben(auftragRast(advId, letzter.wetter, 'Lager nach Reisetag ' + letzter.nr + ' (' + entwurf.name + ')'), '☾ Lager')
+  }, "\u263E Lager aufschlagen"), (letzter.gewaltmarsch || []).map(g => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: g.stunde,
+    className: "pl-knopf pl-klein",
+    disabled: !!uebergabe,
+    onClick: () => uebergeben(auftragGewaltmarsch(advId, g.sg, 'Gewaltmarsch, Stunde ' + g.stunde), '🎲 Gewaltmarsch')
+  }, "\uD83C\uDFB2 KO SG ", g.sg))), uebergabe && /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise"
+  }, uebergabe), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: tagZuruecknehmen
+  }, "\u21B6 Tag ", letzter.nr, " zur\xFCcknehmen")), st.plan.tage.length > 1 && /*#__PURE__*/React.createElement("details", {
+    className: "pl-plan"
+  }, /*#__PURE__*/React.createElement("summary", null, "Plan: ", st.plan.tage.length, " Tage"), /*#__PURE__*/React.createElement("div", {
+    className: "pl-plan-rolle"
+  }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Tag"), /*#__PURE__*/React.createElement("th", null, "Strecke"), /*#__PURE__*/React.createElement("th", null, "Zeit"), /*#__PURE__*/React.createElement("th", null, "Wetter"), /*#__PURE__*/React.createElement("th", null, "KO"))), /*#__PURE__*/React.createElement("tbody", null, st.plan.tage.slice(0, 60).map((t, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i
+  }, /*#__PURE__*/React.createElement("td", null, st.tag + t.nr), /*#__PURE__*/React.createElement("td", null, laengeText(t.strecke, einh)), /*#__PURE__*/React.createElement("td", null, stundenText(t.stunden)), /*#__PURE__*/React.createElement("td", {
+    title: wetterText(t.wetter)
+  }, t.wetter ? WETTER_ZEICHEN[t.wetter.niederschlag] + ' ' + WETTER_WORTE[t.wetter.temperatur] : ''), /*#__PURE__*/React.createElement("td", null, t.gewaltmarsch.map(g => g.sg).join(', '))))))))), /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-gefahr pl-klein",
+    onClick: () => onLoeschen(reise)
+  }, "Reise l\xF6schen")));
+};
+
 // ==== planer/src/4-app.jsx ====
 // ── Abenteuerplaner: die Seite ───────────────────────────────────
 // Wer bin ich, welches Abenteuer, welche Karten — und auf der Karte das
@@ -2028,7 +3266,48 @@ const PlanerOrtListe = ({
     className: "pl-marke-verborgen"
   }, "verborgen"))))));
 };
+const PlanerWegListe = ({
+  routen,
+  reisen,
+  routeWahl,
+  reiseWahl,
+  dm,
+  onRouteWahl,
+  onReiseWahl
+}) => {
+  if (!routen.length) return null;
+  return /*#__PURE__*/React.createElement("nav", {
+    className: "pl-liste",
+    "aria-label": "Routen und Reisen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pl-liste-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "Routen \xB7 ", routen.length)), /*#__PURE__*/React.createElement("ul", null, routen.map(r => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: r.id
+  }, /*#__PURE__*/React.createElement("li", {
+    className: 'pl-eintrag' + (r.id === routeWahl ? ' aktiv' : '')
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "pl-eintrag-name",
+    onClick: () => onRouteWahl(r.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    "aria-hidden": "true"
+  }, "\uD83D\uDEE4"), /*#__PURE__*/React.createElement("span", {
+    className: 'pl-eintrag-text' + (dm && !r.sichtbar ? ' pl-verborgen-text' : '')
+  }, r.name))), reisen.filter(j => j.routeId === r.id).map(j => /*#__PURE__*/React.createElement("li", {
+    key: j.id,
+    className: 'pl-eintrag pl-eintrag-unter' + (j.id === reiseWahl ? ' aktiv' : '')
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "pl-eintrag-name",
+    onClick: () => onReiseWahl(j.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    "aria-hidden": "true"
+  }, "\uD83E\uDDED"), /*#__PURE__*/React.createElement("span", {
+    className: 'pl-eintrag-text' + (dm && !j.sichtbar ? ' pl-verborgen-text' : '')
+  }, j.name), (j.tagebuch || []).length > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, "Tag ", (j.tagebuch || []).length))))))));
+};
 const WERKZEUG_HINWEIS = {
+  route: 'Klicke Punkt für Punkt den Weg. Das Gelände je Abschnitt stellst du danach ein.',
   ort: 'Klicke auf die Karte, wo der neue Ort liegen soll.',
   massstab: 'Klicke zwei Punkte, deren Entfernung du kennst — zum Beispiel die Enden der Maßstabsleiste der Karte.',
   lineal: 'Klicke Punkt für Punkt eine Strecke.'
@@ -2050,6 +3329,9 @@ const PlanerApp = () => {
   const [punkte, setPunkte] = useState([]);
   const [massstabFrage, setMassstabFrage] = useState(null);
   const [ortWahl, setOrtWahl] = useState('');
+  const [routeWahl, setRouteWahl] = useState('');
+  const [reiseWahl, setReiseWahl] = useState('');
+  const [chronikZeit, setChronikZeit] = useState(null);
   const [fokus, setFokus] = useState(null);
   const standRef = useRef(0);
   const arbeitRef = useRef(false);
@@ -2105,6 +3387,56 @@ const PlanerApp = () => {
   const karte = karten.find(k => k.id === auswahl) || null;
   const orte = daten && karte ? daten.objekte.filter(o => o.art === 'ort' && o.karteId === karte.id) : [];
   const ort = orte.find(o => o.id === ortWahl) || null;
+  const routen = daten && karte ? daten.objekte.filter(o => o.art === 'route' && o.karteId === karte.id) : [];
+  const reisen = daten && karte ? daten.objekte.filter(o => o.art === 'reise' && o.karteId === karte.id) : [];
+  const route = routen.find(r => r.id === routeWahl) || null;
+  const reise = reisen.find(r => r.id === reiseWahl) || null;
+  const reiseRoute = reise ? routen.find(r => r.id === reise.routeId) || null : null;
+  // Wo jede Gruppe gerade steht.
+  const gruppen = karte ? reisen.map(j => {
+    const r = routen.find(x => x.id === j.routeId);
+    if (!r) return null;
+    const rr = routeInRichtung(r, j.richtung);
+    return {
+      id: j.id,
+      name: j.name,
+      sichtbar: j.sichtbar,
+      punkt: karte.massstab ? punktAufRoute(rr, karte.massstab, j.pos || 0) : (rr.punkte || [])[0]
+    };
+  }).filter(Boolean) : [];
+  // Nur eine Tafel zugleich.
+  const waehleOrt = id => {
+    setOrtWahl(id);
+    if (id) {
+      setRouteWahl('');
+      setReiseWahl('');
+    }
+  };
+  const waehleRoute = id => {
+    setRouteWahl(id);
+    if (id) {
+      setOrtWahl('');
+      setReiseWahl('');
+    }
+  };
+  const waehleReise = id => {
+    setReiseWahl(id);
+    if (id) {
+      setOrtWahl('');
+      setRouteWahl('');
+    }
+  };
+
+  // Die Uhr der Chronik, damit die Reise ihren Ankunftstag nennt. Nur
+  // lesen: gedreht wird sie im Heldenbuch.
+  useEffect(() => {
+    setChronikZeit(null);
+    if (!dm || !advId) return;
+    planerApi('dm_load_chronik', {}).then(r => {
+      const z = r.chronik && r.chronik.zeit ? r.chronik.zeit[advId] : 0;
+      setChronikZeit(+z || 0);
+    }).catch(() => {});
+  }, [dm, advId, daten && daten.stand]);
   useEffect(() => {
     setDateien(null);
     if (!dm || !karte) return;
@@ -2128,6 +3460,8 @@ const PlanerApp = () => {
     setWerkzeug('ansehen');
     setPunkte([]);
     setOrtWahl('');
+    setRouteWahl('');
+    setReiseWahl('');
   }, [auswahl]);
   useEffect(() => {
     const taste = e => {
@@ -2376,7 +3710,7 @@ const PlanerApp = () => {
       try {
         await objSpeichern(neu);
         await laden(advId);
-        setOrtWahl(neu.id);
+        waehleOrt(neu.id);
       } catch (e) {
         fehler(e);
       }
@@ -2388,11 +3722,85 @@ const PlanerApp = () => {
       if (neu.length === 2) setMassstabFrage(neu);
       return;
     }
-    if (werkzeug === 'lineal') {
+    if (werkzeug === 'lineal' || werkzeug === 'route') {
       setPunkte(v => [...v, p]);
       return;
     }
-    setOrtWahl('');
+    waehleOrt('');
+    setRouteWahl('');
+    setReiseWahl('');
+  };
+  // ── Routen und Reisen ───────────────────────────────────────────
+  const routeAnlegen = async punkteListe => {
+    if (!karte || punkteListe.length < 2) return;
+    const neu = {
+      id: planNeueId('r'),
+      karteId: karte.id,
+      art: 'route',
+      name: 'Neue Route',
+      punkte: punkteListe,
+      gelaende: punkteListe.slice(1).map(() => 'offen'),
+      sichtbar: false,
+      text: '',
+      dm: {
+        notiz: ''
+      }
+    };
+    setWerkzeug('ansehen');
+    setPunkte([]);
+    try {
+      await objSpeichern(neu);
+      await laden(advId);
+      waehleRoute(neu.id);
+    } catch (e) {
+      fehler(e);
+    }
+  };
+  const objAendern = async o => {
+    try {
+      await objSpeichern(o);
+      await laden(advId);
+    } catch (e) {
+      fehler(e);
+    }
+  };
+  const objWeg = (o, titel, text, danach) => setFrage({
+    titel,
+    text,
+    ja: 'Löschen',
+    gefahr: true,
+    onJa: async () => {
+      try {
+        await planerApi('planer_obj_loeschen', {
+          adv_id: advId,
+          obj_id: o.id
+        });
+        if (danach) await danach();
+        await laden(advId);
+      } catch (e) {
+        fehler(e);
+      }
+    }
+  });
+  const routeLoeschen = r => {
+    const abh = reisen.filter(j => j.routeId === r.id);
+    objWeg(r, 'Route löschen?', '„' + r.name + '“ wird gelöscht' + (abh.length ? ', mit ' + abh.length + (abh.length === 1 ? ' Reise' : ' Reisen') + ' darauf.' : '.'), async () => {
+      for (const j of abh) await planerApi('planer_obj_loeschen', {
+        adv_id: advId,
+        obj_id: j.id
+      }).catch(() => {});
+      setRouteWahl('');
+    });
+  };
+  const reiseAnlegen = async r => {
+    const neu = neueReise(r);
+    try {
+      await objSpeichern(neu);
+      await laden(advId);
+      waehleReise(neu.id);
+    } catch (e) {
+      fehler(e);
+    }
   };
   const massstabSpeichern = async m => {
     setMassstabFrage(null);
@@ -2597,7 +4005,7 @@ const PlanerApp = () => {
     }
   };
   if (!angemeldet) return /*#__PURE__*/React.createElement(PlanerNichtAngemeldet, null);
-  const linie = werkzeug === 'lineal' || werkzeug === 'massstab' ? {
+  const linie = werkzeug === 'lineal' || werkzeug === 'massstab' || werkzeug === 'route' ? {
     punkte,
     art: werkzeug
   } : null;
@@ -2658,7 +4066,7 @@ const PlanerApp = () => {
   }, /*#__PURE__*/React.createElement("p", null, "In dieser Gruppe gibt es noch kein Abenteuer. Lege im Heldenbuch eines an.")) : !daten ? /*#__PURE__*/React.createElement("div", {
     className: "pl-buehne-leer"
   }, /*#__PURE__*/React.createElement("p", null, "L\xE4dt \u2026")) : /*#__PURE__*/React.createElement("main", {
-    className: 'pl-haupt-flaeche' + (ort ? ' mit-tafel' : '')
+    className: 'pl-haupt-flaeche' + (ort || route || reise && reiseRoute ? ' mit-tafel' : '')
   }, /*#__PURE__*/React.createElement("div", {
     className: "pl-spalte"
   }, /*#__PURE__*/React.createElement(PlanerKartenListe, {
@@ -2682,10 +4090,32 @@ const PlanerApp = () => {
     auswahl: ortWahl,
     dm: dm,
     onWahl: o => {
-      setOrtWahl(o.id);
+      waehleOrt(o.id);
       setFokus({
         x: o.x,
         y: o.y,
+        n: Date.now()
+      });
+    }
+  }), karte && /*#__PURE__*/React.createElement(PlanerWegListe, {
+    routen: routen,
+    reisen: reisen,
+    routeWahl: routeWahl,
+    reiseWahl: reiseWahl,
+    dm: dm,
+    onRouteWahl: id => {
+      waehleRoute(id);
+      const r = routen.find(x => x.id === id);
+      if (r && r.punkte && r.punkte[0]) setFokus({
+        ...r.punkte[0],
+        n: Date.now()
+      });
+    },
+    onReiseWahl: id => {
+      waehleReise(id);
+      const gr = gruppen.find(x => x.id === id);
+      if (gr && gr.punkt) setFokus({
+        ...gr.punkt,
         n: Date.now()
       });
     }
@@ -2715,7 +4145,11 @@ const PlanerApp = () => {
     className: 'pl-knopf pl-klein' + (werkzeug === 'massstab' ? ' an' : ''),
     "aria-pressed": werkzeug === 'massstab',
     onClick: () => werkzeugWaehlen('massstab')
-  }, "\uD83D\uDCCF Ma\xDFstab"), karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCCF Ma\xDFstab"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+    className: 'pl-knopf pl-klein' + (werkzeug === 'route' ? ' an' : ''),
+    "aria-pressed": werkzeug === 'route',
+    onClick: () => werkzeugWaehlen('route')
+  }, "\uD83D\uDEE4 Route"), karte.bild && /*#__PURE__*/React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'lineal' ? ' an' : ''),
     "aria-pressed": werkzeug === 'lineal',
     onClick: () => werkzeugWaehlen('lineal')
@@ -2730,10 +4164,22 @@ const PlanerApp = () => {
     role: "status"
   }, /*#__PURE__*/React.createElement("span", null, WERKZEUG_HINWEIS[werkzeug]), werkzeug === 'lineal' && /*#__PURE__*/React.createElement("strong", {
     className: "pl-strecke"
-  }, !karte.massstab ? 'Ohne Maßstab lässt sich nicht messen' + (dm ? ' — leg ihn mit 📏 fest.' : '.') : punkte.length > 1 ? laengeText(strecke, karte.massstab.einheit) + ' · ' + fussZeitText(strecke, karte.massstab.einheit) : ''), werkzeug === 'lineal' && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, !karte.massstab ? 'Ohne Maßstab lässt sich nicht messen' + (dm ? ' — leg ihn mit 📏 fest.' : '.') : punkte.length > 1 ? laengeText(strecke, karte.massstab.einheit) + ' · ' + fussZeitText(strecke, karte.massstab.einheit) : ''), werkzeug === 'route' && /*#__PURE__*/React.createElement("strong", {
+    className: "pl-strecke"
+  }, punkte.length > 1 && karte.massstab ? laengeText(wegLaenge(punkte, karte.massstab), karte.massstab.einheit) : punkte.length + ' Punkte'), (werkzeug === 'lineal' || werkzeug === 'route') && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => setPunkte(v => v.slice(0, -1))
+  }, "\u21B6 Punkt"), werkzeug === 'lineal' && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => setPunkte([])
-  }, "Neu"), /*#__PURE__*/React.createElement("button", {
+  }, "Neu"), werkzeug === 'lineal' && dm && punkte.length > 1 && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => routeAnlegen(punkte)
+  }, "\uD83D\uDEE4 Als Route speichern"), werkzeug === 'route' && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein pl-haupt",
+    disabled: punkte.length < 2,
+    onClick: () => routeAnlegen(punkte)
+  }, "Route anlegen"), /*#__PURE__*/React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => {
       setWerkzeug('ansehen');
@@ -2748,8 +4194,14 @@ const PlanerApp = () => {
     linie: linie,
     fokus: fokus,
     gedaechtnis: gedaechtnis,
+    routen: routen,
+    gruppen: gruppen,
+    routeWahl: routeWahl,
+    reiseWahl: reiseWahl,
+    onRouteWahl: waehleRoute,
+    onReiseWahl: waehleReise,
     onKlick: aufKarteGeklickt,
-    onOrtWahl: setOrtWahl,
+    onOrtWahl: waehleOrt,
     onOrtVerschieben: ortVerschieben,
     onBildWaehlen: () => bildEingabe.current && bildEingabe.current.click()
   }), /*#__PURE__*/React.createElement("dl", {
@@ -2767,6 +4219,35 @@ const PlanerApp = () => {
     onUnterkarte: zurUnterkarte,
     onBilderHoch: ortBilderHoch,
     onBildWeg: ortBildWeg
+  }), route && karte && /*#__PURE__*/React.createElement(RouteTafel, {
+    key: route.id,
+    route: route,
+    dm: dm,
+    karte: karte,
+    reisen: reisen,
+    onSpeichern: r => objAendern({
+      ...r,
+      name: String(r.name || '').trim() || 'Ohne Namen'
+    }),
+    onLoeschen: routeLoeschen,
+    onSchliessen: () => setRouteWahl(''),
+    onReiseNeu: reiseAnlegen,
+    onReiseWahl: waehleReise
+  }), reise && reiseRoute && karte && /*#__PURE__*/React.createElement(ReiseTafel, {
+    key: reise.id,
+    reise: reise,
+    route: reiseRoute,
+    dm: dm,
+    karte: karte,
+    advId: advId,
+    chronikZeit: chronikZeit,
+    onSpeichern: j => objAendern({
+      ...j,
+      name: String(j.name || '').trim() || 'Reise'
+    }),
+    onLoeschen: j => objWeg(j, 'Reise löschen?', '„' + j.name + '“ wird gelöscht. Die Route bleibt.', async () => setReiseWahl('')),
+    onSchliessen: () => setReiseWahl(''),
+    onMeldung: setMeldung
   })), massstabFrage && /*#__PURE__*/React.createElement(MassstabDialog, {
     punkte: massstabFrage,
     alt: karte && karte.massstab,

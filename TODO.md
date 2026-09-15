@@ -2,8 +2,8 @@
 
 Offene Vorhaben. Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 
-- **Abenteuerplaner Stufe 2** — Reise, Zeit und Wetter. Stufenplan in
-  `PLANER.md`.
+- **Abenteuerplaner Stufe 3** — Regionen, Begegnungstabellen, Übergabe an
+  Kampftracker. Stufenplan in `PLANER.md`.
 
 ## Erledigt
 

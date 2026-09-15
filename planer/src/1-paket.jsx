@@ -249,7 +249,7 @@ const HBPLAN_MANIFEST = 'hbplan.json';
 // annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
-const PLAN_ARTEN = ['ort', 'route', 'figur', 'region', 'notiz', 'tabelle'];
+const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle'];
 
 const planNeueId = (vorsilbe) => {
   const b = new Uint8Array(8);
