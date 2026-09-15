@@ -75,7 +75,7 @@ const ausDatei = (datei) => {
 const BYTES = `
   ArrayBuffer DataView Uint8Array Uint16Array Uint32Array Int32Array
   CompressionStream DecompressionStream Response ReadableStream btoa atob
-  URLSearchParams DataTransfer
+  URLSearchParams DataTransfer OffscreenCanvas createImageBitmap ImageBitmap
 `.trim().split(/\s+/);
 const BEKANNT_PLANER = new Set([...BROWSER, ...BYTES, ...ausDatei(path.join('planer', 'index.html'))]);
 

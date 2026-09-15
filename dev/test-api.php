@@ -1190,6 +1190,23 @@ $r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => '
 pruefe('ein Ort wird geloescht (200)', $r['status'] === 200, kurz($r));
 $r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'o_testburg01']);
 pruefe('  … ein zweites Mal ist er nicht mehr da (404)', $r['status'] === 404, kurz($r));
+$hoch($tDm, 'k_testbarovia01', [['pfad' => 'b2/0/0/0.png', 'daten' => base64_encode($png)],
+                                 ['pfad' => 'orte/o_testdorf01/a1.png', 'daten' => base64_encode($png)],
+                                 ['pfad' => 'orte/o_testdorf01/a2.png', 'daten' => base64_encode($png)]]);
+$liste = fn() => array_column((array)(ruf('planer_dateien_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01'])['body']['dateien'] ?? []), 'pfad');
+$r = ruf('planer_dateien_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01', 'pfade' => ['orte/o_testdorf01/a1.png']]);
+pruefe('einzelne Dateien lassen sich loeschen', $r['status'] === 200 && !in_array('orte/o_testdorf01/a1.png', $liste(), true) && in_array('orte/o_testdorf01/a2.png', $liste(), true), kurz($r));
+$r = ruf('planer_dateien_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01', 'praefix' => 'b2']);
+pruefe('ein altes Kartenbild als Ordner', $r['status'] === 200 && !in_array('b2/0/0/0.png', $liste(), true) && in_array('kacheln/0/0/0.png', $liste(), true), kurz($r));
+$r = ruf('planer_dateien_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01', 'praefix' => 'orte/o_testdorf01']);
+pruefe('die Bilder eines Orts als Ordner', $r['status'] === 200 && !in_array('orte/o_testdorf01/a2.png', $liste(), true), kurz($r));
+foreach (['..', '../x', 'a/b/c', '/b2', 'B2'] as $pr) {
+    $r = ruf('planer_dateien_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01', 'praefix' => $pr]);
+    pruefe('abgewiesener Ordner: ' . $pr . ' (400)', $r['status'] === 400, kurz($r));
+}
+$r = ruf('planer_dateien_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01', 'pfade' => ['../../api.php']]);
+pruefe('abgewiesene Datei beim Loeschen (400)', $r['status'] === 400, kurz($r));
+pruefe('  … api.php steht noch', is_file(__DIR__ . '/../api.php'));
 $r = ruf('planer_dateien_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
 $r2 = ruf('planer_dateien_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
 pruefe('planer_dateien_weg leert die Ablage', $r['status'] === 200 && ($r2['body']['dateien'] ?? null) === [], kurz($r));

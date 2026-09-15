@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus planer/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 2-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 2-leinwand.jsx, 3-ort.jsx, 4-app.jsx
 // ==== planer/src/0-basis.jsx ====
 // ── Abenteuerplaner: Grundlagen ──────────────────────────────────
 // Der Planer ist eine eigene Seite neben dem Heldenbuch, mit eigenem
@@ -13,12 +13,13 @@ const {
   useState,
   useEffect,
   useRef,
-  useCallback
+  useCallback,
+  useMemo
 } = React;
 
 // Die Ausgabe des Planers zaehlt eigenstaendig: er waechst in Stufen,
 // die mit den Ausgaben des Heldenbuchs nichts zu tun haben.
-const PLANER_VERSION = 'Stufe 0';
+const PLANER_VERSION = 'Stufe 1';
 
 // ==== planer/src/1-paket.jsx ====
 // ── Das Paket: Im- und Export als .hbplan ────────────────────────
@@ -635,15 +636,1136 @@ const planEinspielen = async ({
 };
 // ══ Ende der reinen Rechnung
 
-// ==== planer/src/2-app.jsx ====
+// ==== planer/src/1b-kacheln.jsx ====
+// ── Kacheln, Ansicht, Maßstab ────────────────────────────────────
+// Eine Karte ist eine Kachelpyramide wie bei Kartendiensten: Stufe 0
+// zeigt das ganze Bild in einer Kachel von 256 Pixeln, jede Stufe
+// darueber verdoppelt die Aufloesung, die oberste zeigt das Bild 1:1.
+//
+//     <ordner>/<z>/<x>/<y>.webp
+//
+// Alle Koordinaten in Karten und Orten sind Pixel des Originalbilds.
+// Damit bleibt jeder Ort an seiner Stelle, gleich in welcher Stufe man
+// gerade schaut.
+//
+// Die Ansicht ist {zoom, x, y}: x und y sind der Bildpunkt in der Mitte
+// des Fensters, zoom ist stetig und in Stufen gemessen — zoom = z heisst
+// „Stufe z in voller Groesse“.
+//
+// Alles bis zur Markierung ist reine Rechnung (dev/pruefungen/planer-kacheln-test.js).
+
+const KACHEL = 256;
+
+// ── Masse aus dem Dateikopf ──────────────────────────────────────
+// Bevor der Browser ein Bild von 20 000 Pixeln zu entpacken versucht —
+// und dabei womoeglich scheitert —, steht im Kopf schon, wie gross es ist.
+const bildMasse = b => {
+  const u16be = i => b[i] << 8 | b[i + 1];
+  const u32be = i => (b[i] << 24 >>> 0) + (b[i + 1] << 16) + (b[i + 2] << 8) + b[i + 3];
+  const u16le = i => b[i] | b[i + 1] << 8;
+  const u24le = i => b[i] | b[i + 1] << 8 | b[i + 2] << 16;
+  const text = (i, n) => String.fromCharCode.apply(null, b.subarray(i, i + n));
+  if (b.length >= 24 && b[0] === 0x89 && text(1, 3) === 'PNG') {
+    return {
+      art: 'png',
+      breite: u32be(16),
+      hoehe: u32be(20)
+    };
+  }
+  if (b.length >= 10 && text(0, 3) === 'GIF') {
+    return {
+      art: 'gif',
+      breite: u16le(6),
+      hoehe: u16le(8)
+    };
+  }
+  if (b.length >= 30 && text(0, 4) === 'RIFF' && text(8, 4) === 'WEBP') {
+    const teil = text(12, 4);
+    if (teil === 'VP8X') return {
+      art: 'webp',
+      breite: u24le(24) + 1,
+      hoehe: u24le(27) + 1
+    };
+    if (teil === 'VP8L') {
+      const b0 = b[21],
+        b1 = b[22],
+        b2 = b[23],
+        b3 = b[24];
+      return {
+        art: 'webp',
+        breite: 1 + ((b1 & 0x3F) << 8 | b0),
+        hoehe: 1 + ((b3 & 0x0F) << 10 | b2 << 2 | (b1 & 0xC0) >> 6)
+      };
+    }
+    if (teil === 'VP8 ') return {
+      art: 'webp',
+      breite: u16le(26) & 0x3FFF,
+      hoehe: u16le(28) & 0x3FFF
+    };
+    return null;
+  }
+  if (b.length >= 4 && b[0] === 0xFF && b[1] === 0xD8) {
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xFF) {
+        i++;
+        continue;
+      }
+      const m = b[i + 1];
+      if (m === 0xFF) {
+        i++;
+        continue;
+      }
+      if (m === 0xD8 || m === 0x01 || m >= 0xD0 && m <= 0xD7) {
+        i += 2;
+        continue;
+      }
+      const len = u16be(i + 2);
+      // SOF0 … SOF15, ohne DHT (C4), JPG (C8) und DAC (CC)
+      if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) {
+        return {
+          art: 'jpeg',
+          breite: u16be(i + 7),
+          hoehe: u16be(i + 5)
+        };
+      }
+      if (m === 0xD9 || m === 0xDA) return null;
+      i += 2 + len;
+    }
+    return null;
+  }
+  return null;
+};
+
+// ── Die Pyramide ─────────────────────────────────────────────────
+const kachelPlan = (breite, hoehe, kachel) => {
+  const k = kachel || KACHEL;
+  const maxZ = Math.max(0, Math.ceil(Math.log2(Math.max(breite, hoehe) / k)));
+  const stufen = [];
+  let anzahl = 0;
+  for (let z = 0; z <= maxZ; z++) {
+    const faktor = Math.pow(2, maxZ - z);
+    const b = Math.ceil(breite / faktor),
+      h = Math.ceil(hoehe / faktor);
+    const s = {
+      z,
+      faktor,
+      breite: b,
+      hoehe: h,
+      spalten: Math.ceil(b / k),
+      zeilen: Math.ceil(h / k)
+    };
+    anzahl += s.spalten * s.zeilen;
+    stufen.push(s);
+  }
+  return {
+    breite,
+    hoehe,
+    kachel: k,
+    maxZ,
+    stufen,
+    anzahl
+  };
+};
+
+// Welcher Ausschnitt einer Stufe in eine Kachel gehoert. Randkacheln
+// sind kleiner als 256 Pixel — nichts wird aufgefuellt.
+const kachelZiel = (plan, z, x, y) => {
+  const s = plan.stufen[z],
+    k = plan.kachel;
+  const lx = x * k,
+    ly = y * k;
+  return {
+    lx,
+    ly,
+    breite: Math.min(k, s.breite - lx),
+    hoehe: Math.min(k, s.hoehe - ly)
+  };
+};
+const kachelPfad = (ordner, z, x, y, format) => ordner + '/' + z + '/' + x + '/' + y + '.' + (format || 'webp');
+
+// Alle Kacheln einer Stufe, zeilenweise.
+const kachelnDerStufe = (plan, z) => {
+  const s = plan.stufen[z],
+    aus = [];
+  for (let y = 0; y < s.zeilen; y++) for (let x = 0; x < s.spalten; x++) aus.push({
+    z,
+    x,
+    y
+  });
+  return aus;
+};
+
+// ── Die Ansicht ──────────────────────────────────────────────────
+const ansichtMass = (a, plan) => Math.pow(2, a.zoom - plan.maxZ); // Schirmpixel je Bildpixel
+const bildZuSchirm = (p, a, g, plan) => {
+  const s = ansichtMass(a, plan);
+  return {
+    x: (p.x - a.x) * s + g.breite / 2,
+    y: (p.y - a.y) * s + g.hoehe / 2
+  };
+};
+const schirmZuBild = (p, a, g, plan) => {
+  const s = ansichtMass(a, plan);
+  return {
+    x: (p.x - g.breite / 2) / s + a.x,
+    y: (p.y - g.hoehe / 2) / s + a.y
+  };
+};
+const ansichtEinpassen = (plan, g) => {
+  const s = Math.min(g.breite / plan.breite, g.hoehe / plan.hoehe) * 0.94;
+  return {
+    zoom: plan.maxZ + Math.log2(Math.max(s, 1e-6)),
+    x: plan.breite / 2,
+    y: plan.hoehe / 2
+  };
+};
+const zoomGrenzen = (plan, g) => ({
+  min: Math.min(ansichtEinpassen(plan, g).zoom, 0) - 1,
+  max: plan.maxZ + 2
+});
+const ansichtBegrenzen = (a, plan, g) => {
+  const gr = zoomGrenzen(plan, g);
+  const zoom = Math.max(gr.min, Math.min(gr.max, a.zoom));
+  return {
+    zoom,
+    x: Math.max(0, Math.min(plan.breite, a.x)),
+    y: Math.max(0, Math.min(plan.hoehe, a.y))
+  };
+};
+// Zoomen um einen Punkt: was unter dem Mauszeiger liegt, bleibt dort.
+const zoomUm = (a, punkt, neuZoom, g, plan) => {
+  const bild = schirmZuBild(punkt, a, g, plan);
+  const z = ansichtBegrenzen({
+    ...a,
+    zoom: neuZoom
+  }, plan, g).zoom;
+  const s = Math.pow(2, z - plan.maxZ);
+  return ansichtBegrenzen({
+    zoom: z,
+    x: bild.x - (punkt.x - g.breite / 2) / s,
+    y: bild.y - (punkt.y - g.hoehe / 2) / s
+  }, plan, g);
+};
+const verschieben = (a, dx, dy, plan, g) => {
+  const s = ansichtMass(a, plan);
+  return ansichtBegrenzen({
+    ...a,
+    x: a.x - dx / s,
+    y: a.y - dy / s
+  }, plan, g);
+};
+// Welche Stufe geladen wird: die naechst schaerfere, sobald die jetzige
+// merklich vergroessert erschiene.
+const stufeFuer = (zoom, plan) => Math.max(0, Math.min(plan.maxZ, Math.ceil(zoom - 0.3)));
+const KACHEL_HOECHSTENS = 600;
+const sichtbareKacheln = (a, g, plan, z) => {
+  const st = plan.stufen[z],
+    k = plan.kachel;
+  const s = ansichtMass(a, plan);
+  const f = st.faktor;
+  const oben = schirmZuBild({
+    x: 0,
+    y: 0
+  }, a, g, plan);
+  const unten = schirmZuBild({
+    x: g.breite,
+    y: g.hoehe
+  }, a, g, plan);
+  const x0 = Math.max(0, Math.floor(oben.x / (k * f)));
+  const y0 = Math.max(0, Math.floor(oben.y / (k * f)));
+  const x1 = Math.min(st.spalten - 1, Math.floor(unten.x / (k * f)));
+  const y1 = Math.min(st.zeilen - 1, Math.floor(unten.y / (k * f)));
+  if (x1 < x0 || y1 < y0) return [];
+  if ((x1 - x0 + 1) * (y1 - y0 + 1) > KACHEL_HOECHSTENS) return [];
+  const aus = [];
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const ziel = kachelZiel(plan, z, x, y);
+      const lo = bildZuSchirm({
+        x: ziel.lx * f,
+        y: ziel.ly * f
+      }, a, g, plan);
+      aus.push({
+        z,
+        x,
+        y,
+        links: lo.x,
+        oben: lo.y,
+        breite: ziel.breite * f * s,
+        hoehe: ziel.hoehe * f * s
+      });
+    }
+  }
+  return aus;
+};
+
+// ── Maßstab und Lineal ───────────────────────────────────────────
+const EINHEITEN = [{
+  k: 'km',
+  l: 'Kilometer',
+  kurz: 'km',
+  kmh: 4.5
+}, {
+  k: 'mi',
+  l: 'Meilen',
+  kurz: 'mi',
+  kmh: 3
+}, {
+  k: 'm',
+  l: 'Meter',
+  kurz: 'm',
+  kmh: 4500
+}, {
+  k: 'ft',
+  l: 'Fuß',
+  kurz: 'ft',
+  kmh: 15840
+}];
+const einheit = k => EINHEITEN.find(e => e.k === k) || EINHEITEN[0];
+const abstandPx = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+const massstabAus = (a, b, laenge, einh) => {
+  const d = abstandPx(a, b);
+  if (!(laenge > 0) || !(d > 0)) return null;
+  return {
+    a: {
+      x: Math.round(a.x),
+      y: Math.round(a.y)
+    },
+    b: {
+      x: Math.round(b.x),
+      y: Math.round(b.y)
+    },
+    laenge: +laenge,
+    einheit: einheit(einh).k
+  };
+};
+const pxJeEinheit = m => abstandPx(m.a, m.b) / m.laenge;
+const wegLaenge = (punkte, m) => {
+  if (!m) return 0;
+  let px = 0;
+  for (let i = 1; i < punkte.length; i++) px += abstandPx(punkte[i - 1], punkte[i]);
+  return px / pxJeEinheit(m);
+};
+const zahlText = n => {
+  const r = n >= 100 ? Math.round(n) : n >= 10 ? Math.round(n * 10) / 10 : Math.round(n * 100) / 100;
+  return String(r).replace('.', ',');
+};
+const laengeText = (n, einh) => zahlText(n) + ' ' + einheit(einh).kurz;
+// Wie lange man zu Fuss braucht, im normalen Tempo der Grundregeln
+// (4,5 km in der Stunde, acht Stunden am Tag). Genauer rechnet Stufe 2.
+const fussZeitText = (n, einh) => {
+  const std = n / einheit(einh).kmh;
+  if (!(std > 0)) return '';
+  if (std < 1) return '≈ ' + Math.max(1, Math.round(std * 60)) + ' Min. zu Fuß';
+  if (std < 8) return '≈ ' + zahlText(Math.round(std * 2) / 2) + ' Std. zu Fuß';
+  const tage = Math.floor(std / 8),
+    rest = Math.round(std - tage * 8);
+  return '≈ ' + tage + (tage === 1 ? ' Tag' : ' Tage') + (rest ? ' ' + rest + ' Std.' : '') + ' zu Fuß';
+};
+// Die Leiste unten links: eine runde Laenge, die ungefaehr so breit ist
+// wie gewuenscht.
+const massstabLeiste = (m, a, plan, zielPx) => {
+  if (!m) return null;
+  const s = ansichtMass(a, plan);
+  const roh = (zielPx || 110) / s / pxJeEinheit(m);
+  const zehner = Math.pow(10, Math.floor(Math.log10(roh)));
+  const schoen = [1, 2, 5, 10].map(f => f * zehner).filter(v => v <= roh).pop() || zehner;
+  return {
+    laenge: schoen,
+    px: schoen * pxJeEinheit(m) * s,
+    text: laengeText(schoen, m.einheit)
+  };
+};
+
+// ── Kacheln erzeugen ─────────────────────────────────────────────
+// Die Arbeit selbst — zeichnen und hochladen — kommt von aussen. Hier
+// steht nur die Reihenfolge: Stufe fuer Stufe, in Buendeln hochladen,
+// waehrend weiter gezeichnet wird, hoechstens zwei Buendel zugleich.
+const kachelnErzeugen = async ({
+  plan,
+  zeichne,
+  hochladen,
+  buendelBytes,
+  parallel,
+  melde,
+  abgebrochen
+}) => {
+  const grenze = buendelBytes || 2500000;
+  const breite = parallel || 2;
+  const m = melde || (() => {});
+  const laufend = new Set();
+  let buendel = [],
+    summe = 0,
+    fertig = 0,
+    bytes = 0,
+    fehler = null;
+  const abschicken = async () => {
+    if (!buendel.length) return;
+    const b = buendel;
+    buendel = [];
+    summe = 0;
+    const p = hochladen(b).then(() => {
+      laufend.delete(p);
+    }, e => {
+      laufend.delete(p);
+      fehler = fehler || e;
+    });
+    laufend.add(p);
+    if (laufend.size >= breite) await Promise.race(laufend);
+    if (fehler) throw fehler;
+  };
+  for (let z = 0; z <= plan.maxZ; z++) {
+    if (typeof zeichne.stufe === 'function') await zeichne.stufe(z);
+    for (const t of kachelnDerStufe(plan, z)) {
+      if (abgebrochen && abgebrochen()) throw new Error('Abgebrochen.');
+      if (fehler) throw fehler;
+      const d = await zeichne(t.z, t.x, t.y);
+      buendel.push(d);
+      summe += d.bytes.length;
+      bytes += d.bytes.length;
+      fertig++;
+      if (summe >= grenze || buendel.length >= 400) await abschicken();
+      if (fertig % 8 === 0 || fertig === plan.anzahl) m('Kacheln: ' + fertig + ' von ' + plan.anzahl + ' · ' + planGroesse(bytes), fertig / plan.anzahl);
+    }
+  }
+  await abschicken();
+  await Promise.all(laufend);
+  if (fehler) throw fehler;
+  return {
+    anzahl: fertig,
+    bytes
+  };
+};
+
+// Beim Austausch des Bilds bleiben Orte, wo sie auf der Karte waren:
+// ihre Pixel werden mit dem Groessenverhaeltnis umgerechnet.
+const punktSkalieren = (p, alt, neu) => ({
+  x: Math.round(p.x * neu.breite / alt.breite),
+  y: Math.round(p.y * neu.hoehe / alt.hoehe)
+});
+const ORT_SYMBOLE = ['📍', '🏰', '🏘', '🏠', '⛪', '🏛', '🍺', '⚓', '🌲', '⛰', '🕳', '🗿', '💀', '⚔', '🔥', '💎', '❓', '⭐'];
+// ══ Ende der reinen Rechnung
+
+// ==== planer/src/2-leinwand.jsx ====
+// ── Die Kartenleinwand ───────────────────────────────────────────
+// Zeigt die Kachelpyramide einer Karte: ziehen zum Verschieben, Mausrad
+// oder zwei Finger zum Zoomen, dazu Orte, Lineal und Maßstabsleiste.
+// Die Rechnung dahinter steht in 1b-kacheln.jsx.
+//
+// Ein Klick (ohne Ziehen) meldet den Bildpunkt nach oben — was er
+// bedeutet, entscheidet das Werkzeug in der Seite.
+
+const LEINWAND_KLICK_PX = 5;
+const KartenLeinwand = ({
+  karte,
+  orte,
+  dm,
+  werkzeug,
+  ortWahl,
+  linie,
+  fokus,
+  gedaechtnis,
+  onKlick,
+  onOrtWahl,
+  onOrtVerschieben,
+  onBildWaehlen
+}) => {
+  const box = useRef(null);
+  const [g, setG] = useState({
+    breite: 0,
+    hoehe: 0
+  });
+  const [a, setA] = useState(null);
+  const [zieh, setZieh] = useState(null); // {id, x, y} beim Verschieben eines Orts
+  const zeiger = useRef({
+    punkte: new Map(),
+    weg: 0,
+    start: null
+  });
+  const bild = karte.bild || null;
+  const plan = useMemo(() => bild ? kachelPlan(bild.breite, bild.hoehe, bild.kachel) : null, [bild && bild.breite, bild && bild.hoehe, bild && bild.kachel]);
+  const schluessel = karte.id + '|' + (bild ? bild.ordner : '');
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const messen = () => setG({
+      breite: el.clientWidth,
+      hoehe: el.clientHeight
+    });
+    messen();
+    const ro = new ResizeObserver(messen);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Beim Wechsel der Karte: dort weiter, wo man zuletzt war, sonst
+  // das ganze Bild.
+  useEffect(() => {
+    if (!plan || !g.breite) {
+      setA(null);
+      return;
+    }
+    const alt = gedaechtnis && gedaechtnis.current[schluessel];
+    setA(alt ? ansichtBegrenzen(alt, plan, g) : ansichtEinpassen(plan, g));
+  }, [schluessel, !!plan, g.breite > 0]);
+  useEffect(() => {
+    if (a && gedaechtnis) gedaechtnis.current[schluessel] = a;
+  }, [a]);
+  useEffect(() => {
+    if (a && plan && g.breite) setA(v => v && ansichtBegrenzen(v, plan, g));
+  }, [g.breite, g.hoehe]);
+
+  // Ein Ort aus der Liste: dorthin, und nah genug heran.
+  useEffect(() => {
+    if (!fokus || !plan || !g.breite) return;
+    setA(v => ansichtBegrenzen({
+      zoom: Math.max(v ? v.zoom : 0, plan.maxZ - 1),
+      x: fokus.x,
+      y: fokus.y
+    }, plan, g));
+  }, [fokus && fokus.n]);
+
+  // Das Mausrad braucht einen Zuhoerer, der preventDefault darf.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !plan) return;
+    const rad = e => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const pt = {
+        x: e.clientX - r.left,
+        y: e.clientY - r.top
+      };
+      const schritt = -e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0022);
+      setA(v => v && zoomUm(v, pt, v.zoom + Math.max(-1, Math.min(1, schritt)), g, plan));
+    };
+    el.addEventListener('wheel', rad, {
+      passive: false
+    });
+    return () => el.removeEventListener('wheel', rad);
+  }, [plan, g.breite, g.hoehe]);
+  const punktAus = e => {
+    const r = box.current.getBoundingClientRect();
+    return {
+      x: e.clientX - r.left,
+      y: e.clientY - r.top
+    };
+  };
+  const runter = e => {
+    if (!plan || !a) return;
+    if (e.button !== undefined && e.button > 0) return;
+    // Knoepfe auf der Karte bekommen ihren Klick selbst.
+    if (e.target.closest && e.target.closest('button')) return;
+    try {
+      box.current.setPointerCapture(e.pointerId);
+    } catch (err) {/* ohne Fangen geht es auch */}
+    const pt = punktAus(e);
+    zeiger.current.punkte.set(e.pointerId, pt);
+    if (zeiger.current.punkte.size === 1) {
+      zeiger.current.weg = 0;
+      zeiger.current.start = pt;
+    }
+  };
+  const bewegen = e => {
+    const z = zeiger.current;
+    if (!z.punkte.has(e.pointerId) || !plan) return;
+    const pt = punktAus(e);
+    const vorher = z.punkte.get(e.pointerId);
+    if (z.punkte.size === 1) {
+      z.weg += Math.hypot(pt.x - vorher.x, pt.y - vorher.y);
+      z.punkte.set(e.pointerId, pt);
+      if (z.weg > LEINWAND_KLICK_PX) setA(v => v && verschieben(v, pt.x - vorher.x, pt.y - vorher.y, plan, g));
+      return;
+    }
+    // Zwei Finger: der Abstand zoomt, die Mitte verschiebt.
+    const [idA, idB] = [...z.punkte.keys()];
+    const altA = z.punkte.get(idA),
+      altB = z.punkte.get(idB);
+    z.punkte.set(e.pointerId, pt);
+    const neuA = z.punkte.get(idA),
+      neuB = z.punkte.get(idB);
+    const dAlt = Math.hypot(altB.x - altA.x, altB.y - altA.y),
+      dNeu = Math.hypot(neuB.x - neuA.x, neuB.y - neuA.y);
+    const mAlt = {
+        x: (altA.x + altB.x) / 2,
+        y: (altA.y + altB.y) / 2
+      },
+      mNeu = {
+        x: (neuA.x + neuB.x) / 2,
+        y: (neuA.y + neuB.y) / 2
+      };
+    z.weg = LEINWAND_KLICK_PX + 1;
+    if (dAlt > 0 && dNeu > 0) {
+      setA(v => {
+        if (!v) return v;
+        const gezoomt = zoomUm(v, mAlt, v.zoom + Math.log2(dNeu / dAlt), g, plan);
+        return verschieben(gezoomt, mNeu.x - mAlt.x, mNeu.y - mAlt.y, plan, g);
+      });
+    }
+  };
+  const hoch = e => {
+    const z = zeiger.current;
+    if (!z.punkte.has(e.pointerId)) return;
+    const einzeln = z.punkte.size === 1;
+    z.punkte.delete(e.pointerId);
+    if (einzeln && z.weg <= LEINWAND_KLICK_PX && e.type === 'pointerup' && a && plan) {
+      const p = schirmZuBild(punktAus(e), a, g, plan);
+      if (p.x >= 0 && p.y >= 0 && p.x <= plan.breite && p.y <= plan.hoehe) onKlick && onKlick({
+        x: Math.round(p.x),
+        y: Math.round(p.y)
+      });
+    }
+  };
+
+  // Orte ziehen: nur die Spielleitung, nur mit dem Werkzeug „Ansehen“.
+  const ortRunter = (e, o) => {
+    e.stopPropagation();
+    if (e.button !== undefined && e.button > 0) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (err) {/* ohne Fangen geht es auch */}
+    const pt = punktAus(e);
+    setZieh({
+      id: o.id,
+      start: pt,
+      weg: 0,
+      x: o.x,
+      y: o.y,
+      darf: dm && werkzeug === 'ansehen'
+    });
+  };
+  const ortBewegen = e => {
+    if (!zieh || !zieh.darf) return;
+    const pt = punktAus(e);
+    const p = schirmZuBild(pt, a, g, plan);
+    setZieh(v => v && {
+      ...v,
+      weg: Math.max(v.weg, Math.hypot(pt.x - v.start.x, pt.y - v.start.y)),
+      x: Math.round(Math.max(0, Math.min(plan.breite, p.x))),
+      y: Math.round(Math.max(0, Math.min(plan.hoehe, p.y)))
+    });
+  };
+  const ortHoch = (e, o) => {
+    e.stopPropagation();
+    const z = zieh;
+    setZieh(null);
+    if (!z) return;
+    if (z.darf && z.weg > LEINWAND_KLICK_PX) onOrtVerschieben && onOrtVerschieben(o, {
+      x: z.x,
+      y: z.y
+    });else onOrtWahl && onOrtWahl(o.id);
+  };
+  const knopfZoom = d => setA(v => v && plan && zoomUm(v, {
+    x: g.breite / 2,
+    y: g.hoehe / 2
+  }, v.zoom + d, g, plan));
+  let inhalt = null;
+  if (!bild) {
+    inhalt = /*#__PURE__*/React.createElement("div", {
+      className: "pl-leinwand-text"
+    }, /*#__PURE__*/React.createElement("strong", null, dm ? 'Noch kein Kartenbild' : 'Diese Karte hat noch kein Bild'), dm ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, "PNG, JPEG oder WebP, auch sehr gro\xDFe Karten. Das Bild wird hier im Browser in Kacheln geschnitten."), /*#__PURE__*/React.createElement("button", {
+      className: "pl-knopf pl-haupt",
+      onClick: onBildWaehlen
+    }, "\uD83D\uDDBC Kartenbild w\xE4hlen")) : /*#__PURE__*/React.createElement("span", null, "Die Spielleitung hat noch keins hinterlegt."));
+  } else if (a && plan && g.breite) {
+    const z = stufeFuer(a.zoom, plan);
+    const hinten = Math.max(0, z - 2);
+    const url = t => planerDateiUrl(karte.ablage, kachelPfad(bild.ordner, t.z, t.x, t.y, bild.endung));
+    const kacheln = (hinten < z ? sichtbareKacheln(a, g, plan, hinten) : []).concat(sichtbareKacheln(a, g, plan, z));
+    const schirm = p => bildZuSchirm(p, a, g, plan);
+    const leiste = massstabLeiste(karte.massstab, a, plan, 110);
+    inhalt = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "pl-kacheln",
+      "aria-hidden": "true"
+    }, kacheln.map(t => /*#__PURE__*/React.createElement("img", {
+      key: t.z + '/' + t.x + '/' + t.y,
+      src: url(t),
+      alt: "",
+      draggable: false,
+      className: t.z < z ? 'hinten' : '',
+      style: {
+        left: t.links,
+        top: t.oben,
+        width: t.breite + 0.6,
+        height: t.hoehe + 0.6
+      }
+    }))), linie && linie.punkte.length > 0 && /*#__PURE__*/React.createElement("svg", {
+      className: "pl-ueberlage",
+      width: g.breite,
+      height: g.hoehe,
+      "aria-hidden": "true"
+    }, /*#__PURE__*/React.createElement("polyline", {
+      points: linie.punkte.map(p => {
+        const s = schirm(p);
+        return s.x + ',' + s.y;
+      }).join(' '),
+      className: 'pl-linie ' + (linie.art || '')
+    }), linie.punkte.map((p, i) => {
+      const s = schirm(p);
+      return /*#__PURE__*/React.createElement("circle", {
+        key: i,
+        cx: s.x,
+        cy: s.y,
+        r: 4.5,
+        className: 'pl-linie-punkt ' + (linie.art || '')
+      });
+    })), orte.map(o => {
+      const gezogen = zieh && zieh.id === o.id ? zieh : null;
+      const s = schirm(gezogen ? gezogen : o);
+      if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
+      return /*#__PURE__*/React.createElement("button", {
+        key: o.id,
+        className: 'pl-ort' + (o.id === ortWahl ? ' aktiv' : '') + (dm && !o.sichtbar ? ' verborgen' : '') + (gezogen ? ' gezogen' : ''),
+        style: {
+          left: s.x,
+          top: s.y
+        },
+        title: o.name,
+        onPointerDown: e => ortRunter(e, o),
+        onPointerMove: ortBewegen,
+        onPointerUp: e => ortHoch(e, o),
+        onPointerCancel: () => setZieh(null),
+        onKeyDown: e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOrtWahl && onOrtWahl(o.id);
+          }
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "pl-ort-symbol",
+        "aria-hidden": "true"
+      }, o.symbol || '📍'), /*#__PURE__*/React.createElement("span", {
+        className: "pl-ort-name"
+      }, o.name));
+    }), leiste && /*#__PURE__*/React.createElement("div", {
+      className: "pl-massstab-leiste",
+      "aria-label": 'Maßstab: ' + leiste.text
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: leiste.px
+      }
+    }), /*#__PURE__*/React.createElement("span", null, leiste.text)), /*#__PURE__*/React.createElement("div", {
+      className: "pl-zoom"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "pl-symbol",
+      "aria-label": "N\xE4her heran",
+      title: "N\xE4her heran",
+      onClick: () => knopfZoom(0.5)
+    }, "\uFF0B"), /*#__PURE__*/React.createElement("button", {
+      className: "pl-symbol",
+      "aria-label": "Weiter weg",
+      title: "Weiter weg",
+      onClick: () => knopfZoom(-0.5)
+    }, "\u2212"), /*#__PURE__*/React.createElement("button", {
+      className: "pl-symbol",
+      "aria-label": "Ganze Karte",
+      title: "Ganze Karte",
+      onClick: () => setA(ansichtEinpassen(plan, g))
+    }, "\u2922")));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    ref: box,
+    className: 'pl-leinwand-karte werkzeug-' + (werkzeug || 'ansehen') + (bild ? '' : ' leer'),
+    "data-stufe": a && plan ? stufeFuer(a.zoom, plan) : '',
+    onPointerDown: runter,
+    onPointerMove: bewegen,
+    onPointerUp: hoch,
+    onPointerCancel: hoch
+  }, !bild && /*#__PURE__*/React.createElement("div", {
+    className: "pl-leinwand-raster",
+    "aria-hidden": "true"
+  }), inhalt);
+};
+
+// ==== planer/src/3-ort.jsx ====
+// ── Bilder, Orte, Maßstab ────────────────────────────────────────
+
+// ── Bilder im Browser ────────────────────────────────────────────
+// Kacheln werden hier geschnitten, nicht auf dem Server: ein Webhosting
+// bricht bei einem Bild von 20 000 Pixeln an seiner Speichergrenze ab,
+// der Browser auf dem Rechner der Spielleitung nicht.
+const neueLeinwand = (b, h) => {
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(b, h);
+  const c = document.createElement('canvas');
+  c.width = b;
+  c.height = h;
+  return c;
+};
+const leinwandBytes = async (c, typ, qualitaet) => {
+  const blob = c.convertToBlob ? await c.convertToBlob({
+    type: typ,
+    quality: qualitaet
+  }) : await new Promise((ok, nein) => c.toBlob(b => b ? ok(b) : nein(new Error('Das Bild ließ sich nicht umwandeln.')), typ, qualitaet));
+  return {
+    typ: blob.type,
+    bytes: new Uint8Array(await blob.arrayBuffer())
+  };
+};
+// WebP, wo der Browser es schreiben kann; sonst JPEG.
+let bildFormatGemerkt = null;
+const bildFormat = async () => {
+  if (bildFormatGemerkt) return bildFormatGemerkt;
+  // Eine Leinwand ohne Zeichenflaeche laesst sich nicht umwandeln — die
+  // Probe braucht also einen Pinselstrich.
+  const c = neueLeinwand(2, 2);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, 2, 2);
+  const probe = await leinwandBytes(c, 'image/webp', 0.8).catch(() => ({
+    typ: ''
+  }));
+  bildFormatGemerkt = probe.typ === 'image/webp' ? {
+    typ: 'image/webp',
+    endung: 'webp'
+  } : {
+    typ: 'image/jpeg',
+    endung: 'jpg'
+  };
+  return bildFormatGemerkt;
+};
+
+// Gelingt das Bild nicht am Stueck, dann verkleinert: lieber eine Karte
+// mit halber Aufloesung als gar keine.
+const bildOeffnen = async (datei, masse) => {
+  try {
+    return {
+      bitmap: await createImageBitmap(datei),
+      faktor: 1
+    };
+  } catch (e) {/* weiter unten kleiner */}
+  if (masse) {
+    for (const f of [0.5, 0.25]) {
+      try {
+        const bitmap = await createImageBitmap(datei, {
+          resizeWidth: Math.round(masse.breite * f),
+          resizeHeight: Math.round(masse.hoehe * f),
+          resizeQuality: 'high'
+        });
+        return {
+          bitmap,
+          faktor: f
+        };
+      } catch (e) {/* noch kleiner */}
+    }
+  }
+  throw new Error('Der Browser kann dieses Bild nicht öffnen' + (masse ? ' (' + masse.breite + ' × ' + masse.hoehe + ' Pixel)' : '') + '. Bitte in PNG, JPEG oder WebP speichern, oder in zwei Teilkarten zerlegen.');
+};
+const kachelZeichner = (quelle, plan, ordner, format) => {
+  let stufe = null;
+  const zeichne = async (z, x, y) => {
+    const t = kachelZiel(plan, z, x, y);
+    const c = neueLeinwand(t.breite, t.hoehe);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(stufe, t.lx, t.ly, t.breite, t.hoehe, 0, 0, t.breite, t.hoehe);
+    const {
+      bytes
+    } = await leinwandBytes(c, format.typ, 0.86);
+    return {
+      pfad: kachelPfad(ordner, z, x, y, format.endung),
+      bytes
+    };
+  };
+  zeichne.stufe = async z => {
+    if (stufe && stufe !== quelle && stufe.close) stufe.close();
+    const s = plan.stufen[z];
+    stufe = z === plan.maxZ ? quelle : await createImageBitmap(quelle, {
+      resizeWidth: s.breite,
+      resizeHeight: s.hoehe,
+      resizeQuality: 'high'
+    });
+  };
+  zeichne.ende = () => {
+    if (stufe && stufe !== quelle && stufe.close) stufe.close();
+  };
+  return zeichne;
+};
+const bildVerkleinert = async (quelle, hoechstens, format) => {
+  const f = Math.min(1, hoechstens / Math.max(quelle.width, quelle.height));
+  const b = Math.max(1, Math.round(quelle.width * f)),
+    h = Math.max(1, Math.round(quelle.height * f));
+  const klein = f < 1 ? await createImageBitmap(quelle, {
+    resizeWidth: b,
+    resizeHeight: h,
+    resizeQuality: 'high'
+  }) : quelle;
+  const c = neueLeinwand(b, h);
+  c.getContext('2d').drawImage(klein, 0, 0);
+  if (klein !== quelle && klein.close) klein.close();
+  return (await leinwandBytes(c, format.typ, 0.86)).bytes;
+};
+const dateiKopf = async datei => new Uint8Array(await datei.slice(0, 1024 * 1024).arrayBuffer());
+
+// ── Maßstab festlegen ────────────────────────────────────────────
+const MassstabDialog = ({
+  punkte,
+  alt,
+  onSpeichern,
+  onZu
+}) => {
+  const [laenge, setLaenge] = useState(alt ? String(alt.laenge).replace('.', ',') : '');
+  const [einh, setEinh] = useState(alt ? alt.einheit : 'km');
+  const zahl = parseFloat(laenge.replace(',', '.'));
+  const m = massstabAus(punkte[0], punkte[1], zahl, einh);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "pl-schleier",
+    onClick: onZu
+  }, /*#__PURE__*/React.createElement("form", {
+    className: "pl-dialog",
+    role: "dialog",
+    "aria-modal": "true",
+    onClick: e => e.stopPropagation(),
+    onSubmit: e => {
+      e.preventDefault();
+      if (m) onSpeichern(m);
+    }
+  }, /*#__PURE__*/React.createElement("h2", null, "Ma\xDFstab festlegen"), /*#__PURE__*/React.createElement("p", null, "Wie weit liegen die beiden Punkte auf der Karte auseinander?"), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("input", {
+    autoFocus: true,
+    className: "pl-feld pl-zahl",
+    inputMode: "decimal",
+    value: laenge,
+    onChange: e => setLaenge(e.target.value),
+    "aria-label": "Entfernung"
+  }), /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: einh,
+    onChange: e => setEinh(e.target.value),
+    "aria-label": "Einheit"
+  }, EINHEITEN.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.k,
+    value: x.k
+  }, x.l)))), /*#__PURE__*/React.createElement("p", {
+    className: "pl-hinweis"
+  }, Math.round(abstandPx(punkte[0], punkte[1])), " Pixel im Bild", m ? ' · ' + zahlText(pxJeEinheit(m)) + ' Pixel je ' + einheit(einh).kurz : ''), /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf",
+    onClick: onZu
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "pl-knopf pl-haupt",
+    disabled: !m
+  }, "\xDCbernehmen"))));
+};
+
+// ── Die Tafel eines Orts ─────────────────────────────────────────
+// Die Spielleitung bearbeitet, alle anderen lesen. Was unter dm steht,
+// kommt bei Spielern gar nicht erst an.
+const OrtTafel = ({
+  ort,
+  dm,
+  karte,
+  karten,
+  arbeitet,
+  onSpeichern,
+  onLoeschen,
+  onSchliessen,
+  onUnterkarte,
+  onBilderHoch,
+  onBildWeg
+}) => {
+  const [entwurf, setEntwurf] = useState(ort);
+  const [gross, setGross] = useState(null);
+  const bildEingabe = useRef(null);
+  // Kommt eine neue Fassung vom Server — ein Bild ist dazugekommen, der
+  // Ort wurde verschoben —, gilt sie fuer alles, was hier nicht gerade
+  // bearbeitet wird. Was hier geaendert ist, bleibt.
+  const [basis, setBasis] = useState(ort);
+  const gleich = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  useEffect(() => {
+    if (gleich(ort, basis)) return;
+    setEntwurf(e => {
+      const aus = {
+        ...ort
+      };
+      new Set([...Object.keys(e), ...Object.keys(basis)]).forEach(k => {
+        if (!gleich(e[k], basis[k])) aus[k] = e[k];
+      });
+      return aus;
+    });
+    setBasis(ort);
+  }, [JSON.stringify(ort)]);
+  const geaendert = !gleich(entwurf, ort);
+  const setze = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    [feld]: wert
+  }));
+  const setzeDm = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    dm: {
+      ...(e.dm || {}),
+      [feld]: wert
+    }
+  }));
+  const unter = karten.find(k => k.id === (dm ? entwurf.unterkarte : ort.unterkarte));
+  const bilder = (dm ? entwurf.bilder : ort.bilder) || [];
+  const bildLeiste = bilder.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "pl-ort-bilder"
+  }, bilder.map(p => /*#__PURE__*/React.createElement("figure", {
+    key: p
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "pl-ort-bild",
+    onClick: () => setGross(p),
+    "aria-label": "Bild gro\xDF ansehen"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: planerDateiUrl(karte.ablage, p),
+    alt: "",
+    loading: "lazy"
+  })), dm && /*#__PURE__*/React.createElement("button", {
+    className: "pl-symbol pl-symbol-weg",
+    "aria-label": "Bild entfernen",
+    title: "Bild entfernen",
+    onClick: () => onBildWeg(entwurf, p),
+    disabled: arbeitet
+  }, "\u2715"))));
+  const lupe = gross && /*#__PURE__*/React.createElement("div", {
+    className: "pl-schleier pl-lupe",
+    onClick: () => setGross(null),
+    role: "dialog",
+    "aria-label": "Bild"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: planerDateiUrl(karte.ablage, gross),
+    alt: ""
+  }));
+  if (!dm) {
+    return /*#__PURE__*/React.createElement("aside", {
+      className: "pl-tafel",
+      "aria-label": 'Ort: ' + ort.name
+    }, /*#__PURE__*/React.createElement("header", {
+      className: "pl-tafel-kopf"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "pl-tafel-symbol",
+      "aria-hidden": "true"
+    }, ort.symbol || '📍'), /*#__PURE__*/React.createElement("h2", null, ort.name), /*#__PURE__*/React.createElement("button", {
+      className: "pl-symbol",
+      "aria-label": "Schlie\xDFen",
+      onClick: onSchliessen
+    }, "\u2715")), ort.text ? /*#__PURE__*/React.createElement("p", {
+      className: "pl-ort-text"
+    }, ort.text) : /*#__PURE__*/React.createElement("p", {
+      className: "pl-leise"
+    }, "\xDCber diesen Ort ist noch nichts bekannt."), bildLeiste, unter && /*#__PURE__*/React.createElement("button", {
+      className: "pl-knopf pl-haupt",
+      onClick: () => onUnterkarte(unter.id)
+    }, "\uD83D\uDDFA ", unter.name, " \xF6ffnen"), lupe);
+  }
+  return /*#__PURE__*/React.createElement("aside", {
+    className: "pl-tafel",
+    "aria-label": 'Ort bearbeiten: ' + ort.name
+  }, /*#__PURE__*/React.createElement("header", {
+    className: "pl-tafel-kopf"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "pl-tafel-symbol",
+    "aria-hidden": "true"
+  }, entwurf.symbol || '📍'), /*#__PURE__*/React.createElement("h2", null, entwurf.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("button", {
+    className: "pl-symbol",
+    "aria-label": "Schlie\xDFen",
+    onClick: onSchliessen
+  }, "\u2715")), /*#__PURE__*/React.createElement("form", {
+    className: "pl-formular",
+    onSubmit: e => {
+      e.preventDefault();
+      if (geaendert) onSpeichern(entwurf);
+    }
+  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    value: entwurf.name || '',
+    maxLength: 120,
+    onChange: e => setze('name', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "pl-symbole",
+    role: "radiogroup",
+    "aria-label": "Zeichen"
+  }, ORT_SYMBOLE.map(s => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: s,
+    role: "radio",
+    "aria-checked": (entwurf.symbol || '📍') === s,
+    className: 'pl-symbolwahl' + ((entwurf.symbol || '📍') === s ? ' an' : ''),
+    onClick: () => setze('symbol', s)
+  }, s))), /*#__PURE__*/React.createElement("label", null, "Was die Spieler lesen", /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld",
+    rows: 4,
+    value: entwurf.text || '',
+    maxLength: 20000,
+    onChange: e => setze('text', e.target.value)
+  })), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld pl-dm-feld",
+    rows: 3,
+    value: entwurf.dm && entwurf.dm.notiz || '',
+    maxLength: 20000,
+    onChange: e => setzeDm('notiz', e.target.value)
+  })), /*#__PURE__*/React.createElement("label", null, "F\xFChrt zu Karte", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: entwurf.unterkarte || '',
+    onChange: e => setze('unterkarte', e.target.value || undefined)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keine \u2014"), karten.filter(k => k.id !== entwurf.karteId).map(k => /*#__PURE__*/React.createElement("option", {
+    key: k.id,
+    value: k.id
+  }, k.name)))), /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!entwurf.sichtbar,
+    onChange: e => setze('sichtbar', e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), bildLeiste, /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: arbeitet,
+    onClick: () => bildEingabe.current && bildEingabe.current.click()
+  }, "\uFF0B Bild"), /*#__PURE__*/React.createElement("input", {
+    ref: bildEingabe,
+    type: "file",
+    accept: "image/*",
+    multiple: true,
+    hidden: true,
+    onChange: e => {
+      const f = [...(e.target.files || [])];
+      e.target.value = '';
+      if (f.length) onBilderHoch(entwurf, f);
+    }
+  }), unter && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => onUnterkarte(unter.id)
+  }, "\uD83D\uDDFA ", unter.name)), /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-gefahr pl-klein",
+    onClick: () => onLoeschen(ort)
+  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: !geaendert,
+    onClick: () => setEntwurf(ort)
+  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "pl-knopf pl-haupt pl-klein",
+    disabled: !geaendert || !String(entwurf.name || '').trim()
+  }, "Speichern"))), lupe);
+};
+
+// ==== planer/src/4-app.jsx ====
 // ── Abenteuerplaner: die Seite ───────────────────────────────────
-// Stufe 0 ist das Geruest: wer bin ich, welches Abenteuer, welche
-// Karten gibt es — und das Paket hinaus und wieder hinein. Das
-// Kartenbild selbst, Orte und Reisen kommen in den naechsten Stufen.
+// Wer bin ich, welches Abenteuer, welche Karten — und auf der Karte das
+// Bild, die Orte, Lineal und Maßstab. Dazu das Paket hinaus und wieder
+// hinein.
 //
 // Die Wege nach draussen stehen in planer/index.html (planerApi,
-// planerDateiHolen, planerSpeichern, planerZugang), damit dev/planer-echt.html
-// dieselbe Seite gegen ein Gedaechtnis fahren kann.
+// planerDateiHolen, planerDateiUrl, planerSpeichern, planerZugang),
+// damit dev/planer-echt.html dieselbe Seite gegen ein Gedaechtnis fahren
+// kann.
 
 const PLANER_ADV_SPEICHER = 'hb_planer_adv';
 const PLANER_ABGLEICH_MS = 15000;
@@ -696,7 +1818,8 @@ const PlanerFrage = ({
   }
 }, frage.ja))));
 const PlanerArbeit = ({
-  arbeit
+  arbeit,
+  onAbbrechen
 }) => /*#__PURE__*/React.createElement("div", {
   className: "pl-schleier"
 }, /*#__PURE__*/React.createElement("div", {
@@ -711,7 +1834,13 @@ const PlanerArbeit = ({
   style: {
     width: Math.round((arbeit.anteil || 0) * 100) + '%'
   }
-}))));
+})), arbeit.abbrechbar && /*#__PURE__*/React.createElement("div", {
+  className: "pl-dialog-knoepfe"
+}, /*#__PURE__*/React.createElement("button", {
+  className: "pl-knopf",
+  onClick: onAbbrechen,
+  disabled: arbeit.abbruch
+}, arbeit.abbruch ? 'Wird abgebrochen …' : 'Abbrechen'))));
 const PlanerImportVorschau = ({
   vorschau,
   onEinspielen,
@@ -831,10 +1960,18 @@ const PlanerKartenListe = ({
     className: "pl-eintrag-name",
     onClick: () => onWahl(k.id),
     "aria-current": k.id === auswahl
-  }, /*#__PURE__*/React.createElement("span", null, k.name), dm && !k.sichtbar && /*#__PURE__*/React.createElement("span", {
-    className: "pl-marke-verborgen",
-    title: "F\xFCr Spieler verborgen"
-  }, "verborgen")), dm && !(umName && umName.id === k.id) && /*#__PURE__*/React.createElement("span", {
+  }, k.bild && k.bild.vorschau ? /*#__PURE__*/React.createElement("img", {
+    className: "pl-vorschau",
+    src: planerDateiUrl(k.ablage, k.bild.vorschau),
+    alt: "",
+    loading: "lazy"
+  }) : /*#__PURE__*/React.createElement("span", {
+    className: "pl-vorschau pl-vorschau-leer",
+    "aria-hidden": "true"
+  }, "\uD83D\uDDFA"), /*#__PURE__*/React.createElement("span", {
+    className: 'pl-eintrag-text' + (dm && !k.sichtbar ? ' pl-verborgen-text' : ''),
+    title: dm && !k.sichtbar ? k.name + ' — für Spieler verborgen' : k.name
+  }, k.name)), dm && !(umName && umName.id === k.id) && /*#__PURE__*/React.createElement("span", {
     className: "pl-eintrag-knoepfe"
   }, /*#__PURE__*/React.createElement("button", {
     className: "pl-symbol",
@@ -857,35 +1994,44 @@ const PlanerKartenListe = ({
     onClick: () => onLoeschen(k)
   }, "\uD83D\uDDD1"))))));
 };
-const PlanerKarteAnsicht = ({
-  karte,
+const PlanerOrtListe = ({
+  orte,
+  auswahl,
   dm,
-  objekte,
-  dateien
+  onWahl
 }) => {
-  if (!karte) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "pl-buehne-leer"
-    }, /*#__PURE__*/React.createElement("p", null, "W\xE4hle links eine Karte."));
-  }
-  const n = objekte.filter(o => o.karteId === karte.id).length;
-  return /*#__PURE__*/React.createElement("section", {
-    className: "pl-buehne"
-  }, /*#__PURE__*/React.createElement("header", {
-    className: "pl-buehne-kopf"
-  }, /*#__PURE__*/React.createElement("h1", null, karte.name), dm && /*#__PURE__*/React.createElement("span", {
-    className: 'pl-sicht ' + (karte.sichtbar ? 'an' : 'aus')
-  }, karte.sichtbar ? 'für Spieler sichtbar' : 'für Spieler verborgen')), /*#__PURE__*/React.createElement("div", {
-    className: "pl-leinwand",
-    "aria-label": "Kartenfl\xE4che"
+  const [suche, setSuche] = useState('');
+  if (!orte.length) return null;
+  const s = suche.trim().toLowerCase();
+  const liste = orte.filter(o => !s || String(o.name || '').toLowerCase().includes(s)).sort((a, b) => String(a.name).localeCompare(String(b.name), 'de'));
+  return /*#__PURE__*/React.createElement("nav", {
+    className: "pl-liste",
+    "aria-label": "Orte auf dieser Karte"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "pl-leinwand-raster",
+    className: "pl-liste-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "Orte \xB7 ", orte.length)), orte.length > 6 && /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld pl-suche",
+    placeholder: "Ort suchen",
+    value: suche,
+    onChange: e => setSuche(e.target.value)
+  }), /*#__PURE__*/React.createElement("ul", null, liste.map(o => /*#__PURE__*/React.createElement("li", {
+    key: o.id,
+    className: 'pl-eintrag' + (o.id === auswahl ? ' aktiv' : '')
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "pl-eintrag-name",
+    onClick: () => onWahl(o)
+  }, /*#__PURE__*/React.createElement("span", {
     "aria-hidden": "true"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "pl-leinwand-text"
-  }, /*#__PURE__*/React.createElement("strong", null, "Hier liegt bald die Karte."), /*#__PURE__*/React.createElement("span", null, "Kartenbild, Zoom, Ma\xDFstab und Orte kommen mit Stufe 1."))), /*#__PURE__*/React.createElement("dl", {
-    className: "pl-fakten pl-fakten-quer"
-  }, /*#__PURE__*/React.createElement("dt", null, "Eintr\xE4ge"), /*#__PURE__*/React.createElement("dd", null, n), dm && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Dateien"), /*#__PURE__*/React.createElement("dd", null, dateien ? dateien.anzahl + ' · ' + planGroesse(dateien.bytes) : '…'))));
+  }, o.symbol || '📍'), /*#__PURE__*/React.createElement("span", {
+    className: "pl-eintrag-text"
+  }, o.name), dm && !o.sichtbar && /*#__PURE__*/React.createElement("span", {
+    className: "pl-marke-verborgen"
+  }, "verborgen"))))));
+};
+const WERKZEUG_HINWEIS = {
+  ort: 'Klicke auf die Karte, wo der neue Ort liegen soll.',
+  massstab: 'Klicke zwei Punkte, deren Entfernung du kennst — zum Beispiel die Enden der Maßstabsleiste der Karte.',
+  lineal: 'Klicke Punkt für Punkt eine Strecke.'
 };
 const PlanerApp = () => {
   const zugang = planerZugang();
@@ -894,14 +2040,23 @@ const PlanerApp = () => {
   const [advId, setAdvId] = useState('');
   const [daten, setDaten] = useState(null);
   const [auswahl, setAuswahl] = useState('');
+  const [verlauf, setVerlauf] = useState([]);
   const [dateien, setDateien] = useState(null);
   const [meldung, setMeldung] = useState(null);
   const [frage, setFrage] = useState(null);
   const [arbeit, setArbeit] = useState(null);
   const [vorschau, setVorschau] = useState(null);
+  const [werkzeug, setWerkzeug] = useState('ansehen');
+  const [punkte, setPunkte] = useState([]);
+  const [massstabFrage, setMassstabFrage] = useState(null);
+  const [ortWahl, setOrtWahl] = useState('');
+  const [fokus, setFokus] = useState(null);
   const standRef = useRef(0);
   const arbeitRef = useRef(false);
+  const abbruchRef = useRef(false);
   const dateiEingabe = useRef(null);
+  const bildEingabe = useRef(null);
+  const gedaechtnis = useRef({});
   const fehler = e => setMeldung({
     art: 'fehler',
     text: e && e.message || String(e)
@@ -928,6 +2083,7 @@ const PlanerApp = () => {
       localStorage.setItem(PLANER_ADV_SPEICHER, advId);
     } catch (e) {/* ohne Speicher */}
     setDaten(null);
+    setVerlauf([]);
     laden(advId).catch(fehler);
   }, [advId]);
 
@@ -947,6 +2103,8 @@ const PlanerApp = () => {
   const dm = !!(daten && daten.dm);
   const karten = daten ? daten.karten : [];
   const karte = karten.find(k => k.id === auswahl) || null;
+  const orte = daten && karte ? daten.objekte.filter(o => o.art === 'ort' && o.karteId === karte.id) : [];
+  const ort = orte.find(o => o.id === ortWahl) || null;
   useEffect(() => {
     setDateien(null);
     if (!dm || !karte) return;
@@ -964,31 +2122,58 @@ const PlanerApp = () => {
       aktuell = false;
     };
   }, [auswahl, dm, daten && daten.stand]);
-  const ausfuehren = async (titel, f) => {
+
+  // Werkzeug und Auswahl gehoeren zur Karte.
+  useEffect(() => {
+    setWerkzeug('ansehen');
+    setPunkte([]);
+    setOrtWahl('');
+  }, [auswahl]);
+  useEffect(() => {
+    const taste = e => {
+      if (e.key === 'Escape' && !frage && !massstabFrage && !arbeit) {
+        setWerkzeug('ansehen');
+        setPunkte([]);
+      }
+    };
+    window.addEventListener('keydown', taste);
+    return () => window.removeEventListener('keydown', taste);
+  }, [frage, massstabFrage, arbeit]);
+  const ausfuehren = async (titel, f, abbrechbar) => {
     arbeitRef.current = true;
+    abbruchRef.current = false;
     setArbeit({
       titel,
       text: '',
-      anteil: 0
+      anteil: 0,
+      abbrechbar: !!abbrechbar
     });
     try {
-      return await f((text, anteil) => setArbeit(a => ({
+      return await f((text, anteil) => setArbeit(a => a && {
         ...a,
         text,
         anteil: anteil === undefined ? a.anteil : anteil
-      })));
+      }));
     } finally {
       arbeitRef.current = false;
       setArbeit(null);
     }
   };
   const karteSpeichern = async k => {
+    const {
+      ablage,
+      ...ohne
+    } = k;
     const r = await planerApi('planer_karte_speichern', {
       adv_id: advId,
-      karte: k
+      karte: ohne
     });
     return r.karte;
   };
+  const objSpeichern = o => planerApi('planer_obj_speichern', {
+    adv_id: advId,
+    obj: o
+  });
   const neueKarte = async name => {
     try {
       const k = await karteSpeichern({
@@ -998,18 +2183,15 @@ const PlanerApp = () => {
       });
       await laden(advId);
       setAuswahl(k.id);
+      setVerlauf([]);
     } catch (e) {
       fehler(e);
     }
   };
   const karteAendern = async (k, aenderung) => {
     try {
-      const {
-        ablage,
-        ...ohne
-      } = k;
       await karteSpeichern({
-        ...ohne,
+        ...k,
         ...aenderung
       });
       await laden(advId);
@@ -1019,7 +2201,7 @@ const PlanerApp = () => {
   };
   const karteLoeschen = k => setFrage({
     titel: 'Karte löschen?',
-    text: '„' + k.name + '“ wird mit allen Einträgen und Dateien gelöscht. Das lässt sich nicht rückgängig machen — wer sichergehen will, exportiert vorher.',
+    text: '„' + k.name + '“ wird mit allen Orten und Dateien gelöscht. Das lässt sich nicht rückgängig machen — wer sichergehen will, exportiert vorher.',
     ja: 'Löschen',
     gefahr: true,
     onJa: async () => {
@@ -1038,6 +2220,298 @@ const PlanerApp = () => {
       }
     }
   });
+
+  // ── Das Kartenbild ──────────────────────────────────────────────
+  // Die neuen Kacheln kommen in einen neuen Ordner (b1, b2, …). Erst
+  // wenn alle oben sind, zeigt die Karte darauf, und erst dann geht der
+  // alte weg. Wer gerade schaut, sieht nie eine halbe Karte.
+  const kartenbildSetzen = async (k, datei) => {
+    const alt = k.bild || null;
+    const version = (alt && alt.version || 0) + 1;
+    const ordner = 'b' + version;
+    let angefangen = false;
+    try {
+      const erg = await ausfuehren('Kartenbild', async melde => {
+        melde('Bild öffnen …', 0);
+        const masse = bildMasse(await dateiKopf(datei));
+        const {
+          bitmap,
+          faktor
+        } = await bildOeffnen(datei, masse);
+        const plan = kachelPlan(bitmap.width, bitmap.height);
+        const format = await bildFormat();
+        melde(bitmap.width + ' × ' + bitmap.height + ' Pixel · ' + plan.anzahl + ' Kacheln in ' + (plan.maxZ + 1) + ' Stufen', 0);
+        angefangen = true;
+        const vorschauPfad = ordner + '/vorschau.' + format.endung;
+        await planerApi('planer_dateien_hoch', {
+          adv_id: advId,
+          karte_id: k.id,
+          dateien: [{
+            pfad: vorschauPfad,
+            daten: base64AusBytes(await bildVerkleinert(bitmap, 360, format))
+          }]
+        });
+        const zeichne = kachelZeichner(bitmap, plan, ordner, format);
+        try {
+          await kachelnErzeugen({
+            plan,
+            zeichne,
+            melde,
+            abgebrochen: () => abbruchRef.current,
+            hochladen: b => planerApi('planer_dateien_hoch', {
+              adv_id: advId,
+              karte_id: k.id,
+              dateien: b.map(d => ({
+                pfad: d.pfad,
+                daten: base64AusBytes(d.bytes)
+              }))
+            })
+          });
+        } finally {
+          zeichne.ende();
+          if (bitmap.close) bitmap.close();
+        }
+        const bild = {
+          breite: plan.breite,
+          hoehe: plan.hoehe,
+          kachel: plan.kachel,
+          stufen: plan.maxZ,
+          ordner,
+          endung: format.endung,
+          vorschau: vorschauPfad,
+          version,
+          quelle: {
+            name: String(datei.name || '').slice(0, 120),
+            bytes: datei.size
+          },
+          verkleinert: faktor < 1 ? faktor : undefined
+        };
+        melde('Karte umstellen …', 1);
+        // Hatte die Karte schon ein Bild anderer Groesse, wandern Orte
+        // und Maßstab mit.
+        const anders = alt && (alt.breite !== bild.breite || alt.hoehe !== bild.hoehe);
+        const massstab = anders && k.massstab ? {
+          ...k.massstab,
+          a: punktSkalieren(k.massstab.a, alt, bild),
+          b: punktSkalieren(k.massstab.b, alt, bild)
+        } : k.massstab;
+        await karteSpeichern({
+          ...k,
+          bild,
+          massstab
+        });
+        // Ab hier zeigt die Karte auf den neuen Ordner: er darf bei einem
+        // spaeteren Fehler nicht mehr weggeraeumt werden.
+        angefangen = false;
+        if (anders) {
+          for (const o of daten.objekte.filter(o => o.karteId === k.id && typeof o.x === 'number')) {
+            await objSpeichern({
+              ...o,
+              ...punktSkalieren(o, alt, bild)
+            });
+          }
+        }
+        if (alt && alt.ordner && alt.ordner !== ordner) {
+          await planerApi('planer_dateien_weg', {
+            adv_id: advId,
+            karte_id: k.id,
+            praefix: alt.ordner
+          }).catch(() => {});
+        }
+        return {
+          plan,
+          faktor
+        };
+      }, true);
+      delete gedaechtnis.current[k.id + '|' + ordner];
+      await laden(advId);
+      setMeldung({
+        art: 'gut',
+        text: 'Kartenbild übernommen: ' + erg.plan.breite + ' × ' + erg.plan.hoehe + ' Pixel, ' + erg.plan.anzahl + ' Kacheln.' + (erg.faktor < 1 ? ' Der Browser konnte das Bild nicht in voller Größe öffnen; es wurde auf ' + Math.round(erg.faktor * 100) + ' % verkleinert.' : '')
+      });
+    } catch (e) {
+      if (angefangen) planerApi('planer_dateien_weg', {
+        adv_id: advId,
+        karte_id: k.id,
+        praefix: ordner
+      }).catch(() => {});
+      fehler(new Error(e.message === 'Abgebrochen.' ? 'Das Kartenbild wurde nicht übernommen (abgebrochen).' : 'Das Kartenbild wurde nicht übernommen: ' + e.message));
+    }
+  };
+  const bildGewaehlt = ev => {
+    const datei = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!datei || !karte) return;
+    const k = karte;
+    if (k.bild) {
+      setFrage({
+        titel: 'Kartenbild ersetzen?',
+        ja: 'Ersetzen',
+        text: 'Das neue Bild ersetzt das bisherige. Orte und Maßstab bleiben an ihrer Stelle auf der Karte — hat das neue Bild eine andere Größe, werden sie umgerechnet.',
+        onJa: () => kartenbildSetzen(k, datei)
+      });
+    } else {
+      kartenbildSetzen(k, datei);
+    }
+  };
+
+  // ── Klicks auf die Karte ────────────────────────────────────────
+  const aufKarteGeklickt = async p => {
+    if (werkzeug === 'ort' && dm && karte) {
+      const neu = {
+        id: planNeueId('o'),
+        karteId: karte.id,
+        art: 'ort',
+        name: 'Neuer Ort',
+        symbol: '📍',
+        x: p.x,
+        y: p.y,
+        sichtbar: false,
+        text: '',
+        dm: {
+          notiz: ''
+        }
+      };
+      setWerkzeug('ansehen');
+      try {
+        await objSpeichern(neu);
+        await laden(advId);
+        setOrtWahl(neu.id);
+      } catch (e) {
+        fehler(e);
+      }
+      return;
+    }
+    if (werkzeug === 'massstab') {
+      const neu = [...punkte, p].slice(-2);
+      setPunkte(neu);
+      if (neu.length === 2) setMassstabFrage(neu);
+      return;
+    }
+    if (werkzeug === 'lineal') {
+      setPunkte(v => [...v, p]);
+      return;
+    }
+    setOrtWahl('');
+  };
+  const massstabSpeichern = async m => {
+    setMassstabFrage(null);
+    setPunkte([]);
+    setWerkzeug('ansehen');
+    await karteAendern(karte, {
+      massstab: m
+    });
+    setMeldung({
+      art: 'gut',
+      text: 'Maßstab: ' + laengeText(m.laenge, m.einheit) + ' auf ' + Math.round(abstandPx(m.a, m.b)) + ' Pixel.'
+    });
+  };
+  const werkzeugWaehlen = w => {
+    setPunkte([]);
+    setWerkzeug(v => v === w ? 'ansehen' : w);
+  };
+
+  // ── Orte ────────────────────────────────────────────────────────
+  const ortSpeichern = async o => {
+    try {
+      await objSpeichern({
+        ...o,
+        name: String(o.name || '').trim() || 'Ohne Namen'
+      });
+      await laden(advId);
+    } catch (e) {
+      fehler(e);
+    }
+  };
+  const ortVerschieben = (o, p) => ortSpeichern({
+    ...o,
+    x: p.x,
+    y: p.y
+  });
+  const ortLoeschen = o => setFrage({
+    titel: 'Ort löschen?',
+    ja: 'Löschen',
+    gefahr: true,
+    text: '„' + o.name + '“ wird mit seinen Bildern gelöscht.',
+    onJa: async () => {
+      try {
+        if ((o.bilder || []).length) await planerApi('planer_dateien_weg', {
+          adv_id: advId,
+          karte_id: o.karteId,
+          pfade: o.bilder
+        }).catch(() => {});
+        await planerApi('planer_obj_loeschen', {
+          adv_id: advId,
+          obj_id: o.id
+        });
+        setOrtWahl('');
+        await laden(advId);
+      } catch (e) {
+        fehler(e);
+      }
+    }
+  });
+  const ortBilderHoch = async (o, liste) => {
+    try {
+      const neu = await ausfuehren('Bilder', async melde => {
+        const format = await bildFormat();
+        const pfade = [];
+        for (let i = 0; i < liste.length; i++) {
+          melde('Bild ' + (i + 1) + ' von ' + liste.length, i / liste.length);
+          const {
+            bitmap
+          } = await bildOeffnen(liste[i], bildMasse(await dateiKopf(liste[i])));
+          const bytes = await bildVerkleinert(bitmap, 1600, format);
+          if (bitmap.close) bitmap.close();
+          const pfad = 'orte/' + o.id.toLowerCase() + '/' + planNeueId('b').slice(2) + '.' + format.endung;
+          await planerApi('planer_dateien_hoch', {
+            adv_id: advId,
+            karte_id: o.karteId,
+            dateien: [{
+              pfad,
+              daten: base64AusBytes(bytes)
+            }]
+          });
+          pfade.push(pfad);
+        }
+        return pfade;
+      });
+      await ortSpeichern({
+        ...o,
+        bilder: [...(o.bilder || []), ...neu]
+      });
+    } catch (e) {
+      fehler(e);
+    }
+  };
+  const ortBildWeg = async (o, pfad) => {
+    try {
+      await planerApi('planer_dateien_weg', {
+        adv_id: advId,
+        karte_id: o.karteId,
+        pfade: [pfad]
+      });
+      await ortSpeichern({
+        ...o,
+        bilder: (o.bilder || []).filter(p => p !== pfad)
+      });
+    } catch (e) {
+      fehler(e);
+    }
+  };
+  const zurUnterkarte = id => {
+    if (!karten.some(k => k.id === id)) return;
+    setVerlauf(v => [...v, auswahl]);
+    setAuswahl(id);
+  };
+  const zurueck = () => {
+    const v = [...verlauf];
+    const id = v.pop();
+    setVerlauf(v);
+    if (id && karten.some(k => k.id === id)) setAuswahl(id);
+  };
+
+  // ── Paket ───────────────────────────────────────────────────────
   const advName = ((start && start.abenteuer || []).find(a => a.id === advId) || {}).name || '';
   const exportieren = async () => {
     try {
@@ -1094,10 +2568,7 @@ const PlanerApp = () => {
       const erg = await ausfuehren('Einspielen', melde => planEinspielen({
         paket: v.paket,
         karteSpeichern,
-        objSpeichern: o => planerApi('planer_obj_speichern', {
-          adv_id: advId,
-          obj: o
-        }),
+        objSpeichern,
         dateienHoch: (karteId, liste) => planerApi('planer_dateien_hoch', {
           adv_id: advId,
           karte_id: karteId,
@@ -1112,7 +2583,10 @@ const PlanerApp = () => {
       }));
       await laden(advId);
       const ersteKarte = erg.karten ? erg.zuordnung.get(v.paket.manifest.karten[0].id) : '';
-      if (ersteKarte) setAuswahl(ersteKarte);
+      if (ersteKarte) {
+        setAuswahl(ersteKarte);
+        setVerlauf([]);
+      }
       setMeldung({
         art: 'gut',
         text: 'Eingespielt: ' + erg.karten + ' Karten, ' + erg.objekte + ' Einträge, ' + erg.dateien + ' Dateien.'
@@ -1123,6 +2597,12 @@ const PlanerApp = () => {
     }
   };
   if (!angemeldet) return /*#__PURE__*/React.createElement(PlanerNichtAngemeldet, null);
+  const linie = werkzeug === 'lineal' || werkzeug === 'massstab' ? {
+    punkte,
+    art: werkzeug
+  } : null;
+  const strecke = werkzeug === 'lineal' && karte && karte.massstab && punkte.length > 1 ? wegLaenge(punkte, karte.massstab) : 0;
+  const vorige = verlauf.length ? karten.find(k => k.id === verlauf[verlauf.length - 1]) : null;
   return /*#__PURE__*/React.createElement("div", {
     className: "pl-seite"
   }, /*#__PURE__*/React.createElement("header", {
@@ -1178,12 +2658,17 @@ const PlanerApp = () => {
   }, /*#__PURE__*/React.createElement("p", null, "In dieser Gruppe gibt es noch kein Abenteuer. Lege im Heldenbuch eines an.")) : !daten ? /*#__PURE__*/React.createElement("div", {
     className: "pl-buehne-leer"
   }, /*#__PURE__*/React.createElement("p", null, "L\xE4dt \u2026")) : /*#__PURE__*/React.createElement("main", {
-    className: "pl-haupt-flaeche"
+    className: 'pl-haupt-flaeche' + (ort ? ' mit-tafel' : '')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pl-spalte"
   }, /*#__PURE__*/React.createElement(PlanerKartenListe, {
     karten: karten,
     auswahl: auswahl,
     dm: dm,
-    onWahl: setAuswahl,
+    onWahl: id => {
+      setAuswahl(id);
+      setVerlauf([]);
+    },
     onNeu: neueKarte,
     onUmbenennen: (id, name) => karteAendern(karten.find(k => k.id === id), {
       name
@@ -1192,12 +2677,105 @@ const PlanerApp = () => {
       sichtbar: !k.sichtbar
     }),
     onLoeschen: karteLoeschen
-  }), /*#__PURE__*/React.createElement(PlanerKarteAnsicht, {
-    karte: karte,
+  }), karte && /*#__PURE__*/React.createElement(PlanerOrtListe, {
+    orte: orte,
+    auswahl: ortWahl,
     dm: dm,
-    objekte: daten.objekte,
-    dateien: dateien
-  })), vorschau && /*#__PURE__*/React.createElement(PlanerImportVorschau, {
+    onWahl: o => {
+      setOrtWahl(o.id);
+      setFokus({
+        x: o.x,
+        y: o.y,
+        n: Date.now()
+      });
+    }
+  })), !karte ? /*#__PURE__*/React.createElement("div", {
+    className: "pl-buehne-leer"
+  }, /*#__PURE__*/React.createElement("p", null, karten.length ? 'Wähle links eine Karte.' : '')) : /*#__PURE__*/React.createElement("section", {
+    className: "pl-buehne"
+  }, /*#__PURE__*/React.createElement("header", {
+    className: "pl-buehne-kopf"
+  }, vorige && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: zurueck
+  }, "\u2190 ", vorige.name), /*#__PURE__*/React.createElement("h1", null, karte.name), dm && /*#__PURE__*/React.createElement("span", {
+    className: 'pl-sicht ' + (karte.sichtbar ? 'an' : 'aus')
+  }, karte.sichtbar ? 'für Spieler sichtbar' : 'für Spieler verborgen'), /*#__PURE__*/React.createElement("div", {
+    className: "pl-werkzeuge",
+    role: "toolbar",
+    "aria-label": "Werkzeuge"
+  }, dm && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => bildEingabe.current && bildEingabe.current.click()
+  }, "\uD83D\uDDBC ", karte.bild ? 'Bild ersetzen' : 'Kartenbild'), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+    className: 'pl-knopf pl-klein' + (werkzeug === 'ort' ? ' an' : ''),
+    "aria-pressed": werkzeug === 'ort',
+    onClick: () => werkzeugWaehlen('ort')
+  }, "\uD83D\uDCCD Ort setzen"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+    className: 'pl-knopf pl-klein' + (werkzeug === 'massstab' ? ' an' : ''),
+    "aria-pressed": werkzeug === 'massstab',
+    onClick: () => werkzeugWaehlen('massstab')
+  }, "\uD83D\uDCCF Ma\xDFstab"), karte.bild && /*#__PURE__*/React.createElement("button", {
+    className: 'pl-knopf pl-klein' + (werkzeug === 'lineal' ? ' an' : ''),
+    "aria-pressed": werkzeug === 'lineal',
+    onClick: () => werkzeugWaehlen('lineal')
+  }, "\uD83D\uDCD0 Messen"), /*#__PURE__*/React.createElement("input", {
+    ref: bildEingabe,
+    type: "file",
+    accept: "image/png,image/jpeg,image/webp,image/gif,image/avif",
+    hidden: true,
+    onChange: bildGewaehlt
+  }))), werkzeug !== 'ansehen' && /*#__PURE__*/React.createElement("div", {
+    className: "pl-werkzeug-hinweis",
+    role: "status"
+  }, /*#__PURE__*/React.createElement("span", null, WERKZEUG_HINWEIS[werkzeug]), werkzeug === 'lineal' && /*#__PURE__*/React.createElement("strong", {
+    className: "pl-strecke"
+  }, !karte.massstab ? 'Ohne Maßstab lässt sich nicht messen' + (dm ? ' — leg ihn mit 📏 fest.' : '.') : punkte.length > 1 ? laengeText(strecke, karte.massstab.einheit) + ' · ' + fussZeitText(strecke, karte.massstab.einheit) : ''), werkzeug === 'lineal' && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => setPunkte([])
+  }, "Neu"), /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => {
+      setWerkzeug('ansehen');
+      setPunkte([]);
+    }
+  }, "Fertig")), /*#__PURE__*/React.createElement(KartenLeinwand, {
+    karte: karte,
+    orte: orte,
+    dm: dm,
+    werkzeug: werkzeug,
+    ortWahl: ortWahl,
+    linie: linie,
+    fokus: fokus,
+    gedaechtnis: gedaechtnis,
+    onKlick: aufKarteGeklickt,
+    onOrtWahl: setOrtWahl,
+    onOrtVerschieben: ortVerschieben,
+    onBildWaehlen: () => bildEingabe.current && bildEingabe.current.click()
+  }), /*#__PURE__*/React.createElement("dl", {
+    className: "pl-fakten pl-fakten-quer"
+  }, karte.bild && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Bild"), /*#__PURE__*/React.createElement("dd", null, karte.bild.breite, " \xD7 ", karte.bild.hoehe)), karte.massstab && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Ma\xDFstab"), /*#__PURE__*/React.createElement("dd", null, laengeText(karte.massstab.laenge, karte.massstab.einheit), " = ", Math.round(abstandPx(karte.massstab.a, karte.massstab.b)), " px")), /*#__PURE__*/React.createElement("dt", null, "Orte"), /*#__PURE__*/React.createElement("dd", null, orte.length), dm && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Dateien"), /*#__PURE__*/React.createElement("dd", null, dateien ? dateien.anzahl + ' · ' + planGroesse(dateien.bytes) : '…')))), ort && karte && /*#__PURE__*/React.createElement(OrtTafel, {
+    key: ort.id,
+    ort: ort,
+    dm: dm,
+    karte: karte,
+    karten: karten,
+    arbeitet: !!arbeit,
+    onSpeichern: ortSpeichern,
+    onLoeschen: ortLoeschen,
+    onSchliessen: () => setOrtWahl(''),
+    onUnterkarte: zurUnterkarte,
+    onBilderHoch: ortBilderHoch,
+    onBildWeg: ortBildWeg
+  })), massstabFrage && /*#__PURE__*/React.createElement(MassstabDialog, {
+    punkte: massstabFrage,
+    alt: karte && karte.massstab,
+    onSpeichern: massstabSpeichern,
+    onZu: () => {
+      setMassstabFrage(null);
+      setPunkte([]);
+    }
+  }), vorschau && /*#__PURE__*/React.createElement(PlanerImportVorschau, {
     vorschau: vorschau,
     onEinspielen: einspielen,
     onZu: () => setVorschau(null)
@@ -1205,7 +2783,14 @@ const PlanerApp = () => {
     frage: frage,
     onZu: () => setFrage(null)
   }), arbeit && /*#__PURE__*/React.createElement(PlanerArbeit, {
-    arbeit: arbeit
+    arbeit: arbeit,
+    onAbbrechen: () => {
+      abbruchRef.current = true;
+      setArbeit(a => a && {
+        ...a,
+        abbruch: true
+      });
+    }
   }));
 };
 

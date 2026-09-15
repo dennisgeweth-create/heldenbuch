@@ -127,3 +127,81 @@ a { color: var(--gold); }
 .pl-karte-leer p { color: var(--text-secondary); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ── Stufe 1: Karte, Orte, Werkzeuge ─────────────────────────────── */
+.pl-spalte { display: grid; gap: 12px; align-self: start; min-width: 0; }
+.pl-haupt-flaeche.mit-tafel { grid-template-columns: 270px minmax(0, 1fr) 320px; }
+@media (max-width: 1100px) { .pl-haupt-flaeche.mit-tafel { grid-template-columns: 250px minmax(0, 1fr); } .pl-haupt-flaeche.mit-tafel .pl-tafel { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .pl-haupt-flaeche.mit-tafel { grid-template-columns: 1fr; } }
+
+.pl-vorschau { width: 34px; height: 26px; object-fit: cover; border-radius: 3px; border: 1px solid var(--border); flex-shrink: 0; background: var(--bg-card); }
+.pl-vorschau-leer { display: inline-flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text-muted); }
+.pl-eintrag-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pl-suche { width: 100%; margin: 0 0 6px; }
+
+.pl-werkzeuge { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.pl-knopf.an { border-color: var(--gold); background: rgba(224,90,90,0.16); color: var(--gold-bright); }
+.pl-werkzeug-hinweis { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 7px 10px; border-radius: 6px;
+  background: var(--bg-deep); border: 1px dashed var(--border-bright); font-size: 13px; color: var(--text-secondary); }
+.pl-werkzeug-hinweis > span { flex: 1 1 240px; }
+.pl-strecke { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+.pl-leinwand-karte { position: relative; flex: 1; min-height: 460px; height: calc(100vh - 230px); border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: #0b0c0d; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+.pl-leinwand-karte:active { cursor: grabbing; }
+.pl-leinwand-karte.leer { display: flex; align-items: center; justify-content: center; cursor: default;
+  background: radial-gradient(ellipse at 50% 40%, #1c1f22 0%, var(--bg-deep) 70%); }
+.pl-leinwand-karte.leer .pl-leinwand-text { justify-items: center; }
+.pl-leinwand-karte.werkzeug-ort, .pl-leinwand-karte.werkzeug-massstab, .pl-leinwand-karte.werkzeug-lineal { cursor: crosshair; }
+.pl-kacheln { position: absolute; inset: 0; }
+.pl-kacheln img { position: absolute; max-width: none; pointer-events: none; image-rendering: auto; }
+.pl-ueberlage { position: absolute; inset: 0; pointer-events: none; }
+.pl-linie { fill: none; stroke: #ffe08a; stroke-width: 2.5; stroke-dasharray: 8 5; filter: drop-shadow(0 1px 1px rgba(0,0,0,.8)); }
+.pl-linie.massstab { stroke: #7fd3ff; }
+.pl-linie-punkt { fill: #ffe08a; stroke: #1a1400; stroke-width: 1.5; }
+.pl-linie-punkt.massstab { fill: #7fd3ff; stroke: #001a26; }
+
+.pl-ort { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: none; border: 0; cursor: pointer; padding: 0 2px 2px; touch-action: none; }
+.pl-ort-symbol { font-size: 24px; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0,0,0,.75)); transition: transform .12s; }
+.pl-ort-name { font-family: 'Roboto Condensed', sans-serif; font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap;
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; border-radius: 3px; background: rgba(10,10,12,0.72); }
+.pl-ort:hover .pl-ort-symbol, .pl-ort.aktiv .pl-ort-symbol { transform: scale(1.18); }
+.pl-ort.aktiv .pl-ort-name { background: var(--gold-dim); }
+.pl-ort.verborgen { opacity: .62; }
+.pl-ort.verborgen .pl-ort-name { outline: 1px dashed rgba(255,255,255,.55); }
+.pl-ort.gezogen { opacity: .85; cursor: grabbing; }
+
+.pl-zoom { position: absolute; top: 10px; right: 10px; display: grid; gap: 4px; }
+.pl-zoom .pl-symbol { width: 34px; height: 34px; background: rgba(20,22,24,.88); border-color: var(--border); font-size: 17px; color: var(--text-primary); }
+.pl-massstab-leiste { position: absolute; left: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 2px; padding: 4px 8px 5px;
+  background: rgba(20,22,24,.82); border-radius: 4px; font-size: 11px; color: var(--text-primary); pointer-events: none; font-variant-numeric: tabular-nums; }
+.pl-massstab-leiste > div { height: 6px; border: 2px solid var(--text-primary); border-top: 0; }
+
+.pl-tafel { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: grid; gap: 10px;
+  align-self: start; min-width: 0; max-height: calc(100vh - 110px); overflow: auto; position: sticky; top: 72px; }
+.pl-tafel-kopf { display: flex; align-items: center; gap: 8px; }
+.pl-tafel-kopf h2 { flex: 1; min-width: 0; font-family: 'Roboto Condensed', sans-serif; font-size: 19px; line-height: 1.2; overflow-wrap: anywhere; }
+.pl-tafel-symbol { font-size: 24px; }
+.pl-ort-text { white-space: pre-wrap; color: var(--text-secondary); }
+.pl-formular { display: grid; gap: 10px; }
+.pl-formular label { display: grid; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.pl-formular textarea { resize: vertical; color: var(--text-primary); font-size: 13px; line-height: 1.45; }
+.pl-dm-feld { border-color: rgba(143,48,48,0.6); background: #1d1719; }
+.pl-schalter { display: flex !important; grid-template-columns: none; align-items: center; gap: 8px !important; color: var(--text-secondary) !important; font-size: 13px !important; }
+.pl-symbole { display: flex; flex-wrap: wrap; gap: 3px; }
+.pl-symbolwahl { width: 32px; height: 32px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; font-size: 17px; }
+.pl-symbolwahl.an { border-color: var(--gold); background: rgba(224,90,90,0.14); }
+.pl-zeile { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pl-zahl { width: 120px; }
+.pl-ort-bilder { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.pl-ort-bilder figure { position: relative; }
+.pl-ort-bilder figure > .pl-symbol { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; background: rgba(0,0,0,.7); font-size: 11px; }
+.pl-ort-bild { display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; cursor: zoom-in; background: var(--bg-card); }
+.pl-ort-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pl-lupe { cursor: zoom-out; }
+.pl-lupe img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+/* Grid-Kinder schrumpfen sonst nicht unter ihren Inhalt: lange Namen
+   drueckten die Liste ueber ihre Spalte hinaus. */
+.pl-spalte > *, .pl-liste ul > li { min-width: 0; }
+.pl-verborgen-text { color: var(--text-muted); font-style: italic; }

@@ -1,5 +1,41 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.12.0
+
+### Abenteuerplaner Stufe 1: Karten, Orte, Maßstab
+
+Der **🗺 Planer** zeigt jetzt richtige Karten.
+
+- **Kartenbild hochladen:** PNG, JPEG oder WebP, auch sehr große. Das
+  Bild wird im Browser in Kacheln geschnitten, wie bei Kartendiensten,
+  und nur die nötigen Kacheln werden geladen. Eine Karte mit 16 000 ×
+  10 000 Pixeln ist in gut 15 Sekunden geschnitten, dazu kommt die Zeit
+  zum Hochladen. Der Fortschritt steht im Fenster, und **Abbrechen** geht
+  jederzeit.
+- **Bewegen wie bei Google Maps:** ziehen zum Verschieben, Mausrad oder
+  zwei Finger zum Zoomen, ＋ − ⤢ oben rechts.
+- **Bild ersetzen:** Spieler sehen während des Hochladens weiter das alte
+  Bild, bis das neue ganz oben ist. Hat das neue Bild eine andere Größe,
+  wandern Orte und Maßstab mit.
+- **📏 Maßstab:** Zwei Punkte anklicken und sagen, wie weit sie
+  auseinanderliegen, in Kilometern, Meilen, Metern oder Fuß. Unten links
+  steht dann die Maßstabsleiste.
+- **📐 Messen:** Punkt für Punkt eine Strecke klicken. Der Planer nennt die
+  Länge und wie lange man zu Fuß braucht (4,5 km pro Stunde, acht Stunden
+  am Tag). Das Messen steht auch Spielern zur Verfügung.
+- **📍 Orte:** Die Spielleitung setzt Orte auf die Karte, gibt ihnen Namen,
+  Zeichen, einen Text für die Spieler, eine eigene Notiz und Bilder, und
+  zieht sie mit der Maus an eine andere Stelle.
+- **Sichtbarkeit:** Jeder Ort ist für Spieler sichtbar oder verborgen.
+  Die Notiz der Spielleitung bekommen Spieler nie zu sehen.
+- **Unterkarten:** Ein Ort kann zu einer anderen Karte führen, etwa vom
+  Tal in die Burg und wieder zurück.
+- In der Liste der Karten steht eine kleine Vorschau, darunter die Orte
+  der gewählten Karte.
+
+Export und Import nehmen alles mit: Kacheln, Maßstab, Orte, Ortsbilder
+und die Verweise auf Unterkarten.
+
 ## v5.11.0
 
 ### Der Abenteuerplaner: das Gerüst steht

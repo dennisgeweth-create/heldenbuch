@@ -96,6 +96,15 @@
           }
           return { ok: true, anzahl: p.dateien.length };
         }
+        case 'planer_dateien_weg': {
+          nurDm();
+          const k = karteVon(p.karte_id);
+          const ab = FAKE.ablagen.get(k.ablage) || new Map();
+          if (p.pfade) p.pfade.forEach(pf => ab.delete(pf));
+          else if (p.praefix) [...ab.keys()].filter(pf => pf.startsWith(p.praefix + '/')).forEach(pf => ab.delete(pf));
+          else ab.clear();
+          return { ok: true };
+        }
         case 'planer_dateien_liste': {
           nurDm();
           const k = karteVon(p.karte_id);
@@ -111,6 +120,18 @@
       return b;
     }
     function planerSpeichern(blob, name) { FAKE.gespeichert.push({ blob, name }); }
+    // Bilder aus dem Gedaechtnis: je Datei eine Blob-Adresse.
+    const fakeUrls = new Map();
+    const planerDateiUrl = (ablage, pfad) => {
+      const b = (FAKE.ablagen.get(ablage) || new Map()).get(pfad);
+      if (!b) return 'data:,fehlt';
+      const alt = fakeUrls.get(ablage + '/' + pfad);
+      if (alt && alt.bytes === b) return alt.url;
+      const typ = /\.png$/.test(pfad) ? 'image/png' : /\.jpe?g$/.test(pfad) ? 'image/jpeg' : 'image/webp';
+      const url = URL.createObjectURL(new Blob([b], { type: typ }));
+      fakeUrls.set(ablage + '/' + pfad, { bytes: b, url });
+      return url;
+    };
   </script>
   <script src="../planer/planer.js?v=dev"></script>
   <script>
@@ -137,16 +158,44 @@
       const root = document.getElementById('root');
       const knopf = (muster, wo) => [...(wo || root).querySelectorAll('button, a')].find(b => muster.test(b.textContent) || muster.test(b.getAttribute('aria-label') || ''));
       const tippe = (el, wert) => {
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, wert);
+        const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, wert);
         el.dispatchEvent(new Event('input', { bubbles: true }));
       };
-      const textDa = (muster) => muster.test(root.textContent);
-      const starten = async (einstellen) => {
-        einstellen();
-        planerStarten(root);
-        await ruhe(80);
+      const waehle = (el, wert) => {
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(el, wert);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
       };
+      const legeDatei = (eingabe, blob, name) => {
+        const dt = new DataTransfer();
+        dt.items.add(blob instanceof File ? blob : new File([blob], name));
+        eingabe.files = dt.files;
+        eingabe.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      const textDa = (muster) => muster.test(root.textContent);
+      const starten = async (einstellen) => { einstellen(); planerStarten(root); await ruhe(80); };
       const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
+      const testbild = async (b, h) => {
+        const c = document.createElement('canvas');
+        c.width = b; c.height = h;
+        const x = c.getContext('2d');
+        const verlauf = x.createLinearGradient(0, 0, b, h);
+        verlauf.addColorStop(0, '#2d4a37'); verlauf.addColorStop(1, '#8b6c3a');
+        x.fillStyle = verlauf; x.fillRect(0, 0, b, h);
+        x.strokeStyle = 'rgba(255,255,255,.4)';
+        for (let i = 0; i < b; i += b / 10) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); }
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        return new File([blob], 'karte-' + b + '.png', { type: 'image/png' });
+      };
+      const leinwand = () => root.querySelector('.pl-leinwand-karte');
+      const zeiger = (el, art, x, y) => el.dispatchEvent(new PointerEvent(art, { clientX: x, clientY: y, pointerId: 7, bubbles: true, button: 0, isPrimary: true }));
+      const tippeKarte = (dx, dy) => {
+        const el = leinwand(), r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2 + (dx || 0), y = r.top + r.height / 2 + (dy || 0);
+        zeiger(el, 'pointerdown', x, y); zeiger(el, 'pointerup', x, y);
+      };
+      const karteVon = (name) => [...FAKE.karten.values()].find(k => k.daten.name === name);
+      const bildEingabe = () => root.querySelector('input[type=file][accept^="image/png"]');
 
       try {
         // ── Ohne Anmeldung ─────────────────────────────────────────
@@ -177,10 +226,8 @@
         ja('  … zunaechst fuer Spieler verborgen', textDa(/für Spieler verborgen/));
         const kId = [...FAKE.karten.keys()][0];
         ja('  … mit einer Kennung nach der Regel', /^k_[0-9a-f]{16}$/.test(kId || ''), kId);
-
         knopf(/Sichtbar machen/).click();
         ja('das Auge macht sie sichtbar', !!(await warte(() => textDa(/für Spieler sichtbar/))));
-
         knopf(/Umbenennen/).click();
         await ruhe();
         const um = root.querySelector('.pl-eintrag .pl-neu input');
@@ -188,82 +235,194 @@
         um.form.requestSubmit();
         ja('umbenennen geht', !!(await warte(() => root.querySelector('.pl-buehne-kopf h1').textContent === 'Barovia-Tal')));
 
-        // Dateien und einen Ort unterschieben, wie sie Stufe 1 anlegen wird.
-        const ab = FAKE.karten.get(kId).ablage;
-        FAKE.ablagen.set(ab, new Map([['kacheln/0/0/0.png', png], ['karte.json', new TextEncoder().encode('{"stufen":1}')]]));
-        FAKE.objekte.set('o_1234567890abcdef', { adv: 'strahd', daten: { id: 'o_1234567890abcdef', karteId: kId, art: 'ort', name: 'Dorf', sichtbar: false, dm: { notiz: 'Ireena' } } });
-        FAKE.karten.get(kId).daten.dm = { notiz: 'Nebel' };
-        FAKE.stand.strahd++;
-        await planerApi('planer_stand', { adv_id: 'strahd' });
-        // Den Abgleich nicht abwarten: Abenteuer hin und zurueck laedt neu.
-        const setzS = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-        setzS.call(wahl, 'eberron'); wahl.dispatchEvent(new Event('change', { bubbles: true }));
-        ja('ein anderes Abenteuer hat seine eigenen Karten', !!(await warte(() => textDa(/Noch keine Karte/))));
-        setzS.call(wahl, 'strahd'); wahl.dispatchEvent(new Event('change', { bubbles: true }));
-        ja('zurueck bei Strahd: die Dateien werden gezaehlt', !!(await warte(() => /2 · \d+ B/.test(root.querySelector('.pl-fakten-quer') ? root.querySelector('.pl-fakten-quer').textContent : ''))),
-           root.querySelector('.pl-fakten-quer') && root.querySelector('.pl-fakten-quer').textContent);
+        // ── Das Kartenbild ─────────────────────────────────────────
+        melden('lauf', 'Das Kartenbild');
+        ja('ohne Bild bietet die Karte das Hochladen an', textDa(/Noch kein Kartenbild/) && !!knopf(/Kartenbild wählen/));
+        ja('  … Ort setzen und Messen gibt es erst mit Bild', !knopf(/Ort setzen/) && !knopf(/Messen/));
+        legeDatei(bildEingabe(), await testbild(1000, 700));
+        ja('das Bild wird geschnitten und übernommen', !!(await warte(() => textDa(/Kartenbild übernommen: 1000 × 700 Pixel, 17 Kacheln/), 20000)),
+           root.querySelector('.pl-meldung') && root.querySelector('.pl-meldung').textContent);
+        const ab = karteVon('Barovia-Tal').ablage;
+        const dateienB1 = [...FAKE.ablagen.get(ab).keys()];
+        ja('  … 17 Kacheln und eine Vorschau liegen im Ordner b1', dateienB1.filter(p => /^b1\/\d+\/\d+\/\d+\.webp$/.test(p)).length === 17 && dateienB1.includes('b1/vorschau.webp'), dateienB1.length);
+        const bild1 = karteVon('Barovia-Tal').daten.bild;
+        ja('  … die Karte kennt ihr Bild', bild1 && bild1.breite === 1000 && bild1.hoehe === 700 && bild1.ordner === 'b1' && bild1.stufen === 2 && bild1.endung === 'webp', JSON.stringify(bild1));
+        const kachel = FAKE.ablagen.get(ab).get('b1/2/3/2.webp');
+        ja('  … eine Kachel ist ein echtes WebP', !!kachel && String.fromCharCode(...kachel.subarray(8, 12)) === 'WEBP');
+        const kachelBild = await createImageBitmap(new Blob([kachel], { type: 'image/webp' }));
+        ja('  … und die Randkachel hat die Randgröße (232 × 188)', kachelBild.width === 232 && kachelBild.height === 188, kachelBild.width + '×' + kachelBild.height);
+        ja('die Leinwand zeigt Kacheln', !!(await warte(() => root.querySelectorAll('.pl-kacheln img').length > 0)));
+        ja('  … die Liste zeigt die Vorschau', !!root.querySelector('.pl-eintrag img.pl-vorschau'));
+        // Die Breite einer Kachel der vorderen Stufe zeigt, wie nah man dran ist.
+        const kachelBreite = () => Math.max(...[...root.querySelectorAll('.pl-kacheln img:not(.hinten)')].map(i => parseFloat(i.style.width)));
+        const breiteVorher = kachelBreite();
+        knopf(/Näher heran/).click(); await ruhe(60); knopf(/Näher heran/).click();
+        await ruhe(120);
+        ja('＋ zoomt heran', kachelBreite() > breiteVorher * 1.5, breiteVorher + ' → ' + kachelBreite());
+        knopf(/Ganze Karte/).click();
+        await ruhe(120);
+        ja('⤢ zeigt wieder die ganze Karte', Math.abs(kachelBreite() - breiteVorher) < 0.5, kachelBreite());
+
+        // ── Maßstab und Lineal ─────────────────────────────────────
+        melden('lauf', 'Maßstab und Lineal');
+        knopf(/Messen/).click();
+        await ruhe();
+        tippeKarte(-100, 0); tippeKarte(100, 0);
+        ja('ohne Maßstab sagt das Lineal, was fehlt', !!(await warte(() => textDa(/Ohne Maßstab lässt sich nicht messen/))));
+        knopf(/Maßstab/).click();
+        await ruhe();
+        tippeKarte(0, 0); await ruhe(); tippeKarte(150, 0);
+        const md = await warte(() => root.querySelector('form.pl-dialog'));
+        ja('zwei Klicks öffnen die Frage nach der Entfernung', !!md);
+        tippe(md.querySelector('input'), '30');
+        md.requestSubmit();
+        ja('der Maßstab ist gespeichert', !!(await warte(() => { const m = karteVon('Barovia-Tal').daten.massstab; return m && m.laenge === 30 && m.a.y === m.b.y && m.b.x > m.a.x; })),
+           JSON.stringify(karteVon('Barovia-Tal').daten.massstab));
+        ja('  … die Leiste unten zeigt ihn', !!(await warte(() => root.querySelector('.pl-massstab-leiste'))));
+        knopf(/Messen/).click();
+        await ruhe();
+        tippeKarte(0, 0); await ruhe(); tippeKarte(150, 0);
+        ja('das Lineal misst die 30 km nach', !!(await warte(() => /30 km · ≈ 6,5 Std\. zu Fuß/.test((root.querySelector('.pl-strecke') || {}).textContent || ''))),
+           (root.querySelector('.pl-strecke') || {}).textContent);
+        ja('  … und zeichnet die Strecke', root.querySelectorAll('.pl-ueberlage circle').length === 2);
+        knopf(/^Fertig$/).click();
+
+        // ── Orte ───────────────────────────────────────────────────
+        melden('lauf', 'Orte');
+        knopf(/Ort setzen/).click();
+        await ruhe();
+        tippeKarte(0, 0);
+        const tafel = await warte(() => root.querySelector('.pl-tafel'));
+        ja('ein Klick setzt einen Ort und öffnet seine Tafel', !!tafel && /Neuer Ort/.test(tafel.textContent));
+        const ortId = [...FAKE.objekte.keys()].find(id => FAKE.objekte.get(id).daten.name === 'Neuer Ort');
+        const mA = karteVon('Barovia-Tal').daten.massstab.a;
+        ja('  … genau dort, wo geklickt wurde (derselbe Punkt wie der Maßstab)', ortId && FAKE.objekte.get(ortId).daten.x === mA.x && FAKE.objekte.get(ortId).daten.y === mA.y, ortId && JSON.stringify(FAKE.objekte.get(ortId).daten));
+        tippe(tafel.querySelector('input.pl-feld'), 'Dorf Barovia');
+        tippe(tafel.querySelectorAll('textarea')[0], 'Nebel liegt über den Dächern.');
+        tippe(tafel.querySelectorAll('textarea')[1], 'Ireena wohnt hier.');
+        knopf(/🏘/, tafel).click();
+        tafel.querySelector('input[type=checkbox]').click();
+        await ruhe();
+        knopf(/^Speichern$/, tafel).click();
+        ja('der Ort ist gespeichert', !!(await warte(() => { const o = FAKE.objekte.get(ortId).daten; return o.name === 'Dorf Barovia' && o.sichtbar && o.symbol === '🏘' && o.dm.notiz === 'Ireena wohnt hier.'; })));
+        ja('  … sein Zeichen steht auf der Karte', !!(await warte(() => [...root.querySelectorAll('.pl-ort')].some(b => /Dorf Barovia/.test(b.textContent)))));
+        ja('  … und in der Liste der Orte', /Orte · 1/.test(root.textContent));
+
+        const marke = [...root.querySelectorAll('.pl-ort')].find(b => /Dorf Barovia/.test(b.textContent));
+        const mr = marke.getBoundingClientRect();
+        zeiger(marke, 'pointerdown', mr.left + mr.width / 2, mr.bottom - 2); await ruhe(40);
+        zeiger(marke, 'pointermove', mr.left + mr.width / 2 + 80, mr.bottom - 2); await ruhe(40);
+        zeiger(marke, 'pointerup', mr.left + mr.width / 2 + 80, mr.bottom - 2);
+        ja('ein Ort lässt sich verschieben', !!(await warte(() => FAKE.objekte.get(ortId).daten.x > 520)), FAKE.objekte.get(ortId).daten.x);
+
+        legeDatei(root.querySelector('.pl-tafel input[type=file]'), await testbild(640, 480));
+        ja('ein Bild am Ort wird verkleinert abgelegt', !!(await warte(() => (FAKE.objekte.get(ortId).daten.bilder || []).length === 1, 8000)));
+        const ortBild = FAKE.objekte.get(ortId).daten.bilder[0];
+        ja('  … unter orte/<ort>/', ortBild.startsWith('orte/' + ortId + '/') && FAKE.ablagen.get(ab).has(ortBild), ortBild);
+        ja('  … und steht in der Tafel', !!(await warte(() => root.querySelector('.pl-tafel .pl-ort-bild img'))));
+
+        // Unterkarte
+        knopf(/Neue Karte/).click();
+        await ruhe();
+        tippe(root.querySelector('.pl-neu input'), 'Burg Ravenloft');
+        root.querySelector('.pl-neu button[type=submit]').click();
+        await warte(() => root.querySelector('.pl-buehne-kopf h1').textContent === 'Burg Ravenloft');
+        [...root.querySelectorAll('.pl-eintrag-name')].find(b => /Barovia-Tal/.test(b.textContent)).click();
+        await warte(() => root.querySelector('.pl-buehne-kopf h1').textContent === 'Barovia-Tal');
+        [...root.querySelectorAll('.pl-liste[aria-label="Orte auf dieser Karte"] .pl-eintrag-name')][0].click();
+        const tafel2 = await warte(() => root.querySelector('.pl-tafel'));
+        waehle(tafel2.querySelector('select'), karteVon('Burg Ravenloft').daten.id);
+        await ruhe();
+        knopf(/^Speichern$/, tafel2).click();
+        await warte(() => FAKE.objekte.get(ortId).daten.unterkarte);
+        const zurBurg = await warte(() => knopf(/🗺 Burg Ravenloft/, root.querySelector('.pl-tafel')));
+        ja('„Führt zu Karte“ bietet den Weg dorthin', !!zurBurg);
+        zurBurg.click();
+        ja('  … der Klick öffnet die Unterkarte', !!(await warte(() => root.querySelector('.pl-buehne-kopf h1').textContent === 'Burg Ravenloft')));
+        const zurueckKnopf = knopf(/← Barovia-Tal/);
+        ja('  … mit einem Weg zurück', !!zurueckKnopf);
+        zurueckKnopf.click();
+        ja('  … der zurückführt', !!(await warte(() => root.querySelector('.pl-buehne-kopf h1').textContent === 'Barovia-Tal')));
+
+        // Bild ersetzen: groesser — Orte und Maßstab wandern mit.
+        const ortVorher = { ...FAKE.objekte.get(ortId).daten };
+        legeDatei(bildEingabe(), await testbild(2000, 1400));
+        const ersetzen = await warte(() => knopf(/^Ersetzen$/));
+        ja('ein neues Bild fragt vorher nach', !!ersetzen);
+        ersetzen.click();
+        ja('das größere Bild wird übernommen', !!(await warte(() => textDa(/Kartenbild übernommen: 2000 × 1400 Pixel/), 30000)));
+        const ablNeu = [...FAKE.ablagen.get(ab).keys()];
+        ja('  … in den Ordner b2, und b1 ist weg', ablNeu.some(p => p.startsWith('b2/')) && !ablNeu.some(p => p.startsWith('b1/')), ablNeu.filter(p => /^b\d/.test(p)).length);
+        const ortNachher = FAKE.objekte.get(ortId).daten;
+        ja('  … der Ort wandert mit (doppelte Pixel)', ortNachher.x === ortVorher.x * 2 && ortNachher.y === ortVorher.y * 2, ortVorher.x + ',' + ortVorher.y + ' → ' + ortNachher.x + ',' + ortNachher.y);
+        const m2 = karteVon('Barovia-Tal').daten.massstab;
+        ja('  … der Maßstab ebenso', m2.a.x === mA.x * 2 && m2.a.y === mA.y * 2 && m2.laenge === 30, JSON.stringify(m2));
+        ja('  … das Bild des Orts bleibt', FAKE.ablagen.get(ab).has(ortBild));
 
         // ── Exportieren ─────────────────────────────────────────
         melden('lauf', 'Exportieren');
+        const anzahlDateien = FAKE.ablagen.get(ab).size;
         knopf(/Exportieren/).click();
-        const gespeichert = await warte(() => FAKE.gespeichert[0], 5000);
+        const gespeichert = await warte(() => FAKE.gespeichert[0], 8000);
         ja('Exportieren gibt eine Datei heraus', !!gespeichert);
         ja('  … benannt nach Abenteuer und Tag', gespeichert && /^Fluch des Strahd \d{4}-\d{2}-\d{2}\.hbplan$/.test(gespeichert.name), gespeichert && gespeichert.name);
-        ja('  … und meldet, was drin ist', !!(await warte(() => textDa(/Exportiert: 1 Karten, 1 Einträge, 2 Dateien/))));
         const paket = await planPaketOeffnen(gespeichert.blob);
-        ja('das Paket ist ein gueltiges .hbplan', paket.manifest.format === 'heldenbuch-planer' && paket.manifest.dateien.length === 2);
-        ja('  … mit den Notizen der Spielleitung', paket.manifest.karten[0].dm && paket.manifest.karten[0].dm.notiz === 'Nebel');
-        ja('  … ohne die Ablage des Servers', !('ablage' in paket.manifest.karten[0]));
+        ja('das Paket enthält beide Karten, den Ort und alle Dateien',
+          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 1 && paket.manifest.dateien.length === anzahlDateien,
+          paket.manifest.karten.length + '/' + paket.manifest.objekte.length + '/' + paket.manifest.dateien.length + ' von ' + anzahlDateien);
+        ja('  … mit dem Kartenbild, dem Maßstab und der Notiz', paket.manifest.karten.some(k => k.bild && k.bild.ordner === 'b2' && k.massstab) && paket.manifest.objekte[0].dm.notiz === 'Ireena wohnt hier.');
+        ja('  … ohne die Ablage des Servers', !paket.manifest.karten.some(k => 'ablage' in k));
 
         // ── Loeschen und wieder einspielen ─────────────────────
         melden('lauf', 'Löschen und Einspielen');
-        knopf(/^Löschen$/).click();
-        await ruhe();
-        const dialog = root.querySelector('.pl-dialog');
-        ja('Löschen fragt nach und empfiehlt den Export', dialog && /exportiert vorher/.test(dialog.textContent));
-        knopf(/^Löschen$/, dialog).click();
-        ja('danach ist die Karte weg', !!(await warte(() => textDa(/Noch keine Karte/))));
-        ja('  … samt ihren Dateien', !FAKE.ablagen.has(ab));
-
-        const eingabe = root.querySelector('input[type=file]');
-        const legeDatei = (blob, name) => {
-          const dt = new DataTransfer();
-          dt.items.add(new File([blob], name));
-          eingabe.files = dt.files;
-          eingabe.dispatchEvent(new Event('change', { bubbles: true }));
-        };
-        legeDatei(gespeichert.blob, gespeichert.name);
+        const altIds = [...FAKE.karten.keys()];
+        for (const name of ['Barovia-Tal', 'Burg Ravenloft']) {
+          [...root.querySelectorAll('.pl-eintrag')].find(li => li.textContent.includes(name)).querySelector('button[aria-label="Löschen"]').click();
+          const dlg = await warte(() => root.querySelector('.pl-dialog'));
+          knopf(/^Löschen$/, dlg).click();
+          await warte(() => ![...root.querySelectorAll('.pl-eintrag-name')].some(b => b.textContent.includes(name)));
+        }
+        ja('beide Karten sind gelöscht, samt Dateien und Orten', FAKE.karten.size === 0 && !FAKE.ablagen.has(ab) && FAKE.objekte.size === 0);
+        legeDatei(root.querySelector('input[type=file][accept^=".hbplan"]'), gespeichert.blob, gespeichert.name);
         const vorschau = await warte(() => root.querySelector('.pl-import'));
-        ja('die Vorschau zeigt, was kommt', vorschau && /Fluch des Strahd/.test(vorschau.textContent) && /Barovia-Tal/.test(vorschau.textContent), vorschau && vorschau.textContent);
+        ja('die Vorschau zeigt, was kommt', vorschau && /Barovia-Tal/.test(vorschau.textContent) && /Burg Ravenloft/.test(vorschau.textContent));
         knopf(/^Einspielen$/, vorschau).click();
-        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 1 Karten, 1 Einträge, 2 Dateien/), 5000)));
-        const neuId = [...FAKE.karten.keys()].find(id => id !== kId);
-        ja('  … unter neuer Kennung', !!neuId && !FAKE.karten.has(kId));
-        const neuAb = neuId && FAKE.karten.get(neuId).ablage;
-        const kachel = neuAb && FAKE.ablagen.get(neuAb) && FAKE.ablagen.get(neuAb).get('kacheln/0/0/0.png');
-        ja('  … die Kachel liegt Byte fuer Byte wieder da', !!kachel && kachel.length === png.length && kachel.every((b, i) => b === png[i]));
-        ja('  … der Ort zeigt auf die neue Karte', [...FAKE.objekte.values()].some(o => o.daten.karteId === neuId));
-        ja('  … und die Karte ist wieder gewaehlt', root.querySelector('.pl-buehne-kopf h1').textContent === 'Barovia-Tal');
+        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 1 Einträge, \d+ Dateien/), 10000)));
+        const neuTal = karteVon('Barovia-Tal'), neuBurg = karteVon('Burg Ravenloft');
+        ja('  … unter neuen Kennungen', !!neuTal && !!neuBurg && !altIds.includes(neuTal.daten.id));
+        const neuOrt = [...FAKE.objekte.values()][0].daten;
+        ja('  … der Ort zeigt auf die neue Karte und die neue Unterkarte', neuOrt.karteId === neuTal.daten.id && neuOrt.unterkarte === neuBurg.daten.id);
+        ja('  … alle Kacheln sind wieder da', FAKE.ablagen.get(neuTal.ablage).size === anzahlDateien, FAKE.ablagen.get(neuTal.ablage).size);
+        ja('  … und das Kartenbild wird angezeigt', !!(await warte(() => root.querySelectorAll('.pl-kacheln img').length > 0 && !root.querySelector('.pl-kacheln img[src="data:,fehlt"]'))));
 
-        legeDatei(gespeichert.blob, gespeichert.name);
-        knopf(/^Einspielen$/, await warte(() => root.querySelector('.pl-import'))).click();
-        await warte(() => [...root.querySelectorAll('.pl-eintrag-name')].length === 2, 5000);
-        ja('ein zweites Mal kommt „(importiert)“ an den Namen',
-          [...root.querySelectorAll('.pl-eintrag-name')].some(b => /Barovia-Tal \(importiert\)/.test(b.textContent)));
-
-        legeDatei(new Blob(['kein zip']), 'kaputt.hbplan');
-        ja('eine kaputte Datei wird erklaert, nicht verschluckt',
+        legeDatei(root.querySelector('input[type=file][accept^=".hbplan"]'), new Blob(['kein zip']), 'kaputt.hbplan');
+        ja('eine kaputte Datei wird erklärt, nicht verschluckt',
           !!(await warte(() => root.querySelector('.pl-meldung.fehler') && /keine Paketdatei/.test(root.querySelector('.pl-meldung.fehler').textContent))));
 
         // ── Ein Spieler ───────────────────────────────────────────
         melden('lauf', 'Ein Spieler');
-        FAKE.karten.get(neuId).daten.sichtbar = false;
+        neuBurg.daten.sichtbar = false;
         await starten(() => { FAKE.rolle = 'spieler'; });
         ja('der Spieler sieht seine Rolle', !!(await warte(() => root.querySelector('.pl-rolle.spieler'))));
-        ja('  … keine Knoepfe zum Exportieren oder Anlegen', !knopf(/Exportieren|Importieren|Neue Karte/));
-        const sichtbar = [...root.querySelectorAll('.pl-eintrag-name')].map(b => b.textContent);
-        ja('  … nur die sichtbare Karte', sichtbar.length === 1 && /importiert/.test(sichtbar[0]), sichtbar.join(' | '));
-        ja('  … ohne Markierung „verborgen“ und ohne Dateizahl', !textDa(/verborgen/) && !/Dateien/.test(root.querySelector('.pl-fakten-quer').textContent));
+        ja('  … keine Knöpfe zum Exportieren, Anlegen, Bild, Ort oder Maßstab', !knopf(/Exportieren|Importieren|Neue Karte|Kartenbild|Bild ersetzen|Ort setzen|Maßstab/));
+        ja('  … aber das Lineal', !!(await warte(() => knopf(/Messen/))));
+        const sichtbar = [...root.querySelectorAll('.pl-liste[aria-label="Karten"] .pl-eintrag-name')].map(b => b.textContent);
+        ja('  … nur die sichtbare Karte', sichtbar.length === 1 && /Barovia-Tal/.test(sichtbar[0]), sichtbar.join(' | '));
+        const spMarke = await warte(() => [...root.querySelectorAll('.pl-ort')].find(b => /Dorf Barovia/.test(b.textContent)));
+        ja('  … den freigegebenen Ort', !!spMarke);
+        const smr = spMarke.getBoundingClientRect();
+        zeiger(spMarke, 'pointerdown', smr.left + 5, smr.top + 5); await ruhe(40);
+        zeiger(spMarke, 'pointerup', smr.left + 5, smr.top + 5);
+        const spTafel = await warte(() => root.querySelector('.pl-tafel'));
+        ja('  … seine Tafel zum Lesen', !!spTafel && /Nebel liegt über den Dächern/.test(spTafel.textContent) && !spTafel.querySelector('input, textarea'));
+        ja('  … ohne die Notiz der Spielleitung', !/Ireena/.test(root.textContent));
+        ja('  … und ohne Weg zur verborgenen Burg', !knopf(/Burg Ravenloft/));
+        const xVorher = [...FAKE.objekte.values()][0].daten.x;
+        const marke2 = [...root.querySelectorAll('.pl-ort')].find(b => /Dorf Barovia/.test(b.textContent));
+        zeiger(marke2, 'pointerdown', smr.left + 5, smr.top + 5); await ruhe(40);
+        zeiger(marke2, 'pointermove', smr.left + 90, smr.top + 5); await ruhe(40);
+        zeiger(marke2, 'pointerup', smr.left + 90, smr.top + 5); await ruhe(200);
+        ja('  … ein Spieler kann keinen Ort verschieben', [...FAKE.objekte.values()][0].daten.x === xVorher);
       } catch (e) {
         weg++;
         melden('weg', 'Abbruch: ' + e.message, e.stack);

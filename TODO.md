@@ -2,8 +2,8 @@
 
 Offene Vorhaben. Erledigtes wandert in die `PATCHNOTES.md` und hier heraus.
 
-- **Abenteuerplaner Stufe 1** — Kartenbild in Kacheln, Zoom, Maßstab,
-  Orte. Stufenplan in `PLANER.md`.
+- **Abenteuerplaner Stufe 2** — Reise, Zeit und Wetter. Stufenplan in
+  `PLANER.md`.
 
 ## Erledigt
 

@@ -55,7 +55,13 @@ if (-not (Test-Path $mysqld)) { throw "MariaDB nicht gefunden: $mysqld" }
 if (Laeuft 3306) {
   Write-Output "MariaDB laeuft schon."
 } else {
-  Start-Process -FilePath $mysqld -ArgumentList "--defaults-file=`"$myIni`"" -WindowStyle Hidden
+  # Ausgabe und Fehlerausgabe in eigene Dateien. Ohne das erbte mysqld die
+  # Kanaele des aufrufenden Werkzeugs, und am 15.09.2026 landeten seine
+  # Protokollzeilen in data\multi-master.info: danach brach jeder Start mit
+  # "Failed to initialize multi master structures" ab.
+  $mylog = Join-Path $env:TEMP 'heldenbuch-mysqld'
+  Start-Process -FilePath $mysqld -ArgumentList "--defaults-file=`"$myIni`"" -WindowStyle Hidden `
+    -RedirectStandardOutput "$mylog.out" -RedirectStandardError "$mylog.err"
   $wartezeit = 0
   while (-not (Laeuft 3306) -and $wartezeit -lt 30) { Start-Sleep -Milliseconds 500; $wartezeit++ }
   if (Laeuft 3306) { Write-Output "MariaDB gestartet." } else { throw "MariaDB kam nicht hoch." }

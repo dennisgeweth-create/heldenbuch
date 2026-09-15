@@ -31,7 +31,10 @@ Eigene Seite, eigenes Bündel, **gemeinsamer Server**:
 | `planer/src/*.jsx` | Quellen, wie im Heldenbuch in Namensreihenfolge zusammengesetzt |
 | ↳ `0-basis.jsx` | Hooks, `PLANER_VERSION` |
 | ↳ `1-paket.jsx` | **reine Rechnung:** ZIP schreiben und lesen (samt ZIP64), `hbplan.json`, Export und Einspielen |
-| ↳ `2-app.jsx` | die Seite |
+| ↳ `1b-kacheln.jsx` | **reine Rechnung:** Bildmaße aus dem Dateikopf, Kachelpyramide, Ansicht und Zoom, Maßstab und Lineal, Reihenfolge beim Schneiden und Hochladen |
+| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Ziehen, Mausrad, zwei Finger, Orte, Linien |
+| ↳ `3-ort.jsx` | Bilder im Browser öffnen, verkleinern und schneiden; Maßstabsdialog; die Tafel eines Orts |
+| ↳ `4-app.jsx` | die Seite |
 | `planer/planer.js` | daraus gebaut von `node build.js`, **mitcommittet** wie `js/app.js` |
 | `planer/planer.css` | eigene Oberfläche, dieselben Farben wie `styles.css` |
 | `api.php` | Aktionen `planer_*`, Tabellen `hb_plan_karte`, `hb_plan_obj`, `hb_plan_stand` |
@@ -116,14 +119,63 @@ Karten anlegen, umbenennen, sichtbar schalten und löschen. **Export und
 Einspielen als `.hbplan`.** Der Weg hinein steht im Heldenbuch in der
 Seitenleiste.
 
-### Stufe 1 · Karte und Orte
+### ✅ Stufe 1 · Karte und Orte (v5.12.0)
 
-- Kartenbild hochladen und **im Browser in Kacheln schneiden**. Große
-  Bilder, die der Browser nicht am Stück dekodiert, werden streifenweise
-  gelesen; das ist das größte technische Risiko der Stufe.
-- Leaflet (BSD-2-Clause) nach `vendor/`, `CRS.Simple`.
-- Maßstab über zwei Punkte, Lineal.
-- Orte mit öffentlicher Beschreibung, `dm`-Notizen, Bildern und Unterkarten.
+**Kacheln.** Ein Kartenbild wird im Browser der Spielleitung zur
+Kachelpyramide geschnitten: 256 Pixel je Kachel, Stufe 0 zeigt das ganze
+Bild, die oberste Stufe 1:1.
+
+```
+b<version>/<z>/<x>/<y>.webp      Kacheln (JPEG, wo der Browser kein WebP schreibt)
+b<version>/vorschau.webp         Vorschau für die Liste, höchstens 360 px
+orte/<ort>/<zufall>.webp         Bilder eines Orts, höchstens 1600 px
+```
+
+- Jede Stufe wird einmal aus dem Original verkleinert, dann in Kacheln
+  geteilt. Hochgeladen wird in Bündeln von 2,5 MB, höchstens zwei
+  zugleich, während weiter geschnitten wird.
+- **Ein neues Bild kommt in einen neuen Ordner.** Erst wenn alles oben
+  ist, zeigt die Karte darauf, dann wird der alte Ordner gelöscht.
+  Scheitert es oder wird abgebrochen, wird der neue Ordner gelöscht und
+  die Karte bleibt, wie sie war.
+- **Hat das neue Bild eine andere Größe,** werden Orte und Maßstab im
+  Verhältnis umgerechnet. Alle Koordinaten sind Pixel des Originalbilds.
+- **Kann der Browser das Bild nicht am Stück öffnen,** wird es auf 50 %
+  und dann 25 % verkleinert geöffnet. Die Meldung sagt das dazu.
+- **Gemessen am 15.09.2026 im Chromium des Browserfensters** (ohne Upload):
+  8 000 × 6 000 Pixel ergeben 1 025 Kacheln in 5 Sekunden, 16 000 ×
+  10 000 Pixel ergeben 3 377 Kacheln in 15,5 Sekunden, Öffnen 0,3 Sekunden.
+
+**Keine Leaflet-Bibliothek.** Die Studie hatte Leaflet vorgesehen. Die
+Ansicht ist stattdessen selbst geschrieben (`2-leinwand.jsx`, `1b-kacheln.jsx`):
+
+- Das Heldenbuch kommt ohne Fremdbibliotheken aus.
+- Für eine Bildkarte ohne Erdkugel ist die Rechnung überschaubar.
+- Sie lässt sich ohne Browser prüfen (`planer-kacheln-test.js`).
+
+**Ansicht.** `{zoom, x, y}`: Der Bildpunkt x, y liegt in der Fenstermitte,
+`zoom` zählt stetig in Stufen. Geladen wird die nächstschärfere Stufe,
+darunter liegt eine zwei Stufen gröbere, damit beim Zoomen nichts leer
+bleibt.
+
+**Maßstab** `{a, b, laenge, einheit}` an der Karte. Das Lineal rechnet
+die Länge und die Zeit zu Fuß im normalen Tempo.
+
+**Orte** sind Einträge der Art `ort`:
+
+```json
+{ "id": "o_…", "karteId": "k_…", "art": "ort", "sichtbar": true,
+  "name": "Dorf Barovia", "symbol": "🏘", "x": 1002, "y": 588,
+  "text": "für Spieler", "bilder": ["orte/o_…/….webp"],
+  "unterkarte": "k_…", "dm": { "notiz": "nur Spielleitung" } }
+```
+
+**Schnittstelle.** `planer_dateien_weg` löscht jetzt auch einzelne
+Dateien (`pfade`) oder einen Unterordner (`praefix`, höchstens zwei
+Ebenen).
+
+**Cache.** Kacheln und Ortsbilder dürfen ein Jahr im Browser bleiben
+(`.htaccess`), weil sich ihr Name bei jeder Änderung ändert.
 
 ### Stufe 2 · Reise, Zeit und Wetter
 

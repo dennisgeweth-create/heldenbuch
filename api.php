@@ -2661,7 +2661,24 @@ switch ($action) {
         $advId = (string)($body['adv_id'] ?? '');
         if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
         $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
-        planOrdnerLeeren(planOrdner((string)$k['ablage'], false), false);
+        $ordner = planOrdner((string)$k['ablage'], false);
+        // Drei Weisen: einzelne Dateien (pfade), ein Unterordner (praefix,
+        // hoechstens zwei Ebenen: ein altes Kartenbild b3, die Bilder eines
+        // Orts orte/o_…) oder alles.
+        if (isset($body['pfade'])) {
+            $pfade = (array)$body['pfade'];
+            if (count($pfade) > 500) respond(413, 'Höchstens 500 Dateien je Anfrage.');
+            foreach ($pfade as $pf) { if (!preg_match(PLAN_PFAD, (string)$pf)) respond(400, 'Ungültiger Dateiname: ' . mb_substr((string)$pf, 0, 80)); }
+            foreach ($pfade as $pf) { if (is_file($ordner . '/' . $pf)) @unlink($ordner . '/' . $pf); }
+            respond(200, 'Gelöscht.');
+        }
+        $praefix = (string)($body['praefix'] ?? '');
+        if ($praefix !== '') {
+            if (!preg_match('#^[a-z0-9][a-z0-9_-]{0,40}(/[a-z0-9][a-z0-9_-]{0,60})?$#', $praefix)) respond(400, 'Ungültiger Ordner.');
+            planOrdnerLeeren($ordner . '/' . $praefix, true);
+            respond(200, 'Geleert.');
+        }
+        planOrdnerLeeren($ordner, false);
         respond(200, 'Geleert.');
     }
 

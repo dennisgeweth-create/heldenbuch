@@ -21,6 +21,11 @@ Options -Indexes
 # siehe oben — sonst käme ein alter Verweis auf eine neue Datei.
 <IfModule mod_expires.c>
   ExpiresActive On
+  # Kartenkacheln und Ortsbilder des Abenteuerplaners aendern sich nie:
+  # ein neues Kartenbild kommt in einen neuen Ordner (b1, b2, …), ein
+  # neues Ortsbild bekommt einen neuen Namen.
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
   ExpiresByType text/css "access plus 1 year"
   ExpiresByType application/javascript "access plus 1 year"
   ExpiresByType text/javascript "access plus 1 year"
