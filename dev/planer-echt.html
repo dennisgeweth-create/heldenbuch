@@ -61,6 +61,7 @@
     const planerZugang = () => FAKE.angemeldet ? { url: 'http://fake', code: 'TEST', token: 'x'.repeat(64) } : { url: '', code: '', token: '' };
     async function planerApi(action, p) {
       await new Promise(r => setTimeout(r, 5));
+      if (FAKE.netzWeg) throw new Error('Server nicht erreichbar.');
       FAKE.aufrufe.push(action);
       const dm = FAKE.rolle === 'dm';
       const adv = p.adv_id;
@@ -77,7 +78,8 @@
             .map(k => ({ ...(dm ? k.daten : ohneDm(k.daten)), ablage: k.ablage }));
           const offen = new Set(karten.map(k => k.id));
           const objekte = [...FAKE.objekte.values()].filter(o => o.adv === adv && (dm || o.daten.sichtbar)
-              && (o.daten.art === 'handout' ? (dm || !(o.daten.an || []).length || o.daten.an.includes(8)) : offen.has(o.daten.karteId)))
+              && (o.daten.art === 'handout' ? (dm || !(o.daten.an || []).length || o.daten.an.includes(8))
+                  : ['quest', 'hinweis', 'fraktion'].includes(o.daten.art) && !o.daten.karteId ? true : offen.has(o.daten.karteId)))
             .map(o => dm ? o.daten : ohneDm(o.daten));
           return { ok: true, dm, stand: FAKE.stand[adv] || 0, karten, objekte };
         }
@@ -106,7 +108,7 @@
           if (o.art === 'handout') {
             const alt = FAKE.objekte.get(o.id);
             o.ablage = alt && alt.daten.ablage ? alt.daten.ablage : hex(16);
-          } else karteVon(o.karteId);
+          } else if (!(['quest', 'hinweis', 'fraktion'].includes(o.art) && !o.karteId)) karteVon(o.karteId);
           FAKE.objekte.set(o.id, { adv, daten: o });
           return { ok: true, stand: hoch(), ablage: o.ablage || null };
         }
@@ -332,7 +334,14 @@
         ja('ein Klick setzt einen Ort und öffnet seine Tafel', !!tafel && /Neuer Ort/.test(tafel.textContent));
         const ortId = [...FAKE.objekte.keys()].find(id => FAKE.objekte.get(id).daten.name === 'Neuer Ort');
         const mA = karteVon('Barovia-Tal').daten.massstab.a;
-        ja('  … genau dort, wo geklickt wurde (derselbe Punkt wie der Maßstab)', ortId && FAKE.objekte.get(ortId).daten.x === mA.x && FAKE.objekte.get(ortId).daten.y === mA.y, ortId && JSON.stringify(FAKE.objekte.get(ortId).daten));
+        // Die Marke sitzt mit ihrer Spitze dort, wohin geklickt wurde.
+        const neueMarke = await warte(() => [...root.querySelectorAll('.pl-ort')].find(b => /Neuer Ort/.test(b.textContent)));
+        // Genau nachmessen laesst sich das in der verkleinerten Vorschau nicht
+        // (Rechteck und Layout rechnen dort in verschiedenen Massen); der Ort
+        // muss aber dort liegen, wo vorher der Maßstab begann — beide Klicks
+        // gingen auf die Mitte der Karte.
+        ja('  … dort, wo geklickt wurde', !!neueMarke && Math.abs(FAKE.objekte.get(ortId).daten.x - mA.x) < 40 && Math.abs(FAKE.objekte.get(ortId).daten.y - mA.y) < 40,
+           JSON.stringify(FAKE.objekte.get(ortId).daten) + ' / ' + JSON.stringify(mA));
         tippe(tafel.querySelector('input.pl-feld'), 'Dorf Barovia');
         tippe(tafel.querySelectorAll('textarea')[0], 'Nebel liegt über den Dächern.');
         tippe(tafel.querySelectorAll('textarea')[1], 'Ireena wohnt hier.');
@@ -622,6 +631,151 @@
         planerWurzeln.get(tisch).unmount();
         tisch.hidden = true;
 
+        // ── Figuren und Zeit ──────────────────────────────────────
+        melden('lauf', 'Figuren und Zeit');
+        knopf(/🧍 Figur/).click();
+        await ruhe();
+        tippeKarte(-200, 170);
+        const fT = await warte(() => root.querySelector('.pl-tafel[aria-label^="Figur bearbeiten"]'));
+        ja('„🧍 Figur“ setzt eine Figur und öffnet ihre Tafel', !!fT);
+        const figId = [...FAKE.objekte.values()].find(o => o.daten.art === 'figur').daten.id;
+        const figD = () => FAKE.objekte.get(figId).daten;
+        ja('  … ihr erster Wegpunkt liegt zur Zeit der Chronik (Tag 3, 02 Uhr)', figD().wegpunkte.length === 1 && figD().wegpunkte[0].zeit === 50, JSON.stringify(figD().wegpunkte));
+        tippe(fT.querySelector('input.pl-feld'), 'Karawane der Vistani');
+        await ruhe();
+        knopf(/^Speichern$/, fT).click();
+        await warte(() => figD().name === 'Karawane der Vistani');
+        const regler = await warte(() => root.querySelector('.pl-zeitleiste input[type=range]'));
+        ja('mit einer Figur erscheint der Zeitschieber', !!regler);
+        tippe(regler, '74');
+        ja('  … er zeigt die gewählte Zeit', !!(await warte(() => /Tag 4, 02 Uhr/.test(root.querySelector('.pl-zeitleiste').textContent))));
+        knopf(/Wegpunkt für Tag 4, 02 Uhr/).click();
+        await ruhe();
+        tippeKarte(140, 190);
+        ja('„📍 Wegpunkt“ setzt den zweiten Wegpunkt zur eingestellten Zeit', !!(await warte(() => figD().wegpunkte.length === 2 && figD().wegpunkte[1].zeit === 74)));
+        tippe(root.querySelector('.pl-zeitleiste input[type=range]'), '62');
+        ja('  … auf halbem Weg ist die Figur unterwegs', !!(await warte(() => root.querySelector('.pl-figur.unterwegs'))));
+        knopf(/Für Spieler:/).click();
+        ja('„👁 Für Spieler“ gibt diese Zeit frei', !!(await warte(() => karteVon('Barovia-Tal').daten.zeit === 62)));
+
+        // ── Dateien auf dem Rechner ───────────────────────────────
+        melden('lauf', 'Dateien auf dem Rechner');
+        const geoeffnet = [];
+        const fakeDatei = (name) => ({ getFile: async () => { geoeffnet.push(name); return new File([png], name, { type: 'image/png' }); } });
+        const fakeOrdner = (inhalt) => ({
+          queryPermission: async () => 'granted',
+          getDirectoryHandle: async (n) => { if (!inhalt[n] || inhalt[n].datei) throw new Error('fehlt'); return fakeOrdner(inhalt[n]); },
+          getFileHandle: async (n) => { if (!inhalt[n] || !inhalt[n].datei) throw new Error('fehlt'); return fakeDatei(n); },
+        });
+        planerOrdner.speicher = { alle: async () => ({ Kampagne: fakeOrdner({ Bilder: { 'burg.png': { datei: true } } }) }), setzen: async () => {} };
+        [...root.querySelectorAll('.pl-liste[aria-label="Orte auf dieser Karte"] .pl-eintrag-name')][0].click();
+        const dT = await warte(() => root.querySelector('.pl-tafel[aria-label^="Ort bearbeiten"] .pl-dateien'));
+        ja('die Ortstafel hat Dateien auf dem Rechner — nur für die Spielleitung', !!dT);
+        const bibWahl = await warte(() => { const s2 = dT.querySelector('select[aria-label="Bibliothek"]'); return s2 && s2.value === 'Kampagne' ? s2 : null; });
+        ja('  … mit der freigegebenen Bibliothek', !!bibWahl);
+        tippe(dT.querySelector('input[aria-label="Pfad"]'), '../geheim.png');
+        knopf(/^＋$/, dT).click();
+        ja('ein Pfad aus der Bibliothek hinaus wird abgewiesen', !!(await warte(() => /innerhalb der Bibliothek/.test((root.querySelector('.pl-meldung.fehler') || {}).textContent || ''))));
+        tippe(dT.querySelector('input[aria-label="Pfad"]'), 'Bilder\\burg.png');
+        knopf(/^＋$/, dT).click();
+        await warte(() => dT.querySelector('.pl-datei-liste li'));
+        knopf(/^Speichern$/, root.querySelector('.pl-tafel')).click();
+        ja('der Verweis wird gespeichert, unter dm, mit Schrägstrichen', !!(await warte(() => {
+          const d = ortD().dm && ortD().dm.dateien; return d && d.length === 1 && d[0].bibliothek === 'Kampagne' && d[0].pfad === 'Bilder/burg.png';
+        })));
+        const oeffnen = await warte(() => root.querySelector('.pl-datei-liste a.pl-symbol'));
+        ja('„▶“ geht über die Planer-Brücke', !!oeffnen && oeffnen.getAttribute('href') === 'heldenbuch-planer://oeffnen?bibliothek=Kampagne&pfad=Bilder%2Fburg.png', oeffnen && oeffnen.getAttribute('href'));
+        knopf(/Ansehen: burg.png/).click();
+        const betr = await warte(() => root.querySelector('.pl-betrachter img'));
+        ja('„👁“ zeigt die Datei aus dem freigegebenen Ordner im Browser', !!betr && geoeffnet.includes('burg.png'));
+        knopf(/^Schließen$/, root.querySelector('.pl-betrachter')).click();
+        await ruhe();
+
+        // ── Quests, Wissen, Fraktionen ────────────────────────────
+        melden('lauf', 'Quests, Wissen, Fraktionen');
+        knopf(/＋ Quest/).click();
+        const qT = await warte(() => root.querySelector('.pl-tafel[aria-label="Bearbeiten: Neue Quest"]'));
+        ja('„＋ Quest“ legt eine an', !!qT);
+        const questId = [...FAKE.objekte.values()].find(o => o.daten.art === 'quest').daten.id;
+        const qLabel = (t) => [...qT.querySelectorAll('label')].find(l => l.textContent.trim().startsWith(t));
+        tippe(qLabel('Titel').querySelector('input'), 'Die Gruppe nach Vallaki führen');
+        waehle(qLabel('Stand').querySelector('select'), 'aktiv');
+        waehle(qLabel('Wohin').querySelector('select'), ortD().id);
+        knopf(/＋ Schritt/, qT).click();
+        await ruhe();
+        tippe(qT.querySelector('input[aria-label="Schritt 1"]'), 'Den Friedhof meiden');
+        [...qT.querySelectorAll('label.pl-schalter')].find(l => /Für Spieler sichtbar/.test(l.textContent)).querySelector('input').click();
+        await ruhe();
+        knopf(/^Speichern$/, qT).click();
+        ja('die Quest steht mit Stand, Ziel und Schritt', !!(await warte(() => { const d = FAKE.objekte.get(questId).daten;
+          return d.titel === 'Die Gruppe nach Vallaki führen' && d.status === 'aktiv' && d.zielOrt === ortD().id && d.schritte[0].text === 'Den Friedhof meiden' && d.sichtbar; })));
+        ja('  … ihr Ziel trägt ein ❗ auf der Karte', !!(await warte(() => [...root.querySelectorAll('.pl-ort')].some(b => /Dorf Barovia/.test(b.textContent) && b.querySelector('.pl-quest-abzeichen')))));
+        knopf(/🔎 Wissen/).click();
+        await ruhe();
+        knopf(/＋ Gerücht oder Hinweis/).click();
+        const nT = await warte(() => root.querySelector('.pl-tafel[aria-label="Bearbeiten: Gerücht"]'));
+        const nLabel = (t) => [...nT.querySelectorAll('label')].find(l => l.textContent.trim().startsWith(t));
+        tippe(nLabel('Was man hört').querySelector('textarea'), 'Der Burgherr trinkt Blut.');
+        waehle(nLabel('Gehört zu Ort').querySelector('select'), ortD().id);
+        waehle(nLabel('Stimmt es?').querySelector('select'), 'wahr');
+        [...nT.querySelectorAll('label.pl-schalter')].find(l => /Die Spieler wissen es/.test(l.textContent)).querySelector('input').click();
+        await ruhe();
+        knopf(/^Speichern$/, nT).click();
+        const hinweisD = () => [...FAKE.objekte.values()].find(o => o.daten.art === 'hinweis').daten;
+        ja('ein bekanntes Gerücht am Ort', !!(await warte(() => hinweisD().text === 'Der Burgherr trinkt Blut.' && hinweisD().sichtbar && hinweisD().dm.wahr === 'wahr')));
+        knopf(/⚑ Fraktionen/).click();
+        await ruhe();
+        knopf(/＋ Fraktion/).click();
+        const frT = await warte(() => root.querySelector('.pl-tafel[aria-label="Bearbeiten: Neue Fraktion"]'));
+        tippe([...frT.querySelectorAll('label')].find(l => l.textContent.trim().startsWith('Name')).querySelector('input'), 'Die Vistani');
+        tippe(frT.querySelector('input[aria-label="Ruf"]'), '2');
+        [...frT.querySelectorAll('.pl-empfaenger label')].find(l => /Barovia/.test(l.textContent)).querySelector('input').click();
+        await ruhe();
+        ja('  … der Ruf steht in Worten', /Freundlich/.test(frT.textContent));
+        knopf(/^Speichern$/, frT).click();
+        ja('eine Fraktion mit Ruf und Einfluss in der Region', !!(await warte(() => { const d = [...FAKE.objekte.values()].find(o => o.daten.art === 'fraktion').daten;
+          return d.name === 'Die Vistani' && d.ruf === 2 && d.regionen.includes(regionId); })));
+
+        // ── Hexfelder ─────────────────────────────────────────────
+        melden('lauf', 'Hexfelder');
+        [...root.querySelectorAll('.pl-hex-steuer label')].find(l => /Hexfelder/.test(l.textContent)).querySelector('input').click();
+        ja('„⬡ Hexfelder“ legt ein Raster über die Karte', !!(await warte(() => (karteVon('Barovia-Tal').daten.hex || {}).an && root.querySelectorAll('.pl-hex polygon').length > 5)));
+        [...root.querySelectorAll('.pl-liste[aria-label="Orte auf dieser Karte"] .pl-eintrag-name')][0].click();
+        ja('  … und die Ortstafel nennt das Feld', !!(await warte(() => /⬡ Feld \d\d\.\d\d/.test((root.querySelector('.pl-tafel') || {}).textContent || ''))));
+        ja('  … sie zeigt auch Quest und Gerücht des Orts', !!(await warte(() => { const t = (root.querySelector('.pl-tafel .pl-ort-geschichte') || {}).textContent || ''; return /Gruppe nach Vallaki/.test(t) && /Burgherr/.test(t); })));
+
+        // ── Proviant und Navigation ───────────────────────────────
+        melden('lauf', 'Proviant und Navigation');
+        [...root.querySelectorAll('.pl-liste[aria-label="Routen und Reisen"] .pl-eintrag-name')].find(b => /Reise/.test(b.textContent)).click();
+        const pT = await warte(() => root.querySelector('.pl-tafel.pl-reise'));
+        const pLabel = (t) => [...pT.querySelectorAll('label')].find(l => l.textContent.trim().startsWith(t));
+        tippe(pLabel('Rationen').querySelector('input'), '10');
+        tippe(pLabel('Wasser').querySelector('input'), '20');
+        await ruhe();
+        knopf(/^Speichern$/, root.querySelector('.pl-tafel.pl-reise')).click();
+        await warte(() => (FAKE.objekte.get(reiseId).daten.vorrat || {}).wasserLiter === 20);
+        const nav = await warte(() => root.querySelector('.pl-tafel.pl-reise .pl-navigation'));
+        ja('im Wald: Navigation mit Überlebenskunst SG 15', !!nav && /SG 15/.test(nav.textContent), nav ? nav.textContent : 'keine Navigation');
+        const posVor = FAKE.objekte.get(reiseId).daten.pos;
+        if (nav) nav.querySelector('input[type=checkbox]').click();
+        await ruhe();
+        knopf(/Tag 4 abschließen/).click();
+        ja('verirrt: der Tag vergeht, die Gruppe kommt nicht weiter', !!(await warte(() => { const d = FAKE.objekte.get(reiseId).daten;
+          return d.tagebuch.length === 4 && d.tagebuch[3].verirrt && d.tagebuch[3].strecke === 0 && d.pos === posVor; })));
+        ja('  … und der Vorrat sinkt: 6 Rationen, 4 Liter', FAKE.objekte.get(reiseId).daten.vorrat.rationen === 6 && FAKE.objekte.get(reiseId).daten.vorrat.wasserLiter === 4, JSON.stringify(FAKE.objekte.get(reiseId).daten.vorrat));
+
+        // ── Ohne Netz ─────────────────────────────────────────────
+        melden('lauf', 'Ohne Netz');
+        knopf(/📥 Offline/).click();
+        ja('„📥 Offline“ lädt und sagt ehrlich, dass ohne Service Worker nichts liegen bleibt', !!(await warte(() => /ohne Service Worker/.test((root.querySelector('.pl-meldung') || {}).textContent || ''), 15000)));
+        FAKE.netzWeg = true;
+        await starten(() => {});
+        ja('ohne Netz zeigt der Planer den letzten Stand', !!(await warte(() => /Kein Netz/.test(root.textContent) && [...root.querySelectorAll('.pl-eintrag-name')].some(b => /Barovia-Tal/.test(b.textContent)), 4000)));
+        FAKE.netzWeg = false;
+        await starten(() => {});
+        await warte(() => root.querySelector('.pl-rolle.dm') && !/Kein Netz/.test(root.textContent));
+        ja('  … mit Netz ist der Hinweis wieder weg', !/Kein Netz/.test(root.textContent));
+
         // ── Exportieren ─────────────────────────────────────────
         melden('lauf', 'Exportieren');
         const anzahlDateien = FAKE.ablagen.get(ab).size;
@@ -632,7 +786,7 @@
         ja('  … benannt nach Abenteuer und Tag', gespeichert && /^Fluch des Strahd \d{4}-\d{2}-\d{2}\.hbplan$/.test(gespeichert.name), gespeichert && gespeichert.name);
         const paket = await planPaketOeffnen(gespeichert.blob);
         ja('das Paket enthält beide Karten, Ort, Route, Reise, Region und alle Dateien',
-          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 6 && paket.manifest.dateien.length === anzahlDateien + handoutDateien,
+          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 10 && paket.manifest.dateien.length === anzahlDateien + handoutDateien,
           paket.manifest.karten.length + '/' + paket.manifest.objekte.length + '/' + paket.manifest.dateien.length + ' von ' + anzahlDateien + '+' + handoutDateien);
         ja('  … auch das Bild des Handouts', handoutDateien === 1 && paket.manifest.dateien.some(d => d.objekt === hId));
         ja('  … und den Nebel der Karte', paket.manifest.karten.some(k => k.nebel && k.nebel.an && k.nebel.flaechen.length > 3));
@@ -649,12 +803,12 @@
           await warte(() => ![...root.querySelectorAll('.pl-eintrag-name')].some(b => b.textContent.includes(name)));
         }
         ja('beide Karten sind gelöscht, samt Dateien und Orten; die Handouts bleiben', FAKE.karten.size === 0 && !FAKE.ablagen.has(ab)
-           && [...FAKE.objekte.values()].every(o => o.daten.art === 'handout'));
+           && [...FAKE.objekte.values()].every(o => ['handout', 'quest', 'hinweis', 'fraktion'].includes(o.daten.art)));
         legeDatei(root.querySelector('input[type=file][accept^=".hbplan"]'), gespeichert.blob, gespeichert.name);
         const vorschau = await warte(() => root.querySelector('.pl-import'));
         ja('die Vorschau zeigt, was kommt', vorschau && /Barovia-Tal/.test(vorschau.textContent) && /Burg Ravenloft/.test(vorschau.textContent));
         knopf(/^Einspielen$/, vorschau).click();
-        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 6 Einträge, \d+ Dateien/), 10000)));
+        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 10 Einträge, \d+ Dateien/), 10000)));
         const kopien = [...FAKE.objekte.values()].filter(o => o.daten.art === 'handout' && o.daten.titel === 'Brief von Kolyan');
         ja('  … das Handout kommt als Kopie mit neuem Ordner und seinem Bild', kopien.length === 2
            && kopien[0].daten.ablage !== kopien[1].daten.ablage && kopien.every(o => FAKE.ablagen.get(o.daten.ablage) && FAKE.ablagen.get(o.daten.ablage).has(o.daten.bild)));
@@ -663,7 +817,11 @@
         const neuOrt = [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten;
         const neuRoute = [...FAKE.objekte.values()].find(o => o.daten.art === 'route').daten;
         const neuReise = [...FAKE.objekte.values()].find(o => o.daten.art === 'reise').daten;
-        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 3);
+        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 4);
+        const neuQuest = [...FAKE.objekte.values()].filter(o => o.daten.art === 'quest').map(o => o.daten).find(q => q.id !== questId);
+        ja('  … die Quest zeigt auf den neuen Ort, die Fraktion auf die neue Region',
+          !!neuQuest && neuQuest.zielOrt === [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten.id
+          && [...FAKE.objekte.values()].filter(o => o.daten.art === 'fraktion').some(o => o.daten.regionen[0] === [...FAKE.objekte.values()].find(x => x.daten.art === 'region').daten.id));
         ja('  … der Ort zeigt auf die neue Karte und die neue Unterkarte', neuOrt.karteId === neuTal.daten.id && neuOrt.unterkarte === neuBurg.daten.id);
         ja('  … alle Kacheln sind wieder da', FAKE.ablagen.get(neuTal.ablage).size === anzahlDateien, FAKE.ablagen.get(neuTal.ablage).size);
         ja('  … und das Kartenbild wird angezeigt', !!(await warte(() => root.querySelectorAll('.pl-kacheln img').length > 0 && !root.querySelector('.pl-kacheln img[src="data:,fehlt"]'))));
@@ -708,6 +866,9 @@
         ja('  … ein Spieler kann keinen Ort verschieben', [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten.x === xVorher);
         ja('  … die verborgene Route und die verborgene Reise sieht er nicht', !root.querySelector('.pl-route') && !root.querySelector('.pl-gruppe'));
         ja('  … die verborgene Region auch nicht', !root.querySelector('.pl-region') && !root.querySelector('.pl-region-name'));
+        ja('  … keine verborgene Figur', !root.querySelector('.pl-figur'));
+        ja('  … aber die sichtbare Quest', [...root.querySelectorAll('.pl-liste[aria-label="Geschichte"] .pl-eintrag-name')].some(b => /Gruppe nach Vallaki/.test(b.textContent)));
+        ja('  … und keine Dateien vom Rechner der Spielleitung', !root.querySelector('.pl-dateien'));
       } catch (e) {
         weg++;
         melden('weg', 'Abbruch: ' + e.message, e.stack);

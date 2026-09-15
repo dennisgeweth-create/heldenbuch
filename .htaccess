@@ -7,6 +7,17 @@ Options -Indexes
   Header set Expires 0
 </FilesMatch>
 
+# Der Service Worker des Abenteuerplaners muss frisch kommen, sonst haengt
+# eine alte Fassung bis zu einem Tag fest.
+<FilesMatch "^sw\.js$">
+  Header set Cache-Control "no-cache"
+</FilesMatch>
+
+# Die Skripte der Planer-Bruecke werden heruntergeladen, nie ausgefuehrt.
+<FilesMatch "\.ps1$">
+  Header set Content-Disposition "attachment"
+</FilesMatch>
+
 # Komprimierung. js/app.js ist unkomprimiert rund 345 KB und ging bisher
 # ungepackt über die Leitung; Text komprimiert sich um etwa 80 %.
 <IfModule mod_deflate.c>

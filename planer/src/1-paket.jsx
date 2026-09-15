@@ -249,7 +249,9 @@ const HBPLAN_MANIFEST = 'hbplan.json';
 // annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
-const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout'];
+const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion'];
+// Dieselbe Liste wie PLAN_OHNE_KARTE in api.php.
+const PLAN_OHNE_KARTE = ['handout', 'quest', 'hinweis', 'fraktion'];
 
 const planNeueId = (vorsilbe) => {
   const b = new Uint8Array(8);
@@ -294,7 +296,7 @@ const planManifestPruefen = (m) => {
     if (objekte.has(o.id) || karten.has(o.id)) return 'Die Kennung ' + o.id + ' steht doppelt im Paket.';
     if (!PLAN_ARTEN.includes(o.art)) return 'Unbekannte Art im Paket: ' + String(o.art).slice(0, 20);
     // Ein Handout gehoert zum Abenteuer, nicht zu einer Karte.
-    if (!(o.art === 'handout' && !o.karteId) && !karten.has(o.karteId)) return 'Der Eintrag ' + o.id + ' gehört zu keiner Karte im Paket.';
+    if (!(PLAN_OHNE_KARTE.includes(o.art) && !o.karteId) && !karten.has(o.karteId)) return 'Der Eintrag ' + o.id + ' gehört zu keiner Karte im Paket.';
     objekte.add(o.id);
   }
   for (const d of m.dateien) {
@@ -363,7 +365,7 @@ const planDateiname = (name, jetzt) => {
   const d = jetzt || new Date();
   const tag = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const sauber = String(name || 'Abenteuer').normalize('NFC')
-    .replace(/[\\/:*?"<>| -]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Abenteuer';
+    .replace(/[\\/:*?"<>|\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Abenteuer';
   return sauber + ' ' + tag + '.hbplan';
 };
 

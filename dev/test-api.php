@@ -1237,6 +1237,27 @@ pruefe('  … samt seinem Ordner', !is_dir(__DIR__ . '/../planer-dateien/' . $ab
 ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'h_testgeheim1']);
 ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'h_testzu00001']);
 
+abschnitt('Abenteuerplaner: Quests, Wissen, Fraktionen');
+foreach ([['q_testquest01', 'quest', true], ['n_testhinweis1', 'hinweis', false], ['f_testfrakt01', 'fraktion', true]] as [$qid, $qart, $qsicht]) {
+    $r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+        'obj' => ['id' => $qid, 'art' => $qart, 'karteId' => '', 'sichtbar' => $qsicht, 'titel' => 'Test ' . $qart, 'ablage' => str_repeat('b', 32), 'dm' => ['notiz' => 'x']]]);
+    pruefe($qart . ' braucht keine Karte (201)', $r['status'] === 201, kurz($r));
+}
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$q = array_values(array_filter((array)$r['body']['objekte'], fn($o) => $o['id'] === 'q_testquest01'))[0] ?? [];
+pruefe('  … eine Quest bekommt keinen Ordner, auch wenn die Anwendung einen schickt', !array_key_exists('ablage', $q), json_encode($q));
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$ids = array_column((array)$r['body']['objekte'], 'id');
+pruefe('der Spieler bekommt die sichtbare Quest und Fraktion, nicht den unbekannten Hinweis',
+       in_array('q_testquest01', $ids, true) && in_array('f_testfrakt01', $ids, true) && !in_array('n_testhinweis1', $ids, true), json_encode($ids));
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+    'obj' => ['id' => 'q_testquest02', 'art' => 'quest', 'karteId' => 'k_gibtsnicht', 'sichtbar' => true]]);
+pruefe('  … mit genannter, aber fehlender Karte nicht (404)', $r['status'] === 404, kurz($r));
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+    'obj' => ['id' => 'o_ohnekarte01', 'art' => 'ort', 'karteId' => '', 'sichtbar' => true]]);
+pruefe('ein Ort braucht weiter eine Karte (404)', $r['status'] === 404, kurz($r));
+foreach (['q_testquest01', 'n_testhinweis1', 'f_testfrakt01'] as $qid) ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => $qid]);
+
 abschnitt('Abenteuerplaner: Loeschen');
 $r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'o_testburg01']);
 pruefe('ein Ort wird geloescht (200)', $r['status'] === 200, kurz($r));

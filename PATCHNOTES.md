@@ -1,5 +1,74 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.16.0
+
+### Abenteuerplaner Stufe 5 und 6: die Welt drumherum
+
+Der Abenteuerplaner ist mit dieser Ausgabe vollständig.
+
+**🧍 Figuren und Zeit**
+
+- NSC, Heere und Karawanen ziehen über die Karte: Wegpunkte mit Tag und
+  Stunde, dazwischen geht die Figur geradeaus.
+- Ein **Zeitschieber** zeigt, wer wann wo ist; **⟲ Chronik** springt auf die
+  Uhr des Heldenbuchs.
+- Mit **👁 Für Spieler** gibt die Spielleitung eine Zeit frei. Sichtbare
+  Figuren stehen bei den Spielern dort, wo sie zu dieser Zeit waren.
+- Eine Figur lässt sich ziehen; dann setzt sie einen Wegpunkt zur
+  eingestellten Zeit.
+
+**📁 Dateien auf dem eigenen Rechner**
+
+- An einem Ort hängen Verweise auf Musik, Videos, Bilder und PDFs: eine
+  Bibliothek und ein Pfad darin. Hochgeladen wird nichts.
+- **👁 Ansehen:** Chrome und Edge zeigen Bilder, Ton, Video und PDF direkt,
+  aus einem einmal freigegebenen Ordner.
+- **▶ Öffnen** geht über die **Planer-Brücke**, ein kleines
+  PowerShell-Programm für Windows: VLC, Bildvorschau oder was Windows
+  sonst eingestellt hat. Sie wird einmal je Rechner mit `installieren.ps1`
+  eingerichtet, ohne Administratorrechte.
+- Die Brücke öffnet nur Medien und Dokumente, nur innerhalb der
+  eingerichteten Ordner, und fragt beim ersten Mal im Browser nach.
+- Jeder Rechner ordnet der Bibliothek seinen eigenen Ordner zu. So findet
+  auch der Laptop die Datei, wenn OneDrive dort woanders liegt.
+- Die Verweise sehen nur die Spielleitung.
+
+**❗ Quests, 🔎 Wissen, ⚑ Fraktionen**
+
+- **Quests:** mit Stand (gehört, angenommen, erledigt, gescheitert),
+  Auftraggeber, Ziel-Ort, Schritten zum Abhaken und Belohnung. Offene
+  Quests setzen ein ❗ an ihren Ort.
+- **Gerüchte, Hinweise, Wissen:** an Orte und Quests geknüpft, mit einer
+  Notiz der Spielleitung, ob es stimmt. Ist der Haken „Die Spieler wissen
+  es“ gesetzt, steht es bei ihnen.
+- **Fraktionen:** mit Ruf der Gruppe (von verfeindet bis verbündet) und den
+  Regionen, in denen sie Einfluss haben.
+
+**Unterwegs**
+
+- **🍞 Proviant:** Eine Reise führt Rationen und Wasser; jeder Reisetag
+  zieht ab, was die Gruppe braucht, und meldet, was fehlt.
+- **🧭 Navigation:** Abseits der Straßen schlägt der Planer eine Probe auf
+  Überlebenskunst vor (SG 10 bis 15 je nach Gelände), die er ans
+  Heldenbuch übergeben kann. „Verirrt“ lässt einen Tag vergehen, ohne
+  dass die Gruppe weiterkommt.
+
+**⬡ Hexfelder**
+
+- Ein Raster über der Karte, Größe in Kilometern oder Meilen je Feld.
+- Adressen als Spalte.Zeile; die Ortstafel nennt das Feld.
+- Auf Wunsch sehen es auch die Spieler.
+
+**📥 Offline**
+
+- Ein Service Worker hält die Seite und alle einmal geladenen Kacheln
+  vor; **📥 Offline** lädt alle Karten, Ortsbilder und Handouts auf einmal.
+- Ohne Netz zeigt der Planer den letzten Stand. Ansehen geht, Ändern erst
+  wieder mit Netz.
+
+Export und Import nehmen Figuren, Quests, Wissen, Fraktionen,
+Dateiverweise und Hexfelder mit.
+
 ## v5.15.0
 
 ### Abenteuerplaner Stufe 4: Nebel, Handouts, der Tisch

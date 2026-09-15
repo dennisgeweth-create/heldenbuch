@@ -947,7 +947,10 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
 // durch PHP zu schicken den Server in die Knie zwingt.
 const PLAN_MAX_JSON   = 400000;     // eine Karte oder ein Ort, ohne Bilder
 const PLAN_MAX_DATEI  = 25000000;   // eine einzelne Datei
-const PLAN_ARTEN      = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout'];
+const PLAN_ARTEN      = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion'];
+// Was zum Abenteuer gehoert und nicht zu einer Karte. Einen eigenen
+// Ordner fuer Dateien hat davon nur das Handout.
+const PLAN_OHNE_KARTE = ['handout', 'quest', 'hinweis', 'fraktion'];
 // Nur Namen, die der Planer selbst vergibt: Kleinbuchstaben, Ziffern,
 // Strich und Unterstrich; Punkte nur vor der Endung. Damit gibt es kein
 // .. und keine versteckte Datei, und die Endung ist immer eine der vier.
@@ -2527,11 +2530,11 @@ switch ($action) {
         $objekte = [];
         $ich = (int)($z['user']['id'] ?? 0);
         foreach ($st->fetchAll() as $r) {
-            if (!$dm && (string)$r['art'] === 'handout') {
-                // Ein Handout gehoert zu keiner Karte. Ist es an bestimmte
+            if (!$dm && in_array((string)$r['art'], PLAN_OHNE_KARTE, true)) {
+                // Das gehoert zu keiner Karte. Ist ein Handout an bestimmte
                 // Konten gerichtet, bekommen es nur diese.
                 $an = array_map('intval', (array)((json_decode((string)$r['obj_json'], true) ?: [])['an'] ?? []));
-                if ($an && !in_array($ich, $an, true)) continue;
+                if ((string)$r['art'] === 'handout' && $an && !in_array($ich, $an, true)) continue;
                 $objekte[] = planObjAntwort($r, $dm);
                 continue;
             }
@@ -2599,17 +2602,22 @@ switch ($action) {
         $st->execute([$code, $id]);
         $alt = $st->fetch();
         if ($alt && (string)$alt['adv_id'] !== $advId) respond(409, 'Diese Kennung gehört zu einem anderen Abenteuer.');
-        if ($art === 'handout') {
-            // Ein Handout gehoert zum Abenteuer, nicht zu einer Karte. Seinen
-            // Ordner vergibt der Server — was die Anwendung schickt, zaehlt nicht.
+        if (in_array($art, PLAN_OHNE_KARTE, true) && (string)($o['karteId'] ?? '') === '') {
             $karte = ['karte_id' => ''];
+        } elseif (!in_array($art, PLAN_OHNE_KARTE, true)) {
+            $karte = planKarte($pdo, $code, $advId, (string)($o['karteId'] ?? ''));
+        } else {
+            $karte = planKarte($pdo, $code, $advId, (string)$o['karteId']);
+        }
+        if ($art === 'handout') {
+            // Seinen Ordner vergibt der Server — was die Anwendung schickt, zaehlt nicht.
             $altAblage = (string)(($alt ? (json_decode((string)$alt['obj_json'], true) ?: []) : [])['ablage'] ?? '');
             $o['ablage'] = preg_match('/^[0-9a-f]{32}$/', $altAblage) ? $altAblage : bin2hex(random_bytes(16));
             $an = [];
             foreach ((array)($o['an'] ?? []) as $u) { $u = (int)$u; if ($u > 0 && !in_array($u, $an, true)) $an[] = $u; }
             $o['an'] = array_slice($an, 0, 50);
         } else {
-            $karte = planKarte($pdo, $code, $advId, (string)($o['karteId'] ?? ''));
+            unset($o['ablage']);
         }
         $json = planJson($o, ['id', 'karteId', 'art', 'sichtbar']);
         $pdo->prepare("INSERT INTO hb_plan_obj (session_code, adv_id, obj_id, karte_id, art, sichtbar, obj_json)

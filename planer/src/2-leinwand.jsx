@@ -12,6 +12,7 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
                           routen, gruppen, routeWahl, reiseWahl, onRouteWahl, onReiseWahl,
                           regionen, regionWahl, onRegionWahl,
                           nebel, nebelDeckend, vorgabeAnsicht, onAnsicht,
+                          figuren, figurWahl, onFigurWahl, onFigurVerschieben, hex, questOrte,
                           onKlick, onOrtWahl, onOrtVerschieben, onBildWaehlen }) => {
   const box = useRef(null);
   const [g, setG] = useState({ breite: 0, hoehe: 0 });
@@ -149,6 +150,11 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
     const z = zieh;
     setZieh(null);
     if (!z) return;
+    if (o.art === 'figur') {
+      if (z.darf && z.weg > LEINWAND_KLICK_PX) onFigurVerschieben && onFigurVerschieben(o, { x: z.x, y: z.y });
+      else onFigurWahl && onFigurWahl(o.id);
+      return;
+    }
     if (z.darf && z.weg > LEINWAND_KLICK_PX) onOrtVerschieben && onOrtVerschieben(o, { x: z.x, y: z.y });
     else onOrtWahl && onOrtWahl(o.id);
   };
@@ -204,6 +210,29 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
                 </mask>
               </defs>
               <rect className="pl-nebel-flaeche" x="0" y="0" width={g.breite} height={g.hoehe} mask={'url(#' + maskeId + ')'} />
+            </svg>
+          );
+        })()}
+        {hex && hex.an && karte.massstab && (() => {
+          const s = ansichtMass(a, plan);
+          const r = hexRadiusPx(hex.groesse || 10, karte.massstab);
+          if (r * s < 6) return null;
+          const ol = schirmZuBild({ x: 0, y: 0 }, a, g, plan), ur = schirmZuBild({ x: g.breite, y: g.hoehe }, a, g, plan);
+          const felder = hexeIm(ol.x, ol.y, ur.x, ur.y, r, 2500);
+          const beschriften = r * s > 34;
+          return (
+            <svg className="pl-hex" width={g.breite} height={g.hoehe} aria-hidden="true">
+              {felder.map(f => {
+                const m = hexMitte(f, r);
+                const pts = hexEcken(m, r).map(q => { const p2 = schirm(q); return p2.x + ',' + p2.y; }).join(' ');
+                const sm = schirm(m);
+                return (
+                  <g key={f.q + ':' + f.r}>
+                    <polygon points={pts} />
+                    {beschriften && <text x={sm.x} y={sm.y - r * s * 0.55}>{hexAdresse(f)}</text>}
+                  </g>
+                );
+              })}
             </svg>
           );
         })()}
@@ -275,6 +304,22 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOrtWahl && onOrtWahl(o.id); } }}>
               <span className="pl-ort-symbol" aria-hidden="true">{o.symbol || '📍'}</span>
               <span className="pl-ort-name">{o.name}</span>
+              {questOrte && questOrte.has(o.id) && <span className="pl-quest-abzeichen" title="Hier gibt es eine Quest">❗</span>}
+            </button>
+          );
+        })}
+        {(figuren || []).filter(f => f.punkt).map(f => {
+          const gezogen = zieh && zieh.id === f.id ? zieh : null;
+          const s = schirm(gezogen ? gezogen : f.punkt);
+          if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
+          return (
+            <button key={f.id}
+              className={'pl-figur' + (f.id === figurWahl ? ' aktiv' : '') + (dm && !f.sichtbar ? ' verborgen' : '') + (f.punkt.unterwegs ? ' unterwegs' : '')}
+              style={{ left: s.x, top: s.y }} title={f.name}
+              onPointerDown={(e) => ortRunter(e, { ...f, x: f.punkt.x, y: f.punkt.y })} onPointerMove={ortBewegen}
+              onPointerUp={(e) => ortHoch(e, f)} onPointerCancel={() => setZieh(null)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFigurWahl && onFigurWahl(f.id); } }}>
+              <span aria-hidden="true">{f.symbol || '🧍'}</span><span className="pl-ort-name">{f.name}</span>
             </button>
           );
         })}

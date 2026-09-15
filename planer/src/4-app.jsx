@@ -233,7 +233,15 @@ const PlanerRegionListe = ({ regionen, regionWahl, dm, onWahl }) => {
   );
 };
 
+// Offline: der letzte Stand liegt im Browser. Ist der Server nicht zu
+// erreichen, zeigt der Planer ihn — lesen geht, schreiben erst wieder mit Netz.
+const offlineMerken = (schluessel, wert) => { try { localStorage.setItem(OFFLINE_SPEICHER + schluessel, offlineStand(null, wert)); } catch (e) { /* zu gross oder kein Speicher */ } };
+const offlineHolen = (schluessel) => { try { return JSON.parse(localStorage.getItem(OFFLINE_SPEICHER + schluessel) || 'null'); } catch (e) { return null; } };
+const istNetzFehler = (e) => /nicht erreichbar/.test(String((e && e.message) || ''));
+
 const WERKZEUG_HINWEIS = {
+  figur: 'Klicke, wo die Figur zur eingestellten Zeit steht.',
+  wegpunkt: 'Klicke, wo die Figur zur eingestellten Zeit sein soll.',
   nebel: 'Klicke, wo der Nebel weichen soll.',
   region: 'Klicke die Eckpunkte der Region. Die Fläche schließt sich von selbst.',
   route: 'Klicke Punkt für Punkt den Weg. Das Gelände je Abschnitt stellst du danach ein.',
@@ -274,6 +282,11 @@ const PlanerApp = () => {
   const kanal = useRef(null);
   const tischZeit = useRef(0);
   const [chronikZeit, setChronikZeit] = useState(null);
+  const [figurWahl, setFigurWahl] = useState('');
+  const [geschichteWahl, setGeschichteWahl] = useState('');
+  const [zeitRegler, setZeitRegler] = useState(null);
+  const [offline, setOffline] = useState(null);
+  const ortNachWechsel = useRef('');
   const [fokus, setFokus] = useState(null);
   const standRef = useRef(0);
   const arbeitRef = useRef(false);
@@ -287,14 +300,31 @@ const PlanerApp = () => {
   useEffect(() => {
     if (!angemeldet) return;
     planerApi('planer_start', {}).then(s => {
+      offlineMerken('start', s);
       setStart(s);
       setAdvId(planerAdvAnfang(s.abenteuer || []));
-    }).catch(fehler);
+    }).catch(e => {
+      const alt = istNetzFehler(e) && offlineHolen('start');
+      if (!alt) { fehler(e); return; }
+      setOffline({ zeit: alt.zeit });
+      setStart(alt.daten);
+      setAdvId(planerAdvAnfang(alt.daten.abenteuer || []));
+    });
   }, []);
 
   const laden = useCallback(async (id) => {
     if (!id) return;
-    const d = await planerApi('planer_laden', { adv_id: id });
+    let d;
+    try {
+      d = await planerApi('planer_laden', { adv_id: id });
+      offlineMerken(id, d);
+      setOffline(null);
+    } catch (e) {
+      const alt = istNetzFehler(e) && offlineHolen(id);
+      if (!alt) throw e;
+      d = alt.daten;
+      setOffline({ zeit: alt.zeit });
+    }
     standRef.current = d.stand;
     setDaten(d);
     setAuswahl(a => (d.karten.some(k => k.id === a) ? a : ((d.karten[0] || {}).id || '')));
@@ -343,7 +373,19 @@ const PlanerApp = () => {
              punkt: karte.massstab ? punktAufRoute(rr, karte.massstab, j.pos || 0) : (rr.punkte || [])[0] };
   }).filter(Boolean) : [];
   // Nur eine Tafel zugleich.
-  const tafelZu = () => { setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); setHandoutWahl(''); };
+  const tafelZu = () => { setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); setHandoutWahl(''); setFigurWahl(''); setGeschichteWahl(''); };
+  const figurenRoh = daten && karte ? daten.objekte.filter(o => o.art === 'figur' && o.karteId === karte.id) : [];
+  const zeitSpanne = zeitBereich(figurenRoh, chronikZeit);
+  const zeit = zeitRegler != null ? zeitRegler : (chronikZeit != null ? chronikZeit : (karte && Number.isFinite(+karte.zeit) ? +karte.zeit : zeitSpanne.min));
+  const figuren = figurenRoh.map(f => ({ ...f, punkt: dm ? figurPosition(f, zeit) : figurFuerSpieler(f, karte) }));
+  const figur = figurenRoh.find(f => f.id === figurWahl) || null;
+  const quests = daten ? daten.objekte.filter(o => o.art === 'quest') : [];
+  const hinweise = daten ? daten.objekte.filter(o => o.art === 'hinweis') : [];
+  const fraktionen = daten ? daten.objekte.filter(o => o.art === 'fraktion') : [];
+  const geschichte = [...quests, ...hinweise, ...fraktionen].find(o => o.id === geschichteWahl) || null;
+  const alleOrte = daten ? daten.objekte.filter(o => o.art === 'ort') : [];
+  const alleRegionen = daten ? daten.objekte.filter(o => o.art === 'region') : [];
+  const questOrte = new Set(quests.filter(q => q.zielOrt && q.status !== 'erledigt' && q.status !== 'gescheitert').map(q => q.zielOrt));
   const handouts = daten ? daten.objekte.filter(o => o.art === 'handout') : [];
   const handout = handouts.find(h => h.id === handoutWahl) || null;
   const nebel = nebelVon(karte);
@@ -386,6 +428,33 @@ const PlanerApp = () => {
   const waehleReise = (id) => { if (id) tafelZu(); setReiseWahl(id); };
   const waehleRegion = (id) => { if (id) tafelZu(); setRegionWahl(id); };
   const waehleHandout = (id) => { if (id) tafelZu(); setHandoutWahl(id); };
+  const waehleFigur = (id) => { if (id) tafelZu(); setFigurWahl(id); };
+  const waehleGeschichte = (id) => { if (id) tafelZu(); setGeschichteWahl(id); };
+  // Von einer Quest zu ihrem Ort, auch auf einer anderen Karte.
+  const zumOrt = (o) => {
+    if (!o) return;
+    if (o.karteId !== auswahl) { ortNachWechsel.current = o.id; setAuswahl(o.karteId); setVerlauf([]); return; }
+    waehleOrt(o.id);
+    setFokus({ x: o.x, y: o.y, n: Date.now() });
+  };
+  const offlineBereit = async () => {
+    try {
+      const erg = await ausfuehren('Für offline bereithalten', async (melde) => {
+        const liste = karten.flatMap(k => offlinePfade(k, daten.objekte));
+        let n = 0, fehlt = 0;
+        await nebenher(liste, 6, async (d) => {
+          try { const r = await fetch(planerDateiUrl(d.ablage, d.pfad)); if (!r.ok) fehlt++; } catch (e) { fehlt++; }
+          n++;
+          if (n % 20 === 0 || n === liste.length) melde(n + ' von ' + liste.length + ' Dateien', n / Math.max(1, liste.length));
+        });
+        return { anzahl: liste.length, fehlt };
+      });
+      const sw = typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller;
+      setMeldung(sw
+        ? { art: erg.fehlt ? 'fehler' : 'gut', text: '📥 ' + (erg.anzahl - erg.fehlt) + ' von ' + erg.anzahl + ' Dateien liegen jetzt auch ohne Netz bereit.' }
+        : { art: 'fehler', text: '📥 ' + erg.anzahl + ' Dateien geladen — aber ohne Service Worker bleibt nichts liegen. Das geht nur auf der ausgelieferten Seite (https).' });
+    } catch (e) { fehler(e); }
+  };
 
   // Die Mitglieder der Gruppe, fuer die Empfaenger eines Handouts.
   useEffect(() => {
@@ -425,7 +494,14 @@ const PlanerApp = () => {
   }, [auswahl, dm, daten && daten.stand]);
 
   // Werkzeug und Auswahl gehoeren zur Karte.
-  useEffect(() => { setWerkzeug('ansehen'); setPunkte([]); setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); }, [auswahl]);
+  useEffect(() => {
+    setWerkzeug('ansehen'); setPunkte([]); setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); setFigurWahl('');
+    if (ortNachWechsel.current && daten) {
+      const o = daten.objekte.find(x => x.id === ortNachWechsel.current);
+      ortNachWechsel.current = '';
+      if (o) { setOrtWahl(o.id); setFokus({ x: o.x, y: o.y, n: Date.now() }); }
+    }
+  }, [auswahl]);
   useEffect(() => {
     const taste = (e) => { if (e.key === 'Escape' && !frage && !massstabFrage && !arbeit) { setWerkzeug('ansehen'); setPunkte([]); } };
     window.addEventListener('keydown', taste);
@@ -588,6 +664,17 @@ const PlanerApp = () => {
       const neu = [...punkte, p].slice(-2);
       setPunkte(neu);
       if (neu.length === 2) setMassstabFrage(neu);
+      return;
+    }
+    if (werkzeug === 'figur' && dm && karte) {
+      const f = neueFigur(karte.id, zeit, p);
+      setWerkzeug('ansehen');
+      try { await objSpeichern(f); await laden(advId); waehleFigur(f.id); } catch (e) { fehler(e); }
+      return;
+    }
+    if (werkzeug === 'wegpunkt' && dm && figur) {
+      setWerkzeug('ansehen');
+      objAendern(wegpunktSetzen(figur, zeit, p));
       return;
     }
     if (werkzeug === 'nebel' && dm && karte) {
@@ -793,11 +880,18 @@ const PlanerApp = () => {
               <button className="pl-knopf pl-klein" onClick={() => anTisch('leer', {})} title="Ein gezeigtes Handout vom Tisch nehmen">📺 Karte zeigen</button>
             </>
           )}
+          {daten && karten.length > 0 && <button className="pl-knopf pl-klein" onClick={offlineBereit} disabled={!!offline}
+            title="Alle Karten, Bilder und Handouts für den Fall ohne Netz in diesem Browser ablegen">📥 Offline</button>}
           {start && <span className="pl-nutzer">{start.nutzer.name}</span>}
           <a className="pl-knopf pl-zurueck" href="../">⚔ Heldenbuch</a>
         </div>
       </header>
 
+      {offline && (
+        <div className="pl-meldung fehler" role="status">
+          <span>📴 Kein Netz — der Stand vom {new Date(offline.zeit).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}. Ansehen geht, Ändern erst wieder mit Netz.</span>
+        </div>
+      )}
       {meldung && (
         <div className={'pl-meldung ' + meldung.art} role={meldung.art === 'fehler' ? 'alert' : 'status'}>
           <span>{meldung.text}</span>
@@ -810,7 +904,7 @@ const PlanerApp = () => {
       ) : !daten ? (
         <div className="pl-buehne-leer"><p>Lädt …</p></div>
       ) : (
-        <main className={'pl-haupt-flaeche' + (ort || route || region || handout || (reise && reiseRoute) ? ' mit-tafel' : '')}>
+        <main className={'pl-haupt-flaeche' + (ort || route || region || handout || figur || geschichte || (reise && reiseRoute) ? ' mit-tafel' : '')}>
           <div className="pl-spalte">
             <PlanerKartenListe karten={karten} auswahl={auswahl} dm={dm}
               onWahl={(id) => { setAuswahl(id); setVerlauf([]); }} onNeu={neueKarte}
@@ -822,6 +916,12 @@ const PlanerApp = () => {
             <PlanerHandoutListe handouts={handouts} wahl={handoutWahl} dm={dm} gesehen={gesehen}
               onWahl={(id) => { if (dm) waehleHandout(id); else { const h = handouts.find(x => x.id === id); if (h) { setLesen(h); gelesen(h); } } }}
               onNeu={async () => { const h = neuesHandout(); try { await objSpeichern(h); await laden(advId); waehleHandout(h.id); } catch (e) { fehler(e); } }} />
+            <GeschichteListe dm={dm} quests={quests} hinweise={hinweise} fraktionen={fraktionen} wahl={geschichteWahl}
+              onWahl={(o) => waehleGeschichte(o.id)}
+              onNeu={async (art) => {
+                const n = art === 'quest' ? neueQuest() : art === 'hinweis' ? neuerHinweis() : neueFraktion();
+                try { await objSpeichern(n); await laden(advId); waehleGeschichte(n.id); } catch (e) { fehler(e); }
+              }} />
             {karte && <PlanerRegionListe regionen={regionen} regionWahl={regionWahl} dm={dm}
               onWahl={(r) => { waehleRegion(r.id); setFokus({ ...polygonMitte(r.punkte), n: Date.now() }); }} />}
             {karte && <PlanerWegListe routen={routen} reisen={reisen} routeWahl={routeWahl} reiseWahl={reiseWahl} dm={dm}
@@ -845,11 +945,13 @@ const PlanerApp = () => {
                   {dm && <button className="pl-knopf pl-klein" onClick={() => bildEingabe.current && bildEingabe.current.click()}>🖼 {karte.bild ? 'Bild ersetzen' : 'Kartenbild'}</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'ort' ? ' an' : '')} aria-pressed={werkzeug === 'ort'} onClick={() => werkzeugWaehlen('ort')}>📍 Ort setzen</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'massstab' ? ' an' : '')} aria-pressed={werkzeug === 'massstab'} onClick={() => werkzeugWaehlen('massstab')}>📏 Maßstab</button>}
+                  {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'figur' ? ' an' : '')} aria-pressed={werkzeug === 'figur'} onClick={() => werkzeugWaehlen('figur')}>🧍 Figur</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'nebel' ? ' an' : '')} aria-pressed={werkzeug === 'nebel'} onClick={() => werkzeugWaehlen('nebel')}>☁ Nebel</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'region' ? ' an' : '')} aria-pressed={werkzeug === 'region'} onClick={() => werkzeugWaehlen('region')}>⬡ Region</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'route' ? ' an' : '')} aria-pressed={werkzeug === 'route'} onClick={() => werkzeugWaehlen('route')}>🛤 Route</button>}
                   {karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'lineal' ? ' an' : '')} aria-pressed={werkzeug === 'lineal'} onClick={() => werkzeugWaehlen('lineal')}>📐 Messen</button>}
                   <input ref={bildEingabe} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden onChange={bildGewaehlt} />
+                  {dm && karte.bild && <HexEinstellung karte={karte} onSpeichern={(h) => karteAendern(karte, { hex: h })} />}
                 </div>
               </header>
               {werkzeug !== 'ansehen' && (
@@ -896,12 +998,19 @@ const PlanerApp = () => {
                   <button className="pl-knopf pl-klein" onClick={() => { setWerkzeug('ansehen'); setPunkte([]); }}>Fertig</button>
                 </div>
               )}
+              {figurenRoh.length > 0 && (
+                <Zeitleiste dm={dm} zeit={zeit} bereich={zeitSpanne} chronikZeit={chronikZeit} freigegeben={karte.zeit}
+                  onZeit={(z) => setZeitRegler(Math.max(0, z))} onFreigeben={(z) => karteAendern(karte, { zeit: z })} />
+              )}
               <KartenLeinwand karte={karte} orte={orte} dm={dm} werkzeug={werkzeug} ortWahl={ortWahl}
                 linie={linie} fokus={fokus} gedaechtnis={gedaechtnis}
                 routen={routen} gruppen={gruppen} routeWahl={routeWahl} reiseWahl={reiseWahl}
                 onRouteWahl={waehleRoute} onReiseWahl={waehleReise}
                 regionen={regionen} regionWahl={regionWahl} onRegionWahl={waehleRegion}
                 nebel={dm && !nebelZeigen && werkzeug !== 'nebel' ? null : nebel} nebelDeckend={!dm} onAnsicht={dm ? ansichtGemeldet : null}
+                figuren={figuren} figurWahl={figurWahl} onFigurWahl={waehleFigur}
+                onFigurVerschieben={(f, p) => { const { punkt, ...rest } = f; objAendern(wegpunktSetzen(rest, zeit, p)); }}
+                hex={dm || (karte.hex && karte.hex.spieler) ? karte.hex : null} questOrte={questOrte}
                 onKlick={aufKarteGeklickt} onOrtWahl={waehleOrt} onOrtVerschieben={ortVerschieben}
                 onBildWaehlen={() => bildEingabe.current && bildEingabe.current.click()} />
               <dl className="pl-fakten pl-fakten-quer">
@@ -914,8 +1023,24 @@ const PlanerApp = () => {
           )}
           {ort && karte && (
             <OrtTafel key={ort.id} ort={ort} dm={dm} karte={karte} karten={karten} arbeitet={!!arbeit}
+              wissen={dm ? hinweise.filter(h => h.ortId === ort.id) : bekanntesWissen(hinweise, ort.id)}
+              quests={quests.filter(q => q.zielOrt === ort.id)} onGeschichte={(o) => waehleGeschichte(o.id)} onMeldung={setMeldung}
               onSpeichern={ortSpeichern} onLoeschen={ortLoeschen} onSchliessen={() => setOrtWahl('')}
               onUnterkarte={zurUnterkarte} onBilderHoch={ortBilderHoch} onBildWeg={ortBildWeg} />
+          )}
+          {figur && karte && (
+            <FigurTafel key={figur.id} figur={figur} dm={dm} zeit={zeit} wegpunktWartet={werkzeug === 'wegpunkt'}
+              onSpeichern={(f) => objAendern({ ...f, name: String(f.name || '').trim() || 'Ohne Namen' })}
+              onLoeschen={(f) => objWeg(f, 'Figur löschen?', '„' + f.name + '“ wird mit allen Wegpunkten gelöscht.', async () => setFigurWahl(''))}
+              onSchliessen={() => setFigurWahl('')}
+              onWegpunktHier={() => { setPunkte([]); setWerkzeug(v => v === 'wegpunkt' ? 'ansehen' : 'wegpunkt'); }} />
+          )}
+          {geschichte && (
+            <GeschichteTafel key={geschichte.id} eintrag={geschichte} dm={dm} orte={alleOrte} quests={quests} regionen={alleRegionen}
+              onSpeichern={(o) => objAendern(o)}
+              onLoeschen={(o) => objWeg(o, 'Löschen?', '„' + (o.titel || o.name || String(o.text || '').slice(0, 40)) + '“ wird gelöscht.', async () => setGeschichteWahl(''))}
+              onSchliessen={() => setGeschichteWahl('')}
+              onOrt={zumOrt} />
           )}
           {handout && dm && (
             <HandoutTafel key={handout.id} handout={handout} mitglieder={mitglieder} arbeitet={!!arbeit}

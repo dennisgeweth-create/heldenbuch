@@ -63,8 +63,8 @@ const ohneDmFeld = (o) => { const { dm, ...rest } = o; return rest; };
 const spielerSicht = (daten) => {
   const karten = (daten.karten || []).filter(k => k.sichtbar).map(ohneDmFeld);
   const offen = new Set(karten.map(k => k.id));
-  const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout'
-    ? !(o.an || []).length : offen.has(o.karteId))).map(ohneDmFeld);
+  const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout' ? !(o.an || []).length
+    : PLAN_OHNE_KARTE.includes(o.art) && !o.karteId ? true : offen.has(o.karteId))).map(ohneDmFeld);
   return { ...daten, dm: false, karten, objekte };
 };
 

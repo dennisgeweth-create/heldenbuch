@@ -111,7 +111,8 @@ const MassstabDialog = ({ punkte, alt, onSpeichern, onZu }) => {
 // ── Die Tafel eines Orts ─────────────────────────────────────────
 // Die Spielleitung bearbeitet, alle anderen lesen. Was unter dm steht,
 // kommt bei Spielern gar nicht erst an.
-const OrtTafel = ({ ort, dm, karte, karten, arbeitet, onSpeichern, onLoeschen, onSchliessen, onUnterkarte, onBilderHoch, onBildWeg }) => {
+const OrtTafel = ({ ort, dm, karte, karten, arbeitet, onSpeichern, onLoeschen, onSchliessen, onUnterkarte, onBilderHoch, onBildWeg,
+                    wissen, quests, onGeschichte, onMeldung }) => {
   const [entwurf, setEntwurf] = useState(ort);
   const [gross, setGross] = useState(null);
   const bildEingabe = useRef(null);
@@ -149,6 +150,14 @@ const OrtTafel = ({ ort, dm, karte, karten, arbeitet, onSpeichern, onLoeschen, o
       ))}
     </div>
   );
+  const hexZeile = karte.hex && karte.hex.an && karte.massstab && typeof ort.x === 'number'
+    ? <p className="pl-leise pl-klein-text">⬡ Feld {hexAdresse(hexAchsial(ort, hexRadiusPx(karte.hex.groesse || 10, karte.massstab)))}</p> : null;
+  const geschichte = ((wissen || []).length || (quests || []).length) ? (
+    <div className="pl-ort-geschichte">
+      {(quests || []).map(q => <button type="button" key={q.id} className="pl-knopf pl-klein" onClick={() => onGeschichte(q)}>{questStatus(q.status).zeichen} {q.titel}</button>)}
+      {(wissen || []).map(w => <button type="button" key={w.id} className="pl-knopf pl-klein pl-wissen-knopf" onClick={() => onGeschichte(w)}>{(HINWEIS_ARTEN.find(h => h.k === w.artDesWissens) || HINWEIS_ARTEN[0]).zeichen} {String(w.text || '').slice(0, 60)}</button>)}
+    </div>
+  ) : null;
   const lupe = gross && (
     <div className="pl-schleier pl-lupe" onClick={() => setGross(null)} role="dialog" aria-label="Bild">
       <img src={planerDateiUrl(karte.ablage, gross)} alt="" />
@@ -164,6 +173,8 @@ const OrtTafel = ({ ort, dm, karte, karten, arbeitet, onSpeichern, onLoeschen, o
           <button className="pl-symbol" aria-label="Schließen" onClick={onSchliessen}>✕</button>
         </header>
         {ort.text ? <p className="pl-ort-text">{ort.text}</p> : <p className="pl-leise">Über diesen Ort ist noch nichts bekannt.</p>}
+        {hexZeile}
+        {geschichte}
         {bildLeiste}
         {unter && <button className="pl-knopf pl-haupt" onClick={() => onUnterkarte(unter.id)}>🗺 {unter.name} öffnen</button>}
         {lupe}
@@ -210,6 +221,8 @@ const OrtTafel = ({ ort, dm, karte, karten, arbeitet, onSpeichern, onLoeschen, o
             <span>Sichtbar, sobald der Nebel über ihm aufgeht</span>
           </label>
         )}
+        {hexZeile}
+        {geschichte}
         {bildLeiste}
         <div className="pl-zeile">
           <button type="button" className="pl-knopf pl-klein" disabled={arbeitet} onClick={() => bildEingabe.current && bildEingabe.current.click()}>＋ Bild</button>
@@ -217,6 +230,8 @@ const OrtTafel = ({ ort, dm, karte, karten, arbeitet, onSpeichern, onLoeschen, o
             onChange={e => { const f = [...(e.target.files || [])]; e.target.value = ''; if (f.length) onBilderHoch(entwurf, f); }} />
           {unter && <button type="button" className="pl-knopf pl-klein" onClick={() => onUnterkarte(unter.id)}>🗺 {unter.name}</button>}
         </div>
+        <DateiListe dateien={(entwurf.dm && entwurf.dm.dateien) || []} onMeldung={onMeldung}
+          onDateien={(liste) => setzeDm('dateien', liste)} />
         <div className="pl-dialog-knoepfe">
           <button type="button" className="pl-knopf pl-gefahr pl-klein" onClick={() => onLoeschen(ort)}>Löschen</button>
           <button type="button" className="pl-knopf pl-klein" disabled={!geaendert} onClick={() => setEntwurf(ort)}>Verwerfen</button>

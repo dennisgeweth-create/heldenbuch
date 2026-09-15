@@ -35,11 +35,15 @@ Eigene Seite, eigenes Bündel, **gemeinsamer Server**:
 | ↳ `1c-reise.jsx` | **reine Rechnung:** Gelände, Tempo, Fortbewegung, Reise Tag für Tag, Gewaltmarsch, Wetter nach Klima und Jahreszeit, Aufträge ans Heldenbuch |
 | ↳ `1d-begegnung.jsx` | **reine Rechnung:** Punkt in der Fläche, innerste Region, Wachen eines Reisetags, Begegnungswurf, Reisetagebuch als Text |
 | ↳ `1e-sicht.jsx` | **reine Rechnung:** Nebel (aufgedeckt, Kreise entlang der Reise, Orte darunter), Spielersicht für den Tisch, ungesehene Handouts |
-| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Nebel, Ziehen, Mausrad, zwei Finger, Orte, Regionen, Routen, Gruppen, Linien |
+| ↳ `1f-welt.jsx` | **reine Rechnung:** Zeit, Figuren und Wegpunkte, Dateiverweise, Quests, Wissen, Fraktionen, Proviant, Navigation, Hexfelder, Offline-Pfade |
+| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Nebel, Hexfelder, Ziehen, Mausrad, zwei Finger, Orte, Figuren, Regionen, Routen, Gruppen, Linien |
 | ↳ `3-ort.jsx` | Bilder im Browser öffnen, verkleinern und schneiden; Maßstabsdialog; die Tafel eines Orts |
 | ↳ `3b-reise.jsx` | die Tafeln einer Route und einer Reise, die Übergabe ans Heldenbuch |
 | ↳ `3c-begegnung.jsx` | die Tafel einer Region, der Tabelleneditor, die Liste der Wachen |
 | ↳ `3d-sicht.jsx` | Handouts (Tafel, Lesefenster, Liste) und das Tischfenster (`?tisch=1`) |
+| ↳ `3e-welt.jsx` | Zeitleiste, Figurtafel, freigegebene Ordner und Dateiliste, Quests, Wissen, Fraktionen, Hexfelder |
+| `planer/sw.js` | Service Worker für den Fall ohne Netz |
+| `planer/bruecke/` | die Planer-Brücke für Windows und ihr Einrichtungsskript |
 | ↳ `4-app.jsx` | die Seite |
 | `planer/planer.js` | daraus gebaut von `node build.js`, **mitcommittet** wie `js/app.js` |
 | `planer/planer.css` | eigene Oberfläche, dieselben Farben wie `styles.css` |
@@ -333,12 +337,81 @@ doppelt hineingeht.
 **Abgleich:** Spieler fragen alle 5 Sekunden nach dem Stand, die
 Spielleitung alle 15.
 
-### Stufe 5 · Figuren und lokale Dateien
+### ✅ Stufe 5 · Figuren und lokale Dateien (v5.16.0)
 
-NSC-Wege und Zeitschieber. Ordnerfreigabe über die File System Access
-API, danach die Planer-Brücke für VLC & Co.
+**Figur** (Art `figur`, an einer Karte): `name`, `symbol`, `wegpunkte`
+`[{zeit, x, y, notiz}]`. `zeit` zählt Stunden wie die Chronik.
 
-### Stufe 6 · Nach Bedarf
+- `figurPosition(figur, zeit)` geht linear zwischen den Wegpunkten; vor
+  dem ersten und nach dem letzten steht die Figur still.
+- Die Spielleitung stellt die Zeit am Schieber ein.
+- Spieler sehen sichtbare Figuren zur freigegebenen Zeit `karte.zeit`.
+- Ziehen oder „📍 Wegpunkt“ setzt `wegpunktSetzen(figur, zeit, punkt)`.
 
-Quests, Wissen der Spieler, NSC-Zeitpläne, Proviant, Navigation,
-Fraktionen, Hexfelder, Offline.
+**Lokale Dateien** (`ort.dm.dateien`): `[{bibliothek, pfad, titel}]`. Der
+Pfad ist relativ, mit Schrägstrichen, ohne `..` und ohne Laufwerk
+(`relativerPfad`).
+
+- **Ansehen:** Freigegebene Ordner liegen als `FileSystemDirectoryHandle`
+  in IndexedDB (`hb-planer-ordner`) dieses Browsers. `planerOrdner.datei`
+  läuft den Pfad hinab und fragt die Leseerlaubnis nach. Was der Browser
+  zeigen kann (`IM_BROWSER`), geht im `DateiBetrachter` auf.
+- **Öffnen:** `heldenbuch-planer://oeffnen?bibliothek=…&pfad=…` ruft die
+  Planer-Brücke.
+  - `%APPDATA%\Heldenbuch-Planer\bibliotheken.json` ordnet Namen Ordnern
+    zu, `_vlc` optional dem VLC.
+  - Die Brücke weist ab: fremde Schemata und Aufträge, unbekannte
+    Bibliotheken, absolute Pfade, `..`, alles außerhalb des Ordners
+    (auch Nachbarordner mit ähnlichem Namen) und jede Endung außerhalb
+    der Liste.
+  - `installieren.ps1` legt den Schlüssel unter
+    `HKCU\Software\Classes\heldenbuch-planer` an; `-Entfernen` nimmt ihn
+    wieder weg.
+  - **Grenze:** Verknüpfungen und Junctions innerhalb des Ordners werden
+    nicht aufgelöst. Wer einen Link auf `C:\` in seine Bibliothek legt,
+    öffnet dort, was die Endungsliste erlaubt.
+
+### ✅ Stufe 6 · Welt, Unterwegs, Hexfelder, Offline (v5.16.0)
+
+**Ohne Karte** (`PLAN_OHNE_KARTE` in `api.php` und im Planer): `handout`,
+`quest`, `hinweis`, `fraktion`. Nur das Handout hat einen eigenen Ordner.
+
+- **Quest:** `titel`, `status` (offen/aktiv/erledigt/gescheitert),
+  `auftraggeber`, `zielOrt`, `belohnung`, `text`, `schritte [{text, erledigt}]`.
+- **Hinweis:** `artDesWissens` (Gerücht/Hinweis/Wissen), `text`, `ortId`,
+  `questId`, `bekanntSeit`. Unter `dm` steht, ob er stimmt. `sichtbar`
+  heißt: die Spieler wissen es.
+- **Fraktion:** `name`, `farbe`, `ruf` (−3 … +3), `text`, `regionen`;
+  `dm.ziele`.
+
+**Unterwegs.**
+
+- Die Reise führt `vorrat {rationen, wasserLiter}`, `vorratNachTag` zieht
+  je Person 1 Ration und 4 l ab.
+- `navigationSg` nimmt das schwierigste Gelände des Tags; die SG sind
+  Vorgaben des Planers: offen 10, Hügel 12, Wüste 13, Wald, Sumpf,
+  Gebirge und Schnee 15, Straße und Wasser keine.
+- Die Probe geht als Auftrag `probe` (Fertigkeit `ueberleben`) ans
+  Heldenbuch.
+- „Verirrt“ schreibt den Tag mit Strecke 0.
+
+**Hexfelder** (`karte.hex {an, groesse, spieler}`):
+
+- Spitze Hexfelder, `groesse` von Seite zu Seite in der Einheit des
+  Maßstabs.
+- Adressen in versetzten Koordinaten (odd-r), Spalte.Zeile ab 01.01.
+- Gezeichnet wird nur, was im Ausschnitt liegt, höchstens 2 500 Felder;
+  beschriftet erst ab lesbarer Größe.
+
+**Offline.**
+
+- `sw.js`: Dateien unter `planer-dateien/` zuerst aus dem Vorrat, die
+  Seite zuerst aus dem Netz.
+- Die letzte Antwort von `planer_start` und `planer_laden` liegt in
+  `localStorage` (`hb_planer_offline_*`). Ist der Server nicht
+  erreichbar, zeigt der Planer sie mit einem Hinweis.
+- **📥 Offline** holt `offlinePfade` aller Karten einmal. Ohne Service
+  Worker (etwa auf `dev/`) sagt es das.
+
+Der Abenteuerplaner ist damit vollständig. Weitere Wünsche kommen in die
+`TODO.md`.

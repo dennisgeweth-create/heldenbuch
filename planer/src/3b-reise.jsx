@@ -180,6 +180,8 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
   const pruefungen = heute && m ? tagesPruefungen({ tag: heute, route: st.r, massstab: m, regionen,
     startStunde: entwurf.startStunde ?? 8, zufall: samenZufall(wuerfelSamen(entwurf.samen, st.tag + 1, nochmal)) }) : [];
   const [loggt, setLoggt] = useState(false);
+  const [verirrt, setVerirrt] = useState(false);
+  const navSg = heute ? navigationSg(heute) : 0;
   const insLog = async (e) => {
     setLoggt(true);
     try {
@@ -201,10 +203,22 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
 
   const tagAbschliessen = () => {
     if (!heute) return;
-    const eintrag = { nr: st.tag + 1, strecke: heute.strecke, stunden: heute.stunden, wetter: st.heute,
-                      gewaltmarsch: heute.gewaltmarsch, teile: heute.teile.map(t => ({ gelaende: t.gelaende, strecke: t.strecke })),
-                      pruefungen: pruefungen.map(pruefungKurz) };
-    onSpeichern({ ...entwurf, pos: heute.bis, tagebuch: [...(entwurf.tagebuch || []), eintrag] });
+    // Verirrt: die Stunden vergehen, die Strecke nicht.
+    const eintrag = { nr: st.tag + 1, strecke: verirrt ? 0 : heute.strecke, stunden: heute.stunden, wetter: st.heute,
+                      gewaltmarsch: heute.gewaltmarsch, teile: verirrt ? [] : heute.teile.map(t => ({ gelaende: t.gelaende, strecke: t.strecke })),
+                      pruefungen: pruefungen.map(pruefungKurz), verirrt: verirrt || undefined };
+    let vorrat = entwurf.vorrat;
+    if (vorrat && (vorrat.rationen > 0 || vorrat.wasserLiter > 0 || entwurf.vorratFuehren)) {
+      const v = vorratNachTag(vorrat, entwurf.personen);
+      vorrat = v.vorrat;
+      if (v.fehlt.rationen || v.fehlt.wasserLiter) {
+        eintrag.fehlt = v.fehlt;
+        onMeldung({ art: 'fehler', text: '🍞 Am Tag ' + eintrag.nr + ' fehlen ' + [v.fehlt.rationen ? v.fehlt.rationen + ' Rationen' : '', v.fehlt.wasserLiter ? v.fehlt.wasserLiter + ' l Wasser' : ''].filter(Boolean).join(' und ') + '.' });
+      }
+    }
+    setVerirrt(false);
+    onSpeichern({ ...entwurf, vorrat, pos: verirrt ? (entwurf.pos || 0) : heute.bis, tagebuch: [...(entwurf.tagebuch || []), eintrag] });
+    if (verirrt) return;
     // Wo die Gruppe hinkam, weicht der Nebel — so weit, wie sie sieht.
     if (nebelVon(karte).an && (+entwurf.sichtweite || 0) > 0 && onNebelAufdecken) {
       onNebelAufdecken(kreiseEntlang(st.r, m, heute.von, heute.bis, +entwurf.sichtweite));
@@ -275,6 +289,14 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
               title="Wie weit der Nebel entlang des Wegs aufgeht; 0 heißt gar nicht"
               onChange={e => setze('sichtweite', Math.max(0, +e.target.value || 0))} />
           </label>
+          <label>Rationen im Gepäck
+            <input className="pl-feld" type="number" min={0} value={(entwurf.vorrat && entwurf.vorrat.rationen) ?? 0}
+              onChange={e => setEntwurf(v => ({ ...v, vorratFuehren: true, vorrat: { ...(v.vorrat || {}), rationen: Math.max(0, +e.target.value || 0) } }))} />
+          </label>
+          <label>Wasser (l)
+            <input className="pl-feld" type="number" min={0} value={(entwurf.vorrat && entwurf.vorrat.wasserLiter) ?? 0}
+              onChange={e => setEntwurf(v => ({ ...v, vorratFuehren: true, vorrat: { ...(v.vorrat || {}), wasserLiter: Math.max(0, +e.target.value || 0) } }))} />
+          </label>
           <label>Personen
             <input className="pl-feld" type="number" min={0} max={999} value={entwurf.personen ?? 4} onChange={e => setze('personen', Math.max(0, +e.target.value || 0))} />
           </label>
@@ -337,6 +359,18 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
                 )}
               </div>
               <WachenListe pruefungen={pruefungen} begegnungen={begegnungen} advId={advId} onMeldung={onMeldung} />
+              {navSg > 0 && (
+                <div className="pl-navigation">
+                  <span>🧭 Abseits der Wege: Überlebenskunst SG {navSg}</span>
+                  <button type="button" className="pl-knopf pl-klein" disabled={!!uebergabe}
+                    onClick={() => uebergeben(auftragNavigation(advId, navSg, 'Navigation, Reisetag ' + (st.tag + 1)), '🧭 Navigation')}>🎲 Probe ansagen</button>
+                  <label className="pl-schalter"><input type="checkbox" checked={verirrt} onChange={e => setVerirrt(e.target.checked)} /><span>Verirrt: heute kein Weiterkommen</span></label>
+                </div>
+              )}
+              {entwurf.vorratFuehren && entwurf.vorrat && (
+                <p className="pl-leise pl-klein-text">🍞 Vorrat: {entwurf.vorrat.rationen || 0} Rationen, {entwurf.vorrat.wasserLiter || 0} l Wasser
+                  {entwurf.personen > 0 ? ' — reicht ' + Math.floor((entwurf.vorrat.rationen || 0) / entwurf.personen) + ' Tage' : ''}</p>
+              )}
               <button type="button" className="pl-knopf pl-haupt" onClick={tagAbschliessen}>✓ Tag {st.tag + 1} abschließen</button>
             </section>
           )}

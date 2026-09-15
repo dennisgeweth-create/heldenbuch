@@ -82,6 +82,11 @@
   </script>
   <script src="planer.js?v=dev"></script>
   <script>
+    // Der Service Worker haelt Seite und Kacheln fuer den Fall ohne Netz
+    // vor (sw.js). Nur ueber https oder auf diesem Rechner.
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
     // ?tisch=1 — das Fenster fuer Beamer oder zweiten Bildschirm.
     planerStarten(document.getElementById('root'), { tisch: /[?&]tisch=1/.test(location.search) });
   </script>
