@@ -2242,7 +2242,7 @@ const KampfSeite = ({ helden, setDefs, enemies, imKampf, ueberlagert, onZu,
 // ── Der Kampf ────────────────────────────────────────────────────
 const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                         abenteuer, advId, ansagen, onAnsageWeg, onSchliessen, onGegnerBlatt, onFrage,
-                        onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern }) => {
+                        onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern, planerBegegnung }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [spontan, setSpontan] = React.useState(false);
@@ -2731,6 +2731,27 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
                        [...k.teilnehmer, ...neue]);
     });
   };
+
+  // Aus dem Abenteuerplaner: eine Zufallsbegegnung auf der Reise. Gefragt
+  // wird trotzdem — der Tracker kann gerade einen anderen Kampf führen.
+  // Die Begegnungen kommen erst mit dem DM-Modus; bis dahin wartet es.
+  const planerGesehen = React.useRef(0);
+  React.useEffect(() => {
+    const pb = planerBegegnung;
+    if (!pb || planerGesehen.current === pb.n) return;
+    const b = (encounters || []).find(e => e.id === pb.begegnungId);
+    if (!b) {
+      if (!(encounters || []).length) return;
+      planerGesehen.current = pb.n;
+      onFrage('Die Begegnung „' + (pb.name || pb.begegnungId) + '“ aus dem Abenteuerplaner gibt es in 📚 Datenbank › Begegnungen nicht (mehr).', null, 'Verstanden');
+      return;
+    }
+    planerGesehen.current = pb.n;
+    const laeuft = kampf && kampf.aktiv && kampf.teilnehmer.some(t => t.art === 'gegner');
+    onFrage('Begegnung „' + b.name + '“ aus dem Abenteuerplaner in den Kampftracker laden?'
+      + (laeuft ? ' Die Gegner kommen zu denen dazu, die schon im Kampf stehen.' : ''),
+      () => begegnungLaden(b), 'Laden');
+  }, [planerBegegnung && planerBegegnung.n, (encounters || []).length]);
 
   // ── Vorbereitung → Kampf → Vorbereitung ────────────────────────
   // Der Start macht aus der Aufstellung Runde 1. Von hier an zaehlt die

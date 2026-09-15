@@ -45,7 +45,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
 | ↳ `data-merkmale.json` | Klassen- **und Unterklassenmerkmale** Stufe 1–20 (SRD 5.1); der Aufstieg lädt sie beim Öffnen |
 | `planer/` | **Abenteuerplaner** — eigene Seite mit eigenem Bündel, gleiche Anmeldung und `api.php`. Konzept, Rechte, Paketformat und Stufen: `PLANER.md` |
-| ↳ `planer/src/*.jsx` | Quellen des Planers — hier wird bearbeitet. Reine Rechnung: `1-paket.jsx` (ZIP und `.hbplan`), `1b-kacheln.jsx` (Kachelpyramide, Ansicht, Maßstab), `1c-reise.jsx` (Gelände, Reisetage, Gewaltmarsch, Wetter, Aufträge). Dazu `2-leinwand.jsx` (Kartenansicht), `3-ort.jsx` (Bilder schneiden, Ortstafel), `3b-reise.jsx` (Route- und Reisetafel), `4-app.jsx` (die Seite) |
+| ↳ `planer/src/*.jsx` | Quellen des Planers — hier wird bearbeitet. Reine Rechnung: `1-paket.jsx` (ZIP und `.hbplan`), `1b-kacheln.jsx` (Kachelpyramide, Ansicht, Maßstab), `1c-reise.jsx` (Gelände, Reisetage, Gewaltmarsch, Wetter, Aufträge), `1d-begegnung.jsx` (Regionen, Wachen, Begegnungswurf, Reisetagebuch). Dazu `2-leinwand.jsx` (Kartenansicht), `3-ort.jsx` (Bilder schneiden, Ortstafel), `3b-reise.jsx` (Route- und Reisetafel), `3c-begegnung.jsx` (Regionstafel, Tabelle, Wachen), `4-app.jsx` (die Seite) |
 | ↳ `planer/planer.js` | daraus gebaut von `node build.js`, wie `js/app.js`. Nicht von Hand ändern. |
 | `planer-dateien/` | Kartenkacheln und Bilder des Planers — **nur auf dem Server**, gitignored |
 | `api.php` | Server-Sync, braucht `config.php` (nicht im Repo) |

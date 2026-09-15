@@ -216,7 +216,11 @@
     }});
     const apiDmLoad = () => Promise.resolve({dm_library: {}});
     const apiDmLoadEnemies = () => Promise.resolve({enemies: []});
-    const apiDmLoadEncounters = () => Promise.resolve({encounters: []});
+    // Eine Begegnung, damit der Auftrag aus dem Abenteuerplaner etwas zu
+    // laden hat. Ihr Gegner fehlt in der Sammlung — geladen wird also
+    // nichts, gefragt wird trotzdem.
+    const apiDmLoadEncounters = () => Promise.resolve({encounters: [
+      {id: 'enc_wb', name: 'Wolfsrudel', difficulty: 'Mittel', description: '', enemies: [{enemyId: 'g_fehlt', count: 2}], adventure: ''}]});
     // Eine Adresse muss dastehen, sonst haelt sich die Anwendung fuer
     // unverbunden und liest ihre Helden gar nicht erst aus dem Speicher.
     // Angerufen wird sie nie: jede Anfrage geht an die Stummen oben.
@@ -1112,6 +1116,21 @@
            && [...zeitTitel.closest('.form-modal').querySelectorAll('input')].map(i => i.value).join(',').startsWith('1,6'),
            zeitTitel ? [...zeitTitel.closest('.form-modal').querySelectorAll('input')].map(i => i.value).join(',') : 'kein Dialog');
         if (zeitTitel) await dialogZu();
+        auftrag({ id: 'a_kampf1', art: 'kampf', begegnungId: 'enc_wb', name: 'Wolfsrudel' });
+        const frage = await warten(() => [...document.querySelectorAll('.confirm-msg')].find(m => /Wolfsrudel/.test(m.textContent)), 4000);
+        ja('eine Zufallsbegegnung aus dem Planer öffnet den Kampftracker und fragt, ob sie geladen wird',
+           !!frage && !!document.querySelector('.kampf-kopf-x'), frage ? '' : 'keine Frage');
+        const abbr = document.querySelector('.confirm-cancel');
+        if (abbr) { abbr.click(); await ruhe(120); }
+        const kx = document.querySelector('.kampf-kopf-x');
+        if (kx) { kx.click(); await ruhe(150); }
+        auftrag({ id: 'a_kampf2', art: 'kampf', begegnungId: 'enc_gibtsnicht', name: 'Geister' });
+        const hinweis = await warten(() => [...document.querySelectorAll('.confirm-msg')].find(m => /Geister/.test(m.textContent)), 4000);
+        ja('  … eine unbekannte Begegnung wird erklärt, nicht verschluckt', !!hinweis && /nicht \(mehr\)/.test(hinweis.textContent));
+        const ok = document.querySelector('.confirm-ok');
+        if (ok) { ok.click(); await ruhe(120); }
+        const kx2 = document.querySelector('.kampf-kopf-x');
+        if (kx2) { kx2.click(); await ruhe(150); }
         auftrag({ id: 'a_alt1', art: 'zeit', stunden: 5, zeit: Date.now() - 40 * 60 * 1000 });
         await ruhe(300);
         ja('ein Auftrag älter als eine halbe Stunde bleibt liegen', !titelDa('Zeit vergeht'));

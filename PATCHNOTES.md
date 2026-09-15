@@ -1,5 +1,34 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.14.0
+
+### Abenteuerplaner Stufe 3: Regionen und Zufallsbegegnungen
+
+- **⬡ Regionen:** Die Spielleitung klickt eine Fläche auf die Karte, etwa
+  einen Wald, einen Pass oder mit **▭ Ganze Karte** das ganze Tal. Jede
+  Region hat Name, Farbe, einen Text für die Spieler, eine eigene Notiz,
+  und ist für Spieler sichtbar oder verborgen.
+- **Begegnungstabelle je Region**, nur für die Spielleitung:
+  - wie oft geprüft wird (alle 1 bis 24 Stunden)
+  - ab welchem W20-Wurf etwas geschieht, tags und nachts getrennt; die
+    Tafel rechnet die Wahrscheinlichkeit vor
+  - Zeilen mit Gewicht: **⚔ Kampf** mit einer Begegnung aus 📚 Datenbank ›
+    Begegnungen, oder **✦ Ereignis** mit eigenem Text; jede Zeile gilt tags,
+    nachts oder immer
+- **🎲 Von Hand würfeln** geht direkt in der Region, tags oder nachts.
+- **Wachen auf der Reise:** Vor jedem Reisetag zeigt die Reise ihre
+  Wachen, jede mit Uhrzeit, unterwegs oder im Lager, Region, Wurf und
+  Ergebnis. Liegen Regionen ineinander, gilt die innerste. Der Aufbruch
+  ist einstellbar (Vorgabe 8 Uhr). Dieselbe Reise würfelt dasselbe, bis
+  🎲 neu gewürfelt wird. **Tag abschließen** schreibt die Wachen ins
+  Reisetagebuch.
+- **⚔ Kampftracker:** Ein Treffer mit Kampf öffnet im Heldenbuch den
+  Kampftracker, der dann fragt, ob die Begegnung geladen werden soll. Das
+  läuft über dieselbe Übergabe wie Rast und Zeit in v5.13.0.
+- **📖 Ins Abenteuerlog** schreibt einen Reisetag als Eintrag (Reiter
+  „Reise“): Strecke, Wetter, Gewaltmarsch, Begegnungen. **📋 Tagebuch
+  kopieren** legt die ganze Reise als Text in die Zwischenablage.
+
 ## v5.13.0
 
 ### Abenteuerplaner Stufe 2: Reisen, Wetter, Übergabe ans Heldenbuch

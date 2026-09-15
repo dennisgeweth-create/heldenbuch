@@ -244,6 +244,9 @@ function App() {
   // ein Fremdkoerper zwischen den Charakterboegen.
   const [kampf, setKampfRoh] = useState(() => kampfLesen());
   const [showKampf, setShowKampf] = useState(false);
+  // Eine Begegnung, die der Abenteuerplaner in den Kampftracker schickt:
+  // {begegnungId, name, n}. Der Tracker fragt, bevor er sie lädt.
+  const [planerBegegnung, setPlanerBegegnung] = useState(null);
   const setKampf = (wertOderFn) => setKampfRoh(vorher => {
     const neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
     kampfSchreiben(neu);
@@ -2796,6 +2799,11 @@ function App() {
       else if (a.art === 'rast') setRastAnsage({ art: a.rastArt, basis: a.basis, niederschlag: a.niederschlag,
         temperatur: a.temperatur, wind: a.wind, massnahmen: a.massnahmen, text: a.text });
       else if (a.art === 'probe') setProbeAnsagen({ art: a.probeArt, wert: a.wert, sg: a.sg, text: a.text });
+      else if (a.art === 'kampf') {
+        setShowKampf(true);
+        leiste.zeigen('kampf');
+        setPlanerBegegnung({ begegnungId: String(a.begegnungId || ''), name: String(a.name || ''), n: Date.now() });
+      }
     };
     pruefen();
     const lauscher = (e) => { if (!e || !e.key || e.key === 'hb_planer_auftrag') pruefen(); };
@@ -6096,7 +6104,8 @@ function App() {
           onHeldNotiz={heldNotizSetzen}
           onHeldNotizSichern={heldNotizSichern}
           ansagen={ansagen} onAnsageWeg={ansageWeg}
-          onFrage={appConfirm} />
+          onFrage={appConfirm}
+          planerBegegnung={planerBegegnung} />
         </LeistenFenster>
       )}
 

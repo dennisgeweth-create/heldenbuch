@@ -160,7 +160,7 @@ const WetterWahl = ({ wetter, onWetter }) => {
   );
 };
 
-const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, onSpeichern, onLoeschen, onSchliessen, onMeldung }) => {
+const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, begegnungen, onSpeichern, onLoeschen, onSchliessen, onMeldung }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
   const [uebergabe, setUebergabe] = useState('');
   const m = karte.massstab;
@@ -174,11 +174,36 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, onSpeichern, 
   const verpf = verpflegung(st.plan.tage.length, entwurf.personen);
   const ankunft = chronikZeit != null && st.plan.angekommen
     ? 'Tag ' + (Math.floor((chronikZeit + st.plan.tage.length * 24) / 24) + 1) : '';
+  // Die Wachen des naechsten Tags, mit einem Samen je Tag: dieselbe Reise
+  // wuerfelt dasselbe, bis jemand ausdruecklich neu wuerfelt.
+  const nochmal = (entwurf.nochmal || {})[st.tag] || 0;
+  const pruefungen = heute && m ? tagesPruefungen({ tag: heute, route: st.r, massstab: m, regionen,
+    startStunde: entwurf.startStunde ?? 8, zufall: samenZufall(wuerfelSamen(entwurf.samen, st.tag + 1, nochmal)) }) : [];
+  const [loggt, setLoggt] = useState(false);
+  const insLog = async (e) => {
+    setLoggt(true);
+    try {
+      const text = reisetagText(e, entwurf.name, einh, begegnungen);
+      await planerApi('save_log', { entry: { char_id: null, char_name: '', tab: 'Reise', action: text.slice(0, 255),
+        details: { planer: true, reise: entwurf.name, tag: e.nr, text }, adv_id: advId } });
+      const liste = (entwurf.tagebuch || []).map(x => x.nr === e.nr ? { ...x, geloggt: true } : x);
+      onSpeichern({ ...entwurf, tagebuch: liste });
+      onMeldung({ art: 'gut', text: '📖 Reisetag ' + e.nr + ' steht im Abenteuerlog.' });
+    } catch (err) {
+      onMeldung({ art: 'fehler', text: 'Ins Abenteuerlog ging es nicht: ' + err.message });
+    } finally { setLoggt(false); }
+  };
+  const kopieren = async () => {
+    const text = entwurf.name + '\n' + tagebuchText(entwurf, einh, begegnungen);
+    try { await navigator.clipboard.writeText(text); onMeldung({ art: 'gut', text: '📋 Das Reisetagebuch ist kopiert.' }); }
+    catch (e) { onMeldung({ art: 'fehler', text: 'Kopieren ging nicht — der Browser hat es nicht erlaubt.' }); }
+  };
 
   const tagAbschliessen = () => {
     if (!heute) return;
     const eintrag = { nr: st.tag + 1, strecke: heute.strecke, stunden: heute.stunden, wetter: st.heute,
-                      gewaltmarsch: heute.gewaltmarsch, teile: heute.teile.map(t => ({ gelaende: t.gelaende, strecke: t.strecke })) };
+                      gewaltmarsch: heute.gewaltmarsch, teile: heute.teile.map(t => ({ gelaende: t.gelaende, strecke: t.strecke })),
+                      pruefungen: pruefungen.map(pruefungKurz) };
     onSpeichern({ ...entwurf, pos: heute.bis, tagebuch: [...(entwurf.tagebuch || []), eintrag] });
   };
   const tagZuruecknehmen = () => {
@@ -237,6 +262,10 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, onSpeichern, 
             <input className="pl-feld" type="number" min={1} max={24} value={reiseStunden(entwurf.optionen)}
               onChange={e => setzeOpt('stunden', Math.max(1, Math.min(24, +e.target.value || 1)))} />
           </label>
+          <label>Aufbruch um
+            <input className="pl-feld" type="number" min={0} max={23} value={entwurf.startStunde ?? 8}
+              onChange={e => setze('startStunde', Math.max(0, Math.min(23, Math.round(+e.target.value || 0))))} />
+          </label>
           <label>Personen
             <input className="pl-feld" type="number" min={0} max={999} value={entwurf.personen ?? 4} onChange={e => setze('personen', Math.max(0, +e.target.value || 0))} />
           </label>
@@ -291,6 +320,14 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, onSpeichern, 
               {heute.gewaltmarsch.length > 0 && (
                 <p className="pl-warnung">Gewaltmarsch: KO-Rettungswürfe SG {heute.gewaltmarsch.map(g => g.sg).join(', ')} — bei Misserfolg eine Stufe Erschöpfung.</p>
               )}
+              <div className="pl-zeile pl-wetter-kopf">
+                <span>🎲 Wachen</span>
+                {pruefungen.length > 0 && (
+                  <button type="button" className="pl-knopf pl-klein" title="Alle Wachen dieses Tags neu würfeln"
+                    onClick={() => onSpeichern({ ...entwurf, nochmal: { ...(entwurf.nochmal || {}), [st.tag]: nochmal + 1 } })}>🎲</button>
+                )}
+              </div>
+              <WachenListe pruefungen={pruefungen} begegnungen={begegnungen} advId={advId} onMeldung={onMeldung} />
               <button type="button" className="pl-knopf pl-haupt" onClick={tagAbschliessen}>✓ Tag {st.tag + 1} abschließen</button>
             </section>
           )}
@@ -310,7 +347,15 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, onSpeichern, 
                 ))}
               </div>
               {uebergabe && <p className="pl-leise">{uebergabe}</p>}
-              <button type="button" className="pl-knopf pl-klein" onClick={tagZuruecknehmen}>↶ Tag {letzter.nr} zurücknehmen</button>
+              {(letzter.pruefungen || []).some(p => p.treffer) && (
+                <WachenListe pruefungen={letzter.pruefungen.filter(p => p.treffer)} begegnungen={begegnungen} advId={advId} onMeldung={onMeldung} />
+              )}
+              <div className="pl-zeile">
+                <button type="button" className="pl-knopf pl-klein" disabled={loggt || letzter.geloggt} onClick={() => insLog(letzter)}>
+                  📖 {letzter.geloggt ? 'Steht im Abenteuerlog' : 'Ins Abenteuerlog'}</button>
+                <button type="button" className="pl-knopf pl-klein" onClick={kopieren}>📋 Tagebuch kopieren</button>
+                <button type="button" className="pl-knopf pl-klein" onClick={tagZuruecknehmen}>↶ Tag {letzter.nr} zurücknehmen</button>
+              </div>
             </section>
           )}
 

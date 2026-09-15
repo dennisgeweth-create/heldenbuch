@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus planer/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 1d-begegnung.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 3c-begegnung.jsx, 4-app.jsx
 // ==== planer/src/0-basis.jsx ====
 // ── Abenteuerplaner: Grundlagen ──────────────────────────────────
 // Der Planer ist eine eigene Seite neben dem Heldenbuch, mit eigenem
@@ -19,7 +19,7 @@ const {
 
 // Die Ausgabe des Planers zaehlt eigenstaendig: er waechst in Stufen,
 // die mit den Ausgaben des Heldenbuchs nichts zu tun haben.
-const PLANER_VERSION = 'Stufe 2';
+const PLANER_VERSION = 'Stufe 3';
 
 // ==== planer/src/1-paket.jsx ====
 // ── Das Paket: Im- und Export als .hbplan ────────────────────────
@@ -1667,6 +1667,255 @@ const auftragGewaltmarsch = (advId, sg, text) => ({
 });
 // ══ Ende der reinen Rechnung
 
+// ==== planer/src/1d-begegnung.jsx ====
+// ── Regionen und Zufallsbegegnungen ──────────────────────────────
+// Eine Region ist eine Flaeche auf der Karte — ein Wald, ein Pass, das
+// ganze Tal. Unter dm traegt sie eine Begegnungstabelle: wie oft geprueft
+// wird, ab welchem Wurf etwas geschieht (tags und nachts getrennt), und
+// was dann geschehen kann, gewichtet.
+//
+// Eine Reise prueft je Wache: am Ende jeder Wache steht die Gruppe
+// irgendwo — unterwegs auf der Route oder schon im Lager —, und dort
+// entscheidet die innerste Region, welche Tabelle gilt.
+//
+// Ein Kampf verweist auf eine Begegnung aus dem Heldenbuch (📚 Datenbank
+// › Begegnungen). Der Planer legt keine Gegner an; er sagt dem
+// Kampftracker nur, welche Begegnung er laden soll.
+//
+// Alles bis zur Markierung ist reine Rechnung.
+
+const REGION_FARBEN = ['#e05a5a', '#e8b84b', '#5fbf85', '#5fb0e8', '#9b7fd0', '#d98ad0', '#c8c8c8'];
+const WACHE_STUNDEN = [1, 2, 4, 6, 8, 12, 24];
+const BEGEGNUNG_ZEIT = [{
+  k: 'immer',
+  l: 'Tag und Nacht'
+}, {
+  k: 'tag',
+  l: 'Nur tags'
+}, {
+  k: 'nacht',
+  l: 'Nur nachts'
+}];
+const BEGEGNUNG_ART = [{
+  k: 'kampf',
+  l: '⚔ Kampf'
+}, {
+  k: 'ereignis',
+  l: '✦ Ereignis'
+}];
+const neueTabelle = () => ({
+  jeStunden: 8,
+  wuerfel: 20,
+  ab: 18,
+  abNacht: 18,
+  eintraege: []
+});
+const neuerTabellenEintrag = id => ({
+  id,
+  gewicht: 1,
+  zeit: 'immer',
+  art: 'kampf',
+  begegnungId: '',
+  text: ''
+});
+
+// ── Flaechen ─────────────────────────────────────────────────────
+const polygonFlaeche = poly => {
+  let s = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += (poly[j].x + poly[i].x) * (poly[j].y - poly[i].y);
+  return Math.abs(s) / 2;
+};
+const punktInPolygon = (p, poly) => {
+  let drin = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i],
+      b = poly[j];
+    if (a.y > p.y !== b.y > p.y && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) drin = !drin;
+  }
+  return drin;
+};
+// Der Schwerpunkt — dort steht der Name. Bei entarteten Flaechen die Mitte der Punkte.
+const polygonMitte = poly => {
+  let a = 0,
+    cx = 0,
+    cy = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const f = poly[j].x * poly[i].y - poly[i].x * poly[j].y;
+    a += f;
+    cx += (poly[j].x + poly[i].x) * f;
+    cy += (poly[j].y + poly[i].y) * f;
+  }
+  if (Math.abs(a) < 1e-9) {
+    const n = Math.max(1, poly.length);
+    return {
+      x: poly.reduce((s, p) => s + p.x, 0) / n,
+      y: poly.reduce((s, p) => s + p.y, 0) / n
+    };
+  }
+  return {
+    x: cx / (3 * a),
+    y: cy / (3 * a)
+  };
+};
+// Die innerste Region, in der der Punkt liegt: der Wald im Tal gilt vor dem Tal.
+const regionAn = (p, regionen) => {
+  if (!p) return null;
+  const drin = (regionen || []).filter(r => (r.punkte || []).length >= 3 && punktInPolygon(p, r.punkte));
+  drin.sort((a, b) => polygonFlaeche(a.punkte) - polygonFlaeche(b.punkte));
+  return drin[0] || null;
+};
+const flaecheText = (poly, m) => {
+  if (!m) return '';
+  const e = pxJeEinheit(m);
+  return zahlText(polygonFlaeche(poly) / (e * e)) + ' ' + einheit(m.einheit).kurz + '²';
+};
+
+// ── Der Wurf ─────────────────────────────────────────────────────
+const istNacht = uhr => {
+  const h = (uhr % 24 + 24) % 24;
+  return h >= 20 || h < 6;
+};
+const tabelleVon = region => region && region.dm && region.dm.tabelle || null;
+const begegnungPruefen = (tabelle, nacht, zufall) => {
+  const t = {
+    ...neueTabelle(),
+    ...(tabelle || {})
+  };
+  const w = Math.max(2, +t.wuerfel || 20);
+  const ab = Math.max(1, +(nacht ? t.abNacht : t.ab) || w);
+  const wurf = 1 + Math.floor(zufall() * w);
+  if (wurf < ab) return {
+    wurf,
+    ab,
+    treffer: false,
+    eintrag: null
+  };
+  const passend = (t.eintraege || []).filter(e => (+e.gewicht || 0) > 0 && (e.zeit === 'immer' || !e.zeit || e.zeit === 'nacht' === nacht));
+  if (!passend.length) return {
+    wurf,
+    ab,
+    treffer: true,
+    eintrag: null
+  };
+  return {
+    wurf,
+    ab,
+    treffer: true,
+    eintrag: passend[gewichtetWaehlen(passend.map(e => +e.gewicht), zufall)]
+  };
+};
+
+// Wo die Gruppe nach t Stunden eines Reisetags steht.
+const posNachStunden = (tag, t) => {
+  let pos = tag.von,
+    rest = Math.max(0, t);
+  for (const teil of tag.teile || []) {
+    if (rest <= teil.stunden) return pos + (teil.stunden ? teil.strecke * rest / teil.stunden : 0);
+    pos += teil.strecke;
+    rest -= teil.stunden;
+  }
+  return tag.bis;
+};
+const wuerfelSamen = (samen, tagNr, nochmal) => (+samen || 1) * 31 + tagNr * 7919 + (nochmal || 0) * 104729 >>> 0 || 1;
+
+// Die Wachen eines Reisetags: am Ende jeder Wache ein Wurf auf die
+// Tabelle der Region, in der die Gruppe dann steht. 24 Stunden ab dem
+// Aufbruch, unterwegs und im Lager.
+const tagesPruefungen = ({
+  tag,
+  route,
+  massstab,
+  regionen,
+  startStunde,
+  zufall
+}) => {
+  const aus = [];
+  const start = Number.isFinite(+startStunde) ? +startStunde : 8;
+  const wachen = new Map();
+  // Jede Region hat ihren eigenen Takt. Geprueft wird zu jeder Stunde, zu
+  // der irgendeine Tabelle faellig ist, und dort zaehlt nur die Region,
+  // in der die Gruppe dann steht.
+  (regionen || []).forEach(r => {
+    const t = tabelleVon(r);
+    if (t) wachen.set(r.id, Math.max(1, +t.jeStunden || 8));
+  });
+  const takte = [...new Set(wachen.values())].sort((a, b) => a - b);
+  const stunden = new Set();
+  takte.forEach(j => {
+    for (let t = j; t <= 24; t += j) stunden.add(t);
+  });
+  [...stunden].sort((a, b) => a - b).forEach(t => {
+    const unterwegs = t <= tag.stunden + 1e-9;
+    const pos = unterwegs ? posNachStunden(tag, t) : tag.bis;
+    const punkt = massstab ? punktAufRoute(route, massstab, pos) : null;
+    const region = regionAn(punkt, regionen);
+    const tabelle = tabelleVon(region);
+    if (!region || !tabelle) return;
+    const j = wachen.get(region.id);
+    if (t % j !== 0) return;
+    const uhr = (start + t) % 24;
+    const nacht = istNacht(uhr);
+    const w = begegnungPruefen(tabelle, nacht, zufall);
+    aus.push({
+      nachStunden: t,
+      uhr,
+      nacht,
+      unterwegs,
+      pos,
+      punkt,
+      regionId: region.id,
+      regionName: region.name,
+      ...w
+    });
+  });
+  return aus;
+};
+
+// Was im Tagebuch bleibt: klein, ohne Punkte und Tabellen.
+const pruefungKurz = p => ({
+  uhr: p.uhr,
+  nacht: p.nacht,
+  unterwegs: p.unterwegs,
+  region: p.regionName,
+  wurf: p.wurf,
+  ab: p.ab,
+  treffer: p.treffer,
+  art: p.eintrag ? p.eintrag.art : '',
+  begegnungId: p.eintrag ? p.eintrag.begegnungId || '' : '',
+  text: p.eintrag ? String(p.eintrag.text || '') : ''
+});
+const begegnungName = (p, begegnungen) => {
+  if (!p.treffer) return 'nichts';
+  if (!p.art && !p.eintrag) return 'etwas geschieht (die Tabelle ist leer)';
+  const art = p.eintrag ? p.eintrag.art : p.art;
+  const id = p.eintrag ? p.eintrag.begegnungId : p.begegnungId;
+  const text = p.eintrag ? p.eintrag.text : p.text;
+  if (art === 'kampf') {
+    const b = (begegnungen || []).find(x => x.id === id);
+    return (b ? b.name : 'Kampf') + (text ? ' — ' + text : '');
+  }
+  return text || 'Ereignis';
+};
+
+// ── Das Reisetagebuch als Text ───────────────────────────────────
+const reisetagText = (eintrag, reiseName, einh, begegnungen) => {
+  const teile = ['Reisetag ' + eintrag.nr + (reiseName ? ' · ' + reiseName : '') + ': ' + laengeText(eintrag.strecke, einh) + ' in ' + stundenText(eintrag.stunden)];
+  if (eintrag.wetter) teile.push(wetterText(eintrag.wetter));
+  if ((eintrag.gewaltmarsch || []).length) teile.push('Gewaltmarsch, KO-Rettungswürfe SG ' + eintrag.gewaltmarsch.map(g => g.sg).join(', '));
+  (eintrag.pruefungen || []).filter(p => p.treffer).forEach(p => {
+    teile.push(String(p.uhr).padStart(2, '0') + ' Uhr' + (p.region ? ' (' + p.region + ')' : '') + ': ' + begegnungName(p, begegnungen));
+  });
+  return teile.join(' · ');
+};
+const tagebuchText = (reise, einh, begegnungen) => (reise.tagebuch || []).map(e => reisetagText(e, '', einh, begegnungen)).join('\n');
+const auftragKampf = (advId, begegnungId, name) => ({
+  art: 'kampf',
+  advId,
+  begegnungId: String(begegnungId || ''),
+  name: String(name || '').slice(0, 120)
+});
+// ══ Ende der reinen Rechnung
+
 // ==== planer/src/2-leinwand.jsx ====
 // ── Die Kartenleinwand ───────────────────────────────────────────
 // Zeigt die Kachelpyramide einer Karte: ziehen zum Verschieben, Mausrad
@@ -1692,6 +1941,9 @@ const KartenLeinwand = ({
   reiseWahl,
   onRouteWahl,
   onReiseWahl,
+  regionen,
+  regionWahl,
+  onRegionWahl,
   onKlick,
   onOrtWahl,
   onOrtVerschieben,
@@ -1920,7 +2172,19 @@ const KartenLeinwand = ({
       className: "pl-ueberlage",
       width: g.breite,
       height: g.hoehe
-    }, (routen || []).map(r => {
+    }, (regionen || []).map(r => {
+      const ps = (r.punkte || []).map(schirm);
+      if (ps.length < 3) return null;
+      return /*#__PURE__*/React.createElement("polygon", {
+        key: r.id,
+        points: ps.map(s => s.x + ',' + s.y).join(' '),
+        className: 'pl-region' + (r.id === regionWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : ''),
+        style: {
+          fill: r.farbe || REGION_FARBEN[0],
+          stroke: r.farbe || REGION_FARBEN[0]
+        }
+      });
+    }), (routen || []).map(r => {
       const ps = (r.punkte || []).map(schirm);
       if (ps.length < 2) return null;
       const zug = ps.map(s => s.x + ',' + s.y).join(' ');
@@ -1962,7 +2226,20 @@ const KartenLeinwand = ({
         r: 4.5,
         className: 'pl-linie-punkt ' + (linie.art || '')
       });
-    }))), (gruppen || []).filter(gr => gr.punkt).map(gr => {
+    }))), (regionen || []).filter(r => (r.punkte || []).length >= 3).map(r => {
+      const s = schirm(polygonMitte(r.punkte));
+      if (s.x < -80 || s.y < -40 || s.x > g.breite + 80 || s.y > g.hoehe + 40) return null;
+      return /*#__PURE__*/React.createElement("button", {
+        key: r.id,
+        className: 'pl-region-name' + (r.id === regionWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : ''),
+        style: {
+          left: s.x,
+          top: s.y,
+          borderColor: r.farbe || REGION_FARBEN[0]
+        },
+        onClick: () => onRegionWahl && onRegionWahl(r.id)
+      }, "\u2B21 ", r.name);
+    }), (gruppen || []).filter(gr => gr.punkt).map(gr => {
       const s = schirm(gr.punkt);
       return /*#__PURE__*/React.createElement("button", {
         key: gr.id,
@@ -2738,6 +3015,8 @@ const ReiseTafel = ({
   karte,
   advId,
   chronikZeit,
+  regionen,
+  begegnungen,
   onSpeichern,
   onLoeschen,
   onSchliessen,
@@ -2764,6 +3043,73 @@ const ReiseTafel = ({
   const f = fortbewegung(entwurf.optionen && entwurf.optionen.fortbewegung);
   const verpf = verpflegung(st.plan.tage.length, entwurf.personen);
   const ankunft = chronikZeit != null && st.plan.angekommen ? 'Tag ' + (Math.floor((chronikZeit + st.plan.tage.length * 24) / 24) + 1) : '';
+  // Die Wachen des naechsten Tags, mit einem Samen je Tag: dieselbe Reise
+  // wuerfelt dasselbe, bis jemand ausdruecklich neu wuerfelt.
+  const nochmal = (entwurf.nochmal || {})[st.tag] || 0;
+  const pruefungen = heute && m ? tagesPruefungen({
+    tag: heute,
+    route: st.r,
+    massstab: m,
+    regionen,
+    startStunde: entwurf.startStunde ?? 8,
+    zufall: samenZufall(wuerfelSamen(entwurf.samen, st.tag + 1, nochmal))
+  }) : [];
+  const [loggt, setLoggt] = useState(false);
+  const insLog = async e => {
+    setLoggt(true);
+    try {
+      const text = reisetagText(e, entwurf.name, einh, begegnungen);
+      await planerApi('save_log', {
+        entry: {
+          char_id: null,
+          char_name: '',
+          tab: 'Reise',
+          action: text.slice(0, 255),
+          details: {
+            planer: true,
+            reise: entwurf.name,
+            tag: e.nr,
+            text
+          },
+          adv_id: advId
+        }
+      });
+      const liste = (entwurf.tagebuch || []).map(x => x.nr === e.nr ? {
+        ...x,
+        geloggt: true
+      } : x);
+      onSpeichern({
+        ...entwurf,
+        tagebuch: liste
+      });
+      onMeldung({
+        art: 'gut',
+        text: '📖 Reisetag ' + e.nr + ' steht im Abenteuerlog.'
+      });
+    } catch (err) {
+      onMeldung({
+        art: 'fehler',
+        text: 'Ins Abenteuerlog ging es nicht: ' + err.message
+      });
+    } finally {
+      setLoggt(false);
+    }
+  };
+  const kopieren = async () => {
+    const text = entwurf.name + '\n' + tagebuchText(entwurf, einh, begegnungen);
+    try {
+      await navigator.clipboard.writeText(text);
+      onMeldung({
+        art: 'gut',
+        text: '📋 Das Reisetagebuch ist kopiert.'
+      });
+    } catch (e) {
+      onMeldung({
+        art: 'fehler',
+        text: 'Kopieren ging nicht — der Browser hat es nicht erlaubt.'
+      });
+    }
+  };
   const tagAbschliessen = () => {
     if (!heute) return;
     const eintrag = {
@@ -2775,7 +3121,8 @@ const ReiseTafel = ({
       teile: heute.teile.map(t => ({
         gelaende: t.gelaende,
         strecke: t.strecke
-      }))
+      })),
+      pruefungen: pruefungen.map(pruefungKurz)
     };
     onSpeichern({
       ...entwurf,
@@ -2868,6 +3215,13 @@ const ReiseTafel = ({
     max: 24,
     value: reiseStunden(entwurf.optionen),
     onChange: e => setzeOpt('stunden', Math.max(1, Math.min(24, +e.target.value || 1)))
+  })), /*#__PURE__*/React.createElement("label", null, "Aufbruch um", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    type: "number",
+    min: 0,
+    max: 23,
+    value: entwurf.startStunde ?? 8,
+    onChange: e => setze('startStunde', Math.max(0, Math.min(23, Math.round(+e.target.value || 0))))
   })), /*#__PURE__*/React.createElement("label", null, "Personen", /*#__PURE__*/React.createElement("input", {
     className: "pl-feld",
     type: "number",
@@ -2944,7 +3298,25 @@ const ReiseTafel = ({
     })
   }), heute.gewaltmarsch.length > 0 && /*#__PURE__*/React.createElement("p", {
     className: "pl-warnung"
-  }, "Gewaltmarsch: KO-Rettungsw\xFCrfe SG ", heute.gewaltmarsch.map(g => g.sg).join(', '), " \u2014 bei Misserfolg eine Stufe Ersch\xF6pfung."), /*#__PURE__*/React.createElement("button", {
+  }, "Gewaltmarsch: KO-Rettungsw\xFCrfe SG ", heute.gewaltmarsch.map(g => g.sg).join(', '), " \u2014 bei Misserfolg eine Stufe Ersch\xF6pfung."), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile pl-wetter-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83C\uDFB2 Wachen"), pruefungen.length > 0 && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    title: "Alle Wachen dieses Tags neu w\xFCrfeln",
+    onClick: () => onSpeichern({
+      ...entwurf,
+      nochmal: {
+        ...(entwurf.nochmal || {}),
+        [st.tag]: nochmal + 1
+      }
+    })
+  }, "\uD83C\uDFB2")), /*#__PURE__*/React.createElement(WachenListe, {
+    pruefungen: pruefungen,
+    begegnungen: begegnungen,
+    advId: advId,
+    onMeldung: onMeldung
+  }), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-haupt",
     onClick: tagAbschliessen
@@ -2973,11 +3345,27 @@ const ReiseTafel = ({
     onClick: () => uebergeben(auftragGewaltmarsch(advId, g.sg, 'Gewaltmarsch, Stunde ' + g.stunde), '🎲 Gewaltmarsch')
   }, "\uD83C\uDFB2 KO SG ", g.sg))), uebergabe && /*#__PURE__*/React.createElement("p", {
     className: "pl-leise"
-  }, uebergabe), /*#__PURE__*/React.createElement("button", {
+  }, uebergabe), (letzter.pruefungen || []).some(p => p.treffer) && /*#__PURE__*/React.createElement(WachenListe, {
+    pruefungen: letzter.pruefungen.filter(p => p.treffer),
+    begegnungen: begegnungen,
+    advId: advId,
+    onMeldung: onMeldung
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: loggt || letzter.geloggt,
+    onClick: () => insLog(letzter)
+  }, "\uD83D\uDCD6 ", letzter.geloggt ? 'Steht im Abenteuerlog' : 'Ins Abenteuerlog'), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: kopieren
+  }, "\uD83D\uDCCB Tagebuch kopieren"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: tagZuruecknehmen
-  }, "\u21B6 Tag ", letzter.nr, " zur\xFCcknehmen")), st.plan.tage.length > 1 && /*#__PURE__*/React.createElement("details", {
+  }, "\u21B6 Tag ", letzter.nr, " zur\xFCcknehmen"))), st.plan.tage.length > 1 && /*#__PURE__*/React.createElement("details", {
     className: "pl-plan"
   }, /*#__PURE__*/React.createElement("summary", null, "Plan: ", st.plan.tage.length, " Tage"), /*#__PURE__*/React.createElement("div", {
     className: "pl-plan-rolle"
@@ -2992,6 +3380,320 @@ const ReiseTafel = ({
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(reise)
   }, "Reise l\xF6schen")));
+};
+
+// ==== planer/src/3c-begegnung.jsx ====
+// ── Regionen und Begegnungen: die Tafeln ─────────────────────────
+// Rechnung in 1d-begegnung.jsx. Hier die Tafel einer Region mit ihrer
+// Begegnungstabelle, ein Wurf von Hand, und die Liste der Wachen, die
+// ReiseTafel fuer den naechsten Reisetag zeigt.
+
+const BegegnungErgebnis = ({
+  p,
+  begegnungen,
+  advId,
+  onMeldung
+}) => {
+  const [schickt, setSchickt] = useState(false);
+  const art = p.eintrag ? p.eintrag.art : p.art;
+  const id = p.eintrag ? p.eintrag.begegnungId : p.begegnungId;
+  const b = (begegnungen || []).find(x => x.id === id);
+  const schicken = async () => {
+    setSchickt(true);
+    const genommen = await anHeldenbuch(auftragKampf(advId, id, b ? b.name : ''));
+    setSchickt(false);
+    onMeldung(genommen ? {
+      art: 'gut',
+      text: '⚔ Das Heldenbuch fragt jetzt, ob es „' + (b ? b.name : 'die Begegnung') + '“ in den Kampftracker laden soll.'
+    } : {
+      art: 'gut',
+      text: '⚔ Der Auftrag wartet eine halbe Stunde. Öffne das Heldenbuch im DM-Modus, dann fragt der Kampftracker nach.'
+    });
+  };
+  return /*#__PURE__*/React.createElement("span", {
+    className: 'pl-wurf' + (p.treffer ? ' treffer' : '')
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "pl-wurf-zahl",
+    title: 'Wurf ' + p.wurf + ', etwas geschieht ab ' + p.ab
+  }, p.wurf), /*#__PURE__*/React.createElement("span", null, begegnungName(p, begegnungen)), p.treffer && art === 'kampf' && id && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: schickt || !b,
+    title: b ? 'In den Kampftracker des Heldenbuchs laden' : 'Diese Begegnung gibt es im Heldenbuch nicht',
+    onClick: schicken
+  }, "\u2694 Kampftracker"));
+};
+const WachenListe = ({
+  pruefungen,
+  begegnungen,
+  advId,
+  onMeldung
+}) => {
+  if (!pruefungen.length) return /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise"
+  }, "Keine Region mit Begegnungstabelle auf dem Weg.");
+  return /*#__PURE__*/React.createElement("ul", {
+    className: "pl-wachen"
+  }, pruefungen.map((p, i) => /*#__PURE__*/React.createElement("li", {
+    key: i
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "pl-wache-zeit"
+  }, p.nacht ? '🌙' : '☀', " ", String(p.uhr).padStart(2, '0'), " Uhr"), /*#__PURE__*/React.createElement("span", {
+    className: "pl-wache-ort"
+  }, p.unterwegs ? 'unterwegs' : 'im Lager', " \xB7 ", p.regionName || p.region), /*#__PURE__*/React.createElement(BegegnungErgebnis, {
+    p: p,
+    begegnungen: begegnungen,
+    advId: advId,
+    onMeldung: onMeldung
+  }))));
+};
+const TabellenEditor = ({
+  tabelle,
+  begegnungen,
+  onTabelle
+}) => {
+  const t = {
+    ...neueTabelle(),
+    ...(tabelle || {})
+  };
+  const setze = (feld, wert) => onTabelle({
+    ...t,
+    [feld]: wert
+  });
+  const eintrag = (id, feld, wert) => setze('eintraege', t.eintraege.map(e => e.id === id ? {
+    ...e,
+    [feld]: wert
+  } : e));
+  const summe = t.eintraege.reduce((s, e) => s + (+e.gewicht || 0), 0);
+  const prozent = ab => Math.max(0, Math.min(100, Math.round((t.wuerfel - ab + 1) / t.wuerfel * 100)));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "pl-tabelle"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pl-raster3"
+  }, /*#__PURE__*/React.createElement("label", null, "Pr\xFCfen alle", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: t.jeStunden,
+    onChange: e => setze('jeStunden', +e.target.value)
+  }, WACHE_STUNDEN.map(h => /*#__PURE__*/React.createElement("option", {
+    key: h,
+    value: h
+  }, h, " Std.")))), /*#__PURE__*/React.createElement("label", null, "Tags ab W20", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    type: "number",
+    min: 1,
+    max: 21,
+    value: t.ab,
+    onChange: e => setze('ab', Math.max(1, Math.min(21, +e.target.value || 1)))
+  })), /*#__PURE__*/React.createElement("label", null, "Nachts ab", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    type: "number",
+    min: 1,
+    max: 21,
+    value: t.abNacht,
+    onChange: e => setze('abNacht', Math.max(1, Math.min(21, +e.target.value || 1)))
+  }))), /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, "Je Pr\xFCfung tags ", prozent(t.ab), " %, nachts ", prozent(t.abNacht), " % \xB7 ", Math.floor(24 / t.jeStunden), " Pr\xFCfungen am Tag"), /*#__PURE__*/React.createElement("ul", {
+    className: "pl-tabelle-zeilen"
+  }, t.eintraege.map((e, i) => /*#__PURE__*/React.createElement("li", {
+    key: e.id
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld pl-gewicht",
+    type: "number",
+    min: 0,
+    max: 99,
+    value: e.gewicht,
+    "aria-label": 'Gewicht Zeile ' + (i + 1),
+    title: summe ? Math.round((+e.gewicht || 0) / summe * 100) + ' % der Treffer' : '',
+    onChange: ev => eintrag(e.id, 'gewicht', Math.max(0, +ev.target.value || 0))
+  }), /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: e.art,
+    "aria-label": 'Art Zeile ' + (i + 1),
+    onChange: ev => eintrag(e.id, 'art', ev.target.value)
+  }, BEGEGNUNG_ART.map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.k,
+    value: a.k
+  }, a.l))), /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: e.zeit,
+    "aria-label": 'Zeit Zeile ' + (i + 1),
+    onChange: ev => eintrag(e.id, 'zeit', ev.target.value)
+  }, BEGEGNUNG_ZEIT.map(a => /*#__PURE__*/React.createElement("option", {
+    key: a.k,
+    value: a.k
+  }, a.l))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-symbol pl-symbol-weg",
+    "aria-label": 'Zeile ' + (i + 1) + ' entfernen',
+    onClick: () => setze('eintraege', t.eintraege.filter(x => x.id !== e.id))
+  }, "\u2715"), e.art === 'kampf' && /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld pl-breit",
+    value: e.begegnungId || '',
+    "aria-label": 'Begegnung Zeile ' + (i + 1),
+    onChange: ev => eintrag(e.id, 'begegnungId', ev.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 Begegnung aus dem Heldenbuch \u2014"), (begegnungen || []).map(b => /*#__PURE__*/React.createElement("option", {
+    key: b.id,
+    value: b.id
+  }, b.name, " \xB7 ", b.difficulty, " \xB7 ", (b.enemies || []).reduce((s, x) => s + (+x.count || 1), 0), " Gegner"))), /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld pl-breit",
+    value: e.text || '',
+    maxLength: 300,
+    "aria-label": 'Text Zeile ' + (i + 1),
+    placeholder: e.art === 'kampf' ? 'Zusatz, z. B. „aus dem Hinterhalt“' : 'Was geschieht',
+    onChange: ev => eintrag(e.id, 'text', ev.target.value)
+  })))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setze('eintraege', [...t.eintraege, neuerTabellenEintrag(planNeueId('t'))])
+  }, "\uFF0B Zeile"), begegnungen && !begegnungen.length && /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, "Im Heldenbuch gibt es f\xFCr dieses Abenteuer noch keine Begegnung (\uD83D\uDCDA Datenbank \u203A Begegnungen)."));
+};
+const RegionTafel = ({
+  region,
+  dm,
+  karte,
+  begegnungen,
+  advId,
+  onSpeichern,
+  onLoeschen,
+  onSchliessen,
+  onMeldung
+}) => {
+  const [entwurf, setEntwurf, geaendert] = useEntwurf(region);
+  const [wurf, setWurf] = useState(null);
+  const setze = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    [feld]: wert
+  }));
+  const setzeDm = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    dm: {
+      ...(e.dm || {}),
+      [feld]: wert
+    }
+  }));
+  const flaeche = flaecheText(entwurf.punkte || [], karte.massstab);
+  if (!dm) {
+    return /*#__PURE__*/React.createElement("aside", {
+      className: "pl-tafel",
+      "aria-label": 'Region: ' + region.name
+    }, /*#__PURE__*/React.createElement(TafelKopf, {
+      symbol: "\u2B21",
+      titel: region.name,
+      onSchliessen: onSchliessen
+    }), flaeche && /*#__PURE__*/React.createElement("p", {
+      className: "pl-leise"
+    }, flaeche), region.text ? /*#__PURE__*/React.createElement("p", {
+      className: "pl-ort-text"
+    }, region.text) : /*#__PURE__*/React.createElement("p", {
+      className: "pl-leise"
+    }, "\xDCber diese Gegend ist noch nichts bekannt."));
+  }
+  const tabelle = entwurf.dm && entwurf.dm.tabelle || null;
+  return /*#__PURE__*/React.createElement("aside", {
+    className: "pl-tafel",
+    "aria-label": 'Region bearbeiten: ' + region.name
+  }, /*#__PURE__*/React.createElement(TafelKopf, {
+    symbol: "\u2B21",
+    titel: entwurf.name || 'Ohne Namen',
+    onSchliessen: onSchliessen
+  }), /*#__PURE__*/React.createElement("form", {
+    className: "pl-formular",
+    onSubmit: e => {
+      e.preventDefault();
+      if (geaendert) onSpeichern(entwurf);
+    }
+  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    value: entwurf.name || '',
+    maxLength: 120,
+    onChange: e => setze('name', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile",
+    role: "radiogroup",
+    "aria-label": "Farbe"
+  }, REGION_FARBEN.map(f => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: f,
+    role: "radio",
+    "aria-checked": entwurf.farbe === f,
+    "aria-label": 'Farbe ' + f,
+    className: 'pl-farbwahl' + (entwurf.farbe === f ? ' an' : ''),
+    style: {
+      background: f
+    },
+    onClick: () => setze('farbe', f)
+  })), flaeche && /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, flaeche)), /*#__PURE__*/React.createElement("label", null, "Was die Spieler lesen", /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld",
+    rows: 2,
+    value: entwurf.text || '',
+    maxLength: 20000,
+    onChange: e => setze('text', e.target.value)
+  })), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld pl-dm-feld",
+    rows: 2,
+    value: entwurf.dm && entwurf.dm.notiz || '',
+    maxLength: 20000,
+    onChange: e => setzeDm('notiz', e.target.value)
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!entwurf.sichtbar,
+    onChange: e => setze('sichtbar', e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), /*#__PURE__*/React.createElement("h3", {
+    className: "pl-unterkopf"
+  }, "Zufallsbegegnungen ", /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, "\u2014 nur Spielleitung")), tabelle ? /*#__PURE__*/React.createElement(TabellenEditor, {
+    tabelle: tabelle,
+    begegnungen: begegnungen,
+    onTabelle: t => setzeDm('tabelle', t)
+  }) : /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setzeDm('tabelle', neueTabelle())
+  }, "\uFF0B Begegnungstabelle anlegen"), tabelle && /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setWurf(begegnungPruefen(tabelle, false, Math.random))
+  }, "\uD83C\uDFB2 Tags w\xFCrfeln"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setWurf(begegnungPruefen(tabelle, true, Math.random))
+  }, "\uD83C\uDFB2 Nachts w\xFCrfeln")), wurf && /*#__PURE__*/React.createElement("div", {
+    className: "pl-wurf-zeile"
+  }, /*#__PURE__*/React.createElement(BegegnungErgebnis, {
+    p: wurf,
+    begegnungen: begegnungen,
+    advId: advId,
+    onMeldung: onMeldung
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-gefahr pl-klein",
+    onClick: () => onLoeschen(region)
+  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: !geaendert,
+    onClick: () => setEntwurf(region)
+  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "pl-knopf pl-haupt pl-klein",
+    disabled: !geaendert
+  }, "Speichern"))));
 };
 
 // ==== planer/src/4-app.jsx ====
@@ -3306,7 +4008,39 @@ const PlanerWegListe = ({
     className: "pl-leise"
   }, "Tag ", (j.tagebuch || []).length))))))));
 };
+const PlanerRegionListe = ({
+  regionen,
+  regionWahl,
+  dm,
+  onWahl
+}) => {
+  if (!regionen.length) return null;
+  return /*#__PURE__*/React.createElement("nav", {
+    className: "pl-liste",
+    "aria-label": "Regionen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pl-liste-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "Regionen \xB7 ", regionen.length)), /*#__PURE__*/React.createElement("ul", null, regionen.map(r => /*#__PURE__*/React.createElement("li", {
+    key: r.id,
+    className: 'pl-eintrag' + (r.id === regionWahl ? ' aktiv' : '')
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "pl-eintrag-name",
+    onClick: () => onWahl(r)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "pl-farbpunkt",
+    style: {
+      background: r.farbe || REGION_FARBEN[0]
+    },
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: 'pl-eintrag-text' + (dm && !r.sichtbar ? ' pl-verborgen-text' : '')
+  }, r.name), dm && r.dm && r.dm.tabelle && /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise",
+    title: "Mit Begegnungstabelle"
+  }, "\uD83C\uDFB2"))))));
+};
 const WERKZEUG_HINWEIS = {
+  region: 'Klicke die Eckpunkte der Region. Die Fläche schließt sich von selbst.',
   route: 'Klicke Punkt für Punkt den Weg. Das Gelände je Abschnitt stellst du danach ein.',
   ort: 'Klicke auf die Karte, wo der neue Ort liegen soll.',
   massstab: 'Klicke zwei Punkte, deren Entfernung du kennst — zum Beispiel die Enden der Maßstabsleiste der Karte.',
@@ -3331,6 +4065,8 @@ const PlanerApp = () => {
   const [ortWahl, setOrtWahl] = useState('');
   const [routeWahl, setRouteWahl] = useState('');
   const [reiseWahl, setReiseWahl] = useState('');
+  const [regionWahl, setRegionWahl] = useState('');
+  const [begegnungen, setBegegnungen] = useState(null);
   const [chronikZeit, setChronikZeit] = useState(null);
   const [fokus, setFokus] = useState(null);
   const standRef = useRef(0);
@@ -3389,6 +4125,8 @@ const PlanerApp = () => {
   const ort = orte.find(o => o.id === ortWahl) || null;
   const routen = daten && karte ? daten.objekte.filter(o => o.art === 'route' && o.karteId === karte.id) : [];
   const reisen = daten && karte ? daten.objekte.filter(o => o.art === 'reise' && o.karteId === karte.id) : [];
+  const regionen = daten && karte ? daten.objekte.filter(o => o.art === 'region' && o.karteId === karte.id) : [];
+  const region = regionen.find(r => r.id === regionWahl) || null;
   const route = routen.find(r => r.id === routeWahl) || null;
   const reise = reisen.find(r => r.id === reiseWahl) || null;
   const reiseRoute = reise ? routen.find(r => r.id === reise.routeId) || null : null;
@@ -3405,27 +4143,42 @@ const PlanerApp = () => {
     };
   }).filter(Boolean) : [];
   // Nur eine Tafel zugleich.
+  const tafelZu = () => {
+    setOrtWahl('');
+    setRouteWahl('');
+    setReiseWahl('');
+    setRegionWahl('');
+  };
   const waehleOrt = id => {
+    if (id) tafelZu();
     setOrtWahl(id);
-    if (id) {
-      setRouteWahl('');
-      setReiseWahl('');
-    }
   };
   const waehleRoute = id => {
+    if (id) tafelZu();
     setRouteWahl(id);
-    if (id) {
-      setOrtWahl('');
-      setReiseWahl('');
-    }
   };
   const waehleReise = id => {
+    if (id) tafelZu();
     setReiseWahl(id);
-    if (id) {
-      setOrtWahl('');
-      setRouteWahl('');
-    }
   };
+  const waehleRegion = id => {
+    if (id) tafelZu();
+    setRegionWahl(id);
+  };
+
+  // Die Begegnungen des Heldenbuchs, auf die Tabellen verweisen. Nur lesen.
+  useEffect(() => {
+    setBegegnungen(null);
+    if (!dm || !advId) return;
+    planerApi('dm_load_encounters', {}).then(r => {
+      setBegegnungen((r.encounters || []).filter(e => e && e.id && (!e.adventure || e.adventure === advId)).map(e => ({
+        id: e.id,
+        name: e.name || 'Ohne Namen',
+        difficulty: e.difficulty || '',
+        enemies: e.enemies || []
+      })));
+    }).catch(() => setBegegnungen([]));
+  }, [dm, advId]);
 
   // Die Uhr der Chronik, damit die Reise ihren Ankunftstag nennt. Nur
   // lesen: gedreht wird sie im Heldenbuch.
@@ -3462,6 +4215,7 @@ const PlanerApp = () => {
     setOrtWahl('');
     setRouteWahl('');
     setReiseWahl('');
+    setRegionWahl('');
   }, [auswahl]);
   useEffect(() => {
     const taste = e => {
@@ -3722,13 +4476,36 @@ const PlanerApp = () => {
       if (neu.length === 2) setMassstabFrage(neu);
       return;
     }
-    if (werkzeug === 'lineal' || werkzeug === 'route') {
+    if (werkzeug === 'lineal' || werkzeug === 'route' || werkzeug === 'region') {
       setPunkte(v => [...v, p]);
       return;
     }
-    waehleOrt('');
-    setRouteWahl('');
-    setReiseWahl('');
+    tafelZu();
+  };
+  const regionAnlegen = async punkteListe => {
+    if (!karte || punkteListe.length < 3) return;
+    const neu = {
+      id: planNeueId('g'),
+      karteId: karte.id,
+      art: 'region',
+      name: 'Neue Region',
+      punkte: punkteListe,
+      farbe: REGION_FARBEN[regionen.length % REGION_FARBEN.length],
+      sichtbar: false,
+      text: '',
+      dm: {
+        notiz: ''
+      }
+    };
+    setWerkzeug('ansehen');
+    setPunkte([]);
+    try {
+      await objSpeichern(neu);
+      await laden(advId);
+      waehleRegion(neu.id);
+    } catch (e) {
+      fehler(e);
+    }
   };
   // ── Routen und Reisen ───────────────────────────────────────────
   const routeAnlegen = async punkteListe => {
@@ -4005,8 +4782,8 @@ const PlanerApp = () => {
     }
   };
   if (!angemeldet) return /*#__PURE__*/React.createElement(PlanerNichtAngemeldet, null);
-  const linie = werkzeug === 'lineal' || werkzeug === 'massstab' || werkzeug === 'route' ? {
-    punkte,
+  const linie = ['lineal', 'massstab', 'route', 'region'].includes(werkzeug) ? {
+    punkte: werkzeug === 'region' && punkte.length > 2 ? [...punkte, punkte[0]] : punkte,
     art: werkzeug
   } : null;
   const strecke = werkzeug === 'lineal' && karte && karte.massstab && punkte.length > 1 ? wegLaenge(punkte, karte.massstab) : 0;
@@ -4066,7 +4843,7 @@ const PlanerApp = () => {
   }, /*#__PURE__*/React.createElement("p", null, "In dieser Gruppe gibt es noch kein Abenteuer. Lege im Heldenbuch eines an.")) : !daten ? /*#__PURE__*/React.createElement("div", {
     className: "pl-buehne-leer"
   }, /*#__PURE__*/React.createElement("p", null, "L\xE4dt \u2026")) : /*#__PURE__*/React.createElement("main", {
-    className: 'pl-haupt-flaeche' + (ort || route || reise && reiseRoute ? ' mit-tafel' : '')
+    className: 'pl-haupt-flaeche' + (ort || route || region || reise && reiseRoute ? ' mit-tafel' : '')
   }, /*#__PURE__*/React.createElement("div", {
     className: "pl-spalte"
   }, /*#__PURE__*/React.createElement(PlanerKartenListe, {
@@ -4094,6 +4871,17 @@ const PlanerApp = () => {
       setFokus({
         x: o.x,
         y: o.y,
+        n: Date.now()
+      });
+    }
+  }), karte && /*#__PURE__*/React.createElement(PlanerRegionListe, {
+    regionen: regionen,
+    regionWahl: regionWahl,
+    dm: dm,
+    onWahl: r => {
+      waehleRegion(r.id);
+      setFokus({
+        ...polygonMitte(r.punkte),
         n: Date.now()
       });
     }
@@ -4146,6 +4934,10 @@ const PlanerApp = () => {
     "aria-pressed": werkzeug === 'massstab',
     onClick: () => werkzeugWaehlen('massstab')
   }, "\uD83D\uDCCF Ma\xDFstab"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+    className: 'pl-knopf pl-klein' + (werkzeug === 'region' ? ' an' : ''),
+    "aria-pressed": werkzeug === 'region',
+    onClick: () => werkzeugWaehlen('region')
+  }, "\u2B21 Region"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'route' ? ' an' : ''),
     "aria-pressed": werkzeug === 'route',
     onClick: () => werkzeugWaehlen('route')
@@ -4166,7 +4958,7 @@ const PlanerApp = () => {
     className: "pl-strecke"
   }, !karte.massstab ? 'Ohne Maßstab lässt sich nicht messen' + (dm ? ' — leg ihn mit 📏 fest.' : '.') : punkte.length > 1 ? laengeText(strecke, karte.massstab.einheit) + ' · ' + fussZeitText(strecke, karte.massstab.einheit) : ''), werkzeug === 'route' && /*#__PURE__*/React.createElement("strong", {
     className: "pl-strecke"
-  }, punkte.length > 1 && karte.massstab ? laengeText(wegLaenge(punkte, karte.massstab), karte.massstab.einheit) : punkte.length + ' Punkte'), (werkzeug === 'lineal' || werkzeug === 'route') && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, punkte.length > 1 && karte.massstab ? laengeText(wegLaenge(punkte, karte.massstab), karte.massstab.einheit) : punkte.length + ' Punkte'), (werkzeug === 'lineal' || werkzeug === 'route' || werkzeug === 'region') && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => setPunkte(v => v.slice(0, -1))
   }, "\u21B6 Punkt"), werkzeug === 'lineal' && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
@@ -4179,7 +4971,26 @@ const PlanerApp = () => {
     className: "pl-knopf pl-klein pl-haupt",
     disabled: punkte.length < 2,
     onClick: () => routeAnlegen(punkte)
-  }, "Route anlegen"), /*#__PURE__*/React.createElement("button", {
+  }, "Route anlegen"), werkzeug === 'region' && karte.bild && punkte.length === 0 && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein",
+    onClick: () => regionAnlegen([{
+      x: 0,
+      y: 0
+    }, {
+      x: karte.bild.breite,
+      y: 0
+    }, {
+      x: karte.bild.breite,
+      y: karte.bild.hoehe
+    }, {
+      x: 0,
+      y: karte.bild.hoehe
+    }])
+  }, "\u25AD Ganze Karte"), werkzeug === 'region' && /*#__PURE__*/React.createElement("button", {
+    className: "pl-knopf pl-klein pl-haupt",
+    disabled: punkte.length < 3,
+    onClick: () => regionAnlegen(punkte)
+  }, "Region anlegen"), /*#__PURE__*/React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => {
       setWerkzeug('ansehen');
@@ -4200,6 +5011,9 @@ const PlanerApp = () => {
     reiseWahl: reiseWahl,
     onRouteWahl: waehleRoute,
     onReiseWahl: waehleReise,
+    regionen: regionen,
+    regionWahl: regionWahl,
+    onRegionWahl: waehleRegion,
     onKlick: aufKarteGeklickt,
     onOrtWahl: waehleOrt,
     onOrtVerschieben: ortVerschieben,
@@ -4219,6 +5033,20 @@ const PlanerApp = () => {
     onUnterkarte: zurUnterkarte,
     onBilderHoch: ortBilderHoch,
     onBildWeg: ortBildWeg
+  }), region && karte && /*#__PURE__*/React.createElement(RegionTafel, {
+    key: region.id,
+    region: region,
+    dm: dm,
+    karte: karte,
+    begegnungen: begegnungen,
+    advId: advId,
+    onSpeichern: r => objAendern({
+      ...r,
+      name: String(r.name || '').trim() || 'Ohne Namen'
+    }),
+    onLoeschen: r => objWeg(r, 'Region löschen?', '„' + r.name + '“ wird mit ihrer Begegnungstabelle gelöscht.', async () => setRegionWahl('')),
+    onSchliessen: () => setRegionWahl(''),
+    onMeldung: setMeldung
   }), route && karte && /*#__PURE__*/React.createElement(RouteTafel, {
     key: route.id,
     route: route,
@@ -4241,6 +5069,8 @@ const PlanerApp = () => {
     karte: karte,
     advId: advId,
     chronikZeit: chronikZeit,
+    regionen: regionen,
+    begegnungen: begegnungen || [],
     onSpeichern: j => objAendern({
       ...j,
       name: String(j.name || '').trim() || 'Reise'

@@ -33,9 +33,11 @@ Eigene Seite, eigenes Bündel, **gemeinsamer Server**:
 | ↳ `1-paket.jsx` | **reine Rechnung:** ZIP schreiben und lesen (samt ZIP64), `hbplan.json`, Export und Einspielen |
 | ↳ `1b-kacheln.jsx` | **reine Rechnung:** Bildmaße aus dem Dateikopf, Kachelpyramide, Ansicht und Zoom, Maßstab und Lineal, Reihenfolge beim Schneiden und Hochladen |
 | ↳ `1c-reise.jsx` | **reine Rechnung:** Gelände, Tempo, Fortbewegung, Reise Tag für Tag, Gewaltmarsch, Wetter nach Klima und Jahreszeit, Aufträge ans Heldenbuch |
-| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Ziehen, Mausrad, zwei Finger, Orte, Routen, Gruppen, Linien |
+| ↳ `1d-begegnung.jsx` | **reine Rechnung:** Punkt in der Fläche, innerste Region, Wachen eines Reisetags, Begegnungswurf, Reisetagebuch als Text |
+| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Ziehen, Mausrad, zwei Finger, Orte, Regionen, Routen, Gruppen, Linien |
 | ↳ `3-ort.jsx` | Bilder im Browser öffnen, verkleinern und schneiden; Maßstabsdialog; die Tafel eines Orts |
 | ↳ `3b-reise.jsx` | die Tafeln einer Route und einer Reise, die Übergabe ans Heldenbuch |
+| ↳ `3c-begegnung.jsx` | die Tafel einer Region, der Tabelleneditor, die Liste der Wachen |
 | ↳ `4-app.jsx` | die Seite |
 | `planer/planer.js` | daraus gebaut von `node build.js`, **mitcommittet** wie `js/app.js` |
 | `planer/planer.css` | eigene Oberfläche, dieselben Farben wie `styles.css` |
@@ -232,6 +234,7 @@ beide Seiten wohnen unter derselben Adresse:
 | `{art:'zeit', stunden}` | `ZeitDialog`, vorbelegt |
 | `{art:'rast', rastArt, basis, niederschlag, temperatur, wind, massnahmen, text}` | `RastAnsage`, vorbelegt |
 | `{art:'probe', probeArt:'rw', wert:'con', sg, text}` | `ProbenAnsage`, vorbelegt |
+| `{art:'kampf', begegnungId, name}` | Kampftracker geht auf und fragt, ob die Begegnung geladen wird (seit v5.14.0) |
 
 - Das Heldenbuch nimmt einen Auftrag nur im DM-Modus an. Es wechselt
   dafür notfalls ins genannte Abenteuer.
@@ -241,10 +244,41 @@ beide Seiten wohnen unter derselben Adresse:
 - Was an Bögen hängt, Erschöpfung, Rast oder Chronik-Effekte, läuft
   damit durch die bestehenden Dialoge, und die Spielleitung bestätigt.
 
-### Stufe 3 · Begegnungen und Kampftracker
+### ✅ Stufe 3 · Begegnungen und Kampftracker (v5.14.0)
 
-Regionen, Begegnungstabellen, Prüfung je Wache, Übergabe an Begegnung und
-Kampftracker, Reisetagebuch.
+**Region** (Art `region`): `punkte` (Vieleck in Bildpixeln), `farbe`,
+`text`, `dm.notiz`, und `dm.tabelle`. Die Tabelle steht unter `dm`, also
+bekommen Spieler sie nie.
+
+```json
+{ "jeStunden": 8, "wuerfel": 20, "ab": 18, "abNacht": 17,
+  "eintraege": [ { "id": "t_…", "gewicht": 3, "zeit": "immer|tag|nacht",
+                   "art": "kampf|ereignis", "begegnungId": "enc_…", "text": "aus dem Nebel" } ] }
+```
+
+**Wachen.** `tagesPruefungen` geht die 24 Stunden ab dem Aufbruch
+(`reise.startStunde`, Vorgabe 8) durch:
+
+- Geprüft wird zu jeder Stunde, zu der irgendeine Tabelle fällig ist, und
+  zwar dort, wo die Gruppe dann steht: unterwegs auf der Route oder am
+  Tagesziel im Lager.
+- Es gilt die innerste Region an diesem Punkt, also die mit der kleinsten
+  Fläche, und nur wenn deren eigener Takt passt.
+- Nachts heißt 20 bis 6 Uhr und nimmt `abNacht`.
+- Gewürfelt wird mit `wuerfelSamen(reise.samen, tag, reise.nochmal[tag])`.
+  Dieselbe Reise würfelt so dasselbe, bis jemand 🎲 drückt.
+- Beim Abschließen landen die Wachen gekürzt im Tagebuch (`pruefungKurz`).
+
+**Begegnungen** kommen aus dem Heldenbuch (`dm_load_encounters`, nur die
+des Abenteuers und die ohne Abenteuer). Der Planer liest sie nur und legt
+keine Gegner an. Ein Treffer mit Kampf wird zum Auftrag `kampf`. Im
+Kampftracker fragt `onFrage`, bevor `begegnungLaden` die Gegner dazulegt,
+auch in einen laufenden Kampf.
+
+**Abenteuerlog.** Ein Reisetag geht über `save_log` hinein: Reiter
+`Reise`, `action` ist die Zeile aus `reisetagText`, der volle Text steht
+in `details`. Der Tagebucheintrag merkt sich `geloggt`, damit er nicht
+doppelt hineingeht.
 
 ### Stufe 4 · Spielersicht
 

@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.13.0';
+const HB_VERSION = 'v5.14.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -5510,7 +5510,8 @@ const KampfAnsicht = ({
   onHeldAendern,
   heldNotizen,
   onHeldNotiz,
-  onHeldNotizSichern
+  onHeldNotizSichern,
+  planerBegegnung
 }) => {
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
@@ -6222,6 +6223,25 @@ const KampfAnsicht = ({
       }, [...k.teilnehmer, ...neue]);
     });
   };
+
+  // Aus dem Abenteuerplaner: eine Zufallsbegegnung auf der Reise. Gefragt
+  // wird trotzdem — der Tracker kann gerade einen anderen Kampf führen.
+  // Die Begegnungen kommen erst mit dem DM-Modus; bis dahin wartet es.
+  const planerGesehen = React.useRef(0);
+  React.useEffect(() => {
+    const pb = planerBegegnung;
+    if (!pb || planerGesehen.current === pb.n) return;
+    const b = (encounters || []).find(e => e.id === pb.begegnungId);
+    if (!b) {
+      if (!(encounters || []).length) return;
+      planerGesehen.current = pb.n;
+      onFrage('Die Begegnung „' + (pb.name || pb.begegnungId) + '“ aus dem Abenteuerplaner gibt es in 📚 Datenbank › Begegnungen nicht (mehr).', null, 'Verstanden');
+      return;
+    }
+    planerGesehen.current = pb.n;
+    const laeuft = kampf && kampf.aktiv && kampf.teilnehmer.some(t => t.art === 'gegner');
+    onFrage('Begegnung „' + b.name + '“ aus dem Abenteuerplaner in den Kampftracker laden?' + (laeuft ? ' Die Gegner kommen zu denen dazu, die schon im Kampf stehen.' : ''), () => begegnungLaden(b), 'Laden');
+  }, [planerBegegnung && planerBegegnung.n, (encounters || []).length]);
 
   // ── Vorbereitung → Kampf → Vorbereitung ────────────────────────
   // Der Start macht aus der Aufstellung Runde 1. Von hier an zaehlt die
@@ -24559,6 +24579,9 @@ function App() {
   // ein Fremdkoerper zwischen den Charakterboegen.
   const [kampf, setKampfRoh] = useState(() => kampfLesen());
   const [showKampf, setShowKampf] = useState(false);
+  // Eine Begegnung, die der Abenteuerplaner in den Kampftracker schickt:
+  // {begegnungId, name, n}. Der Tracker fragt, bevor er sie lädt.
+  const [planerBegegnung, setPlanerBegegnung] = useState(null);
   const setKampf = wertOderFn => setKampfRoh(vorher => {
     const neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
     kampfSchreiben(neu);
@@ -27993,7 +28016,15 @@ function App() {
         wert: a.wert,
         sg: a.sg,
         text: a.text
-      });
+      });else if (a.art === 'kampf') {
+        setShowKampf(true);
+        leiste.zeigen('kampf');
+        setPlanerBegegnung({
+          begegnungId: String(a.begegnungId || ''),
+          name: String(a.name || ''),
+          n: Date.now()
+        });
+      }
     };
     pruefen();
     const lauscher = e => {
@@ -34436,7 +34467,8 @@ function App() {
     onHeldNotizSichern: heldNotizSichern,
     ansagen: ansagen,
     onAnsageWeg: ansageWeg,
-    onFrage: appConfirm
+    onFrage: appConfirm,
+    planerBegegnung: planerBegegnung
   })), encForm && /*#__PURE__*/React.createElement(BegegnungFormular, {
     form: encForm,
     setForm: setEncForm,

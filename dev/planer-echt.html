@@ -33,7 +33,9 @@
     // Server — der hat dev/test-api.php.
     const FAKE = {
       angemeldet: true, rolle: 'dm', stand: { strahd: 1, eberron: 1 },
-      karten: new Map(), objekte: new Map(), ablagen: new Map(), aufrufe: [], gespeichert: [],
+      karten: new Map(), objekte: new Map(), ablagen: new Map(), aufrufe: [], gespeichert: [], logs: [],
+      begegnungen: [{ id: 'enc_woelfe', name: 'Wolfsrudel', difficulty: 'Mittel', enemies: [{ enemyId: 'g1', count: 4 }], adventure: 'strahd' },
+                    { id: 'enc_eberron', name: 'Nur in Eberron', difficulty: 'Leicht', enemies: [], adventure: 'eberron' }],
     };
     const hex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
     const ohneDm = (o) => { const { dm, ...r } = o; return r; };
@@ -96,6 +98,9 @@
           }
           return { ok: true, anzahl: p.dateien.length };
         }
+        case 'dm_load_encounters': nurDm(); return { ok: true, encounters: FAKE.begegnungen };
+        case 'dm_load_chronik': nurDm(); return { ok: true, chronik: { zeit: { strahd: 50 }, ereignisse: [] } };
+        case 'save_log': FAKE.logs.push(p.entry); return { ok: true };
         case 'planer_dateien_weg': {
           nurDm();
           const k = karteVon(p.karte_id);
@@ -417,6 +422,73 @@
         knopf(/Tag 1 abschließen/).click();
         await warte(() => (FAKE.objekte.get(reiseId).daten.tagebuch || []).length === 1);
 
+        // ── Regionen und Zufallsbegegnungen ───────────────────────
+        melden('lauf', 'Regionen und Zufallsbegegnungen');
+        knopf(/⬡ Region/).click();
+        await ruhe();
+        tippeKarte(-100, -100); await ruhe(); tippeKarte(100, -100); await ruhe();
+        ja('„Region anlegen“ braucht drei Punkte', knopf(/Region anlegen/).disabled);
+        knopf(/↶ Punkt/).click(); knopf(/↶ Punkt/).click();
+        await ruhe();
+        knopf(/Ganze Karte/).click();
+        const gTafel = await warte(() => root.querySelector('.pl-tafel[aria-label^="Region"]'));
+        ja('„Ganze Karte“ legt eine Region über das ganze Bild', !!gTafel);
+        const regionId = [...FAKE.objekte.values()].find(o => o.daten.art === 'region').daten.id;
+        ja('  … mit den vier Ecken des Bilds', JSON.stringify(FAKE.objekte.get(regionId).daten.punkte) === JSON.stringify([{ x: 0, y: 0 }, { x: 2000, y: 0 }, { x: 2000, y: 1400 }, { x: 0, y: 1400 }]));
+        tippe(gTafel.querySelector('input.pl-feld'), 'Barovia');
+        knopf(/Begegnungstabelle anlegen/, gTafel).click();
+        await ruhe();
+        const nummern = () => [...root.querySelectorAll('.pl-tafel .pl-raster3 input')];
+        tippe(nummern()[0], '1'); tippe(nummern()[1], '1');
+        await ruhe();
+        ja('die Tabelle rechnet die Wahrscheinlichkeit vor', /tags 100 %, nachts 100 % · 3 Prüfungen am Tag/.test(root.querySelector('.pl-tafel').textContent));
+        knopf(/＋ Zeile/, root.querySelector('.pl-tafel')).click();
+        await ruhe();
+        const bWahl = await warte(() => root.querySelector('select[aria-label="Begegnung Zeile 1"]'));
+        ja('die Begegnungen des Heldenbuchs stehen zur Wahl — nur die dieses Abenteuers',
+           !!bWahl && [...bWahl.options].some(o => /Wolfsrudel · Mittel · 4 Gegner/.test(o.textContent)) && ![...bWahl.options].some(o => /Eberron/.test(o.textContent)));
+        waehle(bWahl, 'enc_woelfe');
+        tippe(root.querySelector('input[aria-label="Text Zeile 1"]'), 'aus dem Nebel');
+        await ruhe();
+        knopf(/^Speichern$/, root.querySelector('.pl-tafel')).click();
+        ja('die Region ist gespeichert, die Tabelle steht unter dm', !!(await warte(() => {
+          const d = FAKE.objekte.get(regionId).daten;
+          return d.name === 'Barovia' && d.dm.tabelle.ab === 1 && d.dm.tabelle.eintraege[0].begegnungId === 'enc_woelfe';
+        })));
+        ja('  … ihr Name steht auf der Karte', !!(await warte(() => [...root.querySelectorAll('.pl-region-name')].some(b => /Barovia/.test(b.textContent)))));
+        knopf(/Tags würfeln/).click();
+        const wurfZeile = await warte(() => root.querySelector('.pl-wurf-zeile'));
+        ja('ein Wurf von Hand trifft das Wolfsrudel', !!wurfZeile && /Wolfsrudel — aus dem Nebel/.test(wurfZeile.textContent));
+        knopf(/Kampftracker/, wurfZeile).click();
+        await ruhe(200);
+        const kampfAuftrag = JSON.parse(localStorage.getItem('hb_planer_auftrag') || 'null');
+        ja('„⚔ Kampftracker“ legt den Auftrag hin', !!kampfAuftrag && kampfAuftrag.art === 'kampf' && kampfAuftrag.begegnungId === 'enc_woelfe' && kampfAuftrag.advId === 'strahd', JSON.stringify(kampfAuftrag));
+        localStorage.setItem('hb_planer_quittung', JSON.stringify({ id: kampfAuftrag && kampfAuftrag.id, zeit: Date.now() }));
+        ja('  … und meldet, dass das Heldenbuch nachfragt', !!(await warte(() => textDa(/fragt jetzt, ob es „Wolfsrudel“/), 4000)));
+        localStorage.removeItem('hb_planer_auftrag'); localStorage.removeItem('hb_planer_quittung');
+
+        [...root.querySelectorAll('.pl-liste[aria-label="Routen und Reisen"] .pl-eintrag-name')].find(b => /Reise/.test(b.textContent)).click();
+        const jT = await warte(() => root.querySelector('.pl-tafel.pl-reise'));
+        const wachen = await warte(() => { const l = jT && jT.querySelectorAll('.pl-heute .pl-wachen li'); return l && l.length ? l : null; });
+        ja('die Reise zeigt die Wachen des nächsten Tags', !!wachen && wachen.length === 3 && [...wachen].every(li => /Wolfsrudel/.test(li.textContent)),
+           wachen ? wachen.length : 0);
+        ja('  … mit Uhrzeit und ob unterwegs oder im Lager', !!wachen && /16 Uhr/.test(wachen[0].textContent) && /unterwegs/.test(wachen[0].textContent) && /im Lager/.test(wachen[2].textContent),
+           wachen && [...wachen].map(li => li.textContent).join(' | '));
+        const vorher = [...wachen].map(li => li.querySelector('.pl-wurf-zahl').textContent).join();
+        knopf(/Tag 2 abschließen/).click();
+        ja('„Tag 2 abschließen“ schreibt die Wachen ins Tagebuch', !!(await warte(() => {
+          const t = (FAKE.objekte.get(reiseId).daten.tagebuch || [])[1];
+          return t && t.pruefungen.length === 3 && t.pruefungen.every(p => p.treffer && p.begegnungId === 'enc_woelfe' && p.region === 'Barovia');
+        })));
+        const nachTag = await warte(() => root.querySelector('.pl-tafel.pl-reise section[aria-label="Der letzte Reisetag"] .pl-wachen'));
+        ja('  … und zeigt die Begegnungen des Tags danach noch einmal', !!nachTag && nachTag.querySelectorAll('li').length === 3);
+        knopf(/Ins Abenteuerlog/).click();
+        ja('„📖 Ins Abenteuerlog“ schreibt den Reisetag als Eintrag', !!(await warte(() => FAKE.logs.length === 1)));
+        ja('  … mit allem, was geschah', FAKE.logs[0] && FAKE.logs[0].tab === 'Reise' && FAKE.logs[0].adv_id === 'strahd'
+           && /^Reisetag 2 · Reise: Svalich-Straße: /.test(FAKE.logs[0].action) && /Wolfsrudel — aus dem Nebel/.test(FAKE.logs[0].details.text), FAKE.logs[0] && FAKE.logs[0].action);
+        ja('  … und nicht ein zweites Mal', !!(await warte(() => { const b = knopf(/Steht im Abenteuerlog/); return b && b.disabled; })));
+        ja('der erste Reisetag (vor den Regionen) hatte keine Wachen', (FAKE.objekte.get(reiseId).daten.tagebuch[0].pruefungen || []).length === 0);
+
         // ── Exportieren ─────────────────────────────────────────
         melden('lauf', 'Exportieren');
         const anzahlDateien = FAKE.ablagen.get(ab).size;
@@ -425,8 +497,8 @@
         ja('Exportieren gibt eine Datei heraus', !!gespeichert);
         ja('  … benannt nach Abenteuer und Tag', gespeichert && /^Fluch des Strahd \d{4}-\d{2}-\d{2}\.hbplan$/.test(gespeichert.name), gespeichert && gespeichert.name);
         const paket = await planPaketOeffnen(gespeichert.blob);
-        ja('das Paket enthält beide Karten, Ort, Route, Reise und alle Dateien',
-          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 3 && paket.manifest.dateien.length === anzahlDateien,
+        ja('das Paket enthält beide Karten, Ort, Route, Reise, Region und alle Dateien',
+          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 4 && paket.manifest.dateien.length === anzahlDateien,
           paket.manifest.karten.length + '/' + paket.manifest.objekte.length + '/' + paket.manifest.dateien.length + ' von ' + anzahlDateien);
         ja('  … mit dem Kartenbild, dem Maßstab und der Notiz', paket.manifest.karten.some(k => k.bild && k.bild.ordner === 'b2' && k.massstab) && paket.manifest.objekte.find(o => o.art === 'ort').dm.notiz === 'Ireena wohnt hier.');
         ja('  … ohne die Ablage des Servers', !paket.manifest.karten.some(k => 'ablage' in k));
@@ -445,13 +517,13 @@
         const vorschau = await warte(() => root.querySelector('.pl-import'));
         ja('die Vorschau zeigt, was kommt', vorschau && /Barovia-Tal/.test(vorschau.textContent) && /Burg Ravenloft/.test(vorschau.textContent));
         knopf(/^Einspielen$/, vorschau).click();
-        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 3 Einträge, \d+ Dateien/), 10000)));
+        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 4 Einträge, \d+ Dateien/), 10000)));
         const neuTal = karteVon('Barovia-Tal'), neuBurg = karteVon('Burg Ravenloft');
         ja('  … unter neuen Kennungen', !!neuTal && !!neuBurg && !altIds.includes(neuTal.daten.id));
         const neuOrt = [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten;
         const neuRoute = [...FAKE.objekte.values()].find(o => o.daten.art === 'route').daten;
         const neuReise = [...FAKE.objekte.values()].find(o => o.daten.art === 'reise').daten;
-        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 1);
+        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 2);
         ja('  … der Ort zeigt auf die neue Karte und die neue Unterkarte', neuOrt.karteId === neuTal.daten.id && neuOrt.unterkarte === neuBurg.daten.id);
         ja('  … alle Kacheln sind wieder da', FAKE.ablagen.get(neuTal.ablage).size === anzahlDateien, FAKE.ablagen.get(neuTal.ablage).size);
         ja('  … und das Kartenbild wird angezeigt', !!(await warte(() => root.querySelectorAll('.pl-kacheln img').length > 0 && !root.querySelector('.pl-kacheln img[src="data:,fehlt"]'))));
@@ -485,6 +557,7 @@
         zeiger(marke2, 'pointerup', smr.left + 90, smr.top + 5); await ruhe(200);
         ja('  … ein Spieler kann keinen Ort verschieben', [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten.x === xVorher);
         ja('  … die verborgene Route und die verborgene Reise sieht er nicht', !root.querySelector('.pl-route') && !root.querySelector('.pl-gruppe'));
+        ja('  … die verborgene Region auch nicht', !root.querySelector('.pl-region') && !root.querySelector('.pl-region-name'));
       } catch (e) {
         weg++;
         melden('weg', 'Abbruch: ' + e.message, e.stack);

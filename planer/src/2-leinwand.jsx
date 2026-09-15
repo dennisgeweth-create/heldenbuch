@@ -10,6 +10,7 @@ const LEINWAND_KLICK_PX = 5;
 
 const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, gedaechtnis,
                           routen, gruppen, routeWahl, reiseWahl, onRouteWahl, onReiseWahl,
+                          regionen, regionWahl, onRegionWahl,
                           onKlick, onOrtWahl, onOrtVerschieben, onBildWaehlen }) => {
   const box = useRef(null);
   const [g, setG] = useState({ breite: 0, hoehe: 0 });
@@ -168,6 +169,15 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
           ))}
         </div>
         <svg className="pl-ueberlage" width={g.breite} height={g.hoehe}>
+          {(regionen || []).map(r => {
+            const ps = (r.punkte || []).map(schirm);
+            if (ps.length < 3) return null;
+            return (
+              <polygon key={r.id} points={ps.map(s => s.x + ',' + s.y).join(' ')}
+                className={'pl-region' + (r.id === regionWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : '')}
+                style={{ fill: r.farbe || REGION_FARBEN[0], stroke: r.farbe || REGION_FARBEN[0] }} />
+            );
+          })}
           {(routen || []).map(r => {
             const ps = (r.punkte || []).map(schirm);
             if (ps.length < 2) return null;
@@ -193,6 +203,16 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
             </g>
           )}
         </svg>
+        {(regionen || []).filter(r => (r.punkte || []).length >= 3).map(r => {
+          const s = schirm(polygonMitte(r.punkte));
+          if (s.x < -80 || s.y < -40 || s.x > g.breite + 80 || s.y > g.hoehe + 40) return null;
+          return (
+            <button key={r.id} className={'pl-region-name' + (r.id === regionWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : '')}
+              style={{ left: s.x, top: s.y, borderColor: r.farbe || REGION_FARBEN[0] }} onClick={() => onRegionWahl && onRegionWahl(r.id)}>
+              ⬡ {r.name}
+            </button>
+          );
+        })}
         {(gruppen || []).filter(gr => gr.punkt).map(gr => {
           const s = schirm(gr.punkt);
           return (
