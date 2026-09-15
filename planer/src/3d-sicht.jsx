@@ -161,7 +161,7 @@ const TischApp = ({ adv }) => {
   const karte = daten.karten.find(k => k.id === karteId) || daten.karten[0] || null;
   const aufKarte = (art) => karte ? daten.objekte.filter(o => o.art === art && o.karteId === karte.id) : [];
   const routen = aufKarte('route');
-  const gruppen = karte ? aufKarte('reise').map(j => {
+  const gruppen = karte ? aufKarte('reise').filter(j => !j.gruppeId).map(j => {
     const r = routen.find(x => x.id === j.routeId);
     if (!r || !karte.massstab) return null;
     return { id: j.id, name: j.name, sichtbar: true, punkt: punktAufRoute(routeInRichtung(r, j.richtung), karte.massstab, j.pos || 0) };
@@ -175,7 +175,7 @@ const TischApp = ({ adv }) => {
       {karte ? (
         <KartenLeinwand karte={karte} orte={aufKarte('ort')} dm={false} werkzeug="ansehen" ortWahl=""
           linie={null} fokus={null} gedaechtnis={gedaechtnis}
-          routen={routen} gruppen={gruppen} regionen={aufKarte('region')}
+          routen={routen} gruppen={gruppen} regionen={aufKarte('region')} heldengruppen={aufKarte('gruppe')}
           nebel={nebelVon(karte)} nebelDeckend={true} vorgabeAnsicht={vorgabe}
           onKlick={() => {}} onOrtWahl={() => {}} onRouteWahl={() => {}} onReiseWahl={() => {}} onRegionWahl={() => {}} />
       ) : <div className="pl-tisch-leer"><p>Noch keine Karte für die Runde.</p></div>}

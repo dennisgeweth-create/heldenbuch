@@ -1,5 +1,31 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.17.0
+
+### Abenteuerplaner: Heldengruppen auf der Karte
+
+- **🛡 Gruppe:** Die Spielleitung setzt die Heldengruppe mit einem Klick auf
+  die Karte. Dabei sind alle Bögen des Abenteuers, die noch in keiner
+  Gruppe sind, ohne NSC. Wer dazugehört, lässt sich in der Tafel ändern.
+- **Nebel:** Zieht die Spielleitung die Marke, oder klickt „📍 Hierhin
+  ziehen“, weicht der Nebel entlang des ganzen Wegs, so weit die
+  **Sichtweite** der Gruppe reicht, nicht nur am Ziel. Die Spieler sehen es
+  beim nächsten Abgleich.
+- **Spur:** Jeder Halt kommt mit der Zeit der Chronik in die **Spur**. Die
+  Karte zeigt sie als gestrichelte Linie, die Tafel die letzten Halte und
+  die zurückgelegte Strecke. **↶ Letzten Zug zurück** nimmt einen Halt weg;
+  der gelichtete Nebel bleibt.
+- **Wer die Spur sieht, stellt die Spielleitung je Gruppe ein.** Ohne
+  Freigabe schickt der Server den Spielern nur den Punkt, an dem die Gruppe
+  jetzt steht, nicht den Weg dorthin.
+- **✂ Aufteilen:** Einzelne Helden ziehen als eigene Gruppe los, mit
+  eigener Spur ab dem Teilungspunkt. **⤵ Vereinen** führt sie wieder
+  zusammen; dabei bleibt die größere Gruppe mit ihrer ganzen Spur bestehen.
+- **Mit einer Reise:** Eine Reise kann eine Heldengruppe mitnehmen. Jeder
+  abgeschlossene Reisetag zieht sie die Route entlang, mit den Ecken der
+  Route und den Stunden des Tags, und lichtet den Nebel mit ihrer
+  Sichtweite. Die eigene Reisemarke tritt dann zurück.
+
 ## v5.16.0
 
 ### Abenteuerplaner Stufe 5 und 6: die Welt drumherum

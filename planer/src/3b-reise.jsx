@@ -160,7 +160,7 @@ const WetterWahl = ({ wetter, onWetter }) => {
   );
 };
 
-const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, begegnungen, onSpeichern, onLoeschen, onSchliessen, onMeldung, onNebelAufdecken }) => {
+const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, begegnungen, onSpeichern, onLoeschen, onSchliessen, onMeldung, onNebelAufdecken, heldengruppen, onGruppeReist }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
   const [uebergabe, setUebergabe] = useState('');
   const m = karte.massstab;
@@ -219,6 +219,13 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
     setVerirrt(false);
     onSpeichern({ ...entwurf, vorrat, pos: verirrt ? (entwurf.pos || 0) : heute.bis, tagebuch: [...(entwurf.tagebuch || []), eintrag] });
     if (verirrt) return;
+    // Reist eine Heldengruppe mit, zieht sie die Route entlang und lichtet
+    // den Nebel mit ihrer eigenen Sichtweite.
+    const hg = entwurf.gruppeId && (heldengruppen || []).find(x => x.id === entwurf.gruppeId);
+    if (hg && onGruppeReist) {
+      onGruppeReist(hg, routenPunkteZwischen(st.r, m, heute.von, heute.bis), heute.stunden, entwurf.startStunde ?? 8);
+      return;
+    }
     // Wo die Gruppe hinkam, weicht der Nebel — so weit, wie sie sieht.
     if (nebelVon(karte).an && (+entwurf.sichtweite || 0) > 0 && onNebelAufdecken) {
       onNebelAufdecken(kreiseEntlang(st.r, m, heute.von, heute.bis, +entwurf.sichtweite));
@@ -283,6 +290,12 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
           <label>Aufbruch um
             <input className="pl-feld" type="number" min={0} max={23} value={entwurf.startStunde ?? 8}
               onChange={e => setze('startStunde', Math.max(0, Math.min(23, Math.round(+e.target.value || 0))))} />
+          </label>
+          <label>Heldengruppe
+            <select className="pl-feld" value={entwurf.gruppeId || ''} onChange={e => setze('gruppeId', e.target.value)}>
+              <option value="">— keine —</option>
+              {(heldengruppen || []).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
           </label>
           <label>Sichtweite ({einh})
             <input className="pl-feld" type="number" min={0} step="any" value={entwurf.sichtweite ?? 0}

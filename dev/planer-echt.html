@@ -80,7 +80,8 @@
           const objekte = [...FAKE.objekte.values()].filter(o => o.adv === adv && (dm || o.daten.sichtbar)
               && (o.daten.art === 'handout' ? (dm || !(o.daten.an || []).length || o.daten.an.includes(8))
                   : ['quest', 'hinweis', 'fraktion'].includes(o.daten.art) && !o.daten.karteId ? true : offen.has(o.daten.karteId)))
-            .map(o => dm ? o.daten : ohneDm(o.daten));
+            .map(o => dm ? o.daten : ohneDm(o.daten))
+            .map(o => !dm && o.art === 'gruppe' && !o.spurFuerSpieler && (o.spur || []).length ? { ...o, spur: [o.spur[o.spur.length - 1]] } : o);
           return { ok: true, dm, stand: FAKE.stand[adv] || 0, karten, objekte };
         }
         case 'planer_karte_speichern': {
@@ -120,6 +121,7 @@
           if (o.daten.ablage) FAKE.ablagen.delete(o.daten.ablage);
           return { ok: true, stand: hoch() };
         }
+        case 'planer_helden': nurDm(); return { ok: true, helden: [{ id: 'h_armin', name: 'Armin', nurDm: false }, { id: 'h_bea', name: 'Bea', nurDm: false }, { id: 'h_cem', name: 'Cem', nurDm: false }, { id: 'n_ireena', name: 'Ireena', nurDm: true }] };
         case 'member_list': nurDm(); return { ok: true, mitglieder: [{ id: 7, name: 'Meisterin', rolle: 'dm' }, { id: 8, name: 'Armin', rolle: 'spieler' }, { id: 9, name: 'Bea', rolle: 'spieler' }] };
         case 'planer_dateien_hoch': {
           nurDm();
@@ -776,6 +778,63 @@
         await warte(() => root.querySelector('.pl-rolle.dm') && !/Kein Netz/.test(root.textContent));
         ja('  … mit Netz ist der Hinweis wieder weg', !/Kein Netz/.test(root.textContent));
 
+        // ── Heldengruppen ─────────────────────────────────────────
+        melden('lauf', 'Heldengruppen');
+        const nebelZahl = () => ((karteVon('Barovia-Tal').daten.nebel || {}).flaechen || []).length;
+        const gruppenD = () => [...FAKE.objekte.values()].filter(o => o.daten.art === 'gruppe').map(o => o.daten);
+        const nebelVorher = nebelZahl();
+        knopf(/🛡 Gruppe/).click();
+        await ruhe();
+        tippeKarte(-150, -120);
+        const gT = await warte(() => root.querySelector('.pl-tafel[aria-label^="Heldengruppe bearbeiten"]'));
+        ja('„🛡 Gruppe“ setzt die Heldengruppe und öffnet ihre Tafel', !!gT);
+        ja('  … mit allen Bögen des Abenteuers, ohne NSC', !!gruppenD()[0] && JSON.stringify(gruppenD()[0].helden) === JSON.stringify(['h_armin', 'h_bea', 'h_cem']), JSON.stringify(gruppenD()[0] && gruppenD()[0].helden));
+        ja('  … ihre Spur beginnt, und der Nebel weicht um sie', gruppenD()[0].spur.length === 1 && nebelZahl() === nebelVorher + 1, nebelVorher + ' → ' + nebelZahl());
+        ja('  … die Marke steht auf der Karte, mit drei Helden', !!(await warte(() => { const b = root.querySelector('.pl-heldengruppe'); return b && b.querySelector('.pl-gruppe-zahl').textContent === '3'; })));
+        const gMarke = root.querySelector('.pl-heldengruppe');
+        const gr = gMarke.getBoundingClientRect();
+        zeiger(gMarke, 'pointerdown', gr.left + gr.width / 2, gr.top + gr.height / 2); await ruhe(40);
+        zeiger(gMarke, 'pointermove', gr.left + gr.width / 2 + 160, gr.top + gr.height / 2); await ruhe(40);
+        zeiger(gMarke, 'pointerup', gr.left + gr.width / 2 + 160, gr.top + gr.height / 2);
+        const vorZug = nebelVorher + 1;
+        ja('ziehen: ein Punkt mehr in der Spur', !!(await warte(() => gruppenD()[0].spur.length === 2 && gruppenD()[0].spur[1].art === 'zug')));
+        ja('  … und der Nebel weicht entlang des Wegs, nicht nur am Ziel', !!(await warte(() => nebelZahl() >= vorZug + 2)), vorZug + ' → ' + nebelZahl());
+        ja('  … die Spur steht auf der Karte', !!(await warte(() => root.querySelector('.pl-spur polyline'))));
+        knopf(/Hierhin ziehen/).click();
+        await ruhe();
+        tippeKarte(60, -200);
+        ja('„📍 Hierhin ziehen“ zieht per Klick', !!(await warte(() => gruppenD()[0].spur.length === 3)));
+        knopf(/Letzten Zug zurück/).click();
+        ja('„↶ Letzten Zug zurück“ nimmt den letzten Punkt weg', !!(await warte(() => gruppenD()[0].spur.length === 2)));
+        const erste = gruppenD()[0].id;
+        knopf(/Gruppe aufteilen/).click();
+        await ruhe();
+        [...root.querySelectorAll('.pl-teilen label')].find(l => /Bea/.test(l.textContent)).querySelector('input').click();
+        await ruhe();
+        knopf(/^Abteilen$/).click();
+        ja('aufteilen: Bea zieht als eigene Gruppe los', !!(await warte(() => gruppenD().length === 2 && gruppenD().some(g => g.name === 'Bea' && g.helden.join() === 'h_bea' && g.spur[0].art === 'teilung')
+          && FAKE.objekte.get(erste).daten.helden.join() === 'h_armin,h_cem')));
+        ja('  … zwei Marken auf der Karte', !!(await warte(() => root.querySelectorAll('.pl-heldengruppe').length === 2)));
+        const vereinWahl = await warte(() => root.querySelector('.pl-tafel select[aria-label="Vereinen mit"]'));
+        waehle(vereinWahl, erste);
+        await ruhe();
+        knopf(/⤵ Vereinen/).click();
+        ja('vereinen: wieder eine Gruppe mit allen dreien, unter ihrem alten Namen', !!(await warte(() => gruppenD().length === 1 && gruppenD()[0].helden.length === 3 && gruppenD()[0].name === 'Heldengruppe')));
+        ja('  … die größere Gruppe bleibt, mit ihrer ganzen Spur — auch wenn aus der kleinen heraus vereint wurde', gruppenD()[0].id === erste && gruppenD()[0].spur.length === 3 && gruppenD()[0].spur[0].art === 'start',
+           JSON.stringify(gruppenD()[0].spur.map(p => p.art)));
+        const gruppeId = gruppenD()[0].id;
+        [...root.querySelectorAll('.pl-liste[aria-label="Routen und Reisen"] .pl-eintrag-name')].find(b => /Reise/.test(b.textContent)).click();
+        const rgT = await warte(() => root.querySelector('.pl-tafel.pl-reise'));
+        waehle([...rgT.querySelectorAll('label')].find(l => l.textContent.trim().startsWith('Heldengruppe')).querySelector('select'), gruppeId);
+        await ruhe();
+        knopf(/^Speichern$/, root.querySelector('.pl-tafel.pl-reise')).click();
+        await warte(() => FAKE.objekte.get(reiseId).daten.gruppeId === gruppeId);
+        ja('reist die Gruppe mit, verschwindet die eigene Reisemarke', !!(await warte(() => !root.querySelector('.pl-gruppe'))));
+        const spurVorReise = FAKE.objekte.get(gruppeId).daten.spur.length;
+        knopf(/Tag 5 abschließen/).click();
+        ja('ein Reisetag zieht die Gruppe die Route entlang', !!(await warte(() => { const s = FAKE.objekte.get(gruppeId).daten.spur; return s.length > spurVorReise && s[s.length - 1].art === 'reise'; })),
+          spurVorReise + ' → ' + FAKE.objekte.get(gruppeId).daten.spur.length);
+
         // ── Exportieren ─────────────────────────────────────────
         melden('lauf', 'Exportieren');
         const anzahlDateien = FAKE.ablagen.get(ab).size;
@@ -786,7 +845,7 @@
         ja('  … benannt nach Abenteuer und Tag', gespeichert && /^Fluch des Strahd \d{4}-\d{2}-\d{2}\.hbplan$/.test(gespeichert.name), gespeichert && gespeichert.name);
         const paket = await planPaketOeffnen(gespeichert.blob);
         ja('das Paket enthält beide Karten, Ort, Route, Reise, Region und alle Dateien',
-          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 10 && paket.manifest.dateien.length === anzahlDateien + handoutDateien,
+          paket.manifest.karten.length === 2 && paket.manifest.objekte.length === 11 && paket.manifest.dateien.length === anzahlDateien + handoutDateien,
           paket.manifest.karten.length + '/' + paket.manifest.objekte.length + '/' + paket.manifest.dateien.length + ' von ' + anzahlDateien + '+' + handoutDateien);
         ja('  … auch das Bild des Handouts', handoutDateien === 1 && paket.manifest.dateien.some(d => d.objekt === hId));
         ja('  … und den Nebel der Karte', paket.manifest.karten.some(k => k.nebel && k.nebel.an && k.nebel.flaechen.length > 3));
@@ -808,7 +867,7 @@
         const vorschau = await warte(() => root.querySelector('.pl-import'));
         ja('die Vorschau zeigt, was kommt', vorschau && /Barovia-Tal/.test(vorschau.textContent) && /Burg Ravenloft/.test(vorschau.textContent));
         knopf(/^Einspielen$/, vorschau).click();
-        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 10 Einträge, \d+ Dateien/), 10000)));
+        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 2 Karten, 11 Einträge, \d+ Dateien/), 10000)));
         const kopien = [...FAKE.objekte.values()].filter(o => o.daten.art === 'handout' && o.daten.titel === 'Brief von Kolyan');
         ja('  … das Handout kommt als Kopie mit neuem Ordner und seinem Bild', kopien.length === 2
            && kopien[0].daten.ablage !== kopien[1].daten.ablage && kopien.every(o => FAKE.ablagen.get(o.daten.ablage) && FAKE.ablagen.get(o.daten.ablage).has(o.daten.bild)));
@@ -817,7 +876,7 @@
         const neuOrt = [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten;
         const neuRoute = [...FAKE.objekte.values()].find(o => o.daten.art === 'route').daten;
         const neuReise = [...FAKE.objekte.values()].find(o => o.daten.art === 'reise').daten;
-        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 4);
+        ja('  … die Reise zeigt auf die neue Route, mit ihrem Tagebuch', neuReise.routeId === neuRoute.id && neuRoute.id !== routeId && neuReise.tagebuch.length === 5 && neuReise.gruppeId === [...FAKE.objekte.values()].find(o => o.daten.art === 'gruppe').daten.id);
         const neuQuest = [...FAKE.objekte.values()].filter(o => o.daten.art === 'quest').map(o => o.daten).find(q => q.id !== questId);
         ja('  … die Quest zeigt auf den neuen Ort, die Fraktion auf die neue Region',
           !!neuQuest && neuQuest.zielOrt === [...FAKE.objekte.values()].find(o => o.daten.art === 'ort').daten.id
@@ -867,6 +926,7 @@
         ja('  … die verborgene Route und die verborgene Reise sieht er nicht', !root.querySelector('.pl-route') && !root.querySelector('.pl-gruppe'));
         ja('  … die verborgene Region auch nicht', !root.querySelector('.pl-region') && !root.querySelector('.pl-region-name'));
         ja('  … keine verborgene Figur', !root.querySelector('.pl-figur'));
+        ja('  … die Heldengruppe, aber ohne ihre Spur', !!(await warte(() => root.querySelector('.pl-heldengruppe'))) && !root.querySelector('.pl-spur'));
         ja('  … aber die sichtbare Quest', [...root.querySelectorAll('.pl-liste[aria-label="Geschichte"] .pl-eintrag-name')].some(b => /Gruppe nach Vallaki/.test(b.textContent)));
         ja('  … und keine Dateien vom Rechner der Spielleitung', !root.querySelector('.pl-dateien'));
       } catch (e) {

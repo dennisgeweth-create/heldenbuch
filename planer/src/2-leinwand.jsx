@@ -13,6 +13,7 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
                           regionen, regionWahl, onRegionWahl,
                           nebel, nebelDeckend, vorgabeAnsicht, onAnsicht,
                           figuren, figurWahl, onFigurWahl, onFigurVerschieben, hex, questOrte,
+                          heldengruppen, gruppeWahl, onGruppeWahl, onGruppeZiehen,
                           onKlick, onOrtWahl, onOrtVerschieben, onBildWaehlen }) => {
   const box = useRef(null);
   const [g, setG] = useState({ breite: 0, hoehe: 0 });
@@ -150,6 +151,11 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
     const z = zieh;
     setZieh(null);
     if (!z) return;
+    if (o.art === 'gruppe') {
+      if (z.darf && z.weg > LEINWAND_KLICK_PX) onGruppeZiehen && onGruppeZiehen(o, { x: z.x, y: z.y });
+      else onGruppeWahl && onGruppeWahl(o.id);
+      return;
+    }
     if (o.art === 'figur') {
       if (z.darf && z.weg > LEINWAND_KLICK_PX) onFigurVerschieben && onFigurVerschieben(o, { x: z.x, y: z.y });
       else onFigurWahl && onFigurWahl(o.id);
@@ -263,6 +269,16 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
               </g>
             );
           })}
+          {(heldengruppen || []).filter(hg => (hg.spur || []).length > 1).map(hg => {
+            const ps = hg.spur.map(schirm);
+            return (
+              <g key={'spur-' + hg.id} className={'pl-spur' + (hg.id === gruppeWahl ? ' aktiv' : '')}>
+                <polyline points={ps.map(q => q.x + ',' + q.y).join(' ')} />
+                {ps.map((q, i) => i > 0 && i < ps.length - 1 && hg.spur[i].art !== 'reise'
+                  ? <circle key={i} cx={q.x} cy={q.y} r={3}><title>{zeitText(hg.spur[i].zeit)}</title></circle> : null)}
+              </g>
+            );
+          })}
           {linie && linie.punkte.length > 0 && (
             <g aria-hidden="true">
               <polyline points={linie.punkte.map(p => { const s = schirm(p); return s.x + ',' + s.y; }).join(' ')}
@@ -305,6 +321,23 @@ const KartenLeinwand = ({ karte, orte, dm, werkzeug, ortWahl, linie, fokus, geda
               <span className="pl-ort-symbol" aria-hidden="true">{o.symbol || '📍'}</span>
               <span className="pl-ort-name">{o.name}</span>
               {questOrte && questOrte.has(o.id) && <span className="pl-quest-abzeichen" title="Hier gibt es eine Quest">❗</span>}
+            </button>
+          );
+        })}
+        {(heldengruppen || []).filter(hg => (hg.spur || []).length).map(hg => {
+          const jetzt = hg.spur[hg.spur.length - 1];
+          const gezogen = zieh && zieh.id === hg.id ? zieh : null;
+          const s = schirm(gezogen ? gezogen : jetzt);
+          if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
+          return (
+            <button key={hg.id}
+              className={'pl-heldengruppe' + (hg.id === gruppeWahl ? ' aktiv' : '') + (dm && !hg.sichtbar ? ' verborgen' : '')}
+              style={{ left: s.x, top: s.y }} title={hg.name + ' — ' + zeitText(jetzt.zeit)}
+              onPointerDown={(e) => ortRunter(e, { ...hg, x: jetzt.x, y: jetzt.y })} onPointerMove={ortBewegen}
+              onPointerUp={(e) => ortHoch(e, hg)} onPointerCancel={() => setZieh(null)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onGruppeWahl && onGruppeWahl(hg.id); } }}>
+              <span aria-hidden="true">{hg.symbol || '🛡'}</span><span className="pl-ort-name">{hg.name}</span>
+              <span className="pl-gruppe-zahl">{(hg.helden || []).length}</span>
             </button>
           );
         })}

@@ -36,12 +36,14 @@ Eigene Seite, eigenes Bündel, **gemeinsamer Server**:
 | ↳ `1d-begegnung.jsx` | **reine Rechnung:** Punkt in der Fläche, innerste Region, Wachen eines Reisetags, Begegnungswurf, Reisetagebuch als Text |
 | ↳ `1e-sicht.jsx` | **reine Rechnung:** Nebel (aufgedeckt, Kreise entlang der Reise, Orte darunter), Spielersicht für den Tisch, ungesehene Handouts |
 | ↳ `1f-welt.jsx` | **reine Rechnung:** Zeit, Figuren und Wegpunkte, Dateiverweise, Quests, Wissen, Fraktionen, Proviant, Navigation, Hexfelder, Offline-Pfade |
-| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Nebel, Hexfelder, Ziehen, Mausrad, zwei Finger, Orte, Figuren, Regionen, Routen, Gruppen, Linien |
+| ↳ `1g-gruppe.jsx` | **reine Rechnung:** Heldengruppen — Ziehen mit Nebel, Reisen entlang der Route, Spur, Aufteilen, Vereinen |
+| ↳ `2-leinwand.jsx` | die Kartenansicht: Kacheln, Nebel, Hexfelder, Ziehen, Mausrad, zwei Finger, Orte, Figuren, Heldengruppen und ihre Spur, Regionen, Routen, Reisen, Linien |
 | ↳ `3-ort.jsx` | Bilder im Browser öffnen, verkleinern und schneiden; Maßstabsdialog; die Tafel eines Orts |
 | ↳ `3b-reise.jsx` | die Tafeln einer Route und einer Reise, die Übergabe ans Heldenbuch |
 | ↳ `3c-begegnung.jsx` | die Tafel einer Region, der Tabelleneditor, die Liste der Wachen |
 | ↳ `3d-sicht.jsx` | Handouts (Tafel, Lesefenster, Liste) und das Tischfenster (`?tisch=1`) |
 | ↳ `3e-welt.jsx` | Zeitleiste, Figurtafel, freigegebene Ordner und Dateiliste, Quests, Wissen, Fraktionen, Hexfelder |
+| ↳ `3f-gruppe.jsx` | Liste und Tafel der Heldengruppen |
 | `planer/sw.js` | Service Worker für den Fall ohne Netz |
 | `planer/bruecke/` | die Planer-Brücke für Windows und ihr Einrichtungsskript |
 | ↳ `4-app.jsx` | die Seite |
@@ -412,6 +414,47 @@ Pfad ist relativ, mit Schrägstrichen, ohne `..` und ohne Laufwerk
   erreichbar, zeigt der Planer sie mit einem Hinweis.
 - **📥 Offline** holt `offlinePfade` aller Karten einmal. Ohne Service
   Worker (etwa auf `dev/`) sagt es das.
+
+### ✅ Nachtrag · Heldengruppen (v5.17.0)
+
+**Heldengruppe** (Art `gruppe`, an einer Karte):
+
+```json
+{ "name": "Heldengruppe", "helden": ["charId", …], "heldenNamen": {"charId": "Armin"},
+  "sichtweite": 5, "sichtbar": true, "spurFuerSpieler": false,
+  "spur": [ {"zeit": 50, "x": 812, "y": 440, "art": "start|zug|reise|teilung|vereint"} ],
+  "aus": "g_…" }
+```
+
+**Bögen.** `planer_helden` gibt der Spielleitung Kennung und Name der
+Bögen des Abenteuers. Bögen ohne Abenteuer zählen zum ersten, wie im
+Heldenbuch; archivierte fehlen. Die Namen stehen in der Gruppe als
+`heldenNamen`, damit Spieler sie ohne Zugriff auf die Bögen lesen können.
+
+**Spur und Sicht.**
+
+- Der letzte Punkt der Spur ist der Stand.
+- `gruppeZiehen` hängt einen Punkt an und liefert die Nebelkreise entlang
+  der geraden Linie (`kreiseEntlang`, Radius = Sichtweite).
+- `gruppeReist` folgt der Route über `routenPunkteZwischen`: Die Zeiten
+  werden über die Stunden des Tags verteilt, der nächste Reisetag beginnt
+  frühestens am Folgetag zur Aufbruchszeit.
+- Die Spur behält höchstens 2 000 Punkte; der erste bleibt.
+
+**Wer was sieht.** Ohne `spurFuerSpieler` kürzt der Server (`planObjAntwort`)
+die Spur für Spieler auf den letzten Punkt; das Tischfenster
+(`spielerSicht`) tut dasselbe.
+
+**Aufteilen und Vereinen.**
+
+- `gruppeTeilen` gibt eine neue Gruppe mit eigener Spur ab dem
+  Teilungspunkt (`aus` = Herkunft).
+- Beim Vereinen bleibt die Gruppe mit mehr Helden bestehen, samt Name,
+  Zeichen und Spur; die andere wird gelöscht.
+
+**Reise.** `reise.gruppeId` nimmt eine Gruppe mit. Beim Abschließen eines
+Tags zieht dann die Gruppe (mit ihrer Sichtweite); die Sichtweite der Reise
+und ihre eigene Marke treten zurück.
 
 Der Abenteuerplaner ist damit vollständig. Weitere Wünsche kommen in die
 `TODO.md`.

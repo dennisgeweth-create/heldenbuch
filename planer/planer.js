@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus planer/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 1d-begegnung.jsx, 1e-sicht.jsx, 1f-welt.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 3c-begegnung.jsx, 3d-sicht.jsx, 3e-welt.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 1d-begegnung.jsx, 1e-sicht.jsx, 1f-welt.jsx, 1g-gruppe.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 3c-begegnung.jsx, 3d-sicht.jsx, 3e-welt.jsx, 3f-gruppe.jsx, 4-app.jsx
 // ==== planer/src/0-basis.jsx ====
 // ── Abenteuerplaner: Grundlagen ──────────────────────────────────
 // Der Planer ist eine eigene Seite neben dem Heldenbuch, mit eigenem
@@ -319,7 +319,7 @@ const HBPLAN_MANIFEST = 'hbplan.json';
 // annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
-const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion'];
+const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion', 'gruppe'];
 // Dieselbe Liste wie PLAN_OHNE_KARTE in api.php.
 const PLAN_OHNE_KARTE = ['handout', 'quest', 'hinweis', 'fraktion'];
 const planNeueId = vorsilbe => {
@@ -2052,7 +2052,12 @@ const ohneDmFeld = o => {
 const spielerSicht = daten => {
   const karten = (daten.karten || []).filter(k => k.sichtbar).map(ohneDmFeld);
   const offen = new Set(karten.map(k => k.id));
-  const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout' ? !(o.an || []).length : PLAN_OHNE_KARTE.includes(o.art) && !o.karteId ? true : offen.has(o.karteId))).map(ohneDmFeld);
+  const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout' ? !(o.an || []).length : PLAN_OHNE_KARTE.includes(o.art) && !o.karteId ? true : offen.has(o.karteId))).map(ohneDmFeld)
+  // Wie auf dem Server: die Spur einer Gruppe nur, wo sie freigegeben ist.
+  .map(o => o.art === 'gruppe' && !o.spurFuerSpieler && (o.spur || []).length ? {
+    ...o,
+    spur: [o.spur[o.spur.length - 1]]
+  } : o);
   return {
     ...daten,
     dm: false,
@@ -2515,6 +2520,219 @@ const offlineStand = (start, daten, jetzt) => JSON.stringify({
 });
 // ══ Ende der reinen Rechnung
 
+// ==== planer/src/1g-gruppe.jsx ====
+// ── Heldengruppen: Stand, Spur, Sicht ────────────────────────────
+// Eine Heldengruppe (Art gruppe, an einer Karte) ist die Runde auf der
+// Karte: welche Boegen dazugehoeren, wie weit sie sieht, und ihre Spur —
+// jeder Punkt, an dem sie stand, mit der Zeit der Chronik. Der letzte
+// Punkt der Spur ist, wo sie jetzt ist.
+//
+//     { helden: ['charId', …], heldenNamen: {charId: 'Armin'}, sichtweite: 5,
+//       spur: [{zeit, x, y, art: 'start'|'zug'|'reise'|'teilung'|'vereint'}],
+//       spurFuerSpieler: false, aus: 'g_…' }
+//
+// Zieht die Spielleitung die Gruppe, weicht der Nebel entlang des Wegs —
+// so weit, wie die Gruppe sieht. Ob Spieler die ganze Spur bekommen oder
+// nur den letzten Punkt, entscheidet der Server (planObjAntwort).
+//
+// Alles bis zur Markierung ist reine Rechnung.
+
+const GRUPPE_SYMBOLE = ['🛡', '⚔', '🏹', '🔥', '🧭', '⭐'];
+const SPUR_HOECHSTENS = 2000;
+const gruppePosition = g => {
+  const s = g && g.spur || [];
+  return s.length ? s[s.length - 1] : null;
+};
+const neueGruppe = (karteId, p, zeit, helden, namen) => ({
+  id: planNeueId('g'),
+  karteId,
+  art: 'gruppe',
+  name: 'Heldengruppe',
+  symbol: '🛡',
+  sichtbar: true,
+  helden: [...(helden || [])],
+  heldenNamen: {
+    ...(namen || {})
+  },
+  sichtweite: 5,
+  spurFuerSpieler: false,
+  spur: [{
+    zeit: Math.round(+zeit || 0),
+    x: Math.round(p.x),
+    y: Math.round(p.y),
+    art: 'start'
+  }],
+  dm: {
+    notiz: ''
+  }
+});
+
+// Die Spur waechst nicht ohne Ende: bei sehr langen Kampagnen fallen die
+// aeltesten Zwischenpunkte weg, der erste bleibt.
+const spurAnhaengen = (spur, punkte) => {
+  const neu = [...(spur || []), ...punkte];
+  return neu.length > SPUR_HOECHSTENS ? [neu[0], ...neu.slice(neu.length - SPUR_HOECHSTENS + 1)] : neu;
+};
+
+// Die Gruppe zieht an einen Punkt. Zurueck: die Gruppe mit neuer Spur und
+// die Kreise, die der Nebel dabei aufgibt (entlang der geraden Linie).
+const gruppeZiehen = (g, ziel, zeit, massstab, art) => {
+  const von = gruppePosition(g);
+  const punkt = {
+    zeit: Math.round(+zeit || 0),
+    x: Math.round(ziel.x),
+    y: Math.round(ziel.y),
+    art: art || 'zug'
+  };
+  const gruppe = {
+    ...g,
+    spur: spurAnhaengen(g.spur, [punkt])
+  };
+  let kreise = [];
+  if (massstab && (+g.sichtweite || 0) > 0) {
+    const linie = {
+      punkte: von ? [von, punkt] : [punkt, punkt],
+      gelaende: ['offen']
+    };
+    kreise = kreiseEntlang(linie, massstab, 0, routeLaenge(linie, massstab), +g.sichtweite);
+    if (!kreise.length) kreise = [nebelKreis(punkt, +g.sichtweite * pxJeEinheit(massstab))];
+  }
+  return {
+    gruppe,
+    kreise
+  };
+};
+
+// Die Punkte einer Route zwischen zwei Positionen, samt der Ecken dazwischen
+// — damit die Spur einer Reise der Route folgt und nicht quer uebers Land.
+const routenPunkteZwischen = (route, m, von, bis) => {
+  if (!m || !(bis > von)) return [];
+  const aus = [punktAufRoute(route, m, von)];
+  let s = 0;
+  for (const a of routeAbschnitte(route, m)) {
+    s += a.laenge;
+    if (s > von + 1e-9 && s < bis - 1e-9) aus.push({
+      x: Math.round(a.bis.x),
+      y: Math.round(a.bis.y)
+    });
+  }
+  aus.push(punktAufRoute(route, m, bis));
+  return aus.filter(Boolean);
+};
+// Eine Reise zieht die Gruppe mit: Punkte der Route mit Zeiten, verteilt
+// ueber die Stunden des Tags.
+const gruppeReist = (g, punkte, zeitVon, stunden, massstab) => {
+  if (!punkte.length) return {
+    gruppe: g,
+    kreise: []
+  };
+  const linie = {
+    punkte,
+    gelaende: punkte.slice(1).map(() => 'offen')
+  };
+  const gesamt = routeLaenge(linie, massstab) || 1;
+  let s = 0;
+  const neu = punkte.map((p, i) => {
+    if (i > 0) s += abstandPx(punkte[i - 1], p) / (massstab ? pxJeEinheit(massstab) : 1);
+    return {
+      zeit: Math.round((+zeitVon || 0) + stunden * (s / gesamt)),
+      x: p.x,
+      y: p.y,
+      art: 'reise'
+    };
+  });
+  const letzte = gruppePosition(g);
+  const ohneDoppel = letzte && neu.length && neu[0].x === letzte.x && neu[0].y === letzte.y ? neu.slice(1) : neu;
+  const kreise = massstab && (+g.sichtweite || 0) > 0 ? kreiseEntlang(linie, massstab, 0, gesamt, +g.sichtweite) : [];
+  return {
+    gruppe: {
+      ...g,
+      spur: spurAnhaengen(g.spur, ohneDoppel)
+    },
+    kreise
+  };
+};
+const spurLaenge = (g, m) => {
+  const s = g && g.spur || [];
+  if (!m || s.length < 2) return 0;
+  let px = 0;
+  for (let i = 1; i < s.length; i++) px += abstandPx(s[i - 1], s[i]);
+  return px / pxJeEinheit(m);
+};
+
+// Aufteilen: wer ausgewaehlt ist, zieht als neue Gruppe los — vom selben
+// Punkt aus. Die alte behaelt ihre Spur, die neue beginnt am Teilungspunkt.
+const gruppeTeilen = (g, heldenIds, neueId, zeit) => {
+  const weg = (g.helden || []).filter(h => heldenIds.includes(h));
+  if (!weg.length || weg.length === (g.helden || []).length) return null;
+  const hier = gruppePosition(g) || {
+    x: 0,
+    y: 0
+  };
+  const namen = g.heldenNamen || {};
+  const neue = {
+    ...g,
+    id: neueId,
+    name: weg.map(h => namen[h] || h).join(', '),
+    helden: weg,
+    heldenNamen: Object.fromEntries(weg.map(h => [h, namen[h] || h])),
+    spur: [{
+      zeit: Math.round(+zeit || 0),
+      x: hier.x,
+      y: hier.y,
+      art: 'teilung'
+    }],
+    aus: g.id,
+    dm: {
+      notiz: ''
+    }
+  };
+  const bleibt = (g.helden || []).filter(h => !heldenIds.includes(h));
+  return {
+    alte: {
+      ...g,
+      helden: bleibt,
+      heldenNamen: Object.fromEntries(bleibt.map(h => [h, namen[h] || h]))
+    },
+    neue
+  };
+};
+
+// Vereinen: die zweite Gruppe geht in der ersten auf. Steht sie woanders,
+// zieht die erste nicht — die Spielleitung setzt die Gruppe danach selbst.
+const gruppenVereinen = (ziel, quelle, zeit) => {
+  const helden = [...new Set([...(ziel.helden || []), ...(quelle.helden || [])])];
+  const namen = {
+    ...(quelle.heldenNamen || {}),
+    ...(ziel.heldenNamen || {})
+  };
+  const hier = gruppePosition(ziel);
+  const spur = hier ? spurAnhaengen(ziel.spur, [{
+    zeit: Math.round(+zeit || 0),
+    x: hier.x,
+    y: hier.y,
+    art: 'vereint'
+  }]) : ziel.spur;
+  // Der Name der groesseren Gruppe bleibt: wer die abgeteilte „Bea“ mit der
+  // Heldengruppe vereint, will wieder die Heldengruppe haben.
+  const name = (quelle.helden || []).length > (ziel.helden || []).length ? quelle.name : ziel.name;
+  return {
+    ...ziel,
+    name,
+    symbol: name === quelle.name ? quelle.symbol : ziel.symbol,
+    helden,
+    heldenNamen: namen,
+    spur
+  };
+};
+
+// Welche Boegen noch keiner Gruppe auf dieser Karte angehoeren.
+const heldenOhneGruppe = (helden, gruppen, ausser) => {
+  const vergeben = new Set((gruppen || []).filter(g => g.id !== ausser).flatMap(g => g.helden || []));
+  return (helden || []).filter(h => !vergeben.has(h.id));
+};
+// ══ Ende der reinen Rechnung
+
 // ==== planer/src/2-leinwand.jsx ====
 // ── Die Kartenleinwand ───────────────────────────────────────────
 // Zeigt die Kachelpyramide einer Karte: ziehen zum Verschieben, Mausrad
@@ -2553,6 +2771,10 @@ const KartenLeinwand = ({
   onFigurVerschieben,
   hex,
   questOrte,
+  heldengruppen,
+  gruppeWahl,
+  onGruppeWahl,
+  onGruppeZiehen,
   onKlick,
   onOrtWahl,
   onOrtVerschieben,
@@ -2759,6 +2981,13 @@ const KartenLeinwand = ({
     const z = zieh;
     setZieh(null);
     if (!z) return;
+    if (o.art === 'gruppe') {
+      if (z.darf && z.weg > LEINWAND_KLICK_PX) onGruppeZiehen && onGruppeZiehen(o, {
+        x: z.x,
+        y: z.y
+      });else onGruppeWahl && onGruppeWahl(o.id);
+      return;
+    }
     if (o.art === 'figur') {
       if (z.darf && z.weg > LEINWAND_KLICK_PX) onFigurVerschieben && onFigurVerschieben(o, {
         x: z.x,
@@ -2948,6 +3177,19 @@ const KartenLeinwand = ({
         className: "pl-route-treffer",
         onClick: () => onRouteWahl && onRouteWahl(r.id)
       }, /*#__PURE__*/React.createElement("title", null, r.name)));
+    }), (heldengruppen || []).filter(hg => (hg.spur || []).length > 1).map(hg => {
+      const ps = hg.spur.map(schirm);
+      return /*#__PURE__*/React.createElement("g", {
+        key: 'spur-' + hg.id,
+        className: 'pl-spur' + (hg.id === gruppeWahl ? ' aktiv' : '')
+      }, /*#__PURE__*/React.createElement("polyline", {
+        points: ps.map(q => q.x + ',' + q.y).join(' ')
+      }), ps.map((q, i) => i > 0 && i < ps.length - 1 && hg.spur[i].art !== 'reise' ? /*#__PURE__*/React.createElement("circle", {
+        key: i,
+        cx: q.x,
+        cy: q.y,
+        r: 3
+      }, /*#__PURE__*/React.createElement("title", null, zeitText(hg.spur[i].zeit))) : null));
     }), linie && linie.punkte.length > 0 && /*#__PURE__*/React.createElement("g", {
       "aria-hidden": "true"
     }, /*#__PURE__*/React.createElement("polyline", {
@@ -3025,6 +3267,40 @@ const KartenLeinwand = ({
         className: "pl-quest-abzeichen",
         title: "Hier gibt es eine Quest"
       }, "\u2757"));
+    }), (heldengruppen || []).filter(hg => (hg.spur || []).length).map(hg => {
+      const jetzt = hg.spur[hg.spur.length - 1];
+      const gezogen = zieh && zieh.id === hg.id ? zieh : null;
+      const s = schirm(gezogen ? gezogen : jetzt);
+      if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
+      return /*#__PURE__*/React.createElement("button", {
+        key: hg.id,
+        className: 'pl-heldengruppe' + (hg.id === gruppeWahl ? ' aktiv' : '') + (dm && !hg.sichtbar ? ' verborgen' : ''),
+        style: {
+          left: s.x,
+          top: s.y
+        },
+        title: hg.name + ' — ' + zeitText(jetzt.zeit),
+        onPointerDown: e => ortRunter(e, {
+          ...hg,
+          x: jetzt.x,
+          y: jetzt.y
+        }),
+        onPointerMove: ortBewegen,
+        onPointerUp: e => ortHoch(e, hg),
+        onPointerCancel: () => setZieh(null),
+        onKeyDown: e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onGruppeWahl && onGruppeWahl(hg.id);
+          }
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        "aria-hidden": "true"
+      }, hg.symbol || '🛡'), /*#__PURE__*/React.createElement("span", {
+        className: "pl-ort-name"
+      }, hg.name), /*#__PURE__*/React.createElement("span", {
+        className: "pl-gruppe-zahl"
+      }, (hg.helden || []).length));
     }), (figuren || []).filter(f => f.punkt).map(f => {
       const gezogen = zieh && zieh.id === f.id ? zieh : null;
       const s = schirm(gezogen ? gezogen : f.punkt);
@@ -3824,7 +4100,9 @@ const ReiseTafel = ({
   onLoeschen,
   onSchliessen,
   onMeldung,
-  onNebelAufdecken
+  onNebelAufdecken,
+  heldengruppen,
+  onGruppeReist
 }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
   const [uebergabe, setUebergabe] = useState('');
@@ -3952,6 +4230,13 @@ const ReiseTafel = ({
       tagebuch: [...(entwurf.tagebuch || []), eintrag]
     });
     if (verirrt) return;
+    // Reist eine Heldengruppe mit, zieht sie die Route entlang und lichtet
+    // den Nebel mit ihrer eigenen Sichtweite.
+    const hg = entwurf.gruppeId && (heldengruppen || []).find(x => x.id === entwurf.gruppeId);
+    if (hg && onGruppeReist) {
+      onGruppeReist(hg, routenPunkteZwischen(st.r, m, heute.von, heute.bis), heute.stunden, entwurf.startStunde ?? 8);
+      return;
+    }
     // Wo die Gruppe hinkam, weicht der Nebel — so weit, wie sie sieht.
     if (nebelVon(karte).an && (+entwurf.sichtweite || 0) > 0 && onNebelAufdecken) {
       onNebelAufdecken(kreiseEntlang(st.r, m, heute.von, heute.bis, +entwurf.sichtweite));
@@ -4049,7 +4334,16 @@ const ReiseTafel = ({
     max: 23,
     value: entwurf.startStunde ?? 8,
     onChange: e => setze('startStunde', Math.max(0, Math.min(23, Math.round(+e.target.value || 0))))
-  })), /*#__PURE__*/React.createElement("label", null, "Sichtweite (", einh, ")", /*#__PURE__*/React.createElement("input", {
+  })), /*#__PURE__*/React.createElement("label", null, "Heldengruppe", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: entwurf.gruppeId || '',
+    onChange: e => setze('gruppeId', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keine \u2014"), (heldengruppen || []).map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.id,
+    value: x.id
+  }, x.name)))), /*#__PURE__*/React.createElement("label", null, "Sichtweite (", einh, ")", /*#__PURE__*/React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
@@ -4858,7 +5152,7 @@ const TischApp = ({
   const karte = daten.karten.find(k => k.id === karteId) || daten.karten[0] || null;
   const aufKarte = art => karte ? daten.objekte.filter(o => o.art === art && o.karteId === karte.id) : [];
   const routen = aufKarte('route');
-  const gruppen = karte ? aufKarte('reise').map(j => {
+  const gruppen = karte ? aufKarte('reise').filter(j => !j.gruppeId).map(j => {
     const r = routen.find(x => x.id === j.routeId);
     if (!r || !karte.massstab) return null;
     return {
@@ -4885,6 +5179,7 @@ const TischApp = ({
     routen: routen,
     gruppen: gruppen,
     regionen: aufKarte('region'),
+    heldengruppen: aufKarte('gruppe'),
     nebel: nebelVon(karte),
     nebelDeckend: true,
     vorgabeAnsicht: vorgabe,
@@ -5817,6 +6112,274 @@ const HexEinstellung = ({
   }), /*#__PURE__*/React.createElement("span", null, "auch f\xFCr Spieler"))));
 };
 
+// ==== planer/src/3f-gruppe.jsx ====
+// ── Heldengruppen: die Tafel ─────────────────────────────────────
+// Rechnung in 1g-gruppe.jsx. Nur die Spielleitung setzt, zieht, teilt und
+// vereint; Spieler sehen die Gruppe und — wenn freigegeben — ihre Spur.
+
+const SPUR_WORTE = {
+  start: 'Aufbruch',
+  zug: 'gezogen',
+  reise: 'Reise',
+  teilung: 'geteilt',
+  vereint: 'vereint'
+};
+const PlanerGruppenListe = ({
+  gruppen,
+  wahl,
+  dm,
+  onWahl
+}) => {
+  if (!gruppen.length) return null;
+  return /*#__PURE__*/React.createElement("nav", {
+    className: "pl-liste",
+    "aria-label": "Heldengruppen"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pl-liste-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "Heldengruppen \xB7 ", gruppen.length)), /*#__PURE__*/React.createElement("ul", null, gruppen.map(g => /*#__PURE__*/React.createElement("li", {
+    key: g.id,
+    className: 'pl-eintrag' + (g.id === wahl ? ' aktiv' : '')
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "pl-eintrag-name",
+    onClick: () => onWahl(g)
+  }, /*#__PURE__*/React.createElement("span", {
+    "aria-hidden": "true"
+  }, g.symbol || '🛡'), /*#__PURE__*/React.createElement("span", {
+    className: 'pl-eintrag-text' + (dm && !g.sichtbar ? ' pl-verborgen-text' : '')
+  }, g.name), /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, (g.helden || []).length))))));
+};
+const GruppeTafel = ({
+  gruppe,
+  dm,
+  karte,
+  helden,
+  gruppen,
+  zieht,
+  onSpeichern,
+  onLoeschen,
+  onSchliessen,
+  onZiehenWaehlen,
+  onZuruecknehmen,
+  onTeilen,
+  onVereinen
+}) => {
+  const [entwurf, setEntwurf, geaendert] = useEntwurf(gruppe);
+  const [teilen, setTeilen] = useState(null); // ausgewaehlte Helden fuer eine neue Gruppe
+  const [mit, setMit] = useState('');
+  const setze = (feld, wert) => setEntwurf(e => ({
+    ...e,
+    [feld]: wert
+  }));
+  const m = karte.massstab;
+  const einh = m ? einheit(m.einheit).kurz : '';
+  const spur = gruppe.spur || [];
+  const namen = entwurf.heldenNamen || {};
+  const laenge = spurLaenge(gruppe, m);
+  if (!dm) {
+    return /*#__PURE__*/React.createElement("aside", {
+      className: "pl-tafel",
+      "aria-label": 'Heldengruppe: ' + gruppe.name
+    }, /*#__PURE__*/React.createElement(TafelKopf, {
+      symbol: gruppe.symbol || '🛡',
+      titel: gruppe.name,
+      onSchliessen: onSchliessen
+    }), /*#__PURE__*/React.createElement("p", null, (gruppe.helden || []).map(h => (gruppe.heldenNamen || {})[h] || '?').join(', ') || 'Niemand'), spur.length > 1 && m && /*#__PURE__*/React.createElement("p", {
+      className: "pl-leise"
+    }, "Bisher ", laengeText(laenge, m.einheit), " unterwegs, seit ", zeitText(spur[0].zeit), "."));
+  }
+  const andere = (gruppen || []).filter(g => g.id !== gruppe.id);
+  const umHeld = h => setEntwurf(e => {
+    const drin = (e.helden || []).includes(h.id);
+    const liste = drin ? e.helden.filter(x => x !== h.id) : [...(e.helden || []), h.id];
+    return {
+      ...e,
+      helden: liste,
+      heldenNamen: {
+        ...(e.heldenNamen || {}),
+        [h.id]: h.name
+      }
+    };
+  });
+  const vergeben = h => andere.find(g => (g.helden || []).includes(h.id));
+  return /*#__PURE__*/React.createElement("aside", {
+    className: "pl-tafel",
+    "aria-label": 'Heldengruppe bearbeiten: ' + gruppe.name
+  }, /*#__PURE__*/React.createElement(TafelKopf, {
+    symbol: entwurf.symbol || '🛡',
+    titel: entwurf.name || 'Heldengruppe',
+    onSchliessen: onSchliessen
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: 'pl-knopf pl-klein pl-haupt' + (zieht ? ' an' : ''),
+    disabled: geaendert,
+    title: geaendert ? 'Erst speichern' : 'Oder die Marke auf der Karte ziehen',
+    onClick: onZiehenWaehlen
+  }, "\uD83D\uDCCD Hierhin ziehen \u2026"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: spur.length < 2 || geaendert,
+    onClick: onZuruecknehmen,
+    title: "Der Nebel bleibt, wo er schon gewichen ist"
+  }, "\u21B6 Letzten Zug zur\xFCck")), !nebelVon(karte).an ? /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, "Auf dieser Karte liegt kein Nebel \u2014 die Gruppe hinterl\xE4sst nur ihre Spur.") : !m ? /*#__PURE__*/React.createElement("p", {
+    className: "pl-warnung"
+  }, "Ohne Ma\xDFstab weicht der Nebel nicht; die Sichtweite braucht eine Einheit.") : null, /*#__PURE__*/React.createElement("form", {
+    className: "pl-formular",
+    onSubmit: e => {
+      e.preventDefault();
+      if (geaendert) onSpeichern(entwurf);
+    }
+  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    value: entwurf.name || '',
+    maxLength: 120,
+    onChange: e => setze('name', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "pl-symbole",
+    role: "radiogroup",
+    "aria-label": "Zeichen"
+  }, GRUPPE_SYMBOLE.map(s => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    key: s,
+    role: "radio",
+    "aria-checked": entwurf.symbol === s,
+    className: 'pl-symbolwahl' + (entwurf.symbol === s ? ' an' : ''),
+    onClick: () => setze('symbol', s)
+  }, s))), /*#__PURE__*/React.createElement("fieldset", {
+    className: "pl-empfaenger"
+  }, /*#__PURE__*/React.createElement("legend", null, "Wer dabei ist"), (helden || []).map(h => {
+    const woanders = vergeben(h);
+    return /*#__PURE__*/React.createElement("label", {
+      key: h.id,
+      className: "pl-schalter"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: (entwurf.helden || []).includes(h.id),
+      disabled: !!woanders,
+      onChange: () => umHeld(h)
+    }), /*#__PURE__*/React.createElement("span", null, h.name, h.nurDm ? ' (NSC)' : '', woanders ? ' — in „' + woanders.name + '“' : ''));
+  }), helden === null && /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, "Die B\xF6gen werden geladen \u2026"), helden && !helden.length && /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, "In diesem Abenteuer gibt es noch keinen Bogen.")), /*#__PURE__*/React.createElement("label", null, "Sichtweite", einh ? ' (' + einh + ')' : '', /*#__PURE__*/React.createElement("input", {
+    className: "pl-feld",
+    type: "number",
+    min: 0,
+    step: "any",
+    value: entwurf.sichtweite ?? 0,
+    title: "So weit weicht der Nebel um die Gruppe; 0 hei\xDFt gar nicht",
+    onChange: e => setze('sichtweite', Math.max(0, +e.target.value || 0))
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!entwurf.sichtbar,
+    onChange: e => setze('sichtbar', e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "Spieler sehen die Gruppe")), /*#__PURE__*/React.createElement("label", {
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!entwurf.spurFuerSpieler,
+    onChange: e => setze('spurFuerSpieler', e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "Spieler sehen die Spur")), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+    className: "pl-feld pl-dm-feld",
+    rows: 2,
+    value: entwurf.dm && entwurf.dm.notiz || '',
+    maxLength: 20000,
+    onChange: e => setEntwurf(v => ({
+      ...v,
+      dm: {
+        ...(v.dm || {}),
+        notiz: e.target.value
+      }
+    }))
+  })), geaendert && /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setEntwurf(gruppe)
+  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "pl-knopf pl-haupt pl-klein"
+  }, "Speichern"))), /*#__PURE__*/React.createElement("h3", {
+    className: "pl-unterkopf"
+  }, "Spur"), /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, spur.length, " ", spur.length === 1 ? 'Punkt' : 'Punkte', m && spur.length > 1 ? ' · ' + laengeText(laenge, m.einheit) : ''), /*#__PURE__*/React.createElement("ol", {
+    className: "pl-spur-liste"
+  }, spur.slice(-6).reverse().map((p, i) => /*#__PURE__*/React.createElement("li", {
+    key: i
+  }, /*#__PURE__*/React.createElement("span", null, zeitText(p.zeit)), /*#__PURE__*/React.createElement("span", {
+    className: "pl-leise"
+  }, SPUR_WORTE[p.art] || p.art || '')))), (gruppe.helden || []).length > 1 && (teilen === null ? /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: geaendert,
+    onClick: () => setTeilen([])
+  }, "\u2702 Gruppe aufteilen \u2026") : /*#__PURE__*/React.createElement("div", {
+    className: "pl-teilen"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "pl-klein-text"
+  }, "Wer zieht als eigene Gruppe los?"), (gruppe.helden || []).map(h => /*#__PURE__*/React.createElement("label", {
+    key: h,
+    className: "pl-schalter"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: teilen.includes(h),
+    onChange: () => setTeilen(t => t.includes(h) ? t.filter(x => x !== h) : [...t, h])
+  }), /*#__PURE__*/React.createElement("span", null, namen[h] || h))), /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    onClick: () => setTeilen(null)
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein pl-haupt",
+    disabled: !teilen.length || teilen.length === gruppe.helden.length,
+    onClick: () => {
+      onTeilen(gruppe, teilen);
+      setTeilen(null);
+    }
+  }, "Abteilen")))), andere.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "pl-zeile"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: mit,
+    onChange: e => setMit(e.target.value),
+    "aria-label": "Vereinen mit"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 vereinen mit \u2014"), andere.map(g => /*#__PURE__*/React.createElement("option", {
+    key: g.id,
+    value: g.id
+  }, g.name))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-klein",
+    disabled: !mit || geaendert,
+    onClick: () => {
+      const q = andere.find(g => g.id === mit);
+      if (q) onVereinen(gruppe, q);
+      setMit('');
+    }
+  }, "\u2935 Vereinen")), /*#__PURE__*/React.createElement("div", {
+    className: "pl-dialog-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-knopf pl-gefahr pl-klein",
+    onClick: () => onLoeschen(gruppe)
+  }, "Gruppe l\xF6schen")));
+};
+
 // ==== planer/src/4-app.jsx ====
 // ── Abenteuerplaner: die Seite ───────────────────────────────────
 // Wer bin ich, welches Abenteuer, welche Karten — und auf der Karte das
@@ -6179,6 +6742,8 @@ const offlineHolen = schluessel => {
 };
 const istNetzFehler = e => /nicht erreichbar/.test(String(e && e.message || ''));
 const WERKZEUG_HINWEIS = {
+  gruppe: 'Klicke, wo die Heldengruppe steht. Dabei sind alle Bögen des Abenteuers, die noch keiner Gruppe angehören.',
+  gruppeZiehen: 'Klicke, wohin die Gruppe zieht. Der Nebel weicht entlang des Wegs.',
   figur: 'Klicke, wo die Figur zur eingestellten Zeit steht.',
   wegpunkt: 'Klicke, wo die Figur zur eingestellten Zeit sein soll.',
   nebel: 'Klicke, wo der Nebel weichen soll.',
@@ -6221,6 +6786,8 @@ const PlanerApp = () => {
   const tischZeit = useRef(0);
   const [chronikZeit, setChronikZeit] = useState(null);
   const [figurWahl, setFigurWahl] = useState('');
+  const [gruppeWahl, setGruppeWahl] = useState('');
+  const [helden, setHelden] = useState(null);
   const [geschichteWahl, setGeschichteWahl] = useState('');
   const [zeitRegler, setZeitRegler] = useState(null);
   const [offline, setOffline] = useState(null);
@@ -6314,7 +6881,7 @@ const PlanerApp = () => {
   const reise = reisen.find(r => r.id === reiseWahl) || null;
   const reiseRoute = reise ? routen.find(r => r.id === reise.routeId) || null : null;
   // Wo jede Gruppe gerade steht.
-  const gruppen = karte ? reisen.map(j => {
+  const gruppen = karte ? reisen.filter(j => !j.gruppeId).map(j => {
     const r = routen.find(x => x.id === j.routeId);
     if (!r) return null;
     const rr = routeInRichtung(r, j.richtung);
@@ -6334,7 +6901,10 @@ const PlanerApp = () => {
     setHandoutWahl('');
     setFigurWahl('');
     setGeschichteWahl('');
+    setGruppeWahl('');
   };
+  const heldengruppen = daten && karte ? daten.objekte.filter(o => o.art === 'gruppe' && o.karteId === karte.id) : [];
+  const heldengruppe = heldengruppen.find(g => g.id === gruppeWahl) || null;
   const figurenRoh = daten && karte ? daten.objekte.filter(o => o.art === 'figur' && o.karteId === karte.id) : [];
   const zeitSpanne = zeitBereich(figurenRoh, chronikZeit);
   const zeit = zeitRegler != null ? zeitRegler : chronikZeit != null ? chronikZeit : karte && Number.isFinite(+karte.zeit) ? +karte.zeit : zeitSpanne.min;
@@ -6434,6 +7004,43 @@ const PlanerApp = () => {
   const waehleFigur = id => {
     if (id) tafelZu();
     setFigurWahl(id);
+  };
+  const waehleGruppe = id => {
+    if (id) tafelZu();
+    setGruppeWahl(id);
+  };
+
+  // Die Boegen des Abenteuers, fuer die Heldengruppen.
+  useEffect(() => {
+    setHelden(null);
+    if (!dm || !advId) return;
+    planerApi('planer_helden', {
+      adv_id: advId
+    }).then(r => setHelden(r.helden || [])).catch(() => setHelden([]));
+  }, [dm, advId]);
+
+  // Eine Gruppe zieht: Spur speichern, dann den Nebel entlang des Wegs lichten.
+  const gruppeBewegt = async (ergebnis, meldung) => {
+    try {
+      await objSpeichern(ergebnis.gruppe);
+      if (nebel.an && ergebnis.kreise.length) await nebelSetzen([...nebel.flaechen, ...ergebnis.kreise]);else await laden(advId);
+      if (meldung) setMeldung(meldung);
+    } catch (e) {
+      fehler(e);
+    }
+  };
+  const gruppeZiehenNach = (g, p) => {
+    const {
+      punkt,
+      ...rest
+    } = g;
+    return gruppeBewegt(gruppeZiehen(rest, p, zeit, karte.massstab));
+  };
+  const gruppeReistMit = (g, punkte, stunden, startStunde) => {
+    const letzte = gruppePosition(g);
+    let von = zeit;
+    if (letzte && letzte.art === 'reise') von = Math.max(zeit, (Math.floor(letzte.zeit / 24) + 1) * 24 + startStunde);else if (letzte) von = Math.max(zeit, letzte.zeit);
+    return gruppeBewegt(gruppeReist(g, punkte, von, stunden, karte.massstab));
   };
   const waehleGeschichte = id => {
     if (id) tafelZu();
@@ -6846,6 +7453,22 @@ const PlanerApp = () => {
       const neu = [...punkte, p].slice(-2);
       setPunkte(neu);
       if (neu.length === 2) setMassstabFrage(neu);
+      return;
+    }
+    if (werkzeug === 'gruppe' && dm && karte) {
+      const frei = heldenOhneGruppe((helden || []).filter(h => !h.nurDm), heldengruppen);
+      const g = neueGruppe(karte.id, p, zeit, frei.map(h => h.id), Object.fromEntries(frei.map(h => [h.id, h.name])));
+      setWerkzeug('ansehen');
+      await gruppeBewegt(gruppeZiehen({
+        ...g,
+        spur: []
+      }, p, zeit, karte.massstab, 'start'));
+      waehleGruppe(g.id);
+      return;
+    }
+    if (werkzeug === 'gruppeZiehen' && dm && heldengruppe) {
+      setWerkzeug('ansehen');
+      gruppeZiehenNach(heldengruppe, p);
       return;
     }
     if (werkzeug === 'figur' && dm && karte) {
@@ -7278,7 +7901,7 @@ const PlanerApp = () => {
   }, /*#__PURE__*/React.createElement("p", null, "In dieser Gruppe gibt es noch kein Abenteuer. Lege im Heldenbuch eines an.")) : !daten ? /*#__PURE__*/React.createElement("div", {
     className: "pl-buehne-leer"
   }, /*#__PURE__*/React.createElement("p", null, "L\xE4dt \u2026")) : /*#__PURE__*/React.createElement("main", {
-    className: 'pl-haupt-flaeche' + (ort || route || region || handout || figur || geschichte || reise && reiseRoute ? ' mit-tafel' : '')
+    className: 'pl-haupt-flaeche' + (ort || route || region || handout || figur || geschichte || heldengruppe || reise && reiseRoute ? ' mit-tafel' : '')
   }, /*#__PURE__*/React.createElement("div", {
     className: "pl-spalte"
   }, /*#__PURE__*/React.createElement(PlanerKartenListe, {
@@ -7350,6 +7973,19 @@ const PlanerApp = () => {
         fehler(e);
       }
     }
+  }), karte && /*#__PURE__*/React.createElement(PlanerGruppenListe, {
+    gruppen: heldengruppen,
+    wahl: gruppeWahl,
+    dm: dm,
+    onWahl: g => {
+      waehleGruppe(g.id);
+      const p = gruppePosition(g);
+      if (p) setFokus({
+        x: p.x,
+        y: p.y,
+        n: Date.now()
+      });
+    }
   }), karte && /*#__PURE__*/React.createElement(PlanerRegionListe, {
     regionen: regionen,
     regionWahl: regionWahl,
@@ -7417,6 +8053,10 @@ const PlanerApp = () => {
     "aria-pressed": werkzeug === 'massstab',
     onClick: () => werkzeugWaehlen('massstab')
   }, "\uD83D\uDCCF Ma\xDFstab"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+    className: 'pl-knopf pl-klein' + (werkzeug === 'gruppe' ? ' an' : ''),
+    "aria-pressed": werkzeug === 'gruppe',
+    onClick: () => werkzeugWaehlen('gruppe')
+  }, "\uD83D\uDEE1 Gruppe"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'figur' ? ' an' : ''),
     "aria-pressed": werkzeug === 'figur',
     onClick: () => werkzeugWaehlen('figur')
@@ -7587,6 +8227,10 @@ const PlanerApp = () => {
     },
     hex: dm || karte.hex && karte.hex.spieler ? karte.hex : null,
     questOrte: questOrte,
+    heldengruppen: heldengruppen,
+    gruppeWahl: gruppeWahl,
+    onGruppeWahl: waehleGruppe,
+    onGruppeZiehen: (g, p) => gruppeZiehenNach(g, p),
     onKlick: aufKarteGeklickt,
     onOrtWahl: waehleOrt,
     onOrtVerschieben: ortVerschieben,
@@ -7610,6 +8254,64 @@ const PlanerApp = () => {
     onUnterkarte: zurUnterkarte,
     onBilderHoch: ortBilderHoch,
     onBildWeg: ortBildWeg
+  }), heldengruppe && karte && /*#__PURE__*/React.createElement(GruppeTafel, {
+    key: heldengruppe.id,
+    gruppe: heldengruppe,
+    dm: dm,
+    karte: karte,
+    helden: helden,
+    gruppen: heldengruppen,
+    zieht: werkzeug === 'gruppeZiehen',
+    onSpeichern: g => objAendern({
+      ...g,
+      name: String(g.name || '').trim() || 'Heldengruppe'
+    }),
+    onLoeschen: g => objWeg(g, 'Gruppe löschen?', '„' + g.name + '“ wird mit ihrer Spur gelöscht. Die Bögen bleiben, der gelichtete Nebel auch.', async () => setGruppeWahl('')),
+    onSchliessen: () => setGruppeWahl(''),
+    onZiehenWaehlen: () => {
+      setPunkte([]);
+      setWerkzeug(v => v === 'gruppeZiehen' ? 'ansehen' : 'gruppeZiehen');
+    },
+    onZuruecknehmen: () => objAendern({
+      ...heldengruppe,
+      spur: heldengruppe.spur.slice(0, -1)
+    }),
+    onTeilen: async (g, ids) => {
+      const t = gruppeTeilen(g, ids, planNeueId('g'), zeit);
+      if (!t) return;
+      try {
+        await objSpeichern(t.alte);
+        await objSpeichern(t.neue);
+        await laden(advId);
+        waehleGruppe(t.neue.id);
+        setMeldung({
+          art: 'gut',
+          text: '✂ „' + t.neue.name + '“ zieht als eigene Gruppe los.'
+        });
+      } catch (e) {
+        fehler(e);
+      }
+    },
+    onVereinen: async (a, b) => {
+      // Die groessere Gruppe bleibt bestehen — mit ihrer ganzen Spur;
+      // die kleinere geht in ihr auf.
+      const [bleibt, geht] = (b.helden || []).length > (a.helden || []).length ? [b, a] : [a, b];
+      try {
+        await objSpeichern(gruppenVereinen(bleibt, geht, zeit));
+        await planerApi('planer_obj_loeschen', {
+          adv_id: advId,
+          obj_id: geht.id
+        });
+        await laden(advId);
+        waehleGruppe(bleibt.id);
+        setMeldung({
+          art: 'gut',
+          text: '⤵ „' + geht.name + '“ ist in „' + bleibt.name + '“ aufgegangen.'
+        });
+      } catch (e) {
+        fehler(e);
+      }
+    }
   }), figur && karte && /*#__PURE__*/React.createElement(FigurTafel, {
     key: figur.id,
     figur: figur,
@@ -7745,6 +8447,8 @@ const PlanerApp = () => {
     regionen: regionen,
     begegnungen: begegnungen || [],
     onNebelAufdecken: nebelAufdecken,
+    heldengruppen: heldengruppen,
+    onGruppeReist: gruppeReistMit,
     onSpeichern: j => objAendern({
       ...j,
       name: String(j.name || '').trim() || 'Reise'

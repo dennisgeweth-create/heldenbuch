@@ -947,7 +947,7 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
 // durch PHP zu schicken den Server in die Knie zwingt.
 const PLAN_MAX_JSON   = 400000;     // eine Karte oder ein Ort, ohne Bilder
 const PLAN_MAX_DATEI  = 25000000;   // eine einzelne Datei
-const PLAN_ARTEN      = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion'];
+const PLAN_ARTEN      = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion', 'gruppe'];
 // Was zum Abenteuer gehoert und nicht zu einer Karte. Einen eigenen
 // Ordner fuer Dateien hat davon nur das Handout.
 const PLAN_OHNE_KARTE = ['handout', 'quest', 'hinweis', 'fraktion'];
@@ -1056,6 +1056,12 @@ function planKarteAntwort(array $r, bool $dm): array {
 function planObjAntwort(array $r, bool $dm): array {
     $o = json_decode((string)$r['obj_json'], true) ?: [];
     if (!$dm) $o = planOhneDm($o);
+    // Die Spur einer Heldengruppe — wo sie ueberall war — bekommen Spieler
+    // nur, wenn die Spielleitung sie fuer diese Gruppe freigibt. Sonst nur
+    // den Punkt, an dem die Gruppe jetzt steht.
+    if (!$dm && (string)$r['art'] === 'gruppe' && empty($o['spurFuerSpieler']) && is_array($o['spur'] ?? null) && $o['spur']) {
+        $o['spur'] = [end($o['spur'])];
+    }
     return array_merge($o, ['id' => (string)$r['obj_id'], 'karteId' => (string)$r['karte_id'],
                             'art' => (string)$r['art'], 'sichtbar' => (bool)$r['sichtbar']]);
 }
@@ -2503,6 +2509,29 @@ switch ($action) {
         }
         respond(200, 'OK', ['nutzer' => ['id' => (int)$z['user']['id'], 'name' => (string)$z['user']['name']],
                             'rolle' => $z['rolle'], 'abenteuer' => $liste]);
+    }
+
+    // Die Boegen eines Abenteuers, fuer die Heldengruppen auf der Karte.
+    // Nur Kennung und Name — der Planer braucht keinen ganzen Bogen.
+    case 'planer_helden': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!planId($advId)) respond(400, 'Kein Abenteuer genannt.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $lib = json_decode((string)($z['row']['library_json'] ?? '{}'), true);
+        $advs = (is_array($lib) && is_array($lib['_adventures'] ?? null)) ? $lib['_adventures'] : [];
+        $erstes = (string)(($advs[0] ?? [])['id'] ?? '');
+        $st = $pdo->prepare("SELECT char_id, adv_id, char_json FROM hb_chars WHERE session_code=? AND (adv_id=? OR (adv_id IS NULL AND ?=?))");
+        $st->execute([$code, $advId, $advId, $erstes]);
+        $helden = [];
+        foreach ($st->fetchAll() as $r) {
+            $c = json_decode((string)$r['char_json'], true) ?: [];
+            if (!empty($c['archived'])) continue;
+            $helden[] = ['id' => (string)$r['char_id'], 'name' => mb_substr((string)($c['name'] ?? ''), 0, 100), 'nurDm' => !empty($c['dmOnly'])];
+        }
+        usort($helden, fn($a, $b) => strcmp($a['name'], $b['name']));
+        respond(200, 'OK', ['helden' => $helden]);
     }
 
     case 'planer_stand': {

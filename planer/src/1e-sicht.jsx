@@ -64,7 +64,9 @@ const spielerSicht = (daten) => {
   const karten = (daten.karten || []).filter(k => k.sichtbar).map(ohneDmFeld);
   const offen = new Set(karten.map(k => k.id));
   const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout' ? !(o.an || []).length
-    : PLAN_OHNE_KARTE.includes(o.art) && !o.karteId ? true : offen.has(o.karteId))).map(ohneDmFeld);
+    : PLAN_OHNE_KARTE.includes(o.art) && !o.karteId ? true : offen.has(o.karteId))).map(ohneDmFeld)
+    // Wie auf dem Server: die Spur einer Gruppe nur, wo sie freigegeben ist.
+    .map(o => o.art === 'gruppe' && !o.spurFuerSpieler && (o.spur || []).length ? { ...o, spur: [o.spur[o.spur.length - 1]] } : o);
   return { ...daten, dm: false, karten, objekte };
 };
 

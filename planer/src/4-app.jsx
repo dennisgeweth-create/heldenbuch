@@ -240,6 +240,8 @@ const offlineHolen = (schluessel) => { try { return JSON.parse(localStorage.getI
 const istNetzFehler = (e) => /nicht erreichbar/.test(String((e && e.message) || ''));
 
 const WERKZEUG_HINWEIS = {
+  gruppe: 'Klicke, wo die Heldengruppe steht. Dabei sind alle Bögen des Abenteuers, die noch keiner Gruppe angehören.',
+  gruppeZiehen: 'Klicke, wohin die Gruppe zieht. Der Nebel weicht entlang des Wegs.',
   figur: 'Klicke, wo die Figur zur eingestellten Zeit steht.',
   wegpunkt: 'Klicke, wo die Figur zur eingestellten Zeit sein soll.',
   nebel: 'Klicke, wo der Nebel weichen soll.',
@@ -283,6 +285,8 @@ const PlanerApp = () => {
   const tischZeit = useRef(0);
   const [chronikZeit, setChronikZeit] = useState(null);
   const [figurWahl, setFigurWahl] = useState('');
+  const [gruppeWahl, setGruppeWahl] = useState('');
+  const [helden, setHelden] = useState(null);
   const [geschichteWahl, setGeschichteWahl] = useState('');
   const [zeitRegler, setZeitRegler] = useState(null);
   const [offline, setOffline] = useState(null);
@@ -365,7 +369,7 @@ const PlanerApp = () => {
   const reise = reisen.find(r => r.id === reiseWahl) || null;
   const reiseRoute = reise ? routen.find(r => r.id === reise.routeId) || null : null;
   // Wo jede Gruppe gerade steht.
-  const gruppen = karte ? reisen.map(j => {
+  const gruppen = karte ? reisen.filter(j => !j.gruppeId).map(j => {
     const r = routen.find(x => x.id === j.routeId);
     if (!r) return null;
     const rr = routeInRichtung(r, j.richtung);
@@ -373,7 +377,9 @@ const PlanerApp = () => {
              punkt: karte.massstab ? punktAufRoute(rr, karte.massstab, j.pos || 0) : (rr.punkte || [])[0] };
   }).filter(Boolean) : [];
   // Nur eine Tafel zugleich.
-  const tafelZu = () => { setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); setHandoutWahl(''); setFigurWahl(''); setGeschichteWahl(''); };
+  const tafelZu = () => { setOrtWahl(''); setRouteWahl(''); setReiseWahl(''); setRegionWahl(''); setHandoutWahl(''); setFigurWahl(''); setGeschichteWahl(''); setGruppeWahl(''); };
+  const heldengruppen = daten && karte ? daten.objekte.filter(o => o.art === 'gruppe' && o.karteId === karte.id) : [];
+  const heldengruppe = heldengruppen.find(g => g.id === gruppeWahl) || null;
   const figurenRoh = daten && karte ? daten.objekte.filter(o => o.art === 'figur' && o.karteId === karte.id) : [];
   const zeitSpanne = zeitBereich(figurenRoh, chronikZeit);
   const zeit = zeitRegler != null ? zeitRegler : (chronikZeit != null ? chronikZeit : (karte && Number.isFinite(+karte.zeit) ? +karte.zeit : zeitSpanne.min));
@@ -429,6 +435,35 @@ const PlanerApp = () => {
   const waehleRegion = (id) => { if (id) tafelZu(); setRegionWahl(id); };
   const waehleHandout = (id) => { if (id) tafelZu(); setHandoutWahl(id); };
   const waehleFigur = (id) => { if (id) tafelZu(); setFigurWahl(id); };
+  const waehleGruppe = (id) => { if (id) tafelZu(); setGruppeWahl(id); };
+
+  // Die Boegen des Abenteuers, fuer die Heldengruppen.
+  useEffect(() => {
+    setHelden(null);
+    if (!dm || !advId) return;
+    planerApi('planer_helden', { adv_id: advId }).then(r => setHelden(r.helden || [])).catch(() => setHelden([]));
+  }, [dm, advId]);
+
+  // Eine Gruppe zieht: Spur speichern, dann den Nebel entlang des Wegs lichten.
+  const gruppeBewegt = async (ergebnis, meldung) => {
+    try {
+      await objSpeichern(ergebnis.gruppe);
+      if (nebel.an && ergebnis.kreise.length) await nebelSetzen([...nebel.flaechen, ...ergebnis.kreise]);
+      else await laden(advId);
+      if (meldung) setMeldung(meldung);
+    } catch (e) { fehler(e); }
+  };
+  const gruppeZiehenNach = (g, p) => {
+    const { punkt, ...rest } = g;
+    return gruppeBewegt(gruppeZiehen(rest, p, zeit, karte.massstab));
+  };
+  const gruppeReistMit = (g, punkte, stunden, startStunde) => {
+    const letzte = gruppePosition(g);
+    let von = zeit;
+    if (letzte && letzte.art === 'reise') von = Math.max(zeit, (Math.floor(letzte.zeit / 24) + 1) * 24 + startStunde);
+    else if (letzte) von = Math.max(zeit, letzte.zeit);
+    return gruppeBewegt(gruppeReist(g, punkte, von, stunden, karte.massstab));
+  };
   const waehleGeschichte = (id) => { if (id) tafelZu(); setGeschichteWahl(id); };
   // Von einer Quest zu ihrem Ort, auch auf einer anderen Karte.
   const zumOrt = (o) => {
@@ -664,6 +699,19 @@ const PlanerApp = () => {
       const neu = [...punkte, p].slice(-2);
       setPunkte(neu);
       if (neu.length === 2) setMassstabFrage(neu);
+      return;
+    }
+    if (werkzeug === 'gruppe' && dm && karte) {
+      const frei = heldenOhneGruppe((helden || []).filter(h => !h.nurDm), heldengruppen);
+      const g = neueGruppe(karte.id, p, zeit, frei.map(h => h.id), Object.fromEntries(frei.map(h => [h.id, h.name])));
+      setWerkzeug('ansehen');
+      await gruppeBewegt(gruppeZiehen({ ...g, spur: [] }, p, zeit, karte.massstab, 'start'));
+      waehleGruppe(g.id);
+      return;
+    }
+    if (werkzeug === 'gruppeZiehen' && dm && heldengruppe) {
+      setWerkzeug('ansehen');
+      gruppeZiehenNach(heldengruppe, p);
       return;
     }
     if (werkzeug === 'figur' && dm && karte) {
@@ -904,7 +952,7 @@ const PlanerApp = () => {
       ) : !daten ? (
         <div className="pl-buehne-leer"><p>Lädt …</p></div>
       ) : (
-        <main className={'pl-haupt-flaeche' + (ort || route || region || handout || figur || geschichte || (reise && reiseRoute) ? ' mit-tafel' : '')}>
+        <main className={'pl-haupt-flaeche' + (ort || route || region || handout || figur || geschichte || heldengruppe || (reise && reiseRoute) ? ' mit-tafel' : '')}>
           <div className="pl-spalte">
             <PlanerKartenListe karten={karten} auswahl={auswahl} dm={dm}
               onWahl={(id) => { setAuswahl(id); setVerlauf([]); }} onNeu={neueKarte}
@@ -922,6 +970,8 @@ const PlanerApp = () => {
                 const n = art === 'quest' ? neueQuest() : art === 'hinweis' ? neuerHinweis() : neueFraktion();
                 try { await objSpeichern(n); await laden(advId); waehleGeschichte(n.id); } catch (e) { fehler(e); }
               }} />
+            {karte && <PlanerGruppenListe gruppen={heldengruppen} wahl={gruppeWahl} dm={dm}
+              onWahl={(g) => { waehleGruppe(g.id); const p = gruppePosition(g); if (p) setFokus({ x: p.x, y: p.y, n: Date.now() }); }} />}
             {karte && <PlanerRegionListe regionen={regionen} regionWahl={regionWahl} dm={dm}
               onWahl={(r) => { waehleRegion(r.id); setFokus({ ...polygonMitte(r.punkte), n: Date.now() }); }} />}
             {karte && <PlanerWegListe routen={routen} reisen={reisen} routeWahl={routeWahl} reiseWahl={reiseWahl} dm={dm}
@@ -945,6 +995,7 @@ const PlanerApp = () => {
                   {dm && <button className="pl-knopf pl-klein" onClick={() => bildEingabe.current && bildEingabe.current.click()}>🖼 {karte.bild ? 'Bild ersetzen' : 'Kartenbild'}</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'ort' ? ' an' : '')} aria-pressed={werkzeug === 'ort'} onClick={() => werkzeugWaehlen('ort')}>📍 Ort setzen</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'massstab' ? ' an' : '')} aria-pressed={werkzeug === 'massstab'} onClick={() => werkzeugWaehlen('massstab')}>📏 Maßstab</button>}
+                  {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'gruppe' ? ' an' : '')} aria-pressed={werkzeug === 'gruppe'} onClick={() => werkzeugWaehlen('gruppe')}>🛡 Gruppe</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'figur' ? ' an' : '')} aria-pressed={werkzeug === 'figur'} onClick={() => werkzeugWaehlen('figur')}>🧍 Figur</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'nebel' ? ' an' : '')} aria-pressed={werkzeug === 'nebel'} onClick={() => werkzeugWaehlen('nebel')}>☁ Nebel</button>}
                   {dm && karte.bild && <button className={'pl-knopf pl-klein' + (werkzeug === 'region' ? ' an' : '')} aria-pressed={werkzeug === 'region'} onClick={() => werkzeugWaehlen('region')}>⬡ Region</button>}
@@ -1011,6 +1062,8 @@ const PlanerApp = () => {
                 figuren={figuren} figurWahl={figurWahl} onFigurWahl={waehleFigur}
                 onFigurVerschieben={(f, p) => { const { punkt, ...rest } = f; objAendern(wegpunktSetzen(rest, zeit, p)); }}
                 hex={dm || (karte.hex && karte.hex.spieler) ? karte.hex : null} questOrte={questOrte}
+                heldengruppen={heldengruppen} gruppeWahl={gruppeWahl} onGruppeWahl={waehleGruppe}
+                onGruppeZiehen={(g, p) => gruppeZiehenNach(g, p)}
                 onKlick={aufKarteGeklickt} onOrtWahl={waehleOrt} onOrtVerschieben={ortVerschieben}
                 onBildWaehlen={() => bildEingabe.current && bildEingabe.current.click()} />
               <dl className="pl-fakten pl-fakten-quer">
@@ -1027,6 +1080,29 @@ const PlanerApp = () => {
               quests={quests.filter(q => q.zielOrt === ort.id)} onGeschichte={(o) => waehleGeschichte(o.id)} onMeldung={setMeldung}
               onSpeichern={ortSpeichern} onLoeschen={ortLoeschen} onSchliessen={() => setOrtWahl('')}
               onUnterkarte={zurUnterkarte} onBilderHoch={ortBilderHoch} onBildWeg={ortBildWeg} />
+          )}
+          {heldengruppe && karte && (
+            <GruppeTafel key={heldengruppe.id} gruppe={heldengruppe} dm={dm} karte={karte} helden={helden} gruppen={heldengruppen}
+              zieht={werkzeug === 'gruppeZiehen'}
+              onSpeichern={(g) => objAendern({ ...g, name: String(g.name || '').trim() || 'Heldengruppe' })}
+              onLoeschen={(g) => objWeg(g, 'Gruppe löschen?', '„' + g.name + '“ wird mit ihrer Spur gelöscht. Die Bögen bleiben, der gelichtete Nebel auch.', async () => setGruppeWahl(''))}
+              onSchliessen={() => setGruppeWahl('')}
+              onZiehenWaehlen={() => { setPunkte([]); setWerkzeug(v => v === 'gruppeZiehen' ? 'ansehen' : 'gruppeZiehen'); }}
+              onZuruecknehmen={() => objAendern({ ...heldengruppe, spur: heldengruppe.spur.slice(0, -1) })}
+              onTeilen={async (g, ids) => {
+                const t = gruppeTeilen(g, ids, planNeueId('g'), zeit);
+                if (!t) return;
+                try { await objSpeichern(t.alte); await objSpeichern(t.neue); await laden(advId); waehleGruppe(t.neue.id);
+                  setMeldung({ art: 'gut', text: '✂ „' + t.neue.name + '“ zieht als eigene Gruppe los.' }); } catch (e) { fehler(e); }
+              }}
+              onVereinen={async (a, b) => {
+                // Die groessere Gruppe bleibt bestehen — mit ihrer ganzen Spur;
+                // die kleinere geht in ihr auf.
+                const [bleibt, geht] = (b.helden || []).length > (a.helden || []).length ? [b, a] : [a, b];
+                try { await objSpeichern(gruppenVereinen(bleibt, geht, zeit)); await planerApi('planer_obj_loeschen', { adv_id: advId, obj_id: geht.id }); await laden(advId);
+                  waehleGruppe(bleibt.id);
+                  setMeldung({ art: 'gut', text: '⤵ „' + geht.name + '“ ist in „' + bleibt.name + '“ aufgegangen.' }); } catch (e) { fehler(e); }
+              }} />
           )}
           {figur && karte && (
             <FigurTafel key={figur.id} figur={figur} dm={dm} zeit={zeit} wegpunktWartet={werkzeug === 'wegpunkt'}
@@ -1084,6 +1160,7 @@ const PlanerApp = () => {
           {reise && reiseRoute && karte && (
             <ReiseTafel key={reise.id} reise={reise} route={reiseRoute} dm={dm} karte={karte} advId={advId} chronikZeit={chronikZeit}
               regionen={regionen} begegnungen={begegnungen || []} onNebelAufdecken={nebelAufdecken}
+              heldengruppen={heldengruppen} onGruppeReist={gruppeReistMit}
               onSpeichern={(j) => objAendern({ ...j, name: String(j.name || '').trim() || 'Reise' })}
               onLoeschen={(j) => objWeg(j, 'Reise löschen?', '„' + j.name + '“ wird gelöscht. Die Route bleibt.', async () => setReiseWahl(''))}
               onSchliessen={() => setReiseWahl('')} onMeldung={setMeldung} />

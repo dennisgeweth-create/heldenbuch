@@ -249,7 +249,7 @@ const HBPLAN_MANIFEST = 'hbplan.json';
 // annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
-const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion'];
+const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion', 'gruppe'];
 // Dieselbe Liste wie PLAN_OHNE_KARTE in api.php.
 const PLAN_OHNE_KARTE = ['handout', 'quest', 'hinweis', 'fraktion'];
 

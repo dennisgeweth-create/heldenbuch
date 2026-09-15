@@ -1258,6 +1258,30 @@ $r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 
 pruefe('ein Ort braucht weiter eine Karte (404)', $r['status'] === 404, kurz($r));
 foreach (['q_testquest01', 'n_testhinweis1', 'f_testfrakt01'] as $qid) ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => $qid]);
 
+abschnitt('Abenteuerplaner: Heldengruppen');
+$r = ruf('planer_helden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$hIds = array_column((array)($r['body']['helden'] ?? []), 'id');
+pruefe('planer_helden nennt die Bögen des Abenteuers (200)', $r['status'] === 200 && in_array('h1', $hIds, true), kurz($r) . ' ' . json_encode($hIds));
+pruefe('  … nur Kennung und Name, kein ganzer Bogen', array_keys(($r['body']['helden'][0] ?? [])) === ['id', 'name', 'nurDm']);
+$r = ruf('planer_helden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('  … nur für die Spielleitung (403)', $r['status'] === 403, kurz($r));
+ruf('planer_karte_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte' => ['id' => 'k_testgruppe01', 'name' => 'Gruppenkarte', 'sichtbar' => true]]);
+$spur = [['zeit' => 10, 'x' => 1, 'y' => 1], ['zeit' => 20, 'x' => 50, 'y' => 60], ['zeit' => 30, 'x' => 90, 'y' => 99]];
+foreach ([['g_testoffen001', true], ['g_testzu000001', false]] as [$gid, $offenSpur]) {
+    $r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+        'obj' => ['id' => $gid, 'art' => 'gruppe', 'karteId' => 'k_testgruppe01', 'sichtbar' => true, 'name' => 'Gruppe', 'helden' => ['h1'], 'spur' => $spur, 'spurFuerSpieler' => $offenSpur]]);
+    pruefe('eine Heldengruppe wird gespeichert (201)', $r['status'] === 201, kurz($r));
+}
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$gr = [];
+foreach ((array)$r['body']['objekte'] as $o) if (($o['art'] ?? '') === 'gruppe') $gr[$o['id']] = $o;
+pruefe('der Spieler bekommt die freigegebene Spur ganz', count($gr['g_testoffen001']['spur'] ?? []) === 3);
+pruefe('  … von der anderen nur den Punkt, an dem sie jetzt steht', ($gr['g_testzu000001']['spur'] ?? null) === [['zeit' => 30, 'x' => 90, 'y' => 99]], json_encode($gr['g_testzu000001']['spur'] ?? null));
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$gz = array_values(array_filter((array)$r['body']['objekte'], fn($o) => $o['id'] === 'g_testzu000001'))[0] ?? [];
+pruefe('  … die Spielleitung sieht beide ganz', count($gz['spur'] ?? []) === 3);
+ruf('planer_karte_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testgruppe01']);
+
 abschnitt('Abenteuerplaner: Loeschen');
 $r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'o_testburg01']);
 pruefe('ein Ort wird geloescht (200)', $r['status'] === 200, kurz($r));
