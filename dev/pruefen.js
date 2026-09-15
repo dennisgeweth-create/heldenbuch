@@ -71,4 +71,5 @@ console.log(dateien.length + ' Dateien · ' + gut + ' Pruefungen gut, '
 // lang gefehlt.
 console.log('\nDie Oberflaeche prueft das hier nicht. Wer an der Anwendung war:');
 console.log('    python devserver.py   →   http://localhost:8777/dev/echt.html');
+console.log('                              http://localhost:8777/dev/planer-echt.html');
 process.exit(schlecht || kaputt ? 1 : 0);

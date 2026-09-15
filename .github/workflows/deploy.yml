@@ -52,7 +52,7 @@ jobs:
       # waere nach der ersten Auslieferung veraltet.
       - name: Prepare deploy files
         run: |
-          mkdir -p deploy/js deploy/vendor
+          mkdir -p deploy/js deploy/vendor deploy/planer
           cp .htaccess api.php apple-touch-icon.png favicon.png logo.png index.html styles.css deploy/
           cp PATCHNOTES.md deploy/
           # Die Vorfuehrung geht mit: sie ist der Link, den man weitergibt,
@@ -64,11 +64,15 @@ jobs:
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
           cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
+          # Der Abenteuerplaner: eigene Seite, eigenes Buendel. Seine
+          # Dateiablage planer-dateien/ legt api.php auf dem Server selbst
+          # an; sie steht nicht im Repo und wird hier nie beruehrt.
+          cp planer/index.html planer/planer.css planer/planer.js deploy/planer/
           # Cache-Sperre loesen: styles.css und js/*.js liegen seit der
           # Aufteilung in eigenen Dateien und wuerden sonst aus dem Cache
           # kommen, waehrend index.html schon neu ist. Der Commit-Hash macht
           # jede Auslieferung zu einer neuen URL.
-          sed -i "s/?v=dev/?v=${GITHUB_SHA:0:8}/g" deploy/index.html deploy/demo.html
+          sed -i "s/?v=dev/?v=${GITHUB_SHA:0:8}/g" deploy/index.html deploy/demo.html deploy/planer/index.html
           echo "Asset-Version: ${GITHUB_SHA:0:8}"
           grep -o 'href="styles.css?[^"]*"' deploy/index.html
           echo "Zu übertragen:"
@@ -100,7 +104,7 @@ jobs:
         if: env.SFTP_HOST != ''
         run: |
           FAIL=0
-          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/app.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js"
+          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/app.js planer/index.html planer/planer.css planer/planer.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

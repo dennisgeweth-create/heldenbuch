@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Abenteuerplaner · Heldenbuch</title>
+  <link rel="icon" type="image/png" href="../favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap" />
+  <link rel="stylesheet" href="planer.css?v=dev" />
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+</head>
+<body>
+  <div id="root"><div class="pl-laedt">🗺 Abenteuerplaner lädt …</div></div>
+
+  <script>
+    window.onerror = function (msg, src, line) {
+      var el = document.getElementById('root');
+      el.innerHTML = '<div class="pl-laedt pl-kaputt"></div>';
+      el.firstChild.textContent = 'Fehler: ' + msg + ' (Zeile ' + line + ')';
+    };
+
+    // ── Die Wege nach draussen ──────────────────────────────────
+    // Dieselbe Anmeldung wie im Heldenbuch: sv_token, sv_code und
+    // notfalls sv_url liegen im selben Speicher, weil der Planer unter
+    // derselben Adresse wohnt. Eine eigene Anmeldemaske gibt es nicht.
+    //
+    // api.php liegt eine Ebene hoeher: aus /heldenbuch2/planer/ wird
+    // /heldenbuch2.
+    const planerServer = () => {
+      try {
+        const eigen = localStorage.getItem('sv_url');
+        if (eigen) return eigen.replace(/\/+$/, '');
+      } catch (e) { /* ohne Speicher */ }
+      return location.origin + location.pathname.replace(/\/planer(\/[^\/]*)?$/, '');
+    };
+    const planerZugang = () => {
+      try {
+        return { url: planerServer(), code: localStorage.getItem('sv_code') || '', token: localStorage.getItem('sv_token') || '' };
+      } catch (e) { return { url: planerServer(), code: '', token: '' }; }
+    };
+    async function planerApi(action, payload) {
+      const z = planerZugang();
+      let res;
+      try {
+        res = await fetch(z.url + '/api.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ action: action, code: z.code, token: z.token }, payload)),
+        });
+      } catch (e) {
+        throw new Error('Server nicht erreichbar.');
+      }
+      let data;
+      try { data = await res.json(); } catch (e) { throw new Error('Der Server antwortete nicht verständlich (' + res.status + ').'); }
+      if (!data.ok) {
+        const f = new Error(data.message || ('Serverfehler ' + res.status));
+        f.status = res.status;
+        throw f;
+      }
+      return data;
+    }
+    // Die Dateien einer Karte liefert der Webserver direkt aus.
+    const planerDateiUrl = (ablage, pfad) => planerServer() + '/planer-dateien/' + ablage + '/' + pfad;
+    async function planerDateiHolen(ablage, pfad) {
+      const res = await fetch(planerDateiUrl(ablage, pfad), { cache: 'no-store' });
+      if (!res.ok) throw new Error('Die Datei ' + pfad + ' ließ sich nicht holen (' + res.status + ').');
+      return new Uint8Array(await res.arrayBuffer());
+    }
+    function planerSpeichern(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+  </script>
+  <script src="planer.js?v=dev"></script>
+  <script>planerStarten(document.getElementById('root'));</script>
+</body>
+</html>

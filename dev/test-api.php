@@ -1077,6 +1077,133 @@ pruefe('die Spielleitung beendet sie (200)', $r['status'] === 200, kurz($r));
 $r = ruf('rast_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
 pruefe('danach ist keine mehr da', array_key_exists('rast', $r['body']) && $r['body']['rast'] === null, kurz($r));
 
+// ════════════════════════════════════════════════════════════════
+//  Der Abenteuerplaner
+// ════════════════════════════════════════════════════════════════
+abschnitt('Abenteuerplaner: Start und Karten');
+$r = ruf('planer_start', ['code' => $code, 'token' => $tDm]);
+$advPl = [];
+foreach ((array)($r['body']['abenteuer'] ?? []) as $a) $advPl[$a['id']] = $a;
+pruefe('planer_start nennt die Abenteuer (200)', $r['status'] === 200 && isset($advPl['strahd']), kurz($r));
+pruefe('  … und dass die Spielleitung Strahd leitet', ($advPl['strahd']['leitest'] ?? null) === true);
+$r = ruf('planer_start', ['code' => $code, 'token' => $tSpieler]);
+$advSp = [];
+foreach ((array)($r['body']['abenteuer'] ?? []) as $a) $advSp[$a['id']] = $a;
+pruefe('  … der Spieler leitet es nicht', ($advSp['strahd']['leitest'] ?? null) === false, kurz($r));
+$r = ruf('planer_start', ['code' => $code]);
+pruefe('ohne Anmeldung gibt es nichts (403)', $r['status'] === 403, kurz($r));
+
+$karteA = ['id' => 'k_testbarovia01', 'name' => 'Barovia', 'sichtbar' => true,
+           'bild' => ['breite' => 512, 'hoehe' => 256], 'dm' => ['notiz' => 'Strahd wohnt im Norden']];
+$karteB = ['id' => 'k_testgeheim01', 'name' => 'Amber-Tempel', 'sichtbar' => false];
+$r = ruf('planer_karte_speichern', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'karte' => $karteA]);
+pruefe('ein Spieler legt keine Karte an (403)', $r['status'] === 403, kurz($r));
+$r = ruf('planer_karte_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte' => $karteA]);
+pruefe('die Spielleitung legt eine Karte an (201)', $r['status'] === 201, kurz($r));
+$ablageA = (string)($r['body']['karte']['ablage'] ?? '');
+pruefe('  … sie bekommt eine zufaellige Ablage', preg_match('/^[0-9a-f]{32}$/', $ablageA) === 1, $ablageA);
+$r = ruf('planer_karte_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                                    'karte' => array_merge($karteA, ['name' => 'Barovia (Tal)'])]);
+pruefe('erneut speichern aendert sie (200)', $r['status'] === 200 && ($r['body']['karte']['name'] ?? '') === 'Barovia (Tal)', kurz($r));
+pruefe('  … und die Ablage bleibt dieselbe', ($r['body']['karte']['ablage'] ?? '') === $ablageA);
+$r = ruf('planer_karte_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte' => $karteB]);
+pruefe('eine verborgene Karte (201)', $r['status'] === 201, kurz($r));
+$r = ruf('planer_karte_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                                    'karte' => ['id' => 'k_ohne_namen', 'name' => '  ']]);
+pruefe('ohne Namen geht es nicht (400)', $r['status'] === 400, kurz($r));
+$r = ruf('planer_karte_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                                    'karte' => ['id' => '../boese', 'name' => 'X']]);
+pruefe('eine Kennung mit Pfadzeichen wird abgewiesen (400)', $r['status'] === 400, kurz($r));
+
+abschnitt('Abenteuerplaner: Orte und was Spieler sehen');
+$ortOffen  = ['id' => 'o_testdorf01', 'karteId' => 'k_testbarovia01', 'art' => 'ort', 'sichtbar' => true,
+              'name' => 'Dorf Barovia', 'dm' => ['notiz' => 'Ireena ist hier']];
+$ortZu     = ['id' => 'o_testburg01', 'karteId' => 'k_testbarovia01', 'art' => 'ort', 'sichtbar' => false, 'name' => 'Ravenloft'];
+$ortTempel = ['id' => 'o_testtempel1', 'karteId' => 'k_testgeheim01', 'art' => 'ort', 'sichtbar' => true, 'name' => 'Eingang'];
+foreach ([$ortOffen, $ortZu, $ortTempel] as $o) {
+    $r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj' => $o]);
+    pruefe('Ort ' . $o['name'] . ' angelegt (201)', $r['status'] === 201, kurz($r));
+}
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                                  'obj' => array_merge($ortOffen, ['id' => 'o_testfalsch', 'art' => 'drache'])]);
+pruefe('eine unbekannte Art wird abgewiesen (400)', $r['status'] === 400, kurz($r));
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                                  'obj' => array_merge($ortOffen, ['id' => 'o_testwaise', 'karteId' => 'k_gibtsnicht'])]);
+pruefe('ein Ort ohne vorhandene Karte wird abgewiesen (404)', $r['status'] === 404, kurz($r));
+$r = ruf('planer_obj_speichern', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'obj' => $ortOffen]);
+pruefe('ein Spieler legt keinen Ort an (403)', $r['status'] === 403, kurz($r));
+
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('die Spielleitung laedt zwei Karten und drei Orte',
+       $r['status'] === 200 && count($r['body']['karten'] ?? []) === 2 && count($r['body']['objekte'] ?? []) === 3, kurz($r));
+pruefe('  … samt ihrer Notizen', (($r['body']['karten'][0]['dm']['notiz'] ?? '') !== '') || (($r['body']['karten'][1]['dm']['notiz'] ?? '') !== ''));
+pruefe('  … und weiss, dass sie leitet', ($r['body']['dm'] ?? null) === true);
+$standVorher = (int)($r['body']['stand'] ?? 0);
+pruefe('  … der Stand zaehlt jede Aenderung', $standVorher >= 5, (string)$standVorher);
+
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$kSp = (array)($r['body']['karten'] ?? []);
+$oSp = (array)($r['body']['objekte'] ?? []);
+pruefe('der Spieler sieht nur die sichtbare Karte', count($kSp) === 1 && ($kSp[0]['id'] ?? '') === 'k_testbarovia01', json_encode(array_column($kSp, 'id')));
+pruefe('  … ohne die Notiz der Spielleitung', !array_key_exists('dm', $kSp[0] ?? []));
+pruefe('  … und nur den sichtbaren Ort darauf', count($oSp) === 1 && ($oSp[0]['id'] ?? '') === 'o_testdorf01', json_encode(array_column($oSp, 'id')));
+pruefe('  … der sichtbare Ort auf der verborgenen Karte bleibt verborgen',
+       !in_array('o_testtempel1', array_column($oSp, 'id'), true));
+pruefe('  … auch dessen Notiz ist weg', !array_key_exists('dm', $oSp[0] ?? []));
+$r = ruf('planer_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+pruefe('planer_stand nennt denselben Stand', (int)($r['body']['stand'] ?? -1) === $standVorher, kurz($r));
+
+abschnitt('Abenteuerplaner: Dateiablage');
+$png  = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+$webp = 'RIFF' . pack('V', 26) . 'WEBPVP8L' . str_repeat("\0", 14);
+$hoch = fn(string $tok, string $karte, array $dateien) => ruf('planer_dateien_hoch',
+    ['code' => $code, 'token' => $tok, 'adv_id' => 'strahd', 'karte_id' => $karte, 'dateien' => $dateien]);
+$r = $hoch($tSpieler, 'k_testbarovia01', [['pfad' => 'kacheln/0/0/0.png', 'daten' => base64_encode($png)]]);
+pruefe('ein Spieler laedt nichts hoch (403)', $r['status'] === 403, kurz($r));
+$r = $hoch($tDm, 'k_testbarovia01', [['pfad' => 'kacheln/0/0/0.png',  'daten' => base64_encode($png)],
+                                     ['pfad' => 'kacheln/1/0/0.webp', 'daten' => base64_encode($webp)],
+                                     ['pfad' => 'karte.json',         'daten' => base64_encode('{"stufen":2}')]]);
+pruefe('die Spielleitung laedt drei Dateien hoch (201)', $r['status'] === 201 && ($r['body']['anzahl'] ?? 0) === 3, kurz($r));
+foreach (['../../api.php', 'kacheln/../../x.png', '.htaccess', 'boese.php', 'bild.PNG', 'a/b.png.php', 'kacheln\\0.png'] as $pf) {
+    $r = $hoch($tDm, 'k_testbarovia01', [['pfad' => $pf, 'daten' => base64_encode($png)]]);
+    pruefe('abgewiesen: ' . $pf . ' (400)', $r['status'] === 400, kurz($r));
+}
+$r = $hoch($tDm, 'k_testbarovia01', [['pfad' => 'kacheln/0/0/1.png', 'daten' => base64_encode($png)],
+                                     ['pfad' => 'getarnt.png', 'daten' => base64_encode('<?php echo 1;')]]);
+pruefe('ein Bild, das keines ist, wird abgewiesen (415)', $r['status'] === 415, kurz($r));
+$r = ruf('planer_dateien_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
+$pfade = array_column((array)($r['body']['dateien'] ?? []), 'pfad');
+pruefe('  … und das ganze Buendel bleibt draussen, auch die gute Datei davor',
+       !in_array('kacheln/0/0/1.png', $pfade, true), json_encode($pfade));
+pruefe('die Liste nennt genau die drei Dateien',
+       $pfade === ['kacheln/0/0/0.png', 'kacheln/1/0/0.webp', 'karte.json'], json_encode($pfade));
+pruefe('  … mit ihrer Groesse', (int)($r['body']['bytes'] ?? 0) === strlen($png) + strlen($webp) + 12, (string)($r['body']['bytes'] ?? ''));
+$dateiUrl = preg_replace('#/api\.php$#', '', $BASIS) . '/planer-dateien/' . $ablageA . '/kacheln/0/0/0.png';
+$geholt = @file_get_contents($dateiUrl);
+pruefe('die Kachel liegt unter ihrer Adresse', $geholt === $png, $dateiUrl);
+pruefe('die Ablage hat ihre .htaccess', is_file(__DIR__ . '/../planer-dateien/.htaccess'));
+$r = ruf('planer_dateien_liste', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
+pruefe('die Dateiliste ist Sache der Spielleitung (403)', $r['status'] === 403, kurz($r));
+
+abschnitt('Abenteuerplaner: Loeschen');
+$r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'o_testburg01']);
+pruefe('ein Ort wird geloescht (200)', $r['status'] === 200, kurz($r));
+$r = ruf('planer_obj_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'obj_id' => 'o_testburg01']);
+pruefe('  … ein zweites Mal ist er nicht mehr da (404)', $r['status'] === 404, kurz($r));
+$r = ruf('planer_dateien_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
+$r2 = ruf('planer_dateien_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
+pruefe('planer_dateien_weg leert die Ablage', $r['status'] === 200 && ($r2['body']['dateien'] ?? null) === [], kurz($r));
+$hoch($tDm, 'k_testbarovia01', [['pfad' => 'kacheln/0/0/0.png', 'daten' => base64_encode($png)]]);
+$r = ruf('planer_karte_loeschen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
+pruefe('ein Spieler loescht keine Karte (403)', $r['status'] === 403, kurz($r));
+$r = ruf('planer_karte_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testbarovia01']);
+pruefe('die Spielleitung loescht die Karte (200)', $r['status'] === 200, kurz($r));
+pruefe('  … samt ihrem Ordner', !is_dir(__DIR__ . '/../planer-dateien/' . $ablageA));
+$r = ruf('planer_laden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('  … und ihren Orten', !in_array('o_testdorf01', array_column((array)($r['body']['objekte'] ?? []), 'id'), true)
+       && count($r['body']['karten'] ?? []) === 1, kurz($r));
+ruf('planer_karte_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testgeheim01']);
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

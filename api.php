@@ -298,6 +298,51 @@ $pdo->exec("
         CONSTRAINT fk_hbra_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    -- ── Abenteuerplaner ─────────────────────────────────────
+    -- Karten und alles, was darauf liegt, je Abenteuer. Die Bilder
+    -- liegen nicht hier, sondern als Dateien unter planer-dateien/ —
+    -- ablage ist der zufaellige Ordnername einer Karte. sichtbar
+    -- entscheidet der Server, nicht die Anwendung: was ein Spieler nicht
+    -- sehen soll, geht gar nicht erst hinaus.
+    CREATE TABLE IF NOT EXISTS hb_plan_karte (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        karte_id     VARCHAR(50) NOT NULL,
+        ablage       CHAR(32)    NOT NULL,
+        sichtbar     TINYINT(1)  NOT NULL DEFAULT 0,
+        karte_json   MEDIUMTEXT  NOT NULL,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_code, karte_id),
+        KEY idx_plank_adv (session_code, adv_id),
+        CONSTRAINT fk_hbpk_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- Orte, Routen, Figuren, Regionen: eine Tabelle, die Art steht dabei.
+    CREATE TABLE IF NOT EXISTS hb_plan_obj (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        obj_id       VARCHAR(50) NOT NULL,
+        karte_id     VARCHAR(50) NOT NULL,
+        art          VARCHAR(20) NOT NULL,
+        sichtbar     TINYINT(1)  NOT NULL DEFAULT 0,
+        obj_json     MEDIUMTEXT  NOT NULL,
+        updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (session_code, obj_id),
+        KEY idx_plano_karte (session_code, karte_id),
+        KEY idx_plano_adv (session_code, adv_id),
+        CONSTRAINT fk_hbpo2_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- Zaehlt jede Aenderung am Planer eines Abenteuers. Ein Geraet fragt
+    -- nur die Zahl und laedt erst, wenn sie sich bewegt hat.
+    CREATE TABLE IF NOT EXISTS hb_plan_stand (
+        session_code VARCHAR(20) NOT NULL,
+        adv_id       VARCHAR(50) NOT NULL,
+        stand        BIGINT      NOT NULL DEFAULT 1,
+        PRIMARY KEY (session_code, adv_id),
+        CONSTRAINT fk_hbps_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     CREATE TABLE IF NOT EXISTS hb_logs (
         id           INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
         session_code VARCHAR(20)  NOT NULL,
@@ -891,6 +936,117 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
         foreach ($nach as $z2) $up->execute($z2);
     }
     return ['chars' => $chars, 'owners' => $besitz, 'updated_at' => $latestTs];
+}
+
+// ── Abenteuerplaner ─────────────────────────────────────────────
+// Die Dateien einer Karte liegen unter planer-dateien/<ablage>/. Der
+// Ordnername ist zufaellig und 32 Zeichen lang: wer ihn nicht bekommt,
+// findet die Kacheln nicht — und ein Spieler bekommt ihn nur fuer
+// Karten, die sichtbar sind. Ausgeliefert werden sie vom Webserver
+// direkt, weil eine Karte aus Tausenden Kacheln besteht und jede davon
+// durch PHP zu schicken den Server in die Knie zwingt.
+const PLAN_MAX_JSON   = 400000;     // eine Karte oder ein Ort, ohne Bilder
+const PLAN_MAX_DATEI  = 25000000;   // eine einzelne Datei
+const PLAN_ARTEN      = ['ort', 'route', 'figur', 'region', 'notiz', 'tabelle'];
+// Nur Namen, die der Planer selbst vergibt: Kleinbuchstaben, Ziffern,
+// Strich und Unterstrich; Punkte nur vor der Endung. Damit gibt es kein
+// .. und keine versteckte Datei, und die Endung ist immer eine der vier.
+const PLAN_PFAD = '#^(?:[a-z0-9][a-z0-9_-]{0,40}/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$#';
+
+function planAblageWurzel(): string {
+    return __DIR__ . '/planer-dateien';
+}
+function planId(string $id): bool {
+    return preg_match('/^[A-Za-z0-9_-]{3,50}$/', $id) === 1;
+}
+function planStandHoch(PDO $pdo, string $code, string $advId): int {
+    $pdo->prepare("INSERT INTO hb_plan_stand (session_code, adv_id, stand) VALUES(?,?,1)
+                   ON DUPLICATE KEY UPDATE stand=stand+1")->execute([$code, $advId]);
+    return planStand($pdo, $code, $advId);
+}
+function planStand(PDO $pdo, string $code, string $advId): int {
+    $st = $pdo->prepare("SELECT stand FROM hb_plan_stand WHERE session_code=? AND adv_id=?");
+    $st->execute([$code, $advId]);
+    return (int)($st->fetchColumn() ?: 0);
+}
+// Was nur die Spielleitung liest, steht in jedem Eintrag unter dm.
+// Eine Regel fuer alles, was noch kommt: Orte, Figuren, Tabellen.
+function planOhneDm(array $o): array {
+    unset($o['dm']);
+    return $o;
+}
+// Der Ordner der Karte. Beim ersten Schreiben wird er angelegt, und mit
+// ihm die Wurzel samt ihrer .htaccess — die verbietet Verzeichnislisten
+// und das Ausfuehren von allem, was nach Programm aussieht. Hochladen
+// laesst sich dergleichen ohnehin nicht, siehe PLAN_PFAD.
+function planOrdner(string $ablage, bool $anlegen): string {
+    if (!preg_match('/^[0-9a-f]{32}$/', $ablage)) respond(500, 'Ablage ungültig.');
+    $wurzel = planAblageWurzel();
+    if ($anlegen && !is_dir($wurzel)) {
+        if (!@mkdir($wurzel, 0755, true) && !is_dir($wurzel)) respond(500, 'Der Ordner planer-dateien lässt sich nicht anlegen.');
+    }
+    if ($anlegen && !is_file($wurzel . '/.htaccess')) {
+        @file_put_contents($wurzel . '/.htaccess',
+            "Options -Indexes\n"
+          . "<IfModule mod_mime.c>\n  RemoveHandler .php .phtml .phar .cgi .pl .py\n</IfModule>\n"
+          . "<FilesMatch \"\\.(php|phtml|phar|cgi|pl|py|sh|htaccess)$\">\n  Require all denied\n</FilesMatch>\n"
+          . "<IfModule mod_headers.c>\n  Header set X-Content-Type-Options nosniff\n</IfModule>\n");
+    }
+    $ordner = $wurzel . '/' . $ablage;
+    if ($anlegen && !is_dir($ordner)) {
+        if (!@mkdir($ordner, 0755, true) && !is_dir($ordner)) respond(500, 'Der Kartenordner lässt sich nicht anlegen.');
+    }
+    return $ordner;
+}
+function planOrdnerLeeren(string $ordner, bool $selbst): void {
+    if (!is_dir($ordner)) return;
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($ordner, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($it as $f) { $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname()); }
+    if ($selbst) @rmdir($ordner);
+}
+// Stimmt der Inhalt mit der Endung? Ein Bild, das keines ist, bleibt
+// draussen — auch dann, wenn es nur ein Versehen war.
+function planInhaltPasst(string $endung, string $daten): bool {
+    switch ($endung) {
+        case 'png':  return strncmp($daten, "\x89PNG\r\n\x1a\n", 8) === 0;
+        case 'jpg':
+        case 'jpeg': return strncmp($daten, "\xFF\xD8\xFF", 3) === 0;
+        case 'webp': return strlen($daten) > 12 && substr($daten, 0, 4) === 'RIFF' && substr($daten, 8, 4) === 'WEBP';
+        case 'json': json_decode($daten); return json_last_error() === JSON_ERROR_NONE;
+    }
+    return false;
+}
+// Karte lesen und dabei pruefen, dass sie zu diesem Abenteuer gehoert.
+function planKarte(PDO $pdo, string $code, string $advId, string $karteId): array {
+    $st = $pdo->prepare("SELECT karte_id, ablage, sichtbar, karte_json FROM hb_plan_karte
+                         WHERE session_code=? AND adv_id=? AND karte_id=?");
+    $st->execute([$code, $advId, $karteId]);
+    $r = $st->fetch();
+    if (!$r) respond(404, 'Karte nicht gefunden.');
+    return $r;
+}
+function planKarteAntwort(array $r, bool $dm): array {
+    $k = json_decode((string)$r['karte_json'], true) ?: [];
+    if (!$dm) $k = planOhneDm($k);
+    return array_merge($k, ['id' => (string)$r['karte_id'], 'ablage' => (string)$r['ablage'],
+                            'sichtbar' => (bool)$r['sichtbar']]);
+}
+function planObjAntwort(array $r, bool $dm): array {
+    $o = json_decode((string)$r['obj_json'], true) ?: [];
+    if (!$dm) $o = planOhneDm($o);
+    return array_merge($o, ['id' => (string)$r['obj_id'], 'karteId' => (string)$r['karte_id'],
+                            'art' => (string)$r['art'], 'sichtbar' => (bool)$r['sichtbar']]);
+}
+// Die Felder, die in eigenen Spalten stehen, gehoeren nicht noch einmal
+// ins JSON — sonst gaebe es zwei Wahrheiten.
+function planJson(array $o, array $ohne): string {
+    foreach ($ohne as $f) unset($o[$f]);
+    $j = json_encode($o, JSON_UNESCAPED_UNICODE);
+    if ($j === false) respond(400, 'Der Eintrag lässt sich nicht speichern.');
+    if (strlen($j) > PLAN_MAX_JSON) respond(413, 'Der Eintrag ist zu groß (höchstens 400 KB ohne Bilder).');
+    return $j;
 }
 
 // ── Actions ─────────────────────────────────────────────────────
@@ -2307,6 +2463,206 @@ switch ($action) {
         }
         if (!$st->rowCount()) respond(404, 'Nicht gefunden — oder schon gelesen.');
         respond(200, 'Gelöscht.');
+    }
+
+    // ── Abenteuerplaner ─────────────────────────────────────────
+    // Der Planer ist eine eigene Seite, aber dieselbe Anmeldung und
+    // dieselbe Gruppe. Lesen darf jedes Mitglied — ein Spieler nur, was
+    // sichtbar ist, und ohne die Notizen der Spielleitung. Schreiben darf
+    // nur, wer das Abenteuer leitet.
+    case 'planer_start': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $lib = json_decode((string)($z['row']['library_json'] ?? '{}'), true);
+        $advs = (is_array($lib) && isset($lib['_adventures']) && is_array($lib['_adventures'])) ? $lib['_adventures'] : [];
+        $liste = [];
+        foreach ($advs as $a) {
+            if (!is_array($a) || empty($a['id'])) continue;
+            $id = (string)$a['id'];
+            $liste[] = ['id' => $id, 'name' => (string)($a['name'] ?? $id), 'leitest' => istDmVon($pdo, $z, $code, $id)];
+        }
+        respond(200, 'OK', ['nutzer' => ['id' => (int)$z['user']['id'], 'name' => (string)$z['user']['name']],
+                            'rolle' => $z['rolle'], 'abenteuer' => $liste]);
+    }
+
+    case 'planer_stand': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!planId($advId)) respond(400, 'Kein Abenteuer genannt.');
+        respond(200, 'OK', ['stand' => planStand($pdo, $code, $advId)]);
+    }
+
+    case 'planer_laden': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!planId($advId)) respond(400, 'Kein Abenteuer genannt.');
+        $dm = istDmVon($pdo, $z, $code, $advId);
+        $st = $pdo->prepare("SELECT karte_id, ablage, sichtbar, karte_json FROM hb_plan_karte
+                             WHERE session_code=? AND adv_id=?" . ($dm ? '' : ' AND sichtbar=1'));
+        $st->execute([$code, $advId]);
+        $karten = []; $offen = [];
+        foreach ($st->fetchAll() as $r) { $karten[] = planKarteAntwort($r, $dm); $offen[(string)$r['karte_id']] = true; }
+        $st = $pdo->prepare("SELECT obj_id, karte_id, art, sichtbar, obj_json FROM hb_plan_obj
+                             WHERE session_code=? AND adv_id=?" . ($dm ? '' : ' AND sichtbar=1'));
+        $st->execute([$code, $advId]);
+        $objekte = [];
+        foreach ($st->fetchAll() as $r) {
+            // Ein sichtbarer Ort auf einer verborgenen Karte verriete die Karte.
+            if (!$dm && empty($offen[(string)$r['karte_id']])) continue;
+            $objekte[] = planObjAntwort($r, $dm);
+        }
+        respond(200, 'OK', ['dm' => $dm, 'stand' => planStand($pdo, $code, $advId),
+                            'karten' => $karten, 'objekte' => $objekte]);
+    }
+
+    case 'planer_karte_speichern': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!planId($advId)) respond(400, 'Kein Abenteuer genannt.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $k = $body['karte'] ?? null;
+        if (!is_array($k)) respond(400, 'Fehlende Karte.');
+        $id = (string)($k['id'] ?? '');
+        if (!planId($id)) respond(400, 'Die Karte hat keine gültige Kennung.');
+        $name = mb_substr(trim((string)($k['name'] ?? '')), 0, 120);
+        if ($name === '') respond(400, 'Die Karte braucht einen Namen.');
+        $k['name'] = $name;
+        $json = planJson($k, ['id', 'ablage', 'sichtbar']);
+        $st = $pdo->prepare("SELECT adv_id, ablage FROM hb_plan_karte WHERE session_code=? AND karte_id=?");
+        $st->execute([$code, $id]);
+        $alt = $st->fetch();
+        if ($alt && (string)$alt['adv_id'] !== $advId) respond(409, 'Diese Kennung gehört zu einem anderen Abenteuer.');
+        $ablage = $alt ? (string)$alt['ablage'] : bin2hex(random_bytes(16));
+        $pdo->prepare("INSERT INTO hb_plan_karte (session_code, adv_id, karte_id, ablage, sichtbar, karte_json)
+                       VALUES (?,?,?,?,?,?)
+                       ON DUPLICATE KEY UPDATE sichtbar=VALUES(sichtbar), karte_json=VALUES(karte_json)")
+            ->execute([$code, $advId, $id, $ablage, empty($k['sichtbar']) ? 0 : 1, $json]);
+        $stand = planStandHoch($pdo, $code, $advId);
+        respond($alt ? 200 : 201, 'Gespeichert.', ['karte' => planKarteAntwort(planKarte($pdo, $code, $advId, $id), true),
+                                                  'stand' => $stand]);
+    }
+
+    case 'planer_karte_loeschen': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
+        $pdo->prepare("DELETE FROM hb_plan_obj WHERE session_code=? AND karte_id=?")->execute([$code, $k['karte_id']]);
+        $pdo->prepare("DELETE FROM hb_plan_karte WHERE session_code=? AND karte_id=?")->execute([$code, $k['karte_id']]);
+        planOrdnerLeeren(planOrdner((string)$k['ablage'], false), true);
+        respond(200, 'Gelöscht.', ['stand' => planStandHoch($pdo, $code, $advId)]);
+    }
+
+    case 'planer_obj_speichern': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!planId($advId)) respond(400, 'Kein Abenteuer genannt.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $o = $body['obj'] ?? null;
+        if (!is_array($o)) respond(400, 'Fehlender Eintrag.');
+        $id  = (string)($o['id'] ?? '');
+        $art = (string)($o['art'] ?? '');
+        if (!planId($id)) respond(400, 'Der Eintrag hat keine gültige Kennung.');
+        if (!in_array($art, PLAN_ARTEN, true)) respond(400, 'Unbekannte Art: ' . mb_substr($art, 0, 20));
+        $karte = planKarte($pdo, $code, $advId, (string)($o['karteId'] ?? ''));
+        $json = planJson($o, ['id', 'karteId', 'art', 'sichtbar']);
+        $st = $pdo->prepare("SELECT adv_id FROM hb_plan_obj WHERE session_code=? AND obj_id=?");
+        $st->execute([$code, $id]);
+        $alt = $st->fetch();
+        if ($alt && (string)$alt['adv_id'] !== $advId) respond(409, 'Diese Kennung gehört zu einem anderen Abenteuer.');
+        $pdo->prepare("INSERT INTO hb_plan_obj (session_code, adv_id, obj_id, karte_id, art, sichtbar, obj_json)
+                       VALUES (?,?,?,?,?,?,?)
+                       ON DUPLICATE KEY UPDATE karte_id=VALUES(karte_id), art=VALUES(art),
+                                               sichtbar=VALUES(sichtbar), obj_json=VALUES(obj_json)")
+            ->execute([$code, $advId, $id, $karte['karte_id'], $art, empty($o['sichtbar']) ? 0 : 1, $json]);
+        respond($alt ? 200 : 201, 'Gespeichert.', ['stand' => planStandHoch($pdo, $code, $advId)]);
+    }
+
+    case 'planer_obj_loeschen': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $st = $pdo->prepare("DELETE FROM hb_plan_obj WHERE session_code=? AND adv_id=? AND obj_id=?");
+        $st->execute([$code, $advId, (string)($body['obj_id'] ?? '')]);
+        if (!$st->rowCount()) respond(404, 'Nicht gefunden.');
+        respond(200, 'Gelöscht.', ['stand' => planStandHoch($pdo, $code, $advId)]);
+    }
+
+    // Dateien kommen in Buendeln, als Base64 im JSON: derselbe Weg wie
+    // jede andere Anfrage, und ein Buendel bleibt unter post_max_size.
+    // Die Anwendung schneidet sie passend zu.
+    case 'planer_dateien_hoch': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
+        $liste = $body['dateien'] ?? null;
+        if (!is_array($liste) || !$liste) respond(400, 'Keine Dateien.');
+        if (count($liste) > 500) respond(413, 'Höchstens 500 Dateien je Anfrage.');
+        // Erst alles pruefen, dann schreiben: ein Buendel geht ganz oder gar nicht.
+        $fertig = [];
+        foreach ($liste as $d) {
+            $pfad = (string)($d['pfad'] ?? '');
+            if (!preg_match(PLAN_PFAD, $pfad, $m)) respond(400, 'Ungültiger Dateiname: ' . mb_substr($pfad, 0, 80));
+            $daten = base64_decode((string)($d['daten'] ?? ''), true);
+            if ($daten === false || $daten === '') respond(400, 'Die Datei ' . $pfad . ' kam nicht lesbar an.');
+            if (strlen($daten) > PLAN_MAX_DATEI) respond(413, 'Die Datei ' . $pfad . ' ist größer als 25 MB.');
+            if (!planInhaltPasst($m[1], $daten)) respond(415, 'Der Inhalt von ' . $pfad . ' passt nicht zur Endung.');
+            $fertig[$pfad] = $daten;
+        }
+        $ordner = planOrdner((string)$k['ablage'], true);
+        $bytes = 0;
+        foreach ($fertig as $pfad => $daten) {
+            $ziel = $ordner . '/' . $pfad;
+            $dir = dirname($ziel);
+            if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) respond(500, 'Ordner für ' . $pfad . ' lässt sich nicht anlegen.');
+            // Erst unter anderem Namen, dann umbenennen: eine Kachel, die
+            // gerade jemand laedt, ist nie halb geschrieben.
+            $tmp = $ziel . '.' . bin2hex(random_bytes(4)) . '.tmp';
+            if (@file_put_contents($tmp, $daten) === false) respond(507, 'Die Datei ' . $pfad . ' ließ sich nicht schreiben (Speicherplatz?).');
+            if (!@rename($tmp, $ziel)) { @unlink($ziel); if (!@rename($tmp, $ziel)) { @unlink($tmp); respond(500, 'Die Datei ' . $pfad . ' ließ sich nicht ablegen.'); } }
+            $bytes += strlen($daten);
+        }
+        respond(201, 'Hochgeladen.', ['anzahl' => count($fertig), 'bytes' => $bytes]);
+    }
+
+    case 'planer_dateien_liste': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
+        $ordner = planOrdner((string)$k['ablage'], false);
+        $dateien = []; $summe = 0;
+        if (is_dir($ordner)) {
+            $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($ordner, FilesystemIterator::SKIP_DOTS));
+            foreach ($it as $f) {
+                if (!$f->isFile()) continue;
+                $rel = str_replace('\\', '/', substr($f->getPathname(), strlen($ordner) + 1));
+                if (!preg_match(PLAN_PFAD, $rel)) continue;     // halbe .tmp und Fremdes
+                $dateien[] = ['pfad' => $rel, 'bytes' => $f->getSize()];
+                $summe += $f->getSize();
+            }
+        }
+        usort($dateien, fn($a, $b) => strcmp($a['pfad'], $b['pfad']));
+        respond(200, 'OK', ['ablage' => (string)$k['ablage'], 'dateien' => $dateien, 'bytes' => $summe]);
+    }
+
+    case 'planer_dateien_weg': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = (string)($body['adv_id'] ?? '');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $k = planKarte($pdo, $code, $advId, (string)($body['karte_id'] ?? ''));
+        planOrdnerLeeren(planOrdner((string)$k['ablage'], false), false);
+        respond(200, 'Geleert.');
     }
 
     default:

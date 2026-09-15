@@ -14,3 +14,8 @@ scratchpad/
 *.log
 .DS_Store
 Thumbs.db
+
+# Die Dateien des Abenteuerplaners: Kartenkacheln und Bilder der Runde.
+# Sie liegen nur auf dem Server und gehoeren nicht ins Repo — schon
+# gar nicht gekaufte Karten.
+planer-dateien/

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Werkbank &middot; Der echte Planer</title>
+<link rel="stylesheet" href="../planer/planer.css?v=dev">
+<style>
+  /* Wie dev/echt.html: der Bericht unten, die Seite darueber in voller
+     Groesse. */
+  #bericht { position:fixed; inset:auto 0 0 0; z-index:99999; max-height:42vh; overflow:auto;
+    padding:12px 16px; background:#10100e; border-top:2px solid var(--gold-dim);
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; line-height:1.6; }
+  #bericht h3 { margin:0 0 8px; color:var(--gold); font-size:15px; }
+  #bericht .z { display:flex; gap:8px; align-items:baseline; }
+  #bericht .gut { color:#7fd39b; } #bericht .weg { color:#e88; } #bericht .lauf { color:var(--text-muted); }
+  #bericht .grund { color:var(--text-muted); font-size:12px; }
+  #bericht .summe { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); font-size:14px; }
+  body { padding-bottom:42vh; }
+</style>
+<script src="../vendor/react.production.min.js?v=dev"></script>
+<script src="../vendor/react-dom.production.min.js?v=dev"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="bericht"><h3>Der echte Planer &mdash; Durchgang l&auml;uft&hellip;</h3><div id="zeilen"></div></div>
+
+  <script>
+    // ── Ein Server im Gedaechtnis ───────────────────────────────────
+    // Dieselben Regeln wie api.php, so knapp wie moeglich: die
+    // Spielleitung darf schreiben, ein Spieler sieht nur, was sichtbar
+    // ist, und nie das Feld dm. Geprueft wird hier die Seite, nicht der
+    // Server — der hat dev/test-api.php.
+    const FAKE = {
+      angemeldet: true, rolle: 'dm', stand: { strahd: 1, eberron: 1 },
+      karten: new Map(), objekte: new Map(), ablagen: new Map(), aufrufe: [], gespeichert: [],
+    };
+    const hex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
+    const ohneDm = (o) => { const { dm, ...r } = o; return r; };
+    const fakeFehler = (status, text) => { const e = new Error(text); e.status = status; return e; };
+
+    const planerZugang = () => FAKE.angemeldet ? { url: 'http://fake', code: 'TEST', token: 'x'.repeat(64) } : { url: '', code: '', token: '' };
+    async function planerApi(action, p) {
+      await new Promise(r => setTimeout(r, 5));
+      FAKE.aufrufe.push(action);
+      const dm = FAKE.rolle === 'dm';
+      const adv = p.adv_id;
+      const hoch = () => { FAKE.stand[adv] = (FAKE.stand[adv] || 0) + 1; return FAKE.stand[adv]; };
+      const karteVon = (id) => { const k = FAKE.karten.get(id); if (!k || k.adv !== adv) throw fakeFehler(404, 'Karte nicht gefunden.'); return k; };
+      const nurDm = () => { if (!dm) throw fakeFehler(403, 'Das darf nur die Spielleitung.'); };
+      switch (action) {
+        case 'planer_start':
+          return { ok: true, nutzer: { id: 7, name: dm ? 'Meisterin' : 'Armin' }, rolle: FAKE.rolle,
+                   abenteuer: [{ id: 'strahd', name: 'Fluch des Strahd', leitest: dm }, { id: 'eberron', name: 'Eberron', leitest: dm }] };
+        case 'planer_stand': return { ok: true, stand: FAKE.stand[adv] || 0 };
+        case 'planer_laden': {
+          const karten = [...FAKE.karten.values()].filter(k => k.adv === adv && (dm || k.daten.sichtbar))
+            .map(k => ({ ...(dm ? k.daten : ohneDm(k.daten)), ablage: k.ablage }));
+          const offen = new Set(karten.map(k => k.id));
+          const objekte = [...FAKE.objekte.values()].filter(o => o.adv === adv && offen.has(o.daten.karteId) && (dm || o.daten.sichtbar))
+            .map(o => dm ? o.daten : ohneDm(o.daten));
+          return { ok: true, dm, stand: FAKE.stand[adv] || 0, karten, objekte };
+        }
+        case 'planer_karte_speichern': {
+          nurDm();
+          const k = p.karte;
+          if (!String(k.name || '').trim()) throw fakeFehler(400, 'Die Karte braucht einen Namen.');
+          const alt = FAKE.karten.get(k.id);
+          const { ablage, ...daten } = k;
+          const neu = { adv, ablage: alt ? alt.ablage : hex(16), daten: { ...daten, sichtbar: !!k.sichtbar } };
+          FAKE.karten.set(k.id, neu);
+          hoch();
+          return { ok: true, karte: { ...neu.daten, ablage: neu.ablage } };
+        }
+        case 'planer_karte_loeschen': {
+          nurDm();
+          const k = karteVon(p.karte_id);
+          FAKE.karten.delete(p.karte_id);
+          for (const [id, o] of FAKE.objekte) if (o.daten.karteId === p.karte_id) FAKE.objekte.delete(id);
+          FAKE.ablagen.delete(k.ablage);
+          return { ok: true, stand: hoch() };
+        }
+        case 'planer_obj_speichern': {
+          nurDm();
+          karteVon(p.obj.karteId);
+          FAKE.objekte.set(p.obj.id, { adv, daten: p.obj });
+          return { ok: true, stand: hoch() };
+        }
+        case 'planer_dateien_hoch': {
+          nurDm();
+          const k = karteVon(p.karte_id);
+          if (!FAKE.ablagen.has(k.ablage)) FAKE.ablagen.set(k.ablage, new Map());
+          for (const d of p.dateien) {
+            if (!PLAN_PFAD_RE.test(d.pfad)) throw fakeFehler(400, 'Ungültiger Dateiname: ' + d.pfad);
+            FAKE.ablagen.get(k.ablage).set(d.pfad, Uint8Array.from(atob(d.daten), c => c.charCodeAt(0)));
+          }
+          return { ok: true, anzahl: p.dateien.length };
+        }
+        case 'planer_dateien_liste': {
+          nurDm();
+          const k = karteVon(p.karte_id);
+          const dateien = [...(FAKE.ablagen.get(k.ablage) || new Map())].map(([pfad, b]) => ({ pfad, bytes: b.length })).sort((a, b) => a.pfad < b.pfad ? -1 : 1);
+          return { ok: true, ablage: k.ablage, dateien, bytes: dateien.reduce((s, d) => s + d.bytes, 0) };
+        }
+      }
+      throw fakeFehler(400, 'Unbekannte Aktion: ' + action);
+    }
+    async function planerDateiHolen(ablage, pfad) {
+      const b = (FAKE.ablagen.get(ablage) || new Map()).get(pfad);
+      if (!b) throw new Error('Die Datei ' + pfad + ' ließ sich nicht holen (404).');
+      return b;
+    }
+    function planerSpeichern(blob, name) { FAKE.gespeichert.push({ blob, name }); }
+  </script>
+  <script src="../planer/planer.js?v=dev"></script>
+  <script>
+    (async () => {
+      const zeilen = document.getElementById('zeilen');
+      let gut = 0, weg = 0;
+      const melden = (art, wort, grund) => {
+        const z = document.createElement('div');
+        z.className = 'z ' + art;
+        z.textContent = (art === 'gut' ? '✓ ' : art === 'weg' ? '✗ ' : '· ') + wort;
+        if (grund) { const g = document.createElement('span'); g.className = 'grund'; g.textContent = grund; z.appendChild(g); }
+        zeilen.appendChild(z);
+      };
+      const ja = (wort, bedingung, grund) => {
+        if (bedingung) { gut++; melden('gut', wort); } else { weg++; melden('weg', wort, grund === undefined ? '' : String(grund)); }
+        return !!bedingung;
+      };
+      const ruhe = (ms) => new Promise(r => setTimeout(r, ms || 60));
+      const warte = async (bedingung, ms) => {
+        const bis = Date.now() + (ms || 3000);
+        while (Date.now() < bis) { const x = bedingung(); if (x) return x; await ruhe(30); }
+        return null;
+      };
+      const root = document.getElementById('root');
+      const knopf = (muster, wo) => [...(wo || root).querySelectorAll('button, a')].find(b => muster.test(b.textContent) || muster.test(b.getAttribute('aria-label') || ''));
+      const tippe = (el, wert) => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, wert);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      const textDa = (muster) => muster.test(root.textContent);
+      const starten = async (einstellen) => {
+        einstellen();
+        planerStarten(root);
+        await ruhe(80);
+      };
+      const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
+
+      try {
+        // ── Ohne Anmeldung ─────────────────────────────────────────
+        melden('lauf', 'Ohne Anmeldung');
+        await starten(() => { FAKE.angemeldet = false; });
+        ja('ohne Anmeldung steht der Hinweis auf das Heldenbuch da', !!(await warte(() => textDa(/zuerst im Heldenbuch anmelden/))));
+        const zurueck = knopf(/Zum Heldenbuch/);
+        ja('  … mit einem Weg zurück', zurueck && zurueck.getAttribute('href') === '../', zurueck && zurueck.getAttribute('href'));
+        ja('  … und ohne einen einzigen Serveraufruf', FAKE.aufrufe.length === 0, FAKE.aufrufe.join(','));
+
+        // ── Die Spielleitung ──────────────────────────────────────
+        melden('lauf', 'Die Spielleitung');
+        await starten(() => { FAKE.angemeldet = true; FAKE.rolle = 'dm'; });
+        ja('die Seite laedt und nennt die Rolle', !!(await warte(() => root.querySelector('.pl-rolle.dm'))));
+        const wahl = root.querySelector('.pl-adv select');
+        ja('beide Abenteuer stehen zur Wahl', wahl && wahl.options.length === 2, wahl && wahl.options.length);
+        ja('ohne Karten steht, was zu tun ist', textDa(/Noch keine Karte/));
+        ja('Exportieren ist ohne Karten gesperrt', knopf(/Exportieren/) && knopf(/Exportieren/).disabled);
+
+        knopf(/Neue Karte/).click();
+        await ruhe();
+        const feld = root.querySelector('.pl-neu input');
+        ja('„Neue Karte“ oeffnet ein Namensfeld', !!feld);
+        tippe(feld, 'Barovia');
+        root.querySelector('.pl-neu button[type=submit]').click();
+        const angelegt = await warte(() => root.querySelector('.pl-buehne-kopf h1'));
+        ja('die Karte ist angelegt und gewaehlt', angelegt && angelegt.textContent === 'Barovia', angelegt && angelegt.textContent);
+        ja('  … zunaechst fuer Spieler verborgen', textDa(/für Spieler verborgen/));
+        const kId = [...FAKE.karten.keys()][0];
+        ja('  … mit einer Kennung nach der Regel', /^k_[0-9a-f]{16}$/.test(kId || ''), kId);
+
+        knopf(/Sichtbar machen/).click();
+        ja('das Auge macht sie sichtbar', !!(await warte(() => textDa(/für Spieler sichtbar/))));
+
+        knopf(/Umbenennen/).click();
+        await ruhe();
+        const um = root.querySelector('.pl-eintrag .pl-neu input');
+        tippe(um, 'Barovia-Tal');
+        um.form.requestSubmit();
+        ja('umbenennen geht', !!(await warte(() => root.querySelector('.pl-buehne-kopf h1').textContent === 'Barovia-Tal')));
+
+        // Dateien und einen Ort unterschieben, wie sie Stufe 1 anlegen wird.
+        const ab = FAKE.karten.get(kId).ablage;
+        FAKE.ablagen.set(ab, new Map([['kacheln/0/0/0.png', png], ['karte.json', new TextEncoder().encode('{"stufen":1}')]]));
+        FAKE.objekte.set('o_1234567890abcdef', { adv: 'strahd', daten: { id: 'o_1234567890abcdef', karteId: kId, art: 'ort', name: 'Dorf', sichtbar: false, dm: { notiz: 'Ireena' } } });
+        FAKE.karten.get(kId).daten.dm = { notiz: 'Nebel' };
+        FAKE.stand.strahd++;
+        await planerApi('planer_stand', { adv_id: 'strahd' });
+        // Den Abgleich nicht abwarten: Abenteuer hin und zurueck laedt neu.
+        const setzS = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+        setzS.call(wahl, 'eberron'); wahl.dispatchEvent(new Event('change', { bubbles: true }));
+        ja('ein anderes Abenteuer hat seine eigenen Karten', !!(await warte(() => textDa(/Noch keine Karte/))));
+        setzS.call(wahl, 'strahd'); wahl.dispatchEvent(new Event('change', { bubbles: true }));
+        ja('zurueck bei Strahd: die Dateien werden gezaehlt', !!(await warte(() => /2 · \d+ B/.test(root.querySelector('.pl-fakten-quer') ? root.querySelector('.pl-fakten-quer').textContent : ''))),
+           root.querySelector('.pl-fakten-quer') && root.querySelector('.pl-fakten-quer').textContent);
+
+        // ── Exportieren ─────────────────────────────────────────
+        melden('lauf', 'Exportieren');
+        knopf(/Exportieren/).click();
+        const gespeichert = await warte(() => FAKE.gespeichert[0], 5000);
+        ja('Exportieren gibt eine Datei heraus', !!gespeichert);
+        ja('  … benannt nach Abenteuer und Tag', gespeichert && /^Fluch des Strahd \d{4}-\d{2}-\d{2}\.hbplan$/.test(gespeichert.name), gespeichert && gespeichert.name);
+        ja('  … und meldet, was drin ist', !!(await warte(() => textDa(/Exportiert: 1 Karten, 1 Einträge, 2 Dateien/))));
+        const paket = await planPaketOeffnen(gespeichert.blob);
+        ja('das Paket ist ein gueltiges .hbplan', paket.manifest.format === 'heldenbuch-planer' && paket.manifest.dateien.length === 2);
+        ja('  … mit den Notizen der Spielleitung', paket.manifest.karten[0].dm && paket.manifest.karten[0].dm.notiz === 'Nebel');
+        ja('  … ohne die Ablage des Servers', !('ablage' in paket.manifest.karten[0]));
+
+        // ── Loeschen und wieder einspielen ─────────────────────
+        melden('lauf', 'Löschen und Einspielen');
+        knopf(/^Löschen$/).click();
+        await ruhe();
+        const dialog = root.querySelector('.pl-dialog');
+        ja('Löschen fragt nach und empfiehlt den Export', dialog && /exportiert vorher/.test(dialog.textContent));
+        knopf(/^Löschen$/, dialog).click();
+        ja('danach ist die Karte weg', !!(await warte(() => textDa(/Noch keine Karte/))));
+        ja('  … samt ihren Dateien', !FAKE.ablagen.has(ab));
+
+        const eingabe = root.querySelector('input[type=file]');
+        const legeDatei = (blob, name) => {
+          const dt = new DataTransfer();
+          dt.items.add(new File([blob], name));
+          eingabe.files = dt.files;
+          eingabe.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        legeDatei(gespeichert.blob, gespeichert.name);
+        const vorschau = await warte(() => root.querySelector('.pl-import'));
+        ja('die Vorschau zeigt, was kommt', vorschau && /Fluch des Strahd/.test(vorschau.textContent) && /Barovia-Tal/.test(vorschau.textContent), vorschau && vorschau.textContent);
+        knopf(/^Einspielen$/, vorschau).click();
+        ja('eingespielt wird mit Meldung', !!(await warte(() => textDa(/Eingespielt: 1 Karten, 1 Einträge, 2 Dateien/), 5000)));
+        const neuId = [...FAKE.karten.keys()].find(id => id !== kId);
+        ja('  … unter neuer Kennung', !!neuId && !FAKE.karten.has(kId));
+        const neuAb = neuId && FAKE.karten.get(neuId).ablage;
+        const kachel = neuAb && FAKE.ablagen.get(neuAb) && FAKE.ablagen.get(neuAb).get('kacheln/0/0/0.png');
+        ja('  … die Kachel liegt Byte fuer Byte wieder da', !!kachel && kachel.length === png.length && kachel.every((b, i) => b === png[i]));
+        ja('  … der Ort zeigt auf die neue Karte', [...FAKE.objekte.values()].some(o => o.daten.karteId === neuId));
+        ja('  … und die Karte ist wieder gewaehlt', root.querySelector('.pl-buehne-kopf h1').textContent === 'Barovia-Tal');
+
+        legeDatei(gespeichert.blob, gespeichert.name);
+        knopf(/^Einspielen$/, await warte(() => root.querySelector('.pl-import'))).click();
+        await warte(() => [...root.querySelectorAll('.pl-eintrag-name')].length === 2, 5000);
+        ja('ein zweites Mal kommt „(importiert)“ an den Namen',
+          [...root.querySelectorAll('.pl-eintrag-name')].some(b => /Barovia-Tal \(importiert\)/.test(b.textContent)));
+
+        legeDatei(new Blob(['kein zip']), 'kaputt.hbplan');
+        ja('eine kaputte Datei wird erklaert, nicht verschluckt',
+          !!(await warte(() => root.querySelector('.pl-meldung.fehler') && /keine Paketdatei/.test(root.querySelector('.pl-meldung.fehler').textContent))));
+
+        // ── Ein Spieler ───────────────────────────────────────────
+        melden('lauf', 'Ein Spieler');
+        FAKE.karten.get(neuId).daten.sichtbar = false;
+        await starten(() => { FAKE.rolle = 'spieler'; });
+        ja('der Spieler sieht seine Rolle', !!(await warte(() => root.querySelector('.pl-rolle.spieler'))));
+        ja('  … keine Knoepfe zum Exportieren oder Anlegen', !knopf(/Exportieren|Importieren|Neue Karte/));
+        const sichtbar = [...root.querySelectorAll('.pl-eintrag-name')].map(b => b.textContent);
+        ja('  … nur die sichtbare Karte', sichtbar.length === 1 && /importiert/.test(sichtbar[0]), sichtbar.join(' | '));
+        ja('  … ohne Markierung „verborgen“ und ohne Dateizahl', !textDa(/verborgen/) && !/Dateien/.test(root.querySelector('.pl-fakten-quer').textContent));
+      } catch (e) {
+        weg++;
+        melden('weg', 'Abbruch: ' + e.message, e.stack);
+      }
+      const s = document.createElement('div');
+      s.className = 'summe ' + (weg ? 'weg' : 'gut');
+      s.textContent = gut + ' gut, ' + weg + ' schlecht';
+      zeilen.appendChild(s);
+      document.querySelector('#bericht h3').textContent = 'Der echte Planer — ' + (weg ? 'es gibt Fehler' : 'alles gut');
+      window.PLANER_ECHT = { gut, weg };
+    })();
+  </script>
+</body>
+</html>

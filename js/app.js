@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.10.4';
+const HB_VERSION = 'v5.11.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -29244,7 +29244,13 @@ function App() {
       // Dasselbe hier: pass ist seit Stufe 7 immer leer.
       if (url && code) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
     }
-  }, "\uD83D\uDCD6 Abenteuerlog"), svCode && advId && (isDmMode || rast) && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCD6 Abenteuerlog"), svCode && advId && /*#__PURE__*/React.createElement("a", {
+    className: "btn-tool",
+    href: 'planer/?adv=' + encodeURIComponent(advId),
+    target: "_blank",
+    rel: "noopener",
+    title: "Karten, Orte und Reisen dieses Abenteuers"
+  }, "\uD83D\uDDFA Planer"), svCode && advId && (isDmMode || rast) && /*#__PURE__*/React.createElement("button", {
     className: 'btn-tool' + (rast ? ' post-neu' : ''),
     onClick: () => rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true),
     title: rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'

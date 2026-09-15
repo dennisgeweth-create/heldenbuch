@@ -3475,6 +3475,13 @@ function App() {
                 // Dasselbe hier: pass ist seit Stufe 7 immer leer.
                 if(url&&code) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
               }}>📖 Abenteuerlog</button>
+              {/* Der Abenteuerplaner ist eine eigene Seite, im eigenen
+                  Tab: er braucht die ganze Fläche. Dieselbe Anmeldung,
+                  das Abenteuer geht in der Adresse mit. */}
+              {svCode && advId && (
+                <a className="btn-tool" href={'planer/?adv=' + encodeURIComponent(advId)}
+                  target="_blank" rel="noopener" title="Karten, Orte und Reisen dieses Abenteuers">🗺 Planer</a>
+              )}
               {/* Die Rast: die Spielleitung sagt an, alle anderen sehen
                   sie, solange eine läuft. */}
               {svCode && advId && (isDmMode || rast) && (

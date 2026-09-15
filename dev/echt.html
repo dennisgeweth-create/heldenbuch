@@ -1062,6 +1062,14 @@
           bogen.classList.remove('sheet-nur-lesen');
         }
 
+        // ── Der Weg in den Abenteuerplaner ──
+        melden('lauf', 'Abenteuerplaner');
+        const planerLink = [...document.querySelectorAll('a.btn-tool')].find(a => /Planer/.test(a.textContent));
+        ja('in der Seitenleiste steht der Weg in den Planer',
+           !!planerLink && /^planer\/\?adv=.+/.test(planerLink.getAttribute('href') || ''),
+           planerLink ? planerLink.getAttribute('href') : 'kein Link');
+        ja('  … er geht in einem eigenen Tab auf', !!planerLink && planerLink.target === '_blank');
+
         melden('lauf', 'Merkmal bearbeiten');
         const reiterM = await warten(() => [...document.querySelectorAll('button')]
           .find(b => /Merkmale/.test(b.textContent)));

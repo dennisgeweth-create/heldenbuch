@@ -1,0 +1,151 @@
+# 🗺 Der Abenteuerplaner — Konzept und Stufen
+
+Karten wie bei Google Maps, Helden und NSC auf der Reise, Reisezeit und
+Zufallsbegegnungen, Orte mit Wissen und Dateien vom eigenen Rechner.
+Alles hängt an Heldenbuch und Kampftracker.
+
+Die Machbarkeitsstudie vom 15.09.2026 hat die Richtung festgelegt. Hier
+steht, was daraus geworden ist und was noch kommt.
+
+---
+
+## Was entschieden ist
+
+| Frage | Antwort |
+|---|---|
+| Wer benutzt ihn? | **Spielleitung und Spieler, live.** Spieler sehen nur, was sichtbar ist. |
+| Wie groß werden Karten? | **Sehr groß.** Deshalb Kacheln, und die Dateien liegen nicht in der Datenbank. |
+| Freie Karte oder Hexfelder? | **Frei.** Ein Hexraster kann später dazukommen. |
+| Im- und Export? | **Eine Paketdatei `.hbplan`**, ein gewöhnliches ZIP. Siehe unten. |
+| Rechner am Spieltisch | Verschiedene PCs, **Chrome oder Edge**. |
+| Webspace | Rund 195 GB frei. |
+| Adresse | **`heldenbuch2/planer/`**, derselbe Deploy, dieselbe Anmeldung. |
+
+## Aufbau
+
+Eigene Seite, eigenes Bündel, **gemeinsamer Server**:
+
+| Datei | Rolle |
+|---|---|
+| `planer/index.html` | Gerüst und die Wege nach draußen: `planerApi`, `planerDateiHolen`, `planerSpeichern`, `planerZugang` |
+| `planer/src/*.jsx` | Quellen, wie im Heldenbuch in Namensreihenfolge zusammengesetzt |
+| ↳ `0-basis.jsx` | Hooks, `PLANER_VERSION` |
+| ↳ `1-paket.jsx` | **reine Rechnung:** ZIP schreiben und lesen (samt ZIP64), `hbplan.json`, Export und Einspielen |
+| ↳ `2-app.jsx` | die Seite |
+| `planer/planer.js` | daraus gebaut von `node build.js`, **mitcommittet** wie `js/app.js` |
+| `planer/planer.css` | eigene Oberfläche, dieselben Farben wie `styles.css` |
+| `api.php` | Aktionen `planer_*`, Tabellen `hb_plan_karte`, `hb_plan_obj`, `hb_plan_stand` |
+| `planer-dateien/` | **nur auf dem Server**, nicht im Repo. Je Karte ein Ordner mit zufälligem Namen |
+
+Die Anmeldung kommt aus demselben Speicher wie im Heldenbuch
+(`sv_token`, `sv_code`). Ohne sie zeigt der Planer nur den Weg zurück.
+
+## Rechte
+
+- **Lesen** darf jedes Mitglied der Gruppe. Ein Spieler bekommt nur
+  sichtbare Karten, darauf nur sichtbare Einträge, und **nie das Feld
+  `dm`**. Diese Regel gilt für alles, was noch kommt: Was nur die
+  Spielleitung liest, steht unter `dm`.
+- **Schreiben** darf, wer das Abenteuer leitet (`istDmVon`).
+- Der Ordnername einer Karte (`ablage`, 32 Hex-Zeichen) ist das
+  Einzige, womit man an ihre Dateien kommt. Spieler bekommen ihn nur für
+  sichtbare Karten. Die Dateien liefert der Webserver direkt aus, weil
+  Tausende Kacheln durch PHP zu schicken zu langsam wäre.
+- Hochgeladen wird nur, was `PLAN_PFAD` erlaubt: Kleinbuchstaben,
+  Ziffern, `-` und `_`, Endung `webp`, `png`, `jpg`, `jpeg` oder `json`.
+  Der Inhalt muss zur Endung passen, sonst weist der Server das ganze
+  Bündel ab.
+
+## Das Paket `.hbplan`
+
+Ein ZIP, das jedes Entpackprogramm öffnet:
+
+```
+hbplan.json                 Beschreibung, Karten, Einträge, Dateiliste
+karten/<karte>/<pfad>       die Dateien jeder Karte, so wie abgelegt
+```
+
+`hbplan.json`:
+
+```json
+{
+  "format": "heldenbuch-planer",
+  "version": 1,
+  "erstellt": "2026-09-15T18:15:42.000Z",
+  "programm": "Abenteuerplaner Stufe 0",
+  "abenteuer": { "id": "strahd", "name": "Fluch des Strahd" },
+  "karten":   [ { "id": "k_…", "name": "Barovia", "sichtbar": true, "dm": { } } ],
+  "objekte":  [ { "id": "o_…", "karteId": "k_…", "art": "ort", "sichtbar": false } ],
+  "dateien":  [ { "karte": "k_…", "pfad": "kacheln/0/0/0.webp", "bytes": 18234 } ]
+}
+```
+
+- **Bilder gehen ungepackt hinein**, weil sie schon gepackt sind. Das
+  JSON wird gepackt. Ab 65 535 Dateien oder 4 GB kommt das
+  ZIP64-Verzeichnis dazu.
+- **Einspielen legt alles zusätzlich an**, mit neuen Kennungen. Nichts
+  Vorhandenes wird überschrieben. Verweise zwischen Einträgen werden
+  mit umgeschrieben, auch in Feldern, die es heute noch nicht gibt.
+- Ist ein Name schon vergeben, heißt die neue Karte „… (importiert)“.
+- **Scheitert das Einspielen** mittendrin, werden die schon angelegten
+  Karten samt Dateien wieder gelöscht.
+- Ein Paket aus einer **neueren Formatversion** wird mit einem Hinweis
+  abgelehnt, nicht halb gelesen.
+- Die Notizen der Spielleitung gehen mit. Ein Paket ist deshalb ein
+  Arbeitsstand der Spielleitung, nichts zum Weitergeben an Spieler.
+
+## Prüfen
+
+```bash
+node dev/pruefen.js                          # u. a. planer-paket-test.js
+C:/xampp/php/php.exe dev/test-api.php --neu  # Abschnitte "Abenteuerplaner"
+```
+
+und im Browser **http://localhost:8777/dev/planer-echt.html**. Die Seite
+fährt den echten Planer gegen einen Server im Arbeitsspeicher und klickt
+sich durch: Anlegen, Sichtbarkeit, Export, Löschen, Einspielen, Spielersicht.
+
+---
+
+## Stufen
+
+### ✅ Stufe 0 · Gerüst (v5.11.0)
+
+Zwei Bündel, eigene Seite, gemeinsame Anmeldung, Tabellen, Dateiablage,
+Karten anlegen, umbenennen, sichtbar schalten und löschen. **Export und
+Einspielen als `.hbplan`.** Der Weg hinein steht im Heldenbuch in der
+Seitenleiste.
+
+### Stufe 1 · Karte und Orte
+
+- Kartenbild hochladen und **im Browser in Kacheln schneiden**. Große
+  Bilder, die der Browser nicht am Stück dekodiert, werden streifenweise
+  gelesen; das ist das größte technische Risiko der Stufe.
+- Leaflet (BSD-2-Clause) nach `vendor/`, `CRS.Simple`.
+- Maßstab über zwei Punkte, Lineal.
+- Orte mit öffentlicher Beschreibung, `dm`-Notizen, Bildern und Unterkarten.
+
+### Stufe 2 · Reise, Zeit und Wetter
+
+Routen mit Gelände, Tempo und Fortbewegung. Der Tag läuft in der Chronik,
+Gewaltmarsch trägt Erschöpfung in den Bogen ein. Wetter nach den Stufen
+des Rastmoduls, Lager schlagen löst die Rast aus.
+
+### Stufe 3 · Begegnungen und Kampftracker
+
+Regionen, Begegnungstabellen, Prüfung je Wache, Übergabe an Begegnung und
+Kampftracker, Reisetagebuch.
+
+### Stufe 4 · Spielersicht
+
+Nebel, entdeckte Orte, Heldenmarker live, Handouts, Beamerfenster.
+
+### Stufe 5 · Figuren und lokale Dateien
+
+NSC-Wege und Zeitschieber. Ordnerfreigabe über die File System Access
+API, danach die Planer-Brücke für VLC & Co.
+
+### Stufe 6 · Nach Bedarf
+
+Quests, Wissen der Spieler, NSC-Zeitpläne, Proviant, Navigation,
+Fraktionen, Hexfelder, Offline.

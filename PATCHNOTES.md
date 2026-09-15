@@ -1,5 +1,33 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.11.0
+
+### Der Abenteuerplaner: das Gerüst steht
+
+In der Seitenleiste steht ein neuer Knopf, **🗺 Planer**. Er öffnet den
+**Abenteuerplaner** in einem eigenen Tab. Das ist eine eigene Seite
+neben dem Heldenbuch, für Karten, Orte und später Reisen und
+Begegnungen. Sie benutzt dieselbe Anmeldung und dieselbe Gruppe und
+öffnet sich gleich im Abenteuer, das im Heldenbuch gewählt ist.
+
+Dies ist **Stufe 0**, das Gerüst. Was schon geht:
+
+- Die Spielleitung **legt Karten an**, benennt sie um, löscht sie und
+  **schaltet sie für Spieler sichtbar** oder verborgen.
+- Spieler sehen nur freigegebene Karten. Was nur die Spielleitung wissen
+  soll, schickt der Server gar nicht erst an sie.
+- **⇩ Exportieren** speichert alle Karten, Einträge und Dateien eines
+  Abenteuers als **eine `.hbplan`-Datei**. Das ist ein gewöhnliches ZIP;
+  jedes Entpackprogramm kann hineinsehen. Bilder gehen ungepackt und
+  verlustfrei hinein, auch sehr große Kartensammlungen passen.
+- **⇧ Importieren** spielt eine solche Datei wieder ein. Vorher zeigt
+  eine Vorschau, was kommt. Eingespielt wird immer **zusätzlich**, nichts
+  Vorhandenes wird überschrieben. Scheitert es mittendrin, bleibt nichts
+  halb liegen.
+
+Das Kartenbild selbst, Zoom, Maßstab und Orte kommen mit **Stufe 1**. Der
+Plan steht in `PLANER.md`.
+
 ## v5.10.4
 
 ### Die Ausrüstung anderer Helden ist wieder zu sehen

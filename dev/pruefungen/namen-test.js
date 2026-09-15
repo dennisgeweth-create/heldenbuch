@@ -61,33 +61,56 @@ const ausIndex = () => {
 
 const BEKANNT = new Set([...BROWSER, ...ausIndex()]);
 
+// Der Abenteuerplaner ist ein zweites Buendel mit eigener Seite. Er
+// kennt die Namen seiner index.html — nicht die des Heldenbuchs — und
+// arbeitet mit Bytes, also auch mit dem, was das Heldenbuch nie braucht.
+const ausDatei = (datei) => {
+  const t = fs.readFileSync(datei, 'utf8');
+  const raus = new Set();
+  const re = /^\s*(?:const|let|var|function|async function)\s+([A-Za-z_$][A-Za-z0-9_$]*)/gm;
+  let m;
+  while ((m = re.exec(t)) !== null) raus.add(m[1]);
+  return [...raus];
+};
+const BYTES = `
+  ArrayBuffer DataView Uint8Array Uint16Array Uint32Array Int32Array
+  CompressionStream DecompressionStream Response ReadableStream btoa atob
+  URLSearchParams DataTransfer
+`.trim().split(/\s+/);
+const BEKANNT_PLANER = new Set([...BROWSER, ...BYTES, ...ausDatei(path.join('planer', 'index.html'))]);
+
 // ── Die Quellen, so wie build.js sie zusammensetzt ───────────────
 // Dieselbe Reihenfolge und derselbe Geltungsbereich: die Anwendung hat
 // keine Importe, alle Dateien teilen sich einen. Nur so stimmt die
 // Frage „kennt irgendjemand diesen Namen?" mit der Wirklichkeit ueberein.
-const ordner = path.join('js', 'src');
-const dateien = fs.readdirSync(ordner).filter(n => n.endsWith('.jsx')).sort();
-const stuecke = [
-  {name: 'js/data.js', text: fs.readFileSync(path.join('js', 'data.js'), 'utf8')},
-  {name: 'js/util.js', text: fs.readFileSync(path.join('js', 'util.js'), 'utf8')},
-  ...dateien.map(n => ({name: 'js/src/' + n,
-                        text: fs.readFileSync(path.join(ordner, n), 'utf8')})),
+const quellen = (ordner, praefix) => fs.readdirSync(ordner).filter(n => n.endsWith('.jsx')).sort()
+  .map(n => ({name: praefix + n, text: fs.readFileSync(path.join(ordner, n), 'utf8')}));
+const BUENDEL = [
+  {name: 'js/app.js', bekannt: BEKANNT, stuecke: [
+    {name: 'js/data.js', text: fs.readFileSync(path.join('js', 'data.js'), 'utf8')},
+    {name: 'js/util.js', text: fs.readFileSync(path.join('js', 'util.js'), 'utf8')},
+    ...quellen(path.join('js', 'src'), 'js/src/'),
+  ]},
+  {name: 'planer/planer.js', bekannt: BEKANNT_PLANER, stuecke: quellen(path.join('planer', 'src'), 'planer/src/')},
 ];
 
 // Woher eine Zeile stammt: der Baum kennt nur eine Nummer im
 // Gesamttext. Ohne diese Umrechnung stuende im Fehler „Zeile 24 117",
 // und danach suchte niemand.
-const grenzen = [];
-let quelle = '', zeile = 1;
-stuecke.forEach(s => {
-  grenzen.push({name: s.name, ab: zeile});
-  quelle += s.text + '\n';
-  zeile += s.text.split('\n').length;
-});
-const woher = (nr) => {
-  let treffer = grenzen[0];
-  for (const g of grenzen) if (g.ab <= nr) treffer = g;
-  return treffer.name + ':' + (nr - treffer.ab + 1);
+const zusammensetzen = (stuecke) => {
+  const grenzen = [];
+  let quelle = '', zeile = 1;
+  stuecke.forEach(s => {
+    grenzen.push({name: s.name, ab: zeile});
+    quelle += s.text + '\n';
+    zeile += s.text.split('\n').length;
+  });
+  const woher = (nr) => {
+    let treffer = grenzen[0];
+    for (const g of grenzen) if (g.ab <= nr) treffer = g;
+    return treffer.name + ':' + (nr - treffer.ab + 1);
+  };
+  return {quelle, woher};
 };
 
 // ── Babel, aus vendor/ ───────────────────────────────────────────
@@ -101,8 +124,9 @@ const ladeBabel = () => {
 };
 const Babel = ladeBabel();
 
-const ohneHerkunft = [];
-const zuFrueh = [];
+// Was der laufende Durchgang findet. Das Plugin ist nur einmal
+// angemeldet und schreibt hierhin.
+let lauf = null;
 
 // Ein Plugin sieht denselben Baum wie der Uebersetzer — samt der
 // Geltungsbereiche, die er ohnehin berechnet.
@@ -110,7 +134,7 @@ const pruefer = () => ({
   visitor: {
     ReferencedIdentifier(pfad) {
       const name = pfad.node.name;
-      if (BEKANNT.has(name)) return;
+      if (lauf.bekannt.has(name)) return;
       // In `{a: 1}` ist `a` kein Name, den jemand kennen muesste, und
       // in `x.y` ist `y` keiner. Babel trennt das schon; die Abfrage
       // hier faengt nur, was als JSX-Attribut durchrutscht.
@@ -119,7 +143,7 @@ const pruefer = () => ({
       const bindung = pfad.scope.getBinding(name);
       if (!bindung) {
         if (!pfad.scope.hasBinding(name)) {
-          ohneHerkunft.push({name, zeile: pfad.node.loc && pfad.node.loc.start.line});
+          lauf.ohneHerkunft.push({name, zeile: pfad.node.loc && pfad.node.loc.start.line});
         }
         return;
       }
@@ -131,7 +155,7 @@ const pruefer = () => ({
       if (pfad.getFunctionParent() !== bindung.path.getFunctionParent()) return;
       const hier = pfad.node.start, dort = bindung.path.node.start;
       if (typeof hier === 'number' && typeof dort === 'number' && hier < dort) {
-        zuFrueh.push({name, zeile: pfad.node.loc && pfad.node.loc.start.line,
+        lauf.zuFrueh.push({name, zeile: pfad.node.loc && pfad.node.loc.start.line,
                       ab: bindung.path.node.loc && bindung.path.node.loc.start.line});
       }
     },
@@ -139,13 +163,18 @@ const pruefer = () => ({
 });
 
 Babel.registerPlugin('hb-namen', pruefer);
-Babel.transform(quelle, {
-  presets: [['react', {runtime: 'classic'}]],
-  plugins: ['hb-namen'],
-  filename: 'alles.jsx',
-  compact: false,
-  sourceMaps: false,
-  code: false,
+const ergebnisse = BUENDEL.map(b => {
+  const {quelle, woher} = zusammensetzen(b.stuecke);
+  lauf = {bekannt: b.bekannt, ohneHerkunft: [], zuFrueh: []};
+  Babel.transform(quelle, {
+    presets: [['react', {runtime: 'classic'}]],
+    plugins: ['hb-namen'],
+    filename: 'alles.jsx',
+    compact: false,
+    sourceMaps: false,
+    code: false,
+  });
+  return {name: b.name, woher, ...lauf};
 });
 
 // ── Bericht ──────────────────────────────────────────────────────
@@ -168,19 +197,22 @@ const ist = (n, a, b) => {
   console.log('  FEHLER ' + n + '\n     ist  ' + A + '\n     soll ' + B);
 };
 
-const fehlend = einmalig(ohneHerkunft);
-if (fehlend.length) {
-  schlecht += fehlend.length;
-  fehlend.forEach(f => console.log('  FEHLER ' + f.name
-    + ' wird benutzt, steht aber nirgends geschrieben — ' + woher(f.zeile)));
-} else gut++;
+for (const {woher, ohneHerkunft, zuFrueh} of ergebnisse) {
+  const fehlend = einmalig(ohneHerkunft);
+  if (fehlend.length) {
+    schlecht += fehlend.length;
+    fehlend.forEach(f => console.log('  FEHLER ' + f.name
+      + ' wird benutzt, steht aber nirgends geschrieben — ' + woher(f.zeile)));
+  } else gut++;
 
-const frueh = einmalig(zuFrueh);
-if (frueh.length) {
-  schlecht += frueh.length;
-  frueh.forEach(f => console.log('  FEHLER ' + f.name + ' wird in '
-    + woher(f.zeile) + ' benutzt, steht aber erst in ' + woher(f.ab)));
-} else gut++;
+  const frueh = einmalig(zuFrueh);
+  if (frueh.length) {
+    schlecht += frueh.length;
+    frueh.forEach(f => console.log('  FEHLER ' + f.name + ' wird in '
+      + woher(f.zeile) + ' benutzt, steht aber erst in ' + woher(f.ab)));
+  } else gut++;
+}
+ist('beide Buendel wurden durchgesehen', ergebnisse.map(e => e.name), ['js/app.js', 'planer/planer.js']);
 
 // ── Die Probe auf die Probe ──────────────────────────────────────
 // Eine Pruefung, die nichts findet, sagt nur dann etwas aus, wenn sie
