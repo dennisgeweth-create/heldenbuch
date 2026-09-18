@@ -81,6 +81,24 @@ Und was die Rechnung angeht:
 node dev/pruefen.js
 ```
 
+Die Dateien laufen nebeneinander (rund sechs Sekunden fuer alle) und die
+Ausgabe ist nach Bereichen geordnet: Abenteuerplaner, Kampf und Karte,
+Taverne, Der Bogen, Das Geruest. Die vierstellige Zahl am Ende zaehlt
+Behauptungen, nicht Dateien — 1300 einzelne „das muss so sein".
+
+Wer nicht alles braucht:
+
+```bash
+node dev/pruefen.js --geaendert
+```
+
+laeuft nur, was zu den geaenderten Dateien gehoert (`git status`). Woran
+eine Pruefung haengt, steht nirgends geschrieben: der Laeufer liest die
+Pfade aus der Pruefung selbst. `node dev/pruefen.js --liste` zeigt diese
+Zuordnung, `node dev/pruefen.js kampf karte` waehlt nach dem Namen.
+`namen-test.js` liest alle Quellen und laeuft deshalb bei jeder Aenderung
+am Code mit — es ist das Netz unter den anderen.
+
 **Wer an der Oberfläche war, prüft sie auch.** `node dev/pruefen.js` kann das
 nicht: ein Knopf, dessen `onClick` eine gelöschte Funktion ruft, übersetzt
 sauber und fällt erst beim Klicken um — so ging „Als Text" von v5.3.1 bis
