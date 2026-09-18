@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.22.0';
+const HB_VERSION = 'v5.23.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -21183,8 +21183,12 @@ const BogenAustausch = ({
 // Ein Abend ist eine **Sitzung**: Datum, Titel, wahlweise der Tag im
 // Spiel. Darin schreibt **jeder seinen eigenen Eintrag** — die
 // Spielleitung ihren, jeder Spieler seinen, gern aus Sicht der Figur.
-// Die **Bilder hängen an der Sitzung**, nicht am Eintrag: das Foto vom
-// Tisch gehört allen, die dabei waren.
+// **Bilder und Videos hängen an der Sitzung**, nicht am Eintrag: das
+// Foto vom Tisch gehört allen, die dabei waren.
+//
+// Das Fenster ist zum Lesen gebaut — ein Tagebuch schlägt man öfter auf,
+// als man hineinschreibt. Wer etwas ändern will, drückt **✎ Bearbeiten**;
+// erst dann erscheinen Textfeld, Hochladen und die Knöpfe zum Löschen.
 //
 // Gelesen wird alles von allen. Nur was die Spielleitung als „nur für
 // mich" kennzeichnet, schickt der Server den Spielern gar nicht erst
@@ -21262,19 +21266,68 @@ const tbGroesse = n => {
   if (b >= 1024) return Math.round(b / 1024) + ' kB';
   return b + ' B';
 };
-const TB_ENDUNGEN = {
+// Was hineindarf: Bilder, die jeder Browser zeigt, und Videos, die jeder
+// Browser abspielt. MOV und MKV bleiben draußen — sie laden hoch und
+// laufen dann bei der Hälfte der Runde nicht.
+const TB_ARTEN = {
+  png: 'bild',
+  jpg: 'bild',
+  jpeg: 'bild',
+  webp: 'bild',
+  mp4: 'video',
+  m4v: 'video',
+  webm: 'video',
+  ogv: 'video'
+};
+const TB_TYPEN = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
-  'image/webp': 'webp'
+  'image/webp': 'webp',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/ogg': 'ogv'
 };
-const tbEndung = datei => TB_ENDUNGEN[datei && datei.type || ''] || (/\.(png|jpe?g|webp)$/i.exec(datei && datei.name || '') || [])[1] || '';
-// Die Zahl der Bilder, die eine Sitzung schon hat, plus die neuen: mehr
-// als der Server auf einmal nimmt, wird in Bündeln geschickt.
-const tbBuendel = (dateien, je) => {
-  const raus = [];
-  for (let i = 0; i < (dateien || []).length; i += je || TB_BILDER_JE_MAL) {
-    raus.push(dateien.slice(i, i + (je || TB_BILDER_JE_MAL)));
+const TB_GRENZE = {
+  bild: 12000000,
+  video: 32000000
+};
+const tbEndung = datei => TB_TYPEN[datei && datei.type || ''] || (/\.(png|jpe?g|webp|mp4|m4v|webm|ogv)$/i.exec(datei && datei.name || '') || [])[1] || '';
+const tbArt = was => TB_ARTEN[String(was || '').toLowerCase()] || '';
+// Bei einer abgelegten Datei steht die Endung im Namen.
+const tbArtVonDatei = name => tbArt((/\.([a-z0-9]+)$/i.exec(String(name || '')) || [])[1]);
+// Was nicht hineindarf, sagt es hier — und nicht erst der Server.
+const tbTadel = datei => {
+  const art = tbArt(tbEndung(datei));
+  const name = datei && datei.name || 'Die Datei';
+  if (!art) return '„' + name + '": nur PNG, JPEG, WebP — oder MP4, WebM, OGV.';
+  if ((datei.size || 0) > TB_GRENZE[art]) {
+    // In runden Millionen, wie es auch der Server sagt — „11,4 MB" wäre
+    // dieselbe Grenze und läse sich wie eine andere.
+    return '„' + name + '" ist ' + tbGroesse(datei.size) + ' groß — erlaubt sind ' + Math.round(TB_GRENZE[art] / 1000000) + (art === 'video' ? ' MB je Video.' : ' MB je Bild.');
   }
+  return '';
+};
+// Was auf einmal zum Server geht: höchstens zwanzig Stücke, und
+// zusammen nicht mehr, als eine Anfrage sicher trägt. Ein Video füllt
+// ein Paket meist allein.
+const TB_PAKET_BYTES = 30000000;
+const tbPakete = (medien, maxBytes, maxAnzahl) => {
+  const grenze = maxBytes || TB_PAKET_BYTES;
+  const zahl = maxAnzahl || TB_BILDER_JE_MAL;
+  const raus = [];
+  let jetzt = [],
+    summe = 0;
+  for (const m of medien || []) {
+    const gross = m && m.bytes && m.bytes.length || 0;
+    if (jetzt.length && (jetzt.length >= zahl || summe + gross > grenze)) {
+      raus.push(jetzt);
+      jetzt = [];
+      summe = 0;
+    }
+    jetzt.push(m);
+    summe += gross;
+  }
+  if (jetzt.length) raus.push(jetzt);
   return raus;
 };
 // ══ Ende der reinen Rechnung
@@ -21284,13 +21337,17 @@ const tbBuendel = (dateien, je) => {
 // (alter Browser, seltsames Format), wandert die Datei, wie sie ist.
 const tbVerkleinern = async datei => {
   const endung = tbEndung(datei);
-  if (!endung) throw new Error('„' + datei.name + '" ist kein PNG, JPEG oder WebP.');
+  const tadel = tbTadel(datei);
+  if (tadel) throw new Error(tadel);
   const bytes = await datei.arrayBuffer();
   const roh = {
     endung,
     bytes: new Uint8Array(bytes),
     name: datei.name
   };
+  // Ein Video geht, wie es ist: neu zu rechnen dauerte länger als der
+  // Abend, den es zeigt.
+  if (tbArt(endung) === 'video') return roh;
   if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') return roh;
   if (datei.size < 800000 && endung !== 'png') return roh;
   try {
@@ -21355,17 +21412,26 @@ const TagebuchFenster = ({
   const [gross, setGross] = React.useState(null); // Bild im Großen
   const [arbeitet, setArbeitet] = React.useState('');
   const [vorschlaegeAuf, setVorschlaegeAuf] = React.useState(false);
+  // Gelesen wird öfter als geschrieben: das Fenster geht zum Anschauen
+  // auf, und erst „✎ Bearbeiten" holt Textfeld und Knöpfe hervor.
+  const [bearbeiten, setBearbeiten] = React.useState(false);
   const eingabe = React.useRef(null);
   const meiner = sitzung ? tbEintragVon(sitzung, ich) : null;
-  // Beim Wechsel der Sitzung steht wieder da, was dort steht.
+  // Was im Feld steht, kommt aus dem Eintrag — auch nach dem Speichern,
+  // damit „geaendert“ danach wieder falsch ist.
   React.useEffect(() => {
     setEntwurf(meiner ? meiner.text : '');
     setNurDm(!!(meiner && meiner.nurDm));
     setCharId(meiner && meiner.charId || '');
+  }, [sitzung && sitzung.id, meiner && meiner.geaendert]);
+  // Der Modus haengt am Abend, nicht am Eintrag: wer speichert, bleibt im
+  // Bearbeiten stehen; wer den Abend wechselt, liest zuerst.
+  React.useEffect(() => {
     setKopf(null);
     setGross(null);
     setVorschlaegeAuf(false);
-  }, [sitzung && sitzung.id, meiner && meiner.geaendert]);
+    setBearbeiten(false);
+  }, [sitzung && sitzung.id]);
   const geaendert = !!sitzung && (entwurf !== (meiner ? meiner.text : '') || nurDm !== !!(meiner && meiner.nurDm) || charId !== (meiner && meiner.charId || ''));
   const vorschlaege = sitzung ? tbVorschlaege(logs, sitzung.datum) : [];
   const speichern = async () => {
@@ -21375,23 +21441,41 @@ const TagebuchFenster = ({
     await onEintrag(sitzung.id, entwurf, nurDm, charId, c ? c.name : '');
     setArbeitet('');
   };
-  const bilderWaehlen = async dateien => {
+  const [tadel, setTadel] = React.useState('');
+  const medienWaehlen = async dateien => {
     if (!sitzung || !dateien || !dateien.length) return;
-    setArbeitet(dateien.length === 1 ? 'Ein Bild wird geschickt …' : dateien.length + ' Bilder werden geschickt …');
+    setTadel('');
+    // Erst nachsehen, was gar nicht geht: ein Video von 200 MB soll
+    // nicht erst hochgeladen und dann abgewiesen werden.
+    const schlecht = [...dateien].map(tbTadel).filter(Boolean);
+    const gut = [...dateien].filter(d => !tbTadel(d));
+    if (schlecht.length) setTadel(schlecht.join(' '));
+    if (!gut.length) return;
+    setArbeitet(gut.length === 1 ? 'Wird geschickt …' : gut.length + ' Dateien werden geschickt …');
     try {
       const fertig = [];
-      for (const d of [...dateien]) {
+      for (const d of gut) {
         const k = await tbVerkleinern(d);
         fertig.push({
           endung: k.endung,
+          bytes: k.bytes,
           daten: tbBase64(k.bytes),
           titel: d.name.replace(/\.[^.]+$/, '').slice(0, 160)
         });
       }
-      for (const teil of tbBuendel(fertig, TB_BILDER_JE_MAL)) await onBilder(sitzung.id, teil);
+      for (const teil of tbPakete(fertig)) {
+        await onBilder(sitzung.id, teil.map(({
+          endung,
+          daten,
+          titel
+        }) => ({
+          endung,
+          daten,
+          titel
+        })));
+      }
     } catch (e) {
-      setArbeitet('');
-      throw e;
+      setTadel(e.message || 'Das Hochladen ging nicht.');
     }
     setArbeitet('');
   };
@@ -21489,7 +21573,9 @@ const TagebuchFenster = ({
     }
   }, "Speichern")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h3", null, tbSitzungTitel(sitzung)), /*#__PURE__*/React.createElement("span", {
     className: "tb-leise"
-  }, [sitzung.titel ? tbDatumText(sitzung.datum) : '', sitzung.spielzeit].filter(Boolean).join(' · ')), /*#__PURE__*/React.createElement("button", {
+  }, [sitzung.titel ? tbDatumText(sitzung.datum) : '', sitzung.spielzeit].filter(Boolean).join(' · ')), /*#__PURE__*/React.createElement("span", {
+    className: "tb-kopf-knoepfe"
+  }, bearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "btn-icon tb-klein",
     onClick: () => setKopf({
       datum: sitzung.datum,
@@ -21499,48 +21585,69 @@ const TagebuchFenster = ({
   }, "\u270E Abend"), (dm || sitzung.von === ich) && /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel tb-klein",
     onClick: () => onSitzungWeg(sitzung)
-  }, "\uD83D\uDDD1 Abend l\xF6schen"))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDDD1 Abend l\xF6schen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save tb-klein",
+    onClick: async () => {
+      if (geaendert) await speichern();
+      setBearbeiten(false);
+    }
+  }, geaendert ? '✓ Speichern und fertig' : '✓ Fertig')) : /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon tb-klein",
+    onClick: () => setBearbeiten(true)
+  }, "\u270E Bearbeiten")))), /*#__PURE__*/React.createElement("div", {
     className: "tb-bilder"
   }, (sitzung.bilder || []).map(b => /*#__PURE__*/React.createElement("figure", {
     key: b.id,
-    className: "tb-bild"
-  }, /*#__PURE__*/React.createElement("img", {
+    className: 'tb-bild' + (tbArtVonDatei(b.datei) === 'video' ? ' video' : '')
+  }, tbArtVonDatei(b.datei) === 'video' ? /*#__PURE__*/React.createElement("button", {
+    className: "tb-video-marke",
+    onClick: () => setGross(b),
+    "aria-label": 'Video abspielen: ' + (b.titel || '')
+  }, /*#__PURE__*/React.createElement("span", {
+    "aria-hidden": "true"
+  }, "\u25B6")) : /*#__PURE__*/React.createElement("img", {
     src: tbBildUrl(server, sitzung.ablage, b.datei),
     alt: b.titel || 'Bild vom Abend',
     loading: "lazy",
     onClick: () => setGross(b)
   }), /*#__PURE__*/React.createElement("figcaption", null, /*#__PURE__*/React.createElement("span", {
     title: b.titel
-  }, b.titel || 'ohne Titel'), (dm || b.meins) && /*#__PURE__*/React.createElement("button", {
+  }, b.titel || 'ohne Titel'), bearbeiten && (dm || b.meins) && /*#__PURE__*/React.createElement("button", {
     className: "tb-bild-weg",
-    title: "Bild l\xF6schen",
-    "aria-label": 'Bild löschen: ' + (b.titel || ''),
+    title: "L\xF6schen",
+    "aria-label": 'Löschen: ' + (b.titel || ''),
     onClick: () => onBildWeg(b)
-  }, "\u2715")))), /*#__PURE__*/React.createElement("button", {
+  }, "\u2715")))), bearbeiten && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "tb-bild-neu",
     onClick: () => eingabe.current && eingabe.current.click()
   }, /*#__PURE__*/React.createElement("span", null, "\uFF0B"), /*#__PURE__*/React.createElement("span", {
     className: "tb-leise"
-  }, "Bilder")), /*#__PURE__*/React.createElement("input", {
+  }, "Bilder, Videos")), /*#__PURE__*/React.createElement("input", {
     ref: eingabe,
     type: "file",
-    accept: "image/png,image/jpeg,image/webp",
     multiple: true,
     hidden: true,
+    accept: "image/png,image/jpeg,image/webp,video/mp4,video/webm,video/ogg",
     onChange: e => {
       // Erst abschreiben, dann leeren: das Feld zurueckzusetzen
       // raeumt die Liste, und die Arbeit daran laeuft nebenher.
       const d = [...e.target.files];
       e.target.value = '';
-      bilderWaehlen(d);
+      medienWaehlen(d);
     }
-  })), arbeitet && /*#__PURE__*/React.createElement("div", {
+  })), !bearbeiten && !(sitzung.bilder || []).length && /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, "Keine Bilder und keine Videos an diesem Abend.")), arbeitet && /*#__PURE__*/React.createElement("div", {
     className: "tb-leise tb-arbeit"
-  }, arbeitet), /*#__PURE__*/React.createElement("div", {
+  }, arbeitet), tadel && /*#__PURE__*/React.createElement("div", {
+    className: "tb-fehler"
+  }, tadel), /*#__PURE__*/React.createElement("div", {
     className: "tb-eintrag"
   }, /*#__PURE__*/React.createElement("div", {
     className: "tb-eintrag-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "\u270D Mein Eintrag"), (chars || []).length > 0 && /*#__PURE__*/React.createElement("select", {
+  }, /*#__PURE__*/React.createElement("span", null, "\u270D Mein Eintrag"), !bearbeiten && meiner && meiner.nurDm && /*#__PURE__*/React.createElement("span", {
+    className: "tb-marke"
+  }, "\uD83D\uDD2E nur Spielleitung"), bearbeiten && (chars || []).length > 0 && /*#__PURE__*/React.createElement("select", {
     className: "form-input tb-charwahl",
     value: charId,
     "aria-label": "Als wen",
@@ -21550,20 +21657,26 @@ const TagebuchFenster = ({
   }, "\u2014 als ich selbst \u2014"), (chars || []).map(c => /*#__PURE__*/React.createElement("option", {
     key: c.id,
     value: c.id
-  }, c.name))), dm && /*#__PURE__*/React.createElement("label", {
+  }, c.name))), !bearbeiten && meiner && meiner.charName && /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, "als ", meiner.charName), bearbeiten && dm && /*#__PURE__*/React.createElement("label", {
     className: "tb-schalter",
     title: "Die Spieler bekommen diesen Eintrag gar nicht erst"
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox",
     checked: nurDm,
     onChange: e => setNurDm(e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "\uD83D\uDD2E nur f\xFCr mich"))), /*#__PURE__*/React.createElement("textarea", {
+  }), /*#__PURE__*/React.createElement("span", null, "\uD83D\uDD2E nur f\xFCr mich"))), bearbeiten ? /*#__PURE__*/React.createElement("textarea", {
     className: "form-textarea tb-feld",
     rows: 8,
     value: entwurf,
     placeholder: "Was ist an diesem Abend geschehen?",
     onChange: e => setEntwurf(e.target.value)
-  }), /*#__PURE__*/React.createElement("div", {
+  }) : meiner && meiner.text.trim() ? /*#__PURE__*/React.createElement("p", {
+    className: "tb-gelesen"
+  }, meiner.text) : /*#__PURE__*/React.createElement("p", {
+    className: "tb-leise"
+  }, "Noch nichts geschrieben \u2014 \u201E\u270E Bearbeiten\" macht das Feld auf."), bearbeiten && /*#__PURE__*/React.createElement("div", {
     className: "tb-eintrag-fuss"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-icon tb-klein",
@@ -21577,7 +21690,7 @@ const TagebuchFenster = ({
     className: "btn-save",
     disabled: !geaendert,
     onClick: speichern
-  }, "\u2736 Eintrag speichern")), vorschlaegeAuf && /*#__PURE__*/React.createElement("div", {
+  }, "\u2736 Eintrag speichern")), bearbeiten && vorschlaegeAuf && /*#__PURE__*/React.createElement("div", {
     className: "tb-vorschlaege"
   }, vorschlaege.length === 0 && /*#__PURE__*/React.createElement("span", {
     className: "tb-leise"
@@ -21602,7 +21715,12 @@ const TagebuchFenster = ({
     onClick: () => setGross(null),
     role: "dialog",
     "aria-label": gross.titel || 'Bild'
-  }, /*#__PURE__*/React.createElement("img", {
+  }, tbArtVonDatei(gross.datei) === 'video' ? /*#__PURE__*/React.createElement("video", {
+    src: tbBildUrl(server, sitzung.ablage, gross.datei),
+    controls: true,
+    autoPlay: true,
+    onClick: e => e.stopPropagation()
+  }) : /*#__PURE__*/React.createElement("img", {
     src: tbBildUrl(server, sitzung.ablage, gross.datei),
     alt: gross.titel || ''
   }), /*#__PURE__*/React.createElement("div", {
@@ -21617,7 +21735,7 @@ const TagebuchFenster = ({
     style: {
       marginRight: 'auto'
     }
-  }, "Die Bilder geh\xF6ren dem Abend, die Texte den Schreibenden."), /*#__PURE__*/React.createElement("button", {
+  }, bearbeiten ? 'Bilder bis 12 MB, Videos bis 32 MB (MP4, WebM, OGV).' : 'Bilder und Videos gehören dem Abend, die Texte den Schreibenden.'), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: onZu
   }, "Schlie\xDFen"))));

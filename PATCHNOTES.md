@@ -1,5 +1,30 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.23.0
+
+### Tagebuch: Videos, und ein Fenster zum Lesen
+
+- **Videos** hängen jetzt neben den Bildern am Abend: **MP4, WebM und
+  OGV**, bis 32 MB je Stück. Sie stehen als Kachel mit ▶ in der Reihe und
+  laufen im Großen mit den Knöpfen des Browsers. MOV und MKV bleiben
+  draußen — sie laden hoch und laufen dann bei der Hälfte der Runde
+  nicht.
+- Was zu groß ist oder nicht hineingehört, sagt das Fenster **vor** dem
+  Hochladen. Mehrere Dateien gehen in Paketen hinaus, damit keine Anfrage
+  platzt; Bilder werden dabei weiter kleiner gerechnet, Videos nicht.
+- **Anschauen ist die Vorgabe.** Ein Tagebuch schlägt man öfter auf, als
+  man hineinschreibt: der Abend steht als Seite da — Bilder, der eigene
+  Eintrag, die der anderen. Erst **✎ Bearbeiten** holt Textfeld,
+  Hochladen und die Knöpfe zum Löschen hervor, **✓ Fertig** legt sie
+  wieder weg (und speichert, falls noch etwas offen war). Beim Wechsel
+  des Abends ist wieder Anschauen an.
+
+### Behoben
+
+- Ein gelöschter Abend — und ebenso eine gelöschte Karte im Planer —
+  ließ unter Windows einen leeren Ordner in der Dateiablage zurück: der
+  Server hielt ihn beim Aufräumen noch selbst offen.
+
 ## v5.22.0
 
 ### 📔 Das Sitzungstagebuch

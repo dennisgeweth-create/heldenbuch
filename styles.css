@@ -822,6 +822,13 @@
   .tb-fremd header { font-family:'Roboto Condensed',sans-serif; font-size:12.5px; margin-bottom:4px; }
   .tb-fremd p { margin:0; font-size:13px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
   .tb-marke { margin-left:6px; font-size:10.5px; color:#c060a0; }
+  .tb-kopf-knoepfe { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+  .tb-gelesen { margin:0; font-size:13px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+  /* Ein Video hat kein Vorschaubild — es bekommt eine Flaeche mit Pfeil. */
+  .tb-bild.video .tb-video-marke { width:132px; height:92px; border:0; cursor:pointer;
+    background:linear-gradient(160deg, #1d2024, #2a1d1d); color:var(--gold); font-size:26px; }
+  .tb-bild.video .tb-video-marke:hover { color:var(--gold-bright); }
+  .tb-gross video { max-width:min(92vw, 1400px); max-height:80vh; border-radius:4px; background:#000; }
   .tb-gross { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.82); display:flex;
     flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:20px; cursor:zoom-out; }
   .tb-gross img { max-width:min(92vw, 1400px); max-height:80vh; object-fit:contain; border-radius:4px; }

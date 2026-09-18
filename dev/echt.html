@@ -1461,6 +1461,15 @@
                tbF.querySelectorAll('.fenster-knoepfe button').length === 2);
             knopfMit('Neuer Abend').click();
             const kopf = await warten(() => document.querySelector('.tb-kopf h3'));
+            // Das Fenster ist zum Lesen da: kein Textfeld, kein Hochladen,
+            // bis jemand „Bearbeiten" drückt.
+            ja('Der Abend steht zuerst zum Anschauen da',
+               !document.querySelector('.tb-feld') && !document.querySelector('.tb-bild-neu')
+               && !!knopfMit('✎ Bearbeiten'));
+            knopfMit('✎ Bearbeiten').click();
+            await ruhe(150);
+            ja('  … „Bearbeiten" holt Textfeld und Hochladen hervor',
+               !!document.querySelector('.tb-feld') && !!document.querySelector('.tb-bild-neu'));
             const heuteText = (() => { const d = new Date(); const z = (n) => String(n).padStart(2, '0');
               return z(d.getDate()) + '.' + z(d.getMonth() + 1) + '.' + d.getFullYear(); })();
             ja('„Neuer Abend" legt den Abend von heute an',
@@ -1497,6 +1506,9 @@
             bildEin.files = dt2.files;
             bildEin.dispatchEvent(new Event('change', {bubbles: true}));
             const bildDa = await warten(() => wbTagebuch.sitzungen[0].bilder.length === 1 ? true : null, 5000);
+            ja('  … der Werkbank-Server bekam ein Bild, kein Video',
+               (wbTagebuch.sitzungen[0].bilder[0] || {}).datei.endsWith('.png'),
+               JSON.stringify(wbTagebuch.sitzungen[0].bilder));
             if (ja('Ein Bild lässt sich anhängen', !!bildDa, JSON.stringify(wbTagebuch.sitzungen[0].bilder))) {
               ja('  … es hängt am Abend, nicht am Eintrag',
                  wbTagebuch.sitzungen[0].bilder[0].titel === 'Tisch'
@@ -1517,6 +1529,15 @@
             ja('Ein zweiter Abend kommt dazu',
                !!(await warten(() => document.querySelectorAll('.tb-abend').length === 2 ? true : null, 3000)),
                document.querySelectorAll('.tb-abend').length + ' in der Liste');
+            // Beim Wechsel des Abends ist wieder Anschauen an.
+            ja('Ein anderer Abend geht wieder zum Anschauen auf', (() => {
+              const andere = [...document.querySelectorAll('.tb-abend')][1];
+              if (!andere) return false;
+              andere.click();
+              return true;
+            })());
+            ja('  … also ohne Textfeld',
+               !!(await warten(() => !document.querySelector('.tb-feld') ? true : null, 2000)));
             const zuK = [...document.querySelectorAll('.tb-fenster .fenster-knoepfe button')]
               .find(b => b.getAttribute('aria-label') === 'Fenster schließen');
             if (zuK) { zuK.click(); await ruhe(200); }

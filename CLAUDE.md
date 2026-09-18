@@ -34,7 +34,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2l-post.jsx` | Post an die Spielleitung — Fenster des Spielers und Postfach der Spielleitung (Server: `hb_post`) |
 | ↳ `2m-rast.jsx` | Rast auf Ansage — kurz und lang, Standard oder „Gradueller Rauer Realismus“ (nur die Zahlen, nicht der Text des Hefts); Rechner, Fenster, Anwenden auf den Bogen (Server: `hb_rast`) |
 | ↳ `2n-bogentext.jsx` | **Der Textbogen**: Bögen als `.txt` schreiben und lesen, einzeln oder als ZIP-Bündel; Schema in `TEXTBOGEN.md` |
-| ↳ `2o-tagebuch.jsx` | **Sitzungstagebuch**: ein Abend, ein Eintrag je Person, Bilder gemeinsam (Server: `hb_tagebuch`, `hb_tb_eintrag`, `hb_tb_bild`) |
+| ↳ `2o-tagebuch.jsx` | **Sitzungstagebuch**: ein Abend, ein Eintrag je Person, Bilder und Videos gemeinsam; Anschauen ist die Vorgabe, Bearbeiten ein Knopf (Server: `hb_tagebuch`, `hb_tb_eintrag`, `hb_tb_bild`) |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |

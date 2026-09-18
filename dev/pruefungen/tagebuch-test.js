@@ -75,10 +75,26 @@ ist('Größen stehen deutsch da', [tbGroesse(512), tbGroesse(2048), tbGroesse(36
 ist('die Endung kommt aus dem Typ', tbEndung({type: 'image/jpeg', name: 'foto.bin'}), 'jpg');
 ist('  … sonst aus dem Namen', tbEndung({type: '', name: 'Foto vom Tisch.PNG'}), 'PNG');
 ist('  … und was keines ist, hat keine', tbEndung({type: 'application/pdf', name: 'brief.pdf'}), '');
-ist('mehr als zwanzig Bilder gehen in Bündeln',
-    tbBuendel(Array.from({length: 45}, (_, i) => i), TB_BILDER_JE_MAL).map(b => b.length), [20, 20, 5]);
-ist('  … weniger in einem', tbBuendel([1, 2, 3]).length, 1);
-ist('  … und keine in keinem', tbBuendel([]), []);
+ist('die Endung sagt, was es ist', [tbArt('png'), tbArt('MP4'), tbArt('mov'), tbArt('')], ['bild', 'video', '', '']);
+ist('  … auch an einer abgelegten Datei', [tbArtVonDatei('a1b2.webm'), tbArtVonDatei('a1b2.jpg'), tbArtVonDatei('ohne')], ['video', 'bild', '']);
+ist('ein Video kommt mit seiner Endung durch', tbEndung({type: 'video/mp4', name: 'abend.bin'}), 'mp4');
+ist('  … und nach dem Namen, wenn der Typ fehlt', tbEndung({type: '', name: 'Abend.WEBM'}), 'WEBM');
+
+// Was nicht hineindarf, sagt das Fenster — vor dem Hochladen.
+ist('ein gutes Bild wird nicht getadelt', tbTadel({type: 'image/jpeg', name: 'a.jpg', size: 900000}), '');
+ist('ein gutes Video auch nicht', tbTadel({type: 'video/mp4', name: 'a.mp4', size: 20000000}), '');
+wahr('ein zu großes Bild schon', /12 MB je Bild/.test(tbTadel({type: 'image/png', name: 'a.png', size: 13000000})));
+wahr('  … und ein zu großes Video', /32 MB je Video/.test(tbTadel({type: 'video/mp4', name: 'a.mp4', size: 40000000})));
+wahr('  … MOV bleibt draußen', /nur PNG/.test(tbTadel({type: 'video/quicktime', name: 'a.mov', size: 100})));
+
+// Pakete: nach Zahl und nach Größe, damit keine Anfrage platzt.
+const stueck = (mb) => ({bytes: {length: mb * 1000000}});
+ist('mehr als zwanzig gehen in Paketen',
+    tbPakete(Array.from({length: 45}, () => stueck(0.1))).map(p => p.length), [20, 20, 5]);
+ist('  … und zu viele Bytes ebenso',
+    tbPakete([stueck(20), stueck(20), stueck(5)]).map(p => p.length), [1, 2]);
+ist('  … ein einzelnes Großes steht allein', tbPakete([stueck(31)]).map(p => p.length), [1]);
+ist('  … und nichts ergibt nichts', tbPakete([]), []);
 
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

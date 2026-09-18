@@ -1428,6 +1428,38 @@ $r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' 
     'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'exe', 'daten' => $png]]]);
 pruefe('  … und eine fremde Endung erst recht nicht (415)', $r['status'] === 415, kurz($r));
 
+// Ein Video: der kleinste MP4-Kopf, der die Kennung traegt.
+$mp4 = base64_encode("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" . str_repeat("\x00", 64));
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'mp4', 'daten' => $mp4, 'titel' => 'Der Wurf']]]);
+pruefe('ein Video geht hinein (201)', $r['status'] === 201, kurz($r));
+$videoId = (int)((($r['body']['bilder'] ?? [])[0]['id']) ?? 0);
+$videoDatei = (string)((($r['body']['bilder'] ?? [])[0]['datei']) ?? '');
+pruefe('  … und heißt .mp4', preg_match('/^[0-9a-f]{16}\.mp4$/', $videoDatei) === 1, $videoDatei);
+$webm = base64_encode("\x1A\x45\xDF\xA3" . str_repeat("\x00", 64));
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'webm', 'daten' => $webm]]]);
+pruefe('WebM auch (201)', $r['status'] === 201, kurz($r));
+$webmId = (int)((($r['body']['bilder'] ?? [])[0]['id']) ?? 0);
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'mp4', 'daten' => base64_encode('kein Video')]]]);
+pruefe('was kein Video ist, bleibt draußen (415)', $r['status'] === 415, kurz($r));
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'mov', 'daten' => $mp4]]]);
+pruefe('  … und MOV ebenso (415)', $r['status'] === 415, kurz($r));
+// Die Grenze selbst wird am Bild geprueft: ein Video ueber 32 MB passt
+// als Base64 nicht mehr durch die post_max_size dieses Rechners (40 MB),
+// und dann pruefte man die PHP-Einstellung statt des Codes. Beide gehen
+// durch dieselbe Zeile.
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'png', 'daten' => base64_encode("\x89PNG\r\n\x1a\n" . str_repeat('x', 13000000))]]]);
+pruefe('was zu groß ist, wird abgewiesen (413)', $r['status'] === 413, kurz($r));
+$r = ruf('tagebuch_bild_weg', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'bild_id' => $videoId]);
+pruefe('wer es hochgeladen hat, löscht es auch (200)', $r['status'] === 200, kurz($r));
+clearstatcache();
+pruefe('  … und die Datei ist fort', !is_file(__DIR__ . '/../planer-dateien/' . $ablage . '/' . $videoDatei));
+ruf('tagebuch_bild_weg', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'bild_id' => $webmId]);
+
 $r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
 $bilder = (($r['body']['sitzungen'] ?? [])[0]['bilder'] ?? []);
 pruefe('alle sehen das Bild', count($bilder) === 1 && ($bilder[0]['titel'] ?? '') === 'Der Tisch', json_encode($bilder, JSON_UNESCAPED_UNICODE));

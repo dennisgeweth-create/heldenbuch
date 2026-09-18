@@ -799,11 +799,34 @@ function kampfFuerSpieler(array $k, bool $hpOffen, array $eigeneChars = []): arr
 }
 
 // ── Das Sitzungstagebuch ────────────────────────────────────────
-// Ein Bild je Anfrage darf so gross sein wie ein Handyfoto; mehr braucht
-// niemand, um sich an den Abend zu erinnern.
-const TB_MAX_BILD  = 12000000;
-const TB_MAX_TEXT  = 60000;
+// Ein Bild darf so gross sein wie ein Handyfoto; ein Video so gross,
+// dass es sicher durch post_max_size passt. Base64 macht aus 32 MB rund
+// 43 MB Anfrage — mehr waere ein Glueckspiel mit der PHP-Einstellung,
+// und ein halb angekommenes Video hilft niemandem.
+const TB_MAX_BILD   = 12000000;
+const TB_MAX_VIDEO  = 32000000;
+const TB_MAX_TEXT   = 60000;
 const TB_BILD_ARTEN = ['png' => 'png', 'jpg' => 'jpg', 'jpeg' => 'jpg', 'webp' => 'webp'];
+// Nur, was ein Browser von sich aus abspielt. MOV und MKV bleiben
+// draussen: sie laden hoch und laufen dann bei der Haelfte der Runde nicht.
+const TB_VIDEO_ARTEN = ['mp4' => 'mp4', 'm4v' => 'mp4', 'webm' => 'webm', 'ogv' => 'ogv'];
+
+// Stimmt der Inhalt mit der Endung? Bei Bildern prueft das der Planer
+// schon (planInhaltPasst); Videos tragen ihre Kennung ebenso vorn.
+function tbInhaltPasst(string $art, string $daten): bool {
+    switch ($art) {
+        case 'mp4':  return strlen($daten) > 12 && substr($daten, 4, 4) === 'ftyp';
+        case 'webm': return strncmp($daten, "\x1A\x45\xDF\xA3", 4) === 0;
+        case 'ogv':  return strncmp($daten, 'OggS', 4) === 0;
+    }
+    return planInhaltPasst($art, $daten);
+}
+// Bild oder Video — die Endung entscheidet, und sie kommt vom Server.
+function tbArtVon(string $endung): string {
+    if (isset(TB_BILD_ARTEN[$endung]))  return 'bild';
+    if (isset(TB_VIDEO_ARTEN[$endung])) return 'video';
+    return '';
+}
 
 // Die Sitzung, oder nichts. Gesucht wird immer mit dem Abenteuer dabei —
 // eine Kennung allein soll nicht in ein fremdes Abenteuer fuehren.
@@ -1120,6 +1143,11 @@ function planOrdnerLeeren(string $ordner, bool $selbst): void {
         new RecursiveDirectoryIterator($ordner, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST);
     foreach ($it as $f) { $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname()); }
+    // Erst loslassen, dann loeschen: solange der Iterator den Ordner
+    // offen haelt, weigert sich Windows, ihn zu entfernen — zurueck blieb
+    // ein leerer Ordner je geloeschter Karte und je geloeschtem Abend.
+    unset($it);
+    clearstatcache(true, $ordner);
     if ($selbst) @rmdir($ordner);
 }
 // Stimmt der Inhalt mit der Endung? Ein Bild, das keines ist, bleibt
@@ -2766,17 +2794,22 @@ switch ($action) {
         $s = $advId !== '' && planId($id) ? tbSitzung($pdo, $code, $advId, $id) : null;
         if (!$s) respond(404, 'Die Sitzung gibt es nicht.');
         $liste = $body['bilder'] ?? null;
-        if (!is_array($liste) || !$liste) respond(400, 'Keine Bilder.');
-        if (count($liste) > 20) respond(413, 'Höchstens 20 Bilder auf einmal.');
+        if (!is_array($liste) || !$liste) respond(400, 'Keine Dateien.');
+        if (count($liste) > 20) respond(413, 'Höchstens 20 auf einmal.');
         $fertig = [];
         foreach ($liste as $b) {
             $endung = strtolower((string)($b['endung'] ?? ''));
-            if (!isset(TB_BILD_ARTEN[$endung])) respond(415, 'Nur PNG, JPEG oder WebP.');
+            $art = tbArtVon($endung);
+            if ($art === '') respond(415, 'Nur PNG, JPEG, WebP — oder MP4, WebM, OGV.');
+            $soll = $art === 'video' ? TB_VIDEO_ARTEN[$endung] : TB_BILD_ARTEN[$endung];
             $daten = base64_decode((string)($b['daten'] ?? ''), true);
-            if ($daten === false || $daten === '') respond(400, 'Ein Bild kam nicht lesbar an.');
-            if (strlen($daten) > TB_MAX_BILD) respond(413, 'Ein Bild ist größer als 12 MB.');
-            if (!planInhaltPasst(TB_BILD_ARTEN[$endung], $daten)) respond(415, 'Der Inhalt passt nicht zur Endung.');
-            $fertig[] = ['endung' => TB_BILD_ARTEN[$endung], 'daten' => $daten,
+            if ($daten === false || $daten === '') respond(400, 'Eine Datei kam nicht lesbar an.');
+            $grenze = $art === 'video' ? TB_MAX_VIDEO : TB_MAX_BILD;
+            if (strlen($daten) > $grenze) {
+                respond(413, $art === 'video' ? 'Ein Video ist größer als 32 MB.' : 'Ein Bild ist größer als 12 MB.');
+            }
+            if (!tbInhaltPasst($soll, $daten)) respond(415, 'Der Inhalt passt nicht zur Endung.');
+            $fertig[] = ['endung' => $soll, 'daten' => $daten,
                          'titel' => mb_substr(trim((string)($b['titel'] ?? '')), 0, 160)];
         }
         $ordner = planOrdner((string)$s['ablage'], true);
