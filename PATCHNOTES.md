@@ -1,5 +1,12 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.20.1
+
+- **Das Fenster „Bögen ein- und auslesen" nahm keine Klicks an** und hatte
+  weder ✕ noch das Zuklappen im Kopf: es hing nicht richtig im Fensterrahmen,
+  und jeder Klick ging durch es hindurch auf den Bogen dahinter. Beides ist
+  behoben, und die Oberflächenprüfung achtet jetzt darauf.
+
 ## v5.20.0
 
 ### Bögen als Textdateien — hinaus und wieder herein

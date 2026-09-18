@@ -1264,6 +1264,23 @@
           boegenK.click();
           const fenster = await warten(() => document.querySelector('.bt-fenster'));
           if (ja('  … und öffnet das Fenster', !!fenster)) {
+            // Es muss ein richtiges Fenster sein: mit Kopfknöpfen und
+            // klickbar. In v5.20.0 stand eine Komponente zwischen Fenster
+            // und Kasten — dann fehlten ✕ und —, und jeder Klick ging
+            // durch das Fenster hindurch auf den Bogen dahinter.
+            ja('  … als richtiges Fenster, mit Zuklappen und Schließen',
+               fenster.classList.contains('fenster')
+               && fenster.querySelectorAll('.fenster-knoepfe button').length === 2,
+               fenster.className + ' · ' + fenster.querySelectorAll('.fenster-knoepfe button').length + ' Knöpfe');
+            const zipProbe = [...fenster.querySelectorAll('button')].find(b => /ZIP sichern/.test(b.textContent));
+            const zr = zipProbe ? zipProbe.getBoundingClientRect() : null;
+            // Der Stapel unter dem Zeiger: der Knopf muss darin vorkommen.
+            // Vorher kam er nicht vor — das Fenster nahm gar keinen Klick an.
+            const stapelDa = zr && zr.width
+              ? document.elementsFromPoint(zr.left + zr.width / 2, zr.top + zr.height / 2) : [];
+            ja('  … und Klicks kommen im Fenster an, nicht dahinter',
+               stapelDa.includes(zipProbe) && getComputedStyle(fenster).pointerEvents !== 'none',
+               stapelDa.slice(0, 3).map(e => e.tagName + '.' + String(e.className).slice(0, 20)).join(' / ') || 'nichts getroffen');
             // Auslesen: der Knopf lädt ein ZIP herunter. Statt es zu
             // speichern, fangen wir den Blob ab und sehen hinein.
             const echtesErzeugen = URL.createObjectURL;
@@ -1322,8 +1339,11 @@
                    (boegen.find(c => c.name === 'Bote Jenk') || {}).adventure === (boegen.find(c => c.name === 'Brunhilde Eisenfaust') || {}).adventure);
               }
             }
-            const zuK = [...document.querySelectorAll('.bt-fenster button')].find(b => /Schließen/.test(b.textContent));
-            if (zuK) { zuK.click(); await ruhe(200); }
+            const kreuz = fenster.querySelector('.fenster-knoepfe button[aria-label="Fenster schließen"]');
+            if (ja('Im Kopf steht ein ✕', !!kreuz)) {
+              kreuz.click(); await ruhe(250);
+              ja('  … und es schließt das Fenster', !document.querySelector('.bt-fenster'));
+            }
           }
         }
 

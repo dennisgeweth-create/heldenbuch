@@ -701,6 +701,7 @@ const BogenAustausch = ({chars, advName, istNscListe, onEinspielen, onSchliessen
   };
 
   return (
+    <Fenster onZu={onSchliessen} leiste={{id: 'boegen', titel: 'Bögen', symbol: '📥'}}>
     <div className="form-modal breit bt-fenster" style={{maxWidth: 820}}>
       <div className="form-title">📥 Bögen ein- und auslesen</div>
 
@@ -804,5 +805,6 @@ const BogenAustausch = ({chars, advName, istNscListe, onEinspielen, onSchliessen
         )}
       </div>
     </div>
+    </Fenster>
   );
 };

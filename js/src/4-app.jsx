@@ -5038,10 +5038,8 @@ function App() {
       )}
 
       {austausch && (
-        <Fenster onZu={()=>setAustausch(false)} leiste={{id: 'boegen', titel: 'Bögen', symbol: '📥'}}>
-          <BogenAustausch chars={advChars} advName={advName} istNscListe={listeArt === 'nsc'}
-            onEinspielen={boegenEinspielen} onSchliessen={()=>setAustausch(false)} />
-        </Fenster>
+        <BogenAustausch chars={advChars} advName={advName} istNscListe={listeArt === 'nsc'}
+          onEinspielen={boegenEinspielen} onSchliessen={()=>setAustausch(false)} />
       )}
       {assistent && (
         <CharakterAssistent klassen={klassen} talente={(userLibrary || {}).talent || []}

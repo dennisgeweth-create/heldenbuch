@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.20.0';
+const HB_VERSION = 'v5.20.1';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -20904,7 +20904,14 @@ const BogenAustausch = ({
     }
     setLaedt(false);
   };
-  return /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onZu: onSchliessen,
+    leiste: {
+      id: 'boegen',
+      titel: 'Bögen',
+      symbol: '📥'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
     className: "form-modal breit bt-fenster",
     style: {
       maxWidth: 820
@@ -21012,7 +21019,7 @@ const BogenAustausch = ({
     className: "btn-save",
     disabled: !gewaehlt.length,
     onClick: einspielen
-  }, "\u2736 ", gewaehlt.length, " ", gewaehlt.length === 1 ? 'Bogen' : 'Bögen', " einlesen")));
+  }, "\u2736 ", gewaehlt.length, " ", gewaehlt.length === 1 ? 'Bogen' : 'Bögen', " einlesen"))));
 };
 
 // ==== js/src/3-sheet.jsx ====
@@ -33437,20 +33444,13 @@ function App() {
     onAbbrechen: () => setProbeAnsagen(false),
     onAnsagen: probeSetzen,
     helden: advChars.filter(c => !c.archived && c.dmOnly !== true)
-  }), austausch && /*#__PURE__*/React.createElement(Fenster, {
-    onZu: () => setAustausch(false),
-    leiste: {
-      id: 'boegen',
-      titel: 'Bögen',
-      symbol: '📥'
-    }
-  }, /*#__PURE__*/React.createElement(BogenAustausch, {
+  }), austausch && /*#__PURE__*/React.createElement(BogenAustausch, {
     chars: advChars,
     advName: advName,
     istNscListe: listeArt === 'nsc',
     onEinspielen: boegenEinspielen,
     onSchliessen: () => setAustausch(false)
-  })), assistent && /*#__PURE__*/React.createElement(CharakterAssistent, {
+  }), assistent && /*#__PURE__*/React.createElement(CharakterAssistent, {
     klassen: klassen,
     talente: (userLibrary || {}).talent || [],
     onAbbrechen: () => setAssistent(false),
