@@ -81,7 +81,9 @@ const GruppeTafel = ({ gruppe, dm, karte, helden, gruppen, zieht, onSpeichern, o
             return (
               <label key={h.id} className="pl-schalter">
                 <input type="checkbox" checked={(entwurf.helden || []).includes(h.id)} disabled={!!woanders} onChange={() => umHeld(h)} />
-                <span>{h.name}{h.nurDm ? ' (NSC)' : ''}{woanders ? ' — in „' + woanders.name + '“' : ''}</span>
+                <span>{h.npc ? nscZeichen(h) + ' ' : ''}{h.name}
+                  {h.npc ? ' · NSC, ' + (h.haltung === 'feindlich' ? 'feindlich' : 'freundlich') : h.nurDm ? ' (nur Spielleitung)' : ''}
+                  {woanders ? ' — in „' + woanders.name + '“' : ''}</span>
               </label>
             );
           })}

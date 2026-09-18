@@ -56,6 +56,26 @@ const figurFuerSpieler = (figur, karte) => {
   return figurPosition(figur, Number.isFinite(z) ? z : zeit);
 };
 
+// ── NSC aus dem Heldenbuch ───────────────────────────────────────
+// Der Planer fuehrt keine Boegen. Was er von einem NSC hat, kommt aus
+// planer_helden: Name, Haltung und die eingetragenen Kampfwerte. Eine
+// Figur auf der Karte kann darauf verweisen (figur.charId) — dann steht
+// auf ihrer Tafel, wer da steht, und ein Knopf fuehrt zum Bogen.
+const NSC_ZEICHEN = { freundlich: '🤝', feindlich: '☠' };
+const istNscBogen = (h) => !!(h && h.npc);
+const nscZeichen  = (h) => NSC_ZEICHEN[(h && h.haltung) === 'feindlich' ? 'feindlich' : 'freundlich'];
+const nscWerte    = (h) => {
+  if (!h) return '';
+  const tp = (+h.tpMax || 0) > 0 ? (+h.tp || 0) + '/' + h.tpMax + ' TP' : '';
+  return ['RK ' + (+h.rk || 10), tp].filter(Boolean).join(' · ');
+};
+const nscZuFigur  = (figur, helden) => (helden || []).find(h => h.id === (figur && figur.charId)) || null;
+// Die NSC eines Abenteuers, in der Reihenfolge der Tafel: erst die
+// freundlichen, dann die feindlichen, je Gruppe nach Namen.
+const nscListe = (helden) => (helden || []).filter(istNscBogen)
+  .sort((a, b) => (a.haltung === b.haltung ? String(a.name).localeCompare(String(b.name), 'de')
+    : a.haltung === 'feindlich' ? 1 : -1));
+
 // ── Lokale Dateien ───────────────────────────────────────────────
 // Eine Datei am Ort ist ein Verweis, nie ein Upload: eine Bibliothek (ein
 // Name, den jeder Rechner selbst einem Ordner zuordnet) und ein Pfad darin.

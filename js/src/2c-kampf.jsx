@@ -42,6 +42,16 @@ const gegnerAusVorlage = (vorlage, name) => {
   };
 };
 
+// Ein NSC in den Kampf. Er ist ein Bogen wie ein Held — deshalb art
+// 'held': Trefferpunkte stehen im Bogen, Todesrettungswuerfe gelten, und
+// was hier eingetragen wird, steht dort. Das Lager sagt nur, auf welcher
+// Seite er steht: der Begleiter kaempft mit, der Widersacher dagegen.
+const nscImKampf = (c) => ({
+  id: 'held-' + c.id, art: 'held', charId: c.id,
+  lager: nscHaltung(c) === 'feindlich' ? 'feind' : 'verbuendet',
+  ini: null, zustaende: [], erschoepfung: 0, notiz: '', vorteil: false, nachteil: false,
+});
+
 // Ein Nothelfer: der Waechter, der im Abenteuerbuch mit einem Satz
 // abgehandelt ist, oder der Wolf, den sich jemand gerade ausgedacht hat.
 // Drei Angaben genuegen — alles Weitere steht im Kopf der Spielleitung
@@ -950,7 +960,7 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
             <details className="zug-beschreibung">
               <summary>Beschreibung — {gegenstand.name || 'Ohne Namen'}</summary>
               {wahl.art === 'merkmal'
-                ? <div className="zug-beschreibung-text">{gegenstand.description}</div>
+                ? <div className="zug-beschreibung-text" dangerouslySetInnerHTML={{__html: sanitizeHtml(gegenstand.description)}} />
                 : <div className="zug-beschreibung-text"
                     dangerouslySetInnerHTML={{__html: sanitizeHtml(gegenstand.description)}} />}
             </details>
@@ -1250,7 +1260,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
         : Math.max(1, Math.round(+lauf.runden || 1));
       const zielIds = Object.keys(ziele).filter(id => liste.some(x => x.id === id));
       const zielNamen = zielIds.map(id => (liste.find(x => x.id === id) || {}).name || '');
-      laufend = {vonId: t.id, von: t.name, seite: t.art === 'held' ? 'held' : 'gegner',
+      laufend = {vonId: t.id, von: t.name, seite: t.art === 'held' && t.lager !== 'feind' ? 'held' : 'gegner',
                  name: lauf.name.trim(), konz: !!lauf.konz, runden, zielIds, ziele: zielNamen};
       eintraege.push({art: 'wirkungAn', wer: t.name, was: laufend.name, runden, ziele: zielNamen});
     }
@@ -1392,7 +1402,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                 const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a';
                 return (
                   <button type="button" key={z.id}
-                    className={'zug-ziel' + (ziele[z.id] ? ' an' : '') + (z.art === 'held' ? ' held' : '')}
+                    className={'zug-ziel' + (ziele[z.id] ? ' an' : '') + (z.art === 'held' && z.lager !== 'feind' ? ' held' : '')}
                     onClick={()=>zielUm(z.id)}>
                     <span className="zug-ziel-kopf"><b>{z.name}</b><i>RK {z.ac}</i></span>
                     <span className="zug-balken"><i style={{width:(anteil*100)+'%', background:farbe}} /></span>
@@ -1701,7 +1711,8 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
   return (
     <div ref={eigen} className={'kampf-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '')
                     + (tot ? ' tot' : '')
-                    + (t.art === 'held' ? ' held' : ' gegner')
+                    + (t.art === 'held' && t.lager !== 'feind' ? ' held' : ' gegner')
+                    + (t.lager ? ' nsc ' + t.lager : '')
                     + (auf ? ' auf' : ' zu')}>
 
       <div className="kampf-ini-feld">
@@ -1712,7 +1723,8 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
       </div>
 
       <div className="kampf-figur">
-        {t.bild ? <img src={t.bild} alt="" /> : <span>{t.art === 'held' ? '🛡' : '💀'}</span>}
+        {t.bild ? <img src={t.bild} alt="" />
+          : <span>{t.lager === 'feind' ? '☠' : t.lager ? '🤝' : t.art === 'held' ? '🛡' : '💀'}</span>}
       </div>
 
       <div className="kampf-namensblock">
@@ -2162,8 +2174,8 @@ const SpontanWahl = ({ enemies, laufend, onStarten, onAbbrechen }) => {
 // Oben die Helden des Abenteuers mit ihrem Stand, unten die ganze
 // Gegnersammlung mit einem Pluszeichen je Zeile. So kommt der Nachzuegler
 // mit einem Klick in den Kampf, ohne Umweg ueber ein Fenster.
-const KampfSeite = ({ helden, setDefs, enemies, imKampf, ueberlagert, onZu,
-                      onGegnerDazu, onHeldDazu }) => {
+const KampfSeite = ({ helden, nsc, setDefs, enemies, imKampf, ueberlagert, onZu,
+                      onGegnerDazu, onHeldDazu, onNscDazu }) => {
   const [suche, setSuche] = React.useState('');
   const q = suche.trim();
   const treffer = enemies
@@ -2211,6 +2223,43 @@ const KampfSeite = ({ helden, setDefs, enemies, imKampf, ueberlagert, onZu,
         })}
       </div>
 
+      {(nsc || []).length > 0 && (
+        <>
+          <div className="kampf-seite-kopf nsc">
+            <span>🎭 NSC</span>
+            <span className="kampf-seite-rechts">{nsc.length}</span>
+          </div>
+          <div className="kampf-seite-helden">
+            {nsc.map(c => {
+              const w = charWerte(c, setDefs);
+              const gesamt = Math.max(1, w.maxHp || 1);
+              const anteil = Math.max(0, Math.min(1, (w.hp||0) / gesamt));
+              const art = nscArt(c);
+              const drin = imKampf.has(c.id);
+              return (
+                <div className={'kampf-seite-held' + (drin ? '' : ' draussen')} key={c.id}>
+                  <div className="kampf-seite-figur">{c.portrait ? <img src={c.portrait} alt="" /> : <span>{art.zeichen}</span>}</div>
+                  <div className="kampf-seite-text">
+                    <b>{c.name}</b>
+                    <i style={{color:art.farbe}}>{art.imKampf} · AC {w.ac}</i>
+                    <div className="kampf-balken klein">
+                      <div className="kampf-balken-fuell" style={{width:(anteil*100)+'%', background:art.farbe}} />
+                    </div>
+                  </div>
+                  <div className="kampf-seite-zahl">
+                    <b style={{color:art.farbe}}>{(w.hp||0) + (w.tempHp||0)}</b>/{w.maxHp}
+                    {!drin && (
+                      <button className="kampf-seite-plus" title={c.name + ' dazunehmen'}
+                        aria-label={c.name + ' dazunehmen'} onClick={()=>onNscDazu(c)}>+</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <div className="kampf-seite-kopf gegner">
         <span>💀 Gegner</span>
         <span className="kampf-seite-rechts">{enemies.length}</span>
@@ -2240,9 +2289,13 @@ const KampfSeite = ({ helden, setDefs, enemies, imKampf, ueberlagert, onZu,
 };
 
 // ── Der Kampf ────────────────────────────────────────────────────
-const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
+const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh, nsc, setDefs,
                         abenteuer, advId, ansagen, onAnsageWeg, onSchliessen, onGegnerBlatt, onFrage,
                         onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern, planerBegegnung }) => {
+  // Ueberall, wo ein Bogen zu einem Teilnehmer gesucht wird, zaehlen
+  // Helden und NSC gleich: beide sind Boegen. Getrennt bleiben sie nur
+  // dort, wo es um die Gruppe geht — beim Aufstellen und in der Spalte.
+  const helden = React.useMemo(() => [...(heldenRoh || []), ...(nsc || [])], [heldenRoh, nsc]);
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [spontan, setSpontan] = React.useState(false);
@@ -2275,7 +2328,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // laedt sie hier nach; aufgestellt ist dann alles.
   React.useEffect(() => {
     if (!kampf || !kampf.aktiv) {
-      setKampf(kampfAufstellen({name: 'Kampf', enemies: []}, enemies, helden, setDefs));
+      setKampf(kampfAufstellen({name: 'Kampf', enemies: []}, enemies, heldenRoh, setDefs));
     }
   }, []);
 
@@ -2790,7 +2843,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
       }
       zuletztAmZug.current = null;
       rueckStapel.current = [];
-      setKampf(kampfAufstellen({name: 'Kampf', enemies: []}, enemies, helden, setDefs));
+      setKampf(kampfAufstellen({name: 'Kampf', enemies: []}, enemies, heldenRoh, setDefs));
     }, 'Beenden');
 
   // Beendet eine Wirkung — von Hand oder weil ihre Zeit um ist. Haelt ein
@@ -2899,15 +2952,17 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden, setDefs,
   // Spielleitung einen Knopf dafuer. Bei "von allein" und "gar nicht"
   // gibt es nichts zu druecken.
   const sichtAnsage = !!advObj && advObj.kampfSicht === 'ansage';
-  const zahlHelden = liste.filter(t => t.art === 'held').length;
+  // Der Verbuendete steht bei den Helden, der feindliche NSC bei den Gegnern.
+  const zahlHelden = liste.filter(t => t.art === 'held' && t.lager !== 'feind').length;
   const zahlGegner = liste.length - zahlHelden;
 
   return (
     <div className={'kampf-schirm' + (seiteOffen ? ' seite-offen' : '')
                     + (vorbereitung ? ' vorbereitung' : '')}>
-      <KampfSeite helden={helden} setDefs={setDefs} enemies={enemies} imKampf={imKampf}
+      <KampfSeite helden={heldenRoh} nsc={nsc || []} setDefs={setDefs} enemies={enemies} imKampf={imKampf}
         ueberlagert={seiteOffen} onZu={()=>setSeiteOffen(false)}
         onGegnerDazu={(e)=>{ dazu([gegnerAusVorlage(e)]); setSeiteOffen(false); }}
+        onNscDazu={(c)=>{ dazu([nscImKampf(c)]); setSeiteOffen(false); }}
         onHeldDazu={(h)=>{ dazu([{id:'held-'+h.id, art:'held', charId:h.id, ini:null,
                                 zustaende:[], erschoepfung:0, notiz:'', vorteil:false, nachteil:false}]);
                            setSeiteOffen(false); }} />

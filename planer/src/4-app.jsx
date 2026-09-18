@@ -444,6 +444,15 @@ const PlanerApp = () => {
     planerApi('planer_helden', { adv_id: advId }).then(r => setHelden(r.helden || [])).catch(() => setHelden([]));
   }, [dm, advId]);
 
+  // Der Bogen eines NSC steht im Heldenbuch, nicht hier. Der Auftrag
+  // oeffnet ihn dort — wie die Zeit, die Rast und der Kampf.
+  const nscBogenOeffnen = async (h) => {
+    const genommen = await anHeldenbuch({ art: 'nsc', advId, charId: h.id, name: h.name });
+    setMeldung(genommen
+      ? { art: 'gut', text: '🎭 Das Heldenbuch zeigt den Bogen von ' + h.name + '.' }
+      : { art: 'gut', text: '🎭 Der Auftrag wartet eine halbe Stunde. Öffne das Heldenbuch im DM-Modus.' });
+  };
+
   // Eine Gruppe zieht: Spur speichern, dann den Nebel entlang des Wegs lichten.
   const gruppeBewegt = async (ergebnis, meldung) => {
     try {
@@ -1111,6 +1120,7 @@ const PlanerApp = () => {
           )}
           {figur && karte && (
             <FigurTafel key={figur.id} figur={figur} dm={dm} zeit={zeit} wegpunktWartet={werkzeug === 'wegpunkt'}
+              helden={helden} onBogen={nscBogenOeffnen}
               onSpeichern={(f) => objAendern({ ...f, name: String(f.name || '').trim() || 'Ohne Namen' })}
               onLoeschen={(f) => objWeg(f, 'Figur löschen?', '„' + f.name + '“ wird mit allen Wegpunkten gelöscht.', async () => setFigurWahl(''))}
               onSchliessen={() => setFigurWahl('')}
@@ -1164,6 +1174,7 @@ const PlanerApp = () => {
           )}
           {reise && reiseRoute && karte && (
             <ReiseTafel key={reise.id} reise={reise} route={reiseRoute} dm={dm} karte={karte} advId={advId} chronikZeit={chronikZeit}
+              figuren={figurenRoh} onFigurReist={(f, p, z) => objAendern(wegpunktSetzen(f, z, p))}
               regionen={regionen} begegnungen={begegnungen || []} onNebelAufdecken={nebelAufdecken}
               heldengruppen={heldengruppen} onGruppeReist={gruppeReistMit}
               onSpeichern={(j) => objAendern({ ...j, name: String(j.name || '').trim() || 'Reise' })}

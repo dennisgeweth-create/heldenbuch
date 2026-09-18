@@ -1,5 +1,52 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.19.0
+
+### NSC — die Bögen der Spielleitung
+
+- **Eigene Liste:** In der Seitenleiste steht neben ⚔ Aktiv und 📦 Archiv
+  jetzt **🎭 NSC**. Dort legt die Spielleitung Wirte, Begleiter und
+  Widersacher an — **🤝 freundlich** oder **☠ feindlich** gegenüber der
+  Gruppe.
+- **Ein ganzer Bogen, von Hand:** Ein NSC ist derselbe Charakterbogen wie
+  ein Held, mit allen Reitern. Nur eingetragen wird alles selbst: kein
+  Assistent, kein Stufenaufstieg.
+- **Nie in der Heldenauswahl:** Weder in der Liste, noch im Wechsler, noch
+  in der Taverne. Wer ihn sehen will, geht auf den Reiter 🎭.
+- **Im Kampf:** Die Spalte des Trackers führt die NSC unter den Helden. Ein
+  Klick auf **+** holt sie dazu — freundliche als **Verbündete** (grün
+  gestrichelt, auf der Seite der Gruppe), feindliche als Gegner. Ihre
+  Trefferpunkte stehen im Bogen, wie bei einem Helden, samt
+  Todesrettungswürfen.
+- **Was die Runde sieht:** In der Spielersicht steht der Verbündete mit
+  Namen, Initiative und grobem Zustand in der Reihe — Zahlen gibt es keine.
+  Ein feindlicher NSC steht dort wie jeder andere Gegner.
+- **Im Abenteuerplaner:** Eine Figur auf der Karte kann auf einen NSC
+  verweisen — Name und Zeichen kommen mit, die Tafel zeigt Haltung, RK und
+  TP, und **Bogen öffnen** springt ins Heldenbuch. NSC dürfen außerdem Teil
+  einer Heldengruppe sein und mitreisen. Und eine Reise kann eine **Figur
+  unterwegs** mitnehmen: Jeder abgeschlossene Tag setzt ihr einen
+  Wegpunkt.
+- Aus den bisherigen **🔮 DM-Helden** werden beim ersten Start NSC, alle
+  freundlich. Wer einen Bogen wieder zum Helden machen will, stellt das im
+  Bogen-Dialog unter **Art** um.
+
+### Verborgene Bögen bleiben verborgen
+
+- Bögen der Spielleitung (alle NSC und die alten DM-Helden) **verlassen den
+  Server nicht mehr in Richtung Spieler**. Bisher hat der Browser sie nur
+  weggelassen — wer sich die Antwort ansah, las die Werte trotzdem. Auch
+  ihre Lebenszeichen sind aus dem Hintergrundabgleich heraus.
+
+### Behoben
+
+- **Fettschrift und andere Auszeichnungen** in Beschreibungen standen an
+  mehreren Stellen als Zeichen da, statt zu wirken: bei Merkmalen und
+  Fähigkeiten im Bogen, in der Vorlagenliste, in der Datenbank, beim Talent
+  im Aufstieg und im Zugfenster des Kampfes.
+- **Der Bogen als Text** (für eine KI) trug die Auszeichnungen mit. Jetzt
+  wird daraus lesbarer Text, mit Absätzen und Aufzählungspunkten.
+
 ## v5.18.0
 
 ### Abenteuerplaner: Der Nebel folgt der Gruppe

@@ -346,5 +346,15 @@ ist('und undefined auch nichts', htUmbruch(undefined, '  '), []);
 const zuLang = text.split('\n').filter(z => z.length > 100);
 ist('keine Zeile laeuft weit aus dem Rahmen', zuLang, []);
 
+// Beschreibungen sind HTML — im Text hat die Auszeichnung nichts verloren.
+ist('Fettschrift wird zu Text', htmlZuText('<b>Wucht</b>schlag'), 'Wuchtschlag');
+ist('Absaetze und Umbrueche werden Zeilen', htmlZuText('<p>Eins</p><div>Zwei</div>Drei<br>Vier'), 'Eins\nZwei\nDrei\nVier');
+ist('eine Liste bekommt Punkte', htmlZuText('<ul><li>Eins</li><li>Zwei</li></ul>'), '• Eins\n• Zwei');
+ist('Entitaeten werden Zeichen', htmlZuText('1&nbsp;m &amp; mehr &lt;b&gt;'), '1 m & mehr <b>');
+ist('leerer Wert bleibt leer', [htmlZuText(''), htmlZuText(null), htmlZuText(undefined)], ['', '', '']);
+ist('reiner Text bleibt, wie er ist', htmlZuText('Ein Satz mit Zahl 3'), 'Ein Satz mit Zahl 3');
+const roh = '<div>Ein Satz.</div><div><br></div><div>Noch einer.</div>';
+ist('keine Wand aus Leerzeilen', htmlZuText(roh), 'Ein Satz.\n\nNoch einer.');
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

@@ -1487,6 +1487,35 @@ const aufstiegPlan = (char, wahl) => {
   return {neu, zeilen, hinweise};
 };
 
+// ── NSC ────────────────────────────────────────────────
+// Ein NSC ist ein Bogen wie jeder andere: dieselben sieben Reiter,
+// dieselben Regeln. Drei Dinge unterscheiden ihn — er wird von Hand
+// gefuehrt (kein Assistent, kein Aufstieg), er steht nie in der
+// Heldenauswahl, und er hat eine Haltung zur Gruppe.
+//
+// Verborgen bleibt er ueber dasselbe Kennzeichen wie frueher der
+// DM-Held: npc setzt immer auch dmOnly, und daran haengt der Server
+// (dm_only, dmOnlyIds). Ein NSC ist damit von aussen so unsichtbar wie
+// ein DM-Held es war.
+const NSC_HALTUNGEN = [
+  {k: 'freundlich', wort: 'freundlich', zeichen: '🤝', farbe: '#56b183', imKampf: 'Verbündeter'},
+  {k: 'feindlich',  wort: 'feindlich',  zeichen: '☠',     farbe: '#e05a5a', imKampf: 'Gegner'},
+];
+const istNsc     = (c) => !!(c && c.npc);
+const nscHaltung = (c) => (c && c.haltung === 'feindlich') ? 'feindlich' : 'freundlich';
+const nscArt     = (c) => NSC_HALTUNGEN.find(h => h.k === nscHaltung(c)) || NSC_HALTUNGEN[0];
+// Aus einem Bogen einen NSC machen und zurueck. Beim Zurueck faellt auch
+// dmOnly weg: wer wieder Held ist, steht wieder in der Auswahl.
+const alsNsc  = (c, haltung) => ({...c, npc: true, dmOnly: true,
+  haltung: haltung === 'feindlich' ? 'feindlich' : 'freundlich'});
+const alsHeld = (c) => { const {npc, haltung, ...rest} = c; return {...rest, dmOnly: false}; };
+// Die alten DM-Helden (🔮) sind NSC, seit es NSC gibt: gleiche Sichtbarkeit,
+// nur mit Haltung. Gibt null zurueck, wenn nichts umzustellen ist.
+const nscMigration = (liste) => {
+  if (!(liste || []).some(c => c.dmOnly && !c.npc)) return null;
+  return liste.map(c => (c.dmOnly && !c.npc) ? {...c, npc: true, haltung: c.haltung || 'freundlich'} : c);
+};
+
 const newChar   = () => ({
   id:Date.now().toString(), name:"", race:"Mensch", charClass:"Kämpfer", level:1,
   multiclasses:[],
@@ -1509,6 +1538,8 @@ const newChar   = () => ({
   gear:{}, gearMigrated:GEAR_MIGRATION,
   // Wird beim Anlegen auf das gerade offene Abenteuer gesetzt.
   adventure:"",
+  // NSC der Spielleitung: npc true, haltung 'freundlich' oder 'feindlich'.
+  npc:false, haltung:"freundlich",
   spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
 });
 // ── Die Einzelheiten einer Logzeile ────────────────────
@@ -1692,6 +1723,19 @@ const fuzzyFilter = (items, query, getStr) => {
     .sort((a, b) => b.score - a.score)
     .map(x => x.item);
 };
+
+// HTML zu lesbarem Text, mit Absaetzen. htmlText darueber macht eine
+// einzige Zeile daraus — gut zum Suchen, schlecht zum Lesen. Das hier ist
+// fuer alles, was kein Browser anzeigt: den Bogen als Text, die
+// Zwischenablage, eine Datei.
+const htmlZuText = (html) => String(html == null ? '' : html)
+  .replace(/<\s*br\s*\/?>/gi, '\n')
+  .replace(/<\s*li[^>]*>/gi, '\u2022 ')
+  .replace(/<\/\s*(p|div|li|h[1-6]|tr|ul|ol|blockquote)\s*>/gi, '\n')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&amp;/g, '&')
+  .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 
 // ── Suche ueber alle Angaben eines Gegenstands ───────────────────
 // Text aus einer Beschreibung ziehen, ohne die Auszeichnung mitzusuchen —

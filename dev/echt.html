@@ -69,7 +69,7 @@
       str: 16, dex: 12, con: 15, int: 10, wis: 12, cha: 8,
       portrait: '', notes: 'Sucht den Hammer ihres Vaters.', notesList: [],
       features: [{id: 'f1', name: 'Aktionsschub', source: 'Kämpfer 2',
-        description: 'Einmal je Rast eine zusätzliche Aktion.',
+        description: 'Einmal je Rast eine <b>zusätzliche Aktion</b>.',
         effects: [], effectsActive: true},
         // Ein Merkmal, das einen Zauber auslöst und davon zehrt.
         {id: 'f2', name: 'Bannstrahl', source: 'Werkbank',
@@ -1162,6 +1162,17 @@
             ja('  … das Zahnrad ist da', !!document.querySelector('.leiste-zahnrad'));
             ja('  … und Hinzufügen auch', sichtbar(knopfMit('Fähigkeit hinzufügen')));
           }
+          // Beschreibungen kommen aus dem Rich-Text-Editor. Bis v5.18 standen
+          // die Auszeichnungen als Text im Bogen.
+          const karteA = [...document.querySelectorAll('.feature-card')].find(k => /Aktionsschub/.test(k.textContent));
+          if (karteA) {
+            karteA.click(); await ruhe(150);
+            const beschA = karteA.querySelector('.feature-card-desc');
+            ja('Fettschrift im Merkmal wird gesetzt, nicht angezeigt',
+               !!beschA && !!beschA.querySelector('b') && !/<b>/.test(beschA.textContent),
+               (beschA || {}).textContent || 'keine Beschreibung');
+            karteA.click(); await ruhe(120);
+          }
           const stift = karte && karte.querySelector('.spell-edit-btn');
           if (ja('  … Bannstrahl lässt sich bearbeiten', sichtbar(stift))) {
             stift.click(); await ruhe(200);
@@ -1177,6 +1188,72 @@
           ja('Fertig macht den Bogen wieder zum Lesen', !sichtbar(
             ([...document.querySelectorAll('.feature-card')].find(k => /Bannstrahl/.test(k.textContent)) || document)
               .querySelector('.spell-edit-btn')));
+        }
+
+        // ── NSC: der Bogen, der nie in der Heldenauswahl steht ──────
+        melden('lauf', 'NSC');
+        const listeKnopf = (t) => [...document.querySelectorAll('.char-list button')].find(b => b.textContent.includes(t));
+        const nscTab = await warten(() => listeKnopf('🎭 NSC'));
+        if (ja('Die Spielleitung hat einen eigenen Reiter für NSC', !!nscTab)) {
+          nscTab.click(); await ruhe(150);
+          const neu = await warten(() => listeKnopf('freundlich'));
+          if (ja('  … und zwei Knöpfe zum Anlegen, je nach Haltung',
+                 !!neu && !!listeKnopf('feindlich'))) {
+            neu.click(); await ruhe(200);
+            const titel = document.querySelector('.form-modal .form-title');
+            ja('Der Bogen geht als NSC auf', !!titel && /Neuer NSC/.test(titel.textContent),
+               (titel || {}).textContent || 'kein Titel');
+            const art = [...document.querySelectorAll('.form-modal select')]
+              .find(s => [...s.options].some(o => /NSC/.test(o.textContent)));
+            ja('  … mit der Art „NSC, freundlich“', !!art && art.value === 'nsc-freundlich', art ? art.value : 'keine Auswahl');
+            const nameFeld = document.querySelector('.form-modal input.form-input');
+            if (nameFeld) {
+              // React liest nicht el.value, sondern seinen eigenen Stand —
+              // ein Wert von Hand kommt nur ueber den Setter des Prototyps an.
+              Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(nameFeld, 'Wirt Arik');
+              nameFeld.dispatchEvent(new Event('input', {bubbles: true}));
+              await ruhe(80);
+            }
+            const speichern = knopfMit('Speichern');
+            if (speichern) { speichern.click(); await ruhe(400); }
+            const boegen = () => JSON.parse(wbSpeicher.dnd_chars || '[]');
+            const arik = boegen().find(c => c.name === 'Wirt Arik');
+            ja('Der NSC ist angelegt', !!arik && arik.npc === true && arik.haltung === 'freundlich',
+               JSON.stringify(arik && {npc: arik.npc, haltung: arik.haltung, dmOnly: arik.dmOnly}));
+            ja('  … und verborgen wie ein Bogen der Spielleitung', !!arik && arik.dmOnly === true);
+            ja('  … er steht in der NSC-Liste',
+               [...document.querySelectorAll('.char-item-name')].some(e => /Wirt Arik/.test(e.textContent)));
+            const aktivTab = listeKnopf('⚔ Aktiv');
+            if (aktivTab) { aktivTab.click(); await ruhe(200); }
+            ja('  … aber nicht bei den Helden',
+               ![...document.querySelectorAll('.char-item-name')].some(e => /Wirt Arik/.test(e.textContent)));
+          }
+        }
+
+        // ── Der NSC im Kampf: ein Verbündeter, kein Gegner ──
+        const kampfK2 = knopfMit('⚔ Kampf');
+        if (kampfK2) {
+          kampfK2.click(); await ruhe(300);
+          const spalte = await warten(() => document.querySelector('.kampf-seite'));
+          const nscKopf = spalte && [...spalte.querySelectorAll('.kampf-seite-kopf')].find(k => /NSC/.test(k.textContent));
+          if (ja('Die Spalte des Trackers führt die NSC', !!nscKopf)) {
+            const zeile = [...spalte.querySelectorAll('.kampf-seite-held')].find(z => /Wirt Arik/.test(z.textContent));
+            ja('  … mit dem NSC darin', !!zeile);
+            const plus = zeile && zeile.querySelector('.kampf-seite-plus');
+            if (ja('  … und einem Knopf, ihn dazuzunehmen', !!plus)) {
+              plus.click(); await ruhe(400);
+              const karteN = [...document.querySelectorAll('.kampf-zeile')].find(z => /Wirt Arik/.test(z.textContent));
+              ja('Er steht als Verbündeter in der Reihe',
+                 !!karteN && karteN.classList.contains('verbuendet') && karteN.classList.contains('held'),
+                 karteN ? karteN.className : 'keine Zeile');
+              const teil = (JSON.parse(wbSpeicher.hb_kampf || 'null') || {}).teilnehmer || [];
+              const eintrag = teil.find(t => t.lager);
+              ja('  … im Kampf steht sein Lager', !!eintrag && eintrag.lager === 'verbuendet' && eintrag.art === 'held',
+                 JSON.stringify(eintrag || null));
+            }
+          }
+          const zu = knopfMit('✕') || knopfMit('Schließen');
+          if (zu) { zu.click(); await ruhe(200); }
         }
 
         // ── Post von der Runde ─────────────────────────────────────

@@ -77,7 +77,10 @@ function App() {
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferSel,  setTransferSel]  = useState(new Set());
   const [transferMode, setTransferMode] = useState(false);
-  const [showArchive,  setShowArchive]  = useState(false);
+  // Welche Liste in der Seitenleiste steht: die Helden, das Archiv oder
+  // die NSC der Spielleitung.
+  const [listeArt,     setListeArt]     = useState('aktiv');
+  const showArchive = listeArt === 'archiv';
   const [charSearch,   setCharSearch]   = useState('');
   // Die Heldenliste bleibt stehen, wo der Benutzer sie gelassen hat.
   // Vorher klappte sie sich beim Auswaehlen eines Helden selbst weg, und
@@ -857,6 +860,15 @@ function App() {
     if (!liste.length) return;
     if (!liste.some(c => (c.gearMigrated||0) < GEAR_MIGRATION)) return;
     save(liste.map(c => { const p = migrateGear(c); return p ? {...c, ...p} : c; }));
+  }, [gearReady, chars]);
+
+  // Aus den alten DM-Helden werden NSC. Sie waren schon dasselbe: ein
+  // Bogen, den nur die Spielleitung sieht. Jetzt haben sie dazu eine
+  // Haltung — und stehen nicht mehr in der Heldenauswahl.
+  useEffect(() => {
+    if (!gearReady) return;
+    const neu = nscMigration(charsRef.current);
+    if (neu) save(neu);
   }, [gearReady, chars]);
 
   // Abenteuer anlegen und Helden zuordnen. Wie die Ausruestungsumstellung
@@ -1875,6 +1887,17 @@ function App() {
         if (t.art === 'held') {
           const h = chars.find(x => x.id === t.charId);
           if (h) rest.erschoepfung = +h.erschoepfung || 0;
+          // Ein NSC hat bei den Spielern keinen Bogen — sie bekaemen sonst
+          // eine Kennung ohne Namen. Deshalb reist von ihm dasselbe mit wie
+          // von einem Gegner: der Name und der Stand, aus dem der Server
+          // einen groben macht. Die Kennung des Bogens bleibt hier.
+          if (t.lager && h) {
+            const w = charWerte(h, setDefs);
+            rest.name = h.name;
+            rest.hp = w.hp;
+            rest.hpMax = Math.max(1, w.maxHp || 1);
+            delete rest.charId;
+          }
         }
         return rest;
       }),
@@ -1892,6 +1915,9 @@ function App() {
         .catch(() => { kampfGespiegelt.current = null; });   // beim naechsten Mal erneut
     }, 1200);
     return () => clearTimeout(uhr);
+  // setDefs steht weiter unten und darf hier nicht in der Liste stehen —
+  // sie wird beim Rendern gelesen. Der Spiegel haengt ohnehin an chars:
+  // was ein NSC aushaelt, steht in seinem Bogen.
   }, [kampf, chars, isDmMode, konto, advId, svCode, advDms]);
 
   // Beim Wechsel des Abenteuers faengt das Spiegeln von vorn an — sonst
@@ -2548,7 +2574,7 @@ function App() {
   // ihren Nichtspielerfiguren — spielt mit denen, die er sieht. Zwei
   // gleichzeitig gespielte Charaktere haben damit zwei Beutel.
   const tavernenHelden = (() => {
-    const sichtbar = chars.filter(c => !c.archived && (!c.dmOnly || isDmMode));
+    const sichtbar = chars.filter(c => !c.archived && !istNsc(c) && (!c.dmOnly || isDmMode));
     const eigene = sichtbar.filter(c => eigeneHeldenIds.includes(c.id));
     return (eigene.length ? eigene : sichtbar).map(c => ({id: c.id, name: c.name}));
   })();
@@ -2799,6 +2825,12 @@ function App() {
       else if (a.art === 'rast') setRastAnsage({ art: a.rastArt, basis: a.basis, niederschlag: a.niederschlag,
         temperatur: a.temperatur, wind: a.wind, massnahmen: a.massnahmen, text: a.text });
       else if (a.art === 'probe') setProbeAnsagen({ art: a.probeArt, wert: a.wert, sg: a.sg, text: a.text });
+      else if (a.art === 'nsc') {
+        // Der Planer schickt die Kennung eines Bogens. Ist es ein NSC,
+        // steht er in der NSC-Liste — dorthin geht auch der Blick.
+        const c = charsRef.current.find(x => x.id === String(a.charId || ''));
+        if (c) { if (istNsc(c)) setListeArt('nsc'); goChar(c.id); }
+      }
       else if (a.art === 'kampf') {
         setShowKampf(true);
         leiste.zeigen('kampf');
@@ -2817,7 +2849,10 @@ function App() {
   const advChars = chars.filter(imAbenteuer);
   const advSpeichern = (liste) => saveLibrary(alt => ({...alt, _adventures: liste}));
 
-  const switchList = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
+  // Die Heldenauswahl — NSC gehoeren nicht hinein, auch nicht im
+  // DM-Modus. Sie haben ihre eigene Liste.
+  const switchList = advChars.filter(c => !c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode));
+  const nscListe   = advChars.filter(c => !c.archived && istNsc(c));
   const switchIndex = switchList.findIndex(c => c.id === sel);
 
   // Der Neue gehoert in das Abenteuer, das gerade offen ist — sonst
@@ -2831,6 +2866,13 @@ function App() {
     setShowCF(true);
   };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
+  // Ein NSC entsteht immer von Hand: kein Assistent, keine Vorlage —
+  // die Spielleitung weiss selbst, was der Wirt kann.
+  const openNewNsc = (haltung) => {
+    const erste = (klassen[0] || {}).name;
+    setEc(alsNsc({...newChar(), adventure: advId, ...(erste ? {charClass: erste} : {})}, haltung));
+    setShowCF(true);
+  };
   // Der Bearbeitungsmodus des Bogens. Ein Schalter im Kopf statt eines
   // Bearbeiten-Knopfs je Abschnitt: gelesen wird der Bogen fast immer,
   // geändert selten — und dann meistens an mehreren Stellen zugleich.
@@ -2897,6 +2939,7 @@ function App() {
         ['Stufe',       (c) => c.level],
         ['Nebenklassen',nebenklassen],
         ['Nur Spielleitung', (c) => c.dmOnly ? 'ja' : 'nein'],
+        ['NSC',          (c) => istNsc(c) ? nscHaltung(c) : 'nein'],
       ]) : {};
       addLog(ec.id, ec.name, 'charakter', 'Charakter bearbeitet',
         Object.keys(charChanges).length > 0 ? charChanges : {klasse:ec.charClass,stufe:ec.level});
@@ -3306,41 +3349,54 @@ function App() {
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
   const CharList = () => {
-    const active   = advChars.filter(c=>!c.archived && (c.dmOnly !== true || isDmMode));
+    const active   = advChars.filter(c=>!c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode));
     const archived = advChars.filter(c=> c.archived && (c.dmOnly !== true || isDmMode));
+    const nscs     = advChars.filter(c=>!c.archived && istNsc(c));
     const q = charSearch.toLowerCase();
     const filterSearch = list => q ? list.filter(c=>(c.name||'').toLowerCase().includes(q) || (c.charClass||'').toLowerCase().includes(q) || (c.race||'').toLowerCase().includes(q)) : list;
-    const list = filterSearch(showArchive ? archived : active);
+    const list = filterSearch(listeArt === 'nsc' ? nscs : listeArt === 'archiv' ? archived : active);
     return (
       <>
-        {/* Archiv-Toggle */}
+        {/* Aktiv, Archiv — und fuer die Spielleitung die NSC */}
         <div style={{display:"flex",gap:4,padding:"4px 8px 0",marginBottom:8}}>
-          <button
-            onClick={()=>setShowArchive(false)}
-            style={{flex:1,padding:"9px 0",minHeight:36,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
-              background:!showArchive?"var(--bg-panel)":"none",border:"1px solid",
-              borderColor:!showArchive?"var(--gold-dim)":"var(--border)",
-              color:!showArchive?"var(--gold)":"var(--text-muted)",borderRadius:"3px 0 0 3px",cursor:"pointer"}}>
-            ⚔ Aktiv {active.length>0 && <span style={{opacity:0.7}}>({active.length})</span>}
-          </button>
-          <button
-            onClick={()=>setShowArchive(true)}
-            style={{flex:1,padding:"9px 0",minHeight:36,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
-              background:showArchive?"var(--bg-panel)":"none",border:"1px solid",
-              borderColor:showArchive?"var(--gold-dim)":"var(--border)",
-              color:showArchive?"var(--gold)":"var(--text-muted)",borderRadius:"0 3px 3px 0",cursor:"pointer",marginLeft:-1}}>
-            📦 Archiv {archived.length>0 && <span style={{opacity:0.7}}>({archived.length})</span>}
-          </button>
+          {[['aktiv','⚔ Aktiv',active.length,true],
+            ['archiv','📦 Archiv',archived.length,true],
+            ['nsc','🎭 NSC',nscs.length,isDmMode]].filter(x=>x[3]).map(([k,wort,zahl],i,alle)=>(
+            <button key={k}
+              onClick={()=>setListeArt(k)}
+              style={{flex:1,padding:"9px 0",minHeight:36,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",
+                background:listeArt===k?"var(--bg-panel)":"none",border:"1px solid",
+                borderColor:listeArt===k?(k==='nsc'?"#c060a0":"var(--gold-dim)"):"var(--border)",
+                color:listeArt===k?(k==='nsc'?"#c060a0":"var(--gold)"):"var(--text-muted)",
+                borderRadius:i===0?"3px 0 0 3px":i===alle.length-1?"0 3px 3px 0":0,
+                cursor:"pointer",marginLeft:i===0?0:-1}}>
+              {wort} {zahl>0 && <span style={{opacity:0.7}}>({zahl})</span>}
+            </button>
+          ))}
         </div>
+        {listeArt === 'nsc' && (
+          <div style={{display:"flex",gap:4,padding:"0 8px 8px"}}>
+            {NSC_HALTUNGEN.map(h => (
+              <button key={h.k} onClick={()=>openNewNsc(h.k)}
+                style={{flex:1,padding:"7px 0",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",
+                  background:"none",border:"1px dashed "+h.farbe+"66",borderRadius:3,color:h.farbe,cursor:"pointer"}}
+                title={'Einen NSC von Hand anlegen — ' + h.wort + ' gegenüber der Gruppe'}>
+                + {h.zeichen} {h.wort}
+              </button>
+            ))}
+          </div>
+        )}
 
         {list.length === 0 && (
           <div style={{padding:"40px 20px",textAlign:"center",color:"var(--text-muted)"}}>
-            <div style={{fontSize:36,marginBottom:12,opacity:0.3}}>{showArchive?"📦":"⚔"}</div>
+            <div style={{fontSize:36,marginBottom:12,opacity:0.3}}>{listeArt==='archiv'?"📦":listeArt==='nsc'?"🎭":"⚔"}</div>
             <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:14}}>
-              {showArchive ? "Archiv ist leer" : "Noch keine Helden"}
+              {listeArt==='archiv' ? "Archiv ist leer" : listeArt==='nsc' ? "Noch kein NSC" : "Noch keine Helden"}
             </div>
             <div style={{fontSize:12,marginTop:6,opacity:0.6}}>
-              {showArchive ? "Archivierte Charaktere erscheinen hier" : "Erstelle deinen ersten Charakter"}
+              {listeArt==='archiv' ? "Archivierte Charaktere erscheinen hier"
+                : listeArt==='nsc' ? "Wirte, Begleiter, Widersacher — alles von Hand eingetragen"
+                : "Erstelle deinen ersten Charakter"}
             </div>
           </div>
         )}
@@ -3351,12 +3407,14 @@ function App() {
             onClick={()=>goChar(c.id)}
             style={{cursor:"pointer",opacity:showArchive?0.8:1,
               borderStyle:showArchive?"dashed":c.dmOnly?"dashed":"solid",
-              borderColor:c.dmOnly?(sel===c.id?'#c060a0':'#c060a040'):undefined,
+              borderColor:c.dmOnly?(sel===c.id?(istNsc(c)?nscArt(c).farbe:'#c060a0'):'#c060a040'):undefined,
               display:"flex",alignItems:"center",gap:6,paddingRight:8}}>
             <div style={{flex:1,minWidth:0}}>
               <div className="char-item-name" style={{display:"flex",alignItems:"center",gap:6}}>
                 {showArchive && <span style={{fontSize:10,opacity:0.5}}>📦</span>}
-                {c.dmOnly && <span title="DM-Held" style={{fontSize:10,color:'#c060a0'}}>🔮</span>}
+                {istNsc(c)
+                  ? <span title={'NSC — ' + nscArt(c).wort + ' gegenüber der Gruppe'} style={{fontSize:10,color:nscArt(c).farbe}}>{nscArt(c).zeichen}</span>
+                  : c.dmOnly && <span title="Nur Spielleitung" style={{fontSize:10,color:'#c060a0'}}>🔮</span>}
                 {/* Der eigene Bogen. Nur, wenn ueberhaupt jemandem etwas
                     gehoert — sonst waere es eine Marke ohne Gegenteil. */}
                 {konto && besitzer[c.id] === konto.id && (
@@ -3802,7 +3860,9 @@ function App() {
       {showCF && ec && (
         <Fenster>
           <div className="form-modal" style={{maxWidth:420}}>
-            <div className="form-title">{chars.find(c=>c.id===ec.id)?"✎ Charakter bearbeiten":"✶ Neuer Charakter"}</div>
+            <div className="form-title">{chars.find(c=>c.id===ec.id)
+              ? (istNsc(ec) ? "✎ NSC bearbeiten" : "✎ Charakter bearbeiten")
+              : (istNsc(ec) ? "✶ Neuer NSC" : "✶ Neuer Charakter")}</div>
 
             <div className="form-group" style={{marginBottom:14}}>
               <div className="form-label">Name</div>
@@ -3866,9 +3926,21 @@ function App() {
 
             <div className="form-actions" style={{marginTop:20}}>
               {isDmMode && (
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginRight:"auto"}}>
-                  <input type="checkbox" checked={ec.dmOnly||false} onChange={e=>setEc({...ec,dmOnly:e.target.checked})} style={{width:16,height:16,cursor:"pointer",accentColor:"#c060a0"}} />
-                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"#c060a0"}}>🔮 Nur DM-Modus</span>
+                <label style={{display:"flex",alignItems:"center",gap:8,marginRight:"auto"}}
+                  title="Ein NSC steht nie in der Heldenauswahl und wird von Hand geführt.">
+                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:"var(--text-muted)"}}>Art</span>
+                  <select className="form-input" style={{padding:"4px 8px",fontSize:12}}
+                    value={istNsc(ec) ? 'nsc-'+nscHaltung(ec) : (ec.dmOnly ? 'dm' : 'held')}
+                    onChange={e=>{
+                      const w = e.target.value;
+                      if (w === 'held') setEc(alsHeld(ec));
+                      else if (w === 'dm') setEc({...alsHeld(ec), dmOnly:true});
+                      else setEc(alsNsc(ec, w.slice(4)));
+                    }}>
+                    <option value="held">🛡 Held</option>
+                    <option value="dm">🔮 Held, nur im DM-Modus</option>
+                    {NSC_HALTUNGEN.map(h => <option key={h.k} value={'nsc-'+h.k}>{h.zeichen} NSC · {h.wort}</option>)}
+                  </select>
                 </label>
               )}
               <button className="btn-cancel" onClick={()=>setShowCF(false)}>Abbrechen</button>
@@ -5642,25 +5714,26 @@ function App() {
                                         {dbTab==='spell' && (<>
                                           <div><strong>Reichw.</strong> {e.range||'—'} · <strong>Dauer</strong> {e.duration||'—'} · <strong>Komp.</strong> {e.components||'—'}</div>
                                           {(e.classes||[]).length>0 && <div style={{marginTop:4}}><strong>Klassen:</strong> {e.classes.join(', ')}</div>}
-                                          {e.description && <div style={{marginTop:6,fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-secondary)',whiteSpace:'pre-wrap'}}>{e.description.slice(0,300)}{e.description.length>300?'…':''}</div>}
+                                          {e.description && <div style={{marginTop:6,fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-secondary)',whiteSpace:'pre-wrap'}}
+                                            dangerouslySetInnerHTML={{__html:sanitizeHtml(e.description.slice(0,300) + (e.description.length>300?'…':''))}} />}
                                         </>)}
                                         {dbTab==='weapon' && (<>
                                           <div><strong>Reichw.</strong> {e.range||'—'} · <strong>Eigenschaften:</strong> {(e.properties||[]).join(', ')||'—'}</div>
-                                          {e.description && <div style={{marginTop:6,whiteSpace:'pre-wrap'}}>{e.description}</div>}
+                                          {e.description && <div style={{marginTop:6,whiteSpace:'pre-wrap'}} dangerouslySetInnerHTML={{__html:sanitizeHtml(e.description)}} />}
                                         </>)}
                                         {dbTab==='wildshape' && (<>
                                           <div><strong>Bewegung:</strong> {e.speed||'—'} · <strong>Sinne:</strong> {e.senses||'—'}</div>
                                           {e.skills && <div><strong>Fertigk.:</strong> {e.skills}</div>}
                                         </>)}
                                         {dbTab==='merkmal' && e.description && (
-                                          <div style={{whiteSpace:'pre-wrap'}}>{e.description}</div>
+                                          <div style={{whiteSpace:'pre-wrap'}} dangerouslySetInnerHTML={{__html:sanitizeHtml(e.description)}} />
                                         )}
                                         {dbTab==='talent' && (<>
                                           {e.voraussetzung && <div><strong>Voraussetzung:</strong> {e.voraussetzung}</div>}
-                                          {e.description && <div style={{marginTop:4,whiteSpace:'pre-wrap'}}>{e.description}</div>}
+                                          {e.description && <div style={{marginTop:4,whiteSpace:'pre-wrap'}} dangerouslySetInnerHTML={{__html:sanitizeHtml(e.description)}} />}
                                         </>)}
                                         {dbTab==='set' && (<>
-                                          {e.description && <div style={{marginBottom:6}}>{e.description}</div>}
+                                          {e.description && <div style={{marginBottom:6}} dangerouslySetInnerHTML={{__html:sanitizeHtml(e.description)}} />}
                                           {(e.stufen||[]).slice().sort((a,b)=>(+a.teile||0)-(+b.teile||0)).map((st,si)=>(
                                             <div key={si} style={{marginBottom:5}}>
                                               <strong>{st.teile} Teile:</strong>{' '}
@@ -6095,7 +6168,8 @@ function App() {
         <KampfAnsicht
           kampf={kampf} setKampf={setKampf}
           enemies={enemies} encounters={encounters}
-          helden={advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode))}
+          helden={advChars.filter(c => !c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode))}
+          nsc={nscListe}
           setDefs={setDefs} abenteuer={abenteuer} advId={advId}
           onSchliessen={()=>setShowKampf(false)}
           onGegnerBlatt={(id)=>{ const g = enemies.find(e=>e.id===id); if (g) setEnemyView(g); }}
@@ -6449,7 +6523,7 @@ function App() {
                           <div className="tpl-item-body">
                             <div className="tpl-item-name">{s.name}</div>
                             <div className="tpl-item-meta">{s.school} · {s.castingTime} · {s.components||'—'}</div>
-                            <div className="tpl-item-desc">{s.description}</div>
+                            <div className="tpl-item-desc" dangerouslySetInnerHTML={{__html:sanitizeHtml(s.description)}} />
                           </div>
                         </div>
                       );

@@ -27,12 +27,21 @@ const FIGUR_SYMBOLE = ['🧍', '🧙', '🧛', '🐺', '🐉', '🏇', '🛒', '
 const neueFigur = (karteId, zeit, p) => ({ id: planNeueId('p'), karteId, art: 'figur', name: 'Neue Figur', symbol: '🧍', sichtbar: false, text: '',
   wegpunkte: [{ zeit, x: Math.round(p.x), y: Math.round(p.y), notiz: '' }], dm: { notiz: '' } });
 
-const FigurTafel = ({ figur, dm, zeit, wegpunktWartet, onSpeichern, onLoeschen, onSchliessen, onWegpunktHier }) => {
+const FigurTafel = ({ figur, dm, zeit, wegpunktWartet, helden, onSpeichern, onLoeschen, onSchliessen, onWegpunktHier, onBogen }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(figur);
   const setze = (feld, wert) => setEntwurf(e => ({ ...e, [feld]: wert }));
   const wp = wegpunkteSortiert(entwurf);
   const pos = figurPosition(entwurf, zeit);
   const setzeWp = (i, feld, wert) => setEntwurf(e => ({ ...e, wegpunkte: wegpunkteSortiert(e).map((w, j) => j === i ? { ...w, [feld]: wert } : w) }));
+  const nsc = nscZuFigur(entwurf, helden);
+  // Einen NSC waehlen heisst: Name und Zeichen kommen mit. Beides bleibt
+  // danach aenderbar — der Bote heisst auf der Karte vielleicht „Reiter“.
+  const nscWaehlen = (id) => setEntwurf(e => {
+    const h = (helden || []).find(x => x.id === id);
+    if (!h) { const { charId, ...rest } = e; return rest; }
+    return { ...e, charId: h.id, name: (e.name === 'Neue Figur' || !e.name) ? h.name : e.name,
+      symbol: nscZeichen(h) };
+  });
   if (!dm) {
     return (
       <aside className="pl-tafel" aria-label={'Figur: ' + figur.name}>
@@ -54,6 +63,22 @@ const FigurTafel = ({ figur, dm, zeit, wegpunktWartet, onSpeichern, onLoeschen, 
             <button type="button" key={s} role="radio" aria-checked={entwurf.symbol === s} className={'pl-symbolwahl' + (entwurf.symbol === s ? ' an' : '')} onClick={() => setze('symbol', s)}>{s}</button>
           ))}
         </div>
+        {(helden === null || nscListe(helden).length > 0 || entwurf.charId) && (
+          <label>NSC aus dem Heldenbuch
+            <select className="pl-feld" value={entwurf.charId || ''} aria-label="NSC aus dem Heldenbuch"
+              onChange={e => nscWaehlen(e.target.value)}>
+              <option value="">— keiner, nur eine Figur —</option>
+              {nscListe(helden).map(h => <option key={h.id} value={h.id}>{nscZeichen(h)} {h.name}</option>)}
+              {entwurf.charId && !nscZuFigur(entwurf, helden) && <option value={entwurf.charId}>(nicht mehr im Abenteuer)</option>}
+            </select>
+          </label>
+        )}
+        {nsc && (
+          <p className="pl-leise pl-klein-text">
+            {nscZeichen(nsc)} {nsc.haltung === 'feindlich' ? 'feindlich' : 'freundlich'} · {nscWerte(nsc)}
+            {onBogen && <> · <button type="button" className="pl-verweis" onClick={() => onBogen(nsc)}>Bogen öffnen</button></>}
+          </p>
+        )}
         <h3 className="pl-unterkopf">Wegpunkte</h3>
         <ol className="pl-wegpunkte">
           {wp.map((w, i) => (

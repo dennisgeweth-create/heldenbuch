@@ -160,7 +160,7 @@ const WetterWahl = ({ wetter, onWetter }) => {
   );
 };
 
-const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, begegnungen, onSpeichern, onLoeschen, onSchliessen, onMeldung, onNebelAufdecken, heldengruppen, onGruppeReist }) => {
+const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, begegnungen, onSpeichern, onLoeschen, onSchliessen, onMeldung, onNebelAufdecken, heldengruppen, onGruppeReist, figuren, onFigurReist }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
   const [uebergabe, setUebergabe] = useState('');
   const m = karte.massstab;
@@ -219,6 +219,16 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
     setVerirrt(false);
     onSpeichern({ ...entwurf, vorrat, pos: verirrt ? (entwurf.pos || 0) : heute.bis, tagebuch: [...(entwurf.tagebuch || []), eintrag] });
     if (verirrt) return;
+    // Reist eine Figur mit — ein Bote, eine Karawane, ein NSC —, bekommt
+    // sie fuer diesen Tag einen Wegpunkt am Ende der Tagesstrecke. Der
+    // Nebel bleibt davon unberuehrt: sie gehoert nicht zur Gruppe.
+    const fg = entwurf.figurId && (figuren || []).find(x => x.id === entwurf.figurId);
+    if (fg && onFigurReist) {
+      const ende = punktAufRoute(st.r, m, heute.bis);
+      const letzte = wegpunkteSortiert(fg)[wegpunkteSortiert(fg).length - 1];
+      const von = Math.max(chronikZeit || 0, letzte ? letzte.zeit : 0);
+      if (ende) onFigurReist(fg, ende, Math.round(von + heute.stunden));
+    }
     // Reist eine Heldengruppe mit, zieht sie die Route entlang und lichtet
     // den Nebel mit ihrer eigenen Sichtweite.
     const hg = entwurf.gruppeId && (heldengruppen || []).find(x => x.id === entwurf.gruppeId);
@@ -295,6 +305,14 @@ const ReiseTafel = ({ reise, route, dm, karte, advId, chronikZeit, regionen, beg
             <select className="pl-feld" value={entwurf.gruppeId || ''} onChange={e => setze('gruppeId', e.target.value)}>
               <option value="">— keine —</option>
               {(heldengruppen || []).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>
+          <label>Figur unterwegs
+            <select className="pl-feld" value={entwurf.figurId || ''} aria-label="Figur unterwegs"
+              title="Ein Bote, eine Karawane, ein NSC: jeder abgeschlossene Tag setzt ihr einen Wegpunkt"
+              onChange={e => setze('figurId', e.target.value)}>
+              <option value="">— keine —</option>
+              {(figuren || []).map(x => <option key={x.id} value={x.id}>{(x.symbol || '🧍') + ' ' + x.name}</option>)}
             </select>
           </label>
           <label>Sichtweite ({einh})

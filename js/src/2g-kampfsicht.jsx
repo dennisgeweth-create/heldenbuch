@@ -17,6 +17,9 @@ const zustandFarbe = (label) =>
 
 const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHeld, wirkungen }) => {
   const held = t.art === 'held';
+  // Der Verbuendete kommt wie ein Gegner an — ohne Zahlen, mit grobem
+  // Stand. Dass er auf der Seite der Gruppe steht, sagt der Server dazu.
+  const verbuendet = t.lager === 'verbuendet';
   const c    = held ? (helden || []).find(h => h.id === t.charId) : null;
   const w    = c ? charWerte(c, setDefs) : null;
 
@@ -35,7 +38,7 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
 
   return (
     <div className={'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '')
-                    + (held ? ' held' : ' gegner')
+                    + (held ? ' held' : verbuendet ? ' verbuendet' : ' gegner')
                     + (eigenerHeld ? ' eigen' : '')}>
       <div className="ks-ini">{t.ini === null || t.ini === undefined ? '—' : t.ini}</div>
       <div className="ks-name">
@@ -44,6 +47,7 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
         <div className="ks-marken">
           {dran && <span className="ks-dran">am Zug</span>}
           {eigenerHeld && <span className="ks-eigen">dein Held</span>}
+          {verbuendet && <span className="ks-marke gut">🤝 Verbündeter</span>}
           {t.vorteil  && <span className="ks-marke gut">👍 Vorteil</span>}
           {t.nachteil && <span className="ks-marke schlecht">👎 Nachteil</span>}
           {/* Beim Helden aus dem Bogen, beim Gegner aus dem Kampf. */}

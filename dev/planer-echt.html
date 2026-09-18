@@ -121,7 +121,13 @@
           if (o.daten.ablage) FAKE.ablagen.delete(o.daten.ablage);
           return { ok: true, stand: hoch() };
         }
-        case 'planer_helden': nurDm(); return { ok: true, helden: [{ id: 'h_armin', name: 'Armin', nurDm: false }, { id: 'h_bea', name: 'Bea', nurDm: false }, { id: 'h_cem', name: 'Cem', nurDm: false }, { id: 'n_ireena', name: 'Ireena', nurDm: true }] };
+        case 'planer_helden': nurDm(); return { ok: true, helden: [
+          { id: 'h_armin', name: 'Armin', nurDm: false, npc: false, haltung: 'freundlich', stufe: 3, rk: 16, tp: 24, tpMax: 28 },
+          { id: 'h_bea', name: 'Bea', nurDm: false, npc: false, haltung: 'freundlich', stufe: 3, rk: 14, tp: 21, tpMax: 21 },
+          { id: 'h_cem', name: 'Cem', nurDm: false, npc: false, haltung: 'freundlich', stufe: 3, rk: 12, tp: 18, tpMax: 18 },
+          { id: 'n_ireena', name: 'Ireena', nurDm: true, npc: true, haltung: 'freundlich', stufe: 3, rk: 15, tp: 9, tpMax: 30 },
+          { id: 'n_rahadin', name: 'Rahadin', nurDm: true, npc: true, haltung: 'feindlich', stufe: 10, rk: 18, tp: 90, tpMax: 90 },
+        ] };
         case 'member_list': nurDm(); return { ok: true, mitglieder: [{ id: 7, name: 'Meisterin', rolle: 'dm' }, { id: 8, name: 'Armin', rolle: 'spieler' }, { id: 9, name: 'Bea', rolle: 'spieler' }] };
         case 'planer_dateien_hoch': {
           nurDm();
@@ -660,6 +666,27 @@
         knopf(/Für Spieler:/).click();
         ja('„👁 Für Spieler“ gibt diese Zeit frei', !!(await warte(() => karteVon('Barovia-Tal').daten.zeit === 62)));
 
+        // ── Die Figur ist ein NSC aus dem Heldenbuch ──
+        // Figuren stehen nur auf der Karte, nicht in einer Liste.
+        root.querySelector('.pl-figur').click();
+        const fT2 = await warte(() => root.querySelector('.pl-tafel[aria-label^="Figur bearbeiten"]'));
+        const nscWahl = await warte(() => fT2.querySelector('select[aria-label="NSC aus dem Heldenbuch"]'));
+        if (ja('die Figurtafel bietet die NSC des Abenteuers an', !!nscWahl)) {
+          ja('  … nur NSC, keine Helden', [...nscWahl.options].map(o => o.textContent.trim()).filter(t => /Armin|Bea|Cem/.test(t)).length === 0,
+            [...nscWahl.options].map(o => o.textContent.trim()).join(' | '));
+          ja('  … der freundliche vor dem feindlichen', /Ireena/.test(nscWahl.options[1].textContent) && /Rahadin/.test(nscWahl.options[2].textContent));
+          waehle(nscWahl, 'n_ireena');
+          await ruhe();
+          ja('  … gewählt steht ihre Haltung und ihre Werte da', /freundlich/.test(fT2.textContent) && /RK 15/.test(fT2.textContent) && /9\/30 TP/.test(fT2.textContent),
+            fT2.textContent.slice(0, 200));
+          knopf(/^Speichern$/, fT2).click();
+          ja('  … und der Verweis ist gespeichert', !!(await warte(() => figD().charId === 'n_ireena')));
+          knopf(/Bogen öffnen/, fT2).click();
+          const auftrag = await warte(() => { try { return JSON.parse(localStorage.getItem('hb_planer_auftrag') || 'null'); } catch (e) { return null; } });
+          ja('„Bogen öffnen“ schickt den Auftrag ans Heldenbuch', !!auftrag && auftrag.art === 'nsc' && auftrag.charId === 'n_ireena', JSON.stringify(auftrag));
+          localStorage.removeItem('hb_planer_auftrag');
+        }
+
         // ── Dateien auf dem Rechner ───────────────────────────────
         melden('lauf', 'Dateien auf dem Rechner');
         const geoeffnet = [];
@@ -857,10 +884,22 @@
         knopf(/^Speichern$/, root.querySelector('.pl-tafel.pl-reise')).click();
         await warte(() => FAKE.objekte.get(reiseId).daten.gruppeId === gruppeId);
         ja('reist die Gruppe mit, verschwindet die eigene Reisemarke', !!(await warte(() => !root.querySelector('.pl-gruppe'))));
+        // Eine Figur reist mit: jeder abgeschlossene Tag setzt ihr einen Wegpunkt.
+        const figurId2 = [...FAKE.objekte.values()].find(o => o.daten.art === 'figur').daten.id;
+        const figWahl = await warte(() => root.querySelector('.pl-tafel.pl-reise select[aria-label="Figur unterwegs"]'));
+        if (ja('die Reisetafel nimmt eine Figur mit', !!figWahl)) {
+          waehle(figWahl, figurId2);
+          await ruhe();
+          knopf(/^Speichern$/, root.querySelector('.pl-tafel.pl-reise')).click();
+          await warte(() => FAKE.objekte.get(reiseId).daten.figurId === figurId2);
+        }
+        const wegVorReise = FAKE.objekte.get(figurId2).daten.wegpunkte.length;
         const spurVorReise = FAKE.objekte.get(gruppeId).daten.spur.length;
         knopf(/Tag 5 abschließen/).click();
         ja('ein Reisetag zieht die Gruppe die Route entlang', !!(await warte(() => { const s = FAKE.objekte.get(gruppeId).daten.spur; return s.length > spurVorReise && s[s.length - 1].art === 'reise'; })),
           spurVorReise + ' → ' + FAKE.objekte.get(gruppeId).daten.spur.length);
+        ja('  … und setzt der mitreisenden Figur einen Wegpunkt', !!(await warte(() => FAKE.objekte.get(figurId2).daten.wegpunkte.length === wegVorReise + 1)),
+          wegVorReise + ' → ' + FAKE.objekte.get(figurId2).daten.wegpunkte.length);
 
         // ── Exportieren ─────────────────────────────────────────
         melden('lauf', 'Exportieren');

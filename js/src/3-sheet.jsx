@@ -1029,7 +1029,10 @@ const Sheet = () => {
                       </div>
                       {feat.description && (
                         <div className="feature-card-desc-wrap">
-                          <div><div className="feature-card-desc">{feat.description}</div></div>
+                          {/* Die Beschreibung kommt aus dem Rich-Text-Editor und
+                              ist HTML. Als Text ausgegeben stuenden hier die
+                              Auszeichnungen selbst. */}
+                          <div><div className="feature-card-desc" dangerouslySetInnerHTML={{__html:sanitizeHtml(feat.description)}} /></div>
                         </div>
                       )}
                     </div>

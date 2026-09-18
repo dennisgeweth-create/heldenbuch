@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.18.0';
+const HB_VERSION = 'v5.19.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -2680,6 +2680,23 @@ const gegnerAusVorlage = (vorlage, name) => {
   };
 };
 
+// Ein NSC in den Kampf. Er ist ein Bogen wie ein Held — deshalb art
+// 'held': Trefferpunkte stehen im Bogen, Todesrettungswuerfe gelten, und
+// was hier eingetragen wird, steht dort. Das Lager sagt nur, auf welcher
+// Seite er steht: der Begleiter kaempft mit, der Widersacher dagegen.
+const nscImKampf = c => ({
+  id: 'held-' + c.id,
+  art: 'held',
+  charId: c.id,
+  lager: nscHaltung(c) === 'feindlich' ? 'feind' : 'verbuendet',
+  ini: null,
+  zustaende: [],
+  erschoepfung: 0,
+  notiz: '',
+  vorteil: false,
+  nachteil: false
+});
+
 // Ein Nothelfer: der Waechter, der im Abenteuerbuch mit einem Satz
 // abgehandelt ist, oder der Wolf, den sich jemand gerade ausgedacht hat.
 // Drei Angaben genuegen — alles Weitere steht im Kopf der Spielleitung
@@ -3790,8 +3807,11 @@ const AktionsWahl = ({
   })), gegenstand && gegenstand.description && /*#__PURE__*/React.createElement("details", {
     className: "zug-beschreibung"
   }, /*#__PURE__*/React.createElement("summary", null, "Beschreibung \u2014 ", gegenstand.name || 'Ohne Namen'), wahl.art === 'merkmal' ? /*#__PURE__*/React.createElement("div", {
-    className: "zug-beschreibung-text"
-  }, gegenstand.description) : /*#__PURE__*/React.createElement("div", {
+    className: "zug-beschreibung-text",
+    dangerouslySetInnerHTML: {
+      __html: sanitizeHtml(gegenstand.description)
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
     className: "zug-beschreibung-text",
     dangerouslySetInnerHTML: {
       __html: sanitizeHtml(gegenstand.description)
@@ -4244,7 +4264,7 @@ const ZugFenster = ({
       laufend = {
         vonId: t.id,
         von: t.name,
-        seite: t.art === 'held' ? 'held' : 'gegner',
+        seite: t.art === 'held' && t.lager !== 'feind' ? 'held' : 'gegner',
         name: lauf.name.trim(),
         konz: !!lauf.konz,
         runden,
@@ -4449,7 +4469,7 @@ const ZugFenster = ({
     return /*#__PURE__*/React.createElement("button", {
       type: "button",
       key: z.id,
-      className: 'zug-ziel' + (ziele[z.id] ? ' an' : '') + (z.art === 'held' ? ' held' : ''),
+      className: 'zug-ziel' + (ziele[z.id] ? ' an' : '') + (z.art === 'held' && z.lager !== 'feind' ? ' held' : ''),
       onClick: () => zielUm(z.id)
     }, /*#__PURE__*/React.createElement("span", {
       className: "zug-ziel-kopf"
@@ -4874,7 +4894,7 @@ const KampfZeile = ({
   const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
   return /*#__PURE__*/React.createElement("div", {
     ref: eigen,
-    className: 'kampf-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (tot ? ' tot' : '') + (t.art === 'held' ? ' held' : ' gegner') + (auf ? ' auf' : ' zu')
+    className: 'kampf-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (tot ? ' tot' : '') + (t.art === 'held' && t.lager !== 'feind' ? ' held' : ' gegner') + (t.lager ? ' nsc ' + t.lager : '') + (auf ? ' auf' : ' zu')
   }, /*#__PURE__*/React.createElement("div", {
     className: "kampf-ini-feld"
   }, /*#__PURE__*/React.createElement("input", {
@@ -4892,7 +4912,7 @@ const KampfZeile = ({
   }, t.bild ? /*#__PURE__*/React.createElement("img", {
     src: t.bild,
     alt: ""
-  }) : /*#__PURE__*/React.createElement("span", null, t.art === 'held' ? '🛡' : '💀')), /*#__PURE__*/React.createElement("div", {
+  }) : /*#__PURE__*/React.createElement("span", null, t.lager === 'feind' ? '☠' : t.lager ? '🤝' : t.art === 'held' ? '🛡' : '💀')), /*#__PURE__*/React.createElement("div", {
     className: "kampf-namensblock"
   }, t.art === 'gegner' && t.vorlageId ? /*#__PURE__*/React.createElement("button", {
     className: "kampf-name kampf-name-knopf",
@@ -5401,13 +5421,15 @@ const SpontanWahl = ({
 // mit einem Klick in den Kampf, ohne Umweg ueber ein Fenster.
 const KampfSeite = ({
   helden,
+  nsc,
   setDefs,
   enemies,
   imKampf,
   ueberlagert,
   onZu,
   onGegnerDazu,
-  onHeldDazu
+  onHeldDazu,
+  onNscDazu
 }) => {
   const [suche, setSuche] = React.useState('');
   const q = suche.trim();
@@ -5463,7 +5485,53 @@ const KampfSeite = ({
       title: "In den Kampf holen",
       onClick: () => onHeldDazu(h)
     }, "+")));
-  })), /*#__PURE__*/React.createElement("div", {
+  })), (nsc || []).length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-kopf nsc"
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83C\uDFAD NSC"), /*#__PURE__*/React.createElement("span", {
+    className: "kampf-seite-rechts"
+  }, nsc.length)), /*#__PURE__*/React.createElement("div", {
+    className: "kampf-seite-helden"
+  }, nsc.map(c => {
+    const w = charWerte(c, setDefs);
+    const gesamt = Math.max(1, w.maxHp || 1);
+    const anteil = Math.max(0, Math.min(1, (w.hp || 0) / gesamt));
+    const art = nscArt(c);
+    const drin = imKampf.has(c.id);
+    return /*#__PURE__*/React.createElement("div", {
+      className: 'kampf-seite-held' + (drin ? '' : ' draussen'),
+      key: c.id
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "kampf-seite-figur"
+    }, c.portrait ? /*#__PURE__*/React.createElement("img", {
+      src: c.portrait,
+      alt: ""
+    }) : /*#__PURE__*/React.createElement("span", null, art.zeichen)), /*#__PURE__*/React.createElement("div", {
+      className: "kampf-seite-text"
+    }, /*#__PURE__*/React.createElement("b", null, c.name), /*#__PURE__*/React.createElement("i", {
+      style: {
+        color: art.farbe
+      }
+    }, art.imKampf, " \xB7 AC ", w.ac), /*#__PURE__*/React.createElement("div", {
+      className: "kampf-balken klein"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "kampf-balken-fuell",
+      style: {
+        width: anteil * 100 + '%',
+        background: art.farbe
+      }
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "kampf-seite-zahl"
+    }, /*#__PURE__*/React.createElement("b", {
+      style: {
+        color: art.farbe
+      }
+    }, (w.hp || 0) + (w.tempHp || 0)), "/", w.maxHp, !drin && /*#__PURE__*/React.createElement("button", {
+      className: "kampf-seite-plus",
+      title: c.name + ' dazunehmen',
+      "aria-label": c.name + ' dazunehmen',
+      onClick: () => onNscDazu(c)
+    }, "+")));
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "kampf-seite-kopf gegner"
   }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDC80 Gegner"), /*#__PURE__*/React.createElement("span", {
     className: "kampf-seite-rechts"
@@ -5498,7 +5566,8 @@ const KampfAnsicht = ({
   setKampf,
   enemies,
   encounters,
-  helden,
+  helden: heldenRoh,
+  nsc,
   setDefs,
   abenteuer,
   advId,
@@ -5513,6 +5582,10 @@ const KampfAnsicht = ({
   onHeldNotizSichern,
   planerBegegnung
 }) => {
+  // Ueberall, wo ein Bogen zu einem Teilnehmer gesucht wird, zaehlen
+  // Helden und NSC gleich: beide sind Boegen. Getrennt bleiben sie nur
+  // dort, wo es um die Gruppe geht — beim Aufstellen und in der Spalte.
+  const helden = React.useMemo(() => [...(heldenRoh || []), ...(nsc || [])], [heldenRoh, nsc]);
   const [zustandOffen, setZustandOffen] = React.useState(null);
   const [detailOffen, setDetailOffen] = React.useState(null);
   const [spontan, setSpontan] = React.useState(false);
@@ -5548,7 +5621,7 @@ const KampfAnsicht = ({
       setKampf(kampfAufstellen({
         name: 'Kampf',
         enemies: []
-      }, enemies, helden, setDefs));
+      }, enemies, heldenRoh, setDefs));
     }
   }, []);
 
@@ -6291,7 +6364,7 @@ const KampfAnsicht = ({
     setKampf(kampfAufstellen({
       name: 'Kampf',
       enemies: []
-    }, enemies, helden, setDefs));
+    }, enemies, heldenRoh, setDefs));
   }, 'Beenden');
 
   // Beendet eine Wirkung — von Hand oder weil ihre Zeit um ist. Haelt ein
@@ -6437,12 +6510,14 @@ const KampfAnsicht = ({
   // Spielleitung einen Knopf dafuer. Bei "von allein" und "gar nicht"
   // gibt es nichts zu druecken.
   const sichtAnsage = !!advObj && advObj.kampfSicht === 'ansage';
-  const zahlHelden = liste.filter(t => t.art === 'held').length;
+  // Der Verbuendete steht bei den Helden, der feindliche NSC bei den Gegnern.
+  const zahlHelden = liste.filter(t => t.art === 'held' && t.lager !== 'feind').length;
   const zahlGegner = liste.length - zahlHelden;
   return /*#__PURE__*/React.createElement("div", {
     className: 'kampf-schirm' + (seiteOffen ? ' seite-offen' : '') + (vorbereitung ? ' vorbereitung' : '')
   }, /*#__PURE__*/React.createElement(KampfSeite, {
-    helden: helden,
+    helden: heldenRoh,
+    nsc: nsc || [],
     setDefs: setDefs,
     enemies: enemies,
     imKampf: imKampf,
@@ -6450,6 +6525,10 @@ const KampfAnsicht = ({
     onZu: () => setSeiteOffen(false),
     onGegnerDazu: e => {
       dazu([gegnerAusVorlage(e)]);
+      setSeiteOffen(false);
+    },
+    onNscDazu: c => {
+      dazu([nscImKampf(c)]);
       setSeiteOffen(false);
     },
     onHeldDazu: h => {
@@ -16735,6 +16814,9 @@ const KampfSichtZeile = ({
   wirkungen
 }) => {
   const held = t.art === 'held';
+  // Der Verbuendete kommt wie ein Gegner an — ohne Zahlen, mit grobem
+  // Stand. Dass er auf der Seite der Gruppe steht, sagt der Server dazu.
+  const verbuendet = t.lager === 'verbuendet';
   const c = held ? (helden || []).find(h => h.id === t.charId) : null;
   const w = c ? charWerte(c, setDefs) : null;
 
@@ -16749,7 +16831,7 @@ const KampfSichtZeile = ({
   const anteil = held ? w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0 : +t.balken || 0;
   const farbe = held && tpOffen && w ? anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a' : zustand ? zustand.color : 'var(--text-muted)';
   return /*#__PURE__*/React.createElement("div", {
-    className: 'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (held ? ' held' : ' gegner') + (eigenerHeld ? ' eigen' : '')
+    className: 'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (held ? ' held' : verbuendet ? ' verbuendet' : ' gegner') + (eigenerHeld ? ' eigen' : '')
   }, /*#__PURE__*/React.createElement("div", {
     className: "ks-ini"
   }, t.ini === null || t.ini === undefined ? '—' : t.ini), /*#__PURE__*/React.createElement("div", {
@@ -16760,7 +16842,9 @@ const KampfSichtZeile = ({
     className: "ks-dran"
   }, "am Zug"), eigenerHeld && /*#__PURE__*/React.createElement("span", {
     className: "ks-eigen"
-  }, "dein Held"), t.vorteil && /*#__PURE__*/React.createElement("span", {
+  }, "dein Held"), verbuendet && /*#__PURE__*/React.createElement("span", {
+    className: "ks-marke gut"
+  }, "\uD83E\uDD1D Verb\xFCndeter"), t.vorteil && /*#__PURE__*/React.createElement("span", {
     className: "ks-marke gut"
   }, "\uD83D\uDC4D Vorteil"), t.nachteil && /*#__PURE__*/React.createElement("span", {
     className: "ks-marke schlecht"
@@ -18502,7 +18586,7 @@ const heldText = (c, opts) => {
       if ((wa.properties || []).length) t.push('      Eigenschaften: ' + wa.properties.join(', '));
       const fxText = htEffekte(wa.effects);
       if (fxText && (platz || wa.equipped)) t.push('      Wirkt: ' + fxText);
-      if (wa.description) htUmbruch(wa.description, '      ').forEach(z => t.push(z));
+      if (wa.description) htUmbruch(htmlZuText(wa.description), '      ').forEach(z => t.push(z));
     });
   }
 
@@ -18528,7 +18612,7 @@ const heldText = (c, opts) => {
       if (fxText) t.push('      Wirkt: ' + fxText);
       // Nur Gegenstaende. Eine Waffe steht oben schon mit ihrem ganzen
       // Text da; hier waere er dasselbe ein zweites Mal.
-      if (k !== 'w' && obj.description) htUmbruch(obj.description, '      ').forEach(z => t.push(z));
+      if (k !== 'w' && obj.description) htUmbruch(htmlZuText(obj.description), '      ').forEach(z => t.push(z));
     });
     const sets = gearSets(c, o.setDefs || []).filter(s => s.hoechste > 0);
     sets.forEach(s => {
@@ -18579,7 +18663,7 @@ const heldText = (c, opts) => {
       if (fw && (fw.wuerfel || fw.rettung || (fw.zustaende || []).length)) {
         t.push('      Im Kampf: ' + [fw.wuerfel ? fw.wuerfel + (fw.schadensart ? ' ' + fw.schadensart : '') : '', fw.rettung ? 'Rettungswurf ' + (RETTUNG_KURZ[fw.rettung] || fw.rettung) + (fw.halb ? ', halbiert' : '') : '', (fw.zustaende || []).length ? 'Zustand: ' + fw.zustaende.join(', ') : ''].filter(Boolean).join(' · '));
       }
-      if (f.description) htUmbruch(f.description, '      ').forEach(z => t.push(z));
+      if (f.description) htUmbruch(htmlZuText(f.description), '      ').forEach(z => t.push(z));
     });
   }
 
@@ -18623,7 +18707,7 @@ const heldText = (c, opts) => {
         // daran erkennt es auch der Kampftracker. Es noch einmal
         // danebenzuschreiben hiesse dasselbe zweimal.
         t.push('        ' + [s.school, s.castingTime, s.range, s.components, s.duration].filter(Boolean).join(' · '));
-        if (s.description) htUmbruch(s.description, '        ').forEach(z => t.push(z));
+        if (s.description) htUmbruch(htmlZuText(s.description), '        ').forEach(z => t.push(z));
       });
     });
   }
@@ -21524,8 +21608,11 @@ const Sheet = () => {
   }, feat.effectsActive === false ? '◇ Ruht' : '✦ Wirkt'))), feat.description && /*#__PURE__*/React.createElement("div", {
     className: "feature-card-desc-wrap"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "feature-card-desc"
-  }, feat.description)))))), /*#__PURE__*/React.createElement("button", {
+    className: "feature-card-desc",
+    dangerouslySetInnerHTML: {
+      __html: sanitizeHtml(feat.description)
+    }
+  })))))), /*#__PURE__*/React.createElement("button", {
     className: "btn-add",
     onClick: () => {
       setFf({
@@ -23799,7 +23886,11 @@ const StufenAufstieg = ({
     value: t.name
   }, t.name, t.herkunft ? ' · ' + t.herkunft : '')))), talEintrag && /*#__PURE__*/React.createElement("div", {
     className: "auf-hinweis"
-  }, talEintrag.voraussetzung ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", null, "Voraussetzung:"), " ", talEintrag.voraussetzung, /*#__PURE__*/React.createElement("br", null)) : null, talEintrag.description || 'Ohne Beschreibung in der Datenbank.'), talHalb.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, talEintrag.voraussetzung ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("b", null, "Voraussetzung:"), " ", talEintrag.voraussetzung, /*#__PURE__*/React.createElement("br", null)) : null, talEintrag.description ? /*#__PURE__*/React.createElement("span", {
+    dangerouslySetInnerHTML: {
+      __html: sanitizeHtml(talEintrag.description)
+    }
+  }) : 'Ohne Beschreibung in der Datenbank.'), talHalb.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "auf-tp",
     style: {
       marginTop: 6
@@ -24376,7 +24467,10 @@ function App() {
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferSel, setTransferSel] = useState(new Set());
   const [transferMode, setTransferMode] = useState(false);
-  const [showArchive, setShowArchive] = useState(false);
+  // Welche Liste in der Seitenleiste steht: die Helden, das Archiv oder
+  // die NSC der Spielleitung.
+  const [listeArt, setListeArt] = useState('aktiv');
+  const showArchive = listeArt === 'archiv';
   const [charSearch, setCharSearch] = useState('');
   // Die Heldenliste bleibt stehen, wo der Benutzer sie gelassen hat.
   // Vorher klappte sie sich beim Auswaehlen eines Helden selbst weg, und
@@ -25321,6 +25415,15 @@ function App() {
         ...p
       } : c;
     }));
+  }, [gearReady, chars]);
+
+  // Aus den alten DM-Helden werden NSC. Sie waren schon dasselbe: ein
+  // Bogen, den nur die Spielleitung sieht. Jetzt haben sie dazu eine
+  // Haltung — und stehen nicht mehr in der Heldenauswahl.
+  useEffect(() => {
+    if (!gearReady) return;
+    const neu = nscMigration(charsRef.current);
+    if (neu) save(neu);
   }, [gearReady, chars]);
 
   // Abenteuer anlegen und Helden zuordnen. Wie die Ausruestungsumstellung
@@ -26810,6 +26913,17 @@ function App() {
         if (t.art === 'held') {
           const h = chars.find(x => x.id === t.charId);
           if (h) rest.erschoepfung = +h.erschoepfung || 0;
+          // Ein NSC hat bei den Spielern keinen Bogen — sie bekaemen sonst
+          // eine Kennung ohne Namen. Deshalb reist von ihm dasselbe mit wie
+          // von einem Gegner: der Name und der Stand, aus dem der Server
+          // einen groben macht. Die Kennung des Bogens bleibt hier.
+          if (t.lager && h) {
+            const w = charWerte(h, setDefs);
+            rest.name = h.name;
+            rest.hp = w.hp;
+            rest.hpMax = Math.max(1, w.maxHp || 1);
+            delete rest.charId;
+          }
         }
         return rest;
       }),
@@ -26828,6 +26942,9 @@ function App() {
       }); // beim naechsten Mal erneut
     }, 1200);
     return () => clearTimeout(uhr);
+    // setDefs steht weiter unten und darf hier nicht in der Liste stehen —
+    // sie wird beim Rendern gelesen. Der Spiegel haengt ohnehin an chars:
+    // was ein NSC aushaelt, steht in seinem Bogen.
   }, [kampf, chars, isDmMode, konto, advId, svCode, advDms]);
 
   // Beim Wechsel des Abenteuers faengt das Spiegeln von vorn an — sonst
@@ -27689,7 +27806,7 @@ function App() {
   // ihren Nichtspielerfiguren — spielt mit denen, die er sieht. Zwei
   // gleichzeitig gespielte Charaktere haben damit zwei Beutel.
   const tavernenHelden = (() => {
-    const sichtbar = chars.filter(c => !c.archived && (!c.dmOnly || isDmMode));
+    const sichtbar = chars.filter(c => !c.archived && !istNsc(c) && (!c.dmOnly || isDmMode));
     const eigene = sichtbar.filter(c => eigeneHeldenIds.includes(c.id));
     return (eigene.length ? eigene : sichtbar).map(c => ({
       id: c.id,
@@ -28016,7 +28133,15 @@ function App() {
         wert: a.wert,
         sg: a.sg,
         text: a.text
-      });else if (a.art === 'kampf') {
+      });else if (a.art === 'nsc') {
+        // Der Planer schickt die Kennung eines Bogens. Ist es ein NSC,
+        // steht er in der NSC-Liste — dorthin geht auch der Blick.
+        const c = charsRef.current.find(x => x.id === String(a.charId || ''));
+        if (c) {
+          if (istNsc(c)) setListeArt('nsc');
+          goChar(c.id);
+        }
+      } else if (a.art === 'kampf') {
         setShowKampf(true);
         leiste.zeigen('kampf');
         setPlanerBegegnung({
@@ -28045,7 +28170,11 @@ function App() {
     ...alt,
     _adventures: liste
   }));
-  const switchList = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
+
+  // Die Heldenauswahl — NSC gehoeren nicht hinein, auch nicht im
+  // DM-Modus. Sie haben ihre eigene Liste.
+  const switchList = advChars.filter(c => !c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode));
+  const nscListe = advChars.filter(c => !c.archived && istNsc(c));
   const switchIndex = switchList.findIndex(c => c.id === sel);
 
   // Der Neue gehoert in das Abenteuer, das gerade offen ist — sonst
@@ -28068,6 +28197,19 @@ function App() {
     setEc({
       ...cur
     });
+    setShowCF(true);
+  };
+  // Ein NSC entsteht immer von Hand: kein Assistent, keine Vorlage —
+  // die Spielleitung weiss selbst, was der Wirt kann.
+  const openNewNsc = haltung => {
+    const erste = (klassen[0] || {}).name;
+    setEc(alsNsc({
+      ...newChar(),
+      adventure: advId,
+      ...(erste ? {
+        charClass: erste
+      } : {})
+    }, haltung));
     setShowCF(true);
   };
   // Der Bearbeitungsmodus des Bogens. Ein Schalter im Kopf statt eines
@@ -28149,7 +28291,7 @@ function App() {
       // und nicht weniger. Vorher standen hier TP, Rüstungsklasse und
       // Bewegung, die es gar nicht anfasst: die Zeilen kamen nie.
       const nebenklassen = c => (c && c.multiclasses || []).map(m => (m.name || '') + ' ' + (m.level || 1)).join(', ');
-      const charChanges = prev ? logDiff(prev, ec, [['Name', c => c.name], ['Volk', c => c.race], ['Hintergrund', c => c.background], ['Klasse', c => c.charClass], ['Stufe', c => c.level], ['Nebenklassen', nebenklassen], ['Nur Spielleitung', c => c.dmOnly ? 'ja' : 'nein']]) : {};
+      const charChanges = prev ? logDiff(prev, ec, [['Name', c => c.name], ['Volk', c => c.race], ['Hintergrund', c => c.background], ['Klasse', c => c.charClass], ['Stufe', c => c.level], ['Nebenklassen', nebenklassen], ['Nur Spielleitung', c => c.dmOnly ? 'ja' : 'nein'], ['NSC', c => istNsc(c) ? nscHaltung(c) : 'nein']]) : {};
       addLog(ec.id, ec.name, 'charakter', 'Charakter bearbeitet', Object.keys(charChanges).length > 0 ? charChanges : {
         klasse: ec.charClass,
         stufe: ec.level
@@ -28892,11 +29034,12 @@ function App() {
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
   const CharList = () => {
-    const active = advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode));
+    const active = advChars.filter(c => !c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode));
     const archived = advChars.filter(c => c.archived && (c.dmOnly !== true || isDmMode));
+    const nscs = advChars.filter(c => !c.archived && istNsc(c));
     const q = charSearch.toLowerCase();
     const filterSearch = list => q ? list.filter(c => (c.name || '').toLowerCase().includes(q) || (c.charClass || '').toLowerCase().includes(q) || (c.race || '').toLowerCase().includes(q)) : list;
-    const list = filterSearch(showArchive ? archived : active);
+    const list = filterSearch(listeArt === 'nsc' ? nscs : listeArt === 'archiv' ? archived : active);
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
@@ -28904,8 +29047,9 @@ function App() {
         padding: "4px 8px 0",
         marginBottom: 8
       }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowArchive(false),
+    }, [['aktiv', '⚔ Aktiv', active.length, true], ['archiv', '📦 Archiv', archived.length, true], ['nsc', '🎭 NSC', nscs.length, isDmMode]].filter(x => x[3]).map(([k, wort, zahl], i, alle) => /*#__PURE__*/React.createElement("button", {
+      key: k,
+      onClick: () => setListeArt(k),
       style: {
         flex: 1,
         padding: "9px 0",
@@ -28914,40 +29058,42 @@ function App() {
         fontSize: 10,
         letterSpacing: "0.08em",
         textTransform: "uppercase",
-        background: !showArchive ? "var(--bg-panel)" : "none",
+        background: listeArt === k ? "var(--bg-panel)" : "none",
         border: "1px solid",
-        borderColor: !showArchive ? "var(--gold-dim)" : "var(--border)",
-        color: !showArchive ? "var(--gold)" : "var(--text-muted)",
-        borderRadius: "3px 0 0 3px",
-        cursor: "pointer"
-      }
-    }, "\u2694 Aktiv ", active.length > 0 && /*#__PURE__*/React.createElement("span", {
-      style: {
-        opacity: 0.7
-      }
-    }, "(", active.length, ")")), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setShowArchive(true),
-      style: {
-        flex: 1,
-        padding: "9px 0",
-        minHeight: 36,
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 10,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        background: showArchive ? "var(--bg-panel)" : "none",
-        border: "1px solid",
-        borderColor: showArchive ? "var(--gold-dim)" : "var(--border)",
-        color: showArchive ? "var(--gold)" : "var(--text-muted)",
-        borderRadius: "0 3px 3px 0",
+        borderColor: listeArt === k ? k === 'nsc' ? "#c060a0" : "var(--gold-dim)" : "var(--border)",
+        color: listeArt === k ? k === 'nsc' ? "#c060a0" : "var(--gold)" : "var(--text-muted)",
+        borderRadius: i === 0 ? "3px 0 0 3px" : i === alle.length - 1 ? "0 3px 3px 0" : 0,
         cursor: "pointer",
-        marginLeft: -1
+        marginLeft: i === 0 ? 0 : -1
       }
-    }, "\uD83D\uDCE6 Archiv ", archived.length > 0 && /*#__PURE__*/React.createElement("span", {
+    }, wort, " ", zahl > 0 && /*#__PURE__*/React.createElement("span", {
       style: {
         opacity: 0.7
       }
-    }, "(", archived.length, ")"))), list.length === 0 && /*#__PURE__*/React.createElement("div", {
+    }, "(", zahl, ")")))), listeArt === 'nsc' && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 4,
+        padding: "0 8px 8px"
+      }
+    }, NSC_HALTUNGEN.map(h => /*#__PURE__*/React.createElement("button", {
+      key: h.k,
+      onClick: () => openNewNsc(h.k),
+      style: {
+        flex: 1,
+        padding: "7px 0",
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 10,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        background: "none",
+        border: "1px dashed " + h.farbe + "66",
+        borderRadius: 3,
+        color: h.farbe,
+        cursor: "pointer"
+      },
+      title: 'Einen NSC von Hand anlegen — ' + h.wort + ' gegenüber der Gruppe'
+    }, "+ ", h.zeichen, " ", h.wort))), list.length === 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         padding: "40px 20px",
         textAlign: "center",
@@ -28959,18 +29105,18 @@ function App() {
         marginBottom: 12,
         opacity: 0.3
       }
-    }, showArchive ? "📦" : "⚔"), /*#__PURE__*/React.createElement("div", {
+    }, listeArt === 'archiv' ? "📦" : listeArt === 'nsc' ? "🎭" : "⚔"), /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 14
       }
-    }, showArchive ? "Archiv ist leer" : "Noch keine Helden"), /*#__PURE__*/React.createElement("div", {
+    }, listeArt === 'archiv' ? "Archiv ist leer" : listeArt === 'nsc' ? "Noch kein NSC" : "Noch keine Helden"), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12,
         marginTop: 6,
         opacity: 0.6
       }
-    }, showArchive ? "Archivierte Charaktere erscheinen hier" : "Erstelle deinen ersten Charakter")), list.map(c => /*#__PURE__*/React.createElement("div", {
+    }, listeArt === 'archiv' ? "Archivierte Charaktere erscheinen hier" : listeArt === 'nsc' ? "Wirte, Begleiter, Widersacher — alles von Hand eingetragen" : "Erstelle deinen ersten Charakter")), list.map(c => /*#__PURE__*/React.createElement("div", {
       key: c.id,
       className: "char-item" + (sel === c.id ? " active" : ""),
       onClick: () => goChar(c.id),
@@ -28978,7 +29124,7 @@ function App() {
         cursor: "pointer",
         opacity: showArchive ? 0.8 : 1,
         borderStyle: showArchive ? "dashed" : c.dmOnly ? "dashed" : "solid",
-        borderColor: c.dmOnly ? sel === c.id ? '#c060a0' : '#c060a040' : undefined,
+        borderColor: c.dmOnly ? sel === c.id ? istNsc(c) ? nscArt(c).farbe : '#c060a0' : '#c060a040' : undefined,
         display: "flex",
         alignItems: "center",
         gap: 6,
@@ -29001,8 +29147,14 @@ function App() {
         fontSize: 10,
         opacity: 0.5
       }
-    }, "\uD83D\uDCE6"), c.dmOnly && /*#__PURE__*/React.createElement("span", {
-      title: "DM-Held",
+    }, "\uD83D\uDCE6"), istNsc(c) ? /*#__PURE__*/React.createElement("span", {
+      title: 'NSC — ' + nscArt(c).wort + ' gegenüber der Gruppe',
+      style: {
+        fontSize: 10,
+        color: nscArt(c).farbe
+      }
+    }, nscArt(c).zeichen) : c.dmOnly && /*#__PURE__*/React.createElement("span", {
+      title: "Nur Spielleitung",
       style: {
         fontSize: 10,
         color: '#c060a0'
@@ -29700,7 +29852,7 @@ function App() {
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "form-title"
-  }, chars.find(c => c.id === ec.id) ? "✎ Charakter bearbeiten" : "✶ Neuer Charakter"), /*#__PURE__*/React.createElement("div", {
+  }, chars.find(c => c.id === ec.id) ? istNsc(ec) ? "✎ NSC bearbeiten" : "✎ Charakter bearbeiten" : istNsc(ec) ? "✶ Neuer NSC" : "✶ Neuer Charakter"), /*#__PURE__*/React.createElement("div", {
     className: "form-group",
     style: {
       marginBottom: 14
@@ -29903,29 +30055,37 @@ function App() {
       display: "flex",
       alignItems: "center",
       gap: 8,
-      cursor: "pointer",
       marginRight: "auto"
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: ec.dmOnly || false,
-    onChange: e => setEc({
-      ...ec,
-      dmOnly: e.target.checked
-    }),
-    style: {
-      width: 16,
-      height: 16,
-      cursor: "pointer",
-      accentColor: "#c060a0"
-    }
-  }), /*#__PURE__*/React.createElement("span", {
+    },
+    title: "Ein NSC steht nie in der Heldenauswahl und wird von Hand gef\xFChrt."
+  }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "'Roboto Condensed',sans-serif",
       fontSize: 11,
-      color: "#c060a0"
+      color: "var(--text-muted)"
     }
-  }, "\uD83D\uDD2E Nur DM-Modus")), /*#__PURE__*/React.createElement("button", {
+  }, "Art"), /*#__PURE__*/React.createElement("select", {
+    className: "form-input",
+    style: {
+      padding: "4px 8px",
+      fontSize: 12
+    },
+    value: istNsc(ec) ? 'nsc-' + nscHaltung(ec) : ec.dmOnly ? 'dm' : 'held',
+    onChange: e => {
+      const w = e.target.value;
+      if (w === 'held') setEc(alsHeld(ec));else if (w === 'dm') setEc({
+        ...alsHeld(ec),
+        dmOnly: true
+      });else setEc(alsNsc(ec, w.slice(4)));
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "held"
+  }, "\uD83D\uDEE1 Held"), /*#__PURE__*/React.createElement("option", {
+    value: "dm"
+  }, "\uD83D\uDD2E Held, nur im DM-Modus"), NSC_HALTUNGEN.map(h => /*#__PURE__*/React.createElement("option", {
+    key: h.k,
+    value: 'nsc-' + h.k
+  }, h.zeichen, " NSC \xB7 ", h.wort)))), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: () => setShowCF(false)
   }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
@@ -33885,26 +34045,41 @@ function App() {
             fontSize: 13,
             color: 'var(--text-secondary)',
             whiteSpace: 'pre-wrap'
+          },
+          dangerouslySetInnerHTML: {
+            __html: sanitizeHtml(e.description.slice(0, 300) + (e.description.length > 300 ? '…' : ''))
           }
-        }, e.description.slice(0, 300), e.description.length > 300 ? '…' : '')), dbTab === 'weapon' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Reichw."), " ", e.range || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Eigenschaften:"), " ", (e.properties || []).join(', ') || '—'), e.description && /*#__PURE__*/React.createElement("div", {
+        })), dbTab === 'weapon' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Reichw."), " ", e.range || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Eigenschaften:"), " ", (e.properties || []).join(', ') || '—'), e.description && /*#__PURE__*/React.createElement("div", {
           style: {
             marginTop: 6,
             whiteSpace: 'pre-wrap'
+          },
+          dangerouslySetInnerHTML: {
+            __html: sanitizeHtml(e.description)
           }
-        }, e.description)), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'merkmal' && e.description && /*#__PURE__*/React.createElement("div", {
+        })), dbTab === 'wildshape' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Bewegung:"), " ", e.speed || '—', " \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Sinne:"), " ", e.senses || '—'), e.skills && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Fertigk.:"), " ", e.skills)), dbTab === 'merkmal' && e.description && /*#__PURE__*/React.createElement("div", {
           style: {
             whiteSpace: 'pre-wrap'
+          },
+          dangerouslySetInnerHTML: {
+            __html: sanitizeHtml(e.description)
           }
-        }, e.description), dbTab === 'talent' && /*#__PURE__*/React.createElement(React.Fragment, null, e.voraussetzung && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Voraussetzung:"), " ", e.voraussetzung), e.description && /*#__PURE__*/React.createElement("div", {
+        }), dbTab === 'talent' && /*#__PURE__*/React.createElement(React.Fragment, null, e.voraussetzung && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Voraussetzung:"), " ", e.voraussetzung), e.description && /*#__PURE__*/React.createElement("div", {
           style: {
             marginTop: 4,
             whiteSpace: 'pre-wrap'
+          },
+          dangerouslySetInnerHTML: {
+            __html: sanitizeHtml(e.description)
           }
-        }, e.description)), dbTab === 'set' && /*#__PURE__*/React.createElement(React.Fragment, null, e.description && /*#__PURE__*/React.createElement("div", {
+        })), dbTab === 'set' && /*#__PURE__*/React.createElement(React.Fragment, null, e.description && /*#__PURE__*/React.createElement("div", {
           style: {
             marginBottom: 6
+          },
+          dangerouslySetInnerHTML: {
+            __html: sanitizeHtml(e.description)
           }
-        }, e.description), (e.stufen || []).slice().sort((a, b) => (+a.teile || 0) - (+b.teile || 0)).map((st, si) => /*#__PURE__*/React.createElement("div", {
+        }), (e.stufen || []).slice().sort((a, b) => (+a.teile || 0) - (+b.teile || 0)).map((st, si) => /*#__PURE__*/React.createElement("div", {
           key: si,
           style: {
             marginBottom: 5
@@ -34452,7 +34627,8 @@ function App() {
     setKampf: setKampf,
     enemies: enemies,
     encounters: encounters,
-    helden: advChars.filter(c => !c.archived && (c.dmOnly !== true || isDmMode)),
+    helden: advChars.filter(c => !c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode)),
+    nsc: nscListe,
     setDefs: setDefs,
     abenteuer: abenteuer,
     advId: advId,
@@ -35122,8 +35298,11 @@ function App() {
       }, s.name), /*#__PURE__*/React.createElement("div", {
         className: "tpl-item-meta"
       }, s.school, " \xB7 ", s.castingTime, " \xB7 ", s.components || '—'), /*#__PURE__*/React.createElement("div", {
-        className: "tpl-item-desc"
-      }, s.description)));
+        className: "tpl-item-desc",
+        dangerouslySetInnerHTML: {
+          __html: sanitizeHtml(s.description)
+        }
+      })));
     })));
   })(), showTpl === 'weapon' && (() => {
     const filtered = fuzzyFilter(tplData.weapons, tplSearch, w => w.name);

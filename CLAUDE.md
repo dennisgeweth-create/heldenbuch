@@ -124,9 +124,16 @@ leitet, steht in `hb_adv_dm`, und dafuer kommt jedes Mitglied in Frage.
 Die Verwaltung steht als `ADMIN_USER` in der `config.php` — nicht in der
 Datenbank, damit sich niemand selbst dazu macht.
 
-Zwei Regeln, beide einseitig — nichts eintragen aendert nichts, jeder
+Drei Regeln, alle einseitig — nichts eintragen aendert nichts, jeder
 Eintrag grenzt ein:
 
+- **Verborgene Boegen** (`hb_chars.dm_only`): NSC und die alten
+  DM-Helden. Sie gehen nur an die Spielleitung — `load` laesst sie sonst
+  weg (`dmSichtPruefer`), `poll` traegt ihre Lebenszeichen fuer niemanden,
+  und im Kampf wird ein NSC (`lager`) wie ein Gegner ausgeliefert: Name und
+  grober Stand, keine Kennung eines Bogens. Im Browser heisst ein
+  verborgener Bogen `npc: true` mit `haltung` — siehe `js/util.js`
+  (`istNsc`, `alsNsc`, `nscMigration`).
 - **Besitz** (`hb_chars.owner`): ein Bogen ohne Besitzer ist fuer jeden
   in der Gruppe aenderbar. Geprueft in `besitzPruefen()` vor `save_char`,
   `delete_char`, `save_item`, `delete_item`.

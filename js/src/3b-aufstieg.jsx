@@ -359,7 +359,9 @@ const StufenAufstieg = ({ char, talente, eigeneMerkmale, onAbbrechen, onUeberneh
                   <div className="auf-hinweis">
                     {talEintrag.voraussetzung
                       ? <><b>Voraussetzung:</b> {talEintrag.voraussetzung}<br/></> : null}
-                    {talEintrag.description || 'Ohne Beschreibung in der Datenbank.'}
+                    {talEintrag.description
+                      ? <span dangerouslySetInnerHTML={{__html: sanitizeHtml(talEintrag.description)}} />
+                      : 'Ohne Beschreibung in der Datenbank.'}
                   </div>
                 )}
                 {/* Ein halbes Talent steigert nebenbei ein Attribut. Welches,

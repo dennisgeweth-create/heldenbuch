@@ -466,5 +466,20 @@ ganz klar. Die Flächen werden weiter gesammelt; Orte mit „Sichtbar, sobald
 der Nebel über ihm aufgeht“ gehen deshalb weiterhin auf, sobald die Gruppe
 sie einmal gesehen hat. Wie der übrige Nebel verdeckt das nur die Anzeige.
 
+### ✅ Nachtrag · NSC aus dem Heldenbuch (v5.19.0)
+
+`planer_helden` gibt zu jedem Bogen auch `npc`, `haltung`, `stufe`, `rk`,
+`tp` und `tpMax` — die eingetragenen Zahlen, ohne die Rechnung des Bogens.
+
+- Eine **Figur** (`figur.charId`) kann auf einen NSC verweisen. Name und
+  Zeichen kommen beim Waehlen mit und bleiben aenderbar; die Tafel zeigt
+  Haltung und Werte und schickt mit „Bogen öffnen“ einen Auftrag
+  (`art: 'nsc'`) ans Heldenbuch.
+- **Heldengruppen** duerfen NSC enthalten; beim Setzen der Gruppe kommen
+  sie nicht von selbst mit.
+- Eine **Reise** kann eine Figur mitnehmen (`reise.figurId`): jeder
+  abgeschlossene Tag setzt ihr einen Wegpunkt am Ende der Tagesstrecke.
+  Den Nebel lichtet sie nicht — das tut nur die Gruppe.
+
 Der Abenteuerplaner ist damit vollständig. Weitere Wünsche kommen in die
 `TODO.md`.

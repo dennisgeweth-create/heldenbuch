@@ -2209,6 +2209,27 @@ const figurFuerSpieler = (figur, karte) => {
   return figurPosition(figur, Number.isFinite(z) ? z : zeit);
 };
 
+// ── NSC aus dem Heldenbuch ───────────────────────────────────────
+// Der Planer fuehrt keine Boegen. Was er von einem NSC hat, kommt aus
+// planer_helden: Name, Haltung und die eingetragenen Kampfwerte. Eine
+// Figur auf der Karte kann darauf verweisen (figur.charId) — dann steht
+// auf ihrer Tafel, wer da steht, und ein Knopf fuehrt zum Bogen.
+const NSC_ZEICHEN = {
+  freundlich: '🤝',
+  feindlich: '☠'
+};
+const istNscBogen = h => !!(h && h.npc);
+const nscZeichen = h => NSC_ZEICHEN[(h && h.haltung) === 'feindlich' ? 'feindlich' : 'freundlich'];
+const nscWerte = h => {
+  if (!h) return '';
+  const tp = (+h.tpMax || 0) > 0 ? (+h.tp || 0) + '/' + h.tpMax + ' TP' : '';
+  return ['RK ' + (+h.rk || 10), tp].filter(Boolean).join(' · ');
+};
+const nscZuFigur = (figur, helden) => (helden || []).find(h => h.id === (figur && figur.charId)) || null;
+// Die NSC eines Abenteuers, in der Reihenfolge der Tafel: erst die
+// freundlichen, dann die feindlichen, je Gruppe nach Namen.
+const nscListe = helden => (helden || []).filter(istNscBogen).sort((a, b) => a.haltung === b.haltung ? String(a.name).localeCompare(String(b.name), 'de') : a.haltung === 'feindlich' ? 1 : -1);
+
 // ── Lokale Dateien ───────────────────────────────────────────────
 // Eine Datei am Ort ist ein Verweis, nie ein Upload: eine Bibliothek (ein
 // Name, den jeder Rechner selbst einem Ordner zuordnet) und ein Pfad darin.
@@ -4152,7 +4173,9 @@ const ReiseTafel = ({
   onMeldung,
   onNebelAufdecken,
   heldengruppen,
-  onGruppeReist
+  onGruppeReist,
+  figuren,
+  onFigurReist
 }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(reise);
   const [uebergabe, setUebergabe] = useState('');
@@ -4280,6 +4303,16 @@ const ReiseTafel = ({
       tagebuch: [...(entwurf.tagebuch || []), eintrag]
     });
     if (verirrt) return;
+    // Reist eine Figur mit — ein Bote, eine Karawane, ein NSC —, bekommt
+    // sie fuer diesen Tag einen Wegpunkt am Ende der Tagesstrecke. Der
+    // Nebel bleibt davon unberuehrt: sie gehoert nicht zur Gruppe.
+    const fg = entwurf.figurId && (figuren || []).find(x => x.id === entwurf.figurId);
+    if (fg && onFigurReist) {
+      const ende = punktAufRoute(st.r, m, heute.bis);
+      const letzte = wegpunkteSortiert(fg)[wegpunkteSortiert(fg).length - 1];
+      const von = Math.max(chronikZeit || 0, letzte ? letzte.zeit : 0);
+      if (ende) onFigurReist(fg, ende, Math.round(von + heute.stunden));
+    }
     // Reist eine Heldengruppe mit, zieht sie die Route entlang und lichtet
     // den Nebel mit ihrer eigenen Sichtweite.
     const hg = entwurf.gruppeId && (heldengruppen || []).find(x => x.id === entwurf.gruppeId);
@@ -4393,7 +4426,18 @@ const ReiseTafel = ({
   }, "\u2014 keine \u2014"), (heldengruppen || []).map(x => /*#__PURE__*/React.createElement("option", {
     key: x.id,
     value: x.id
-  }, x.name)))), /*#__PURE__*/React.createElement("label", null, "Sichtweite (", einh, ")", /*#__PURE__*/React.createElement("input", {
+  }, x.name)))), /*#__PURE__*/React.createElement("label", null, "Figur unterwegs", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: entwurf.figurId || '',
+    "aria-label": "Figur unterwegs",
+    title: "Ein Bote, eine Karawane, ein NSC: jeder abgeschlossene Tag setzt ihr einen Wegpunkt",
+    onChange: e => setze('figurId', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keine \u2014"), (figuren || []).map(x => /*#__PURE__*/React.createElement("option", {
+    key: x.id,
+    value: x.id
+  }, (x.symbol || '🧍') + ' ' + x.name)))), /*#__PURE__*/React.createElement("label", null, "Sichtweite (", einh, ")", /*#__PURE__*/React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
@@ -5338,10 +5382,12 @@ const FigurTafel = ({
   dm,
   zeit,
   wegpunktWartet,
+  helden,
   onSpeichern,
   onLoeschen,
   onSchliessen,
-  onWegpunktHier
+  onWegpunktHier,
+  onBogen
 }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(figur);
   const setze = (feld, wert) => setEntwurf(e => ({
@@ -5357,6 +5403,25 @@ const FigurTafel = ({
       [feld]: wert
     } : w)
   }));
+  const nsc = nscZuFigur(entwurf, helden);
+  // Einen NSC waehlen heisst: Name und Zeichen kommen mit. Beides bleibt
+  // danach aenderbar — der Bote heisst auf der Karte vielleicht „Reiter“.
+  const nscWaehlen = id => setEntwurf(e => {
+    const h = (helden || []).find(x => x.id === id);
+    if (!h) {
+      const {
+        charId,
+        ...rest
+      } = e;
+      return rest;
+    }
+    return {
+      ...e,
+      charId: h.id,
+      name: e.name === 'Neue Figur' || !e.name ? h.name : e.name,
+      symbol: nscZeichen(h)
+    };
+  });
   if (!dm) {
     return /*#__PURE__*/React.createElement("aside", {
       className: "pl-tafel",
@@ -5402,7 +5467,25 @@ const FigurTafel = ({
     "aria-checked": entwurf.symbol === s,
     className: 'pl-symbolwahl' + (entwurf.symbol === s ? ' an' : ''),
     onClick: () => setze('symbol', s)
-  }, s))), /*#__PURE__*/React.createElement("h3", {
+  }, s))), (helden === null || nscListe(helden).length > 0 || entwurf.charId) && /*#__PURE__*/React.createElement("label", null, "NSC aus dem Heldenbuch", /*#__PURE__*/React.createElement("select", {
+    className: "pl-feld",
+    value: entwurf.charId || '',
+    "aria-label": "NSC aus dem Heldenbuch",
+    onChange: e => nscWaehlen(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 keiner, nur eine Figur \u2014"), nscListe(helden).map(h => /*#__PURE__*/React.createElement("option", {
+    key: h.id,
+    value: h.id
+  }, nscZeichen(h), " ", h.name)), entwurf.charId && !nscZuFigur(entwurf, helden) && /*#__PURE__*/React.createElement("option", {
+    value: entwurf.charId
+  }, "(nicht mehr im Abenteuer)"))), nsc && /*#__PURE__*/React.createElement("p", {
+    className: "pl-leise pl-klein-text"
+  }, nscZeichen(nsc), " ", nsc.haltung === 'feindlich' ? 'feindlich' : 'freundlich', " \xB7 ", nscWerte(nsc), onBogen && /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 ", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pl-verweis",
+    onClick: () => onBogen(nsc)
+  }, "Bogen \xF6ffnen"))), /*#__PURE__*/React.createElement("h3", {
     className: "pl-unterkopf"
   }, "Wegpunkte"), /*#__PURE__*/React.createElement("ol", {
     className: "pl-wegpunkte"
@@ -6314,7 +6397,7 @@ const GruppeTafel = ({
       checked: (entwurf.helden || []).includes(h.id),
       disabled: !!woanders,
       onChange: () => umHeld(h)
-    }), /*#__PURE__*/React.createElement("span", null, h.name, h.nurDm ? ' (NSC)' : '', woanders ? ' — in „' + woanders.name + '“' : ''));
+    }), /*#__PURE__*/React.createElement("span", null, h.npc ? nscZeichen(h) + ' ' : '', h.name, h.npc ? ' · NSC, ' + (h.haltung === 'feindlich' ? 'feindlich' : 'freundlich') : h.nurDm ? ' (nur Spielleitung)' : '', woanders ? ' — in „' + woanders.name + '“' : ''));
   }), helden === null && /*#__PURE__*/React.createElement("p", {
     className: "pl-leise pl-klein-text"
   }, "Die B\xF6gen werden geladen \u2026"), helden && !helden.length && /*#__PURE__*/React.createElement("p", {
@@ -7070,6 +7153,24 @@ const PlanerApp = () => {
       adv_id: advId
     }).then(r => setHelden(r.helden || [])).catch(() => setHelden([]));
   }, [dm, advId]);
+
+  // Der Bogen eines NSC steht im Heldenbuch, nicht hier. Der Auftrag
+  // oeffnet ihn dort — wie die Zeit, die Rast und der Kampf.
+  const nscBogenOeffnen = async h => {
+    const genommen = await anHeldenbuch({
+      art: 'nsc',
+      advId,
+      charId: h.id,
+      name: h.name
+    });
+    setMeldung(genommen ? {
+      art: 'gut',
+      text: '🎭 Das Heldenbuch zeigt den Bogen von ' + h.name + '.'
+    } : {
+      art: 'gut',
+      text: '🎭 Der Auftrag wartet eine halbe Stunde. Öffne das Heldenbuch im DM-Modus.'
+    });
+  };
 
   // Eine Gruppe zieht: Spur speichern, dann den Nebel entlang des Wegs lichten.
   const gruppeBewegt = async (ergebnis, meldung) => {
@@ -8388,6 +8489,8 @@ const PlanerApp = () => {
     dm: dm,
     zeit: zeit,
     wegpunktWartet: werkzeug === 'wegpunkt',
+    helden: helden,
+    onBogen: nscBogenOeffnen,
     onSpeichern: f => objAendern({
       ...f,
       name: String(f.name || '').trim() || 'Ohne Namen'
@@ -8514,6 +8617,8 @@ const PlanerApp = () => {
     karte: karte,
     advId: advId,
     chronikZeit: chronikZeit,
+    figuren: figurenRoh,
+    onFigurReist: (f, p, z) => objAendern(wegpunktSetzen(f, z, p)),
     regionen: regionen,
     begegnungen: begegnungen || [],
     onNebelAufdecken: nebelAufdecken,

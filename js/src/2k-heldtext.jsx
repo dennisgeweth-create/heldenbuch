@@ -191,7 +191,7 @@ const heldText = (c, opts) => {
       if ((wa.properties || []).length) t.push('      Eigenschaften: ' + wa.properties.join(', '));
       const fxText = htEffekte(wa.effects);
       if (fxText && (platz || wa.equipped)) t.push('      Wirkt: ' + fxText);
-      if (wa.description) htUmbruch(wa.description, '      ').forEach(z => t.push(z));
+      if (wa.description) htUmbruch(htmlZuText(wa.description), '      ').forEach(z => t.push(z));
     });
   }
 
@@ -216,7 +216,7 @@ const heldText = (c, opts) => {
       // Nur Gegenstaende. Eine Waffe steht oben schon mit ihrem ganzen
       // Text da; hier waere er dasselbe ein zweites Mal.
       if (k !== 'w' && obj.description)
-        htUmbruch(obj.description, '      ').forEach(z => t.push(z));
+        htUmbruch(htmlZuText(obj.description), '      ').forEach(z => t.push(z));
     });
     const sets = gearSets(c, o.setDefs || []).filter(s => s.hoechste > 0);
     sets.forEach(s => {
@@ -270,7 +270,7 @@ const heldText = (c, opts) => {
           (fw.zustaende || []).length ? 'Zustand: ' + fw.zustaende.join(', ') : '']
           .filter(Boolean).join(' · '));
       }
-      if (f.description) htUmbruch(f.description, '      ').forEach(z => t.push(z));
+      if (f.description) htUmbruch(htmlZuText(f.description), '      ').forEach(z => t.push(z));
     });
   }
 
@@ -315,7 +315,7 @@ const heldText = (c, opts) => {
         // danebenzuschreiben hiesse dasselbe zweimal.
         t.push('        ' + [s.school, s.castingTime, s.range, s.components, s.duration]
           .filter(Boolean).join(' · '));
-        if (s.description) htUmbruch(s.description, '        ').forEach(z => t.push(z));
+        if (s.description) htUmbruch(htmlZuText(s.description), '        ').forEach(z => t.push(z));
       });
     });
   }

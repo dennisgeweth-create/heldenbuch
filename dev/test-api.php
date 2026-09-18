@@ -592,6 +592,48 @@ pruefe('seine Zustaende sind sichtbar', ($held['zustaende'][0] ?? '') === 'Gepac
 pruefe('die Initiative auch', ($held['ini'] ?? 0) === 17);
 pruefe('und das Abenteuer sagt, ob Zahlen offen sind', ($k['hpOffen'] ?? null) === true);
 
+abschnitt('Ein NSC im Kampf');
+// Der NSC ist ein Bogen, den die Spieler nicht haben. Der Tracker schickt
+// deshalb mit, was sie sehen duerfen: Name und Stand, wie beim Gegner.
+$nscBogen = ['id' => 'n1', 'name' => 'Ireena', 'charClass' => 'Kämpfer', 'level' => 3,
+             'hp' => 9, 'maxHp' => 30, 'ac' => 15, 'npc' => true, 'haltung' => 'freundlich',
+             'dmOnly' => true, 'adventure' => 'strahd'];
+ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'n1', 'char' => $nscBogen]);
+$mitNsc = $kampf;
+$mitNsc['teilnehmer'][] = ['id' => 'held-n1', 'art' => 'held', 'lager' => 'verbuendet',
+    'name' => 'Ireena', 'hp' => 9, 'hpMax' => 30, 'ini' => 14, 'zustaende' => [], 'erschoepfung' => 0];
+$mitNsc['teilnehmer'][] = ['id' => 'held-n2', 'art' => 'held', 'lager' => 'feind',
+    'name' => 'Rahadin', 'hp' => 40, 'hpMax' => 40, 'ini' => 19, 'zustaende' => [], 'erschoepfung' => 0];
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $mitNsc]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$verb = null; $feind = null;
+foreach ((array)(($r['body']['kampf'] ?? [])['teilnehmer'] ?? []) as $t) {
+    if (($t['id'] ?? '') === 'held-n1') $verb = $t;
+    if (($t['id'] ?? '') === 'held-n2') $feind = $t;
+}
+pruefe('der Verbündete steht mit Namen in der Reihe', ($verb['name'] ?? '') === 'Ireena', json_encode($verb, JSON_UNESCAPED_UNICODE));
+pruefe('  … und ist als Verbündeter gekennzeichnet', ($verb['lager'] ?? '') === 'verbuendet');
+pruefe('  … mit grobem Zustand statt Zahlen',
+       ($verb['zustand'] ?? '') !== '' && !array_key_exists('hp', (array)$verb) && !array_key_exists('hpMax', (array)$verb));
+pruefe('  … und ohne die Kennung seines Bogens', !array_key_exists('charId', (array)$verb));
+pruefe('der feindliche NSC ist für die Runde ein Gegner wie jeder andere',
+       ($feind['name'] ?? '') === 'Rahadin' && !array_key_exists('lager', (array)$feind)
+       && !array_key_exists('charId', (array)$feind), json_encode($feind, JSON_UNESCAPED_UNICODE));
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+$spielerChars = array_column((array)($r['body']['chars'] ?? []), 'id');
+pruefe('der Bogen des NSC bleibt bei der Spielleitung', !in_array('n1', $spielerChars, true), json_encode($spielerChars));
+pruefe('  … der alte DM-Held ebenso', !in_array('d1', $spielerChars, true), json_encode($spielerChars));
+pruefe('  … die eigenen Bögen bekommt er weiter', in_array('h1', $spielerChars, true), json_encode($spielerChars));
+$r = ruf('load', ['code' => $code, 'token' => $tDm]);
+$dmChars = array_column((array)($r['body']['chars'] ?? []), 'id');
+pruefe('die Spielleitung bekommt ihn', in_array('n1', $dmChars, true), json_encode($dmChars));
+$pt = (string)($r['body']['poll_token'] ?? '');
+$r = ruf('poll', ['code' => $code, 'poll_token' => $pt]);
+$vit = array_keys((array)($r['body']['vitals'] ?? []));
+pruefe('der Abgleich traegt keine Lebenszeichen verborgener Bögen',
+       !in_array('n1', $vit, true) && !in_array('d1', $vit, true) && in_array('h1', $vit, true), json_encode($vit));
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
+
 abschnitt('Verdeckte Trefferpunkte gelten auch hier');
 $lib = ruf('load', ['code' => $code, 'token' => $tDm])['body']['library'] ?? [];
 $advs = $lib['_adventures'] ?? [];
@@ -1262,7 +1304,14 @@ abschnitt('Abenteuerplaner: Heldengruppen');
 $r = ruf('planer_helden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
 $hIds = array_column((array)($r['body']['helden'] ?? []), 'id');
 pruefe('planer_helden nennt die Bögen des Abenteuers (200)', $r['status'] === 200 && in_array('h1', $hIds, true), kurz($r) . ' ' . json_encode($hIds));
-pruefe('  … nur Kennung und Name, kein ganzer Bogen', array_keys(($r['body']['helden'][0] ?? [])) === ['id', 'name', 'nurDm']);
+pruefe('  … nur wenige Angaben, kein ganzer Bogen',
+       array_keys(($r['body']['helden'][0] ?? [])) === ['id', 'name', 'nurDm', 'npc', 'haltung', 'stufe', 'rk', 'tp', 'tpMax'],
+       json_encode(array_keys(($r['body']['helden'][0] ?? []))));
+$nscZeile = null;
+foreach ((array)($r['body']['helden'] ?? []) as $h) if (($h['id'] ?? '') === 'n1') $nscZeile = $h;
+pruefe('  … der NSC ist als solcher gekennzeichnet, mit Haltung und Werten',
+       ($nscZeile['npc'] ?? false) === true && ($nscZeile['haltung'] ?? '') === 'freundlich'
+       && ($nscZeile['rk'] ?? 0) === 15 && ($nscZeile['tpMax'] ?? 0) === 30, json_encode($nscZeile, JSON_UNESCAPED_UNICODE));
 $r = ruf('planer_helden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
 pruefe('  … nur für die Spielleitung (403)', $r['status'] === 403, kurz($r));
 ruf('planer_karte_speichern', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte' => ['id' => 'k_testgruppe01', 'name' => 'Gruppenkarte', 'sichtbar' => true]]);

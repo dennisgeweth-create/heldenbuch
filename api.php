@@ -653,7 +653,13 @@ function kampfFuerSpieler(array $k, bool $hpOffen, array $eigeneChars = []): arr
     $teil = [];
     foreach ((array)($k['teilnehmer'] ?? []) as $t) {
         if (!is_array($t)) continue;
-        $held = (string)($t['art'] ?? '') === 'held';
+        // Ein NSC steht zwar auf einem Bogen, aber auf keinem, den ein
+        // Spieler hat. Er geht deshalb hinaus wie ein Gegner: Name und
+        // grober Stand. Nur beim Verbuendeten steht dabei, dass er einer
+        // ist — der Widersacher ist fuer die Runde erst einmal ein Gegner
+        // wie jeder andere.
+        $lager = (string)($t['lager'] ?? '');
+        $held = (string)($t['art'] ?? '') === 'held' && $lager === '';
         $e = [
             'id'           => (string)($t['id'] ?? ''),
             'art'          => $held ? 'held' : 'gegner',
@@ -673,6 +679,7 @@ function kampfFuerSpieler(array $k, bool $hpOffen, array $eigeneChars = []): arr
             $max = max(1, (int)($t['hpMax'] ?? 1));
             $e = array_merge($e, tpZustandServer($hp, $max));
             $e['tot'] = $hp <= 0;
+            if ($lager === 'verbuendet') $e['lager'] = 'verbuendet';
         }
         $teil[] = $e;
     }
@@ -744,6 +751,25 @@ function kampfFuerSpieler(array $k, bool $hpOffen, array $eigeneChars = []): arr
 function logFrist(?array $row): int {
     $t = (int)($row['log_tage'] ?? 0);
     return $t > 0 ? $t : LOG_TAGE_STANDARD;
+}
+// Wer welche verborgenen Boegen sehen darf. Verborgen (dm_only) sind die
+// alten DM-Helden und alle NSC. Bisher hing das allein am Browser: der
+// Server schickte sie jedem und die Anwendung liess sie weg. Wer sich die
+// Antwort ansah, sah die Werte des Widersachers trotzdem.
+//
+// Dieselbe Regel wie ueberall: die Verwaltung sieht alles, wer ein
+// Abenteuer leitet sieht dessen Boegen, und solange fuer ein Abenteuer
+// niemand eingetragen ist, gilt die Rolle in der Gruppe.
+function dmSichtPruefer(PDO $pdo, array $z, string $code): callable {
+    if (!$z['user'] || $z['rolle'] === 'admin') return fn($adv) => true;
+    $karte = advDmKarte($pdo, $code);
+    $ich   = (int)$z['user']['id'];
+    $istDm = $z['rolle'] === 'dm';
+    return function ($adv) use ($karte, $ich, $istDm) {
+        $a = (string)($adv ?? '');
+        if ($a !== '' && !empty($karte[$a])) return in_array($ich, $karte[$a], true);
+        return $istDm;
+    };
 }
 function dmOnlyIds(PDO $pdo, string $code): array {
     $st = $pdo->prepare("SELECT char_id FROM hb_chars WHERE session_code=? AND dm_only=1");
@@ -865,7 +891,7 @@ function respond(int $status, string $message, array $extra=[]): never {
 // statt eines Passworts.
 
 // Lädt alle Chars + Items, migriert Legacy-Daten einmalig
-function loadAll(PDO $pdo, string $code, array $sessionRow): array {
+function loadAll(PDO $pdo, string $code, array $sessionRow, ?callable $dmSicht = null): array {
     // 1. Check ob hb_chars leer — dann von chars_json migrieren
     $cnt = (int)$pdo->prepare("SELECT COUNT(*) FROM hb_chars WHERE session_code=?")->execute([$code]) && 1;
     $stmt = $pdo->prepare("SELECT COUNT(*) as n FROM hb_chars WHERE session_code=?");
@@ -891,6 +917,7 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
     }
 
     // 2. Lade Chars
+    $darfDm = $dmSicht ?: fn($adv) => true;
     $stmt = $pdo->prepare("SELECT char_id, char_json, owner, adv_id, dm_only, updated_at
                            FROM hb_chars WHERE session_code=? ORDER BY id ASC");
     $stmt->execute([$code]);
@@ -913,6 +940,15 @@ function loadAll(PDO $pdo, string $code, array $sessionRow): array {
     foreach ($charRows as $r) {
         $c = json_decode($r['char_json'], true);
         if (!$c) continue;
+        // Der Bogen eines NSC oder DM-Helden verlaesst den Server nur in
+        // Richtung Spielleitung. Der Stand (updated_at) zaehlt trotzdem
+        // weiter — sonst haengt der Abgleich des Spielers an einer
+        // Aenderung, die er nie zu sehen bekommt.
+        if ((int)($r['dm_only'] ?? 0) === 1 && !$darfDm($r['adv_id'] ?? '')) {
+            $ts = strtotime($r['updated_at']) * 1000;
+            if ($ts > $latestTs) $latestTs = $ts;
+            continue;
+        }
         $c['inventory'] = $itemsByChar[$c['id']] ?? [];
         $chars[] = $c;
         // Der Besitzer steht in einer eigenen Spalte und geht auch so
@@ -1100,8 +1136,9 @@ switch ($action) {
     case 'load':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        $row    = zugang($pdo, $code, $pass, $body)['row'];
-        $result = loadAll($pdo, $code, $row);
+        $z      = zugang($pdo, $code, $pass, $body);
+        $row    = $z['row'];
+        $result = loadAll($pdo, $code, $row, dmSichtPruefer($pdo, $z, $code));
 
         // hb_vitals einmalig fuellen, damit der Abgleich auch fuer
         // Charaktere greift, die seit der Umstellung nicht gespeichert
@@ -1151,10 +1188,19 @@ switch ($action) {
         if ($tok === '' || !hash_equals(pollToken($code, (string)$row['password_hash']), $tok))
             respond(401, 'Kennung ungültig. Bitte neu laden.');
 
+        // Der Abgleich kennt kein Konto: seine Kennung gilt fuer die ganze
+        // Gruppe. Deshalb bleiben die Lebenszeichen der verborgenen Boegen
+        // hier ganz draussen — auch fuer die Spielleitung. Sie sieht sie
+        // beim naechsten Laden, das ohnehin folgt, sobald sich etwas tut.
+        $verborgen = [];
+        $stV = $pdo->prepare("SELECT char_id FROM hb_chars WHERE session_code=? AND dm_only=1");
+        $stV->execute([$code]);
+        foreach ($stV->fetchAll() as $rv) $verborgen[(string)$rv['char_id']] = true;
         $st = $pdo->prepare("SELECT char_id, vitals_json FROM hb_vitals WHERE session_code=?");
         $st->execute([$code]);
         $vitals = [];
         foreach ($st as $r) {
+            if (isset($verborgen[(string)$r['char_id']])) continue;
             $v = json_decode($r['vitals_json'], true);
             if (is_array($v)) $vitals[$r['char_id']] = $v;
         }
@@ -2511,8 +2557,10 @@ switch ($action) {
                             'rolle' => $z['rolle'], 'abenteuer' => $liste]);
     }
 
-    // Die Boegen eines Abenteuers, fuer die Heldengruppen auf der Karte.
-    // Nur Kennung und Name — der Planer braucht keinen ganzen Bogen.
+    // Die Boegen eines Abenteuers, fuer die Heldengruppen und die Figuren
+    // auf der Karte. Kein ganzer Bogen — nur, was auf einer Tafel steht:
+    // Name, Haltung, Ruestungsklasse, Trefferpunkte. Die Zahlen sind die
+    // eingetragenen; was ein Ring dazugibt, rechnet der Planer nicht.
     case 'planer_helden': {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $z = zugang($pdo, $code, $pass, $body);
@@ -2528,7 +2576,17 @@ switch ($action) {
         foreach ($st->fetchAll() as $r) {
             $c = json_decode((string)$r['char_json'], true) ?: [];
             if (!empty($c['archived'])) continue;
-            $helden[] = ['id' => (string)$r['char_id'], 'name' => mb_substr((string)($c['name'] ?? ''), 0, 100), 'nurDm' => !empty($c['dmOnly'])];
+            $helden[] = [
+                'id'      => (string)$r['char_id'],
+                'name'    => mb_substr((string)($c['name'] ?? ''), 0, 100),
+                'nurDm'   => !empty($c['dmOnly']),
+                'npc'     => !empty($c['npc']),
+                'haltung' => (string)($c['haltung'] ?? '') === 'feindlich' ? 'feindlich' : 'freundlich',
+                'stufe'   => (int)($c['level'] ?? 1),
+                'rk'      => (int)($c['ac'] ?? 10),
+                'tp'      => (int)($c['hp'] ?? 0),
+                'tpMax'   => (int)($c['maxHp'] ?? 0),
+            ];
         }
         usort($helden, fn($a, $b) => strcmp($a['name'], $b['name']));
         respond(200, 'OK', ['helden' => $helden]);
