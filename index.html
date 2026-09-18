@@ -236,6 +236,13 @@
       }
     };
     const apiSaveLog       = (url, code, pass, entry)    => apiRequest(url, 'save_log',  { code, password: pass, entry });
+    // Das Sitzungstagebuch: ein Abend, ein Eintrag je Person, Bilder gemeinsam.
+    const apiTagebuchListe   = (url, code, advId)                => apiRequest(url, 'tagebuch_liste',       { code, adv_id: advId });
+    const apiTagebuchSitzung = (url, code, advId, sitzung)       => apiRequest(url, 'tagebuch_sitzung',     { code, adv_id: advId, sitzung });
+    const apiTagebuchAbendWeg= (url, code, advId, id)            => apiRequest(url, 'tagebuch_sitzung_weg', { code, adv_id: advId, sitzung_id: id });
+    const apiTagebuchEintrag = (url, code, advId, id, e)         => apiRequest(url, 'tagebuch_eintrag',     { code, adv_id: advId, sitzung_id: id, text: e.text, nur_dm: e.nurDm, char_id: e.charId, char_name: e.charName });
+    const apiTagebuchBilder  = (url, code, advId, id, bilder)    => apiRequest(url, 'tagebuch_bild_hoch',   { code, adv_id: advId, sitzung_id: id, bilder });
+    const apiTagebuchBildWeg = (url, code, advId, bildId)        => apiRequest(url, 'tagebuch_bild_weg',    { code, adv_id: advId, bild_id: bildId });
     const apiLoadLogs      = (url, code, pass, charId, opts) => apiRequest(url, 'load_logs', { code, password: pass, char_id: charId||null, limit: (opts&&opts.limit)||50, offset: (opts&&opts.offset)||0, search: (opts&&opts.search)||'', tab_filter: (opts&&opts.tabFilter)||[] });
   </script>
 

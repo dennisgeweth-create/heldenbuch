@@ -34,6 +34,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2l-post.jsx` | Post an die Spielleitung — Fenster des Spielers und Postfach der Spielleitung (Server: `hb_post`) |
 | ↳ `2m-rast.jsx` | Rast auf Ansage — kurz und lang, Standard oder „Gradueller Rauer Realismus“ (nur die Zahlen, nicht der Text des Hefts); Rechner, Fenster, Anwenden auf den Bogen (Server: `hb_rast`) |
 | ↳ `2n-bogentext.jsx` | **Der Textbogen**: Bögen als `.txt` schreiben und lesen, einzeln oder als ZIP-Bündel; Schema in `TEXTBOGEN.md` |
+| ↳ `2o-tagebuch.jsx` | **Sitzungstagebuch**: ein Abend, ein Eintrag je Person, Bilder gemeinsam (Server: `hb_tagebuch`, `hb_tb_eintrag`, `hb_tb_bild`) |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |
@@ -51,7 +52,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `planer/sw.js` | Service Worker: Kacheln zuerst aus dem Vorrat, die Seite zuerst aus dem Netz |
 | ↳ `planer/bruecke/` | **Planer-Brücke** für Windows (`planer-bruecke.ps1`, `installieren.ps1`) — öffnet lokale Dateien aus dem Planer; wird ausgeliefert, damit die Spielleitung sie herunterladen kann, und läuft nur auf ihrem Rechner. Geprüft von `dev/pruefungen/bruecke-test.js` |
 | ↳ `planer/planer.js` | daraus gebaut von `node build.js`, wie `js/app.js`. Nicht von Hand ändern. |
-| `planer-dateien/` | Kartenkacheln und Bilder des Planers — **nur auf dem Server**, gitignored |
+| `planer-dateien/` | Die Dateiablage der Anwendung — **nur auf dem Server**, gitignored. Der Planer war der erste Nutzer (Kartenkacheln, Ortsbilder), das Sitzungstagebuch der zweite (Bilder eines Abends). Je Karte, Handout oder Abend ein Ordner mit zufälligem Namen |
 | `api.php` | Server-Sync, braucht `config.php` (nicht im Repo) |
 | `TAVERNE.md` | Stufenplan der Taverne — alle Stufen gebaut |
 | `TAVERNE-WALZEN.md` | Konzept und Stufenplan der drei Fünfwalzenautomaten |

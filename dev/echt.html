@@ -200,6 +200,55 @@
       return Promise.resolve({});
     };
     const apiRequest = wbStumm;
+    // ── Das Sitzungstagebuch ──
+    // So viel Server, wie das Fenster anfasst: Abende, Einträge, Bilder.
+    // Die Bilder werden nicht geschrieben — nur gezählt und benannt, wie
+    // es api.php täte.
+    const wbTagebuch = {sitzungen: [], nr: 0};
+    window.wbTagebuch = wbTagebuch;
+    const wbAbend = (id) => wbTagebuch.sitzungen.find(s => s.id === id);
+    const apiTagebuchListe = () => Promise.resolve({
+      sitzungen: wbTagebuch.sitzungen.map(s => ({...s,
+        eintraege: s.eintraege.map(e => ({...e, meiner: e.userId === 1})),
+        bilder: s.bilder.map(b => ({...b, meins: true}))})),
+      ich: 1, dm: true,
+    });
+    const apiTagebuchSitzung = (u, c, adv, s) => {
+      if (s.id) {
+        const alt = wbAbend(s.id);
+        if (!alt) return Promise.reject(new Error('Die Sitzung gibt es nicht.'));
+        Object.assign(alt, {datum: s.datum, titel: s.titel, spielzeit: s.spielzeit});
+        return Promise.resolve({id: s.id});
+      }
+      const id = 's_wb' + (++wbTagebuch.nr);
+      wbTagebuch.sitzungen.push({id, datum: s.datum, titel: s.titel || '', spielzeit: s.spielzeit || '',
+                                 ablage: 'wbablage', von: 1, eintraege: [], bilder: []});
+      return Promise.resolve({id, ablage: 'wbablage'});
+    };
+    const apiTagebuchAbendWeg = (u, c, adv, id) => {
+      wbTagebuch.sitzungen = wbTagebuch.sitzungen.filter(s => s.id !== id);
+      return Promise.resolve({});
+    };
+    const apiTagebuchEintrag = (u, c, adv, id, e) => {
+      const s = wbAbend(id);
+      if (!s) return Promise.reject(new Error('Die Sitzung gibt es nicht.'));
+      s.eintraege = s.eintraege.filter(x => x.userId !== 1);
+      if ((e.text || '').trim()) s.eintraege.push({id: ++wbTagebuch.nr, userId: 1, user: 'Werkbank',
+        charId: e.charId || '', charName: e.charName || '', text: e.text, nurDm: !!e.nurDm,
+        geaendert: Date.now()});
+      return Promise.resolve({});
+    };
+    const apiTagebuchBilder = (u, c, adv, id, bilder) => {
+      const s = wbAbend(id);
+      if (!s) return Promise.reject(new Error('Die Sitzung gibt es nicht.'));
+      bilder.forEach(b => s.bilder.push({id: ++wbTagebuch.nr, datei: 'wb' + wbTagebuch.nr + '.' + b.endung,
+        titel: b.titel || '', bytes: Math.round((b.daten || '').length * 0.75), user: 'Werkbank'}));
+      return Promise.resolve({bilder: [], ablage: 'wbablage'});
+    };
+    const apiTagebuchBildWeg = (u, c, adv, bildId) => {
+      wbTagebuch.sitzungen.forEach(s => { s.bilder = s.bilder.filter(b => b.id !== bildId); });
+      return Promise.resolve({});
+    };
     const apiRolleSetzen = wbStumm;
     const apiSaveChar = wbStumm;
     const apiSaveChars = wbStumm;
@@ -1398,6 +1447,80 @@
               kreuz.click(); await ruhe(250);
               ja('  … und es schließt das Fenster', !document.querySelector('.bt-fenster'));
             }
+          }
+        }
+
+        // ── Das Sitzungstagebuch ───────────────────────────────────
+        melden('lauf', 'Sitzungstagebuch');
+        const tbK = knopfMit('📔 Tagebuch');
+        if (ja('In der Seitenleiste steht „Tagebuch"', !!tbK)) {
+          tbK.click();
+          const tbF = await warten(() => document.querySelector('.tb-fenster'));
+          if (ja('  … und öffnet das Fenster', !!tbF && tbF.classList.contains('fenster'))) {
+            ja('  … mit Zuklappen und Schließen im Kopf',
+               tbF.querySelectorAll('.fenster-knoepfe button').length === 2);
+            knopfMit('Neuer Abend').click();
+            const kopf = await warten(() => document.querySelector('.tb-kopf h3'));
+            const heuteText = (() => { const d = new Date(); const z = (n) => String(n).padStart(2, '0');
+              return z(d.getDate()) + '.' + z(d.getMonth() + 1) + '.' + d.getFullYear(); })();
+            ja('„Neuer Abend" legt den Abend von heute an',
+               !!kopf && kopf.textContent.includes(heuteText), (kopf || {}).textContent);
+            ja('  … und er steht in der Liste links',
+               document.querySelectorAll('.tb-abend').length === 1);
+
+            // Der eigene Eintrag.
+            const feld = document.querySelector('.tb-feld');
+            const setzT = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+            setzT.call(feld, 'Wir sind durch den Keller raus.');
+            feld.dispatchEvent(new Event('input', {bubbles: true}));
+            await ruhe(120);
+            const speichernK = knopfMit('Eintrag speichern');
+            if (ja('Der Knopf zum Speichern wird wach', !!speichernK && !speichernK.disabled)) {
+              speichernK.click();
+              const drin = await warten(() => (wbTagebuch.sitzungen[0].eintraege[0] || {}).text ? true : null, 3000);
+              ja('  … und der Eintrag liegt beim Abend', !!drin
+                 && wbTagebuch.sitzungen[0].eintraege[0].text === 'Wir sind durch den Keller raus.',
+                 JSON.stringify(wbTagebuch.sitzungen[0].eintraege));
+              ja('  … danach ist nichts mehr zu speichern',
+                 !!(await warten(() => { const k = knopfMit('Eintrag speichern'); return k && k.disabled ? true : null; }, 3000)));
+            }
+
+            // Ein Bild an den Abend.
+            const png = await new Promise(fertig => {
+              const c = document.createElement('canvas'); c.width = 8; c.height = 6;
+              const g = c.getContext('2d'); g.fillStyle = '#c84040'; g.fillRect(0, 0, 8, 6);
+              c.toBlob(fertig, 'image/png');
+            });
+            const bildEin = document.querySelector('.tb-fenster input[type=file]');
+            const dt2 = new DataTransfer();
+            dt2.items.add(new File([png], 'Tisch.png', {type: 'image/png'}));
+            bildEin.files = dt2.files;
+            bildEin.dispatchEvent(new Event('change', {bubbles: true}));
+            const bildDa = await warten(() => wbTagebuch.sitzungen[0].bilder.length === 1 ? true : null, 5000);
+            if (ja('Ein Bild lässt sich anhängen', !!bildDa, JSON.stringify(wbTagebuch.sitzungen[0].bilder))) {
+              ja('  … es hängt am Abend, nicht am Eintrag',
+                 wbTagebuch.sitzungen[0].bilder[0].titel === 'Tisch'
+                 && !('bilder' in wbTagebuch.sitzungen[0].eintraege[0]));
+              ja('  … und steht als Vorschaubild da',
+                 !!(await warten(() => document.querySelector('.tb-bild img'))));
+              const weg = await warten(() => document.querySelector('.tb-bild-weg'));
+              if (ja('  … mit einem Knopf zum Löschen', !!weg)) {
+                weg.click();
+                ja('  … der es auch löscht',
+                   !!(await warten(() => wbTagebuch.sitzungen[0].bilder.length === 0 ? true : null, 3000)));
+              }
+            }
+
+            // Ein zweiter Abend, und die Reihenfolge.
+            knopfMit('Neuer Abend').click();
+            await warten(() => wbTagebuch.sitzungen.length === 2 ? true : null, 3000);
+            ja('Ein zweiter Abend kommt dazu',
+               !!(await warten(() => document.querySelectorAll('.tb-abend').length === 2 ? true : null, 3000)),
+               document.querySelectorAll('.tb-abend').length + ' in der Liste');
+            const zuK = [...document.querySelectorAll('.tb-fenster .fenster-knoepfe button')]
+              .find(b => b.getAttribute('aria-label') === 'Fenster schließen');
+            if (zuK) { zuK.click(); await ruhe(200); }
+            ja('Das Fenster lässt sich schließen', !document.querySelector('.tb-fenster'));
           }
         }
 

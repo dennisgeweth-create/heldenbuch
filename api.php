@@ -298,6 +298,60 @@ $pdo->exec("
         CONSTRAINT fk_hbra_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    -- ── Das Sitzungstagebuch ────────────────────────────────
+    -- Ein Abend, ein Eintrag je Person, die Bilder gemeinsam. Die
+    -- Bilder liegen nicht hier, sondern als Dateien in der Ablage —
+    -- derselbe Ordner, den der Planer benutzt, nur mit eigener Kennung.
+    CREATE TABLE IF NOT EXISTS hb_tagebuch (
+        id           BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        session_code VARCHAR(20)  NOT NULL,
+        adv_id       VARCHAR(50)  NOT NULL,
+        sitzung_id   VARCHAR(50)  NOT NULL,
+        datum        DATE         NOT NULL,
+        titel        VARCHAR(160) NOT NULL DEFAULT '',
+        spielzeit    VARCHAR(80)  NOT NULL DEFAULT '',
+        ablage       CHAR(32)     NOT NULL,
+        user_id      INT          NOT NULL,
+        created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_tb (session_code, sitzung_id),
+        KEY idx_tb_adv (session_code, adv_id, datum),
+        CONSTRAINT fk_hbtb_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- Je Person ein Eintrag je Sitzung. nur_dm gehoert der Spielleitung:
+    -- was sie so kennzeichnet, schickt der Server den Spielern nicht.
+    CREATE TABLE IF NOT EXISTS hb_tb_eintrag (
+        id           BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        session_code VARCHAR(20)  NOT NULL,
+        sitzung_id   VARCHAR(50)  NOT NULL,
+        user_id      INT          NOT NULL,
+        user_name    VARCHAR(100) NOT NULL DEFAULT '',
+        char_id      VARCHAR(50)  NOT NULL DEFAULT '',
+        char_name    VARCHAR(100) NOT NULL DEFAULT '',
+        text         MEDIUMTEXT   NOT NULL,
+        nur_dm       TINYINT(1)   NOT NULL DEFAULT 0,
+        updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_tbe (session_code, sitzung_id, user_id),
+        CONSTRAINT fk_hbtbe_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    -- Die Bilder haengen an der Sitzung, nicht am Eintrag: der Abend hat
+    -- sie gemeinsam erlebt.
+    CREATE TABLE IF NOT EXISTS hb_tb_bild (
+        id           BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        session_code VARCHAR(20)  NOT NULL,
+        sitzung_id   VARCHAR(50)  NOT NULL,
+        datei        VARCHAR(80)  NOT NULL,
+        titel        VARCHAR(160) NOT NULL DEFAULT '',
+        bytes        INT          NOT NULL DEFAULT 0,
+        user_id      INT          NOT NULL,
+        user_name    VARCHAR(100) NOT NULL DEFAULT '',
+        created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_tbb (session_code, sitzung_id, id),
+        CONSTRAINT fk_hbtbb_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     -- ── Abenteuerplaner ─────────────────────────────────────
     -- Karten und alles, was darauf liegt, je Abenteuer. Die Bilder
     -- liegen nicht hier, sondern als Dateien unter planer-dateien/ —
@@ -742,6 +796,29 @@ function kampfFuerSpieler(array $k, bool $hpOffen, array $eigeneChars = []): arr
     // ein Spielergeraet nicht raten muss.
     $raus['hpOffen'] = $hpOffen;
     return $raus;
+}
+
+// ── Das Sitzungstagebuch ────────────────────────────────────────
+// Ein Bild je Anfrage darf so gross sein wie ein Handyfoto; mehr braucht
+// niemand, um sich an den Abend zu erinnern.
+const TB_MAX_BILD  = 12000000;
+const TB_MAX_TEXT  = 60000;
+const TB_BILD_ARTEN = ['png' => 'png', 'jpg' => 'jpg', 'jpeg' => 'jpg', 'webp' => 'webp'];
+
+// Die Sitzung, oder nichts. Gesucht wird immer mit dem Abenteuer dabei —
+// eine Kennung allein soll nicht in ein fremdes Abenteuer fuehren.
+function tbSitzung(PDO $pdo, string $code, string $advId, string $id): ?array {
+    $st = $pdo->prepare("SELECT * FROM hb_tagebuch WHERE session_code=? AND adv_id=? AND sitzung_id=?");
+    $st->execute([$code, $advId, $id]);
+    $r = $st->fetch();
+    return $r ?: null;
+}
+// Wer aendern darf: wer es angelegt hat, und die Spielleitung. Dieselbe
+// Regel wie beim Bogen — einseitig, und die Spielleitung kann immer.
+function tbDarf(PDO $pdo, array $z, string $code, string $advId, int $wem): bool {
+    if (empty($z['user'])) return true;
+    if ((int)$z['user']['id'] === $wem) return true;
+    return istDmVon($pdo, $z, $code, $advId);
 }
 
 // ── Wer darf welche Logzeilen sehen ─────────────────────────────
@@ -2534,6 +2611,205 @@ switch ($action) {
             $st->execute([$code, $advId, $id, (int)$z['user']['id']]);
         }
         if (!$st->rowCount()) respond(404, 'Nicht gefunden — oder schon gelesen.');
+        respond(200, 'Gelöscht.');
+    }
+
+    // ── Das Sitzungstagebuch ────────────────────────────────────
+    // Ein Abend gehoert der ganzen Runde: jeder legt ihn an, jeder
+    // schreibt seinen eigenen Eintrag, und die Bilder haengen an der
+    // Sitzung und nicht am Eintrag. Gelesen wird alles von allen — bis
+    // auf das, was die Spielleitung fuer sich kennzeichnet.
+    case 'tagebuch_liste': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Fehlendes Abenteuer.');
+        $dm = istDmVon($pdo, $z, $code, $advId);
+        $ich = (int)($z['user']['id'] ?? 0);
+        $st = $pdo->prepare("SELECT * FROM hb_tagebuch WHERE session_code=? AND adv_id=? ORDER BY datum DESC, id DESC LIMIT 500");
+        $st->execute([$code, $advId]);
+        $sitzungen = [];
+        $ids = [];
+        foreach ($st->fetchAll() as $r) {
+            $ids[] = (string)$r['sitzung_id'];
+            $sitzungen[(string)$r['sitzung_id']] = [
+                'id'        => (string)$r['sitzung_id'],
+                'datum'     => (string)$r['datum'],
+                'titel'     => (string)$r['titel'],
+                'spielzeit' => (string)$r['spielzeit'],
+                'ablage'    => (string)$r['ablage'],
+                'von'       => (int)$r['user_id'],
+                'eintraege' => [],
+                'bilder'    => [],
+            ];
+        }
+        if ($ids) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $se = $pdo->prepare("SELECT * FROM hb_tb_eintrag WHERE session_code=? AND sitzung_id IN ($ph) ORDER BY id ASC");
+            $se->execute(array_merge([$code], $ids));
+            foreach ($se->fetchAll() as $r) {
+                // Was die Spielleitung fuer sich schreibt, verlaesst den
+                // Server nur in ihre Richtung.
+                if ((int)$r['nur_dm'] === 1 && !$dm && (int)$r['user_id'] !== $ich) continue;
+                $sitzungen[(string)$r['sitzung_id']]['eintraege'][] = [
+                    'id'        => (int)$r['id'],
+                    'userId'    => (int)$r['user_id'],
+                    'user'      => (string)$r['user_name'],
+                    'charId'    => (string)$r['char_id'],
+                    'charName'  => (string)$r['char_name'],
+                    'text'      => (string)$r['text'],
+                    'nurDm'     => (int)$r['nur_dm'] === 1,
+                    'geaendert' => strtotime((string)$r['updated_at']) * 1000,
+                    'meiner'    => (int)$r['user_id'] === $ich,
+                ];
+            }
+            $sb = $pdo->prepare("SELECT * FROM hb_tb_bild WHERE session_code=? AND sitzung_id IN ($ph) ORDER BY id ASC");
+            $sb->execute(array_merge([$code], $ids));
+            foreach ($sb->fetchAll() as $r) {
+                $sitzungen[(string)$r['sitzung_id']]['bilder'][] = [
+                    'id'     => (int)$r['id'],
+                    'datei'  => (string)$r['datei'],
+                    'titel'  => (string)$r['titel'],
+                    'bytes'  => (int)$r['bytes'],
+                    'user'   => (string)$r['user_name'],
+                    'meins'  => (int)$r['user_id'] === $ich,
+                ];
+            }
+        }
+        respond(200, 'OK', ['sitzungen' => array_values($sitzungen), 'dm' => $dm, 'ich' => $ich]);
+    }
+
+    case 'tagebuch_sitzung': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advId === '') respond(400, 'Fehlendes Abenteuer.');
+        $s = $body['sitzung'] ?? null;
+        if (!is_array($s)) respond(400, 'Keine Sitzung.');
+        $id = (string)($s['id'] ?? '');
+        $datum = (string)($s['datum'] ?? '');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $datum)) respond(400, 'Das Datum fehlt oder passt nicht (JJJJ-MM-TT).');
+        $titel = mb_substr(trim((string)($s['titel'] ?? '')), 0, 160);
+        $spielzeit = mb_substr(trim((string)($s['spielzeit'] ?? '')), 0, 80);
+        $ich = (int)($z['user']['id'] ?? 0);
+        if ($id !== '') {
+            if (!planId($id)) respond(400, 'Ungültige Kennung.');
+            $alt = tbSitzung($pdo, $code, $advId, $id);
+            if (!$alt) respond(404, 'Die Sitzung gibt es nicht.');
+            if (!tbDarf($pdo, $z, $code, $advId, (int)$alt['user_id'])) respond(403, 'Das darf nur, wer sie angelegt hat — oder die Spielleitung.');
+            $pdo->prepare("UPDATE hb_tagebuch SET datum=?, titel=?, spielzeit=? WHERE session_code=? AND sitzung_id=?")
+                ->execute([$datum, $titel, $spielzeit, $code, $id]);
+            respond(200, 'Gespeichert.', ['id' => $id]);
+        }
+        $neu = 's_' . bin2hex(random_bytes(8));
+        $ablage = bin2hex(random_bytes(16));
+        $pdo->prepare("INSERT INTO hb_tagebuch (session_code, adv_id, sitzung_id, datum, titel, spielzeit, ablage, user_id)
+                       VALUES(?,?,?,?,?,?,?,?)")
+            ->execute([$code, $advId, $neu, $datum, $titel, $spielzeit, $ablage, $ich]);
+        respond(201, 'Angelegt.', ['id' => $neu, 'ablage' => $ablage]);
+    }
+
+    case 'tagebuch_sitzung_weg': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $id = (string)($body['sitzung_id'] ?? '');
+        $s = $advId !== '' && planId($id) ? tbSitzung($pdo, $code, $advId, $id) : null;
+        if (!$s) respond(404, 'Die Sitzung gibt es nicht.');
+        if (!tbDarf($pdo, $z, $code, $advId, (int)$s['user_id'])) respond(403, 'Das darf nur, wer sie angelegt hat — oder die Spielleitung.');
+        // Erst die Bilder vom Datenträger, dann die Zeilen: eine Datei
+        // ohne Eintrag fände später niemand mehr.
+        planOrdnerLeeren(planOrdner((string)$s['ablage'], false), true);
+        $pdo->prepare("DELETE FROM hb_tb_bild WHERE session_code=? AND sitzung_id=?")->execute([$code, $id]);
+        $pdo->prepare("DELETE FROM hb_tb_eintrag WHERE session_code=? AND sitzung_id=?")->execute([$code, $id]);
+        $pdo->prepare("DELETE FROM hb_tagebuch WHERE session_code=? AND sitzung_id=?")->execute([$code, $id]);
+        respond(200, 'Gelöscht.');
+    }
+
+    // Der eigene Eintrag. Je Person einer — ein zweites Speichern
+    // ueberschreibt ihn, und niemand schreibt im Namen eines anderen.
+    case 'tagebuch_eintrag': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        if (empty($z['user'])) respond(403, 'Dafür braucht es ein Konto.');
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $id = (string)($body['sitzung_id'] ?? '');
+        $s = $advId !== '' && planId($id) ? tbSitzung($pdo, $code, $advId, $id) : null;
+        if (!$s) respond(404, 'Die Sitzung gibt es nicht.');
+        $text = (string)($body['text'] ?? '');
+        if (strlen($text) > TB_MAX_TEXT) respond(413, 'Der Eintrag ist zu lang.');
+        $nurDm = !empty($body['nur_dm']) && istDmVon($pdo, $z, $code, $advId) ? 1 : 0;
+        $ich = (int)$z['user']['id'];
+        if (trim($text) === '') {
+            $pdo->prepare("DELETE FROM hb_tb_eintrag WHERE session_code=? AND sitzung_id=? AND user_id=?")
+                ->execute([$code, $id, $ich]);
+            respond(200, 'Eintrag entfernt.');
+        }
+        $pdo->prepare("INSERT INTO hb_tb_eintrag (session_code, sitzung_id, user_id, user_name, char_id, char_name, text, nur_dm)
+                       VALUES(?,?,?,?,?,?,?,?)
+                       ON DUPLICATE KEY UPDATE user_name=VALUES(user_name), char_id=VALUES(char_id),
+                                              char_name=VALUES(char_name), text=VALUES(text), nur_dm=VALUES(nur_dm)")
+            ->execute([$code, $id, $ich, mb_substr((string)$z['user']['name'], 0, 100),
+                       mb_substr((string)($body['char_id'] ?? ''), 0, 50),
+                       mb_substr((string)($body['char_name'] ?? ''), 0, 100), $text, $nurDm]);
+        respond(200, 'Gespeichert.');
+    }
+
+    // Bilder zur Sitzung. Der Name kommt vom Server: der Browser bestimmt
+    // nur die Endung, und die muss zum Inhalt passen.
+    case 'tagebuch_bild_hoch': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        if (empty($z['user'])) respond(403, 'Dafür braucht es ein Konto.');
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $id = (string)($body['sitzung_id'] ?? '');
+        $s = $advId !== '' && planId($id) ? tbSitzung($pdo, $code, $advId, $id) : null;
+        if (!$s) respond(404, 'Die Sitzung gibt es nicht.');
+        $liste = $body['bilder'] ?? null;
+        if (!is_array($liste) || !$liste) respond(400, 'Keine Bilder.');
+        if (count($liste) > 20) respond(413, 'Höchstens 20 Bilder auf einmal.');
+        $fertig = [];
+        foreach ($liste as $b) {
+            $endung = strtolower((string)($b['endung'] ?? ''));
+            if (!isset(TB_BILD_ARTEN[$endung])) respond(415, 'Nur PNG, JPEG oder WebP.');
+            $daten = base64_decode((string)($b['daten'] ?? ''), true);
+            if ($daten === false || $daten === '') respond(400, 'Ein Bild kam nicht lesbar an.');
+            if (strlen($daten) > TB_MAX_BILD) respond(413, 'Ein Bild ist größer als 12 MB.');
+            if (!planInhaltPasst(TB_BILD_ARTEN[$endung], $daten)) respond(415, 'Der Inhalt passt nicht zur Endung.');
+            $fertig[] = ['endung' => TB_BILD_ARTEN[$endung], 'daten' => $daten,
+                         'titel' => mb_substr(trim((string)($b['titel'] ?? '')), 0, 160)];
+        }
+        $ordner = planOrdner((string)$s['ablage'], true);
+        $raus = [];
+        foreach ($fertig as $b) {
+            $name = bin2hex(random_bytes(8)) . '.' . $b['endung'];
+            $ziel = $ordner . '/' . $name;
+            $tmp = $ziel . '.' . bin2hex(random_bytes(4)) . '.tmp';
+            if (@file_put_contents($tmp, $b['daten']) === false) respond(507, 'Das Bild ließ sich nicht schreiben (Speicherplatz?).');
+            if (!@rename($tmp, $ziel)) { @unlink($tmp); respond(500, 'Das Bild ließ sich nicht ablegen.'); }
+            $pdo->prepare("INSERT INTO hb_tb_bild (session_code, sitzung_id, datei, titel, bytes, user_id, user_name)
+                           VALUES(?,?,?,?,?,?,?)")
+                ->execute([$code, $id, $name, $b['titel'], strlen($b['daten']),
+                           (int)$z['user']['id'], mb_substr((string)$z['user']['name'], 0, 100)]);
+            $raus[] = ['id' => (int)$pdo->lastInsertId(), 'datei' => $name, 'titel' => $b['titel']];
+        }
+        respond(201, 'Hochgeladen.', ['bilder' => $raus, 'ablage' => (string)$s['ablage']]);
+    }
+
+    case 'tagebuch_bild_weg': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $bildId = (int)($body['bild_id'] ?? 0);
+        $st = $pdo->prepare("SELECT b.*, t.ablage, t.adv_id FROM hb_tb_bild b
+                             JOIN hb_tagebuch t ON t.session_code=b.session_code AND t.sitzung_id=b.sitzung_id
+                             WHERE b.session_code=? AND b.id=?");
+        $st->execute([$code, $bildId]);
+        $b = $st->fetch();
+        if (!$b || (string)$b['adv_id'] !== $advId) respond(404, 'Das Bild gibt es nicht.');
+        if (!tbDarf($pdo, $z, $code, $advId, (int)$b['user_id'])) respond(403, 'Das darf nur, wer es hochgeladen hat — oder die Spielleitung.');
+        @unlink(planOrdner((string)$b['ablage'], false) . '/' . (string)$b['datei']);
+        $pdo->prepare("DELETE FROM hb_tb_bild WHERE session_code=? AND id=?")->execute([$code, $bildId]);
         respond(200, 'Gelöscht.');
     }
 

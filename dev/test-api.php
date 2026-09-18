@@ -1367,6 +1367,91 @@ pruefe('  … und ihren Orten', !in_array('o_testdorf01', array_column((array)($
        && count($r['body']['karten'] ?? []) === 1, kurz($r));
 ruf('planer_karte_loeschen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'karte_id' => 'k_testgeheim01']);
 
+abschnitt('Das Sitzungstagebuch');
+// Ein winziges PNG, gueltig bis in die Signatur — der Server prueft sie.
+$png = base64_encode(base64_decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+$r = ruf('tagebuch_sitzung', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung' => ['datum' => '2026-09-18', 'titel' => 'Im Keller von Barovia', 'spielzeit' => 'Tag 3, 20 Uhr']]);
+pruefe('auch ein Spieler legt einen Abend an (201)', $r['status'] === 201, kurz($r));
+$sitzungId = (string)($r['body']['id'] ?? '');
+$ablage = (string)($r['body']['ablage'] ?? '');
+pruefe('  … und bekommt Kennung und Ablage', $sitzungId !== '' && preg_match('/^[0-9a-f]{32}$/', $ablage) === 1,
+       $sitzungId . ' / ' . $ablage);
+$r = ruf('tagebuch_sitzung', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+    'sitzung' => ['datum' => 'gestern', 'titel' => 'Schief']]);
+pruefe('ein Datum, das keines ist, wird abgewiesen (400)', $r['status'] === 400, kurz($r));
+
+// Je Person ein Eintrag.
+$r = ruf('tagebuch_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'text' => 'Wir sind durch den Keller raus.', 'char_id' => 'h1', 'char_name' => 'Armin']);
+pruefe('der Spieler schreibt seinen Eintrag (200)', $r['status'] === 200, kurz($r));
+$r = ruf('tagebuch_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'text' => 'Wir sind durch den Keller raus. Und der Wirt log.']);
+pruefe('  … ein zweites Mal überschreibt ihn', $r['status'] === 200, kurz($r));
+$r = ruf('tagebuch_eintrag', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'text' => 'Strahd hat sie gehen lassen — vorerst.', 'nur_dm' => true]);
+pruefe('die Spielleitung schreibt ihren, nur für sich (200)', $r['status'] === 200, kurz($r));
+
+$r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$s = ($r['body']['sitzungen'] ?? [])[0] ?? [];
+pruefe('die Spielleitung liest beide Einträge', count($s['eintraege'] ?? []) === 2, json_encode($s['eintraege'] ?? [], JSON_UNESCAPED_UNICODE));
+pruefe('  … und wird als Spielleitung geführt', ($r['body']['dm'] ?? false) === true);
+pruefe('  … der Abend trägt Titel und Spielzeit',
+       ($s['titel'] ?? '') === 'Im Keller von Barovia' && ($s['spielzeit'] ?? '') === 'Tag 3, 20 Uhr', json_encode($s, JSON_UNESCAPED_UNICODE));
+$r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$sS = ($r['body']['sitzungen'] ?? [])[0] ?? [];
+$texte = array_column($sS['eintraege'] ?? [], 'text');
+pruefe('der Spieler liest nur einen — der geheime bleibt beim Server',
+       count($texte) === 1 && strpos($texte[0], 'Keller') !== false, json_encode($texte, JSON_UNESCAPED_UNICODE));
+pruefe('  … und sein eigener ist als seiner gekennzeichnet', (($sS['eintraege'][0]['meiner']) ?? false) === true);
+$r = ruf('tagebuch_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'text' => 'Heimlich', 'nur_dm' => true]);
+$r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+$fremd = array_column((($r['body']['sitzungen'] ?? [])[0]['eintraege'] ?? []), 'text');
+pruefe('ein Spieler kann sich nicht verstecken — nur die Spielleitung darf das',
+       in_array('Heimlich', $fremd, true), json_encode($fremd, JSON_UNESCAPED_UNICODE));
+
+// Bilder haengen an der Sitzung.
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'png', 'daten' => $png, 'titel' => 'Der Tisch']]]);
+pruefe('ein Spieler hängt ein Bild an (201)', $r['status'] === 201, kurz($r));
+$bildId = (int)((($r['body']['bilder'] ?? [])[0]['id']) ?? 0);
+$datei = (string)((($r['body']['bilder'] ?? [])[0]['datei']) ?? '');
+pruefe('  … der Name kommt vom Server, nicht vom Browser', preg_match('/^[0-9a-f]{16}\.png$/', $datei) === 1, $datei);
+pruefe('  … und die Datei liegt in der Ablage', is_file(__DIR__ . '/../planer-dateien/' . $ablage . '/' . $datei));
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'png', 'daten' => base64_encode('kein Bild')]]]);
+pruefe('was kein Bild ist, kommt nicht hinein (415)', $r['status'] === 415, kurz($r));
+$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'exe', 'daten' => $png]]]);
+pruefe('  … und eine fremde Endung erst recht nicht (415)', $r['status'] === 415, kurz($r));
+
+$r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+$bilder = (($r['body']['sitzungen'] ?? [])[0]['bilder'] ?? []);
+pruefe('alle sehen das Bild', count($bilder) === 1 && ($bilder[0]['titel'] ?? '') === 'Der Tisch', json_encode($bilder, JSON_UNESCAPED_UNICODE));
+pruefe('  … aber es gehört einem anderen', ($bilder[0]['meins'] ?? true) === false);
+$r = ruf('tagebuch_bild_weg', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd', 'bild_id' => $bildId]);
+pruefe('ein fremdes Bild löscht niemand (403)', $r['status'] === 403, kurz($r));
+$r = ruf('tagebuch_bild_weg', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'bild_id' => $bildId]);
+pruefe('die Spielleitung darf es (200)', $r['status'] === 200, kurz($r));
+clearstatcache();   // sonst antwortet PHP aus dem Gedaechtnis des ersten Blicks
+pruefe('  … und die Datei ist fort', !is_file(__DIR__ . '/../planer-dateien/' . $ablage . '/' . $datei));
+
+// Aufraeumen: der Abend geht mit allem.
+$r = ruf('tagebuch_sitzung_weg', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd', 'sitzung_id' => $sitzungId]);
+pruefe('einen fremden Abend löscht niemand (403)', $r['status'] === 403, kurz($r));
+$r = ruf('tagebuch_sitzung_weg', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'sitzung_id' => $sitzungId]);
+pruefe('wer ihn angelegt hat, löscht ihn (200)', $r['status'] === 200, kurz($r));
+$r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('  … und dann ist das Tagebuch wieder leer', count($r['body']['sitzungen'] ?? []) === 0, kurz($r));
+clearstatcache();
+pruefe('  … samt seiner Ablage', !is_dir(__DIR__ . '/../planer-dateien/' . $ablage));
+$r = ruf('tagebuch_eintrag', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+    'sitzung_id' => $sitzungId, 'text' => 'Zu spät']);
+pruefe('in einen gelöschten Abend schreibt niemand mehr (404)', $r['status'] === 404, kurz($r));
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

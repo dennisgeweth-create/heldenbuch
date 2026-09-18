@@ -42,6 +42,13 @@ function App() {
   const [mv,     setMv]      = useState("list");
   const [showCF, setShowCF]  = useState(false);
   const [austausch, setAustausch] = useState(false);
+  // Das Sitzungstagebuch: die Abende dieses Abenteuers, samt Einträgen
+  // und Bildern. Geladen wird erst, wenn jemand es aufmacht.
+  const [tagebuch, setTagebuch] = useState(null);      // null = zu
+  const [tbDaten, setTbDaten] = useState({sitzungen: [], ich: 0, dm: false});
+  const [tbLaedt, setTbLaedt] = useState(false);
+  const [tbFehler, setTbFehler] = useState('');
+  const [tbLogs, setTbLogs] = useState([]);
   const [showWF, setShowWF]  = useState(false);
   const [showFF,     setShowFF]     = useState(false);
   const [ffEditId,   setFfEditId]   = useState(null);
@@ -2879,6 +2886,41 @@ function App() {
     setShowCF(true);
   };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
+
+  // ── Das Sitzungstagebuch ────────────────────────────────────────
+  // Alles geht über den Server: die Abende gehören der Runde, nicht dem
+  // Gerät. Nach jeder Änderung wird neu geladen — die Liste ist klein,
+  // und so sieht man sofort, was die anderen geschrieben haben.
+  const tagebuchLaden = async () => {
+    const {url, code} = serverCreds();
+    if (!url || !code) { setTbFehler('Dafür braucht es die Verbindung zum Server.'); return; }
+    setTbLaedt(true);
+    try {
+      const d = await apiTagebuchListe(url, code, advId);
+      setTbDaten({sitzungen: d.sitzungen || [], ich: +d.ich || 0, dm: !!d.dm});
+      setTbFehler('');
+    } catch (e) { setTbFehler(e.message || 'Das Tagebuch ließ sich nicht laden.'); }
+    setTbLaedt(false);
+  };
+  const tagebuchTun = async (arbeit) => {
+    const {url, code} = serverCreds();
+    if (!url || !code) return;
+    try { await arbeit(url, code); setTbFehler(''); await tagebuchLaden(); }
+    catch (e) { setTbFehler(e.message || 'Das ging nicht.'); }
+  };
+  const tagebuchOeffnen = () => {
+    if (tagebuch) { leiste.zeigen('tagebuch'); return; }
+    setTagebuch(true);
+    tagebuchLaden();
+  };
+  // Die Zeilen des Logs für die Vorschläge. Sie kommen erst, wenn jemand
+  // sie aufklappt — im Hintergrund lädt niemand 300 Zeilen mit.
+  const tagebuchLogs = async () => {
+    const {url, code, pass} = serverCreds();
+    if (!url || !code || tbLogs.length) return;
+    try { const d = await apiLoadLogs(url, code, pass, null, {limit: 300}); setTbLogs(d.logs || []); }
+    catch (e) { /* ohne Vorschläge geht es auch */ }
+  };
   // Eingelesene Bögen. „Neu" bekommt eine frische Kennung, „ersetzen"
   // behält die des vorhandenen — samt seinem Platz im Abenteuer, damit
   // ein aktualisierter Bogen nicht plötzlich woanders steht.
@@ -3600,6 +3642,7 @@ function App() {
             <div className="sidebar-tools">
               <button className="btn-tool" onClick={()=>{ if (showDB) { leiste.zeigen('datenbank'); return; } setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
               <button className="btn-tool" onClick={()=>{ if (austausch) { leiste.zeigen('boegen'); return; } setAustausch(true); }}>📥 Bögen</button>
+              <button className="btn-tool" onClick={tagebuchOeffnen}>📔 Tagebuch</button>
               <button className="btn-tool" onClick={()=>{
                 // Schon offen, nur in der Leiste: zurückholen, mit der
                 // Suche, die darin steht.
@@ -5052,6 +5095,24 @@ function App() {
       {austausch && (
         <BogenAustausch chars={advChars} advName={advName} istNscListe={listeArt === 'nsc'}
           onEinspielen={boegenEinspielen} onSchliessen={()=>setAustausch(false)} />
+      )}
+
+      {tagebuch && (
+        <TagebuchFenster sitzungen={tbDaten.sitzungen} ich={tbDaten.ich} dm={tbDaten.dm}
+          server={serverCreds().url} laedt={tbLaedt} fehler={tbFehler} logs={tbLogs}
+          chars={advChars.filter(c => !c.archived && !istNsc(c))}
+          chronikZeit={zeitDerUhr(chronik, advId)}
+          onLogs={tagebuchLogs}
+          onNeu={(spielzeit) => tagebuchTun((url, code) => apiTagebuchSitzung(url, code, advId,
+            {datum: tbHeute(), titel: '', spielzeit: spielzeit || ''}))}
+          onSitzung={(s) => tagebuchTun((url, code) => apiTagebuchSitzung(url, code, advId, s))}
+          onSitzungWeg={(s) => appConfirm('„' + tbSitzungTitel(s) + '“ wird mit allen Einträgen und Bildern gelöscht. Das lässt sich nicht rückgängig machen.',
+            () => tagebuchTun((url, code) => apiTagebuchAbendWeg(url, code, advId, s.id)), 'Löschen')}
+          onEintrag={(id, text, nurDm, charId, charName) => tagebuchTun((url, code) =>
+            apiTagebuchEintrag(url, code, advId, id, {text, nurDm, charId, charName}))}
+          onBilder={(id, bilder) => tagebuchTun((url, code) => apiTagebuchBilder(url, code, advId, id, bilder))}
+          onBildWeg={(b) => tagebuchTun((url, code) => apiTagebuchBildWeg(url, code, advId, b.id))}
+          onZu={()=>setTagebuch(null)} />
       )}
       {assistent && (
         <CharakterAssistent klassen={klassen} talente={(userLibrary || {}).talent || []}

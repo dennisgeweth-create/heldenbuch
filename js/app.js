@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 2o-tagebuch.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 // Heldenbuch — gemeinsame Grundlagen für alle folgenden Quelldateien.
@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.21.0';
+const HB_VERSION = 'v5.22.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -21172,6 +21172,457 @@ const BogenAustausch = ({
   }, "\u2736 ", gewaehlt.length, " ", gewaehlt.length === 1 ? 'Bogen' : 'Bögen', " einlesen"))));
 };
 
+// ==== js/src/2o-tagebuch.jsx ====
+// Heldenbuch — das Sitzungstagebuch.
+//
+// Was am Abend geschehen ist, weiß am nächsten Morgen niemand mehr
+// genau. Der Kampftracker führt Protokoll, das Abenteuerlog führt Buch
+// über Zahlen — aber „wir haben den Wirt bestochen und sind durch den
+// Keller raus" steht nirgends.
+//
+// Ein Abend ist eine **Sitzung**: Datum, Titel, wahlweise der Tag im
+// Spiel. Darin schreibt **jeder seinen eigenen Eintrag** — die
+// Spielleitung ihren, jeder Spieler seinen, gern aus Sicht der Figur.
+// Die **Bilder hängen an der Sitzung**, nicht am Eintrag: das Foto vom
+// Tisch gehört allen, die dabei waren.
+//
+// Gelesen wird alles von allen. Nur was die Spielleitung als „nur für
+// mich" kennzeichnet, schickt der Server den Spielern gar nicht erst
+// (api.php, tagebuch_liste).
+//
+// Alles bis zur Markierung ist reine Rechnung
+// (dev/pruefungen/tagebuch-test.js).
+
+const TB_BILDER_JE_MAL = 20; // so viele nimmt der Server auf einmal
+const TB_BILD_KANTE = 2400; // längere Kante vor dem Hochladen
+const TB_WOCHENTAGE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+// Das heutige Datum als JJJJ-MM-TT, in der Zeit des Geräts — nicht in
+// UTC: wer um 23 Uhr den Abend einträgt, meint heute und nicht morgen.
+const tbHeute = jetzt => {
+  const d = jetzt ? new Date(jetzt) : new Date();
+  const zwei = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + zwei(d.getMonth() + 1) + '-' + zwei(d.getDate());
+};
+const tbDatumText = iso => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  if (!m) return String(iso || '');
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return TB_WOCHENTAGE[d.getDay()] + '., ' + m[3] + '.' + m[2] + '.' + m[1];
+};
+const tbSitzungTitel = s => String(s && s.titel || '').trim() || tbDatumText(s && s.datum);
+// Neueste zuerst — das Tagebuch liest man von hinten.
+const tbSortiert = liste => [...(liste || [])].sort((a, b) => String(b.datum || '').localeCompare(String(a.datum || '')) || String(b.id || '').localeCompare(String(a.id || '')));
+const tbEintragVon = (sitzung, userId) => (sitzung && sitzung.eintraege || []).find(e => e.userId === userId) || null;
+// Die Einträge der anderen: der eigene steht oben und wird getrennt
+// angezeigt, weil er das Feld zum Schreiben ist.
+const tbAndere = (sitzung, userId) => (sitzung && sitzung.eintraege || []).filter(e => e.userId !== userId);
+
+// ── Vorschläge aus dem Abenteuerlog ──────────────────────────────
+// Was an diesem Kalendertag im Log stand. Es wird nichts geschrieben —
+// es steht daneben, und ein Klick nimmt eine Zeile in den eigenen Text.
+const tbLogDatum = l => String(l && l.created_at || '').slice(0, 10);
+const tbZeile = l => {
+  const wer = String(l && l.char_name || '').trim();
+  const was = String(l && l.action || '').trim();
+  return (wer ? wer + ': ' : '') + was;
+};
+const tbVorschlaege = (logs, datum, hoechstens) => {
+  const gesehen = new Set();
+  const raus = [];
+  for (const l of logs || []) {
+    if (tbLogDatum(l) !== datum) continue;
+    const text = tbZeile(l);
+    if (!text || gesehen.has(text)) continue;
+    gesehen.add(text);
+    raus.push({
+      id: l.id,
+      text,
+      tab: l.tab || ''
+    });
+    if (raus.length >= (hoechstens || 40)) break;
+  }
+  return raus;
+};
+// Eine Zeile in den eigenen Text: als Aufzählungspunkt, und nie zweimal.
+const tbAnhaengen = (text, zeile) => {
+  const t = String(text == null ? '' : text);
+  const z = '• ' + String(zeile || '').trim();
+  if (t.split('\n').some(x => x.trim() === z)) return t;
+  return t.trim() ? t.replace(/\s*$/, '') + '\n' + z : z;
+};
+
+// ── Bilder ───────────────────────────────────────────────────────
+// Sie liegen in derselben Ablage wie die Kartenbilder des Planers: ein
+// Ordner mit zufälligem Namen, vom Webserver direkt ausgeliefert.
+const tbBildUrl = (server, ablage, datei) => String(server || '').replace(/\/+$/, '') + '/planer-dateien/' + ablage + '/' + datei;
+const tbGroesse = n => {
+  const b = +n || 0;
+  if (b >= 1048576) return (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+  if (b >= 1024) return Math.round(b / 1024) + ' kB';
+  return b + ' B';
+};
+const TB_ENDUNGEN = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp'
+};
+const tbEndung = datei => TB_ENDUNGEN[datei && datei.type || ''] || (/\.(png|jpe?g|webp)$/i.exec(datei && datei.name || '') || [])[1] || '';
+// Die Zahl der Bilder, die eine Sitzung schon hat, plus die neuen: mehr
+// als der Server auf einmal nimmt, wird in Bündeln geschickt.
+const tbBuendel = (dateien, je) => {
+  const raus = [];
+  for (let i = 0; i < (dateien || []).length; i += je || TB_BILDER_JE_MAL) {
+    raus.push(dateien.slice(i, i + (je || TB_BILDER_JE_MAL)));
+  }
+  return raus;
+};
+// ══ Ende der reinen Rechnung
+
+// Ein Bild wird vor dem Hochladen kleiner gerechnet: ein Handyfoto hat
+// zwölf Megapixel, und keiner davon hilft beim Erinnern. Geht es nicht
+// (alter Browser, seltsames Format), wandert die Datei, wie sie ist.
+const tbVerkleinern = async datei => {
+  const endung = tbEndung(datei);
+  if (!endung) throw new Error('„' + datei.name + '" ist kein PNG, JPEG oder WebP.');
+  const bytes = await datei.arrayBuffer();
+  const roh = {
+    endung,
+    bytes: new Uint8Array(bytes),
+    name: datei.name
+  };
+  if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') return roh;
+  if (datei.size < 800000 && endung !== 'png') return roh;
+  try {
+    const bild = await createImageBitmap(datei);
+    const gross = Math.max(bild.width, bild.height);
+    const faktor = gross > TB_BILD_KANTE ? TB_BILD_KANTE / gross : 1;
+    if (faktor === 1 && datei.size < 2000000 && endung !== 'png') {
+      bild.close();
+      return roh;
+    }
+    const leinwand = new OffscreenCanvas(Math.round(bild.width * faktor), Math.round(bild.height * faktor));
+    const stift = leinwand.getContext('2d');
+    stift.drawImage(bild, 0, 0, leinwand.width, leinwand.height);
+    bild.close();
+    const blob = await leinwand.convertToBlob({
+      type: 'image/jpeg',
+      quality: 0.85
+    });
+    if (!blob || blob.size >= roh.bytes.length) return roh;
+    return {
+      endung: 'jpg',
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+      name: datei.name
+    };
+  } catch (e) {
+    return roh;
+  }
+};
+const tbBase64 = bytes => {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+
+// ── Das Fenster ──────────────────────────────────────────────────
+const TagebuchFenster = ({
+  sitzungen,
+  ich,
+  dm,
+  server,
+  chars,
+  logs,
+  chronikZeit,
+  laedt,
+  fehler,
+  onNeu,
+  onSitzung,
+  onSitzungWeg,
+  onEintrag,
+  onBilder,
+  onBildWeg,
+  onLogs,
+  onZu
+}) => {
+  const liste = tbSortiert(sitzungen);
+  const [wahlId, setWahlId] = React.useState('');
+  const sitzung = liste.find(s => s.id === wahlId) || liste[0] || null;
+  const [entwurf, setEntwurf] = React.useState('');
+  const [nurDm, setNurDm] = React.useState(false);
+  const [charId, setCharId] = React.useState('');
+  const [kopf, setKopf] = React.useState(null); // {datum, titel, spielzeit} beim Bearbeiten
+  const [gross, setGross] = React.useState(null); // Bild im Großen
+  const [arbeitet, setArbeitet] = React.useState('');
+  const [vorschlaegeAuf, setVorschlaegeAuf] = React.useState(false);
+  const eingabe = React.useRef(null);
+  const meiner = sitzung ? tbEintragVon(sitzung, ich) : null;
+  // Beim Wechsel der Sitzung steht wieder da, was dort steht.
+  React.useEffect(() => {
+    setEntwurf(meiner ? meiner.text : '');
+    setNurDm(!!(meiner && meiner.nurDm));
+    setCharId(meiner && meiner.charId || '');
+    setKopf(null);
+    setGross(null);
+    setVorschlaegeAuf(false);
+  }, [sitzung && sitzung.id, meiner && meiner.geaendert]);
+  const geaendert = !!sitzung && (entwurf !== (meiner ? meiner.text : '') || nurDm !== !!(meiner && meiner.nurDm) || charId !== (meiner && meiner.charId || ''));
+  const vorschlaege = sitzung ? tbVorschlaege(logs, sitzung.datum) : [];
+  const speichern = async () => {
+    if (!sitzung) return;
+    setArbeitet('Wird gespeichert …');
+    const c = (chars || []).find(x => x.id === charId);
+    await onEintrag(sitzung.id, entwurf, nurDm, charId, c ? c.name : '');
+    setArbeitet('');
+  };
+  const bilderWaehlen = async dateien => {
+    if (!sitzung || !dateien || !dateien.length) return;
+    setArbeitet(dateien.length === 1 ? 'Ein Bild wird geschickt …' : dateien.length + ' Bilder werden geschickt …');
+    try {
+      const fertig = [];
+      for (const d of [...dateien]) {
+        const k = await tbVerkleinern(d);
+        fertig.push({
+          endung: k.endung,
+          daten: tbBase64(k.bytes),
+          titel: d.name.replace(/\.[^.]+$/, '').slice(0, 160)
+        });
+      }
+      for (const teil of tbBuendel(fertig, TB_BILDER_JE_MAL)) await onBilder(sitzung.id, teil);
+    } catch (e) {
+      setArbeitet('');
+      throw e;
+    }
+    setArbeitet('');
+  };
+  return /*#__PURE__*/React.createElement(Fenster, {
+    onZu: onZu,
+    leiste: {
+      id: 'tagebuch',
+      titel: 'Tagebuch',
+      symbol: '📔',
+      zaehler: liste.length ? String(liste.length) : ''
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-modal breit tb-fenster",
+    style: {
+      maxWidth: 1000
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDCD4 Sitzungstagebuch"), /*#__PURE__*/React.createElement("div", {
+    className: "tb-leib"
+  }, /*#__PURE__*/React.createElement("nav", {
+    className: "tb-abende"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-save tb-neu",
+    onClick: () => onNeu(chronikZeit)
+  }, "\uFF0B Neuer Abend"), laedt && /*#__PURE__*/React.createElement("div", {
+    className: "tb-leise"
+  }, "Wird geladen \u2026"), !laedt && !liste.length && /*#__PURE__*/React.createElement("div", {
+    className: "tb-leise"
+  }, "Noch kein Abend eingetragen."), /*#__PURE__*/React.createElement("ul", null, liste.map(s => /*#__PURE__*/React.createElement("li", {
+    key: s.id
+  }, /*#__PURE__*/React.createElement("button", {
+    className: 'tb-abend' + (sitzung && s.id === sitzung.id ? ' an' : ''),
+    onClick: () => setWahlId(s.id)
+  }, /*#__PURE__*/React.createElement("b", null, tbSitzungTitel(s)), /*#__PURE__*/React.createElement("i", null, tbDatumText(s.datum), s.spielzeit ? ' · ' + s.spielzeit : ''), /*#__PURE__*/React.createElement("span", {
+    className: "tb-zahlen"
+  }, (s.eintraege || []).length > 0 && /*#__PURE__*/React.createElement("span", {
+    title: "Eintr\xE4ge"
+  }, "\u270D ", (s.eintraege || []).length), (s.bilder || []).length > 0 && /*#__PURE__*/React.createElement("span", {
+    title: "Bilder"
+  }, "\uD83D\uDDBC ", (s.bilder || []).length))))))), /*#__PURE__*/React.createElement("div", {
+    className: "tb-abend-leib"
+  }, fehler && /*#__PURE__*/React.createElement("div", {
+    className: "tb-fehler"
+  }, fehler), !sitzung && !laedt && /*#__PURE__*/React.createElement("div", {
+    className: "tb-leer"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tb-leer-zeichen"
+  }, "\uD83D\uDCD4"), /*#__PURE__*/React.createElement("p", null, "Ein Abend, ein Eintrag je Person \u2014 und die Bilder geh\xF6ren allen."), /*#__PURE__*/React.createElement("p", {
+    className: "tb-leise"
+  }, "Leg den ersten Abend an; das Datum von heute steht schon drin.")), sitzung && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("header", {
+    className: "tb-kopf"
+  }, kopf ? /*#__PURE__*/React.createElement("div", {
+    className: "tb-kopf-form"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    type: "date",
+    value: kopf.datum,
+    "aria-label": "Datum",
+    onChange: e => setKopf(k => ({
+      ...k,
+      datum: e.target.value
+    }))
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: kopf.titel,
+    maxLength: 160,
+    placeholder: "Titel des Abends",
+    "aria-label": "Titel",
+    onChange: e => setKopf(k => ({
+      ...k,
+      titel: e.target.value
+    }))
+  }), /*#__PURE__*/React.createElement("input", {
+    className: "form-input",
+    value: kopf.spielzeit,
+    maxLength: 80,
+    placeholder: "Tag im Spiel",
+    "aria-label": "Tag im Spiel",
+    onChange: e => setKopf(k => ({
+      ...k,
+      spielzeit: e.target.value
+    }))
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setKopf(null)
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    onClick: async () => {
+      await onSitzung({
+        ...kopf,
+        id: sitzung.id
+      });
+      setKopf(null);
+    }
+  }, "Speichern")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h3", null, tbSitzungTitel(sitzung)), /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, [sitzung.titel ? tbDatumText(sitzung.datum) : '', sitzung.spielzeit].filter(Boolean).join(' · ')), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon tb-klein",
+    onClick: () => setKopf({
+      datum: sitzung.datum,
+      titel: sitzung.titel || '',
+      spielzeit: sitzung.spielzeit || ''
+    })
+  }, "\u270E Abend"), (dm || sitzung.von === ich) && /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel tb-klein",
+    onClick: () => onSitzungWeg(sitzung)
+  }, "\uD83D\uDDD1 Abend l\xF6schen"))), /*#__PURE__*/React.createElement("div", {
+    className: "tb-bilder"
+  }, (sitzung.bilder || []).map(b => /*#__PURE__*/React.createElement("figure", {
+    key: b.id,
+    className: "tb-bild"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: tbBildUrl(server, sitzung.ablage, b.datei),
+    alt: b.titel || 'Bild vom Abend',
+    loading: "lazy",
+    onClick: () => setGross(b)
+  }), /*#__PURE__*/React.createElement("figcaption", null, /*#__PURE__*/React.createElement("span", {
+    title: b.titel
+  }, b.titel || 'ohne Titel'), (dm || b.meins) && /*#__PURE__*/React.createElement("button", {
+    className: "tb-bild-weg",
+    title: "Bild l\xF6schen",
+    "aria-label": 'Bild löschen: ' + (b.titel || ''),
+    onClick: () => onBildWeg(b)
+  }, "\u2715")))), /*#__PURE__*/React.createElement("button", {
+    className: "tb-bild-neu",
+    onClick: () => eingabe.current && eingabe.current.click()
+  }, /*#__PURE__*/React.createElement("span", null, "\uFF0B"), /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, "Bilder")), /*#__PURE__*/React.createElement("input", {
+    ref: eingabe,
+    type: "file",
+    accept: "image/png,image/jpeg,image/webp",
+    multiple: true,
+    hidden: true,
+    onChange: e => {
+      // Erst abschreiben, dann leeren: das Feld zurueckzusetzen
+      // raeumt die Liste, und die Arbeit daran laeuft nebenher.
+      const d = [...e.target.files];
+      e.target.value = '';
+      bilderWaehlen(d);
+    }
+  })), arbeitet && /*#__PURE__*/React.createElement("div", {
+    className: "tb-leise tb-arbeit"
+  }, arbeitet), /*#__PURE__*/React.createElement("div", {
+    className: "tb-eintrag"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tb-eintrag-kopf"
+  }, /*#__PURE__*/React.createElement("span", null, "\u270D Mein Eintrag"), (chars || []).length > 0 && /*#__PURE__*/React.createElement("select", {
+    className: "form-input tb-charwahl",
+    value: charId,
+    "aria-label": "Als wen",
+    onChange: e => setCharId(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 als ich selbst \u2014"), (chars || []).map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.name))), dm && /*#__PURE__*/React.createElement("label", {
+    className: "tb-schalter",
+    title: "Die Spieler bekommen diesen Eintrag gar nicht erst"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: nurDm,
+    onChange: e => setNurDm(e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", null, "\uD83D\uDD2E nur f\xFCr mich"))), /*#__PURE__*/React.createElement("textarea", {
+    className: "form-textarea tb-feld",
+    rows: 8,
+    value: entwurf,
+    placeholder: "Was ist an diesem Abend geschehen?",
+    onChange: e => setEntwurf(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "tb-eintrag-fuss"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon tb-klein",
+    onClick: () => {
+      setVorschlaegeAuf(v => !v);
+      if (onLogs) onLogs();
+    }
+  }, vorschlaegeAuf ? '▾' : '▸', " Aus dem Abenteuerlog", vorschlaege.length ? ' (' + vorschlaege.length + ')' : ''), /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, meiner ? 'Zuletzt geändert: ' + new Date(meiner.geaendert).toLocaleString('de-DE') : 'Noch nichts geschrieben.'), /*#__PURE__*/React.createElement("button", {
+    className: "btn-save",
+    disabled: !geaendert,
+    onClick: speichern
+  }, "\u2736 Eintrag speichern")), vorschlaegeAuf && /*#__PURE__*/React.createElement("div", {
+    className: "tb-vorschlaege"
+  }, vorschlaege.length === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, "F\xFCr diesen Tag steht nichts im Log."), vorschlaege.map(v => /*#__PURE__*/React.createElement("button", {
+    key: v.id,
+    className: "tb-vorschlag",
+    title: "In meinen Eintrag \xFCbernehmen",
+    onClick: () => setEntwurf(t => tbAnhaengen(t, v.text))
+  }, "+ ", v.text)))), /*#__PURE__*/React.createElement("div", {
+    className: "tb-andere"
+  }, tbAndere(sitzung, ich).length === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, "Sonst hat noch niemand etwas geschrieben."), tbAndere(sitzung, ich).map(e => /*#__PURE__*/React.createElement("article", {
+    className: "tb-fremd",
+    key: e.id
+  }, /*#__PURE__*/React.createElement("header", null, /*#__PURE__*/React.createElement("b", null, e.charName || e.user), e.charName && /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise"
+  }, " \xB7 ", e.user), e.nurDm && /*#__PURE__*/React.createElement("span", {
+    className: "tb-marke"
+  }, "\uD83D\uDD2E nur Spielleitung")), /*#__PURE__*/React.createElement("p", null, e.text))))))), gross && /*#__PURE__*/React.createElement("div", {
+    className: "tb-gross",
+    onClick: () => setGross(null),
+    role: "dialog",
+    "aria-label": gross.titel || 'Bild'
+  }, /*#__PURE__*/React.createElement("img", {
+    src: tbBildUrl(server, sitzung.ablage, gross.datei),
+    alt: gross.titel || ''
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "tb-gross-fuss"
+  }, /*#__PURE__*/React.createElement("span", null, gross.titel || 'ohne Titel', " \xB7 ", tbGroesse(gross.bytes), " \xB7 ", gross.user), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setGross(null)
+  }, "Schlie\xDFen"))), /*#__PURE__*/React.createElement("div", {
+    className: "form-actions"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tb-leise",
+    style: {
+      marginRight: 'auto'
+    }
+  }, "Die Bilder geh\xF6ren dem Abend, die Texte den Schreibenden."), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onZu
+  }, "Schlie\xDFen"))));
+};
+
 // ==== js/src/3-sheet.jsx ====
 // Heldenbuch — der Charakterbogen mit seinen sieben Reitern.
 
@@ -25579,6 +26030,17 @@ function App() {
   const [mv, setMv] = useState("list");
   const [showCF, setShowCF] = useState(false);
   const [austausch, setAustausch] = useState(false);
+  // Das Sitzungstagebuch: die Abende dieses Abenteuers, samt Einträgen
+  // und Bildern. Geladen wird erst, wenn jemand es aufmacht.
+  const [tagebuch, setTagebuch] = useState(null); // null = zu
+  const [tbDaten, setTbDaten] = useState({
+    sitzungen: [],
+    ich: 0,
+    dm: false
+  });
+  const [tbLaedt, setTbLaedt] = useState(false);
+  const [tbFehler, setTbFehler] = useState('');
+  const [tbLogs, setTbLogs] = useState([]);
   const [showWF, setShowWF] = useState(false);
   const [showFF, setShowFF] = useState(false);
   const [ffEditId, setFfEditId] = useState(null);
@@ -29373,6 +29835,72 @@ function App() {
     });
     setShowCF(true);
   };
+
+  // ── Das Sitzungstagebuch ────────────────────────────────────────
+  // Alles geht über den Server: die Abende gehören der Runde, nicht dem
+  // Gerät. Nach jeder Änderung wird neu geladen — die Liste ist klein,
+  // und so sieht man sofort, was die anderen geschrieben haben.
+  const tagebuchLaden = async () => {
+    const {
+      url,
+      code
+    } = serverCreds();
+    if (!url || !code) {
+      setTbFehler('Dafür braucht es die Verbindung zum Server.');
+      return;
+    }
+    setTbLaedt(true);
+    try {
+      const d = await apiTagebuchListe(url, code, advId);
+      setTbDaten({
+        sitzungen: d.sitzungen || [],
+        ich: +d.ich || 0,
+        dm: !!d.dm
+      });
+      setTbFehler('');
+    } catch (e) {
+      setTbFehler(e.message || 'Das Tagebuch ließ sich nicht laden.');
+    }
+    setTbLaedt(false);
+  };
+  const tagebuchTun = async arbeit => {
+    const {
+      url,
+      code
+    } = serverCreds();
+    if (!url || !code) return;
+    try {
+      await arbeit(url, code);
+      setTbFehler('');
+      await tagebuchLaden();
+    } catch (e) {
+      setTbFehler(e.message || 'Das ging nicht.');
+    }
+  };
+  const tagebuchOeffnen = () => {
+    if (tagebuch) {
+      leiste.zeigen('tagebuch');
+      return;
+    }
+    setTagebuch(true);
+    tagebuchLaden();
+  };
+  // Die Zeilen des Logs für die Vorschläge. Sie kommen erst, wenn jemand
+  // sie aufklappt — im Hintergrund lädt niemand 300 Zeilen mit.
+  const tagebuchLogs = async () => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    if (!url || !code || tbLogs.length) return;
+    try {
+      const d = await apiLoadLogs(url, code, pass, null, {
+        limit: 300
+      });
+      setTbLogs(d.logs || []);
+    } catch (e) {/* ohne Vorschläge geht es auch */}
+  };
   // Eingelesene Bögen. „Neu" bekommt eine frische Kennung, „ersetzen"
   // behält die des vorhandenen — samt seinem Platz im Abenteuer, damit
   // ein aktualisierter Bogen nicht plötzlich woanders steht.
@@ -30681,6 +31209,9 @@ function App() {
       setAustausch(true);
     }
   }, "\uD83D\uDCE5 B\xF6gen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: tagebuchOeffnen
+  }, "\uD83D\uDCD4 Tagebuch"), /*#__PURE__*/React.createElement("button", {
     className: "btn-tool",
     onClick: () => {
       // Schon offen, nur in der Leiste: zurückholen, mit der
@@ -33617,6 +34148,33 @@ function App() {
     istNscListe: listeArt === 'nsc',
     onEinspielen: boegenEinspielen,
     onSchliessen: () => setAustausch(false)
+  }), tagebuch && /*#__PURE__*/React.createElement(TagebuchFenster, {
+    sitzungen: tbDaten.sitzungen,
+    ich: tbDaten.ich,
+    dm: tbDaten.dm,
+    server: serverCreds().url,
+    laedt: tbLaedt,
+    fehler: tbFehler,
+    logs: tbLogs,
+    chars: advChars.filter(c => !c.archived && !istNsc(c)),
+    chronikZeit: zeitDerUhr(chronik, advId),
+    onLogs: tagebuchLogs,
+    onNeu: spielzeit => tagebuchTun((url, code) => apiTagebuchSitzung(url, code, advId, {
+      datum: tbHeute(),
+      titel: '',
+      spielzeit: spielzeit || ''
+    })),
+    onSitzung: s => tagebuchTun((url, code) => apiTagebuchSitzung(url, code, advId, s)),
+    onSitzungWeg: s => appConfirm('„' + tbSitzungTitel(s) + '“ wird mit allen Einträgen und Bildern gelöscht. Das lässt sich nicht rückgängig machen.', () => tagebuchTun((url, code) => apiTagebuchAbendWeg(url, code, advId, s.id)), 'Löschen'),
+    onEintrag: (id, text, nurDm, charId, charName) => tagebuchTun((url, code) => apiTagebuchEintrag(url, code, advId, id, {
+      text,
+      nurDm,
+      charId,
+      charName
+    })),
+    onBilder: (id, bilder) => tagebuchTun((url, code) => apiTagebuchBilder(url, code, advId, id, bilder)),
+    onBildWeg: b => tagebuchTun((url, code) => apiTagebuchBildWeg(url, code, advId, b.id)),
+    onZu: () => setTagebuch(null)
   }), assistent && /*#__PURE__*/React.createElement(CharakterAssistent, {
     klassen: klassen,
     talente: (userLibrary || {}).talent || [],

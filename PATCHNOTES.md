@@ -1,5 +1,27 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.22.0
+
+### 📔 Das Sitzungstagebuch
+
+- **Ein Abend, ein Eintrag je Person.** In der Seitenleiste steht
+  **📔 Tagebuch**. Jeder legt einen Abend an — Datum, Titel und
+  wahlweise der Tag im Spiel —, und darin schreibt jeder seinen eigenen
+  Eintrag: die Spielleitung ihren, jeder Spieler seinen, gern aus Sicht
+  der Figur (wer, steht in einer Auswahl daneben).
+- **Die Bilder gehören dem Abend**, nicht dem Eintrag: Fotos vom Tisch,
+  Zeichnungen, Karten. Jeder, der dabei war, kann welche anhängen; jeder
+  löscht seine eigenen, die Spielleitung alle. Große Bilder werden vor
+  dem Hochladen kleiner gerechnet — ein Klick zeigt sie groß.
+- **Gelesen wird alles von allen.** Nur was die Spielleitung als
+  **🔮 nur für mich** kennzeichnet, schickt der Server den Spielern gar
+  nicht erst.
+- **Aus dem Abenteuerlog:** Neben dem Textfeld steht, was an diesem Tag
+  im Log stand — Stufenaufstiege, Funde, Notizen. Ein Klick übernimmt
+  eine Zeile als Aufzählungspunkt. Geschrieben wird nichts von selbst.
+- Wer den Abend angelegt hat, darf ihn ändern und löschen; die
+  Spielleitung immer. Ein gelöschter Abend nimmt Einträge und Bilder mit.
+
 ## v5.21.0
 
 ### Kampf
