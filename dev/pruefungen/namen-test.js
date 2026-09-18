@@ -59,11 +59,17 @@ const ausIndex = () => {
   return [...raus];
 };
 
-const BEKANNT = new Set([...BROWSER, ...ausIndex()]);
+const BYTES = `
+  ArrayBuffer DataView Uint8Array Uint16Array Uint32Array Int32Array
+  CompressionStream DecompressionStream Response ReadableStream btoa atob
+  URLSearchParams DataTransfer OffscreenCanvas createImageBitmap ImageBitmap BroadcastChannel StorageEvent indexedDB
+`.trim().split(/\s+/);
+// Seit js/zip.js auch im Heldenbuch liegt, arbeitet dessen Buendel
+// ebenfalls mit Bytes — dieselbe Liste wie beim Planer.
+const BEKANNT = new Set([...BROWSER, ...BYTES, ...ausIndex()]);
 
 // Der Abenteuerplaner ist ein zweites Buendel mit eigener Seite. Er
-// kennt die Namen seiner index.html — nicht die des Heldenbuchs — und
-// arbeitet mit Bytes, also auch mit dem, was das Heldenbuch nie braucht.
+// kennt die Namen seiner eigenen index.html — nicht die des Heldenbuchs.
 const ausDatei = (datei) => {
   const t = fs.readFileSync(datei, 'utf8');
   const raus = new Set();
@@ -72,11 +78,6 @@ const ausDatei = (datei) => {
   while ((m = re.exec(t)) !== null) raus.add(m[1]);
   return [...raus];
 };
-const BYTES = `
-  ArrayBuffer DataView Uint8Array Uint16Array Uint32Array Int32Array
-  CompressionStream DecompressionStream Response ReadableStream btoa atob
-  URLSearchParams DataTransfer OffscreenCanvas createImageBitmap ImageBitmap BroadcastChannel StorageEvent indexedDB
-`.trim().split(/\s+/);
 const BEKANNT_PLANER = new Set([...BROWSER, ...BYTES, ...ausDatei(path.join('planer', 'index.html'))]);
 
 // ── Die Quellen, so wie build.js sie zusammensetzt ───────────────
@@ -89,9 +90,15 @@ const BUENDEL = [
   {name: 'js/app.js', bekannt: BEKANNT, stuecke: [
     {name: 'js/data.js', text: fs.readFileSync(path.join('js', 'data.js'), 'utf8')},
     {name: 'js/util.js', text: fs.readFileSync(path.join('js', 'util.js'), 'utf8')},
+    {name: 'js/zip.js', text: fs.readFileSync(path.join('js', 'zip.js'), 'utf8')},
     ...quellen(path.join('js', 'src'), 'js/src/'),
   ]},
-  {name: 'planer/planer.js', bekannt: BEKANNT_PLANER, stuecke: quellen(path.join('planer', 'src'), 'planer/src/')},
+  // Der Planer laedt js/zip.js vor seinem Buendel — im selben
+  // Geltungsbereich, wie das Heldenbuch js/util.js laedt.
+  {name: 'planer/planer.js', bekannt: BEKANNT_PLANER, stuecke: [
+    {name: 'js/zip.js', text: fs.readFileSync(path.join('js', 'zip.js'), 'utf8')},
+    ...quellen(path.join('planer', 'src'), 'planer/src/'),
+  ]},
 ];
 
 // Woher eine Zeile stammt: der Baum kennt nur eine Nummer im

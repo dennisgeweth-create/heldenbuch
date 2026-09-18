@@ -60,7 +60,7 @@ jobs:
           # keinen Server und keine Anmeldung — alles steht in demo.json.
           cp demo.html demo.json deploy/
           cp data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json deploy/
-          cp js/data.js js/util.js js/app.js deploy/js/
+          cp js/data.js js/util.js js/zip.js js/app.js deploy/js/
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
           cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
@@ -108,7 +108,7 @@ jobs:
         if: env.SFTP_HOST != ''
         run: |
           FAIL=0
-          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js"
+          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

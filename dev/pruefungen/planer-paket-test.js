@@ -4,7 +4,10 @@
 // statt eines Servers.
 const fs = require('fs');
 const paket = fs.readFileSync('planer/src/1-paket.jsx', 'utf8');
-const quelle = paket.slice(0, paket.indexOf('// ══ Ende der reinen Rechnung'));
+// Das ZIP steht seit v5.20 in js/zip.js — dieselbe Datei, die beide
+// Seiten im Browser laden.
+const quelle = fs.readFileSync('js/zip.js', 'utf8') + '\n'
+  + paket.slice(0, paket.indexOf('// ══ Ende der reinen Rechnung'));
 const namen = [...quelle.matchAll(/^const ([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
 eval(quelle + ';globalThis.M = {' + namen.join(', ') + '};');
 Object.assign(globalThis, M);

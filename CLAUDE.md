@@ -33,6 +33,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2k-heldtext.jsx` | Der ganze Bogen als Text — zum Vorlegen an eine KI, samt Fenster |
 | ↳ `2l-post.jsx` | Post an die Spielleitung — Fenster des Spielers und Postfach der Spielleitung (Server: `hb_post`) |
 | ↳ `2m-rast.jsx` | Rast auf Ansage — kurz und lang, Standard oder „Gradueller Rauer Realismus“ (nur die Zahlen, nicht der Text des Hefts); Rechner, Fenster, Anwenden auf den Bogen (Server: `hb_rast`) |
+| ↳ `2n-bogentext.jsx` | **Der Textbogen**: Bögen als `.txt` schreiben und lesen, einzeln oder als ZIP-Bündel; Schema in `TEXTBOGEN.md` |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |
@@ -41,6 +42,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `js/app.js` | daraus zusammengesetzt und übersetzt. Nicht von Hand ändern. |
 | `js/data.js` | Regeltabellen (Klassen, Zauberschulen, Fertigkeiten, Effektziele) |
 | `js/util.js` | reine Hilfsfunktionen ohne React |
+| `js/zip.js` | ZIP schreiben und lesen im Browser — von **beiden** Seiten geladen (Heldenbuch und Planer); keine Bibliothek |
 | `styles.css` | gesamte Oberfläche |
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
 | ↳ `data-merkmale.json` | Klassen- **und Unterklassenmerkmale** Stufe 1–20 (SRD 5.1); der Aufstieg lädt sie beim Öffnen |
@@ -54,6 +56,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `TAVERNE.md` | Stufenplan der Taverne — alle Stufen gebaut |
 | `TAVERNE-WALZEN.md` | Konzept und Stufenplan der drei Fünfwalzenautomaten |
 | `KAMPFTRACKER.md` | Was der Tracker führt und ausgibt — zum Vorlegen an eine KI |
+| `TEXTBOGEN.md` | Das Schema des Textbogens — zum Vorlegen an eine KI, die einen Bogen schreiben soll |
 | `KAMPFKARTE.md` | Konzept und Stufenplan der Rasterkarte im Kampf |
 | `PLANER.md` | Konzept, Rechte, `.hbplan`-Format und Stufenplan des Abenteuerplaners |
 | `SPIELFLUSS.md` | Stufenplan für alles um den Abend herum — alle Stufen gebaut |

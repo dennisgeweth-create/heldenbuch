@@ -41,6 +41,7 @@ function App() {
   const [tab,    setTab]     = useState("stats");
   const [mv,     setMv]      = useState("list");
   const [showCF, setShowCF]  = useState(false);
+  const [austausch, setAustausch] = useState(false);
   const [showWF, setShowWF]  = useState(false);
   const [showFF,     setShowFF]     = useState(false);
   const [ffEditId,   setFfEditId]   = useState(null);
@@ -2866,6 +2867,28 @@ function App() {
     setShowCF(true);
   };
   const openEdit = () => { setEc({...cur}); setShowCF(true); };
+  // Eingelesene Bögen. „Neu" bekommt eine frische Kennung, „ersetzen"
+  // behält die des vorhandenen — samt seinem Platz im Abenteuer, damit
+  // ein aktualisierter Bogen nicht plötzlich woanders steht.
+  const boegenEinspielen = (eintraege) => {
+    const alt = charsRef.current;
+    let liste = [...alt];
+    (eintraege || []).forEach((e, i) => {
+      const vorhanden = e.wahl === 'ersetzen' ? alt.find(c => c.id === e.vorhandenId) : null;
+      const bogen = {
+        ...e.bogen,
+        id: vorhanden ? vorhanden.id : (Date.now() + i).toString(),
+        adventure: vorhanden ? (vorhanden.adventure || advId) : advId,
+        archived: false,
+      };
+      liste = vorhanden ? liste.map(c => c.id === bogen.id ? bogen : c) : [...liste, bogen];
+      addLog(bogen.id, bogen.name, 'charakter',
+        vorhanden ? 'Bogen aus Textdatei ersetzt' : 'Bogen aus Textdatei eingelesen',
+        {datei: e.datei, art: istNsc(bogen) ? 'NSC (' + nscHaltung(bogen) + ')' : 'Held'});
+    });
+    save(liste);
+    return (eintraege || []).length;
+  };
   // Ein NSC entsteht immer von Hand: kein Assistent, keine Vorlage —
   // die Spielleitung weiss selbst, was der Wirt kann.
   const openNewNsc = (haltung) => {
@@ -3564,6 +3587,7 @@ function App() {
             <button className="btn-new" onClick={openAssistent}>✦ Neuer Charakter</button>
             <div className="sidebar-tools">
               <button className="btn-tool" onClick={()=>{ if (showDB) { leiste.zeigen('datenbank'); return; } setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
+              <button className="btn-tool" onClick={()=>{ if (austausch) { leiste.zeigen('boegen'); return; } setAustausch(true); }}>📥 Bögen</button>
               <button className="btn-tool" onClick={()=>{
                 // Schon offen, nur in der Leiste: zurückholen, mit der
                 // Suche, die darin steht.
@@ -5013,6 +5037,12 @@ function App() {
           helden={advChars.filter(c => !c.archived && c.dmOnly !== true)} />
       )}
 
+      {austausch && (
+        <Fenster onZu={()=>setAustausch(false)} leiste={{id: 'boegen', titel: 'Bögen', symbol: '📥'}}>
+          <BogenAustausch chars={advChars} advName={advName} istNscListe={listeArt === 'nsc'}
+            onEinspielen={boegenEinspielen} onSchliessen={()=>setAustausch(false)} />
+        </Fenster>
+      )}
       {assistent && (
         <CharakterAssistent klassen={klassen} talente={(userLibrary || {}).talent || []}
           onAbbrechen={()=>setAssistent(false)}

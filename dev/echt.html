@@ -230,6 +230,7 @@
   </script>
   <script src="../js/data.js?v=dev"></script>
   <script src="../js/util.js?v=dev"></script>
+  <script src="../js/zip.js?v=dev"></script>
   <script src="../vendor/react.production.min.js?v=dev"></script>
   <script src="../vendor/react-dom.production.min.js?v=dev"></script>
   <script src="../js/app.js?v=dev"></script>
@@ -1254,6 +1255,76 @@
           }
           const zu = knopfMit('✕') || knopfMit('Schließen');
           if (zu) { zu.click(); await ruhe(200); }
+        }
+
+        // ── Bögen ein- und auslesen ────────────────────────────────
+        melden('lauf', 'Bögen ein- und auslesen');
+        const boegenK = knopfMit('📥 Bögen');
+        if (ja('In der Seitenleiste steht „Bögen"', !!boegenK)) {
+          boegenK.click();
+          const fenster = await warten(() => document.querySelector('.bt-fenster'));
+          if (ja('  … und öffnet das Fenster', !!fenster)) {
+            // Auslesen: der Knopf lädt ein ZIP herunter. Statt es zu
+            // speichern, fangen wir den Blob ab und sehen hinein.
+            const echtesErzeugen = URL.createObjectURL;
+            let gefangen = null;
+            URL.createObjectURL = (b) => { gefangen = b; return 'blob:werkbank'; };
+            const zipK = knopfMit('Als ZIP sichern');
+            if (ja('Es gibt einen Knopf, alle Bögen als ZIP zu sichern', !!zipK && !zipK.disabled)) {
+              zipK.click();
+              await warten(() => gefangen);
+              URL.createObjectURL = echtesErzeugen;
+              const drin = gefangen ? (await zipLesen(gefangen)).eintraege.map(e => e.name) : [];
+              ja('  … darin liegt je Bogen eine Textdatei',
+                 drin.includes('Brunhilde-Eisenfaust.txt') && drin.includes('Wirt-Arik.txt'), drin.join(', '));
+              const zip2 = gefangen ? await zipLesen(gefangen) : null;
+              const text = zip2 ? new TextDecoder().decode(await zip2.lesen(zip2.finden('Brunhilde-Eisenfaust.txt'))) : '';
+              ja('  … und die trägt die Marke und die Werte des Bogens',
+                 /^# Heldenbuch-Bogen 1/.test(text) && /Name: Brunhilde Eisenfaust/.test(text) && /Trefferpunkte: 31 von 44/.test(text),
+                 text.split('\n').slice(0, 6).join(' / '));
+            }
+            URL.createObjectURL = echtesErzeugen;
+
+            // Einlesen: ein ZIP mit zwei Bögen — einer ist schon da, einer neu.
+            const einlesen = [
+              {name: 'Wirt-Arik.txt', text: bogenAlsText({...newChar(), name: 'Wirt Arik', npc: true, dmOnly: true,
+                haltung: 'freundlich', charClass: 'Kämpfer', level: 4, hp: 22, maxHp: 22, ac: 13})},
+              {name: 'unterordner/Bote.txt', text: bogenAlsText({...newChar(), name: 'Bote Jenk', charClass: 'Schurke', level: 1})},
+              {name: 'nicht-dabei.md', text: 'wird übergangen'},
+            ];
+            const zipBlob = await zipSchreiben(einlesen.map(e => ({name: e.name, daten: e.text, packen: true})));
+            const eingabe = fenster.querySelector('input[type=file]');
+            const dt = new DataTransfer();
+            dt.items.add(new File([zipBlob], 'boegen.zip', {type: 'application/zip'}));
+            eingabe.files = dt.files;
+            eingabe.dispatchEvent(new Event('change', {bubbles: true}));
+            const liste = await warten(() => document.querySelector('.bt-liste'));
+            if (ja('Ein ZIP mit Textdateien wird gelesen', !!liste)) {
+              const zeilen = [...document.querySelectorAll('.bt-eintrag')];
+              ja('  … nur die .txt darin, nicht die Beilage', zeilen.length === 2, zeilen.length + ' Einträge');
+              ja('  … der vorhandene Name ist erkannt',
+                 /Wirt Arik/.test(zeilen[0].textContent) && /schon vorhanden/.test(zeilen[0].textContent),
+                 zeilen[0].textContent.slice(0, 90));
+              ja('  … der andere ist neu', /Bote Jenk/.test(zeilen[1].textContent) && /neu/.test(zeilen[1].textContent));
+              const vorher = JSON.parse(wbSpeicher.dnd_chars || '[]').length;
+              const knopfE = knopfMit('einlesen');
+              if (ja('Der Knopf nennt die Zahl', !!knopfE && /2 Bögen einlesen/.test(knopfE.textContent), (knopfE || {}).textContent)) {
+                knopfE.click();
+                await ruhe(400);
+                const boegen = JSON.parse(wbSpeicher.dnd_chars || '[]');
+                const arik = boegen.filter(c => c.name === 'Wirt Arik');
+                ja('Der vorhandene Bogen wird ersetzt, nicht verdoppelt', arik.length === 1 && arik[0].level === 4 && arik[0].maxHp === 22,
+                   JSON.stringify(arik.map(c => [c.level, c.maxHp])));
+                ja('  … und bleibt ein NSC', arik.length === 1 && arik[0].npc === true && arik[0].dmOnly === true);
+                ja('  … der neue kommt dazu', boegen.length === vorher + 1 && boegen.some(c => c.name === 'Bote Jenk'),
+                   vorher + ' → ' + boegen.length);
+                ja('  … und steht im offenen Abenteuer',
+                   (boegen.find(c => c.name === 'Bote Jenk') || {}).adventure === (boegen.find(c => c.name === 'Brunhilde Eisenfaust') || {}).adventure);
+              }
+            }
+            const zuK = [...document.querySelectorAll('.bt-fenster button')].find(b => /Schließen/.test(b.textContent));
+            if (zuK) { zuK.click(); await ruhe(200); }
+          }
         }
 
         // ── Post von der Runde ─────────────────────────────────────

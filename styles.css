@@ -760,6 +760,32 @@
   .form-textarea { resize:vertical; min-height:80px; }
   .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
 
+  /* ── Bögen ein- und auslesen ────────────────────────────────── */
+  .bt-teil { border:1px solid var(--border); border-radius:5px; padding:12px 14px; margin-bottom:12px; }
+  .bt-teil h4 { margin:0 0 6px; font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); }
+  .bt-hinweis { margin:0 0 10px; font-size:12px; color:var(--text-muted); line-height:1.5; }
+  .bt-zeile { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .bt-zeile > select.form-input { flex:1; min-width:180px; }
+  .bt-fehler { border:1px solid #e05a5a; color:#e05a5a; border-radius:4px; padding:8px 10px; font-size:12px; margin-bottom:10px; }
+  .bt-gut { border:1px solid #56b183; color:#56b183; border-radius:4px; padding:8px 10px; font-size:12px; margin-bottom:10px; }
+  .bt-leise { color:var(--text-muted); font-size:11.5px; }
+  .bt-vorschau { border:1px solid var(--border); border-radius:5px; padding:10px 12px; }
+  .bt-alle { justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:8px; }
+  .bt-alle-knoepfe { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .bt-klein { padding:3px 8px; font-size:11px; }
+  .bt-liste { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;
+    max-height:44vh; overflow-y:auto; }
+  .bt-eintrag { border:1px solid var(--border); border-radius:4px; padding:8px 10px; min-width:0; }
+  .bt-eintrag.schlecht { border-color:#8b3a3a; opacity:0.85; }
+  .bt-eintrag-kopf { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; min-width:0; }
+  .bt-eintrag-kopf b { font-family:'Roboto Condensed',sans-serif; }
+  .bt-eintrag-kopf .bt-leise { min-width:0; overflow-wrap:anywhere; }
+  .bt-eintrag-wahl { display:flex; gap:12px; flex-wrap:wrap; margin-top:6px; font-size:12px; }
+  .bt-eintrag-wahl label { display:flex; gap:5px; align-items:center; cursor:pointer; }
+  .bt-eintrag-wahl label.aus { opacity:0.4; cursor:default; }
+  .bt-warnungen { margin:6px 0 0; padding-left:18px; font-size:11.5px; color:var(--inspiration); }
+
   /* ── Der Bogen als Text ───────────────────────────────────
      Ein Fenster, das fast nur aus einem Textfeld besteht. Es waechst
      mit dem Fenster mit: wer den Rahmen groesser zieht, will mehr vom

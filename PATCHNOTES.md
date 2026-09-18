@@ -1,5 +1,29 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.20.0
+
+### Bögen als Textdateien — hinaus und wieder herein
+
+- **📥 Bögen** in der Seitenleiste liest Bögen aus und ein. Jeder Bogen
+  wird eine Textdatei nach festem Schema: lesbar, mit jedem Editor
+  änderbar und **wieder einlesbar**. Auch NSC.
+- **Auslesen:** alle Bögen des Abenteuers auf einmal als ZIP — wahlweise
+  nur die Helden, nur die NSC oder beides. Einzeln geht es im Kopf des
+  Bogens mit **⬇ Textbogen**.
+- **Einlesen:** eine `.txt` oder ein ganzes ZIP mit vielen darin
+  (Unterordner erlaubt). Vorher zeigt das Fenster je Datei, was gefunden
+  wurde und ob es den Namen schon gibt; du entscheidest je Bogen: neu
+  anlegen, vorhandenen ersetzen oder überspringen.
+- **Zum Diktieren:** Das Schema steht in `TEXTBOGEN.md`, und der Knopf
+  **📄 Schema als Beispiel** legt eine ausgefüllte Datei hin. Wer einen
+  NSC von einer KI schreiben lässt, legt ihr das vor.
+- Mitgenommen wird alles, was im Bogen steht: Attribute, Werte, Übungen,
+  Zauberplätze, Ressourcen, Merkmale, Waffen, Zauber, Ausrüstung samt
+  getragenen Plätzen und Wirkungen, Münzen und Notizen. Nicht dabei sind
+  das Bild und das Abenteuerlog.
+- „Der Bogen als Text" (📋) bleibt daneben, wie er war: fertig gerechnet,
+  zum Vorlesen und Vorlegen — aber nicht zum Wiedereinlesen.
+
 ## v5.19.0
 
 ### NSC — die Bögen der Spielleitung

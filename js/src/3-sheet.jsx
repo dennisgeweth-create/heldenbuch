@@ -264,6 +264,12 @@ const Sheet = () => {
                   <span className="kopf-zeichen">📋</span><span className="kopf-wort">Als Text</span>
                 </button>
               )}
+              {isDmMode && (
+                <button className="kopf-knopf" title="Diesen Bogen als Textdatei sichern — sie lässt sich wieder einlesen"
+                  onClick={()=>bogenHerunterladen(bogenDateiname(cur), bogenAlsText(cur))}>
+                  <span className="kopf-zeichen">⬇</span><span className="kopf-wort">Textbogen</span>
+                </button>
+              )}
               {darfBearbeiten ? <>
                 {/* Diese vier waren blasse Zeichen ohne Rahmen: 55 %
                     Deckkraft, Umriss erst beim Darüberfahren, kein Wort

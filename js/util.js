@@ -1731,11 +1731,23 @@ const fuzzyFilter = (items, query, getStr) => {
 const htmlZuText = (html) => String(html == null ? '' : html)
   .replace(/<\s*br\s*\/?>/gi, '\n')
   .replace(/<\s*li[^>]*>/gi, '\u2022 ')
-  .replace(/<\/\s*(p|div|li|h[1-6]|tr|ul|ol|blockquote)\s*>/gi, '\n')
+  // Ein Absatz trennt mit einer Leerzeile, ein Zeilenende nur mit einem
+  // Umbruch — sonst laesst sich aus dem Text die Auszeichnung nicht
+  // wiedergewinnen (textZuHtml).
+  .replace(/<\/\s*(p|blockquote|ul|ol)\s*>/gi, '\n\n')
+  .replace(/<\/\s*(div|li|h[1-6]|tr)\s*>/gi, '\n')
   .replace(/<[^>]*>/g, '')
   .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
   .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&amp;/g, '&')
   .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+
+// Und zurueck: eingetippter Text wird Auszeichnung. Beschreibungen
+// werden als HTML angezeigt — ein Zeilenumbruch aus einer Textdatei
+// waere darin sonst keiner.
+const textZuHtml = (text) => String(text == null ? '' : text)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .split(/\n{2,}/).map(a => a.replace(/\n/g, '<br>')).filter(a => a !== '')
+  .map(a => '<p>' + a + '</p>').join('');
 
 // ── Suche ueber alle Angaben eines Gegenstands ───────────────────
 // Text aus einer Beschreibung ziehen, ohne die Auszeichnung mitzusuchen —

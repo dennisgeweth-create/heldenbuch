@@ -348,7 +348,7 @@ ist('keine Zeile laeuft weit aus dem Rahmen', zuLang, []);
 
 // Beschreibungen sind HTML — im Text hat die Auszeichnung nichts verloren.
 ist('Fettschrift wird zu Text', htmlZuText('<b>Wucht</b>schlag'), 'Wuchtschlag');
-ist('Absaetze und Umbrueche werden Zeilen', htmlZuText('<p>Eins</p><div>Zwei</div>Drei<br>Vier'), 'Eins\nZwei\nDrei\nVier');
+ist('ein Absatz trennt mit Leerzeile, ein Umbruch mit einer Zeile', htmlZuText('<p>Eins</p><div>Zwei</div>Drei<br>Vier'), 'Eins\n\nZwei\nDrei\nVier');
 ist('eine Liste bekommt Punkte', htmlZuText('<ul><li>Eins</li><li>Zwei</li></ul>'), '• Eins\n• Zwei');
 ist('Entitaeten werden Zeichen', htmlZuText('1&nbsp;m &amp; mehr &lt;b&gt;'), '1 m & mehr <b>');
 ist('leerer Wert bleibt leer', [htmlZuText(''), htmlZuText(null), htmlZuText(undefined)], ['', '', '']);
