@@ -1,5 +1,31 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.21.0
+
+### Kampf
+
+- **Die Karte heißt jetzt wie der Tracker.** „Zombie 1" stand auf der
+  Karte als z4, wenn drei andere Figuren vorher gesetzt waren — die Zahl
+  kam aus der Reihenfolge, nicht aus dem Namen. Jetzt kommt sie aus dem
+  Namen: **Zombie 1 → z1**. Nur wenn das Kürzel schon vergeben ist, wird
+  weitergezählt; zweistellige Zahlen stehen allein da (Wolf 12 → 12).
+  Schon gesetzte Figuren behalten ihr Kürzel.
+- **Eine Frage vor dem Eintragen.** Ein Treffer ohne Schaden, ein Ziel
+  ohne alles, ein Zusatzschaden ohne Art, ein leerer Zauberplatz oder
+  eine aufgebrauchte Ressource: der Zug geht trotzdem durch, aber es wird
+  einmal gefragt. Daneben steht **Trotzdem eintragen** — die Spielleitung
+  hat recht, sie soll es nur wissen. Im Fuß des Fensters steht schon
+  vorher, dass etwas unfertig aussieht.
+  Nicht gemeldet wird, was am Tisch normal ist: der fehlende Würfelwurf,
+  bloßer Schaden ohne gewählte Waffe, ein Merkmal ohne Ziel, ein
+  Fehlschlag ohne Zahl, ein bestandener Rettungswurf.
+- **Reaktion nimmt den nächsthöheren Platz.** Der Schutzschild scheiterte
+  stillschweigend, wenn der erste Grad leer war — auch dann, wenn der
+  zweite noch voll war. Jetzt springt der nächste freie Platz ein, und in
+  der Ansage steht, dass es der höhere war. Nur bei Reaktionen: wer einen
+  Grad selbst wählt, verliert keinen anderen.
+- **Zustand „Fliegend"** steht jetzt bei den Zuständen.
+
 ## v5.20.1
 
 - **Das Fenster „Bögen ein- und auslesen" nahm keine Klicks an** und hatte

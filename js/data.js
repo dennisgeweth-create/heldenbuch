@@ -417,7 +417,10 @@ const ARMOR_TEMPLATES = [
 
 // Zustaende im Kampf. Feste Liste statt freier Eingabe — so heisst
 // "Liegend" bei allen gleich und laesst sich zaehlen.
-const CONDITIONS = ['Geblendet','Betäubt','Bezaubert','Erschöpft','Verängstigt','Gepackt',
+// „Fliegend" ist keiner aus dem Regelwerk, aber einer, den jeder Tisch
+// führt: wer in der Luft ist, wird anders erreicht, und auf der Karte
+// hat er eine Höhe. Er steht deshalb bei den Zuständen.
+const CONDITIONS = ['Geblendet','Betäubt','Bezaubert','Erschöpft','Verängstigt','Fliegend','Gepackt',
   'Handlungsunfähig','Unsichtbar','Gelähmt','Versteinert','Vergiftet','Liegend',
   'Festgesetzt','Bewusstlos','Taub'];
 

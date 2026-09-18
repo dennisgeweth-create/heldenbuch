@@ -754,6 +754,60 @@
               }
             }
           }
+          // ── Die Frage vor dem Eintragen ──
+          // Ein angekreuztes Ziel ohne Schaden: der Zug geht durch, aber
+          // erst, nachdem einmal gefragt wurde.
+          melden('lauf', 'Plausibilität');
+          const zugP = await warten(() => knopfMit('Zug eintragen'));
+          if (ja('Das Zugfenster geht wieder auf', !!zugP)) {
+            zugP.click();
+            const zielP = await warten(() => [...document.querySelectorAll('.zug-ziel')]
+              .find(z => /Goblin/.test(z.textContent)));
+            if (ja('Ein Ziel lässt sich ankreuzen', !!zielP)) {
+              zielP.click(); await ruhe(150);
+              // Ein Ziel allein wäre gar kein Eintrag — der Knopf bliebe
+              // grau. Mit einem Satz daneben wird es einer, nur eben
+              // einer, bei dem am Ziel nichts geschieht.
+              const freiF = document.querySelector('.zug-frei');
+              const setzT = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+              setzT.call(freiF, 'Er holt aus.'); freiF.dispatchEvent(new Event('input', {bubbles: true}));
+              await ruhe(150);
+              ja('  … der Fuß sagt schon, dass etwas fehlt',
+                 /unfertig/.test(document.querySelector('.zug-fuss .zug-hinweis').textContent),
+                 document.querySelector('.zug-fuss .zug-hinweis').textContent);
+              const zeilenVorher = logText().split('\n').length;
+              document.querySelector('.zug-fuss .btn-save').click(); await ruhe(200);
+              const frage = document.querySelector('.zug-pruefung');
+              ja('Ohne Schaden wird erst gefragt', !!frage && /Goblin/.test(frage.textContent),
+                 frage ? frage.textContent.slice(0, 90) : 'keine Frage');
+              ja('  … und nichts steht im Protokoll', logText().split('\n').length === zeilenVorher);
+              const zurueckP = [...document.querySelectorAll('.zug-pruefung button')]
+                .find(b => /Zurück/.test(b.textContent));
+              if (ja('  … „Zurück" lässt die Eingabe stehen', !!zurueckP)) {
+                zurueckP.click(); await ruhe(150);
+                ja('  … die Frage ist weg, das Ziel noch angekreuzt',
+                   !document.querySelector('.zug-pruefung')
+                   && !!document.querySelector('.zug-ziel.an'));
+              }
+              document.querySelector('.zug-fuss .btn-save').click(); await ruhe(200);
+              const trotzdem = [...document.querySelectorAll('.zug-pruefung button')]
+                .find(b => /Trotzdem/.test(b.textContent));
+              if (ja('Daneben steht „Trotzdem eintragen"', !!trotzdem)) {
+                trotzdem.click(); await ruhe(300);
+                ja('  … und dann geht der Zug durch',
+                   !document.querySelector('.zug-fenster'),
+                   'das Fenster steht noch offen');
+                // Der Probezug war nur zum Vorführen: zurücknehmen, damit
+                // die nächsten Prüfungen denselben Stand vorfinden.
+                const rueckP = document.querySelector('.kampf-rueck');
+                if (rueckP && !rueckP.disabled) { rueckP.click(); await ruhe(400); }
+                ja('  … und er lässt sich wieder zurücknehmen',
+                   /Zurückgenommen: „Er holt aus/.test(logText()),
+                   logText().split('\n').slice(-2).join(' / '));
+              }
+            }
+          }
+
           // ── Rückgängig ──
           melden('lauf', 'Rückgängig');
           const rueck = document.querySelector('.kampf-rueck');

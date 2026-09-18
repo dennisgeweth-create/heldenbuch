@@ -160,7 +160,9 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
     // Der Platz geht erst ab, wenn die Ansage durch ist. Wer sie nicht
     // losbekommt, soll nicht trotzdem bezahlt haben.
     if (raus && onPlatz && wahl.art === 'zauber' && gegenstand && grad > 0) {
-      setPlatz(onPlatz(grad));
+      // Bei einer Reaktion springt der naechsthoehere Platz ein, wenn der
+      // gewaehlte leer ist.
+      setPlatz(onPlatz(grad, typ === 'reaktion'));
     } else if (raus) {
       setPlatz(null);
     }
@@ -261,8 +263,10 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
           {platz && (
             <div className={'zug-platz' + (platz.gestrichen ? '' : ' leer')}>
               {platz.gestrichen
-                ? '◈ Zauberplatz gestrichen — noch ' + platz.frei
-                  + ' vom ' + platz.grad + '. Grad.'
+                ? (platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom '
+                    + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.'
+                  : '◈ Zauberplatz gestrichen — noch ' + platz.frei
+                    + ' vom ' + platz.grad + '. Grad.')
                 : platz.hat
                   ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.'
                   : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.'}

@@ -1487,6 +1487,28 @@ const aufstiegPlan = (char, wahl) => {
   return {neu, zeilen, hinweise};
 };
 
+// ── Zauberplätze ───────────────────────────────────────
+// Aus welchem Platz wirklich gezaubert wird: dem gewünschten Grad, und
+// wenn der leer ist und höher gewirkt werden darf, dem nächsten, der
+// noch etwas hat. 0 heißt: keiner mehr frei.
+//
+// Gebraucht wird das bei der Reaktion. Sie kommt zwischendurch, mit
+// einem Griff und ohne Fenster — dort kann niemand einen Grad wählen,
+// und ein Schutzschild, der am leeren ersten Grad scheitert, während
+// der zweite voll ist, wäre am Tisch nur ärgerlich.
+const zauberplatzFrei = (slots, grad) => {
+  const p = ((slots || {})[grad]) || ((slots || {})[String(grad)]) || {};
+  return Math.max(0, (+p.max || 0) - (+p.used || 0));
+};
+const zauberplatzWahl = (slots, grad, hoeher) => {
+  const g0 = Math.round(+grad || 0);
+  if (g0 < 1 || g0 > 9) return 0;
+  if (zauberplatzFrei(slots, g0) > 0) return g0;
+  if (!hoeher) return 0;
+  for (let g = g0 + 1; g <= 9; g++) if (zauberplatzFrei(slots, g) > 0) return g;
+  return 0;
+};
+
 // ── NSC ────────────────────────────────────────────────
 // Ein NSC ist ein Bogen wie jeder andere: dieselben sieben Reiter,
 // dieselben Regeln. Drei Dinge unterscheiden ihn — er wird von Hand

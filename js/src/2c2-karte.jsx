@@ -127,10 +127,19 @@ const karteGroesse = (karte, breite, hoehe) => {
 // Runde 1 und Runde 9 dasselbe Kuerzel, sonst waere kein Protokoll
 // lesbar. Helden gross, Gegner klein — die Form traegt die Auskunft,
 // nicht erst die Farbe.
+//
+// Die Zahl kommt aus dem Namen, wenn er eine traegt: „Zombie 1" steht
+// als z1 auf der Karte und nicht als z4, nur weil drei andere Figuren
+// vorher gesetzt wurden. Wer am Tisch „Zombie 1" sagt, soll auf der
+// Karte nicht suchen muessen. Erst wenn dieses Kuerzel schon vergeben
+// ist, wird weitergezaehlt.
 const karteKuerzel = (name, art, schon) => {
-  const rein = String(name || '').replace(/[^A-Za-zÄÖÜäöüß]/g, '');
+  const roh = String(name || '');
+  const rein = roh.replace(/[^A-Za-zÄÖÜäöüß]/g, '');
   const belegt = new Set(schon || []);
-  const nimm = (k) => { if (k.length === 2 && !belegt.has(k)) return k; return null; };
+  const nimm = (k) => { if (k && k.length === 2 && !belegt.has(k)) return k; return null; };
+  // „Zombie 1", „Wolf 12", „Goblin 3 (verwundet)" — die erste Zahl zaehlt.
+  const zahl = +((/(\d+)/.exec(roh) || [])[1] || 0);
   if (art === 'held') {
     const gross = (rein.slice(0, 2) || 'He');
     const k = gross.charAt(0).toUpperCase() + gross.slice(1).toLowerCase();
@@ -141,6 +150,11 @@ const karteKuerzel = (name, art, schon) => {
     }
   }
   const anfang = (rein.charAt(0) || 'g').toLowerCase();
+  // Zweistellig passt kein Buchstabe mehr davor — dann steht die Zahl
+  // allein da, und die stimmt immer noch mit dem Namen ueberein.
+  if (zahl >= 1 && nimm(zahl <= 9 ? anfang + zahl : String(zahl))) {
+    return zahl <= 9 ? anfang + zahl : String(zahl);
+  }
   for (let i = 1; i <= 9; i++) {
     const v = anfang + i;
     if (nimm(v)) return v;

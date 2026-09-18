@@ -2658,19 +2658,26 @@ function App() {
   // es gibt Wege zu zaubern, die keinen Platz kosten — Rituale,
   // Zaubereipunkte, ein Merkmal einmal am Tag —, und der Tisch
   // entscheidet das, nicht der Bogen.
-  const zauberplatzStreichen = (charId, grad) => {
+  // hoeher: bei einer Reaktion darf der naechsthoehere Platz einspringen.
+  // Sonst bleibt es bei dem, was gewaehlt wurde — wer den dritten Grad
+  // ansagt, soll nicht heimlich den vierten verlieren.
+  const zauberplatzStreichen = (charId, grad, hoeher) => {
     const g = Math.round(+grad || 0);
     if (!charId || g < 1 || g > 9) return null;
     const c = charsRef.current.find(x => x.id === charId);
     if (!c) return null;
-    const platz = ((c.spellSlots || {})[g]) || {max: 0, used: 0};
+    const nimmt = zauberplatzWahl(c.spellSlots, g, hoeher);
+    if (!nimmt) {
+      const platz = ((c.spellSlots || {})[g]) || {max: 0, used: 0};
+      return {grad: g, frei: 0, gestrichen: false, hat: (+platz.max || 0) > 0, statt: 0};
+    }
+    const platz = ((c.spellSlots || {})[nimmt]) || {max: 0, used: 0};
     const frei = Math.max(0, (+platz.max || 0) - (+platz.used || 0));
-    if (frei <= 0) return {grad: g, frei: 0, gestrichen: false, hat: (+platz.max || 0) > 0};
     patchCharById(charId, (ch) => ({
       spellSlots: {...(ch.spellSlots || {}),
-                   [g]: {...platz, used: (+platz.used || 0) + 1}},
+                   [nimmt]: {...platz, used: (+platz.used || 0) + 1}},
     }));
-    return {grad: g, frei: frei - 1, gestrichen: true, hat: true};
+    return {grad: nimmt, frei: frei - 1, gestrichen: true, hat: true, statt: nimmt === g ? 0 : g};
   };
 
   // Der schnelle Weg fuer eine Reaktion: ein Griff statt vier. Es ist
@@ -2679,11 +2686,16 @@ function App() {
   const reaktionSenden = async (spruch) => {
     if (!spruch || !ansageHeldId) return;
     const grad = +spruch.level || 0;
+    // Erst nachsehen, aus welchem Platz gezaubert wird — die Spielleitung
+    // soll in der Ansage lesen, dass es der hoehere war, und nicht erst
+    // im Bogen darauf stossen.
+    const c = charsRef.current.find(x => x.id === ansageHeldId);
+    const nimmt = grad > 0 ? zauberplatzWahl(c && c.spellSlots, grad, true) : 0;
     const raus = await ansageSenden({
       typ: 'reaktion', art: 'zauber', was: spruch.name || '',
-      grad: 0, stufe: grad, ziele: [], zielIds: [], text: '',
+      grad: nimmt > grad ? nimmt : 0, stufe: grad, ziele: [], zielIds: [], text: '',
     }, ansageHeldId);
-    if (raus && grad > 0) zauberplatzStreichen(ansageHeldId, grad);
+    if (raus && nimmt > 0) zauberplatzStreichen(ansageHeldId, nimmt);
   };
 
   // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
@@ -6186,7 +6198,7 @@ function App() {
         <AnsageFenster held={chars.find(c => c.id === ansageFuer)} kampf={kampfSichtDaten}
           helden={advChars} runde={kampfSichtDaten.runde || 1}
           onAbbrechen={()=>setAnsageFuer(null)} onSenden={ansageSenden}
-          onPlatz={(grad)=>zauberplatzStreichen(ansageFuer, grad)} />
+          onPlatz={(grad, hoeher)=>zauberplatzStreichen(ansageFuer, grad, hoeher)} />
       )}
 
       {showKampf && isDmMode && (

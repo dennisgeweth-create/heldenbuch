@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.20.1';
+const HB_VERSION = 'v5.21.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -3836,6 +3836,85 @@ const AktionsWahl = ({
   }, wurf ? /*#__PURE__*/React.createElement("b", null, wurf) : /*#__PURE__*/React.createElement("i", null, "kein W\xFCrfel am Zauber"), grad > grundGrad && /*#__PURE__*/React.createElement("span", null, " \xB7 ", grad - grundGrad, " Grad h\xF6her"), platzRest(grad) > 0 ? /*#__PURE__*/React.createElement("span", null, " \xB7 Platz ", grad, ". Grad wird abgehakt") : /*#__PURE__*/React.createElement("span", null, " \xB7 kein Platz mehr frei"))));
 };
 
+// ── Plausibilitaet ═══════════════════════════════════════════════
+// Was am Zug noch fehlt, bevor er in die Boegen geht. Der Tracker
+// schreibt sofort und ohne Rueckfrage — ein Angriff ohne Schaden, ein
+// Zauber ohne Ziel oder ein leerer Zauberplatz faellt erst auf, wenn er
+// im Protokoll steht und die Trefferpunkte schon abgezogen sind.
+//
+// Gemeldet wird nur, was sich am Bogen ablesen laesst, und nur, was
+// wirklich fehlt. Der Wurf gehoert nicht dazu: gewuerfelt wird am Tisch,
+// und dass die Zahl danebensteht, ist erlaubt (siehe unten, das
+// Zugfenster). Ebenso wenig die Wahl: blosser Schaden ohne Waffe ist am
+// Tisch der schnellste Weg und kein Versehen.
+//
+// Das Ergebnis ist eine Liste von Saetzen. Ist sie leer, geht der Zug
+// ohne Rueckfrage durch; sonst steht sie im Fenster, und daneben steht
+// „Trotzdem eintragen". Die Spielleitung hat immer recht — sie soll es
+// nur wissen.
+const zugMaengel = z => {
+  const raus = [];
+  const liste = z.liste || [];
+  const ziele = z.ziele || {};
+  const ids = Object.keys(ziele).filter(id => liste.some(x => x.id === id));
+  const name = id => (liste.find(x => x.id === id) || {}).name || 'Ziel';
+  const zahl = x => Math.max(0, Math.round(+x || 0));
+  const heilt = z.richtung === 'heilung';
+  const wortWert = heilt ? 'keine Heilung' : 'kein Schaden';
+
+  // Ein Ziel wird nur dort erwartet, wo etwas hingeht. Zweiter Atem,
+  // Tatendrang oder ein Schild haben keines und stehen trotzdem im
+  // Protokoll — dafuer ist das Fenster gebaut.
+  if (z.gegenstand && z.erwartetWert && !ids.length) {
+    raus.push('Kein Ziel angekreuzt.');
+  }
+  // Ein Wert wird nur dort erwartet, wo ueberhaupt einer hingehoert: ein
+  // Zauber, der nur einen Zustand anhaengt, braucht keinen.
+  if (z.erwartetWert) {
+    if (z.flaeche) {
+      const gemeinsam = zahl(z.gemeinsam) + (z.gemeinsamZusatz || []).reduce((s, x) => s + zahl(x.wert), 0);
+      if (ids.length && !gemeinsam) raus.push('Für alle zusammen steht ' + wortWert + ' da.');
+    } else {
+      ids.forEach(id => {
+        const e = ziele[id] || {};
+        // Wer danebengeschlagen oder den Rettungswurf bestanden hat,
+        // braucht keine Zahl — dann steht ja gerade nichts an.
+        const trifft = z.mitSchalter ? e.treffer !== false : true;
+        const zaehlt = z.mitRettung ? !e.bestanden : trifft;
+        const wert = zahl(e.wert) + (e.zusatz || []).reduce((s, x) => s + zahl(x.wert), 0);
+        if (zaehlt && !wert) raus.push('Bei ' + name(id) + ' steht ' + wortWert + '.');
+      });
+    }
+  }
+  // Ein Zusatzschaden ohne Art steht im Protokoll als blosse Zahl.
+  const zusatzOhneArt = x => zahl(x.wert) > 0 && !String(x.art || '').trim();
+  if ((z.flaeche ? z.gemeinsamZusatz || [] : ids.flatMap(id => (ziele[id] || {}).zusatz || [])).some(zusatzOhneArt)) {
+    raus.push('Ein Zusatzschaden hat keine Schadensart.');
+  }
+  // Angekreuzt, aber es geschieht nichts: kein Wert, kein Zustand, kein
+  // Fehlschlag. Dann steht das Ziel im Protokoll, ohne dass etwas passiert.
+  // Wer eine Wirkung anhaengt, an dem geschieht sehr wohl etwas.
+  if (!z.erwartetWert && !z.mitSchalter && !z.mitRettung && !z.laufend) {
+    ids.forEach(id => {
+      const e = ziele[id] || {};
+      const wert = zahl(e.wert) + (e.zusatz || []).reduce((s, x) => s + zahl(x.wert), 0);
+      const zust = (e.zustand || []).length || (z.autoZustaende ? z.autoZustaende(id) : []).length;
+      if (!wert && !zust) raus.push('Bei ' + name(id) + ' geschieht nichts.');
+    });
+  }
+  if (z.art === 'zauber' && z.grundGrad > 0 && !(z.platzFrei > 0)) {
+    raus.push('Kein Zauberplatz vom ' + z.grad + '. Grad mehr frei.');
+  }
+  if (z.ressourceLeer) {
+    raus.push('„' + z.ressourceName + '" ist aufgebraucht.');
+  }
+  if (z.konzGehalten && z.konzNeu && z.konzGehalten !== z.konzNeu) {
+    raus.push('„' + z.konzGehalten + '" wird dafür fallen gelassen.');
+  }
+  return raus;
+};
+// ══ Ende der Plausibilitaet ══════════════════════════════════════
+
 // ── Das Zugfenster ───────────────────────────────────────────────
 // Bis hierher trug die Spielleitung den Schaden ein und schrieb daneben
 // auf, was eigentlich geschehen ist. Das Fenster dreht die Reihenfolge um:
@@ -4320,7 +4399,46 @@ const ZugFenster = ({
   // des Kaempfers, Zauber und Trank. "Und weiter" traegt ein und raeumt
   // das Fenster fuer die naechste Aktion ab — die Waffe bleibt stehen,
   // weil der zweite Hieb meistens derselbe ist.
-  const uebernehmen = weiter => {
+  // Ein Wert gehoert nur dorthin, wo einer hingehoert: ein Zauber, der
+  // bloss festhaelt, braucht keinen.
+  const erwartetWert = !!(wirkung && ['schaden', 'heilung', 'temp'].includes(wirkung.art)) || !!(gegenstand && gegenstand.damage);
+  const kostet = held && art === 'merkmal' && gegenstand ? merkmalRessource(held, gegenstand) : null;
+  const gehaltenJetzt = art === 'zauber' ? gegenstand : art === 'merkmal' ? verknuepft : null;
+  const maengel = zugMaengel({
+    art,
+    nurWerte,
+    gegenstand,
+    liste,
+    ziele,
+    richtung,
+    mitSchalter,
+    mitRettung,
+    flaeche,
+    gemeinsam,
+    gemeinsamZusatz,
+    erwartetWert,
+    autoZustaende,
+    grad,
+    grundGrad,
+    platzFrei: platzRest(grad),
+    ressourceLeer: !!(kostet && !kostet.reicht),
+    ressourceName: kostet ? kostet.r.name : '',
+    laufend: !!(lauf.an && String(lauf.name || '').trim()),
+    konzGehalten: held && held.konzentration && held.konzentration.name || '',
+    konzNeu: gehaltenJetzt && brauchtKonzentration(gehaltenJetzt) ? gehaltenJetzt.name : ''
+  });
+  // Erst gefragt, dann geschrieben. Die Antwort ist immer „trotzdem" —
+  // die Frage steht nur, damit sie einmal gestellt wurde.
+  const [pruefung, setPruefung] = React.useState(null);
+  const uebernehmen = (weiter, trotzdem) => {
+    if (!trotzdem && maengel.length) {
+      setPruefung({
+        weiter,
+        maengel
+      });
+      return;
+    }
+    setPruefung(null);
     const gebaut = bauen();
     onAnwenden(gebaut, weiter, genommen);
     if (weiter) {
@@ -4784,23 +4902,39 @@ const ZugFenster = ({
   }, SCHADENSARTEN.map(a2 => /*#__PURE__*/React.createElement("option", {
     key: a2,
     value: a2
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), pruefung && /*#__PURE__*/React.createElement("div", {
+    className: "zug-pruefung",
+    role: "alertdialog",
+    "aria-label": "Da fehlt noch etwas"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "zug-pruefung-kopf"
+  }, "\u26A0 Da fehlt noch etwas"), /*#__PURE__*/React.createElement("ul", null, pruefung.maengel.map((m, i) => /*#__PURE__*/React.createElement("li", {
+    key: i
+  }, m))), /*#__PURE__*/React.createElement("div", {
+    className: "zug-pruefung-knoepfe"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-cancel",
+    onClick: () => setPruefung(null)
+  }, "Zur\xFCck, ich erg\xE4nze es"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    onClick: () => uebernehmen(pruefung.weiter, true)
+  }, "Trotzdem eintragen"))), /*#__PURE__*/React.createElement("div", {
     className: "zug-fuss"
   }, /*#__PURE__*/React.createElement("span", {
     className: "zug-hinweis"
-  }, "Was hier steht, geht sofort in die B\xF6gen."), /*#__PURE__*/React.createElement("button", {
+  }, maengel.length ? maengel.length === 1 ? 'Eine Stelle sieht unfertig aus.' : maengel.length + ' Stellen sehen unfertig aus.' : 'Was hier steht, geht sofort in die Bögen.'), /*#__PURE__*/React.createElement("button", {
     className: "btn-cancel",
     onClick: onAbbrechen
   }, "Schlie\xDFen"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-icon",
+    className: 'btn-icon' + (maengel.length ? ' pruefen' : ''),
     onClick: () => uebernehmen(true),
     title: "Eintragen und das Fenster f\xFCr die n\xE4chste Aktion dieses Zuges offen lassen",
     disabled: leer
   }, "+ und weiter"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-save",
+    className: 'btn-save' + (maengel.length ? ' pruefen' : ''),
     onClick: () => uebernehmen(false),
     disabled: leer
-  }, knopf))));
+  }, maengel.length ? '⚠ ' + knopf.replace('✓ ', '') : knopf))));
 };
 
 // ── Zustandsfenster ──────────────────────────────────────────────
@@ -7036,13 +7170,22 @@ const karteGroesse = (karte, breite, hoehe) => {
 // Runde 1 und Runde 9 dasselbe Kuerzel, sonst waere kein Protokoll
 // lesbar. Helden gross, Gegner klein — die Form traegt die Auskunft,
 // nicht erst die Farbe.
+//
+// Die Zahl kommt aus dem Namen, wenn er eine traegt: „Zombie 1" steht
+// als z1 auf der Karte und nicht als z4, nur weil drei andere Figuren
+// vorher gesetzt wurden. Wer am Tisch „Zombie 1" sagt, soll auf der
+// Karte nicht suchen muessen. Erst wenn dieses Kuerzel schon vergeben
+// ist, wird weitergezaehlt.
 const karteKuerzel = (name, art, schon) => {
-  const rein = String(name || '').replace(/[^A-Za-zÄÖÜäöüß]/g, '');
+  const roh = String(name || '');
+  const rein = roh.replace(/[^A-Za-zÄÖÜäöüß]/g, '');
   const belegt = new Set(schon || []);
   const nimm = k => {
-    if (k.length === 2 && !belegt.has(k)) return k;
+    if (k && k.length === 2 && !belegt.has(k)) return k;
     return null;
   };
+  // „Zombie 1", „Wolf 12", „Goblin 3 (verwundet)" — die erste Zahl zaehlt.
+  const zahl = +((/(\d+)/.exec(roh) || [])[1] || 0);
   if (art === 'held') {
     const gross = rein.slice(0, 2) || 'He';
     const k = gross.charAt(0).toUpperCase() + gross.slice(1).toLowerCase();
@@ -7053,6 +7196,11 @@ const karteKuerzel = (name, art, schon) => {
     }
   }
   const anfang = (rein.charAt(0) || 'g').toLowerCase();
+  // Zweistellig passt kein Buchstabe mehr davor — dann steht die Zahl
+  // allein da, und die stimmt immer noch mit dem Namen ueberein.
+  if (zahl >= 1 && nimm(zahl <= 9 ? anfang + zahl : String(zahl))) {
+    return zahl <= 9 ? anfang + zahl : String(zahl);
+  }
   for (let i = 1; i <= 9; i++) {
     const v = anfang + i;
     if (nimm(v)) return v;
@@ -16979,7 +17127,9 @@ const AnsageFenster = ({
     // Der Platz geht erst ab, wenn die Ansage durch ist. Wer sie nicht
     // losbekommt, soll nicht trotzdem bezahlt haben.
     if (raus && onPlatz && wahl.art === 'zauber' && gegenstand && grad > 0) {
-      setPlatz(onPlatz(grad));
+      // Bei einer Reaktion springt der naechsthoehere Platz ein, wenn der
+      // gewaehlte leer ist.
+      setPlatz(onPlatz(grad, typ === 'reaktion'));
     } else if (raus) {
       setPlatz(null);
     }
@@ -17079,7 +17229,7 @@ const AnsageFenster = ({
     className: "pr-zeile frei"
   }, "   \u201E", text.trim(), "\u201C"), !etwasDa && /*#__PURE__*/React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz."))), platz && /*#__PURE__*/React.createElement("div", {
     className: 'zug-platz' + (platz.gestrichen ? '' : ' leer')
-  }, platz.gestrichen ? '◈ Zauberplatz gestrichen — noch ' + platz.frei + ' vom ' + platz.grad + '. Grad.' : platz.hat ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.' : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.')), /*#__PURE__*/React.createElement("div", {
+  }, platz.gestrichen ? platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom ' + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.' : '◈ Zauberplatz gestrichen — noch ' + platz.frei + ' vom ' + platz.grad + '. Grad.' : platz.hat ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.' : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.')), /*#__PURE__*/React.createElement("div", {
     className: "zug-fuss"
   }, /*#__PURE__*/React.createElement("span", {
     className: "zug-hinweis"
@@ -28919,36 +29069,48 @@ function App() {
   // es gibt Wege zu zaubern, die keinen Platz kosten — Rituale,
   // Zaubereipunkte, ein Merkmal einmal am Tag —, und der Tisch
   // entscheidet das, nicht der Bogen.
-  const zauberplatzStreichen = (charId, grad) => {
+  // hoeher: bei einer Reaktion darf der naechsthoehere Platz einspringen.
+  // Sonst bleibt es bei dem, was gewaehlt wurde — wer den dritten Grad
+  // ansagt, soll nicht heimlich den vierten verlieren.
+  const zauberplatzStreichen = (charId, grad, hoeher) => {
     const g = Math.round(+grad || 0);
     if (!charId || g < 1 || g > 9) return null;
     const c = charsRef.current.find(x => x.id === charId);
     if (!c) return null;
-    const platz = (c.spellSlots || {})[g] || {
+    const nimmt = zauberplatzWahl(c.spellSlots, g, hoeher);
+    if (!nimmt) {
+      const platz = (c.spellSlots || {})[g] || {
+        max: 0,
+        used: 0
+      };
+      return {
+        grad: g,
+        frei: 0,
+        gestrichen: false,
+        hat: (+platz.max || 0) > 0,
+        statt: 0
+      };
+    }
+    const platz = (c.spellSlots || {})[nimmt] || {
       max: 0,
       used: 0
     };
     const frei = Math.max(0, (+platz.max || 0) - (+platz.used || 0));
-    if (frei <= 0) return {
-      grad: g,
-      frei: 0,
-      gestrichen: false,
-      hat: (+platz.max || 0) > 0
-    };
     patchCharById(charId, ch => ({
       spellSlots: {
         ...(ch.spellSlots || {}),
-        [g]: {
+        [nimmt]: {
           ...platz,
           used: (+platz.used || 0) + 1
         }
       }
     }));
     return {
-      grad: g,
+      grad: nimmt,
       frei: frei - 1,
       gestrichen: true,
-      hat: true
+      hat: true,
+      statt: nimmt === g ? 0 : g
     };
   };
 
@@ -28958,17 +29120,22 @@ function App() {
   const reaktionSenden = async spruch => {
     if (!spruch || !ansageHeldId) return;
     const grad = +spruch.level || 0;
+    // Erst nachsehen, aus welchem Platz gezaubert wird — die Spielleitung
+    // soll in der Ansage lesen, dass es der hoehere war, und nicht erst
+    // im Bogen darauf stossen.
+    const c = charsRef.current.find(x => x.id === ansageHeldId);
+    const nimmt = grad > 0 ? zauberplatzWahl(c && c.spellSlots, grad, true) : 0;
     const raus = await ansageSenden({
       typ: 'reaktion',
       art: 'zauber',
       was: spruch.name || '',
-      grad: 0,
+      grad: nimmt > grad ? nimmt : 0,
       stufe: grad,
       ziele: [],
       zielIds: [],
       text: ''
     }, ansageHeldId);
-    if (raus && grad > 0) zauberplatzStreichen(ansageHeldId, grad);
+    if (raus && nimmt > 0) zauberplatzStreichen(ansageHeldId, nimmt);
   };
 
   // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
@@ -35660,7 +35827,7 @@ function App() {
     runde: kampfSichtDaten.runde || 1,
     onAbbrechen: () => setAnsageFuer(null),
     onSenden: ansageSenden,
-    onPlatz: grad => zauberplatzStreichen(ansageFuer, grad)
+    onPlatz: (grad, hoeher) => zauberplatzStreichen(ansageFuer, grad, hoeher)
   }), showKampf && isDmMode && /*#__PURE__*/React.createElement(LeistenFenster, {
     id: "kampf",
     titel: "Kampftracker",

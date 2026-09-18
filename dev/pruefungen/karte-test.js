@@ -72,6 +72,14 @@ wahr('nie zweimal dasselbe', (() => {
   return new Set(schon).size === schon.length;
 })());
 wahr('immer zwei Zeichen', karteKuerzel('X', 'gegner', []).length === 2);
+// Die Zahl kommt aus dem Namen und nicht aus der Reihenfolge: wer am
+// Tisch „Zombie 1“ sagt, sucht auf der Karte kein z4.
+ist('die Zahl im Namen steht auch auf der Karte',
+  karteKuerzel('Zombie 1', 'gegner', ['z2', 'z3', 'z4']), 'z1');
+ist('  … zweistellig steht sie allein da', karteKuerzel('Wolf 12', 'gegner', []), '12');
+ist('  … ist sie vergeben, wird weitergezaehlt',
+  karteKuerzel('Zombie 1', 'gegner', ['z1']), 'z2');
+ist('  … ohne Zahl bleibt es beim Durchzaehlen', karteKuerzel('Zombie', 'gegner', ['z1']), 'z2');
 
 k = karteFigurSetzen(leer, 'h1', 5, 2, 'Br');
 ist('die Figur steht', k.figuren.h1, {x:5, y:2, k:'Br'});
