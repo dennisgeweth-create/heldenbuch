@@ -23,7 +23,7 @@ const Sheet = () => {
     initTotal, insp, inspMax, invRarity, invTagFilter, isDmMode, itemFx,
     klassen, languages, notesList, noteTagFilter, openAufstieg, openEdit, openNew, openTpl, traglastAn,
     openUnprepared, patchChar, patchCurrent, resEdit, resetAll, resources, save, sel,
-    selectChar, setCharMenuOpen, setDefs,
+    selectChar, setCharMenuOpen, setDefs, textOffen, setTextOffen,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
     setFfEditId, setImgViewer, setInsp, setInspMax, setInvRarity,
     setInvTagFilter, setItemViewer, setItf, setItfEditId, setNf,
@@ -51,7 +51,8 @@ const Sheet = () => {
   // Der Bogen als Text — zum Weitergeben an eine KI. Steht nur der
   // Spielleitung offen: sie ist es, die den Abend vorbereitet, und ein
   // fremder Bogen im Textfeld waere sonst mit einem Griff kopiert.
-  const [textOffen, setTextOffen] = useState(false);
+  // textOffen steht in der App: am Telefon oeffnet es die obere Leiste,
+  // am breiten Schirm der Knopf hier — beide meinen dasselbe Fenster.
   const fensterLeiste = React.useContext(FensterLeisteCtx);
   const [invSuche, setInvSuche] = useState("");
   const [betrag, setBetrag] = useState("");            // Gold, ausgeben oder einnehmen

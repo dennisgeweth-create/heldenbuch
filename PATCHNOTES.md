@@ -1,5 +1,28 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.24.0
+
+### Am Telefon fehlte die halbe Werkzeugleiste
+
+Die Leiste mit den Werkzeugen gab es zweimal im Code: einmal für den
+breiten Schirm, einmal für die Heldenliste am Telefon. Die schmale war
+eine Abschrift — und hinkte zuletzt **acht Knöpfe** hinterher:
+
+- **📔 Tagebuch, 📥 Bögen, 🗺 Planer, ☾ Rast, ✉ Post, 🏪 Laden,
+  💰 Beute und 🎲 Probe** standen am Telefon nirgends. Jetzt bauen beide
+  Stellen dieselbe Leiste; sie können nicht mehr auseinanderlaufen.
+
+### Und am Bogen fehlten drei Handgriffe
+
+Die Kopfzeile des breiten Bogens ist am Telefon ausgeblendet. Damit war
+dort **kein Stufenaufstieg** möglich, und „Als Text" und „Textbogen"
+waren ebenfalls unerreichbar.
+
+- Oben rechts steht jetzt ein **⋯**: Stufenaufstieg, Als Text,
+  Textbogen und Stammdaten.
+- Die **Klassenabzeichen** (Klasse, Stufe, Unterklasse) stehen wieder am
+  Bogen — sie waren mit der Kopfzeile verschwunden.
+
 ## v5.23.0
 
 ### Tagebuch: Videos, und ein Fenster zum Lesen

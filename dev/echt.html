@@ -2,6 +2,10 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<!-- Ohne diese Zeile rechnet ein Telefon (und die Vorschau im
+     Entwicklungsbrowser) mit 980 Punkten Breite und zeigt die breite
+     Ansicht — die schmale liesse sich hier dann gar nicht ansehen. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Werkbank &middot; Die echte Seite</title>
 <link rel="stylesheet" href="../styles.css?v=dev">
 <style>
@@ -370,6 +374,22 @@
         dm.click();
         if (!ja('Der DM-Modus geht auf', !!(await warten(() => knopfMit('🔮 aus')))))
           return schluss();
+
+        // ── Die Werkzeuge: eine Leiste, zwei Stellen ───────────────
+        // Am breiten Schirm steht sie in der Seitenleiste, am schmalen auf
+        // der Heldenliste. Bis v5.23 waren es zwei Abschriften, und die
+        // schmale hinkte acht Knöpfe hinterher — Tagebuch, Bögen und
+        // Planer fehlten dort ganz.
+        melden('lauf', 'Werkzeuge');
+        const leisten = [...document.querySelectorAll('.sidebar-tools')];
+        if (ja('Die Werkzeugleiste steht da', leisten.length >= 1, leisten.length + ' gefunden')) {
+          const text = leisten[0].textContent;
+          ja('  … mit Tagebuch, Bögen und Planer',
+             /Tagebuch/.test(text) && /Bögen/.test(text) && /Planer/.test(text), text.slice(0, 120));
+          ja('  … und wo sie zweimal steht, trägt sie dasselbe',
+             leisten.length < 2 || leisten[0].textContent === leisten[1].textContent,
+             leisten.length < 2 ? 'nur eine' : leisten.map(l => l.querySelectorAll('.btn-tool, a.btn-tool').length).join(' / '));
+        }
 
         // ── Die Fensterleiste vom letzten Mal ──
         const eintragL = (t) => [...document.querySelectorAll('.fl-eintrag')].find(e => e.textContent.includes(t));
@@ -1543,6 +1563,36 @@
             if (zuK) { zuK.click(); await ruhe(200); }
             ja('Das Fenster lässt sich schließen', !document.querySelector('.tb-fenster'));
           }
+        }
+
+        // ── Am schmalen Schirm: was der Bogen oben anbietet ────────
+        // Die Kopfzeile des breiten Bogens ist am Telefon ausgeblendet.
+        // Stufenaufstieg, „Als Text" und „Textbogen" waren damit dort gar
+        // nicht erreichbar; sie stehen jetzt unter „⋯".
+        if (document.querySelector('.mobile-topbar')) {
+          melden('lauf', 'Der Bogen am Telefon');
+          const mehrK = [...document.querySelectorAll('.mobile-topbar-actions button')]
+            .find(b => b.textContent.trim() === '⋯');
+          if (ja('Oben steht ein „⋯"', !!mehrK)) {
+            mehrK.click(); await ruhe(200);
+            const eintraege = [...document.querySelectorAll('.mobil-mehr button')].map(b => b.textContent.trim());
+            ja('  … darunter der Stufenaufstieg', eintraege.some(t => /Stufenaufstieg/.test(t)), eintraege.join(' | '));
+            ja('  … „Als Text" und „Textbogen" ebenso',
+               eintraege.some(t => /Als Text/.test(t)) && eintraege.some(t => /Textbogen/.test(t)), eintraege.join(' | '));
+            const alsText = [...document.querySelectorAll('.mobil-mehr button')].find(b => /Als Text/.test(b.textContent));
+            if (alsText) {
+              alsText.click();
+              ja('  … und „Als Text" macht das Fenster auf',
+                 !!(await warten(() => [...document.querySelectorAll('.form-overlay')]
+                   .find(o => /als Text/.test(o.textContent)), 3000)));
+              const zuT = [...document.querySelectorAll('.fenster-knoepfe button')]
+                .filter(b => b.getAttribute('aria-label') === 'Fenster schließen').pop();
+              if (zuT) { zuT.click(); await ruhe(200); }
+            }
+          }
+          const abzeichen = document.querySelector('.sheet-header-right .class-badges');
+          ja('Die Klassenabzeichen stehen wieder am Bogen',
+             !!abzeichen && abzeichen.offsetParent !== null);
         }
 
         // ── Post von der Runde ─────────────────────────────────────

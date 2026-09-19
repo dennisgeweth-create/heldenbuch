@@ -1003,7 +1003,22 @@
     .mobile-sheet { display:block; flex:1; overflow-y:auto; overflow-x:hidden; padding-bottom:80px; }
     .sheet { padding:14px 12px; }
     .sheet-header { flex-direction:column; gap:8px; }
-    .sheet-header-right { display:none !important; }
+    /* Die Klassenabzeichen bleiben — sie sagen, wer da steht. Die
+       Knopfreihe daneben nicht: dieselben Handgriffe stehen oben in der
+       Leiste, und zweimal braucht sie niemand. */
+    .sheet-header-right { flex-direction:row !important; align-items:center; flex-wrap:wrap;
+      width:100%; gap:6px; }
+    .sheet-header-right .header-actions { display:none; }
+    /* „⋯" in der oberen Leiste */
+    .mobil-mehr-schleier { position:fixed; inset:0; z-index:30; }
+    .mobil-mehr { position:absolute; top:44px; right:10px; z-index:31; display:flex; flex-direction:column;
+      min-width:190px; background:var(--bg-panel); border:1px solid var(--border-bright);
+      border-radius:6px; box-shadow:0 12px 32px rgba(0,0,0,0.6); overflow:hidden; }
+    .mobil-mehr button { background:none; border:0; border-bottom:1px solid var(--border);
+      color:var(--text-primary); text-align:left; padding:11px 14px; font-size:13px;
+      font-family:'Roboto Condensed',sans-serif; cursor:pointer; }
+    .mobil-mehr button:last-child { border-bottom:0; }
+    .mobil-mehr button:active { background:var(--bg-card); }
     .char-name { font-size:20px; }
     .tabs { display:none; }
     .sticky-header { margin:-8px -12px 0; padding:8px 12px 0; margin-bottom:8px; }

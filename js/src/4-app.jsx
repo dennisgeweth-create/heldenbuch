@@ -42,6 +42,10 @@ function App() {
   const [mv,     setMv]      = useState("list");
   const [showCF, setShowCF]  = useState(false);
   const [austausch, setAustausch] = useState(false);
+  // „Der Bogen als Text" — das Fenster gehoert zum Bogen, der Schalter
+  // aber auch in die obere Leiste am Telefon.
+  const [textOffen, setTextOffen] = useState(false);
+  const [mobilMehr, setMobilMehr] = useState(false);
   // Das Sitzungstagebuch: die Abende dieses Abenteuers, samt Einträgen
   // und Bildern. Geladen wird erst, wenn jemand es aufmacht.
   const [tagebuch, setTagebuch] = useState(null);      // null = zu
@@ -3425,6 +3429,99 @@ function App() {
   const unarchiveChar = id => save(charsRef.current.map(c=>c.id===id?{...c,archived:false}:c));
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
+  // ── Die Werkzeuge ───────────────────────────────────────────────
+  // Dieselbe Leiste steht an zwei Stellen: in der Seitenleiste am
+  // breiten Schirm und auf der Heldenliste am Telefon. Sie wird
+  // deshalb einmal gebaut und zweimal gezeigt — als Abschrift hinkte
+  // die schmale Fassung zuletzt acht Knoepfe hinterher (Boegen,
+  // Tagebuch, Planer, Rast, Post, Laden, Beute, Probe).
+  const werkzeuge = (stil) => (
+            <div className="sidebar-tools" style={stil}>
+              <button className="btn-tool" onClick={()=>{ if (showDB) { leiste.zeigen('datenbank'); return; } setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
+              <button className="btn-tool" onClick={()=>{ if (austausch) { leiste.zeigen('boegen'); return; } setAustausch(true); }}>📥 Bögen</button>
+              <button className="btn-tool" onClick={tagebuchOeffnen}>📔 Tagebuch</button>
+              <button className="btn-tool" onClick={()=>{
+                // Schon offen, nur in der Leiste: zurückholen, mit der
+                // Suche, die darin steht.
+                if (showAdventLog) { leiste.zeigen('abenteuerlog'); return; }
+                setAdventSearch(''); setAdventTabFilter([]);
+                setShowAdventLog(true);
+                const {url, code, pass} = serverCreds();
+                // Dasselbe hier: pass ist seit Stufe 7 immer leer.
+                if(url&&code) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
+              }}>📖 Abenteuerlog</button>
+              {/* Der Abenteuerplaner ist eine eigene Seite, im eigenen
+                  Tab: er braucht die ganze Fläche. Dieselbe Anmeldung,
+                  das Abenteuer geht in der Adresse mit. */}
+              {svCode && advId && (
+                <a className="btn-tool" href={'planer/?adv=' + encodeURIComponent(advId)}
+                  target="_blank" rel="noopener" title="Karten, Orte und Reisen dieses Abenteuers">🗺 Planer</a>
+              )}
+              {/* Die Rast: die Spielleitung sagt an, alle anderen sehen
+                  sie, solange eine läuft. */}
+              {svCode && advId && (isDmMode || rast) && (
+                <button className={'btn-tool' + (rast ? ' post-neu' : '')}
+                  onClick={()=> rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true)}
+                  title={rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'}>
+                  ☾ {rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast')
+                           + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '')
+                         : 'Rast'}
+                </button>
+              )}
+              {/* Post: die Spielleitung sieht, was gekommen ist; wer
+                  einen eigenen Helden im Abenteuer hat, kann schreiben. */}
+              {svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && (
+                <button className={'btn-tool' + (postUngelesen ? ' post-neu' : '')}
+                  onClick={()=>{ setPostOffen(true); leiste.zeigen('post'); }}
+                  title={isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'}>
+                  ✉ {isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'}
+                </button>
+              )}
+              {/* Der Laden steht da, sobald die Spielleitung eine Auslage
+                  hingelegt hat — vorher sieht ihn nur sie. */}
+              {(laden || isDmMode) && (
+                <button className="btn-tool" onClick={()=>{ setLadenOffen(true); leiste.zeigen('laden'); }}
+                  title="Kaufen und verkaufen">🏪 {(laden && laden.name) || 'Laden'}</button>
+              )}
+              {/* Liegt ein Fund, sieht ihn jeder — sonst legt nur die
+                  Spielleitung einen hin. */}
+              {beute ? (
+                <button className="btn-tool beute-knopf" onClick={()=>{ setBeuteOffen(true); leiste.zeigen('beute'); }}>
+                  💰 Beute<span>{(beute.stuecke || []).filter(s => !s.an).length || ''}</span>
+                </button>
+              ) : isDmMode ? (
+                <button className="btn-tool" onClick={()=>setBeuteAnlegen(true)}
+                  title="Was die Gruppe gefunden hat">💰 Beute</button>
+              ) : null}
+              {/* Eine Probe geht auch ohne Kampf — die meisten sogar. */}
+              {isDmMode && (
+                <button className="btn-tool" onClick={()=>setProbeAnsagen(true)}
+                  title="Alle würfeln auf dieselbe Fertigkeit">🎲 Probe</button>
+              )}
+              {isDmMode && (
+                <button className="btn-tool" onClick={()=>{ setShowKampf(true); leiste.zeigen('kampf'); }}>
+                  ⚔ Kampf{!kampf || !kampf.aktiv ? ''
+                    : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
+                </button>
+              )}
+              {isDmMode && (
+                <button className={"btn-tool"+(showChronik?" an":"")} onClick={chronikUmschalten}>
+                  🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
+                </button>
+              )}
+              {/* Fuer alle, die nicht leiten: der Kampf zum Zusehen. Er
+                  steht nur da, wenn gerade einer laeuft und das Abenteuer
+                  ihn zeigt. */}
+              {!isDmMode && kampfSichtDaten && (
+                <button className="btn-tool" onClick={()=>{ setShowKampfSicht(true); leiste.zeigen('kampfsicht'); }}>
+                  ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
+                </button>
+              )}
+              <button className={"btn-tool"+(showAutomat?" an":"")}
+                onClick={()=>{ if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne'); else setShowAutomat(o=>!o); }}>🎰 Taverne</button>
+            </div>
+  );
+
   const CharList = () => {
     const active   = advChars.filter(c=>!c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode));
     const archived = advChars.filter(c=> c.archived && (c.dmOnly !== true || isDmMode));
@@ -3544,6 +3641,7 @@ function App() {
     setShowFF, setShowIF, setShowNF, setShowSF, setShowTransfer,
     setShowWF, setSlotsEdit, setSpEdit, setSpellTagFilter, setStatsEdit,
     setDefs,
+    textOffen, setTextOffen,
     setTab, setTransferMode, setTransferSel, setWeaponViewer, setWf,
     setWfEditId, setWsExpand, slots, slotsEdit, sp, spChgMax, spEdit,
     spellTagFilter, statsEdit, switchList, tab, tpOffen,
@@ -3639,90 +3737,7 @@ function App() {
                 im Assistenten selbst: dort weiss man, wovon man sich
                 verabschiedet. */}
             <button className="btn-new" onClick={openAssistent}>✦ Neuer Charakter</button>
-            <div className="sidebar-tools">
-              <button className="btn-tool" onClick={()=>{ if (showDB) { leiste.zeigen('datenbank'); return; } setShowDB(true);setDbForm(null);setDbFormId(null);}}>📚 Datenbank</button>
-              <button className="btn-tool" onClick={()=>{ if (austausch) { leiste.zeigen('boegen'); return; } setAustausch(true); }}>📥 Bögen</button>
-              <button className="btn-tool" onClick={tagebuchOeffnen}>📔 Tagebuch</button>
-              <button className="btn-tool" onClick={()=>{
-                // Schon offen, nur in der Leiste: zurückholen, mit der
-                // Suche, die darin steht.
-                if (showAdventLog) { leiste.zeigen('abenteuerlog'); return; }
-                setAdventSearch(''); setAdventTabFilter([]);
-                setShowAdventLog(true);
-                const {url, code, pass} = serverCreds();
-                // Dasselbe hier: pass ist seit Stufe 7 immer leer.
-                if(url&&code) apiLoadLogs(url,code,pass,null,500).then(d=>setAdventEntries(d.logs||[])).catch(()=>{});
-              }}>📖 Abenteuerlog</button>
-              {/* Der Abenteuerplaner ist eine eigene Seite, im eigenen
-                  Tab: er braucht die ganze Fläche. Dieselbe Anmeldung,
-                  das Abenteuer geht in der Adresse mit. */}
-              {svCode && advId && (
-                <a className="btn-tool" href={'planer/?adv=' + encodeURIComponent(advId)}
-                  target="_blank" rel="noopener" title="Karten, Orte und Reisen dieses Abenteuers">🗺 Planer</a>
-              )}
-              {/* Die Rast: die Spielleitung sagt an, alle anderen sehen
-                  sie, solange eine läuft. */}
-              {svCode && advId && (isDmMode || rast) && (
-                <button className={'btn-tool' + (rast ? ' post-neu' : '')}
-                  onClick={()=> rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true)}
-                  title={rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'}>
-                  ☾ {rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast')
-                           + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '')
-                         : 'Rast'}
-                </button>
-              )}
-              {/* Post: die Spielleitung sieht, was gekommen ist; wer
-                  einen eigenen Helden im Abenteuer hat, kann schreiben. */}
-              {svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && (
-                <button className={'btn-tool' + (postUngelesen ? ' post-neu' : '')}
-                  onClick={()=>{ setPostOffen(true); leiste.zeigen('post'); }}
-                  title={isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'}>
-                  ✉ {isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'}
-                </button>
-              )}
-              {/* Der Laden steht da, sobald die Spielleitung eine Auslage
-                  hingelegt hat — vorher sieht ihn nur sie. */}
-              {(laden || isDmMode) && (
-                <button className="btn-tool" onClick={()=>{ setLadenOffen(true); leiste.zeigen('laden'); }}
-                  title="Kaufen und verkaufen">🏪 {(laden && laden.name) || 'Laden'}</button>
-              )}
-              {/* Liegt ein Fund, sieht ihn jeder — sonst legt nur die
-                  Spielleitung einen hin. */}
-              {beute ? (
-                <button className="btn-tool beute-knopf" onClick={()=>{ setBeuteOffen(true); leiste.zeigen('beute'); }}>
-                  💰 Beute<span>{(beute.stuecke || []).filter(s => !s.an).length || ''}</span>
-                </button>
-              ) : isDmMode ? (
-                <button className="btn-tool" onClick={()=>setBeuteAnlegen(true)}
-                  title="Was die Gruppe gefunden hat">💰 Beute</button>
-              ) : null}
-              {/* Eine Probe geht auch ohne Kampf — die meisten sogar. */}
-              {isDmMode && (
-                <button className="btn-tool" onClick={()=>setProbeAnsagen(true)}
-                  title="Alle würfeln auf dieselbe Fertigkeit">🎲 Probe</button>
-              )}
-              {isDmMode && (
-                <button className="btn-tool" onClick={()=>{ setShowKampf(true); leiste.zeigen('kampf'); }}>
-                  ⚔ Kampf{!kampf || !kampf.aktiv ? ''
-                    : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
-                </button>
-              )}
-              {isDmMode && (
-                <button className={"btn-tool"+(showChronik?" an":"")} onClick={chronikUmschalten}>
-                  🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
-                </button>
-              )}
-              {/* Fuer alle, die nicht leiten: der Kampf zum Zusehen. Er
-                  steht nur da, wenn gerade einer laeuft und das Abenteuer
-                  ihn zeigt. */}
-              {!isDmMode && kampfSichtDaten && (
-                <button className="btn-tool" onClick={()=>{ setShowKampfSicht(true); leiste.zeigen('kampfsicht'); }}>
-                  ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
-                </button>
-              )}
-              <button className={"btn-tool"+(showAutomat?" an":"")}
-                onClick={()=>{ if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne'); else setShowAutomat(o=>!o); }}>🎰 Taverne</button>
-            </div>
+            {werkzeuge()}
             {svCode ? (
               <>
                 {/* Eine Zeile fuer den Zustand, eine fuer die Handgriffe.
@@ -3794,36 +3809,7 @@ function App() {
                     </span>
                   </div>
                 )}
-                <div className="sidebar-tools" style={{marginTop:10}}>
-                  <button className="btn-tool" onClick={()=>{ if (showDB) { leiste.zeigen('datenbank'); return; } setShowDB(true);setDbForm(null);setDbFormId(null);}}>
-                    📚 Datenbank
-                  </button>
-                  <button className="btn-tool" onClick={()=>{
-                    if (showAdventLog) { leiste.zeigen('abenteuerlog'); return; }
-                    setAdventSearch(''); setAdventTabFilter([]);
-                    setShowAdventLog(true);
-                  }}>
-                    📖 Abenteuerlog
-                  </button>
-                  {isDmMode && (
-                    <button className="btn-tool" onClick={()=>{ setShowKampf(true); leiste.zeigen('kampf'); }}>
-                      ⚔ Kampf{!kampf || !kampf.aktiv ? ''
-                        : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde}
-                    </button>
-                  )}
-                  {!isDmMode && kampfSichtDaten && (
-                    <button className="btn-tool" onClick={()=>{ setShowKampfSicht(true); leiste.zeigen('kampfsicht'); }}>
-                      ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
-                    </button>
-                  )}
-                  {isDmMode && (
-                    <button className={"btn-tool"+(showChronik?" an":"")} onClick={chronikUmschalten}>
-                      🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
-                    </button>
-                  )}
-                  <button className={"btn-tool"+(showAutomat?" an":"")}
-                onClick={()=>{ if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne'); else setShowAutomat(o=>!o); }}>🎰 Taverne</button>
-                </div>
+                {werkzeuge({marginTop: 10})}
 
                 {/* Konto, Spielleitung und Abmelden standen nur in der
                     breiten Leiste — auf dem Telefon kam man damit weder in
@@ -3876,6 +3862,39 @@ function App() {
                 <button className="mobile-back" onClick={()=>setMv("list")}>← Helden</button>
                 <div className="mobile-topbar-title">{cur && cur.name||"—"}</div>
                 <div className="mobile-topbar-actions">
+                  {/* Aufstieg, Als Text und Textbogen standen nur in der
+                      Kopfzeile des breiten Bogens — die ist am Telefon
+                      ausgeblendet. Damit liess sich dort keine Stufe
+                      steigern. Sie stehen jetzt unter „⋯". */}
+                  {cur && (
+                    <>
+                      <button className="btn-icon" style={{padding:"5px 8px",fontSize:11}}
+                        aria-label="Mehr" title="Mehr" onClick={()=>setMobilMehr(v=>!v)}>⋯</button>
+                      {mobilMehr && (
+                        <>
+                          <div className="mobil-mehr-schleier" onClick={()=>setMobilMehr(false)} />
+                          <div className="mobil-mehr">
+                            {darfBearbeiten && (
+                              <button onClick={()=>{ setMobilMehr(false); openAufstieg(); }}>⇧ Stufenaufstieg</button>
+                            )}
+                            {isDmMode && (
+                              <button onClick={()=>{ setMobilMehr(false); setTextOffen(true); leiste.zeigen('heldtext'); }}>
+                                📋 Als Text
+                              </button>
+                            )}
+                            {isDmMode && (
+                              <button onClick={()=>{ setMobilMehr(false); bogenHerunterladen(bogenDateiname(cur), bogenAlsText(cur)); }}>
+                                ⬇ Textbogen
+                              </button>
+                            )}
+                            {darfBearbeiten && (
+                              <button onClick={()=>{ setMobilMehr(false); openEdit(); }}>✎ Stammdaten</button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
                   {cur && (darfBearbeiten ? <>
                     <button className={"btn-icon" + (bogenModus ? " aktiv" : "")} style={{padding:"5px 8px",fontSize:11}}
                       title={bogenModus ? "Bearbeiten beenden" : "Bearbeiten"}

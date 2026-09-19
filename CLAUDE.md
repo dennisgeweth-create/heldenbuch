@@ -109,7 +109,9 @@ v5.3.4 gar nicht auf, während alle Rechnungsprüfungen grün waren. Deshalb:
 python devserver.py
 ```
 
-und dann **http://localhost:8777/dev/echt.html**. Die Seite fährt die richtige
+und dann **http://localhost:8777/dev/echt.html**. Die Seite trägt ein
+`viewport`-Meta und laeuft deshalb auch schmal: wer am Layout war, prueft
+sie einmal breit (1400) und einmal wie ein Telefon (390). Sie fährt die richtige
 Anwendung hoch — dieselbe `js/app.js`, derselbe Startweg wie in der
 `index.html`, nur ohne Server — und klickt sich hindurch: DM-Modus, Held
 wählen, Bogen, „Als Text", kopieren, schließen. Unten steht, was gut war und

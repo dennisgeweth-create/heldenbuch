@@ -199,7 +199,7 @@ const ListeEinfuegen = ({
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.23.0';
+const HB_VERSION = 'v5.24.0';
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,
@@ -21823,6 +21823,8 @@ const Sheet = () => {
     selectChar,
     setCharMenuOpen,
     setDefs,
+    textOffen,
+    setTextOffen,
     setCollapsedLevels,
     setExFeature,
     setExNote,
@@ -21904,7 +21906,8 @@ const Sheet = () => {
   // Der Bogen als Text — zum Weitergeben an eine KI. Steht nur der
   // Spielleitung offen: sie ist es, die den Abend vorbereitet, und ein
   // fremder Bogen im Textfeld waere sonst mit einem Griff kopiert.
-  const [textOffen, setTextOffen] = useState(false);
+  // textOffen steht in der App: am Telefon oeffnet es die obere Leiste,
+  // am breiten Schirm der Knopf hier — beide meinen dasselbe Fenster.
   const fensterLeiste = React.useContext(FensterLeisteCtx);
   const [invSuche, setInvSuche] = useState("");
   const [betrag, setBetrag] = useState(""); // Gold, ausgeben oder einnehmen
@@ -26148,6 +26151,10 @@ function App() {
   const [mv, setMv] = useState("list");
   const [showCF, setShowCF] = useState(false);
   const [austausch, setAustausch] = useState(false);
+  // „Der Bogen als Text" — das Fenster gehoert zum Bogen, der Schalter
+  // aber auch in die obere Leiste am Telefon.
+  const [textOffen, setTextOffen] = useState(false);
+  const [mobilMehr, setMobilMehr] = useState(false);
   // Das Sitzungstagebuch: die Abende dieses Abenteuers, samt Einträgen
   // und Bildern. Geladen wird erst, wenn jemand es aufmacht.
   const [tagebuch, setTagebuch] = useState(null); // null = zu
@@ -30876,6 +30883,117 @@ function App() {
   } : c));
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
+  // ── Die Werkzeuge ───────────────────────────────────────────────
+  // Dieselbe Leiste steht an zwei Stellen: in der Seitenleiste am
+  // breiten Schirm und auf der Heldenliste am Telefon. Sie wird
+  // deshalb einmal gebaut und zweimal gezeigt — als Abschrift hinkte
+  // die schmale Fassung zuletzt acht Knoepfe hinterher (Boegen,
+  // Tagebuch, Planer, Rast, Post, Laden, Beute, Probe).
+  const werkzeuge = stil => /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-tools",
+    style: stil
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => {
+      if (showDB) {
+        leiste.zeigen('datenbank');
+        return;
+      }
+      setShowDB(true);
+      setDbForm(null);
+      setDbFormId(null);
+    }
+  }, "\uD83D\uDCDA Datenbank"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => {
+      if (austausch) {
+        leiste.zeigen('boegen');
+        return;
+      }
+      setAustausch(true);
+    }
+  }, "\uD83D\uDCE5 B\xF6gen"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: tagebuchOeffnen
+  }, "\uD83D\uDCD4 Tagebuch"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => {
+      // Schon offen, nur in der Leiste: zurückholen, mit der
+      // Suche, die darin steht.
+      if (showAdventLog) {
+        leiste.zeigen('abenteuerlog');
+        return;
+      }
+      setAdventSearch('');
+      setAdventTabFilter([]);
+      setShowAdventLog(true);
+      const {
+        url,
+        code,
+        pass
+      } = serverCreds();
+      // Dasselbe hier: pass ist seit Stufe 7 immer leer.
+      if (url && code) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
+    }
+  }, "\uD83D\uDCD6 Abenteuerlog"), svCode && advId && /*#__PURE__*/React.createElement("a", {
+    className: "btn-tool",
+    href: 'planer/?adv=' + encodeURIComponent(advId),
+    target: "_blank",
+    rel: "noopener",
+    title: "Karten, Orte und Reisen dieses Abenteuers"
+  }, "\uD83D\uDDFA Planer"), svCode && advId && (isDmMode || rast) && /*#__PURE__*/React.createElement("button", {
+    className: 'btn-tool' + (rast ? ' post-neu' : ''),
+    onClick: () => rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true),
+    title: rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'
+  }, "\u263E ", rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast') + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '') : 'Rast'), svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && /*#__PURE__*/React.createElement("button", {
+    className: 'btn-tool' + (postUngelesen ? ' post-neu' : ''),
+    onClick: () => {
+      setPostOffen(true);
+      leiste.zeigen('post');
+    },
+    title: isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'
+  }, "\u2709 ", isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'), (laden || isDmMode) && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => {
+      setLadenOffen(true);
+      leiste.zeigen('laden');
+    },
+    title: "Kaufen und verkaufen"
+  }, "\uD83C\uDFEA ", laden && laden.name || 'Laden'), beute ? /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool beute-knopf",
+    onClick: () => {
+      setBeuteOffen(true);
+      leiste.zeigen('beute');
+    }
+  }, "\uD83D\uDCB0 Beute", /*#__PURE__*/React.createElement("span", null, (beute.stuecke || []).filter(s => !s.an).length || '')) : isDmMode ? /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setBeuteAnlegen(true),
+    title: "Was die Gruppe gefunden hat"
+  }, "\uD83D\uDCB0 Beute") : null, isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => setProbeAnsagen(true),
+    title: "Alle w\xFCrfeln auf dieselbe Fertigkeit"
+  }, "\uD83C\uDFB2 Probe"), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => {
+      setShowKampf(true);
+      leiste.zeigen('kampf');
+    }
+  }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool" + (showChronik ? " an" : ""),
+    onClick: chronikUmschalten
+  }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), !isDmMode && kampfSichtDaten && /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool",
+    onClick: () => {
+      setShowKampfSicht(true);
+      leiste.zeigen('kampfsicht');
+    }
+  }, "\u2694 Kampf \xB7 Runde ", kampfSichtDaten.runde || 1), /*#__PURE__*/React.createElement("button", {
+    className: "btn-tool" + (showAutomat ? " an" : ""),
+    onClick: () => {
+      if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne');else setShowAutomat(o => !o);
+    }
+  }, "\uD83C\uDFB0 Taverne"));
   const CharList = () => {
     const active = advChars.filter(c => !c.archived && !istNsc(c) && (c.dmOnly !== true || isDmMode));
     const archived = advChars.filter(c => c.archived && (c.dmOnly !== true || isDmMode));
@@ -31155,6 +31273,8 @@ function App() {
     setSpellTagFilter,
     setStatsEdit,
     setDefs,
+    textOffen,
+    setTextOffen,
     setTab,
     setTransferMode,
     setTransferSel,
@@ -31304,110 +31424,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-new",
     onClick: openAssistent
-  }, "\u2726 Neuer Charakter"), /*#__PURE__*/React.createElement("div", {
-    className: "sidebar-tools"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      if (showDB) {
-        leiste.zeigen('datenbank');
-        return;
-      }
-      setShowDB(true);
-      setDbForm(null);
-      setDbFormId(null);
-    }
-  }, "\uD83D\uDCDA Datenbank"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      if (austausch) {
-        leiste.zeigen('boegen');
-        return;
-      }
-      setAustausch(true);
-    }
-  }, "\uD83D\uDCE5 B\xF6gen"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: tagebuchOeffnen
-  }, "\uD83D\uDCD4 Tagebuch"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      // Schon offen, nur in der Leiste: zurückholen, mit der
-      // Suche, die darin steht.
-      if (showAdventLog) {
-        leiste.zeigen('abenteuerlog');
-        return;
-      }
-      setAdventSearch('');
-      setAdventTabFilter([]);
-      setShowAdventLog(true);
-      const {
-        url,
-        code,
-        pass
-      } = serverCreds();
-      // Dasselbe hier: pass ist seit Stufe 7 immer leer.
-      if (url && code) apiLoadLogs(url, code, pass, null, 500).then(d => setAdventEntries(d.logs || [])).catch(() => {});
-    }
-  }, "\uD83D\uDCD6 Abenteuerlog"), svCode && advId && /*#__PURE__*/React.createElement("a", {
-    className: "btn-tool",
-    href: 'planer/?adv=' + encodeURIComponent(advId),
-    target: "_blank",
-    rel: "noopener",
-    title: "Karten, Orte und Reisen dieses Abenteuers"
-  }, "\uD83D\uDDFA Planer"), svCode && advId && (isDmMode || rast) && /*#__PURE__*/React.createElement("button", {
-    className: 'btn-tool' + (rast ? ' post-neu' : ''),
-    onClick: () => rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true),
-    title: rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'
-  }, "\u263E ", rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast') + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '') : 'Rast'), svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && /*#__PURE__*/React.createElement("button", {
-    className: 'btn-tool' + (postUngelesen ? ' post-neu' : ''),
-    onClick: () => {
-      setPostOffen(true);
-      leiste.zeigen('post');
-    },
-    title: isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'
-  }, "\u2709 ", isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'), (laden || isDmMode) && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      setLadenOffen(true);
-      leiste.zeigen('laden');
-    },
-    title: "Kaufen und verkaufen"
-  }, "\uD83C\uDFEA ", laden && laden.name || 'Laden'), beute ? /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool beute-knopf",
-    onClick: () => {
-      setBeuteOffen(true);
-      leiste.zeigen('beute');
-    }
-  }, "\uD83D\uDCB0 Beute", /*#__PURE__*/React.createElement("span", null, (beute.stuecke || []).filter(s => !s.an).length || '')) : isDmMode ? /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => setBeuteAnlegen(true),
-    title: "Was die Gruppe gefunden hat"
-  }, "\uD83D\uDCB0 Beute") : null, isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => setProbeAnsagen(true),
-    title: "Alle w\xFCrfeln auf dieselbe Fertigkeit"
-  }, "\uD83C\uDFB2 Probe"), isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      setShowKampf(true);
-      leiste.zeigen('kampf');
-    }
-  }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool" + (showChronik ? " an" : ""),
-    onClick: chronikUmschalten
-  }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), !isDmMode && kampfSichtDaten && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      setShowKampfSicht(true);
-      leiste.zeigen('kampfsicht');
-    }
-  }, "\u2694 Kampf \xB7 Runde ", kampfSichtDaten.runde || 1), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool" + (showAutomat ? " an" : ""),
-    onClick: () => {
-      if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne');else setShowAutomat(o => !o);
-    }
-  }, "\uD83C\uDFB0 Taverne")), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
+  }, "\u2726 Neuer Charakter"), werkzeuge(), svCode ? /*#__PURE__*/React.createElement(React.Fragment, null, (offeneAenderungen > 0 || syncStatus === "busy" || syncStatus === "err") && /*#__PURE__*/React.createElement("div", {
     className: "sync-line"
   }, /*#__PURE__*/React.createElement("div", {
     className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : "err")
@@ -31497,54 +31514,9 @@ function App() {
       color: 'var(--text-muted)',
       letterSpacing: '0.08em'
     }
-  }, offeneAenderungen > 0 ? offeneAenderungen + ' nicht gesichert' : syncMsg || '…')), /*#__PURE__*/React.createElement("div", {
-    className: "sidebar-tools",
-    style: {
-      marginTop: 10
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      if (showDB) {
-        leiste.zeigen('datenbank');
-        return;
-      }
-      setShowDB(true);
-      setDbForm(null);
-      setDbFormId(null);
-    }
-  }, "\uD83D\uDCDA Datenbank"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      if (showAdventLog) {
-        leiste.zeigen('abenteuerlog');
-        return;
-      }
-      setAdventSearch('');
-      setAdventTabFilter([]);
-      setShowAdventLog(true);
-    }
-  }, "\uD83D\uDCD6 Abenteuerlog"), isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      setShowKampf(true);
-      leiste.zeigen('kampf');
-    }
-  }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), !isDmMode && kampfSichtDaten && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool",
-    onClick: () => {
-      setShowKampfSicht(true);
-      leiste.zeigen('kampfsicht');
-    }
-  }, "\u2694 Kampf \xB7 Runde ", kampfSichtDaten.runde || 1), isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool" + (showChronik ? " an" : ""),
-    onClick: chronikUmschalten
-  }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), /*#__PURE__*/React.createElement("button", {
-    className: "btn-tool" + (showAutomat ? " an" : ""),
-    onClick: () => {
-      if (showAutomat && leiste.versteckt.taverne) leiste.zeigen('taverne');else setShowAutomat(o => !o);
-    }
-  }, "\uD83C\uDFB0 Taverne")), svCode && /*#__PURE__*/React.createElement("div", {
+  }, offeneAenderungen > 0 ? offeneAenderungen + ' nicht gesichert' : syncMsg || '…')), werkzeuge({
+    marginTop: 10
+  }), svCode && /*#__PURE__*/React.createElement("div", {
     className: "sync-actions",
     style: {
       marginTop: 10
@@ -31613,7 +31585,42 @@ function App() {
     className: "mobile-topbar-title"
   }, cur && cur.name || "—"), /*#__PURE__*/React.createElement("div", {
     className: "mobile-topbar-actions"
-  }, cur && (darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+  }, cur && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    className: "btn-icon",
+    style: {
+      padding: "5px 8px",
+      fontSize: 11
+    },
+    "aria-label": "Mehr",
+    title: "Mehr",
+    onClick: () => setMobilMehr(v => !v)
+  }, "\u22EF"), mobilMehr && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "mobil-mehr-schleier",
+    onClick: () => setMobilMehr(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "mobil-mehr"
+  }, darfBearbeiten && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMobilMehr(false);
+      openAufstieg();
+    }
+  }, "\u21E7 Stufenaufstieg"), isDmMode && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMobilMehr(false);
+      setTextOffen(true);
+      leiste.zeigen('heldtext');
+    }
+  }, "\uD83D\uDCCB Als Text"), isDmMode && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMobilMehr(false);
+      bogenHerunterladen(bogenDateiname(cur), bogenAlsText(cur));
+    }
+  }, "\u2B07 Textbogen"), darfBearbeiten && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMobilMehr(false);
+      openEdit();
+    }
+  }, "\u270E Stammdaten")))), cur && (darfBearbeiten ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
     className: "btn-icon" + (bogenModus ? " aktiv" : ""),
     style: {
       padding: "5px 8px",
