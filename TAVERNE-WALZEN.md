@@ -36,7 +36,7 @@ Alle drei sind derselbe Automat, dreimal anders erzählt:
 | **Risiko** | nach jedem Gewinn Kartenrisiko (rot/schwarz) oder Leiter, bis zu fünf Sprossen |
 
 Der letzte Punkt ist ein Glücksfall: **die Risikoleiter steht schon.**
-„Leiter des Wagemuts" und „Rabe oder Rose" in `2f-automat.jsx` sind
+„Risikoleiter" und „Rabe oder Rose" in `2f-automat.jsx` sind
 genau das, was alle drei Vorbilder hinter jedem Gewinn anbieten. Sie
 werden unverändert weiterverwendet.
 
@@ -153,6 +153,8 @@ Automaten, der nichts auszahlt.
 
 ### 🕮 Das Verschollene Kapitel
 
+*Stand bis v5.29 — Zeichen und Tafel seit v5.30 unter Stufe 13.*
+
 *Ein Zauberbuch in einer versunkenen Bibliothek.* Das Buch schlägt sich
 auf und bestimmt, welches Zeichen diese Runde regiert.
 
@@ -180,6 +182,8 @@ zahlt über alle Linien, nebeneinander oder nicht. Drei Bücher im
 Freispiel legen zehn nach.
 
 ### 👁 Das Wachsame Auge
+
+*Stand bis v5.29 — Zeichen und Tafel seit v5.30 unter Stufe 13.*
 
 *Ein Wächter in einer Tempelruine. Sein Blick veredelt, was er trifft.*
 
@@ -225,6 +229,8 @@ und die Obergrenze gilt am Tisch genauso wie in der Messung, sonst wäre
 die Zahl an der Tafel falsch.
 
 ### 🗡️ Klinge und Hörner
+
+*Stand bis v5.29 — Zeichen und Tafel seit v5.30 unter Stufe 13.*
 
 *Die Arena unter der Stadt. Der Minotaurus, und was von den Klingen im
 Sand steckenbleibt.*
@@ -500,6 +506,65 @@ danach, und zuletzt kippen die Felder um, Walze für Walze von links. Mit
 zwei Bildern ist nach 4,6 s alles vorbei. `prefers-reduced-motion`
 zeigt gleich das Ende. Was verwandelt wurde, bleibt danach gestrichelt
 markiert.
+
+## Stufe 13 · Gemalte Zeichen und eine Merkur-Leiter ✓
+
+*Steht, seit v5.30.* Die drei Freispielautomaten bekommen gemalte
+Zeichen (`bilder/buch/`, `bilder/arena/`, `bilder/auge/`, je 160 px) —
+und mit ihnen die Kartenbuchstaben der Vorbilder. Dadurch ändern sich
+die Bänder, also ist neu gemessen (je zehn Millionen Drehungen) und auf
+die alte Quote gestreckt. Die Kennungen, an denen Regeln hängen, sind
+geblieben (`buch`, `klinge`, `hoerner`, `waechter`, `tor`); gezeigt wird
+der Name.
+
+**🕮 Das Verschollene Kapitel** — 95,2 %, die Runde jede 107. Drehung:
+
+| Zeichen | 2 | 3 | 4 | 5 |
+|---|--:|--:|--:|--:|
+| Der Gräber | 2 | 50 | 500 | 2.500 |
+| Die Goldmaske | – | 50 | 375 | 1.000 |
+| Der goldene Wächter · Der Skarabäus | – | 20 | 200 | 500 |
+| A · K | – | 2,5 | 20 | 65 |
+| Q · J · 10 | – | 2,5 | 12 | 40 |
+| **Das Buch** — Wild und verstreut (Gesamteinsatz) | 0,5 | 1 | 12 | 120 |
+
+**🗡️ Klinge und Hörner**, jetzt in der Stierkampfarena — 94,4 %, die
+Runde jede 125. Drehung:
+
+| Zeichen | 3 | 4 | 5 |
+|---|--:|--:|--:|
+| **Der Torero** — Wild, klebt im Freispiel | 47 | 140 | 470 |
+| Die Señorita | 23 | 95 | 235 |
+| Die Rose · Die Gitarre · Der Hut | 14 | 47 | 120 |
+| A · K · Q · J · 10 | 4,2 | 9,5 | 25 |
+| **Der Stier** — nur Walze 1, 3, 5 → zehn Freispiele | – | – | – |
+
+**👁 Das Wachsame Auge**, im Tempel des Horus — 95,3 %, die Runde jede
+350. Drehung. Aus acht zahlenden Zeichen wurden zehn (Anch und Lotus
+dazu); das verdünnt jeden Treffer, und dieselbe Tafel zahlte nur noch
+44 %. Die Zahlen stehen deshalb gut doppelt so hoch, die Form ist
+geblieben. Die Leiter läuft über J → Q → K → A.
+
+| Zeichen | 3 | 4 | 5 |
+|---|--:|--:|--:|
+| Das Auge | 90 | 720 | 3.250 |
+| Anubis | 65 | 400 | 1.600 |
+| Der Falke | 45 | 230 | 830 |
+| Der Skarabäus | 45 | 165 | 500 |
+| Das Anch | 22 | 90 | 330 |
+| Der Lotus | 20 | 75 | 260 |
+| A · K · Q · J | 14 · 13 · 11 · 10 | 65 · 50 · 40 · 33 | 220 · 175 · 135 · 110 |
+| **Horus** — Wild, nur Walze 2–4, füllt die Walze | – | – | – |
+| **Die Pyramide** — 3 → zwölf Freispiele | – | – | – |
+
+**Die Risikoleiter** ist die der Merkur-Geräte: zehn Sprossen, jede das
+Doppelte der vorigen, darunter die Null. Abwechselnd leuchten die nächste
+Sprosse und die Null; „Risiko" entscheidet halb und halb — im Augenblick
+des Drückens, nicht durch ihn. „Teilen" steckt die Hälfte ein und geht
+eine Sprosse tiefer weiter, „Nehmen" steckt alles ein, oben ist Schluss
+beim 512-Fachen. Bis v5.29 war sie ein Lauflicht über acht Felder, auf
+dem man ein grünes treffen musste. Das Kartenraten („Rabe oder Rose")
+zeigt jetzt die letzten fünf Karten und geht ohne Zwischenschritt weiter.
 
 ## Woher die Zahlen stammen
 

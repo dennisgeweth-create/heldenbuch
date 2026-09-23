@@ -4000,13 +4000,35 @@
   .risiko-betrag i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:10px;
     letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); }
 
-  .leiter-felder { display:flex; gap:5px; justify-content:center; margin:6px 0 4px; }
-  .leiter-feld { width:30px; height:30px; border-radius:5px; background:var(--bg-void);
-    border:1px solid var(--border); transition:background .06s, border-color .06s; }
-  .leiter-feld.licht { background:var(--inspiration); border-color:var(--inspiration);
-    box-shadow:0 0 14px rgba(242,205,125,0.55); }
-  .leiter-feld.ziel { background:#56b183; border-color:#7fc79c; }
-  .leiter-feld.licht.ziel { background:#7fc79c; box-shadow:0 0 16px rgba(158,210,171,0.7); }
+  /* Die Risikoleiter wie am Merkur-Gerät: zehn Sprossen übereinander,
+     unten die Null. Die Sprosse, auf der der Gewinn steht, leuchtet ruhig;
+     die nächste und die Null blinken im Wechsel. */
+  .leiter { display:flex; flex-direction:column; gap:3px; width:100%; max-width:220px;
+    margin:4px auto 6px; }
+  .leiter-sprosse { height:22px; display:flex; align-items:center; justify-content:center;
+    border-radius:4px; background:var(--bg-void); border:1px solid var(--border);
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; letter-spacing:0.04em;
+    color:var(--text-muted); font-variant-numeric:tabular-nums;
+    transition:background .05s, color .05s, box-shadow .05s; }
+  .leiter-sprosse.unter { color:var(--inspiration-dim); border-color:var(--inspiration-dim); }
+  .leiter-sprosse.jetzt { color:var(--bg-void); background:var(--inspiration);
+    border-color:var(--inspiration); font-weight:700; }
+  .leiter-sprosse.licht { color:var(--bg-void); background:#f6dc8f; border-color:#fff1c4;
+    box-shadow:0 0 14px rgba(246,220,143,0.75); }
+  .leiter-sprosse.null { margin-top:4px; }
+  .leiter-sprosse.null.licht { background:var(--crimson-bright); border-color:#ff9a9a; color:#fff;
+    box-shadow:0 0 14px rgba(224,69,69,0.7); }
+  .leiter-sprosse.null.jetzt { background:var(--crimson); border-color:var(--crimson); color:#fff; }
+  @media (prefers-reduced-motion: reduce) {
+    .leiter-sprosse { transition:none; }
+  }
+  /* Die letzten gezogenen Karten beim Raten. */
+  .karte-verlauf { display:flex; align-items:center; justify-content:center; gap:6px;
+    margin:8px 0 2px; font-size:16px; }
+  .karte-verlauf i { font-style:normal; font-family:'Roboto Condensed',sans-serif; font-size:9.5px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--text-muted); margin-right:2px; }
+  .karte-alt { opacity:0.55; }
+  .karte-alt:first-of-type { opacity:1; }
 
   .karte-wahl { display:flex; gap:10px; justify-content:center; margin:4px 0; }
   .karte-knopf { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;
@@ -4019,7 +4041,6 @@
   .karte-knopf:disabled { opacity:0.4; cursor:default; }
   .risiko-tasten { display:flex; flex-direction:column; gap:8px; }
   .automat-nachschub.nehmen { border-style:solid; border-color:var(--text-muted); color:var(--inspiration); margin-top:0; }
-  @media (max-width:560px) { .leiter-feld { width:26px; height:26px; } }
 
   /* Am schmalen Schirm ist ein schwebendes Fenster keine gute Idee — dort
      bleibt die Taverne das, was sie vorher war: bildschirmfüllend.
@@ -4160,6 +4181,12 @@
   .automat-tabelle .sym .zeichen-bild { display:inline-block; vertical-align:middle;
     width:1.25em; height:1.25em; }
   .einst-automat .zeichen .zeichen-bild { width:1.7em; height:1.7em; }
+
+  /* Wo ein gemaltes Zeichen klein steht: in der Freispielleiste, beim
+     Blättern des Buchs, auf der Leiter des Wachsamen Auges. */
+  .frei-zeichen .zeichen-bild { width:1.4em; height:1.4em; }
+  .buch-blatt .zeichen-bild { width:1.55em; height:1.55em; }
+  .auge-sprosse .zeichen-bild { width:1.6em; height:1.6em; border-radius:3px; }
 
   /* Die Kartenbuchstaben: farbig, gold gerandet, auf dunklem Grund im
      goldenen Rahmen — wie die gemalten Zeichen daneben. */

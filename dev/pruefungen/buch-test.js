@@ -23,9 +23,11 @@ const S = BUCH_SYMBOLE;
 // Walze ein anderes Zeichen, damit keine Kette entsteht, die niemand
 // gemeint hat — ein Feld, in dem ueberall dasselbe Fuellzeichen steht,
 // trifft die halbe Tafel von allein.
+// G Graeber, K Goldmaske (krone), W Waechter, C Skarabaeus (kaefer),
+// die Buchstaben A, X (K), Q, J, Z (10), B das Buch.
 const KURZ = {G:'graeber', K:'krone', W:'waechter', C:'kaefer',
-              F:'feuer', L:'luft', E:'erde', A:'wasser', B:'buch'};
-const FUELL = ['feuer', 'luft', 'erde', 'wasser', 'kaefer'];
+              A:'a', X:'k', Q:'q', J:'j', Z:'zehn', B:'buch'};
+const FUELL = ['a', 'k', 'q', 'j', 'kaefer'];
 const F = (s) => s.split('').map((c, i) => c === '.' ? FUELL[i % 5] : KURZ[c]);
 const EIN = 10;          // Gesamteinsatz; der Linieneinsatz ist 1
 
@@ -37,6 +39,8 @@ wahr('die Anzahlen stimmen', BUCH_BAENDER.every(b => {
   b.forEach(k => { zaehl[k] = (zaehl[k] || 0) + 1; });
   return Object.keys(BUCH_ANZAHLEN).every(k => zaehl[k] === BUCH_ANZAHLEN[k]);
 }));
+wahr('jedes Zeichen hat sein Bild, und das liegt da',
+  S.every(s => s.bild && fs.existsSync(s.bild)));
 wahr('jedes Zeichen der Tafel liegt auf jedem Band',
   BUCH_BAENDER.every(b => S.every(s => b.includes(s.k))));
 // Ein Band, auf dem zwei Buecher nebeneinanderliegen, zeigte beide im
@@ -49,17 +53,17 @@ wahr('die fuenf Baender sind nicht dasselbe Band',
 
 // ── Grundspiel ───────────────────────────────────────────────────
 const grund = (s) => buchDreh(F(s), S, EIN, null);
-// Drei Erde in der oberen Reihe treffen zwei Linien auf einmal: „Oben"
+// Drei Q in der oberen Reihe treffen zwei Linien auf einmal: „Oben"
 // und „Wanne oben", die auf Walze 3 durch die Mitte geht — und dort
-// steht die Fuellung ebenfalls auf Erde. Genau dafuer gibt es zehn
+// steht die Fuellung ebenfalls auf Q. Genau dafuer gibt es zehn
 // Linien, und genau das soll ein Dreh auch zweimal zahlen.
-const dreiErde = grund('EEE..' + '.....' + '.....');
-ist('drei Erde oben treffen zwei Linien', dreiErde.treffer.length, 2);
-ist('  … und zahlen zusammen vier', dreiErde.gewinn, 4);
+const dreiQ = grund('QQQ..' + '.....' + '.....');
+ist('drei Q oben treffen zwei Linien', dreiQ.treffer.length, 2);
+ist('  … und zahlen zusammen fuenf', dreiQ.gewinn, 5);
 wahr('die Fuellung allein trifft nichts', grund('.....' + '.....' + '.....').gewinn === 0);
-ist('das Buch ersetzt auch im Grundspiel — fuenf Kronen mit Buch in der Mitte',
+ist('das Buch ersetzt auch im Grundspiel — fuenf Masken mit Buch in der Mitte',
   grund('.....' + 'KKBKK' + '.....').treffer[0].laenge, 5);
-ist('  … und zahlt dafuer den Fuenfer', grund('.....' + 'KKBKK' + '.....').treffer[0].betrag, 800);
+ist('  … und zahlt dafuer den Fuenfer', grund('.....' + 'KKBKK' + '.....').treffer[0].betrag, 1000);
 ist('zwei Buecher zahlen die Haelfte des Einsatzes',
   grund('B....' + '...B.' + '.....').streu[0].betrag, 5);
 
@@ -68,25 +72,25 @@ ist('zwei Buecher zahlen die Haelfte des Einsatzes',
 const frei = (s, sonder) => buchDreh(F(s), S, EIN, sonder);
 
 const weit = frei('K.K.K' + '.....' + '.....', 'krone');
-ist('Kronen auf 1, 3 und 5 dehnen sich aus', weit.walzen, [0, 2, 4]);
+ist('Masken auf 1, 3 und 5 dehnen sich aus', weit.walzen, [0, 2, 4]);
 ist('  … und zahlen den Dreier ueber alle zehn Linien',
-  weit.ausdehnung.betrag, 40 * 10);
+  weit.ausdehnung.betrag, 50 * 10);
 wahr('  … obwohl auf Walze 2 und 4 keine liegt',
   F('K.K.K' + '.....' + '.....')[1] !== 'krone');
 ist('  … und die Walzen sind wirklich gefuellt',
   weit.feld.filter(k => k === 'krone').length, 9);
 
 const zwei = frei('K.K..' + '.....' + '.....', 'krone');
-ist('zwei Kronen dehnen sich nicht aus', zwei.walzen, []);
+ist('zwei Masken dehnen sich nicht aus', zwei.walzen, []);
 wahr('  … und die Ausdehnung entfaellt', zwei.ausdehnung === null);
 
 const vier = frei('K.K.K' + '...K.' + '.....', 'krone');
-ist('vier Walzen zahlen den Vierer', vier.ausdehnung.betrag, 300 * 10);
+ist('vier Walzen zahlen den Vierer', vier.ausdehnung.betrag, 375 * 10);
 
 // Doppelt zaehlen waere der naheliegende Fehler: einmal als Kette,
 // einmal als gefuellte Walze.
 const dreiAnDrei = frei('KKK..' + '.....' + '.....', 'krone');
-ist('drei nebeneinander zahlen genau einmal', dreiAnDrei.gewinn, 40 * 10);
+ist('drei nebeneinander zahlen genau einmal', dreiAnDrei.gewinn, 50 * 10);
 
 // Das Buch als Sonderzeichen: es fuellt und ersetzt zugleich.
 const buchZwei = frei('B...B' + '.....' + '.....', 'buch');

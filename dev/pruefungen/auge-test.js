@@ -19,12 +19,12 @@ const ist = (name, a, b) => {
 const wahr = (name, a) => ist(name, !!a, true);
 
 const S = AUGE_SYMBOLE;
-// W Waechter, T Tor, K Kiesel, P Tropfen, H Halm, D Feder,
-// U Urne, L Schluessel, N Natter, F Falke.
-const KURZ = {W:'waechter', T:'tor', K:'kiesel', P:'tropfen', H:'halm',
-              D:'feder', U:'urne', L:'schluessel', N:'natter', F:'falke'};
+// W Horus (waechter), T Pyramide (tor), die Leiter J, Q, K, A, und
+// U Skarabaeus, L Lotus, N Anubis, F Falke, X Anch, E Auge.
+const KURZ = {W:'waechter', T:'tor', J:'j', Q:'q', K:'k', A:'a',
+              U:'skarabaeus', L:'lotus', N:'anubis', F:'falke', X:'ankh', E:'auge'};
 // Fuellung je Walze verschieden, damit keine ungewollte Kette entsteht.
-const FUELL = ['urne', 'schluessel', 'natter', 'falke', 'urne'];
+const FUELL = ['skarabaeus', 'lotus', 'anubis', 'ankh', 'skarabaeus'];
 const F = (s) => s.split('').map((c, i) => c === '.' ? FUELL[i % 5] : KURZ[c]);
 const EIN = 10;
 
@@ -36,6 +36,8 @@ ist('der Waechter liegt nur auf Walze 2, 3 und 4',
 ist('und dort zweimal',
   [1, 2, 3].map(w => AUGE_BAENDER[w].filter(k => k === 'waechter').length), [2, 2, 2]);
 wahr('das Tor liegt auf jeder Walze', AUGE_BAENDER.every(b => b.includes('tor')));
+wahr('jedes Zeichen hat sein Bild, und das liegt da',
+  S.every(s => s.bild && fs.existsSync(s.bild)));
 
 // ── Die Leiter ───────────────────────────────────────────────────
 // Sie muss die Tafel von unten aufsteigend spiegeln — sonst veredelte
@@ -45,23 +47,23 @@ ist('die Leiter sind die vier billigsten Zeichen',
   AUGE_LEITER, zahlend.slice(-4).reverse());
 wahr('und zwar aufsteigend nach Auszahlung', AUGE_LEITER.every((k, i) =>
   i === 0 || wZahlt(wSymbol(k, S), 5) > wZahlt(wSymbol(AUGE_LEITER[i-1], S), 5)));
-wahr('sie reicht nicht bis zu den hohen Zeichen',
-  !AUGE_LEITER.includes('falke') && !AUGE_LEITER.includes('natter'));
+wahr('sie reicht nicht bis zu den Bildern',
+  AUGE_LEITER.every(k => ['j', 'q', 'k', 'a'].includes(k)));
 
-const roh = F('KPHD.' + 'KPHD.' + 'KPHD.');
+const roh = F('JQKA.' + 'JQKA.' + 'JQKA.');
 ist('Stufe 0 laesst alles stehen', augeVeredeln(roh, 0), roh);
-ist('Stufe 1 macht aus Kieseln Tropfen',
-  augeVeredeln(roh, 1).slice(0, 4), ['tropfen', 'tropfen', 'halm', 'feder']);
-ist('Stufe 2 hebt Kiesel und Tropfen auf den Halm',
-  augeVeredeln(roh, 2).slice(0, 4), ['halm', 'halm', 'halm', 'feder']);
-ist('Stufe 3 macht alle vier zur Feder',
-  augeVeredeln(roh, 3).slice(0, 4), ['feder', 'feder', 'feder', 'feder']);
+ist('Stufe 1 macht aus J ein Q',
+  augeVeredeln(roh, 1).slice(0, 4), ['q', 'q', 'k', 'a']);
+ist('Stufe 2 hebt J und Q auf K',
+  augeVeredeln(roh, 2).slice(0, 4), ['k', 'k', 'k', 'a']);
+ist('Stufe 3 macht alle vier zum A',
+  augeVeredeln(roh, 3).slice(0, 4), ['a', 'a', 'a', 'a']);
 ist('hoeher geht es nicht', augeVeredeln(roh, 9), augeVeredeln(roh, AUGE_HOECHSTE));
 ist('die hohen Zeichen ruehrt sie nie an',
   augeVeredeln(F('FNLU.' + '.....' + '.....'), AUGE_HOECHSTE).slice(0, 4),
-  ['falke', 'natter', 'schluessel', 'urne']);
-ist('unterstes Zeichen auf Stufe 0', augeUnterstes(0), 'kiesel');
-ist('unterstes Zeichen ganz oben', augeUnterstes(AUGE_HOECHSTE), 'feder');
+  ['falke', 'anubis', 'lotus', 'skarabaeus']);
+ist('unterstes Zeichen auf Stufe 0', augeUnterstes(0), 'j');
+ist('unterstes Zeichen ganz oben', augeUnterstes(AUGE_HOECHSTE), 'a');
 
 // ── Der Waechter ─────────────────────────────────────────────────
 const dreh = (s, stufe) => augeDreh(F(s), S, EIN, stufe || 0);
@@ -118,12 +120,12 @@ ist('die Haeufigkeitstafel ist auf eine Drehung normiert', AUGE_HAEUFIGKEIT.dreh
 const q = wQuote(AUGE_HAEUFIGKEIT, S);
 wahr('die Quote liegt bei 95 % (± 1 Punkt), gerechnet ' + Math.round(q * 1000) / 10 + ' %',
   Math.abs(q - 0.95) < 0.01);
-// Der Fuenfer der Feder faellt oefter als ihr Dreier — das ist die
-// Runde und kein Zaehlfehler. Wenn das je kippt, ist die Leiter kaputt.
-wahr('der Fuenfer der Feder faellt oefter als ihr Dreier',
-  AUGE_HAEUFIGKEIT.linie.feder[5] > AUGE_HAEUFIGKEIT.linie.feder[3] * 0.5);
-wahr('bei den hohen Zeichen ist es umgekehrt',
-  AUGE_HAEUFIGKEIT.linie.falke[5] < AUGE_HAEUFIGKEIT.linie.falke[3] * 0.05);
+// Der Fuenfer des A faellt auffaellig oft — die Runde hebt die Walzen
+// dorthin. Wenn das je kippt, ist die Leiter kaputt.
+wahr('der Fuenfer des A faellt auffaellig oft (die Leiter wirkt)',
+  AUGE_HAEUFIGKEIT.linie.a[5] > AUGE_HAEUFIGKEIT.linie.a[3] * 0.15);
+wahr('bei den hohen Zeichen ist es anders',
+  AUGE_HAEUFIGKEIT.linie.auge[5] < AUGE_HAEUFIGKEIT.linie.auge[3] * 0.05);
 const kurz = augeMessen(S, AUGE_BAENDER, 200000, Math.random);
 const qk = wQuote(kurz, S);
 wahr('eine kurze Gegenmessung bestaetigt sie grob (' + Math.round(qk * 1000) / 10 + ' %)',

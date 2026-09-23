@@ -1,5 +1,6 @@
 // Heldenbuch — „Klinge und Hörner", der zweite der drei
-// Fuenfwalzenautomaten.
+// Fuenfwalzenautomaten. Seit v5.30 in der Stierkampfarena: der Torero ist
+// die Klinge, der Stier sind die Hoerner.
 //
 // Die Arena unter der Stadt: der Minotaurus, und was von den Klingen im
 // Sand steckenbleibt. Drei Hoerner auf Walze 1, 3 und 5 oeffnen zehn
@@ -24,20 +25,26 @@ const ARENA_AUSLOESER  = 3;      // drei Hoerner, und die liegen nur auf 1, 3, 5
 // ── Die Tafel ────────────────────────────────────────────────────
 // Flach, mit dem Wild an der Spitze. Die Zahlen sind Vielfache des
 // LINIENeinsatzes; der ist ein Zehntel dessen, was auf der Leiste steht.
+// Seit v5.30 mit gemalten Zeichen aus der Stierkampfarena: der Torero
+// ist das klebende Wild, der Stier oeffnet die Runde. Die Kennungen
+// `klinge` und `hoerner` sind geblieben — an ihnen haengen die Regeln
+// (arenaKleben, arenaZahl) und die Pruefungen; gezeigt wird der Name.
+const ARENA_BILD = 'bilder/arena/';
 const ARENA_SYMBOLE = [
-  {k:'klinge',    z:'🗡️', name:'Die Klinge', wild:true, zahlt:{3:45, 4:135, 5:450}},
-  {k:'fechterin', z:'💃', name:'Die Fechterin',        zahlt:{3:22, 4:90, 5:225}},
-  {k:'rose',      z:'🌹', name:'Die Rose',             zahlt:{3:13, 4:45, 5:115}},
-  {k:'trommel',   z:'🪘', name:'Die Trommel',          zahlt:{3:13, 4:45, 5:115}},
-  {k:'schild',    z:'🛡️', name:'Der Schild',           zahlt:{3:13, 4:45, 5:115}},
-  {k:'becher',    z:'🍷', name:'Der Becher',           zahlt:{3:4, 4:9, 5:24}},
-  {k:'glocke',    z:'🔔', name:'Die Glocke',           zahlt:{3:4, 4:9, 5:24}},
-  {k:'handschuh', z:'🧤', name:'Der Handschuh',        zahlt:{3:4, 4:9, 5:24}},
-  {k:'kette',     z:'⛓️', name:'Die Kette',            zahlt:{3:4, 4:9, 5:24}},
-  // Die Hoerner zahlen selbst nichts — sie oeffnen nur. Die leere Tafel
-  // steht trotzdem da, sonst waeren sie kein Streuzeichen und wuerden
+  {k:'klinge',    z:'🗡️', name:'Der Torero',    bild:ARENA_BILD + 'torero.jpg', wild:true, zahlt:{3:47, 4:140, 5:470}},
+  {k:'senorita',  z:'💃', name:'Die Señorita',  bild:ARENA_BILD + 'senorita.jpg', zahlt:{3:23, 4:95, 5:235}},
+  {k:'rose',      z:'🌹', name:'Die Rose',      bild:ARENA_BILD + 'rose.jpg',     zahlt:{3:14, 4:47, 5:120}},
+  {k:'gitarre',   z:'🎸', name:'Die Gitarre',   bild:ARENA_BILD + 'gitarre.jpg',  zahlt:{3:14, 4:47, 5:120}},
+  {k:'hut',       z:'🎩', name:'Der Hut',       bild:ARENA_BILD + 'hut.jpg',      zahlt:{3:14, 4:47, 5:120}},
+  {k:'a',         z:'A',  name:'A',  bild:ARENA_BILD + 'a.jpg',    zahlt:{3:4.2, 4:9.5, 5:25}},
+  {k:'k',         z:'K',  name:'K',  bild:ARENA_BILD + 'k.jpg',    zahlt:{3:4.2, 4:9.5, 5:25}},
+  {k:'q',         z:'Q',  name:'Q',  bild:ARENA_BILD + 'q.jpg',    zahlt:{3:4.2, 4:9.5, 5:25}},
+  {k:'j',         z:'J',  name:'J',  bild:ARENA_BILD + 'j.jpg',    zahlt:{3:4.2, 4:9.5, 5:25}},
+  {k:'zehn',      z:'10', name:'10', bild:ARENA_BILD + 'zehn.jpg', zahlt:{3:4.2, 4:9.5, 5:25}},
+  // Der Stier zahlt selbst nichts — er oeffnet nur. Die leere Tafel
+  // steht trotzdem da, sonst waere er kein Streuzeichen und wuerde
   // nirgends gezaehlt.
-  {k:'hoerner',   z:'🐂', name:'Die Hörner', streu:{3:0}, streuWalzen:[0, 2, 4]},
+  {k:'hoerner',   z:'🐂', name:'Der Stier', bild:ARENA_BILD + 'stier.jpg', streu:{3:0}, streuWalzen:[0, 2, 4]},
 ];
 
 // ── Die Baender ──────────────────────────────────────────────────
@@ -52,12 +59,12 @@ const ARENA_SYMBOLE = [
 // zusammen kommen damit etwa jede 125. Drehung.
 const ARENA_BANDLAENGE = 60;
 const ARENA_MIT_HOERNERN = {
-  klinge: 3, fechterin: 5, rose: 6, trommel: 6, schild: 6,
-  becher: 7, glocke: 7, handschuh: 8, kette: 8, hoerner: 4,
+  klinge: 3, senorita: 5, rose: 6, gitarre: 6, hut: 6,
+  a: 6, k: 6, q: 6, j: 6, zehn: 6, hoerner: 4,
 };
 const ARENA_OHNE_HOERNER = {
-  klinge: 3, fechterin: 5, rose: 6, trommel: 6, schild: 6,
-  becher: 8, glocke: 8, handschuh: 9, kette: 9,
+  klinge: 3, senorita: 5, rose: 6, gitarre: 6, hut: 6,
+  a: 7, k: 7, q: 7, j: 7, zehn: 6,
 };
 const ARENA_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(
   w % 2 === 0 ? ARENA_MIT_HOERNERN : ARENA_OHNE_HOERNER,
@@ -131,23 +138,25 @@ const arenaMessen = (symbole, baender, drehungen, zufall) =>
 // Einmal in der Werkbank gemessen, hier als Konstante; der Browser
 // rechnet daraus nur noch das Skalarprodukt. Wer die Baender aendert,
 // muss neu messen — wer die Auszahlungen aendert, nicht.
-// Gemessen mit 12.000.000 stillen Drehungen; die Zahlen sind Treffer je
-// Drehung. Die Runde faellt damit etwa jede 125. Drehung.
+// Gemessen mit 10.000.000 stillen Drehungen (v5.30, mit fuenf
+// Kartenbuchstaben statt vier Kleinigkeiten); die Zahlen sind Treffer je
+// Drehung. Die Runde faellt damit etwa jede 125. Drehung. Quote 94,4 %.
 const ARENA_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
-    becher: {3:0.05272, 4:0.01236, 5:0.004677},
-    fechterin: {3:0.02738, 4:0.006087, 5:0.002893},
-    glocke: {3:0.05281, 4:0.01234, 5:0.004662},
-    handschuh: {3:0.0671, 4:0.01659, 5:0.006366},
-    kette: {3:0.067, 4:0.01651, 5:0.006403},
-    klinge: {3:0.007774, 4:0.003609, 5:0.002128},
-    rose: {3:0.03731, 4:0.00858, 5:0.003512},
-    schild: {3:0.0374, 4:0.008471, 5:0.003508},
-    trommel: {3:0.03744, 4:0.008526, 5:0.003505},
+    a: {3:0.04034, 4:0.009026, 5:0.00339},
+    gitarre: {3:0.03726, 4:0.008496, 5:0.003475},
+    hut: {3:0.03738, 4:0.008543, 5:0.003459},
+    j: {3:0.04041, 4:0.009008, 5:0.003391},
+    k: {3:0.04055, 4:0.009047, 5:0.003366},
+    klinge: {3:0.007658, 4:0.003686, 5:0.002129},
+    q: {3:0.0404, 4:0.008989, 5:0.003347},
+    rose: {3:0.03741, 4:0.008446, 5:0.003519},
+    senorita: {3:0.02743, 4:0.006093, 5:0.002831},
+    zehn: {3:0.03739, 4:0.0077, 5:0.002995},
   },
   streu: {
-    hoerner: {1:0.384, 2:0.0961, 3:0.008011},
+    hoerner: {1:0.384, 2:0.09595, 3:0.007984},
   },
 };
 
@@ -243,6 +252,7 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       {risiko && (
         <RisikoFenster risiko={risiko} setRisiko={setRisiko}
           onNehmen={(b)=>{ zahlen(b); setRisiko(null); }}
+          onTeilen={(b)=>zahlen(b)}
           onSchliessen={()=>setRisiko(null)} />
       )}
 
@@ -250,9 +260,9 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <div className="automat-kasten walzen-kasten">
           {frei && (
             <div className="frei-leiste">
-              <span className="frei-zeichen">🗡️</span>
+              <span className="frei-zeichen">{wZeichen(wSymbol('klinge', symbole))}</span>
               <span className="frei-text">
-                <b>{frei.klebt.length} {frei.klebt.length === 1 ? 'Klinge steckt' : 'Klingen stecken'}</b>
+                <b>{frei.klebt.length} {frei.klebt.length === 1 ? 'Torero steht' : 'Toreros stehen'}</b>
                 <i>sie bleiben bis zum letzten Dreh</i>
               </span>
               <span className="frei-zahl">
@@ -285,7 +295,7 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
               <span className="leise">Nichts. Nochmal.</span>
             )}
             {ergebnis && !laeuft && ergebnis.streu.length > 0 && (
-              <span className="vollbild">🐂 Die Hörner!</span>
+              <span className="vollbild">🐂 Der Stier!</span>
             )}
           </div>
 
@@ -307,7 +317,7 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           <button className={'automat-hebel' + (imFrei ? ' frei' : '')}
             disabled={!kannDrehen || !!lauf.auto} onClick={drehen}>
             {laeuft ? 'Läuft…'
-              : imFrei ? '🗡️ Freidreh · noch ' + frei.uebrig
+              : imFrei ? '🐂 Freidreh · noch ' + frei.uebrig
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'}
           </button>
 
@@ -324,10 +334,10 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
 
         <WalzenTafel symbole={symbole} quote={quote} kinder={
           <p className="automat-fussnote">
-            <b>Der Sand</b> — {ARENA_AUSLOESER} Hörner auf Walze 1, 3 und 5 öffnen
-            {' '}{ARENA_FREISPIELE} Freispiele. Anderswo liegen die Hörner nicht, und
-            je Walze zählt eines. In den Freispielen bleibt jede Klinge, die fällt,
-            bis zum letzten Dreh stehen und sammelt sich mit den anderen. Nachgelegt
+            <b>Der Stier</b> — {ARENA_AUSLOESER} Stiere auf Walze 1, 3 und 5 öffnen
+            {' '}{ARENA_FREISPIELE} Freispiele. Anderswo liegt der Stier nicht, und je
+            Walze zählt einer. In den Freispielen bleibt jeder Torero, der fällt, bis
+            zum letzten Dreh stehen und sammelt sich mit den anderen. Nachgelegt
             wird nicht: nach {ARENA_FREISPIELE} Drehungen ist die Runde zu Ende,
             gleich was fällt.
           </p>

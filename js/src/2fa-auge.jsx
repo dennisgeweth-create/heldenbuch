@@ -13,7 +13,7 @@
 //
 //   Er veredelt. Das unterste der vier billigen Zeichen verschwindet von
 //   den Baendern, und alles, was darauf lag, rueckt eine Stufe hoch —
-//   fuer den Rest der Runde. Nach drei Waechtern ist die Feder das
+//   fuer den Rest der Runde. Nach drei Waechtern (Horus) ist das A das
 //   Niedrigste, was noch faellt.
 //
 //   Er verlaengert. Ein Waechter gibt einen Freidreh dazu, zwei geben
@@ -48,17 +48,25 @@ const AUGE_HOECHSTSPIELE = 20;
 // Eine Tafel mit zwei gleichwertigen Paaren, wie sie die anderen beiden
 // haben, waere hier sinnlos: das Hochruecken brauchte dann zwei Stufen,
 // um etwas zu aendern.
+// Seit v5.30 gemalt und im Tempel des Horus: Horus ist das Wild, die
+// Pyramide oeffnet die Runde. Die Kennungen `waechter` und `tor` sind
+// geblieben — an ihnen haengen die Regeln und die Pruefungen. Aus acht
+// zahlenden Zeichen wurden zehn: Anch und Lotus stehen zwischen den
+// hohen und den vier Buchstaben, ueber die die Leiter laeuft.
+const AUGE_BILD = 'bilder/auge/';
 const AUGE_SYMBOLE = [
-  {k:'falke',      z:'🦅', name:'Der Falke',      zahlt:{3:40, 4:330, 5:1500}},
-  {k:'natter',     z:'🐍', name:'Die Natter',     zahlt:{3:30, 4:180, 5:750}},
-  {k:'schluessel', z:'🗝️', name:'Der Schlüssel',  zahlt:{3:20, 4:105, 5:380}},
-  {k:'urne',       z:'⚱️', name:'Die Urne',       zahlt:{3:20, 4:75, 5:230}},
-  {k:'feder',      z:'🪶', name:'Die Feder',      zahlt:{3:7, 4:30, 5:100}},
-  {k:'halm',       z:'🌾', name:'Der Halm',       zahlt:{3:6, 4:23, 5:80}},
-  {k:'tropfen',    z:'💧', name:'Der Tropfen',    zahlt:{3:5, 4:18, 5:62}},
-  {k:'kiesel',     z:'🪨', name:'Der Kiesel',     zahlt:{3:5, 4:15, 5:50}},
-  {k:'waechter',   z:'👁️', name:'Der Wächter', wild:true},
-  {k:'tor',        z:'🚪', name:'Das Tor', streu:{3:0}},
+  {k:'auge',       z:'👁️', name:'Das Auge',       bild:AUGE_BILD + 'auge.jpg',       zahlt:{3:90, 4:720, 5:3250}},
+  {k:'anubis',     z:'🐺', name:'Anubis',         bild:AUGE_BILD + 'anubis.jpg',     zahlt:{3:65, 4:400, 5:1600}},
+  {k:'falke',      z:'🦅', name:'Der Falke',      bild:AUGE_BILD + 'falke.jpg',      zahlt:{3:45, 4:230, 5:830}},
+  {k:'skarabaeus', z:'🪲', name:'Der Skarabäus',  bild:AUGE_BILD + 'skarabaeus.jpg', zahlt:{3:45, 4:165, 5:500}},
+  {k:'ankh',       z:'☥',  name:'Das Anch',       bild:AUGE_BILD + 'ankh.jpg',       zahlt:{3:22, 4:90, 5:330}},
+  {k:'lotus',      z:'🪷', name:'Der Lotus',      bild:AUGE_BILD + 'lotus.jpg',      zahlt:{3:20, 4:75, 5:260}},
+  {k:'a',          z:'A',  name:'A',  bild:AUGE_BILD + 'a.jpg', zahlt:{3:14, 4:65, 5:220}},
+  {k:'k',          z:'K',  name:'K',  bild:AUGE_BILD + 'k.jpg', zahlt:{3:13, 4:50, 5:175}},
+  {k:'q',          z:'Q',  name:'Q',  bild:AUGE_BILD + 'q.jpg', zahlt:{3:11, 4:40, 5:135}},
+  {k:'j',          z:'J',  name:'J',  bild:AUGE_BILD + 'j.jpg', zahlt:{3:10, 4:33, 5:110}},
+  {k:'waechter',   z:'🦅', name:'Horus',          bild:AUGE_BILD + 'horus.jpg', wild:true},
+  {k:'tor',        z:'🔺', name:'Die Pyramide',   bild:AUGE_BILD + 'pyramide.jpg', streu:{3:0}},
 ];
 
 // ── Die Leiter ───────────────────────────────────────────────────
@@ -74,7 +82,7 @@ const AUGE_SYMBOLE = [
 // Drehung, zwanzig Drehungen lang. Die hohen Zeichen sind teuer, WEIL
 // sie selten sind — wer sie haeufig macht, hat keine hohen Zeichen
 // mehr, sondern nur noch einen kaputten Automaten.
-const AUGE_LEITER = ['kiesel', 'tropfen', 'halm', 'feder'];
+const AUGE_LEITER = ['j', 'q', 'k', 'a'];
 const AUGE_HOECHSTE = AUGE_LEITER.length - 1;
 
 // Auf Stufe n sind die untersten n Sprossen von den Baendern
@@ -103,12 +111,12 @@ const augeUnterstes = (stufe) => AUGE_LEITER[Math.max(0, Math.min(AUGE_HOECHSTE,
 // Runde ist die staerkste im Haus und darf deshalb die seltenste sein.
 const AUGE_BANDLAENGE = 60;
 const AUGE_RAND = {
-  falke: 3, natter: 4, schluessel: 5, urne: 6,
-  feder: 8, halm: 9, tropfen: 10, kiesel: 13, tor: 2,
+  auge: 3, anubis: 4, falke: 5, skarabaeus: 5, ankh: 6, lotus: 6,
+  a: 7, k: 7, q: 7, j: 8, tor: 2,
 };
 const AUGE_MITTE = {
-  waechter: 2, falke: 3, natter: 4, schluessel: 5, urne: 5,
-  feder: 8, halm: 8, tropfen: 10, kiesel: 14, tor: 1,
+  waechter: 2, auge: 3, anubis: 4, falke: 4, skarabaeus: 5, ankh: 5, lotus: 6,
+  a: 7, k: 7, q: 7, j: 9, tor: 1,
 };
 const AUGE_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(
   (w === 0 || w === 4) ? AUGE_RAND : AUGE_MITTE, AUGE_BANDLAENGE, w * 0.2 + 0.05));
@@ -174,27 +182,36 @@ const augeMessen = (symbole, baender, drehungen, zufall) =>
 // Einmal in der Werkbank gemessen, hier als Konstante; der Browser
 // rechnet daraus nur noch das Skalarprodukt.
 //
-// Eine Zahl darin verdient einen zweiten Blick: der Fuenfer der Feder
-// faellt oefter als ihr Dreier. Das ist kein Fehler, sondern die Runde —
-// wenn die Leiter oben ist, liegen auf den Walzen fast nur noch Federn,
-// und dann trifft jede Linie einen Fuenfer.
+// Eine Zahl darin verdient einen zweiten Blick: der Fuenfer des A faellt
+// ein Viertel so oft wie sein Dreier, bei den hohen Zeichen ist es ein
+// Hundertstel. Das ist kein Fehler, sondern die Runde — wenn die Leiter
+// oben ist, liegen auf den Walzen viele A, und dann treffen Linien
+// Fuenfer. (Bis v5.29, mit acht Zeichen, fiel der Fuenfer der obersten
+// Sprosse sogar oefter als ihr Dreier.)
 //
-// Gemessen mit 8.000.000 stillen Drehungen; die Zahlen sind Treffer je
-// Drehung. Die Runde faellt etwa jede 350. Drehung.
+// Gemessen mit 10.000.000 stillen Drehungen (v5.30, zehn zahlende
+// Zeichen statt acht); die Zahlen sind Treffer je Drehung. Die Runde
+// faellt etwa jede 350. Drehung. Quote 95,3 %.
+//
+// Zehn Zeichen statt acht verduennen jeden Treffer: dieselbe Tafel zahlte
+// damit nur noch 44 %. Deshalb stehen die Zahlen gut doppelt so hoch wie
+// bis v5.29 — die Form der Tafel ist dieselbe geblieben.
 const AUGE_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
-    falke: {3:0.003599, 4:0.0003462, 5:0.00001913},
-    feder: {3:0.05313, 4:0.02396, 5:0.03733},
-    halm: {3:0.0416, 4:0.01013, 5:0.005573},
-    kiesel: {3:0.1146, 4:0.0327, 5:0.009071},
-    natter: {3:0.006718, 4:0.0007466, 5:0.00005338},
-    schluessel: {3:0.01105, 4:0.001405, 5:0.0001215},
-    tropfen: {3:0.05805, 4:0.01346, 5:0.003593},
-    urne: {3:0.0131, 4:0.001647, 5:0.0001839},
+    a: {3:0.03803, 4:0.01298, 5:0.009143},
+    ankh: {3:0.0133, 4:0.001677, 5:0.0001926},
+    anubis: {3:0.006732, 4:0.0007658, 5:0.0000567},
+    auge: {3:0.003628, 4:0.0003457, 5:0.0000197},
+    falke: {3:0.008422, 4:0.0008972, 5:0.0000793},
+    j: {3:0.03722, 4:0.007306, 5:0.001127},
+    k: {3:0.02608, 4:0.00516, 5:0.001386},
+    lotus: {3:0.01699, 4:0.002483, 5:0.0002803},
+    q: {3:0.02436, 4:0.004198, 5:0.0006722},
+    skarabaeus: {3:0.01112, 4:0.001447, 5:0.0001331},
   },
   streu: {
-    tor: {1:0.2641, 2:0.03862, 3:0.002741, 4:0.0000915, 5:8.75e-7},
+    tor: {1:0.2637, 2:0.03858, 3:0.00277, 4:0.0000906, 5:0.0000017},
   },
 };
 
@@ -298,6 +315,7 @@ const AugeTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       {risiko && (
         <RisikoFenster risiko={risiko} setRisiko={setRisiko}
           onNehmen={(b)=>{ zahlen(b); setRisiko(null); }}
+          onTeilen={(b)=>zahlen(b)}
           onSchliessen={()=>setRisiko(null)} />
       )}
 
@@ -306,12 +324,12 @@ const AugeTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           {frei && (
             <>
               <div className="frei-leiste">
-                <span className="frei-zeichen">👁️</span>
+                <span className="frei-zeichen">{wZeichen(wSymbol('waechter', symbole))}</span>
                 <span className="frei-text">
                   <b>{frei.stufe === 0 ? 'Noch nichts veredelt'
                       : (frei.stufe >= AUGE_HOECHSTE ? 'Die Leiter ist oben: '
                          : 'Unterstes Zeichen: ') + (unten ? unten.name : '')}</b>
-                  <i>jeder Wächter nimmt die unterste Sprosse</i>
+                  <i>jeder Horus nimmt die unterste Sprosse</i>
                 </span>
                 <span className="frei-zahl">
                   {frei.uebrig > 0 ? frei.uebrig : 0}
@@ -327,7 +345,7 @@ const AugeTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
                     <span key={k} className={'auge-sprosse'
                         + (i < frei.stufe ? ' weg' : '')
                         + (i === frei.stufe ? ' unten' : '')}>
-                      {s ? s.z : ''}
+                      {s ? wZeichen(s) : ''}
                     </span>
                   );
                 })}
@@ -358,11 +376,11 @@ const AugeTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
               <span className="leise">Nichts. Nochmal.</span>
             )}
             {ergebnis && !laeuft && ergebnis.streu.length > 0 && (
-              <span className="vollbild">🚪 Die Tore!</span>
+              <span className="vollbild">🔺 Die Pyramiden!</span>
             )}
             {ergebnis && !laeuft && !imFrei && ergebnis.wilds > 0 && !frei && (
-              <span className="freidreh">👁️ {ergebnis.wilds === 1 ? 'Der Wächter'
-                : ergebnis.wilds + ' Wächter'}</span>
+              <span className="freidreh">{ergebnis.wilds === 1 ? 'Horus'
+                : ergebnis.wilds + '× Horus'}</span>
             )}
             {frei && frei.neu > 0 && !laeuft && (
               <span className="freidreh">
@@ -375,7 +393,7 @@ const AugeTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
 
           {frei && frei.uebrig <= 0 && (
             <div className="frei-schluss">
-              <span>Der Wächter schließt die Augen{frei.gespielt >= AUGE_HOECHSTSPIELE
+              <span>Horus schließt die Augen{frei.gespielt >= AUGE_HOECHSTSPIELE
                 ? ' nach ' + AUGE_HOECHSTSPIELE + ' Drehungen' : ''}.
                 Zusammen <b>{frei.gesamt}</b>.</span>
               <button className="risiko-knopf" onClick={()=>setFrei(null)}>Verstanden</button>
@@ -393,7 +411,7 @@ const AugeTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
           <button className={'automat-hebel' + (imFrei ? ' frei' : '')}
             disabled={!kannDrehen || !!lauf.auto} onClick={drehen}>
             {laeuft ? 'Läuft…'
-              : imFrei ? '👁️ Freidreh · noch ' + frei.uebrig
+              : imFrei ? '🔺 Freidreh · noch ' + frei.uebrig
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'}
           </button>
 
@@ -410,13 +428,13 @@ const AugeTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
 
         <WalzenTafel symbole={symbole} quote={quote} kinder={
           <p className="automat-fussnote">
-            <b>Der Blick</b> — der Wächter liegt nur auf Walze 2, 3 und 4 und füllt
-            die ganze Walze, auf der er fällt. Er zahlt selbst nichts, ersetzt aber
-            jedes Zeichen außer dem Tor. {AUGE_AUSLOESER} Tore öffnen
-            {' '}{AUGE_FREISPIELE} Freispiele, und darin nimmt jeder Wächter das
-            unterste Zeichen der Tafel von den Walzen — alles rückt eine Stufe hoch,
-            für den Rest der Runde. Dazu ein Freidreh je Wächter, drei bei zweien,
-            fünf bei dreien.
+            <b>Horus</b> — er liegt nur auf Walze 2, 3 und 4 und füllt die ganze
+            Walze, auf der er fällt. Er zahlt selbst nichts, ersetzt aber jedes
+            Zeichen außer der Pyramide. {AUGE_AUSLOESER} Pyramiden öffnen
+            {' '}{AUGE_FREISPIELE} Freispiele, und darin nimmt jeder Horus den untersten
+            Buchstaben von den Walzen — J, dann Q, dann K —, und alles rückt eine Stufe
+            hoch, für den Rest der Runde. Dazu ein Freidreh je Horus, zwei bei zweien,
+            drei bei dreien, höchstens {AUGE_HOECHSTSPIELE} Drehungen.
           </p>
         } />
       </div>

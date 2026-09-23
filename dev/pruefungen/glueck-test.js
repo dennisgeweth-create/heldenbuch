@@ -38,5 +38,22 @@ ist('eine Tafel mit den alten Zeichen gilt nicht',
 ist('eine mit den neuen schon',
   automatSymbole({symbole: [{k:'sieben', gewicht:2, zahlt:500}]}).find(s => s.k === 'sieben').zahlt, 500);
 
+// ── Die Risikoleiter ─────────────────────────────────────────────
+// Sie steht in derselben Datei und gilt fuer alle fuenf Automaten.
+ist('zehn Sprossen, jede das Doppelte', leiterSprossen(5),
+  [5, 10, 20, 40, 80, 160, 320, 640, 1280, 2560]);
+ist('auch bei krummen Gewinnen', leiterSprossen(7).slice(0, 3), [7, 14, 28]);
+ist('ein Schritt hinauf', leiterWagen(3, () => 0.3), 4);
+ist('  … oder auf die Null', leiterWagen(3, () => 0.7), -1);
+let hoch = 0;
+for (let i = 0; i < 20000; i++) if (leiterWagen(0) > 0) hoch++;
+wahr('halb und halb (' + (hoch / 200).toFixed(1) + ' % hinauf)', Math.abs(hoch / 20000 - 0.5) < 0.02);
+ist('auf der ersten Sprosse gibt es nichts zu teilen', leiterTeilen(5, 0), null);
+ist('Teilen auf der vierten: die Haelfte eingesteckt, eine Sprosse tiefer',
+  leiterTeilen(5, 3), {aus: 20, stufe: 2});
+wahr('  … und nichts geht dabei verloren',
+  [1, 2, 5, 9].every(k => leiterTeilen(7, k).aus + leiterBetrag(7, leiterTeilen(7, k).stufe) === leiterBetrag(7, k)));
+ist('oben ist Schluss: die zehnte Sprosse ist das 512-Fache', leiterBetrag(1, LEITER_SPROSSEN - 1), 512);
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

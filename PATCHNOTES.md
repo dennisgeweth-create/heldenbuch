@@ -1,5 +1,46 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.30.0
+
+### Die Risikoleiter wie am Merkur-Gerät
+
+Nach jedem Gewinn an den Walzen steht jetzt eine echte **Risikoleiter**:
+
+- **Zehn Sprossen**, jede das Doppelte der vorigen, und ganz unten die
+  **Null**. Der Gewinn steht auf der ersten Sprosse.
+- **Abwechselnd leuchten** die nächste Sprosse und die Null. **Risiko**
+  drückt: eine Sprosse hoch — oder alles weg. Entschieden wird halb und
+  halb; wann man drückt, ändert daran nichts (beim Vorbild auch nicht).
+- **Teilen** steckt die Hälfte ein und macht eine Sprosse tiefer weiter.
+  **Nehmen** steckt alles ein. Ganz oben (das 512-Fache) ist Schluss.
+- Bisher war die Leiter ein Lauflicht über acht Felder, auf dem man ein
+  grünes erwischen musste.
+
+Und beim **Kartenraten** („Rabe oder Rose") liegen jetzt die letzten
+Karten daneben, und nach einem Treffer geht es direkt weiter.
+
+### Gemalte Zeichen für die drei Freispielautomaten
+
+- **Das Verschollene Kapitel**: Buch, Gräber, Goldmaske, goldener Wächter,
+  Skarabäus — und A, K, Q, J, 10 statt der vier Elemente.
+- **Klinge und Hörner** zieht in die Stierkampfarena: der **Torero** ist
+  das klebende Wild, der **Stier** öffnet die Freispiele. Dazu Señorita,
+  Rose, Gitarre, Hut und A, K, Q, J, 10.
+- **Das Wachsame Auge** im Tempel des Horus: **Horus** füllt die Walze,
+  die **Pyramide** öffnet die Freispiele. Auge, Anubis, Falke, Skarabäus,
+  Anch, Lotus — und die Leiter der Freispiele läuft über J → Q → K → A.
+
+Mit den neuen Zeichen sind alle drei neu vermessen (je zehn Millionen
+Drehungen) und auf ihre alten Quoten gestellt: **95,2 %**, **94,4 %**
+und **95,3 %**. Beim Wachsamen Auge stehen die Zahlen dafür gut doppelt so
+hoch wie bisher — zehn zahlende Zeichen statt acht verdünnen jeden
+Treffer. Wer eine dieser Tafeln in den Einstellungen verstellt hatte,
+findet die neuen Zeichen dort wieder auf dem Standard.
+
+Nebenbei: die Fußnote des Wachsamen Auges versprach „drei Freidrehe bei
+zwei Wächtern, fünf bei dreien" — gegeben hat er immer zwei und drei.
+Jetzt steht da, was er tut.
+
 ## v5.29.0
 
 ### Dreifaches Glück: jetzt ein Früchteautomat

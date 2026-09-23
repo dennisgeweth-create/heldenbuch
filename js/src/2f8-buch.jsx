@@ -20,7 +20,8 @@ const BUCH_MINDEST    = 3;     // so oft muss das Sonderzeichen liegen
 
 // ── Die Tafel ────────────────────────────────────────────────────
 // Die Form ist die des Vorbilds: ein Zeichen, das schon zu zweit zahlt,
-// darunter drei hohe, dann vier billige in zwei Stufen — und ein steiler
+// darunter drei hohe, dann fuenf Kartenbuchstaben in zwei Stufen (A und
+// K ueber Q, J und 10, wie im Vorbild) — und ein steiler
 // Sprung vom Vierer zum Fuenfer, der die Schwankung macht.
 //
 // Die Zahlen sind Vielfache des LINIENeinsatzes, und der ist ein Zehntel
@@ -30,17 +31,19 @@ const BUCH_MINDEST    = 3;     // so oft muss das Sonderzeichen liegen
 //
 // Wer sie verstellt, verstellt die Quote. Sie steht am Tisch, und zwar
 // die erreichte und nicht die gewuenschte.
+const BUCH_BILD = 'bilder/buch/';
 const BUCH_SYMBOLE = [
-  {k:'graeber',  z:'🧭', name:'Der Gräber',            zahlt:{2:2, 3:40, 4:400, 5:2000}},
-  {k:'krone',    z:'👑', name:'Die Drachenkrone',      zahlt:{3:40, 4:300, 5:800}},
-  {k:'waechter', z:'🗿', name:'Der steinerne Wächter', zahlt:{3:16, 4:160, 5:400}},
-  {k:'kaefer',   z:'🪲', name:'Der Grabkäfer',         zahlt:{3:16, 4:160, 5:400}},
-  {k:'feuer',    z:'🔥', name:'Feuer',                 zahlt:{3:2, 4:16, 5:55}},
-  {k:'luft',     z:'🌬️', name:'Luft',                  zahlt:{3:2, 4:16, 5:55}},
-  {k:'erde',     z:'⛰️', name:'Erde',                  zahlt:{3:2, 4:10, 5:35}},
-  {k:'wasser',   z:'💧', name:'Wasser',                zahlt:{3:2, 4:10, 5:35}},
-  {k:'buch',     z:'📜', name:'Das Buch der Tiefe',
-   wild:true, streu:{2:0.5, 3:1, 4:10, 5:100}},
+  {k:'graeber',  z:'🧭', name:'Der Gräber',        bild:BUCH_BILD + 'graeber.jpg',  zahlt:{2:2, 3:50, 4:500, 5:2500}},
+  {k:'krone',    z:'👑', name:'Die Goldmaske',     bild:BUCH_BILD + 'krone.jpg',    zahlt:{3:50, 4:375, 5:1000}},
+  {k:'waechter', z:'🗿', name:'Der goldene Wächter', bild:BUCH_BILD + 'waechter.jpg', zahlt:{3:20, 4:200, 5:500}},
+  {k:'kaefer',   z:'🪲', name:'Der Skarabäus',     bild:BUCH_BILD + 'kaefer.jpg',   zahlt:{3:20, 4:200, 5:500}},
+  {k:'a',        z:'A',  name:'A',  bild:BUCH_BILD + 'a.jpg',    zahlt:{3:2.5, 4:20, 5:65}},
+  {k:'k',        z:'K',  name:'K',  bild:BUCH_BILD + 'k.jpg',    zahlt:{3:2.5, 4:20, 5:65}},
+  {k:'q',        z:'Q',  name:'Q',  bild:BUCH_BILD + 'q.jpg',    zahlt:{3:2.5, 4:12, 5:40}},
+  {k:'j',        z:'J',  name:'J',  bild:BUCH_BILD + 'j.jpg',    zahlt:{3:2.5, 4:12, 5:40}},
+  {k:'zehn',     z:'10', name:'10', bild:BUCH_BILD + 'zehn.jpg', zahlt:{3:2.5, 4:12, 5:40}},
+  {k:'buch',     z:'📜', name:'Das Buch der Tiefe', bild:BUCH_BILD + 'buch.jpg',
+   wild:true, streu:{2:0.5, 3:1, 4:12, 5:120}},
 ];
 
 // ── Die Baender ──────────────────────────────────────────────────
@@ -52,7 +55,7 @@ const BUCH_SYMBOLE = [
 const BUCH_BANDLAENGE = 60;
 const BUCH_ANZAHLEN = {
   graeber: 3, krone: 4, waechter: 6, kaefer: 6,
-  feuer: 8, luft: 8, erde: 11, wasser: 12, buch: 2,
+  a: 7, k: 7, q: 8, j: 8, zehn: 9, buch: 2,
 };
 const BUCH_BAENDER = wBaenderAus(BUCH_ANZAHLEN, BUCH_BANDLAENGE);
 
@@ -162,23 +165,26 @@ const buchMessen = (symbole, baender, drehungen, zufall) =>
 // jeder Aenderung der Spielleitung neu. Wer die Baender aendert, muss
 // neu messen; wer die Auszahlungen aendert, nicht.
 //
-// Gemessen mit 15.000.000 stillen Drehungen; die Zahlen sind Treffer je
-// Drehung. Erreichte Quote mit der Tafel oben: 95,2 %.
+// Gemessen mit 10.000.000 stillen Drehungen (v5.30, mit fuenf
+// Kartenbuchstaben statt vier Elementen); die Zahlen sind Treffer je
+// Drehung. Die Runde faellt etwa jede 107. Drehung und traegt gut 40 %
+// der Auszahlung. Erreichte Quote mit der Tafel oben: 95,2 %.
 const BUCH_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
-    buch:     {3:0.00084, 4:0.00003533},
-    erde:     {3:0.1205, 4:0.04, 5:0.01038},
-    feuer:    {3:0.06511, 4:0.01495, 5:0.00245},
-    graeber:  {2:0.05763, 3:0.008117, 4:0.0007053, 5:0.0000564},
-    kaefer:   {3:0.03563, 4:0.005932, 5:0.0007368},
-    krone:    {3:0.01461, 4:0.001633, 5:0.0001375},
-    luft:     {3:0.0652, 4:0.01492, 5:0.002407},
-    waechter: {3:0.03547, 4:0.005834, 5:0.0007257},
-    wasser:   {3:0.1399, 4:0.05132, 5:0.01549},
+    a: {3:0.04727, 4:0.008968, 5:0.001335},
+    buch: {3:0.000763, 4:0.00005, 5:0.000002},
+    graeber: {2:0.05778, 3:0.00794, 4:0.0006848, 5:0.0000537},
+    j: {3:0.06275, 4:0.01427, 5:0.002318},
+    k: {3:0.04738, 4:0.009292, 5:0.001316},
+    kaefer: {3:0.03449, 4:0.005713, 5:0.0006702},
+    krone: {3:0.01396, 4:0.001531, 5:0.0001501},
+    q: {3:0.06269, 4:0.01402, 5:0.002335},
+    waechter: {3:0.03412, 4:0.005669, 5:0.0006942},
+    zehn: {3:0.07987, 4:0.02058, 5:0.003933},
   },
   streu: {
-    buch: {1:0.3588, 2:0.07974, 3:0.008905, 4:0.000487, 5:0.000009667},
+    buch: {1:0.3593, 2:0.07972, 3:0.008849, 4:0.000496, 5:0.0000101},
   },
 };
 
@@ -309,6 +315,7 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       {risiko && (
         <RisikoFenster risiko={risiko} setRisiko={setRisiko}
           onNehmen={(b)=>{ zahlen(b); setRisiko(null); }}
+          onTeilen={(b)=>zahlen(b)}
           onSchliessen={()=>setRisiko(null)} />
       )}
 
@@ -321,7 +328,7 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
               dreimal, füllt es seine Walzen — nebeneinander oder nicht.
             </div>
             <div className={'buch-blatt' + (blaettert.steht ? ' steht' : '')}>
-              <span>{wSymbol(blaettert.zeigt, symbole).z}</span>
+              <span>{wZeichen(wSymbol(blaettert.zeigt, symbole))}</span>
             </div>
             <div className="rad-stand">
               {blaettert.steht
@@ -341,7 +348,7 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
         <div className="automat-kasten walzen-kasten">
           {frei && (
             <div className="frei-leiste">
-              <span className="frei-zeichen">{sonder ? sonder.z : ''}</span>
+              <span className="frei-zeichen">{sonder ? wZeichen(sonder) : ''}</span>
               <span className="frei-text">
                 <b>{sonder ? sonder.name : ''}</b>
                 <i>Sonderzeichen dieser Runde</i>

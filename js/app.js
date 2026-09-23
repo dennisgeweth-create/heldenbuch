@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.29.0';
+const HB_VERSION = 'v5.30.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -8772,6 +8772,16 @@ const automatEinregeln = (symbole, ziel, vollbildP) => {
     zahlt: zahlRunden((+s.zahlt || 0) * f)
   }));
 };
+const LEITER_SPROSSEN = 10;
+const leiterBetrag = (start, stufe) => (+start || 0) * Math.pow(2, Math.max(0, stufe || 0));
+const leiterSprossen = start => Array.from({
+  length: LEITER_SPROSSEN
+}, (_, i) => leiterBetrag(start, i));
+const leiterWagen = (stufe, zufall) => (zufall || Math.random)() < 0.5 ? stufe + 1 : -1;
+const leiterTeilen = (start, stufe) => stufe >= 1 ? {
+  aus: leiterBetrag(start, stufe - 1),
+  stufe: stufe - 1
+} : null;
 const ziehSymbol = (liste, summe) => {
   let w = Math.random() * summe;
   for (const s of liste) {
@@ -9016,118 +9026,151 @@ const radZiel = (k, aktuell) => {
   if (plus < 0) plus += 360;
   return aktuell + 360 * 4 + plus;
 };
-const LEITER_FELDER = 8;
 const RISIKO_STUFEN = 5;
-const leiterTempo = stufe => Math.max(70, 170 - stufe * 22);
+const LEITER_TAKT = 170;
+const LEITER_HALT = 750;
+const LEITER_FELDER = 8;
 const RisikoFenster = ({
   risiko,
   setRisiko,
   onNehmen,
+  onTeilen,
   onSchliessen
 }) => {
   const {
     art,
     betrag,
-    stufe,
     aus,
     letztes
   } = risiko;
-  const takt = React.useRef(null);
+  const stufe = risiko.stufe || 0;
+  const start = risiko.start !== undefined ? risiko.start : betrag;
+  const [lampe, setLampe] = React.useState('hoch');
+  const [halt, setHalt] = React.useState(false);
+  const haltUhr = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(haltUhr.current), []);
+  const oben = art === 'leiter' && stufe >= LEITER_SPROSSEN - 1;
+  const blinkt = art === 'leiter' && !aus && !halt && !oben && betrag > 0;
   React.useEffect(() => {
-    if (art !== 'leiter' || aus || !risiko.laeuft) return;
-    const t = setInterval(() => {
-      setRisiko(r => r && r.laeuft ? {
-        ...r,
-        pos: (r.pos + 1) % LEITER_FELDER
-      } : r);
-    }, leiterTempo(stufe));
-    takt.current = t;
+    if (!blinkt) return undefined;
+    const t = setInterval(() => setLampe(l => l === 'hoch' ? 'null' : 'hoch'), LEITER_TAKT);
     return () => clearInterval(t);
-  }, [art, aus, risiko.laeuft, stufe, setRisiko]);
-  const weiter = gewonnen => setRisiko(r => ({
-    ...r,
-    laeuft: false,
-    letztes: gewonnen ? 'gut' : 'schlecht',
-    betrag: gewonnen ? r.betrag * 2 : 0,
-    stufe: gewonnen ? r.stufe + 1 : r.stufe,
-    aus: !gewonnen || r.stufe + 1 >= RISIKO_STUFEN
-  }));
-  const halt = () => {
-    if (risiko.laeuft) weiter(risiko.pos === risiko.ziel);
-  };
-  const raten = farbe => {
-    if (risiko.laeuft || aus) return;
-    const gezogen = Math.random() < 0.5 ? 'rabe' : 'rose';
+  }, [blinkt]);
+  const wagen = () => {
+    if (!blinkt) return;
+    const neu = leiterWagen(stufe);
+    const gut = neu >= 0;
+    setLampe(gut ? 'hoch' : 'null');
+    setHalt(true);
+    clearTimeout(haltUhr.current);
+    haltUhr.current = setTimeout(() => setHalt(false), LEITER_HALT);
     setRisiko(r => ({
       ...r,
-      gezogen
+      start,
+      stufe: gut ? neu : r.stufe || 0,
+      betrag: gut ? leiterBetrag(start, neu) : 0,
+      letztes: gut ? 'gut' : 'schlecht',
+      aus: !gut
     }));
-    weiter(gezogen === farbe);
   };
-  const nochmal = () => setRisiko(r => ({
-    ...r,
-    laeuft: art === 'leiter',
-    pos: 0,
-    ziel: Math.floor(Math.random() * LEITER_FELDER),
-    letztes: null,
-    gezogen: null
-  }));
+  const teilen = () => {
+    const t = leiterTeilen(start, stufe);
+    if (!t || aus || halt || !onTeilen) return;
+    onTeilen(t.aus);
+    setRisiko(r => ({
+      ...r,
+      start,
+      stufe: t.stufe,
+      betrag: leiterBetrag(start, t.stufe),
+      letztes: 'geteilt',
+      geteilt: t.aus
+    }));
+  };
+  const karteStufe = risiko.kartenStufe || 0;
+  const raten = farbe => {
+    if (aus || betrag <= 0) return;
+    const gezogen = Math.random() < 0.5 ? 'rabe' : 'rose';
+    const gut = gezogen === farbe;
+    setRisiko(r => ({
+      ...r,
+      gezogen,
+      verlauf: [gezogen, ...(r.verlauf || [])].slice(0, 5),
+      letztes: gut ? 'gut' : 'schlecht',
+      betrag: gut ? r.betrag * 2 : 0,
+      kartenStufe: (r.kartenStufe || 0) + (gut ? 1 : 0),
+      aus: !gut || (r.kartenStufe || 0) + 1 >= RISIKO_STUFEN
+    }));
+  };
+  const sprossen = art === 'leiter' ? leiterSprossen(start) : [];
+  const leuchtet = blinkt || halt;
   return React.createElement("div", {
     className: "rad-huelle"
   }, React.createElement("div", {
-    className: "rad-fenster risiko"
+    className: 'rad-fenster risiko' + (art === 'leiter' ? ' mit-leiter' : '')
   }, React.createElement("div", {
     className: "rad-titel"
-  }, art === 'leiter' ? 'Leiter des Wagemuts' : 'Rabe oder Rose'), React.createElement("div", {
+  }, art === 'leiter' ? 'Risikoleiter' : 'Rabe oder Rose'), React.createElement("div", {
     className: "rad-unter"
-  }, art === 'leiter' ? 'Halt im richtigen Augenblick — das grüne Feld verdoppelt, jedes andere kostet alles.' : 'Schwarz oder rot. Richtig geraten verdoppelt, falsch kostet alles.'), React.createElement("div", {
+  }, art === 'leiter' ? 'Abwechselnd leuchten die nächste Sprosse und die Null. „Risiko“ — hoch oder alles weg.' : 'Schwarz oder rot. Richtig geraten verdoppelt, falsch kostet alles.'), art === 'leiter' ? React.createElement("div", {
+    className: "leiter",
+    role: "group",
+    "aria-label": "Risikoleiter"
+  }, sprossen.map((b, i) => i).reverse().map(i => React.createElement("div", {
+    key: i,
+    className: 'leiter-sprosse' + (i < stufe && betrag > 0 ? ' unter' : '') + (i === stufe && betrag > 0 ? ' jetzt' : '') + (i === stufe + 1 && leuchtet && lampe === 'hoch' ? ' licht' : '')
+  }, zahlText(sprossen[i]))), React.createElement("div", {
+    className: 'leiter-sprosse null' + (betrag <= 0 ? ' jetzt' : '') + (leuchtet && lampe === 'null' ? ' licht' : '')
+  }, "0")) : React.createElement(React.Fragment, null, React.createElement("div", {
     className: "risiko-betrag"
   }, React.createElement("span", null, "Im Spiel"), React.createElement("b", {
     className: betrag > 0 ? '' : 'weg'
-  }, betrag), React.createElement("i", null, "Sprosse ", stufe, " von ", RISIKO_STUFEN)), art === 'leiter' ? React.createElement("div", {
-    className: "leiter-felder",
-    role: "group",
-    "aria-label": "Leiter"
-  }, Array.from({
-    length: LEITER_FELDER
-  }, (_, i) => React.createElement("span", {
-    key: i,
-    className: 'leiter-feld' + (risiko.pos === i ? ' licht' : '') + (risiko.ziel === i ? ' ziel' : '')
-  }))) : React.createElement("div", {
+  }, betrag), React.createElement("i", null, "Karte ", karteStufe, " von ", RISIKO_STUFEN)), React.createElement("div", {
     className: "karte-wahl"
   }, React.createElement("button", {
     type: "button",
     className: "karte-knopf rabe",
-    disabled: aus || !!letztes,
+    disabled: aus || betrag <= 0,
     onClick: () => raten('rabe')
   }, "\uD83D\uDC26\u200D\u2B1B", React.createElement("span", null, "Rabe")), React.createElement("button", {
     type: "button",
     className: "karte-knopf rose",
-    disabled: aus || !!letztes,
+    disabled: aus || betrag <= 0,
     onClick: () => raten('rose')
-  }, "\uD83C\uDF39", React.createElement("span", null, "Rose"))), React.createElement("div", {
+  }, "\uD83C\uDF39", React.createElement("span", null, "Rose"))), risiko.verlauf && risiko.verlauf.length > 0 && React.createElement("div", {
+    className: "karte-verlauf",
+    "aria-label": "Die letzten Karten"
+  }, React.createElement("i", null, "zuletzt"), risiko.verlauf.map((k, i) => React.createElement("span", {
+    key: i,
+    className: 'karte-alt ' + k
+  }, k === 'rabe' ? '🐦‍⬛' : '🌹')))), React.createElement("div", {
     className: "rad-stand"
   }, letztes === 'gut' ? React.createElement("b", {
     className: "rad-gut"
-  }, "Getroffen \u2014 verdoppelt!") : letztes === 'schlecht' ? React.createElement("b", {
+  }, oben ? 'Ganz oben — höher geht es nicht.' : 'Hoch! Verdoppelt.') : letztes === 'schlecht' ? React.createElement("b", {
     className: "rad-schlecht"
-  }, "Daneben. Alles weg.") : art === 'leiter' ? React.createElement("b", {
+  }, "Null. Alles weg.") : letztes === 'geteilt' ? React.createElement("b", {
+    className: "rad-gut"
+  }, risiko.geteilt, " eingesteckt \u2014 weiter mit ", betrag, ".") : art === 'leiter' ? React.createElement("b", {
     className: "leise"
-  }, "Halt dr\xFCcken, wenn das Licht gr\xFCn steht.") : React.createElement("b", {
+  }, "Risiko, Teilen oder Nehmen.") : React.createElement("b", {
     className: "leise"
   }, "W\xE4hle.")), React.createElement("div", {
     className: "rad-tasten risiko-tasten"
-  }, art === 'leiter' && risiko.laeuft && React.createElement("button", {
+  }, art === 'leiter' && !aus && !oben && betrag > 0 && React.createElement("button", {
     className: "automat-hebel",
-    onClick: halt
-  }, "Halt!"), !risiko.laeuft && !aus && letztes === 'gut' && React.createElement("button", {
-    className: "automat-hebel",
-    onClick: nochmal
-  }, "Nochmal wagen"), !risiko.laeuft && betrag > 0 && React.createElement("button", {
+    onClick: wagen,
+    disabled: halt
+  }, "Risiko"), art === 'leiter' && onTeilen && !aus && stufe >= 1 && betrag > 0 && React.createElement("button", {
+    className: "automat-nachschub",
+    onClick: teilen,
+    disabled: halt
+  }, "Teilen \xB7 ", zahlText(leiterBetrag(start, stufe - 1)), " einstecken"), betrag > 0 && React.createElement("button", {
     className: "automat-nachschub nehmen",
+    disabled: halt,
     onClick: () => onNehmen(betrag)
   }, betrag, " nehmen"), betrag <= 0 && React.createElement("button", {
     className: "automat-hebel",
+    disabled: halt,
     onClick: onSchliessen
   }, "Weiter"))));
 };
@@ -9419,9 +9462,10 @@ const AutomatTisch = ({
     risiko: risiko,
     setRisiko: setRisiko,
     onNehmen: b => {
-      setMarken(marken + b);
+      zahlen(b);
       setRisiko(null);
     },
+    onTeilen: b => zahlen(b),
     onSchliessen: () => setRisiko(null)
   }), rad && React.createElement("div", {
     className: "rad-huelle"
@@ -9627,7 +9671,7 @@ const TAVERNEN_TISCHE = [{
   z: '⚔️',
   name: 'Klinge und Hörner',
   gruppe: 'walze',
-  unter: 'Die Arena unter der Stadt — im Freispiel bleibt jede Klinge stecken',
+  unter: 'Die Stierkampfarena — im Freispiel bleibt jeder Torero stehen',
   da: true,
   breit: 460,
   weit: 560
@@ -9636,7 +9680,7 @@ const TAVERNEN_TISCHE = [{
   z: '👁️',
   name: 'Das Wachsame Auge',
   gruppe: 'walze',
-  unter: 'Der Wächter füllt die Walze — und veredelt, was auf ihr liegt',
+  unter: 'Horus füllt die Walze — und veredelt, was auf ihr liegt',
   da: true,
   breit: 460,
   weit: 560
@@ -13461,89 +13505,109 @@ const WalzenTafel = ({
 const BUCH_FREISPIELE = 10;
 const BUCH_AUSLOESER = 3;
 const BUCH_MINDEST = 3;
+const BUCH_BILD = 'bilder/buch/';
 const BUCH_SYMBOLE = [{
   k: 'graeber',
   z: '🧭',
   name: 'Der Gräber',
+  bild: BUCH_BILD + 'graeber.jpg',
   zahlt: {
     2: 2,
-    3: 40,
-    4: 400,
-    5: 2000
+    3: 50,
+    4: 500,
+    5: 2500
   }
 }, {
   k: 'krone',
   z: '👑',
-  name: 'Die Drachenkrone',
+  name: 'Die Goldmaske',
+  bild: BUCH_BILD + 'krone.jpg',
   zahlt: {
-    3: 40,
-    4: 300,
-    5: 800
+    3: 50,
+    4: 375,
+    5: 1000
   }
 }, {
   k: 'waechter',
   z: '🗿',
-  name: 'Der steinerne Wächter',
+  name: 'Der goldene Wächter',
+  bild: BUCH_BILD + 'waechter.jpg',
   zahlt: {
-    3: 16,
-    4: 160,
-    5: 400
+    3: 20,
+    4: 200,
+    5: 500
   }
 }, {
   k: 'kaefer',
   z: '🪲',
-  name: 'Der Grabkäfer',
+  name: 'Der Skarabäus',
+  bild: BUCH_BILD + 'kaefer.jpg',
   zahlt: {
-    3: 16,
-    4: 160,
-    5: 400
+    3: 20,
+    4: 200,
+    5: 500
   }
 }, {
-  k: 'feuer',
-  z: '🔥',
-  name: 'Feuer',
+  k: 'a',
+  z: 'A',
+  name: 'A',
+  bild: BUCH_BILD + 'a.jpg',
   zahlt: {
-    3: 2,
-    4: 16,
-    5: 55
+    3: 2.5,
+    4: 20,
+    5: 65
   }
 }, {
-  k: 'luft',
-  z: '🌬️',
-  name: 'Luft',
+  k: 'k',
+  z: 'K',
+  name: 'K',
+  bild: BUCH_BILD + 'k.jpg',
   zahlt: {
-    3: 2,
-    4: 16,
-    5: 55
+    3: 2.5,
+    4: 20,
+    5: 65
   }
 }, {
-  k: 'erde',
-  z: '⛰️',
-  name: 'Erde',
+  k: 'q',
+  z: 'Q',
+  name: 'Q',
+  bild: BUCH_BILD + 'q.jpg',
   zahlt: {
-    3: 2,
-    4: 10,
-    5: 35
+    3: 2.5,
+    4: 12,
+    5: 40
   }
 }, {
-  k: 'wasser',
-  z: '💧',
-  name: 'Wasser',
+  k: 'j',
+  z: 'J',
+  name: 'J',
+  bild: BUCH_BILD + 'j.jpg',
   zahlt: {
-    3: 2,
-    4: 10,
-    5: 35
+    3: 2.5,
+    4: 12,
+    5: 40
+  }
+}, {
+  k: 'zehn',
+  z: '10',
+  name: '10',
+  bild: BUCH_BILD + 'zehn.jpg',
+  zahlt: {
+    3: 2.5,
+    4: 12,
+    5: 40
   }
 }, {
   k: 'buch',
   z: '📜',
   name: 'Das Buch der Tiefe',
+  bild: BUCH_BILD + 'buch.jpg',
   wild: true,
   streu: {
     2: 0.5,
     3: 1,
-    4: 10,
-    5: 100
+    4: 12,
+    5: 120
   }
 }];
 const BUCH_BANDLAENGE = 60;
@@ -13552,10 +13616,11 @@ const BUCH_ANZAHLEN = {
   krone: 4,
   waechter: 6,
   kaefer: 6,
-  feuer: 8,
-  luft: 8,
-  erde: 11,
-  wasser: 12,
+  a: 7,
+  k: 7,
+  q: 8,
+  j: 8,
+  zehn: 9,
   buch: 2
 };
 const BUCH_BAENDER = wBaenderAus(BUCH_ANZAHLEN, BUCH_BANDLAENGE);
@@ -13640,59 +13705,65 @@ const buchMessen = (symbole, baender, drehungen, zufall) => wMessen({
 const BUCH_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
+    a: {
+      3: 0.04727,
+      4: 0.008968,
+      5: 0.001335
+    },
     buch: {
-      3: 0.00084,
-      4: 0.00003533
-    },
-    erde: {
-      3: 0.1205,
-      4: 0.04,
-      5: 0.01038
-    },
-    feuer: {
-      3: 0.06511,
-      4: 0.01495,
-      5: 0.00245
+      3: 0.000763,
+      4: 0.00005,
+      5: 0.000002
     },
     graeber: {
-      2: 0.05763,
-      3: 0.008117,
-      4: 0.0007053,
-      5: 0.0000564
+      2: 0.05778,
+      3: 0.00794,
+      4: 0.0006848,
+      5: 0.0000537
+    },
+    j: {
+      3: 0.06275,
+      4: 0.01427,
+      5: 0.002318
+    },
+    k: {
+      3: 0.04738,
+      4: 0.009292,
+      5: 0.001316
     },
     kaefer: {
-      3: 0.03563,
-      4: 0.005932,
-      5: 0.0007368
+      3: 0.03449,
+      4: 0.005713,
+      5: 0.0006702
     },
     krone: {
-      3: 0.01461,
-      4: 0.001633,
-      5: 0.0001375
+      3: 0.01396,
+      4: 0.001531,
+      5: 0.0001501
     },
-    luft: {
-      3: 0.0652,
-      4: 0.01492,
-      5: 0.002407
+    q: {
+      3: 0.06269,
+      4: 0.01402,
+      5: 0.002335
     },
     waechter: {
-      3: 0.03547,
-      4: 0.005834,
-      5: 0.0007257
+      3: 0.03412,
+      4: 0.005669,
+      5: 0.0006942
     },
-    wasser: {
-      3: 0.1399,
-      4: 0.05132,
-      5: 0.01549
+    zehn: {
+      3: 0.07987,
+      4: 0.02058,
+      5: 0.003933
     }
   },
   streu: {
     buch: {
-      1: 0.3588,
-      2: 0.07974,
-      3: 0.008905,
-      4: 0.000487,
-      5: 0.000009667
+      1: 0.3593,
+      2: 0.07972,
+      3: 0.008849,
+      4: 0.000496,
+      5: 0.0000101
     }
   }
 };
@@ -13858,6 +13929,7 @@ const BuchTisch = ({
       zahlen(b);
       setRisiko(null);
     },
+    onTeilen: b => zahlen(b),
     onSchliessen: () => setRisiko(null)
   }), blaettert && React.createElement("div", {
     className: "rad-huelle"
@@ -13869,7 +13941,7 @@ const BuchTisch = ({
     className: "rad-unter"
   }, "Ein Zeichen regiert die n\xE4chsten ", BUCH_FREISPIELE, " Freispiele. Liegt es dreimal, f\xFCllt es seine Walzen \u2014 nebeneinander oder nicht."), React.createElement("div", {
     className: 'buch-blatt' + (blaettert.steht ? ' steht' : '')
-  }, React.createElement("span", null, wSymbol(blaettert.zeigt, symbole).z)), React.createElement("div", {
+  }, React.createElement("span", null, wZeichen(wSymbol(blaettert.zeigt, symbole)))), React.createElement("div", {
     className: "rad-stand"
   }, blaettert.steht ? React.createElement("b", {
     className: "rad-gut"
@@ -13889,7 +13961,7 @@ const BuchTisch = ({
     className: "frei-leiste"
   }, React.createElement("span", {
     className: "frei-zeichen"
-  }, sonder ? sonder.z : ''), React.createElement("span", {
+  }, sonder ? wZeichen(sonder) : ''), React.createElement("span", {
     className: "frei-text"
   }, React.createElement("b", null, sonder ? sonder.name : ''), React.createElement("i", null, "Sonderzeichen dieser Runde")), React.createElement("span", {
     className: "frei-zahl"
@@ -13960,92 +14032,113 @@ const BuchTisch = ({
 // ==== js/src/2f9-arena.jsx ====
 const ARENA_FREISPIELE = 10;
 const ARENA_AUSLOESER = 3;
+const ARENA_BILD = 'bilder/arena/';
 const ARENA_SYMBOLE = [{
   k: 'klinge',
   z: '🗡️',
-  name: 'Die Klinge',
+  name: 'Der Torero',
+  bild: ARENA_BILD + 'torero.jpg',
   wild: true,
   zahlt: {
-    3: 45,
-    4: 135,
-    5: 450
+    3: 47,
+    4: 140,
+    5: 470
   }
 }, {
-  k: 'fechterin',
+  k: 'senorita',
   z: '💃',
-  name: 'Die Fechterin',
+  name: 'Die Señorita',
+  bild: ARENA_BILD + 'senorita.jpg',
   zahlt: {
-    3: 22,
-    4: 90,
-    5: 225
+    3: 23,
+    4: 95,
+    5: 235
   }
 }, {
   k: 'rose',
   z: '🌹',
   name: 'Die Rose',
+  bild: ARENA_BILD + 'rose.jpg',
   zahlt: {
-    3: 13,
-    4: 45,
-    5: 115
+    3: 14,
+    4: 47,
+    5: 120
   }
 }, {
-  k: 'trommel',
-  z: '🪘',
-  name: 'Die Trommel',
+  k: 'gitarre',
+  z: '🎸',
+  name: 'Die Gitarre',
+  bild: ARENA_BILD + 'gitarre.jpg',
   zahlt: {
-    3: 13,
-    4: 45,
-    5: 115
+    3: 14,
+    4: 47,
+    5: 120
   }
 }, {
-  k: 'schild',
-  z: '🛡️',
-  name: 'Der Schild',
+  k: 'hut',
+  z: '🎩',
+  name: 'Der Hut',
+  bild: ARENA_BILD + 'hut.jpg',
   zahlt: {
-    3: 13,
-    4: 45,
-    5: 115
+    3: 14,
+    4: 47,
+    5: 120
   }
 }, {
-  k: 'becher',
-  z: '🍷',
-  name: 'Der Becher',
+  k: 'a',
+  z: 'A',
+  name: 'A',
+  bild: ARENA_BILD + 'a.jpg',
   zahlt: {
-    3: 4,
-    4: 9,
-    5: 24
+    3: 4.2,
+    4: 9.5,
+    5: 25
   }
 }, {
-  k: 'glocke',
-  z: '🔔',
-  name: 'Die Glocke',
+  k: 'k',
+  z: 'K',
+  name: 'K',
+  bild: ARENA_BILD + 'k.jpg',
   zahlt: {
-    3: 4,
-    4: 9,
-    5: 24
+    3: 4.2,
+    4: 9.5,
+    5: 25
   }
 }, {
-  k: 'handschuh',
-  z: '🧤',
-  name: 'Der Handschuh',
+  k: 'q',
+  z: 'Q',
+  name: 'Q',
+  bild: ARENA_BILD + 'q.jpg',
   zahlt: {
-    3: 4,
-    4: 9,
-    5: 24
+    3: 4.2,
+    4: 9.5,
+    5: 25
   }
 }, {
-  k: 'kette',
-  z: '⛓️',
-  name: 'Die Kette',
+  k: 'j',
+  z: 'J',
+  name: 'J',
+  bild: ARENA_BILD + 'j.jpg',
   zahlt: {
-    3: 4,
-    4: 9,
-    5: 24
+    3: 4.2,
+    4: 9.5,
+    5: 25
+  }
+}, {
+  k: 'zehn',
+  z: '10',
+  name: '10',
+  bild: ARENA_BILD + 'zehn.jpg',
+  zahlt: {
+    3: 4.2,
+    4: 9.5,
+    5: 25
   }
 }, {
   k: 'hoerner',
   z: '🐂',
-  name: 'Die Hörner',
+  name: 'Der Stier',
+  bild: ARENA_BILD + 'stier.jpg',
   streu: {
     3: 0
   },
@@ -14054,26 +14147,28 @@ const ARENA_SYMBOLE = [{
 const ARENA_BANDLAENGE = 60;
 const ARENA_MIT_HOERNERN = {
   klinge: 3,
-  fechterin: 5,
+  senorita: 5,
   rose: 6,
-  trommel: 6,
-  schild: 6,
-  becher: 7,
-  glocke: 7,
-  handschuh: 8,
-  kette: 8,
+  gitarre: 6,
+  hut: 6,
+  a: 6,
+  k: 6,
+  q: 6,
+  j: 6,
+  zehn: 6,
   hoerner: 4
 };
 const ARENA_OHNE_HOERNER = {
   klinge: 3,
-  fechterin: 5,
+  senorita: 5,
   rose: 6,
-  trommel: 6,
-  schild: 6,
-  becher: 8,
-  glocke: 8,
-  handschuh: 9,
-  kette: 9
+  gitarre: 6,
+  hut: 6,
+  a: 7,
+  k: 7,
+  q: 7,
+  j: 7,
+  zehn: 6
 };
 const ARENA_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(w % 2 === 0 ? ARENA_MIT_HOERNERN : ARENA_OHNE_HOERNER, ARENA_BANDLAENGE, w * 0.2 + 0.05));
 const arenaKleben = (feld, klebt) => {
@@ -14137,57 +14232,62 @@ const arenaMessen = (symbole, baender, drehungen, zufall) => wMessen({
 const ARENA_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
-    becher: {
-      3: 0.05272,
-      4: 0.01236,
-      5: 0.004677
+    a: {
+      3: 0.04034,
+      4: 0.009026,
+      5: 0.00339
     },
-    fechterin: {
-      3: 0.02738,
-      4: 0.006087,
-      5: 0.002893
+    gitarre: {
+      3: 0.03726,
+      4: 0.008496,
+      5: 0.003475
     },
-    glocke: {
-      3: 0.05281,
-      4: 0.01234,
-      5: 0.004662
+    hut: {
+      3: 0.03738,
+      4: 0.008543,
+      5: 0.003459
     },
-    handschuh: {
-      3: 0.0671,
-      4: 0.01659,
-      5: 0.006366
+    j: {
+      3: 0.04041,
+      4: 0.009008,
+      5: 0.003391
     },
-    kette: {
-      3: 0.067,
-      4: 0.01651,
-      5: 0.006403
+    k: {
+      3: 0.04055,
+      4: 0.009047,
+      5: 0.003366
     },
     klinge: {
-      3: 0.007774,
-      4: 0.003609,
-      5: 0.002128
+      3: 0.007658,
+      4: 0.003686,
+      5: 0.002129
+    },
+    q: {
+      3: 0.0404,
+      4: 0.008989,
+      5: 0.003347
     },
     rose: {
-      3: 0.03731,
-      4: 0.00858,
-      5: 0.003512
+      3: 0.03741,
+      4: 0.008446,
+      5: 0.003519
     },
-    schild: {
-      3: 0.0374,
-      4: 0.008471,
-      5: 0.003508
+    senorita: {
+      3: 0.02743,
+      4: 0.006093,
+      5: 0.002831
     },
-    trommel: {
-      3: 0.03744,
-      4: 0.008526,
-      5: 0.003505
+    zehn: {
+      3: 0.03739,
+      4: 0.0077,
+      5: 0.002995
     }
   },
   streu: {
     hoerner: {
       1: 0.384,
-      2: 0.0961,
-      3: 0.008011
+      2: 0.09595,
+      3: 0.007984
     }
   }
 };
@@ -14298,6 +14398,7 @@ const ArenaTisch = ({
       zahlen(b);
       setRisiko(null);
     },
+    onTeilen: b => zahlen(b),
     onSchliessen: () => setRisiko(null)
   }), React.createElement("div", {
     className: "automat-mitte aut-mitte"
@@ -14307,9 +14408,9 @@ const ArenaTisch = ({
     className: "frei-leiste"
   }, React.createElement("span", {
     className: "frei-zeichen"
-  }, "\uD83D\uDDE1\uFE0F"), React.createElement("span", {
+  }, wZeichen(wSymbol('klinge', symbole))), React.createElement("span", {
     className: "frei-text"
-  }, React.createElement("b", null, frei.klebt.length, " ", frei.klebt.length === 1 ? 'Klinge steckt' : 'Klingen stecken'), React.createElement("i", null, "sie bleiben bis zum letzten Dreh")), React.createElement("span", {
+  }, React.createElement("b", null, frei.klebt.length, " ", frei.klebt.length === 1 ? 'Torero steht' : 'Toreros stehen'), React.createElement("i", null, "sie bleiben bis zum letzten Dreh")), React.createElement("span", {
     className: "frei-zahl"
   }, frei.uebrig > 0 ? frei.uebrig : 0, React.createElement("i", null, frei.uebrig === 1 ? 'Freispiel' : 'Freispiele'))), React.createElement(WalzenSchirm, {
     baender: baender,
@@ -14333,7 +14434,7 @@ const ArenaTisch = ({
     className: "leise"
   }, "Nichts. Nochmal."), ergebnis && !laeuft && ergebnis.streu.length > 0 && React.createElement("span", {
     className: "vollbild"
-  }, "\uD83D\uDC02 Die H\xF6rner!")), frei && frei.uebrig <= 0 && React.createElement("div", {
+  }, "\uD83D\uDC02 Der Stier!")), frei && frei.uebrig <= 0 && React.createElement("div", {
     className: "frei-schluss"
   }, React.createElement("span", null, "Der Sand wird geharkt. Zusammen ", React.createElement("b", null, frei.gesamt), "."), React.createElement("button", {
     className: "risiko-knopf",
@@ -14351,7 +14452,7 @@ const ArenaTisch = ({
     className: 'automat-hebel' + (imFrei ? ' frei' : ''),
     disabled: !kannDrehen || !!lauf.auto,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : imFrei ? '🗡️ Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), React.createElement(AutolaufLeiste, {
+  }, laeuft ? 'Läuft…' : imFrei ? '🐂 Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), React.createElement(AutolaufLeiste, {
     lauf: lauf,
     gesperrt: !kannDrehen
   }), riskierbar > 0 && !laeuft && !risiko && !lauf.auto && !imFrei && React.createElement("div", {
@@ -14369,7 +14470,7 @@ const ArenaTisch = ({
     quote: quote,
     kinder: React.createElement("p", {
       className: "automat-fussnote"
-    }, React.createElement("b", null, "Der Sand"), " \u2014 ", ARENA_AUSLOESER, " H\xF6rner auf Walze 1, 3 und 5 \xF6ffnen", ' ', ARENA_FREISPIELE, " Freispiele. Anderswo liegen die H\xF6rner nicht, und je Walze z\xE4hlt eines. In den Freispielen bleibt jede Klinge, die f\xE4llt, bis zum letzten Dreh stehen und sammelt sich mit den anderen. Nachgelegt wird nicht: nach ", ARENA_FREISPIELE, " Drehungen ist die Runde zu Ende, gleich was f\xE4llt.")
+    }, React.createElement("b", null, "Der Stier"), " \u2014 ", ARENA_AUSLOESER, " Stiere auf Walze 1, 3 und 5 \xF6ffnen", ' ', ARENA_FREISPIELE, " Freispiele. Anderswo liegt der Stier nicht, und je Walze z\xE4hlt einer. In den Freispielen bleibt jeder Torero, der f\xE4llt, bis zum letzten Dreh stehen und sammelt sich mit den anderen. Nachgelegt wird nicht: nach ", ARENA_FREISPIELE, " Drehungen ist die Runde zu Ende, gleich was f\xE4llt.")
   })));
 };
 
@@ -14378,92 +14479,123 @@ const AUGE_FREISPIELE = 12;
 const AUGE_AUSLOESER = 3;
 const AUGE_DAZU = [0, 1, 2, 3];
 const AUGE_HOECHSTSPIELE = 20;
+const AUGE_BILD = 'bilder/auge/';
 const AUGE_SYMBOLE = [{
+  k: 'auge',
+  z: '👁️',
+  name: 'Das Auge',
+  bild: AUGE_BILD + 'auge.jpg',
+  zahlt: {
+    3: 90,
+    4: 720,
+    5: 3250
+  }
+}, {
+  k: 'anubis',
+  z: '🐺',
+  name: 'Anubis',
+  bild: AUGE_BILD + 'anubis.jpg',
+  zahlt: {
+    3: 65,
+    4: 400,
+    5: 1600
+  }
+}, {
   k: 'falke',
   z: '🦅',
   name: 'Der Falke',
+  bild: AUGE_BILD + 'falke.jpg',
   zahlt: {
-    3: 40,
-    4: 330,
-    5: 1500
+    3: 45,
+    4: 230,
+    5: 830
   }
 }, {
-  k: 'natter',
-  z: '🐍',
-  name: 'Die Natter',
+  k: 'skarabaeus',
+  z: '🪲',
+  name: 'Der Skarabäus',
+  bild: AUGE_BILD + 'skarabaeus.jpg',
   zahlt: {
-    3: 30,
-    4: 180,
-    5: 750
+    3: 45,
+    4: 165,
+    5: 500
   }
 }, {
-  k: 'schluessel',
-  z: '🗝️',
-  name: 'Der Schlüssel',
+  k: 'ankh',
+  z: '☥',
+  name: 'Das Anch',
+  bild: AUGE_BILD + 'ankh.jpg',
   zahlt: {
-    3: 20,
-    4: 105,
-    5: 380
+    3: 22,
+    4: 90,
+    5: 330
   }
 }, {
-  k: 'urne',
-  z: '⚱️',
-  name: 'Die Urne',
+  k: 'lotus',
+  z: '🪷',
+  name: 'Der Lotus',
+  bild: AUGE_BILD + 'lotus.jpg',
   zahlt: {
     3: 20,
     4: 75,
-    5: 230
+    5: 260
   }
 }, {
-  k: 'feder',
-  z: '🪶',
-  name: 'Die Feder',
+  k: 'a',
+  z: 'A',
+  name: 'A',
+  bild: AUGE_BILD + 'a.jpg',
   zahlt: {
-    3: 7,
-    4: 30,
-    5: 100
+    3: 14,
+    4: 65,
+    5: 220
   }
 }, {
-  k: 'halm',
-  z: '🌾',
-  name: 'Der Halm',
+  k: 'k',
+  z: 'K',
+  name: 'K',
+  bild: AUGE_BILD + 'k.jpg',
   zahlt: {
-    3: 6,
-    4: 23,
-    5: 80
+    3: 13,
+    4: 50,
+    5: 175
   }
 }, {
-  k: 'tropfen',
-  z: '💧',
-  name: 'Der Tropfen',
+  k: 'q',
+  z: 'Q',
+  name: 'Q',
+  bild: AUGE_BILD + 'q.jpg',
   zahlt: {
-    3: 5,
-    4: 18,
-    5: 62
+    3: 11,
+    4: 40,
+    5: 135
   }
 }, {
-  k: 'kiesel',
-  z: '🪨',
-  name: 'Der Kiesel',
+  k: 'j',
+  z: 'J',
+  name: 'J',
+  bild: AUGE_BILD + 'j.jpg',
   zahlt: {
-    3: 5,
-    4: 15,
-    5: 50
+    3: 10,
+    4: 33,
+    5: 110
   }
 }, {
   k: 'waechter',
-  z: '👁️',
-  name: 'Der Wächter',
+  z: '🦅',
+  name: 'Horus',
+  bild: AUGE_BILD + 'horus.jpg',
   wild: true
 }, {
   k: 'tor',
-  z: '🚪',
-  name: 'Das Tor',
+  z: '🔺',
+  name: 'Die Pyramide',
+  bild: AUGE_BILD + 'pyramide.jpg',
   streu: {
     3: 0
   }
 }];
-const AUGE_LEITER = ['kiesel', 'tropfen', 'halm', 'feder'];
+const AUGE_LEITER = ['j', 'q', 'k', 'a'];
 const AUGE_HOECHSTE = AUGE_LEITER.length - 1;
 const augeVeredeln = (feld, stufe) => {
   const n = Math.max(0, Math.min(AUGE_HOECHSTE, stufe || 0));
@@ -14477,26 +14609,30 @@ const augeVeredeln = (feld, stufe) => {
 const augeUnterstes = stufe => AUGE_LEITER[Math.max(0, Math.min(AUGE_HOECHSTE, stufe || 0))];
 const AUGE_BANDLAENGE = 60;
 const AUGE_RAND = {
-  falke: 3,
-  natter: 4,
-  schluessel: 5,
-  urne: 6,
-  feder: 8,
-  halm: 9,
-  tropfen: 10,
-  kiesel: 13,
+  auge: 3,
+  anubis: 4,
+  falke: 5,
+  skarabaeus: 5,
+  ankh: 6,
+  lotus: 6,
+  a: 7,
+  k: 7,
+  q: 7,
+  j: 8,
   tor: 2
 };
 const AUGE_MITTE = {
   waechter: 2,
-  falke: 3,
-  natter: 4,
-  schluessel: 5,
-  urne: 5,
-  feder: 8,
-  halm: 8,
-  tropfen: 10,
-  kiesel: 14,
+  auge: 3,
+  anubis: 4,
+  falke: 4,
+  skarabaeus: 5,
+  ankh: 5,
+  lotus: 6,
+  a: 7,
+  k: 7,
+  q: 7,
+  j: 9,
   tor: 1
 };
 const AUGE_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(w === 0 || w === 4 ? AUGE_RAND : AUGE_MITTE, AUGE_BANDLAENGE, w * 0.2 + 0.05));
@@ -14559,54 +14695,64 @@ const augeMessen = (symbole, baender, drehungen, zufall) => wMessen({
 const AUGE_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
+    a: {
+      3: 0.03803,
+      4: 0.01298,
+      5: 0.009143
+    },
+    ankh: {
+      3: 0.0133,
+      4: 0.001677,
+      5: 0.0001926
+    },
+    anubis: {
+      3: 0.006732,
+      4: 0.0007658,
+      5: 0.0000567
+    },
+    auge: {
+      3: 0.003628,
+      4: 0.0003457,
+      5: 0.0000197
+    },
     falke: {
-      3: 0.003599,
-      4: 0.0003462,
-      5: 0.00001913
+      3: 0.008422,
+      4: 0.0008972,
+      5: 0.0000793
     },
-    feder: {
-      3: 0.05313,
-      4: 0.02396,
-      5: 0.03733
+    j: {
+      3: 0.03722,
+      4: 0.007306,
+      5: 0.001127
     },
-    halm: {
-      3: 0.0416,
-      4: 0.01013,
-      5: 0.005573
+    k: {
+      3: 0.02608,
+      4: 0.00516,
+      5: 0.001386
     },
-    kiesel: {
-      3: 0.1146,
-      4: 0.0327,
-      5: 0.009071
+    lotus: {
+      3: 0.01699,
+      4: 0.002483,
+      5: 0.0002803
     },
-    natter: {
-      3: 0.006718,
-      4: 0.0007466,
-      5: 0.00005338
+    q: {
+      3: 0.02436,
+      4: 0.004198,
+      5: 0.0006722
     },
-    schluessel: {
-      3: 0.01105,
-      4: 0.001405,
-      5: 0.0001215
-    },
-    tropfen: {
-      3: 0.05805,
-      4: 0.01346,
-      5: 0.003593
-    },
-    urne: {
-      3: 0.0131,
-      4: 0.001647,
-      5: 0.0001839
+    skarabaeus: {
+      3: 0.01112,
+      4: 0.001447,
+      5: 0.0001331
     }
   },
   streu: {
     tor: {
-      1: 0.2641,
-      2: 0.03862,
-      3: 0.002741,
-      4: 0.0000915,
-      5: 8.75e-7
+      1: 0.2637,
+      2: 0.03858,
+      3: 0.00277,
+      4: 0.0000906,
+      5: 0.0000017
     }
   }
 };
@@ -14731,6 +14877,7 @@ const AugeTisch = ({
       zahlen(b);
       setRisiko(null);
     },
+    onTeilen: b => zahlen(b),
     onSchliessen: () => setRisiko(null)
   }), React.createElement("div", {
     className: "automat-mitte aut-mitte"
@@ -14740,9 +14887,9 @@ const AugeTisch = ({
     className: "frei-leiste"
   }, React.createElement("span", {
     className: "frei-zeichen"
-  }, "\uD83D\uDC41\uFE0F"), React.createElement("span", {
+  }, wZeichen(wSymbol('waechter', symbole))), React.createElement("span", {
     className: "frei-text"
-  }, React.createElement("b", null, frei.stufe === 0 ? 'Noch nichts veredelt' : (frei.stufe >= AUGE_HOECHSTE ? 'Die Leiter ist oben: ' : 'Unterstes Zeichen: ') + (unten ? unten.name : '')), React.createElement("i", null, "jeder W\xE4chter nimmt die unterste Sprosse")), React.createElement("span", {
+  }, React.createElement("b", null, frei.stufe === 0 ? 'Noch nichts veredelt' : (frei.stufe >= AUGE_HOECHSTE ? 'Die Leiter ist oben: ' : 'Unterstes Zeichen: ') + (unten ? unten.name : '')), React.createElement("i", null, "jeder Horus nimmt die unterste Sprosse")), React.createElement("span", {
     className: "frei-zahl"
   }, frei.uebrig > 0 ? frei.uebrig : 0, React.createElement("i", null, frei.uebrig === 1 ? 'Freispiel' : 'Freispiele'))), React.createElement("div", {
     className: "auge-leiter",
@@ -14752,7 +14899,7 @@ const AugeTisch = ({
     return React.createElement("span", {
       key: k,
       className: 'auge-sprosse' + (i < frei.stufe ? ' weg' : '') + (i === frei.stufe ? ' unten' : '')
-    }, s ? s.z : '');
+    }, s ? wZeichen(s) : '');
   }))), React.createElement(WalzenSchirm, {
     baender: baender,
     symbole: symbole,
@@ -14775,13 +14922,13 @@ const AugeTisch = ({
     className: "leise"
   }, "Nichts. Nochmal."), ergebnis && !laeuft && ergebnis.streu.length > 0 && React.createElement("span", {
     className: "vollbild"
-  }, "\uD83D\uDEAA Die Tore!"), ergebnis && !laeuft && !imFrei && ergebnis.wilds > 0 && !frei && React.createElement("span", {
+  }, "\uD83D\uDD3A Die Pyramiden!"), ergebnis && !laeuft && !imFrei && ergebnis.wilds > 0 && !frei && React.createElement("span", {
     className: "freidreh"
-  }, "\uD83D\uDC41\uFE0F ", ergebnis.wilds === 1 ? 'Der Wächter' : ergebnis.wilds + ' Wächter'), frei && frei.neu > 0 && !laeuft && React.createElement("span", {
+  }, ergebnis.wilds === 1 ? 'Horus' : ergebnis.wilds + '× Horus'), frei && frei.neu > 0 && !laeuft && React.createElement("span", {
     className: "freidreh"
   }, "+", frei.neu, " Freidreh", frei.neu > 1 ? 'e' : '', frei.gerueckt > 0 && ' · ' + frei.gerueckt + ' Stufe' + (frei.gerueckt > 1 ? 'n' : '') + ' hoch')), frei && frei.uebrig <= 0 && React.createElement("div", {
     className: "frei-schluss"
-  }, React.createElement("span", null, "Der W\xE4chter schlie\xDFt die Augen", frei.gespielt >= AUGE_HOECHSTSPIELE ? ' nach ' + AUGE_HOECHSTSPIELE + ' Drehungen' : '', ". Zusammen ", React.createElement("b", null, frei.gesamt), "."), React.createElement("button", {
+  }, React.createElement("span", null, "Horus schlie\xDFt die Augen", frei.gespielt >= AUGE_HOECHSTSPIELE ? ' nach ' + AUGE_HOECHSTSPIELE + ' Drehungen' : '', ". Zusammen ", React.createElement("b", null, frei.gesamt), "."), React.createElement("button", {
     className: "risiko-knopf",
     onClick: () => setFrei(null)
   }, "Verstanden")), React.createElement("div", {
@@ -14797,7 +14944,7 @@ const AugeTisch = ({
     className: 'automat-hebel' + (imFrei ? ' frei' : ''),
     disabled: !kannDrehen || !!lauf.auto,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : imFrei ? '👁️ Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), React.createElement(AutolaufLeiste, {
+  }, laeuft ? 'Läuft…' : imFrei ? '🔺 Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), React.createElement(AutolaufLeiste, {
     lauf: lauf,
     gesperrt: !kannDrehen
   }), riskierbar > 0 && !laeuft && !risiko && !lauf.auto && !imFrei && React.createElement("div", {
@@ -14815,7 +14962,7 @@ const AugeTisch = ({
     quote: quote,
     kinder: React.createElement("p", {
       className: "automat-fussnote"
-    }, React.createElement("b", null, "Der Blick"), " \u2014 der W\xE4chter liegt nur auf Walze 2, 3 und 4 und f\xFCllt die ganze Walze, auf der er f\xE4llt. Er zahlt selbst nichts, ersetzt aber jedes Zeichen au\xDFer dem Tor. ", AUGE_AUSLOESER, " Tore \xF6ffnen", ' ', AUGE_FREISPIELE, " Freispiele, und darin nimmt jeder W\xE4chter das unterste Zeichen der Tafel von den Walzen \u2014 alles r\xFCckt eine Stufe hoch, f\xFCr den Rest der Runde. Dazu ein Freidreh je W\xE4chter, drei bei zweien, f\xFCnf bei dreien.")
+    }, React.createElement("b", null, "Horus"), " \u2014 er liegt nur auf Walze 2, 3 und 4 und f\xFCllt die ganze Walze, auf der er f\xE4llt. Er zahlt selbst nichts, ersetzt aber jedes Zeichen au\xDFer der Pyramide. ", AUGE_AUSLOESER, " Pyramiden \xF6ffnen", ' ', AUGE_FREISPIELE, " Freispiele, und darin nimmt jeder Horus den untersten Buchstaben von den Walzen \u2014 J, dann Q, dann K \u2014, und alles r\xFCckt eine Stufe hoch, f\xFCr den Rest der Runde. Dazu ein Freidreh je Horus, zwei bei zweien, drei bei dreien, h\xF6chstens ", AUGE_HOECHSTSPIELE, " Drehungen.")
   })));
 };
 
@@ -15211,6 +15358,7 @@ const HutTisch = ({
       zahlen(b);
       setRisiko(null);
     },
+    onTeilen: b => zahlen(b),
     onSchliessen: () => setRisiko(null)
   }), React.createElement("div", {
     className: "automat-mitte aut-mitte"

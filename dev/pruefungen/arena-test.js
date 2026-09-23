@@ -20,12 +20,12 @@ const ist = (name, a, b) => {
 const wahr = (name, a) => ist(name, !!a, true);
 
 const S = ARENA_SYMBOLE;
-// K Klinge, F Fechterin, R Rose, T Trommel, S Schild, H Hoerner.
+// K Torero (klinge), F Senorita, R Rose, T Gitarre, S Hut, H Stier (hoerner).
 // Der Punkt ist Fuellung: je Walze ein anderes Zeichen, damit keine
 // Kette entsteht, die niemand gemeint hat.
-const KURZ = {K:'klinge', F:'fechterin', R:'rose', T:'trommel', S:'schild',
-              B:'becher', G:'glocke', N:'handschuh', E:'kette', H:'hoerner'};
-const FUELL = ['becher', 'glocke', 'handschuh', 'kette', 'trommel'];
+const KURZ = {K:'klinge', F:'senorita', R:'rose', T:'gitarre', S:'hut',
+              A:'a', X:'k', Q:'q', J:'j', Z:'zehn', H:'hoerner'};
+const FUELL = ['a', 'k', 'q', 'j', 'gitarre'];
 const F = (s) => s.split('').map((c, i) => c === '.' ? FUELL[i % 5] : KURZ[c]);
 const EIN = 10;      // Gesamteinsatz; der Linieneinsatz ist 1
 
@@ -36,6 +36,8 @@ ist('die Hoerner liegen nur auf Walze 1, 3 und 5',
   ARENA_BAENDER.map(b => b.includes('hoerner')), [true, false, true, false, true]);
 ist('und dort viermal',
   [0, 2, 4].map(w => ARENA_BAENDER[w].filter(k => k === 'hoerner').length), [4, 4, 4]);
+wahr('jedes Zeichen hat sein Bild, und das liegt da',
+  S.every(s => s.bild && fs.existsSync(s.bild)));
 wahr('die Klinge liegt auf jeder Walze',
   ARENA_BAENDER.every(b => b.filter(k => k === 'klinge').length === 3));
 wahr('zwei Hoerner liegen nie nebeneinander',
@@ -62,32 +64,32 @@ ist('  … und zahlen dabei selbst nichts', dreiHoerner.streu[0].betrag, 0);
 const dreh = (s, klebt) => arenaDreh(F(s), S, EIN, klebt);
 ist('drei Klingen zahlen selbst',
   dreh('.....' + 'KKK..' + '.....').treffer.find(t => t.nr === 0).sym.k, 'klinge');
-ist('  … den Dreier', dreh('.....' + 'KKK..' + '.....').treffer.find(t => t.nr === 0).betrag, 45);
-// Die Klinge vertritt, was mehr bringt: zwei Klingen und drei
-// Fechterinnen zahlen als Fechterin (Fuenfer 225), nicht als Klinge
+ist('  … den Dreier', dreh('.....' + 'KKK..' + '.....').treffer.find(t => t.nr === 0).betrag, 47);
+// Der Torero vertritt, was mehr bringt: zwei Toreros und drei
+// Senoritas zahlen als Senorita (Fuenfer 235), nicht als Torero
 // (Zweier: nichts).
 ist('zwei Klingen und drei Fechterinnen zahlen als Fechterin',
-  dreh('.....' + 'KKFFF' + '.....').treffer.find(t => t.nr === 0).sym.k, 'fechterin');
+  dreh('.....' + 'KKFFF' + '.....').treffer.find(t => t.nr === 0).sym.k, 'senorita');
 ist('  … den Fuenfer',
-  dreh('.....' + 'KKFFF' + '.....').treffer.find(t => t.nr === 0).betrag, 225);
-// Und auch vier Klingen mit einer Fechterin dahinter zahlen als
-// Fechterin: fuenf davon (225) bringen mehr als vier Klingen (135). Wer
+  dreh('.....' + 'KKFFF' + '.....').treffer.find(t => t.nr === 0).betrag, 235);
+// Und auch vier Toreros mit einer Senorita dahinter zahlen als
+// Senorita: fuenf davon (235) bringen mehr als vier Toreros (140). Wer
 // hier das erste Feld befragte statt zu rechnen, zahlte zu wenig.
 ist('vier Klingen und eine Fechterin zahlen als Fechterin',
-  dreh('.....' + 'KKKKF' + '.....').treffer.find(t => t.nr === 0).sym.k, 'fechterin');
-ist('  … naemlich 225 statt der 135 der Klinge',
-  dreh('.....' + 'KKKKF' + '.....').treffer.find(t => t.nr === 0).betrag, 225);
+  dreh('.....' + 'KKKKF' + '.....').treffer.find(t => t.nr === 0).sym.k, 'senorita');
+ist('  … naemlich 235 statt der 140 des Toreros',
+  dreh('.....' + 'KKKKF' + '.....').treffer.find(t => t.nr === 0).betrag, 235);
 // Erst wenn nichts Besseres dahintersteht, zahlt die Klinge selbst.
 ist('fuenf Klingen zahlen als Klinge',
   dreh('.....' + 'KKKKK' + '.....').treffer.find(t => t.nr === 0).sym.k, 'klinge');
 ist('  … den Fuenfer der Klinge',
-  dreh('.....' + 'KKKKK' + '.....').treffer.find(t => t.nr === 0).betrag, 450);
-// Steht es unentschieden, gewinnt die laengere Kette: drei Klingen
-// zahlen 45, drei Klingen plus eine Rose als Rose-Vierer ebenfalls 45 —
+  dreh('.....' + 'KKKKK' + '.....').treffer.find(t => t.nr === 0).betrag, 470);
+// Steht es unentschieden, gewinnt die laengere Kette: drei Toreros
+// zahlen 47, drei Toreros plus eine Rose als Rose-Vierer ebenfalls 47 —
 // gezeigt wird der Vierer, denn er beschreibt, was dasteht.
 const gleich = dreh('.....' + 'KKKR.' + '.....').treffer.find(t => t.nr === 0);
 ist('bei gleichem Betrag gewinnt die laengere Kette',
-  [gleich.sym.k, gleich.laenge, gleich.betrag], ['rose', 4, 45]);
+  [gleich.sym.k, gleich.laenge, gleich.betrag], ['rose', 4, 47]);
 // Die Hoerner ersetzt sie nicht.
 wahr('die Klinge ersetzt die Hoerner nicht',
   arenaZahl(F('K.H.H' + '.....' + '.....'), S) === 2);
@@ -117,7 +119,7 @@ ist('drei Freidrehe, drei Klingen im Sand', klebt, [5, 7, 9]);
 // Und die zahlen dann zusammen.
 const dritter = dreh('.....' + '.K.K.' + '.....', [5, 7, 9]);
 ist('fuenf klebende und gefallene Klingen in der Mitte',
-  dritter.treffer.find(t => t.nr === 0).betrag, 450);
+  dritter.treffer.find(t => t.nr === 0).betrag, 470);
 
 // ── Die Rechnung ─────────────────────────────────────────────────
 ist('die Haeufigkeitstafel ist auf eine Drehung normiert', ARENA_HAEUFIGKEIT.drehungen, 1);

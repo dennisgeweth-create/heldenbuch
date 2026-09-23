@@ -276,6 +276,7 @@ const HutTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       {risiko && (
         <RisikoFenster risiko={risiko} setRisiko={setRisiko}
           onNehmen={(b)=>{ zahlen(b); setRisiko(null); }}
+          onTeilen={(b)=>zahlen(b)}
           onSchliessen={()=>setRisiko(null)} />
       )}
 
