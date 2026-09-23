@@ -22,7 +22,6 @@
 // Alles bis zur Markierung ist reine Rechnung
 // (dev/pruefungen/tagebuch-test.js).
 
-const TB_BILDER_JE_MAL = 20;        // so viele nimmt der Server auf einmal
 const TB_BILD_KANTE    = 2400;      // längere Kante vor dem Hochladen
 const TB_WOCHENTAGE    = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
@@ -96,7 +95,10 @@ const TB_ARTEN = {png: 'bild', jpg: 'bild', jpeg: 'bild', webp: 'bild',
                   mp4: 'video', m4v: 'video', webm: 'video', ogv: 'video'};
 const TB_TYPEN = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp',
                   'video/mp4': 'mp4', 'video/webm': 'webm', 'video/ogg': 'ogv'};
-const TB_GRENZE = {bild: 12000000, video: 32000000};
+// Bilder werden ohnehin kleiner gerechnet; Videos gehen stueckweise und
+// duerfen deshalb gross sein (api.php, TB_MAX_VIDEO).
+const TB_GRENZE = {bild: 12000000, video: 1073741824};
+const TB_GRENZE_TEXT = {bild: '12 MB', video: '1 GB'};
 const tbEndung = (datei) => TB_TYPEN[(datei && datei.type) || '']
   || (/\.(png|jpe?g|webp|mp4|m4v|webm|ogv)$/i.exec((datei && datei.name) || '') || [])[1] || '';
 const tbArt = (was) => TB_ARTEN[String(was || '').toLowerCase()] || '';
@@ -108,30 +110,44 @@ const tbTadel = (datei) => {
   const name = (datei && datei.name) || 'Die Datei';
   if (!art) return '„' + name + '": nur PNG, JPEG, WebP — oder MP4, WebM, OGV.';
   if ((datei.size || 0) > TB_GRENZE[art]) {
-    // In runden Millionen, wie es auch der Server sagt — „11,4 MB" wäre
-    // dieselbe Grenze und läse sich wie eine andere.
+    // Die Grenze in denselben Worten, die auch der Server benutzt —
+    // „11,4 MB" wäre dieselbe Zahl und läse sich wie eine andere.
     return '„' + name + '" ist ' + tbGroesse(datei.size) + ' groß — erlaubt sind '
-      + Math.round(TB_GRENZE[art] / 1000000) + (art === 'video' ? ' MB je Video.' : ' MB je Bild.');
+      + TB_GRENZE_TEXT[art] + (art === 'video' ? ' je Video.' : ' je Bild.');
   }
+  if (!(datei.size > 0)) return '„' + name + '" ist leer.';
   return '';
 };
-// Was auf einmal zum Server geht: höchstens zwanzig Stücke, und
-// zusammen nicht mehr, als eine Anfrage sicher trägt. Ein Video füllt
-// ein Paket meist allein.
-const TB_PAKET_BYTES = 30000000;
-const tbPakete = (medien, maxBytes, maxAnzahl) => {
-  const grenze = maxBytes || TB_PAKET_BYTES;
-  const zahl = maxAnzahl || TB_BILDER_JE_MAL;
+// ── Stückweise ───────────────────────────────────────────────────
+// Eine Datei geht in Stücken von 4 MB zum Server, eines nach dem anderen
+// (api.php, tagebuch_stueck). So hängt nichts mehr an der Größe einer
+// einzelnen Anfrage, und ein Video von 300 MB liegt nie ganz im Speicher:
+// gelesen wird immer nur das Stück, das gerade geht.
+const TB_STUECK = 4194304;
+const tbTeile = (groesse, stueck) => {
+  const s = stueck || TB_STUECK;
   const raus = [];
-  let jetzt = [], summe = 0;
-  for (const m of (medien || [])) {
-    const gross = (m && m.bytes && m.bytes.length) || 0;
-    if (jetzt.length && (jetzt.length >= zahl || summe + gross > grenze)) { raus.push(jetzt); jetzt = []; summe = 0; }
-    jetzt.push(m);
-    summe += gross;
+  for (let von = 0, nr = 0; von < (+groesse || 0); von += s, nr++) {
+    raus.push({nr, von, bis: Math.min(+groesse, von + s)});
   }
-  if (jetzt.length) raus.push(jetzt);
   return raus;
+};
+// Wie weit es ist, in ganzen Prozent — und nie 100, bevor das letzte
+// Stück wirklich angekommen ist.
+const tbProzent = (fertig, groesse) => {
+  if (!(groesse > 0)) return 0;
+  const p = Math.floor(100 * Math.max(0, Math.min(fertig, groesse)) / groesse);
+  return fertig >= groesse ? 100 : Math.min(99, p);
+};
+// Was nach einem Fehler geschieht: der Server sagt, ab welchem Stück er
+// weitermachen will (409), oder es war das Netz (nochmal, ein paar Mal),
+// oder es geht grundsätzlich nicht (aufgeben).
+const tbNachFehler = (fehler, nr, versuche) => {
+  const status = fehler && fehler.status;
+  const erwartet = fehler && fehler.daten && fehler.daten.erwartet;
+  if (status === 409 && Number.isInteger(erwartet) && erwartet >= 0) return {tun: 'springen', nr: erwartet};
+  if (status && status < 500) return {tun: 'aufgeben'};
+  return versuche < 3 ? {tun: 'nochmal', nr, warten: 1500 * (versuche + 1)} : {tun: 'aufgeben'};
 };
 // ══ Ende der reinen Rechnung
 
@@ -142,11 +158,12 @@ const tbVerkleinern = async (datei) => {
   const endung = tbEndung(datei);
   const tadel = tbTadel(datei);
   if (tadel) throw new Error(tadel);
+  // Ein Video geht, wie es ist, und wird hier gar nicht gelesen: neu zu
+  // rechnen dauerte länger als der Abend, den es zeigt, und ganz in den
+  // Speicher passt es nicht immer. Gelesen wird Stück für Stück beim Senden.
+  if (tbArt(endung) === 'video') return {endung, datei, groesse: datei.size, name: datei.name};
   const bytes = await datei.arrayBuffer();
-  const roh = {endung, bytes: new Uint8Array(bytes), name: datei.name};
-  // Ein Video geht, wie es ist: neu zu rechnen dauerte länger als der
-  // Abend, den es zeigt.
-  if (tbArt(endung) === 'video') return roh;
+  const roh = {endung, bytes: new Uint8Array(bytes), groesse: bytes.byteLength, name: datei.name};
   if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') return roh;
   if (datei.size < 800000 && endung !== 'png') return roh;
   try {
@@ -160,10 +177,21 @@ const tbVerkleinern = async (datei) => {
     bild.close();
     const blob = await leinwand.convertToBlob({type: 'image/jpeg', quality: 0.85});
     if (!blob || blob.size >= roh.bytes.length) return roh;
-    return {endung: 'jpg', bytes: new Uint8Array(await blob.arrayBuffer()), name: datei.name};
+    const klein = new Uint8Array(await blob.arrayBuffer());
+    return {endung: 'jpg', bytes: klein, groesse: klein.length, name: datei.name};
   } catch (e) {
     return roh;
   }
+};
+// Ein Stück der Quelle: aus dem Speicher (ein Bild, schon verkleinert)
+// oder frisch von der Platte (ein Video).
+const tbStueckLesen = async (quelle, von, bis) => quelle.bytes
+  ? quelle.bytes.subarray(von, bis)
+  : new Uint8Array(await quelle.datei.slice(von, bis).arrayBuffer());
+const tbKennung = () => {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
 };
 const tbBase64 = (bytes) => {
   let s = '';
@@ -173,7 +201,7 @@ const tbBase64 = (bytes) => {
 
 // ── Das Fenster ──────────────────────────────────────────────────
 const TagebuchFenster = ({ sitzungen, ich, dm, server, chars, logs, chronikZeit, laedt, fehler,
-                           onNeu, onSitzung, onSitzungWeg, onEintrag, onBilder, onBildWeg, onLogs, onZu }) => {
+                           onNeu, onSitzung, onSitzungWeg, onEintrag, onStueck, onFertig, onBildWeg, onLogs, onZu }) => {
   const liste = tbSortiert(sitzungen);
   const [wahlId, setWahlId] = React.useState('');
   const sitzung = liste.find(s => s.id === wahlId) || liste[0] || null;
@@ -219,27 +247,49 @@ const TagebuchFenster = ({ sitzungen, ich, dm, server, chars, logs, chronikZeit,
   const medienWaehlen = async (dateien) => {
     if (!sitzung || !dateien || !dateien.length) return;
     setTadel('');
-    // Erst nachsehen, was gar nicht geht: ein Video von 200 MB soll
+    // Erst nachsehen, was gar nicht geht: ein Video von 2 GB soll
     // nicht erst hochgeladen und dann abgewiesen werden.
     const schlecht = [...dateien].map(tbTadel).filter(Boolean);
     const gut = [...dateien].filter(d => !tbTadel(d));
     if (schlecht.length) setTadel(schlecht.join(' '));
     if (!gut.length) return;
-    setArbeitet(gut.length === 1 ? 'Wird geschickt …' : gut.length + ' Dateien werden geschickt …');
-    try {
-      const fertig = [];
-      for (const d of gut) {
-        const k = await tbVerkleinern(d);
-        fertig.push({endung: k.endung, bytes: k.bytes, daten: tbBase64(k.bytes),
-                     titel: d.name.replace(/\.[^.]+$/, '').slice(0, 160)});
+    // Eine Datei nach der anderen, jede in Stücken. Was schiefgeht, wird
+    // wiederholt oder fortgesetzt (tbNachFehler); was grundsätzlich nicht
+    // geht, steht am Ende da — die übrigen Dateien gehen trotzdem.
+    const fehlschlaege = [];
+    for (let i = 0; i < gut.length; i++) {
+      const d = gut[i];
+      const wer = (gut.length > 1 ? (i + 1) + ' von ' + gut.length + ': ' : '') + '„' + d.name + '"';
+      try {
+        setArbeitet(wer + ' wird vorbereitet …');
+        const quelle = await tbVerkleinern(d);
+        const teile = tbTeile(quelle.groesse);
+        const upload = tbKennung();
+        const titel = d.name.replace(/\.[^.]+$/, '').slice(0, 160);
+        let nr = 0, versuche = 0, schritte = 0;
+        while (nr < teile.length) {
+          if (++schritte > teile.length * 4 + 8) throw new Error('Das Hochladen kommt nicht voran.');
+          const t = teile[nr];
+          setArbeitet(wer + ' — ' + tbProzent(t.von, quelle.groesse) + ' %');
+          try {
+            const bytes = await tbStueckLesen(quelle, t.von, t.bis);
+            await onStueck(sitzung.id, {upload, nr, gesamt: teile.length, groesse: quelle.groesse,
+                                         endung: quelle.endung, titel, daten: tbBase64(bytes)});
+            nr++; versuche = 0;
+          } catch (e) {
+            const weiter = tbNachFehler(e, nr, versuche);
+            if (weiter.tun === 'aufgeben') throw e;
+            if (weiter.tun === 'nochmal') { versuche++; await new Promise(r => setTimeout(r, weiter.warten)); }
+            nr = weiter.nr;
+          }
+        }
+      } catch (e) {
+        fehlschlaege.push('„' + d.name + '": ' + (e.message || 'ging nicht.'));
       }
-      for (const teil of tbPakete(fertig)) {
-        await onBilder(sitzung.id, teil.map(({endung, daten, titel}) => ({endung, daten, titel})));
-      }
-    } catch (e) {
-      setTadel(e.message || 'Das Hochladen ging nicht.');
     }
     setArbeitet('');
+    if (fehlschlaege.length) setTadel([...schlecht, ...fehlschlaege].join(' '));
+    if (onFertig) await onFertig();
   };
 
   return (
@@ -453,7 +503,7 @@ const TagebuchFenster = ({ sitzungen, ich, dm, server, chars, logs, chronikZeit,
         <div className="form-actions">
           <span className="tb-leise" style={{marginRight: 'auto'}}>
             {bearbeiten
-              ? 'Bilder bis 12 MB, Videos bis 32 MB (MP4, WebM, OGV).'
+              ? 'Bilder bis ' + TB_GRENZE_TEXT.bild + ', Videos bis ' + TB_GRENZE_TEXT.video + ' (MP4, WebM, OGV).'
               : 'Bilder und Videos gehören dem Abend, die Texte den Schreibenden.'}
           </span>
           <button className="btn-cancel" onClick={onZu}>Schließen</button>

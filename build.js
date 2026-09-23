@@ -63,6 +63,13 @@ function uebersetze(b) {
     filename: 'app.jsx',
     compact: false,
     sourceMaps: false,
+    // Die Kommentare gehoeren in die Quelle, nicht in die Auslieferung:
+    // sie machten gut ein Viertel des Buendels aus, und jedes Telefon lud
+    // sie mit. Stehen bleiben nur die Trennzeilen je Datei — daran ist im
+    // Buendel zu erkennen, woher ein Abschnitt stammt. Nicht kompakt
+    // gesetzt, damit eine Fehlermeldung im Browser weiter auf eine
+    // lesbare Zeile zeigt.
+    shouldPrintComment: (text) => /^ ==== /.test(text),
   });
   const kopf =
     '// ACHTUNG: erzeugt von build.js aus ' + b.praefix + '*.jsx — Aenderungen hier gehen\n' +

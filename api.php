@@ -799,12 +799,16 @@ function kampfFuerSpieler(array $k, bool $hpOffen, array $eigeneChars = []): arr
 }
 
 // ── Das Sitzungstagebuch ────────────────────────────────────────
-// Ein Bild darf so gross sein wie ein Handyfoto; ein Video so gross,
-// dass es sicher durch post_max_size passt. Base64 macht aus 32 MB rund
-// 43 MB Anfrage — mehr waere ein Glueckspiel mit der PHP-Einstellung,
-// und ein halb angekommenes Video hilft niemandem.
+// Ein Bild darf so gross sein wie ein Handyfoto (der Browser rechnet es
+// vorher ohnehin kleiner).
 const TB_MAX_BILD   = 12000000;
-const TB_MAX_VIDEO  = 32000000;
+// Hochgeladen wird stueckweise (tagebuch_stueck): jede Anfrage traegt
+// hoechstens 4 MB, als Base64 rund 5,6 MB. Die Grenze fuer ein Video haengt
+// deshalb nicht mehr an post_max_size (bis v5.24 waren es 32 MB am Stueck),
+// sondern am Platz auf dem Webspace und der Geduld beim Hochladen.
+const TB_STUECK     = 4194304;
+const TB_MAX_VIDEO  = 1073741824;   // 1 GB
+const TB_TEIL_ALTER     = 86400;           // halbe Uploads nach einem Tag weg
 const TB_MAX_TEXT   = 60000;
 const TB_BILD_ARTEN = ['png' => 'png', 'jpg' => 'jpg', 'jpeg' => 'jpg', 'webp' => 'webp'];
 // Nur, was ein Browser von sich aus abspielt. MOV und MKV bleiben
@@ -2783,9 +2787,13 @@ switch ($action) {
         respond(200, 'Gespeichert.');
     }
 
-    // Bilder zur Sitzung. Der Name kommt vom Server: der Browser bestimmt
-    // nur die Endung, und die muss zum Inhalt passen.
-    case 'tagebuch_bild_hoch': {
+    // Stueckweise hochladen. Die Stuecke kommen der Reihe nach; jedes
+    // haengt sich an eine Teildatei im Ordner des Abends. Wer ein Stueck
+    // zweimal schickt (weil die Antwort verloren ging), bekommt ein Ja und
+    // nichts doppelt; wer eines auslaesst, erfaehrt, wo es weitergeht.
+    // Erst mit dem letzten Stueck wird geprueft, ob der Inhalt zur Endung
+    // passt, und die Datei bekommt ihren Namen.
+    case 'tagebuch_stueck': {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $z = zugang($pdo, $code, $pass, $body);
         if (empty($z['user'])) respond(403, 'Dafür braucht es ein Konto.');
@@ -2793,40 +2801,66 @@ switch ($action) {
         $id = (string)($body['sitzung_id'] ?? '');
         $s = $advId !== '' && planId($id) ? tbSitzung($pdo, $code, $advId, $id) : null;
         if (!$s) respond(404, 'Die Sitzung gibt es nicht.');
-        $liste = $body['bilder'] ?? null;
-        if (!is_array($liste) || !$liste) respond(400, 'Keine Dateien.');
-        if (count($liste) > 20) respond(413, 'Höchstens 20 auf einmal.');
-        $fertig = [];
-        foreach ($liste as $b) {
-            $endung = strtolower((string)($b['endung'] ?? ''));
-            $art = tbArtVon($endung);
-            if ($art === '') respond(415, 'Nur PNG, JPEG, WebP — oder MP4, WebM, OGV.');
-            $soll = $art === 'video' ? TB_VIDEO_ARTEN[$endung] : TB_BILD_ARTEN[$endung];
-            $daten = base64_decode((string)($b['daten'] ?? ''), true);
-            if ($daten === false || $daten === '') respond(400, 'Eine Datei kam nicht lesbar an.');
-            $grenze = $art === 'video' ? TB_MAX_VIDEO : TB_MAX_BILD;
-            if (strlen($daten) > $grenze) {
-                respond(413, $art === 'video' ? 'Ein Video ist größer als 32 MB.' : 'Ein Bild ist größer als 12 MB.');
-            }
-            if (!tbInhaltPasst($soll, $daten)) respond(415, 'Der Inhalt passt nicht zur Endung.');
-            $fertig[] = ['endung' => $soll, 'daten' => $daten,
-                         'titel' => mb_substr(trim((string)($b['titel'] ?? '')), 0, 160)];
+        $upload = (string)($body['upload'] ?? '');
+        if (!preg_match('/^[0-9a-f]{32}$/', $upload)) respond(400, 'Ungültige Kennung des Uploads.');
+        $nr = (int)($body['nr'] ?? -1);
+        $gesamt = (int)($body['gesamt'] ?? 0);
+        $groesse = (int)($body['groesse'] ?? 0);
+        $endung = strtolower((string)($body['endung'] ?? ''));
+        $art = tbArtVon($endung);
+        if ($art === '') respond(415, 'Nur PNG, JPEG, WebP — oder MP4, WebM, OGV.');
+        $grenze = $art === 'video' ? TB_MAX_VIDEO : TB_MAX_BILD;
+        if ($groesse < 1) respond(400, 'Leere Datei.');
+        if ($groesse > $grenze) {
+            respond(413, $art === 'video' ? 'Ein Video ist größer als 1 GB.' : 'Ein Bild ist größer als 12 MB.');
         }
+        if ($gesamt !== (int)ceil($groesse / TB_STUECK) || $nr < 0 || $nr >= $gesamt) {
+            respond(400, 'Die Stücke passen nicht zur Größe.');
+        }
+        $daten = base64_decode((string)($body['daten'] ?? ''), true);
+        if ($daten === false) respond(400, 'Das Stück kam nicht lesbar an.');
+        $soll = $nr === $gesamt - 1 ? $groesse - $nr * TB_STUECK : TB_STUECK;
+        if (strlen($daten) !== $soll) respond(400, 'Das Stück hat die falsche Länge.');
+
         $ordner = planOrdner((string)$s['ablage'], true);
-        $raus = [];
-        foreach ($fertig as $b) {
-            $name = bin2hex(random_bytes(8)) . '.' . $b['endung'];
-            $ziel = $ordner . '/' . $name;
-            $tmp = $ziel . '.' . bin2hex(random_bytes(4)) . '.tmp';
-            if (@file_put_contents($tmp, $b['daten']) === false) respond(507, 'Das Bild ließ sich nicht schreiben (Speicherplatz?).');
-            if (!@rename($tmp, $ziel)) { @unlink($tmp); respond(500, 'Das Bild ließ sich nicht ablegen.'); }
-            $pdo->prepare("INSERT INTO hb_tb_bild (session_code, sitzung_id, datei, titel, bytes, user_id, user_name)
-                           VALUES(?,?,?,?,?,?,?)")
-                ->execute([$code, $id, $name, $b['titel'], strlen($b['daten']),
-                           (int)$z['user']['id'], mb_substr((string)$z['user']['name'], 0, 100)]);
-            $raus[] = ['id' => (int)$pdo->lastInsertId(), 'datei' => $name, 'titel' => $b['titel']];
+        $teil = $ordner . '/' . $upload . '.teil';
+        // Mit dem ersten Stueck: angefangene Uploads, die seit einem Tag
+        // niemand fortsetzt, raeumen sich weg.
+        if ($nr === 0) {
+            foreach (glob($ordner . '/*.teil') ?: [] as $alt) {
+                if ($alt !== $teil && @filemtime($alt) < time() - TB_TEIL_ALTER) @unlink($alt);
+            }
+            @unlink($teil);
         }
-        respond(201, 'Hochgeladen.', ['bilder' => $raus, 'ablage' => (string)$s['ablage']]);
+        clearstatcache(true, $teil);
+        $da = is_file($teil) ? (int)filesize($teil) : 0;
+        $ab = $nr * TB_STUECK;
+        if ($da === $ab + $soll) {
+            // Schon angekommen — die Antwort ging verloren. Nichts doppelt.
+        } elseif ($da === $ab) {
+            if (@file_put_contents($teil, $daten, FILE_APPEND | LOCK_EX) === false) {
+                respond(507, 'Das Stück ließ sich nicht schreiben (Speicherplatz?).');
+            }
+        } else {
+            respond(409, 'Da fehlt ein Stück.', ['erwartet' => intdiv($da, TB_STUECK)]);
+        }
+        if ($nr < $gesamt - 1) respond(200, 'Stück angekommen.', ['nr' => $nr]);
+
+        // Das letzte Stueck: jetzt ist die Datei ganz.
+        clearstatcache(true, $teil);
+        if ((int)filesize($teil) !== $groesse) { @unlink($teil); respond(400, 'Die Datei kam nicht vollständig an.'); }
+        $kopf = (string)@file_get_contents($teil, false, null, 0, 64);
+        $zielArt = $art === 'video' ? TB_VIDEO_ARTEN[$endung] : TB_BILD_ARTEN[$endung];
+        if (!tbInhaltPasst($zielArt, $kopf)) { @unlink($teil); respond(415, 'Der Inhalt passt nicht zur Endung.'); }
+        $name = bin2hex(random_bytes(8)) . '.' . $zielArt;
+        if (!@rename($teil, $ordner . '/' . $name)) { @unlink($teil); respond(500, 'Die Datei ließ sich nicht ablegen.'); }
+        $titel = mb_substr(trim((string)($body['titel'] ?? '')), 0, 160);
+        $pdo->prepare("INSERT INTO hb_tb_bild (session_code, sitzung_id, datei, titel, bytes, user_id, user_name)
+                       VALUES(?,?,?,?,?,?,?)")
+            ->execute([$code, $id, $name, $titel, $groesse,
+                       (int)$z['user']['id'], mb_substr((string)$z['user']['name'], 0, 100)]);
+        respond(201, 'Hochgeladen.', ['bild' => ['id' => (int)$pdo->lastInsertId(), 'datei' => $name, 'titel' => $titel],
+                                      'ablage' => (string)$s['ablage']]);
     }
 
     case 'tagebuch_bild_weg': {

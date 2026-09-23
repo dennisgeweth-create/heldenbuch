@@ -2,13 +2,6 @@
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
 // Zusammengesetzt aus: 0-basis.jsx, 1-paket.jsx, 1b-kacheln.jsx, 1c-reise.jsx, 1d-begegnung.jsx, 1e-sicht.jsx, 1f-welt.jsx, 1g-gruppe.jsx, 2-leinwand.jsx, 3-ort.jsx, 3b-reise.jsx, 3c-begegnung.jsx, 3d-sicht.jsx, 3e-welt.jsx, 3f-gruppe.jsx, 4-app.jsx
 // ==== planer/src/0-basis.jsx ====
-// ── Abenteuerplaner: Grundlagen ──────────────────────────────────
-// Der Planer ist eine eigene Seite neben dem Heldenbuch, mit eigenem
-// Buendel (planer/planer.js) — aber derselben Anmeldung, derselben
-// Gruppe und derselben api.php. Siehe PLANER.md.
-//
-// Die Dateien in planer/src/ werden wie im Heldenbuch in Namensreihenfolge
-// aneinandergehaengt und teilen sich einen Geltungsbereich.
 const {
   useState,
   useEffect,
@@ -16,48 +9,21 @@ const {
   useCallback,
   useMemo
 } = React;
-
-// Die Ausgabe des Planers zaehlt eigenstaendig: er waechst in Stufen,
-// die mit den Ausgaben des Heldenbuchs nichts zu tun haben.
 const PLANER_VERSION = 'Stufe 6';
 
 // ==== planer/src/1-paket.jsx ====
-// ── Das Paket: Im- und Export als .hbplan ────────────────────────
-// Ein Abenteuer im Planer besteht aus Text (Karten, Orte, Routen) und
-// aus Bildern — bei grossen Karten Tausenden Kacheln. Reines JSON mit
-// Base64 waere ein Drittel groesser und muesste als Ganzes in den
-// Speicher. Deshalb ist eine .hbplan-Datei ein gewoehnliches ZIP:
-//
-//     hbplan.json                  was es ist, und alles ausser Bildern
-//     karten/<karte>/<pfad>        die Dateien jeder Karte, wie abgelegt
-//
-// Jedes Entpackprogramm kann hineinsehen. Geschrieben und gelesen wird
-// das ZIP selbst in js/zip.js (zipSchreiben, zipLesen) — dieselbe Datei
-// benutzt das Heldenbuch fuer sein Buendel Boegen. Hier steht nur, was
-// ein .hbplan ausmacht.
-//
-// Alles bis zur Markierung unten ist reine Rechnung und wird von
-// dev/pruefungen/planer-paket-test.js ohne Browser geprueft.
-
-// ── Das Format ───────────────────────────────────────────────────
 const HBPLAN_FORMAT = 'heldenbuch-planer';
 const HBPLAN_VERSION = 1;
 const HBPLAN_MANIFEST = 'hbplan.json';
-// Dieselbe Regel wie PLAN_PFAD in api.php: was der Server nicht
-// annimmt, soll schon beim Lesen auffallen und nicht nach der Haelfte.
 const PLAN_PFAD_RE = /^(?:[a-z0-9][a-z0-9_-]{0,40}\/){0,6}[a-z0-9][a-z0-9_-]{0,60}\.(webp|png|jpg|jpeg|json)$/;
 const PLAN_ID_RE = /^[A-Za-z0-9_-]{3,50}$/;
 const PLAN_ARTEN = ['ort', 'route', 'reise', 'figur', 'region', 'notiz', 'tabelle', 'handout', 'quest', 'hinweis', 'fraktion', 'gruppe'];
-// Dieselbe Liste wie PLAN_OHNE_KARTE in api.php.
 const PLAN_OHNE_KARTE = ['handout', 'quest', 'hinweis', 'fraktion'];
 const planNeueId = vorsilbe => {
   const b = new Uint8Array(8);
   crypto.getRandomValues(b);
   return vorsilbe + '_' + Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
 };
-
-// Was die Datenbank in eigenen Spalten fuehrt oder nur der Server
-// vergibt, gehoert nicht ins Paket.
 const planKarteFuerPaket = k => {
   const {
     ablage,
@@ -82,13 +48,9 @@ const planManifest = ({
     name: abenteuer.name
   } : null,
   karten: karten.map(planKarteFuerPaket),
-  // Auch der Ordner eines Handouts ist Sache des Servers.
   objekte: objekte.map(planKarteFuerPaket),
   dateien
 });
-
-// Leer heisst gut; sonst steht da, was nicht stimmt — so, dass die
-// Spielleitung weiss, ob die Datei kaputt oder nur zu neu ist.
 const planManifestPruefen = m => {
   if (!m || typeof m !== 'object') return 'Die Paketdatei enthält keine lesbare Beschreibung.';
   if (m.format !== HBPLAN_FORMAT) return 'Das ist keine Datei des Abenteuerplaners.';
@@ -107,7 +69,6 @@ const planManifestPruefen = m => {
     if (!o || !PLAN_ID_RE.test(String(o.id || ''))) return 'Ein Eintrag im Paket hat keine gültige Kennung.';
     if (objekte.has(o.id) || karten.has(o.id)) return 'Die Kennung ' + o.id + ' steht doppelt im Paket.';
     if (!PLAN_ARTEN.includes(o.art)) return 'Unbekannte Art im Paket: ' + String(o.art).slice(0, 20);
-    // Ein Handout gehoert zum Abenteuer, nicht zu einer Karte.
     if (!(PLAN_OHNE_KARTE.includes(o.art) && !o.karteId) && !karten.has(o.karteId)) return 'Der Eintrag ' + o.id + ' gehört zu keiner Karte im Paket.';
     objekte.add(o.id);
   }
@@ -118,16 +79,7 @@ const planManifestPruefen = m => {
   return '';
 };
 const planPaketName = (karte, pfad) => 'karten/' + karte + '/' + pfad;
-// Dateien mit eigenem Ordner (Handouts) liegen unter objekte/.
 const planPaketDatei = d => d.objekt ? 'objekte/' + d.objekt + '/' + d.pfad : planPaketName(d.karte, d.pfad);
-
-// Beim Einspielen bekommt alles neue Kennungen, damit ein Paket in
-// dasselbe Abenteuer zweimal passt und nie etwas Vorhandenes
-// ueberschreibt. Verweise zwischen Eintraegen sind Kennungen; die sind
-// zufaellig und lang genug, dass jeder Text, der genau so lautet, ein
-// Verweis ist. Deshalb wird der ganze Baum durchgesehen und nicht nur
-// die Felder, die es heute gibt — ein Feld aus Stufe 3 wird so gleich
-// mit umgeschrieben.
 const planUmschreiben = (wert, zuordnung) => {
   if (typeof wert === 'string') return zuordnung.has(wert) ? zuordnung.get(wert) : wert;
   if (Array.isArray(wert)) return wert.map(w => planUmschreiben(w, zuordnung));
@@ -148,9 +100,6 @@ const planNeueKennungen = (m, neueId) => {
     objekte: m.objekte.map(o => planUmschreiben(o, zuordnung))
   };
 };
-
-// Buendel fuer das Hochladen: jedes bleibt unter der Grenze, eine
-// einzelne groessere Datei geht allein.
 const planBuendel = (dateien, grenze, maxAnzahl) => {
   const aus = [];
   let jetzt = [],
@@ -181,9 +130,6 @@ const planDateiname = (name, jetzt) => {
   return sauber + ' ' + tag + '.hbplan';
 };
 const planGroesse = n => n >= 1073741824 ? (n / 1073741824).toFixed(1).replace('.', ',') + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
-
-// Mehrere Versprechen auf einmal, aber nicht Tausende: der Server soll
-// eine Kachelwand nicht als Angriff verstehen.
 const nebenher = async (liste, breite, arbeit) => {
   let i = 0;
   const laeufer = Array.from({
@@ -196,10 +142,6 @@ const nebenher = async (liste, breite, arbeit) => {
   });
   await Promise.all(laeufer);
 };
-
-// ── Exportieren ──────────────────────────────────────────────────
-// Die Wege zum Server kommen von aussen: so laeuft dieselbe Rechnung im
-// Browser gegen api.php und in der Pruefung gegen ein Gedaechtnis.
 const planExportieren = async ({
   daten,
   abenteuer,
@@ -274,8 +216,6 @@ const planExportieren = async ({
     bytes
   };
 };
-
-// ── Einspielen ───────────────────────────────────────────────────
 const planPaketOeffnen = async blob => {
   const zip = await zipLesen(blob);
   const e = zip.finden(HBPLAN_MANIFEST);
@@ -297,9 +237,6 @@ const planPaketOeffnen = async blob => {
     bytes
   };
 };
-
-// dateienHoch(ziel, liste): ziel ist die neue Kennung einer Karte, oder
-// {objId} fuer einen Eintrag mit eigenem Ordner.
 const planEinspielen = async ({
   paket,
   karteSpeichern,
@@ -380,7 +317,6 @@ const planEinspielen = async ({
       n++;
       if (n % 20 === 0) m('Einträge anlegen: ' + n + ' von ' + objekte.length);
     }
-    // Erst jetzt gibt es die Eintraege — und mit ihnen ihre Ordner.
     await hochladen(gruppieren(manifest.dateien.filter(d => d.objekt), 'objekt'), id => ({
       objId: id
     }));
@@ -391,46 +327,20 @@ const planEinspielen = async ({
       zuordnung
     };
   } catch (err) {
-    // Halb eingespielt ist schlechter als gar nicht: was schon angelegt
-    // ist, geht wieder weg — samt seinen Dateien.
     for (const id of angelegt) {
       try {
         await karteLoeschen(id);
-      } catch (e) {/* weiter aufraeumen */}
+      } catch (e) {}
     }
     if (objLoeschen) for (const id of angelegteObjekte) {
       try {
         await objLoeschen(id);
-      } catch (e) {/* weiter aufraeumen */}
+      } catch (e) {}
     }
     throw err;
   }
-};
-// ══ Ende der reinen Rechnung
-
-// ==== planer/src/1b-kacheln.jsx ====
-// ── Kacheln, Ansicht, Maßstab ────────────────────────────────────
-// Eine Karte ist eine Kachelpyramide wie bei Kartendiensten: Stufe 0
-// zeigt das ganze Bild in einer Kachel von 256 Pixeln, jede Stufe
-// darueber verdoppelt die Aufloesung, die oberste zeigt das Bild 1:1.
-//
-//     <ordner>/<z>/<x>/<y>.webp
-//
-// Alle Koordinaten in Karten und Orten sind Pixel des Originalbilds.
-// Damit bleibt jeder Ort an seiner Stelle, gleich in welcher Stufe man
-// gerade schaut.
-//
-// Die Ansicht ist {zoom, x, y}: x und y sind der Bildpunkt in der Mitte
-// des Fensters, zoom ist stetig und in Stufen gemessen — zoom = z heisst
-// „Stufe z in voller Groesse“.
-//
-// Alles bis zur Markierung ist reine Rechnung (dev/pruefungen/planer-kacheln-test.js).
-
+}; // ==== planer/src/1b-kacheln.jsx ====
 const KACHEL = 256;
-
-// ── Masse aus dem Dateikopf ──────────────────────────────────────
-// Bevor der Browser ein Bild von 20 000 Pixeln zu entpacken versucht —
-// und dabei womoeglich scheitert —, steht im Kopf schon, wie gross es ist.
 const bildMasse = b => {
   const u16be = i => b[i] << 8 | b[i + 1];
   const u32be = i => (b[i] << 24 >>> 0) + (b[i + 1] << 16) + (b[i + 2] << 8) + b[i + 3];
@@ -493,7 +403,6 @@ const bildMasse = b => {
         continue;
       }
       const len = u16be(i + 2);
-      // SOF0 … SOF15, ohne DHT (C4), JPG (C8) und DAC (CC)
       if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) {
         return {
           art: 'jpeg',
@@ -508,8 +417,6 @@ const bildMasse = b => {
   }
   return null;
 };
-
-// ── Die Pyramide ─────────────────────────────────────────────────
 const kachelPlan = (breite, hoehe, kachel) => {
   const k = kachel || KACHEL;
   const maxZ = Math.max(0, Math.ceil(Math.log2(Math.max(breite, hoehe) / k)));
@@ -539,9 +446,6 @@ const kachelPlan = (breite, hoehe, kachel) => {
     anzahl
   };
 };
-
-// Welcher Ausschnitt einer Stufe in eine Kachel gehoert. Randkacheln
-// sind kleiner als 256 Pixel — nichts wird aufgefuellt.
 const kachelZiel = (plan, z, x, y) => {
   const s = plan.stufen[z],
     k = plan.kachel;
@@ -555,8 +459,6 @@ const kachelZiel = (plan, z, x, y) => {
   };
 };
 const kachelPfad = (ordner, z, x, y, format) => ordner + '/' + z + '/' + x + '/' + y + '.' + (format || 'webp');
-
-// Alle Kacheln einer Stufe, zeilenweise.
 const kachelnDerStufe = (plan, z) => {
   const s = plan.stufen[z],
     aus = [];
@@ -567,9 +469,7 @@ const kachelnDerStufe = (plan, z) => {
   });
   return aus;
 };
-
-// ── Die Ansicht ──────────────────────────────────────────────────
-const ansichtMass = (a, plan) => Math.pow(2, a.zoom - plan.maxZ); // Schirmpixel je Bildpixel
+const ansichtMass = (a, plan) => Math.pow(2, a.zoom - plan.maxZ);
 const bildZuSchirm = (p, a, g, plan) => {
   const s = ansichtMass(a, plan);
   return {
@@ -605,7 +505,6 @@ const ansichtBegrenzen = (a, plan, g) => {
     y: Math.max(0, Math.min(plan.hoehe, a.y))
   };
 };
-// Zoomen um einen Punkt: was unter dem Mauszeiger liegt, bleibt dort.
 const zoomUm = (a, punkt, neuZoom, g, plan) => {
   const bild = schirmZuBild(punkt, a, g, plan);
   const z = ansichtBegrenzen({
@@ -627,8 +526,6 @@ const verschieben = (a, dx, dy, plan, g) => {
     y: a.y - dy / s
   }, plan, g);
 };
-// Welche Stufe geladen wird: die naechst schaerfere, sobald die jetzige
-// merklich vergroessert erschiene.
 const stufeFuer = (zoom, plan) => Math.max(0, Math.min(plan.maxZ, Math.ceil(zoom - 0.3)));
 const KACHEL_HOECHSTENS = 600;
 const sichtbareKacheln = (a, g, plan, z) => {
@@ -671,8 +568,6 @@ const sichtbareKacheln = (a, g, plan, z) => {
   }
   return aus;
 };
-
-// ── Maßstab und Lineal ───────────────────────────────────────────
 const EINHEITEN = [{
   k: 'km',
   l: 'Kilometer',
@@ -724,8 +619,6 @@ const zahlText = n => {
   return String(r).replace('.', ',');
 };
 const laengeText = (n, einh) => zahlText(n) + ' ' + einheit(einh).kurz;
-// Wie lange man zu Fuss braucht, im normalen Tempo der Grundregeln
-// (4,5 km in der Stunde, acht Stunden am Tag). Genauer rechnet Stufe 2.
 const fussZeitText = (n, einh) => {
   const std = n / einheit(einh).kmh;
   if (!(std > 0)) return '';
@@ -735,8 +628,6 @@ const fussZeitText = (n, einh) => {
     rest = Math.round(std - tage * 8);
   return '≈ ' + tage + (tage === 1 ? ' Tag' : ' Tage') + (rest ? ' ' + rest + ' Std.' : '') + ' zu Fuß';
 };
-// Die Leiste unten links: eine runde Laenge, die ungefaehr so breit ist
-// wie gewuenscht.
 const massstabLeiste = (m, a, plan, zielPx) => {
   if (!m) return null;
   const s = ansichtMass(a, plan);
@@ -749,11 +640,6 @@ const massstabLeiste = (m, a, plan, zielPx) => {
     text: laengeText(schoen, m.einheit)
   };
 };
-
-// ── Kacheln erzeugen ─────────────────────────────────────────────
-// Die Arbeit selbst — zeichnen und hochladen — kommt von aussen. Hier
-// steht nur die Reihenfolge: Stufe fuer Stufe, in Buendeln hochladen,
-// waehrend weiter gezeichnet wird, hoechstens zwei Buendel zugleich.
 const kachelnErzeugen = async ({
   plan,
   zeichne,
@@ -809,40 +695,11 @@ const kachelnErzeugen = async ({
     bytes
   };
 };
-
-// Beim Austausch des Bilds bleiben Orte, wo sie auf der Karte waren:
-// ihre Pixel werden mit dem Groessenverhaeltnis umgerechnet.
 const punktSkalieren = (p, alt, neu) => ({
   x: Math.round(p.x * neu.breite / alt.breite),
   y: Math.round(p.y * neu.hoehe / alt.hoehe)
 });
-const ORT_SYMBOLE = ['📍', '🏰', '🏘', '🏠', '⛪', '🏛', '🍺', '⚓', '🌲', '⛰', '🕳', '🗿', '💀', '⚔', '🔥', '💎', '❓', '⭐'];
-// ══ Ende der reinen Rechnung
-
-// ==== planer/src/1c-reise.jsx ====
-// ── Reisen: Gelände, Tempo, Tage, Wetter ─────────────────────────
-// Eine Route ist ein Linienzug auf der Karte, jeder Abschnitt mit einem
-// Gelände. Eine Reise faehrt sie ab — Tag fuer Tag, mit Tempo,
-// Fortbewegung und Stunden am Tag — und sagt, wo die Gruppe am Abend
-// steht, wie weit sie kam, wann ein Gewaltmarsch Rettungswuerfe kostet
-// und wie das Wetter war.
-//
-// Zahlen der Grundregeln (SRD 5.1), in Kilometer so umgerechnet wie im
-// deutschen Spielerhandbuch (1 Meile = 1,5 km):
-//   Tempo   langsam 3 km/h (2 mph), normal 4,5 km/h (3 mph), schnell 6 km/h (4 mph)
-//   Gewaltmarsch  jede Stunde ueber 8: KO-Rettungswurf SG 10 + Stunden ueber 8
-//   Schwieriges Gelaende halbiert die Strecke.
-//   Boote und Schiffe: die Geschwindigkeiten aus der Tabelle der Wasserfahrzeuge.
-// Was dazwischen liegt — Huegel und Wueste zu drei Vierteln, Wagen
-// abseits der Strasse, Sturm halbiert —, sind Vorgaben des Planers.
-//
-// Das Wetter nimmt dieselben Schluessel wie die Rast im Heldenbuch
-// (RAST_NIEDERSCHLAG, RAST_TEMPERATUR, RAST_WIND in js/src/2m-rast.jsx).
-// Nur so kann „Lager aufschlagen" die Rastbedingung gleich mitgeben;
-// planer-reise-test.js prueft, dass beide Listen gleich bleiben.
-//
-// Alles bis zur Markierung ist reine Rechnung.
-
+const ORT_SYMBOLE = ['📍', '🏰', '🏘', '🏠', '⛪', '🏛', '🍺', '⚓', '🌲', '⛰', '🕳', '🗿', '💀', '⚔', '🔥', '💎', '❓', '⭐']; // ==== planer/src/1c-reise.jsx ====
 const GELAENDE = [{
   k: 'strasse',
   l: 'Straße oder Weg',
@@ -919,9 +776,6 @@ const TEMPO = [{
   folge: '−5 auf passive Wahrnehmung'
 }];
 const tempo = k => TEMPO.find(t => t.k === k) || TEMPO[1];
-
-// art: land — Tempo zaehlt; wagen — dazu die Wagenspalte des Gelaendes;
-// wasser — nur auf Wasser, feste Geschwindigkeit, mit Mannschaft rund um die Uhr.
 const FORTBEWEGUNG = [{
   k: 'fuss',
   l: 'Zu Fuß',
@@ -974,8 +828,6 @@ const FORTBEWEGUNG = [{
 const fortbewegung = k => FORTBEWEGUNG.find(f => f.k === k) || FORTBEWEGUNG[0];
 const KM_JE_MEILE = 1.5;
 const GEWALTMARSCH_AB = 8;
-
-// Wie weit in einer Stunde, in der Einheit der Karte.
 const JE_EINHEIT = {
   km: {
     km: 1,
@@ -1001,7 +853,6 @@ const grundTempo = (optionen, einh) => {
   const t = tempo(optionen.tempo);
   return einh === 'km' || einh === 'm' ? t.kmh * u.km : t.mph * u.mi;
 };
-// Wie schnell auf diesem Gelaende — 0 heisst: geht nicht.
 const tempoAuf = (gel, optionen, einh, wetter) => {
   const f = fortbewegung(optionen.fortbewegung);
   const g = gelaende(gel);
@@ -1018,8 +869,6 @@ const warumNicht = (gel, optionen, wetter) => {
   if (g.k === 'wasser') return 'Über ' + g.l + ' geht es nur mit Boot oder Schiff.';
   return f.l + ' kommt durch ' + g.l + ' nicht durch.';
 };
-
-// ── Die Route ────────────────────────────────────────────────────
 const routeAbschnitte = (route, m) => {
   const p = route.punkte || [];
   const aus = [];
@@ -1038,13 +887,11 @@ const routeAbschnitte = (route, m) => {
   return aus;
 };
 const routeLaenge = (route, m) => routeAbschnitte(route, m).reduce((s, a) => s + a.laenge, 0);
-// Rueckwaerts ist dieselbe Route mit umgedrehten Punkten und Abschnitten.
 const routeInRichtung = (route, richtung) => richtung !== 'zurueck' ? route : {
   ...route,
   punkte: [...(route.punkte || [])].reverse(),
   gelaende: [...(route.gelaende || [])].slice(0, Math.max(0, (route.punkte || []).length - 1)).reverse()
 };
-// Der Punkt, der pos Einheiten vom Start entfernt liegt.
 const punktAufRoute = (route, m, pos) => {
   const ab = routeAbschnitte(route, m);
   if (!ab.length) return (route.punkte || [])[0] || null;
@@ -1061,15 +908,10 @@ const punktAufRoute = (route, m, pos) => {
   }
   return null;
 };
-
-// ── Der Plan: Tag fuer Tag ───────────────────────────────────────
-// Ohne Angabe: acht Stunden an Land, bei Schiffen mit Mannschaft rund um die Uhr.
 const reiseStunden = o => {
   const f = fortbewegung(o && o.fortbewegung);
   return Math.max(1, Math.min(24, +(o && o.stunden) || f.stunden || 8));
 };
-// start: bereits zurueckgelegte Strecke. wetter: je Tag (Index ab 0 vom
-// Start aus) — fehlt es, wird ohne Wetter gerechnet.
 const REISE_HOECHSTENS_TAGE = 400;
 const reisePlan = ({
   route,
@@ -1148,7 +990,6 @@ const reisePlan = ({
       });
     }
     if (stunden <= 1e-9) break;
-    // Gewaltmarsch: jede angefangene Stunde ueber acht, am Ende der Stunde.
     const gewaltmarsch = [];
     if (f.art !== 'wasser') {
       for (let h = GEWALTMARSCH_AB + 1; h <= Math.ceil(stunden - 1e-9); h++) gewaltmarsch.push({
@@ -1187,14 +1028,10 @@ const stundenText = h => {
   if (min === 60) return ganz + 1 + ' Std.';
   return ganz + (min ? ':' + String(min).padStart(2, '0') : '') + ' Std.';
 };
-// Verpflegung nach den Grundregeln: eine Tagesration und gut vier Liter
-// Wasser je Person und Tag.
 const verpflegung = (tage, personen) => ({
   rationen: tage * Math.max(0, personen || 0),
   wasserLiter: tage * Math.max(0, personen || 0) * 4
 });
-
-// ── Wetter ───────────────────────────────────────────────────────
 const WETTER_NIEDERSCHLAG = ['klar', 'leicht', 'wolken', 'regen', 'sturm'];
 const WETTER_TEMPERATUR = ['glut', 'heiss', 'warm', 'mild', 'kuehl', 'kalt', 'arktis'];
 const WETTER_WIND = ['flaute', 'maessig', 'stark', 'boeen', 'orkan'];
@@ -1256,9 +1093,6 @@ const JAHRESZEITEN = [{
   k: 'winter',
   l: 'Winter'
 }];
-// Gewichte je Stufe, in der Reihenfolge der Listen oben. Eigene Vorgaben
-// des Planers, keine Regeltabelle: sie sollen plausibles Wetter geben,
-// das die Spielleitung jederzeit umstellt.
 const WETTER_TAFEL = {
   gemaessigt: {
     temperatur: {
@@ -1360,8 +1194,6 @@ const gewichtetWaehlen = (gewichte, zufall) => {
   }
   return gewichte.length - 1;
 };
-// Wetter haelt sich: mit einer von zwei Chancen bleibt jeder Teil wie am
-// Vortag oder rueckt nur eine Stufe weiter.
 const wetterWuerfeln = (klima, jahreszeit, vortag, zufall) => {
   const z = zufall || Math.random;
   const t = WETTER_TAFEL[klima] || WETTER_TAFEL.gemaessigt;
@@ -1383,8 +1215,6 @@ const wetterWuerfeln = (klima, jahreszeit, vortag, zufall) => {
   };
 };
 const wetterText = w => w ? [WETTER_WORTE[w.niederschlag], WETTER_WORTE[w.temperatur], WETTER_WORTE[w.wind]].filter(Boolean).join(' · ') : '';
-// Ein Zufall mit Samen, damit dieselbe Reise dasselbe Wetter behaelt,
-// bis jemand neu wuerfelt (mulberry32).
 const samenZufall = samen => {
   let a = samen >>> 0 || 1;
   return () => {
@@ -1404,12 +1234,6 @@ const wetterFuerTage = (anzahl, klima, jahreszeit, samen, vorgaben) => {
   }
   return aus;
 };
-
-// ── Uebergabe an das Heldenbuch ──────────────────────────────────
-// Der Planer schreibt nie selbst in Boegen oder in die Chronik. Er legt
-// einen Auftrag in den gemeinsamen Speicher; das Heldenbuch — im DM-Modus,
-// im selben Abenteuer — oeffnet daraus seinen eigenen Dialog, vorbelegt.
-// Alles, was dort an Boegen haengt, laeuft dann den gewohnten Weg.
 const PLANER_AUFTRAG = 'hb_planer_auftrag';
 const PLANER_QUITTUNG = 'hb_planer_quittung';
 const AUFTRAG_FRIST_MS = 30 * 60 * 1000;
@@ -1436,26 +1260,7 @@ const auftragGewaltmarsch = (advId, sg, text) => ({
   wert: 'con',
   sg: Math.max(1, Math.min(40, sg)),
   text: String(text || '').slice(0, 160)
-});
-// ══ Ende der reinen Rechnung
-
-// ==== planer/src/1d-begegnung.jsx ====
-// ── Regionen und Zufallsbegegnungen ──────────────────────────────
-// Eine Region ist eine Flaeche auf der Karte — ein Wald, ein Pass, das
-// ganze Tal. Unter dm traegt sie eine Begegnungstabelle: wie oft geprueft
-// wird, ab welchem Wurf etwas geschieht (tags und nachts getrennt), und
-// was dann geschehen kann, gewichtet.
-//
-// Eine Reise prueft je Wache: am Ende jeder Wache steht die Gruppe
-// irgendwo — unterwegs auf der Route oder schon im Lager —, und dort
-// entscheidet die innerste Region, welche Tabelle gilt.
-//
-// Ein Kampf verweist auf eine Begegnung aus dem Heldenbuch (📚 Datenbank
-// › Begegnungen). Der Planer legt keine Gegner an; er sagt dem
-// Kampftracker nur, welche Begegnung er laden soll.
-//
-// Alles bis zur Markierung ist reine Rechnung.
-
+}); // ==== planer/src/1d-begegnung.jsx ====
 const REGION_FARBEN = ['#e05a5a', '#e8b84b', '#5fbf85', '#5fb0e8', '#9b7fd0', '#d98ad0', '#c8c8c8'];
 const WACHE_STUNDEN = [1, 2, 4, 6, 8, 12, 24];
 const BEGEGNUNG_ZEIT = [{
@@ -1490,8 +1295,6 @@ const neuerTabellenEintrag = id => ({
   begegnungId: '',
   text: ''
 });
-
-// ── Flaechen ─────────────────────────────────────────────────────
 const polygonFlaeche = poly => {
   let s = 0;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += (poly[j].x + poly[i].x) * (poly[j].y - poly[i].y);
@@ -1506,7 +1309,6 @@ const punktInPolygon = (p, poly) => {
   }
   return drin;
 };
-// Der Schwerpunkt — dort steht der Name. Bei entarteten Flaechen die Mitte der Punkte.
 const polygonMitte = poly => {
   let a = 0,
     cx = 0,
@@ -1529,7 +1331,6 @@ const polygonMitte = poly => {
     y: cy / (3 * a)
   };
 };
-// Die innerste Region, in der der Punkt liegt: der Wald im Tal gilt vor dem Tal.
 const regionAn = (p, regionen) => {
   if (!p) return null;
   const drin = (regionen || []).filter(r => (r.punkte || []).length >= 3 && punktInPolygon(p, r.punkte));
@@ -1541,8 +1342,6 @@ const flaecheText = (poly, m) => {
   const e = pxJeEinheit(m);
   return zahlText(polygonFlaeche(poly) / (e * e)) + ' ' + einheit(m.einheit).kurz + '²';
 };
-
-// ── Der Wurf ─────────────────────────────────────────────────────
 const istNacht = uhr => {
   const h = (uhr % 24 + 24) % 24;
   return h >= 20 || h < 6;
@@ -1576,8 +1375,6 @@ const begegnungPruefen = (tabelle, nacht, zufall) => {
     eintrag: passend[gewichtetWaehlen(passend.map(e => +e.gewicht), zufall)]
   };
 };
-
-// Wo die Gruppe nach t Stunden eines Reisetags steht.
 const posNachStunden = (tag, t) => {
   let pos = tag.von,
     rest = Math.max(0, t);
@@ -1589,10 +1386,6 @@ const posNachStunden = (tag, t) => {
   return tag.bis;
 };
 const wuerfelSamen = (samen, tagNr, nochmal) => (+samen || 1) * 31 + tagNr * 7919 + (nochmal || 0) * 104729 >>> 0 || 1;
-
-// Die Wachen eines Reisetags: am Ende jeder Wache ein Wurf auf die
-// Tabelle der Region, in der die Gruppe dann steht. 24 Stunden ab dem
-// Aufbruch, unterwegs und im Lager.
 const tagesPruefungen = ({
   tag,
   route,
@@ -1604,9 +1397,6 @@ const tagesPruefungen = ({
   const aus = [];
   const start = Number.isFinite(+startStunde) ? +startStunde : 8;
   const wachen = new Map();
-  // Jede Region hat ihren eigenen Takt. Geprueft wird zu jeder Stunde, zu
-  // der irgendeine Tabelle faellig ist, und dort zaehlt nur die Region,
-  // in der die Gruppe dann steht.
   (regionen || []).forEach(r => {
     const t = tabelleVon(r);
     if (t) wachen.set(r.id, Math.max(1, +t.jeStunden || 8));
@@ -1642,8 +1432,6 @@ const tagesPruefungen = ({
   });
   return aus;
 };
-
-// Was im Tagebuch bleibt: klein, ohne Punkte und Tabellen.
 const pruefungKurz = p => ({
   uhr: p.uhr,
   nacht: p.nacht,
@@ -1668,8 +1456,6 @@ const begegnungName = (p, begegnungen) => {
   }
   return text || 'Ereignis';
 };
-
-// ── Das Reisetagebuch als Text ───────────────────────────────────
 const reisetagText = (eintrag, reiseName, einh, begegnungen) => {
   const teile = ['Reisetag ' + eintrag.nr + (reiseName ? ' · ' + reiseName : '') + ': ' + laengeText(eintrag.strecke, einh) + ' in ' + stundenText(eintrag.stunden)];
   if (eintrag.wetter) teile.push(wetterText(eintrag.wetter));
@@ -1685,29 +1471,7 @@ const auftragKampf = (advId, begegnungId, name) => ({
   advId,
   begegnungId: String(begegnungId || ''),
   name: String(name || '').slice(0, 120)
-});
-// ══ Ende der reinen Rechnung
-
-// ==== planer/src/1e-sicht.jsx ====
-// ── Spielersicht: Nebel, Handouts, der Tisch ─────────────────────
-// Nebel liegt an der Karte (karte.nebel) und nicht unter dm: die Spieler
-// brauchen ihn, um ihn zu zeichnen. Er ist eine Liste aufgedeckter
-// Flaechen — Kreise, Vielecke, oder alles.
-//
-//     { an: true, modus: 'offen'|'daemmrig'|'dunkel',
-//       flaechen: [ {art:'kreis', x, y, r}, {art:'vieleck', punkte:[…]}, {art:'alles'} ] }
-//
-// Der Modus sagt, was mit Aufgedecktem geschieht, wenn die Heldengruppen
-// weiterziehen: es bleibt offen, es wird daemmrig, oder wieder dunkel. In
-// den beiden letzten ist nur klar, was eine Gruppe gerade sieht
-// (sichtKreise in 1g-gruppe.jsx). „Alles aufdecken“ gilt immer ganz.
-//
-// Er verdeckt die Anzeige, nicht die Kacheln selbst: wer die Adresse
-// einer Kachel einer sichtbaren Karte kennt, bekommt sie. Wirklich geheim
-// bleibt nur, was an einer verborgenen Karte haengt.
-//
-// Alles bis zur Markierung ist reine Rechnung.
-
+}); // ==== planer/src/1e-sicht.jsx ====
 const NEBEL_RADIEN = [{
   k: 'klein',
   l: 'Klein',
@@ -1757,9 +1521,6 @@ const nebelKreis = (p, r) => ({
   y: Math.round(p.y),
   r: Math.max(1, Math.round(r))
 });
-
-// Kreise entlang eines Stuecks Route: so dicht, dass sie sich ueberlappen
-// und kein Streifen Nebel zwischen ihnen stehen bleibt.
 const kreiseEntlang = (route, massstab, von, bis, sichtweite) => {
   if (!massstab || !(sichtweite > 0) || !(bis >= von)) return [];
   const rPx = sichtweite * pxJeEinheit(massstab);
@@ -1773,24 +1534,13 @@ const kreiseEntlang = (route, massstab, von, bis, sichtweite) => {
   if (ende) aus.push(nebelKreis(ende, rPx));
   return aus;
 };
-
-// Orte, die aufgehen, sobald der Nebel ueber ihnen weicht.
 const orteImAufgedeckten = (orte, nebel) => (orte || []).filter(o => o.art === 'ort' && o.mitNebel && !o.sichtbar && typeof o.x === 'number' && (nebel.flaechen || []).some(f => flaecheAufgedeckt(o, f)));
-
-// Wird der Nebel zu gross, fasst ein Kreis, der ganz in einem anderen
-// liegt, nichts zusammen — er faellt weg.
 const nebelAufraeumen = flaechen => {
   if (flaechen.some(f => f.art === 'alles')) return [{
     art: 'alles'
   }];
   return flaechen.filter((f, i) => !(f.art === 'kreis' && flaechen.some((g, j) => j !== i && g.art === 'kreis' && Math.hypot(f.x - g.x, f.y - g.y) + f.r <= g.r && (g.r > f.r || j < i))));
 };
-
-// ── Was ein Spieler sieht ────────────────────────────────────────
-// Dieselbe Regel wie planer_laden auf dem Server — hier fuer das
-// Tischfenster, das mit der Anmeldung der Spielleitung laedt und doch nur
-// zeigen darf, was die Runde sehen soll. Handouts an einzelne gehoeren
-// nicht auf den Tisch.
 const ohneDmFeld = o => {
   const {
     dm,
@@ -1801,9 +1551,7 @@ const ohneDmFeld = o => {
 const spielerSicht = daten => {
   const karten = (daten.karten || []).filter(k => k.sichtbar).map(ohneDmFeld);
   const offen = new Set(karten.map(k => k.id));
-  const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout' ? !(o.an || []).length : PLAN_OHNE_KARTE.includes(o.art) && !o.karteId ? true : offen.has(o.karteId))).map(ohneDmFeld)
-  // Wie auf dem Server: die Spur einer Gruppe nur, wo sie freigegeben ist.
-  .map(o => o.art === 'gruppe' && !o.spurFuerSpieler && (o.spur || []).length ? {
+  const objekte = (daten.objekte || []).filter(o => o.sichtbar && (o.art === 'handout' ? !(o.an || []).length : PLAN_OHNE_KARTE.includes(o.art) && !o.karteId ? true : offen.has(o.karteId))).map(ohneDmFeld).map(o => o.art === 'gruppe' && !o.spurFuerSpieler && (o.spur || []).length ? {
     ...o,
     spur: [o.spur[o.spur.length - 1]]
   } : o);
@@ -1814,8 +1562,6 @@ const spielerSicht = daten => {
     objekte
   };
 };
-
-// ── Handouts ─────────────────────────────────────────────────────
 const neuesHandout = () => ({
   id: planNeueId('h'),
   karteId: '',
@@ -1829,40 +1575,19 @@ const neuesHandout = () => ({
     notiz: ''
   }
 });
-// Welche verteilten Handouts dieser Spieler noch nicht gesehen hat.
-// Gesehen heisst: in dieser Fassung — ein geaenderter Brief kommt wieder.
 const handoutFassung = h => h.id + ':' + String(h.geaendert || '');
 const ungeseheneHandouts = (objekte, gesehen) => (objekte || []).filter(o => o.art === 'handout' && o.sichtbar && !(gesehen || []).includes(handoutFassung(o)));
-
-// ── Nachrichten an den Tisch ─────────────────────────────────────
-// Das Tischfenster laeuft im selben Browser wie die Seite der
-// Spielleitung; beide hoeren auf denselben Kanal.
 const TISCH_KANAL = 'hb-planer-tisch';
 const tischNachricht = (art, inhalt) => ({
   art,
   ...inhalt,
   zeit: Date.now()
-});
-// ══ Ende der reinen Rechnung
-
-// ==== planer/src/1f-welt.jsx ====
-// ── Die Welt drumherum: Figuren, Zeit, Dateien, Quests, Hexfelder, Offline ──
-// Alles bis zur Markierung ist reine Rechnung
-// (dev/pruefungen/planer-welt-test.js).
-
-// ── Zeit ─────────────────────────────────────────────────────────
-// Dieselbe Uhr wie die Chronik: Stunden seit Beginn des Abenteuers,
-// Tag 1 beginnt bei 0.
+}); // ==== planer/src/1f-welt.jsx ====
 const zeitText = std => {
   const s = Math.max(0, Math.round(+std || 0));
   return 'Tag ' + (Math.floor(s / 24) + 1) + ', ' + String(s % 24).padStart(2, '0') + ' Uhr';
 };
 const zeitAus = (tag, stunde) => Math.max(0, (Math.max(1, Math.round(+tag || 1)) - 1) * 24 + Math.max(0, Math.min(23, Math.round(+stunde || 0))));
-
-// ── Figuren ──────────────────────────────────────────────────────
-// Eine Figur (Art figur) ist ein NSC, ein Heer, eine Karawane: Wegpunkte
-// mit Zeit. Dazwischen geht sie geradeaus; vor dem ersten steht sie am
-// ersten, nach dem letzten am letzten.
 const wegpunkteSortiert = f => [...(f && f.wegpunkte || [])].filter(w => Number.isFinite(+w.zeit)).sort((a, b) => a.zeit - b.zeit);
 const figurPosition = (figur, zeit) => {
   const w = wegpunkteSortiert(figur);
@@ -1898,7 +1623,6 @@ const figurPosition = (figur, zeit) => {
     bis: l
   };
 };
-// Ein Wegpunkt zu dieser Zeit: vorhandenen ersetzen, sonst dazu.
 const wegpunktSetzen = (figur, zeit, p, notiz) => {
   const liste = wegpunkteSortiert(figur).filter(w => w.zeit !== zeit);
   const alt = wegpunkteSortiert(figur).find(w => w.zeit === zeit);
@@ -1913,8 +1637,6 @@ const wegpunktSetzen = (figur, zeit, p, notiz) => {
     wegpunkte: liste.sort((a, b) => a.zeit - b.zeit)
   };
 };
-// Der Bereich des Zeitschiebers: alle Wegpunkte, die Uhr der Chronik, und
-// ein Tag Luft auf beiden Seiten.
 const zeitBereich = (figuren, jetzt) => {
   const zeiten = figuren.flatMap(f => wegpunkteSortiert(f).map(w => w.zeit));
   if (jetzt != null && Number.isFinite(+jetzt)) zeiten.push(+jetzt);
@@ -1927,21 +1649,12 @@ const zeitBereich = (figuren, jetzt) => {
     max: Math.max(...zeiten) + 24
   };
 };
-// Was Spieler sehen: nur sichtbare Figuren, und nur zur Zeit, die die
-// Spielleitung freigegeben hat (karte.zeit). Ohne freigegebene Zeit gilt
-// der erste Wegpunkt.
 const figurFuerSpieler = (figur, karte) => {
   const z = karte && Number.isFinite(+karte.zeit) ? +karte.zeit : -Infinity;
   const w = wegpunkteSortiert(figur).filter(x => x.zeit <= z);
   const zeit = w.length ? Math.max(...w.map(x => x.zeit)) : (wegpunkteSortiert(figur)[0] || {}).zeit;
   return figurPosition(figur, Number.isFinite(z) ? z : zeit);
 };
-
-// ── NSC aus dem Heldenbuch ───────────────────────────────────────
-// Der Planer fuehrt keine Boegen. Was er von einem NSC hat, kommt aus
-// planer_helden: Name, Haltung und die eingetragenen Kampfwerte. Eine
-// Figur auf der Karte kann darauf verweisen (figur.charId) — dann steht
-// auf ihrer Tafel, wer da steht, und ein Knopf fuehrt zum Bogen.
 const NSC_ZEICHEN = {
   freundlich: '🤝',
   feindlich: '☠'
@@ -1954,14 +1667,7 @@ const nscWerte = h => {
   return ['RK ' + (+h.rk || 10), tp].filter(Boolean).join(' · ');
 };
 const nscZuFigur = (figur, helden) => (helden || []).find(h => h.id === (figur && figur.charId)) || null;
-// Die NSC eines Abenteuers, in der Reihenfolge der Tafel: erst die
-// freundlichen, dann die feindlichen, je Gruppe nach Namen.
 const nscListe = helden => (helden || []).filter(istNscBogen).sort((a, b) => a.haltung === b.haltung ? String(a.name).localeCompare(String(b.name), 'de') : a.haltung === 'feindlich' ? 1 : -1);
-
-// ── Lokale Dateien ───────────────────────────────────────────────
-// Eine Datei am Ort ist ein Verweis, nie ein Upload: eine Bibliothek (ein
-// Name, den jeder Rechner selbst einem Ordner zuordnet) und ein Pfad darin.
-// So findet der Laptop dieselbe Datei, auch wenn OneDrive dort woanders liegt.
 const DATEI_ARTEN = {
   bild: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'bmp', 'svg'],
   ton: ['mp3', 'ogg', 'oga', 'wav', 'flac', 'm4a', 'aac', 'opus'],
@@ -1983,13 +1689,8 @@ const dateiArt = pfad => {
   const e = dateiEndung(pfad);
   return Object.keys(DATEI_ARTEN).find(k => DATEI_ARTEN[k].includes(e)) || 'sonst';
 };
-// Was der Browser selbst zeigen kann. MKV, AVI und Office nicht — dafuer
-// ist die Brücke da.
 const IM_BROWSER = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'bmp', 'mp3', 'ogg', 'oga', 'wav', 'flac', 'm4a', 'aac', 'opus', 'mp4', 'webm', 'm4v', 'ogv', 'pdf', 'txt', 'md'];
 const imBrowserZeigbar = pfad => IM_BROWSER.includes(dateiEndung(pfad));
-
-// Ein relativer Pfad, wie ihn der Planer speichert: Schraegstriche, kein
-// Laufwerk, kein .. — sonst gar keiner.
 const relativerPfad = roh => {
   const teile = String(roh || '').replace(/\\/g, '/').split('/').filter(t => t !== '' && t !== '.');
   if (!teile.length || teile.some(t => t === '..' || /^[A-Za-z]:$/.test(t) || /[<>:"|?*\x00-\x1f]/.test(t))) return '';
@@ -2007,12 +1708,8 @@ const dateiVerweis = (bibliothek, pfad, titel) => {
     titel: String(titel || p.split('/').pop()).slice(0, 120)
   };
 };
-// Die Adresse fuer die Planer-Brücke (planer/bruecke/). Der Browser fragt
-// beim ersten Mal, ob er das Programm oeffnen darf.
 const BRUECKE_SCHEMA = 'heldenbuch-planer';
 const brueckenAdresse = v => BRUECKE_SCHEMA + '://oeffnen?bibliothek=' + encodeURIComponent(v.bibliothek) + '&pfad=' + encodeURIComponent(v.pfad);
-
-// ── Quests, Wissen, Fraktionen ───────────────────────────────────
 const QUEST_STATUS = [{
   k: 'offen',
   l: 'Gehört',
@@ -2054,7 +1751,6 @@ const questFortschritt = q => {
     alle: s.length
   };
 };
-// Offene Faeden zuerst, Erledigtes nach hinten.
 const questsSortiert = qs => [...qs].sort((a, b) => QUEST_STATUS.findIndex(s => s.k === (a.status || 'offen')) - QUEST_STATUS.findIndex(s => s.k === (b.status || 'offen')) || String(a.titel).localeCompare(String(b.titel), 'de'));
 const HINWEIS_ARTEN = [{
   k: 'geruecht',
@@ -2084,7 +1780,6 @@ const neuerHinweis = () => ({
     notiz: ''
   }
 });
-// „Was wissen die Spieler?" — sichtbar heisst bekannt.
 const bekanntesWissen = (objekte, ortId) => (objekte || []).filter(o => o.art === 'hinweis' && o.sichtbar && (!ortId || o.ortId === ortId));
 const neueFraktion = () => ({
   id: planNeueId('f'),
@@ -2128,10 +1823,6 @@ const rufText = ruf => {
   return RUF_STUFEN.find(s => s.ab === r).l;
 };
 const fraktionenDerRegion = (fraktionen, regionId) => (fraktionen || []).filter(f => (f.regionen || []).includes(regionId));
-
-// ── Proviant und Navigation ──────────────────────────────────────
-// Der Vorrat einer Reise sinkt mit jedem abgeschlossenen Tag um das, was
-// die Gruppe braucht. Was fehlt, steht als Warnung da.
 const vorratNachTag = (vorrat, personen) => {
   const v = {
     rationen: +(vorrat || {}).rationen || 0,
@@ -2152,8 +1843,6 @@ const vorratNachTag = (vorrat, personen) => {
     reichtTage: b.rationen ? Math.floor(neu.rationen / b.rationen) : Infinity
   };
 };
-// Navigation abseits der Wege: eine Probe auf Überlebenskunst am Morgen.
-// SG-Vorgaben des Planers; auf Straße und Wasser (mit Schiff) keine Probe.
 const NAVIGATION_SG = {
   strasse: 0,
   offen: 10,
@@ -2177,10 +1866,6 @@ const auftragNavigation = (advId, sg, text) => ({
   sg,
   text: String(text || '').slice(0, 160)
 });
-
-// ── Hexfelder ────────────────────────────────────────────────────
-// Spitze Hexfelder (pointy top), Groesse von Seite zu Seite gemessen, wie
-// Hexkarten es angeben („6 Meilen je Feld"). Adressen als Spalte.Zeile.
 const hexRadiusPx = (groesse, m) => m ? groesse * pxJeEinheit(m) / Math.sqrt(3) : 0;
 const hexAchsial = (p, r, ursprung) => {
   const o = ursprung || {
@@ -2223,13 +1908,11 @@ const hexEcken = (m, r) => Array.from({
     y: m.y + r * Math.sin(w)
   };
 });
-// Versetzte Adresse (odd-r): Spalte.Zeile, zweistellig, ab 01.
 const hexAdresse = h => {
   const zeile = h.r,
     spalte = h.q + (h.r - (h.r & 1)) / 2;
   return String(spalte + 1).padStart(2, '0') + '.' + String(zeile + 1).padStart(2, '0');
 };
-// Alle Felder in einem Bildausschnitt — oder keine, wenn es zu viele waeren.
 const hexeIm = (links, oben, rechts, unten, r, hoechstens) => {
   if (!(r > 0)) return [];
   const zeilen = Math.ceil((unten - oben) / (1.5 * r)) + 2,
@@ -2246,10 +1929,6 @@ const hexeIm = (links, oben, rechts, unten, r, hoechstens) => {
   }
   return aus;
 };
-
-// ── Offline ──────────────────────────────────────────────────────
-// Welche Dateien eine Karte braucht, damit sie ohne Netz aufgeht: alle
-// Kacheln, die Vorschau, die Bilder ihrer Orte. Handouts dazu.
 const offlinePfade = (karte, objekte) => {
   const aus = [];
   const b = karte && karte.bild;
@@ -2287,26 +1966,7 @@ const offlineStand = (start, daten, jetzt) => JSON.stringify({
   zeit: (jetzt || new Date()).toISOString(),
   start,
   daten
-});
-// ══ Ende der reinen Rechnung
-
-// ==== planer/src/1g-gruppe.jsx ====
-// ── Heldengruppen: Stand, Spur, Sicht ────────────────────────────
-// Eine Heldengruppe (Art gruppe, an einer Karte) ist die Runde auf der
-// Karte: welche Boegen dazugehoeren, wie weit sie sieht, und ihre Spur —
-// jeder Punkt, an dem sie stand, mit der Zeit der Chronik. Der letzte
-// Punkt der Spur ist, wo sie jetzt ist.
-//
-//     { helden: ['charId', …], heldenNamen: {charId: 'Armin'}, sichtweite: 5,
-//       spur: [{zeit, x, y, art: 'start'|'zug'|'reise'|'teilung'|'vereint'}],
-//       spurFuerSpieler: false, aus: 'g_…' }
-//
-// Zieht die Spielleitung die Gruppe, weicht der Nebel entlang des Wegs —
-// so weit, wie die Gruppe sieht. Ob Spieler die ganze Spur bekommen oder
-// nur den letzten Punkt, entscheidet der Server (planObjAntwort).
-//
-// Alles bis zur Markierung ist reine Rechnung.
-
+}); // ==== planer/src/1g-gruppe.jsx ====
 const GRUPPE_SYMBOLE = ['🛡', '⚔', '🏹', '🔥', '🧭', '⭐'];
 const SPUR_HOECHSTENS = 2000;
 const gruppePosition = g => {
@@ -2336,16 +1996,10 @@ const neueGruppe = (karteId, p, zeit, helden, namen) => ({
     notiz: ''
   }
 });
-
-// Die Spur waechst nicht ohne Ende: bei sehr langen Kampagnen fallen die
-// aeltesten Zwischenpunkte weg, der erste bleibt.
 const spurAnhaengen = (spur, punkte) => {
   const neu = [...(spur || []), ...punkte];
   return neu.length > SPUR_HOECHSTENS ? [neu[0], ...neu.slice(neu.length - SPUR_HOECHSTENS + 1)] : neu;
 };
-
-// Die Gruppe zieht an einen Punkt. Zurueck: die Gruppe mit neuer Spur und
-// die Kreise, die der Nebel dabei aufgibt (entlang der geraden Linie).
 const gruppeZiehen = (g, ziel, zeit, massstab, art) => {
   const von = gruppePosition(g);
   const punkt = {
@@ -2372,9 +2026,6 @@ const gruppeZiehen = (g, ziel, zeit, massstab, art) => {
     kreise
   };
 };
-
-// Die Punkte einer Route zwischen zwei Positionen, samt der Ecken dazwischen
-// — damit die Spur einer Reise der Route folgt und nicht quer uebers Land.
 const routenPunkteZwischen = (route, m, von, bis) => {
   if (!m || !(bis > von)) return [];
   const aus = [punktAufRoute(route, m, von)];
@@ -2389,8 +2040,6 @@ const routenPunkteZwischen = (route, m, von, bis) => {
   aus.push(punktAufRoute(route, m, bis));
   return aus.filter(Boolean);
 };
-// Eine Reise zieht die Gruppe mit: Punkte der Route mit Zeiten, verteilt
-// ueber die Stunden des Tags.
 const gruppeReist = (g, punkte, zeitVon, stunden, massstab) => {
   if (!punkte.length) return {
     gruppe: g,
@@ -2429,9 +2078,6 @@ const spurLaenge = (g, m) => {
   for (let i = 1; i < s.length; i++) px += abstandPx(s[i - 1], s[i]);
   return px / pxJeEinheit(m);
 };
-
-// Aufteilen: wer ausgewaehlt ist, zieht als neue Gruppe los — vom selben
-// Punkt aus. Die alte behaelt ihre Spur, die neue beginnt am Teilungspunkt.
 const gruppeTeilen = (g, heldenIds, neueId, zeit) => {
   const weg = (g.helden || []).filter(h => heldenIds.includes(h));
   if (!weg.length || weg.length === (g.helden || []).length) return null;
@@ -2467,9 +2113,6 @@ const gruppeTeilen = (g, heldenIds, neueId, zeit) => {
     neue
   };
 };
-
-// Vereinen: die zweite Gruppe geht in der ersten auf. Steht sie woanders,
-// zieht die erste nicht — die Spielleitung setzt die Gruppe danach selbst.
 const gruppenVereinen = (ziel, quelle, zeit) => {
   const helden = [...new Set([...(ziel.helden || []), ...(quelle.helden || [])])];
   const namen = {
@@ -2483,8 +2126,6 @@ const gruppenVereinen = (ziel, quelle, zeit) => {
     y: hier.y,
     art: 'vereint'
   }]) : ziel.spur;
-  // Der Name der groesseren Gruppe bleibt: wer die abgeteilte „Bea“ mit der
-  // Heldengruppe vereint, will wieder die Heldengruppe haben.
   const name = (quelle.helden || []).length > (ziel.helden || []).length ? quelle.name : ziel.name;
   return {
     ...ziel,
@@ -2495,10 +2136,6 @@ const gruppenVereinen = (ziel, quelle, zeit) => {
     spur
   };
 };
-
-// Folgt der Nebel den Gruppen, ist klar, was sie gerade sehen: ein Kreis
-// mit der Sichtweite um jede Gruppe, die Spieler sehen duerfen. Waehrend
-// die Spielleitung eine Marke zieht, steht der Kreis dort, wo die Marke ist.
 const sichtKreise = (gruppen, massstab, gezogen) => {
   if (!massstab) return [];
   return (gruppen || []).filter(g => g.sichtbar && (+g.sichtweite || 0) > 0).map(g => {
@@ -2506,23 +2143,10 @@ const sichtKreise = (gruppen, massstab, gezogen) => {
     return p ? nebelKreis(p, +g.sichtweite * pxJeEinheit(massstab)) : null;
   }).filter(Boolean);
 };
-
-// Welche Boegen noch keiner Gruppe auf dieser Karte angehoeren.
 const heldenOhneGruppe = (helden, gruppen, ausser) => {
   const vergeben = new Set((gruppen || []).filter(g => g.id !== ausser).flatMap(g => g.helden || []));
   return (helden || []).filter(h => !vergeben.has(h.id));
-};
-// ══ Ende der reinen Rechnung
-
-// ==== planer/src/2-leinwand.jsx ====
-// ── Die Kartenleinwand ───────────────────────────────────────────
-// Zeigt die Kachelpyramide einer Karte: ziehen zum Verschieben, Mausrad
-// oder zwei Finger zum Zoomen, dazu Orte, Lineal und Maßstabsleiste.
-// Die Rechnung dahinter steht in 1b-kacheln.jsx.
-//
-// Ein Klick (ohne Ziehen) meldet den Bildpunkt nach oben — was er
-// bedeutet, entscheidet das Werkzeug in der Seite.
-
+}; // ==== planer/src/2-leinwand.jsx ====
 const LEINWAND_KLICK_PX = 5;
 const KartenLeinwand = ({
   karte,
@@ -2567,7 +2191,7 @@ const KartenLeinwand = ({
     hoehe: 0
   });
   const [a, setA] = useState(null);
-  const [zieh, setZieh] = useState(null); // {id, x, y} beim Verschieben eines Orts
+  const [zieh, setZieh] = useState(null);
   const zeiger = useRef({
     punkte: new Map(),
     weg: 0,
@@ -2588,9 +2212,6 @@ const KartenLeinwand = ({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  // Beim Wechsel der Karte: dort weiter, wo man zuletzt war, sonst
-  // das ganze Bild.
   useEffect(() => {
     if (!plan || !g.breite) {
       setA(null);
@@ -2605,9 +2226,6 @@ const KartenLeinwand = ({
   useEffect(() => {
     if (a && plan && g.breite) setA(v => v && ansichtBegrenzen(v, plan, g));
   }, [g.breite, g.hoehe]);
-
-  // Das Tischfenster bekommt den Ausschnitt der Spielleitung: dieselbe
-  // Mitte und dieselbe Breite in Bildpixeln, gleich wie gross sein Schirm ist.
   useEffect(() => {
     const v = vorgabeAnsicht;
     if (!v || !plan || !g.breite || v.karteId && v.karteId !== karte.id) return;
@@ -2626,8 +2244,6 @@ const KartenLeinwand = ({
       breite: Math.round(g.breite / ansichtMass(a, plan))
     });
   }, [a && a.x, a && a.y, a && a.zoom, g.breite]);
-
-  // Ein Ort aus der Liste: dorthin, und nah genug heran.
   useEffect(() => {
     if (!fokus || !plan || !g.breite) return;
     setA(v => ansichtBegrenzen({
@@ -2636,8 +2252,6 @@ const KartenLeinwand = ({
       y: fokus.y
     }, plan, g));
   }, [fokus && fokus.n]);
-
-  // Das Mausrad braucht einen Zuhoerer, der preventDefault darf.
   useEffect(() => {
     const el = box.current;
     if (!el || !plan) return;
@@ -2666,11 +2280,10 @@ const KartenLeinwand = ({
   const runter = e => {
     if (!plan || !a) return;
     if (e.button !== undefined && e.button > 0) return;
-    // Knoepfe auf der Karte bekommen ihren Klick selbst.
     if (e.target.closest && e.target.closest('button, .pl-route-treffer')) return;
     try {
       box.current.setPointerCapture(e.pointerId);
-    } catch (err) {/* ohne Fangen geht es auch */}
+    } catch (err) {}
     const pt = punktAus(e);
     zeiger.current.punkte.set(e.pointerId, pt);
     if (zeiger.current.punkte.size === 1) {
@@ -2689,7 +2302,6 @@ const KartenLeinwand = ({
       if (z.weg > LEINWAND_KLICK_PX) setA(v => v && verschieben(v, pt.x - vorher.x, pt.y - vorher.y, plan, g));
       return;
     }
-    // Zwei Finger: der Abstand zoomt, die Mitte verschiebt.
     const [idA, idB] = [...z.punkte.keys()];
     const altA = z.punkte.get(idA),
       altB = z.punkte.get(idB);
@@ -2728,14 +2340,12 @@ const KartenLeinwand = ({
       }, ansichtMass(a, plan));
     }
   };
-
-  // Orte ziehen: nur die Spielleitung, nur mit dem Werkzeug „Ansehen“.
   const ortRunter = (e, o) => {
     e.stopPropagation();
     if (e.button !== undefined && e.button > 0) return;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
-    } catch (err) {/* ohne Fangen geht es auch */}
+    } catch (err) {}
     const pt = punktAus(e);
     setZieh({
       id: o.id,
@@ -2787,12 +2397,12 @@ const KartenLeinwand = ({
   }, v.zoom + d, g, plan));
   let inhalt = null;
   if (!bild) {
-    inhalt = /*#__PURE__*/React.createElement("div", {
+    inhalt = React.createElement("div", {
       className: "pl-leinwand-text"
-    }, /*#__PURE__*/React.createElement("strong", null, dm ? 'Noch kein Kartenbild' : 'Diese Karte hat noch kein Bild'), dm ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, "PNG, JPEG oder WebP, auch sehr gro\xDFe Karten. Das Bild wird hier im Browser in Kacheln geschnitten."), /*#__PURE__*/React.createElement("button", {
+    }, React.createElement("strong", null, dm ? 'Noch kein Kartenbild' : 'Diese Karte hat noch kein Bild'), dm ? React.createElement(React.Fragment, null, React.createElement("span", null, "PNG, JPEG oder WebP, auch sehr gro\xDFe Karten. Das Bild wird hier im Browser in Kacheln geschnitten."), React.createElement("button", {
       className: "pl-knopf pl-haupt",
       onClick: onBildWaehlen
-    }, "\uD83D\uDDBC Kartenbild w\xE4hlen")) : /*#__PURE__*/React.createElement("span", null, "Die Spielleitung hat noch keins hinterlegt."));
+    }, "\uD83D\uDDBC Kartenbild w\xE4hlen")) : React.createElement("span", null, "Die Spielleitung hat noch keins hinterlegt."));
   } else if (a && plan && g.breite) {
     const z = stufeFuer(a.zoom, plan);
     const hinten = Math.max(0, z - 2);
@@ -2800,10 +2410,10 @@ const KartenLeinwand = ({
     const kacheln = (hinten < z ? sichtbareKacheln(a, g, plan, hinten) : []).concat(sichtbareKacheln(a, g, plan, z));
     const schirm = p => bildZuSchirm(p, a, g, plan);
     const leiste = massstabLeiste(karte.massstab, a, plan, 110);
-    inhalt = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    inhalt = React.createElement(React.Fragment, null, React.createElement("div", {
       className: "pl-kacheln",
       "aria-hidden": "true"
-    }, kacheln.map(t => /*#__PURE__*/React.createElement("img", {
+    }, kacheln.map(t => React.createElement("img", {
       key: t.z + '/' + t.x + '/' + t.y,
       src: url(t),
       alt: "",
@@ -2818,41 +2428,39 @@ const KartenLeinwand = ({
     }))), nebel && nebel.an && (() => {
       const s = ansichtMass(a, plan);
       const maskeId = 'nebel-' + karte.id;
-      // Folgt der Nebel den Gruppen: Aufgedecktes wird daemmrig (grau in
-      // der Maske) oder bleibt dunkel, klar ist nur die Sicht der Gruppen.
       const folgt = nebelFolgt(nebel);
       const erkundet = !folgt ? 'black' : nebel.modus === 'daemmrig' ? '#8a8a8a' : null;
       const sicht = folgt ? sichtKreise(heldengruppen, karte.massstab, zieh) : [];
-      return /*#__PURE__*/React.createElement("svg", {
+      return React.createElement("svg", {
         className: 'pl-nebel' + (nebelDeckend ? ' deckend' : ''),
         width: g.breite,
         height: g.hoehe,
         "aria-hidden": "true"
-      }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("filter", {
+      }, React.createElement("defs", null, React.createElement("filter", {
         id: maskeId + '-weich',
         x: "-10%",
         y: "-10%",
         width: "120%",
         height: "120%"
-      }, /*#__PURE__*/React.createElement("feGaussianBlur", {
+      }, React.createElement("feGaussianBlur", {
         stdDeviation: nebelDeckend ? 10 : 4
-      })), /*#__PURE__*/React.createElement("mask", {
+      })), React.createElement("mask", {
         id: maskeId,
         maskUnits: "userSpaceOnUse",
         x: "0",
         y: "0",
         width: g.breite,
         height: g.hoehe
-      }, /*#__PURE__*/React.createElement("rect", {
+      }, React.createElement("rect", {
         x: "0",
         y: "0",
         width: g.breite,
         height: g.hoehe,
         fill: "white"
-      }), /*#__PURE__*/React.createElement("g", {
+      }), React.createElement("g", {
         filter: 'url(#' + maskeId + '-weich)'
       }, nebel.flaechen.map((f, i) => {
-        if (f.art === 'alles') return /*#__PURE__*/React.createElement("rect", {
+        if (f.art === 'alles') return React.createElement("rect", {
           key: i,
           x: "0",
           y: "0",
@@ -2863,7 +2471,7 @@ const KartenLeinwand = ({
         if (!erkundet) return null;
         if (f.art === 'kreis') {
           const m = schirm(f);
-          return /*#__PURE__*/React.createElement("circle", {
+          return React.createElement("circle", {
             key: i,
             className: "pl-nebel-erkundet",
             cx: m.x,
@@ -2872,7 +2480,7 @@ const KartenLeinwand = ({
             fill: erkundet
           });
         }
-        if (f.art === 'vieleck') return /*#__PURE__*/React.createElement("polygon", {
+        if (f.art === 'vieleck') return React.createElement("polygon", {
           key: i,
           className: "pl-nebel-erkundet",
           points: (f.punkte || []).map(q => {
@@ -2884,7 +2492,7 @@ const KartenLeinwand = ({
         return null;
       }), sicht.map((f, i) => {
         const m = schirm(f);
-        return /*#__PURE__*/React.createElement("circle", {
+        return React.createElement("circle", {
           key: 's' + i,
           className: "pl-nebel-sicht",
           cx: m.x,
@@ -2892,7 +2500,7 @@ const KartenLeinwand = ({
           r: f.r * s,
           fill: "black"
         });
-      })))), /*#__PURE__*/React.createElement("rect", {
+      })))), React.createElement("rect", {
         className: "pl-nebel-flaeche",
         x: "0",
         y: "0",
@@ -2914,7 +2522,7 @@ const KartenLeinwand = ({
         }, a, g, plan);
       const felder = hexeIm(ol.x, ol.y, ur.x, ur.y, r, 2500);
       const beschriften = r * s > 34;
-      return /*#__PURE__*/React.createElement("svg", {
+      return React.createElement("svg", {
         className: "pl-hex",
         width: g.breite,
         height: g.hoehe,
@@ -2926,23 +2534,23 @@ const KartenLeinwand = ({
           return p2.x + ',' + p2.y;
         }).join(' ');
         const sm = schirm(m);
-        return /*#__PURE__*/React.createElement("g", {
+        return React.createElement("g", {
           key: f.q + ':' + f.r
-        }, /*#__PURE__*/React.createElement("polygon", {
+        }, React.createElement("polygon", {
           points: pts
-        }), beschriften && /*#__PURE__*/React.createElement("text", {
+        }), beschriften && React.createElement("text", {
           x: sm.x,
           y: sm.y - r * s * 0.55
         }, hexAdresse(f)));
       }));
-    })(), /*#__PURE__*/React.createElement("svg", {
+    })(), React.createElement("svg", {
       className: "pl-ueberlage",
       width: g.breite,
       height: g.hoehe
     }, (regionen || []).map(r => {
       const ps = (r.punkte || []).map(schirm);
       if (ps.length < 3) return null;
-      return /*#__PURE__*/React.createElement("polygon", {
+      return React.createElement("polygon", {
         key: r.id,
         points: ps.map(s => s.x + ',' + s.y).join(' '),
         className: 'pl-region' + (r.id === regionWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : ''),
@@ -2955,13 +2563,13 @@ const KartenLeinwand = ({
       const ps = (r.punkte || []).map(schirm);
       if (ps.length < 2) return null;
       const zug = ps.map(s => s.x + ',' + s.y).join(' ');
-      return /*#__PURE__*/React.createElement("g", {
+      return React.createElement("g", {
         key: r.id,
         className: 'pl-route' + (r.id === routeWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : '')
-      }, /*#__PURE__*/React.createElement("polyline", {
+      }, React.createElement("polyline", {
         points: zug,
         className: "pl-route-grund"
-      }), ps.slice(1).map((s, i) => /*#__PURE__*/React.createElement("line", {
+      }), ps.slice(1).map((s, i) => React.createElement("line", {
         key: i,
         x1: ps[i].x,
         y1: ps[i].y,
@@ -2971,27 +2579,27 @@ const KartenLeinwand = ({
         style: {
           stroke: gelaende((r.gelaende || [])[i] || r.standard || 'offen').farbe
         }
-      })), /*#__PURE__*/React.createElement("polyline", {
+      })), React.createElement("polyline", {
         points: zug,
         className: "pl-route-treffer",
         onClick: () => onRouteWahl && onRouteWahl(r.id)
-      }, /*#__PURE__*/React.createElement("title", null, r.name)));
+      }, React.createElement("title", null, r.name)));
     }), (heldengruppen || []).filter(hg => (hg.spur || []).length > 1).map(hg => {
       const ps = hg.spur.map(schirm);
-      return /*#__PURE__*/React.createElement("g", {
+      return React.createElement("g", {
         key: 'spur-' + hg.id,
         className: 'pl-spur' + (hg.id === gruppeWahl ? ' aktiv' : '')
-      }, /*#__PURE__*/React.createElement("polyline", {
+      }, React.createElement("polyline", {
         points: ps.map(q => q.x + ',' + q.y).join(' ')
-      }), ps.map((q, i) => i > 0 && i < ps.length - 1 && hg.spur[i].art !== 'reise' ? /*#__PURE__*/React.createElement("circle", {
+      }), ps.map((q, i) => i > 0 && i < ps.length - 1 && hg.spur[i].art !== 'reise' ? React.createElement("circle", {
         key: i,
         cx: q.x,
         cy: q.y,
         r: 3
-      }, /*#__PURE__*/React.createElement("title", null, zeitText(hg.spur[i].zeit))) : null));
-    }), linie && linie.punkte.length > 0 && /*#__PURE__*/React.createElement("g", {
+      }, React.createElement("title", null, zeitText(hg.spur[i].zeit))) : null));
+    }), linie && linie.punkte.length > 0 && React.createElement("g", {
       "aria-hidden": "true"
-    }, /*#__PURE__*/React.createElement("polyline", {
+    }, React.createElement("polyline", {
       points: linie.punkte.map(p => {
         const s = schirm(p);
         return s.x + ',' + s.y;
@@ -2999,7 +2607,7 @@ const KartenLeinwand = ({
       className: 'pl-linie ' + (linie.art || '')
     }), linie.punkte.map((p, i) => {
       const s = schirm(p);
-      return /*#__PURE__*/React.createElement("circle", {
+      return React.createElement("circle", {
         key: i,
         cx: s.x,
         cy: s.y,
@@ -3009,7 +2617,7 @@ const KartenLeinwand = ({
     }))), (regionen || []).filter(r => (r.punkte || []).length >= 3).map(r => {
       const s = schirm(polygonMitte(r.punkte));
       if (s.x < -80 || s.y < -40 || s.x > g.breite + 80 || s.y > g.hoehe + 40) return null;
-      return /*#__PURE__*/React.createElement("button", {
+      return React.createElement("button", {
         key: r.id,
         className: 'pl-region-name' + (r.id === regionWahl ? ' aktiv' : '') + (dm && !r.sichtbar ? ' verborgen' : ''),
         style: {
@@ -3021,7 +2629,7 @@ const KartenLeinwand = ({
       }, "\u2B21 ", r.name);
     }), (gruppen || []).filter(gr => gr.punkt).map(gr => {
       const s = schirm(gr.punkt);
-      return /*#__PURE__*/React.createElement("button", {
+      return React.createElement("button", {
         key: gr.id,
         className: 'pl-gruppe' + (gr.id === reiseWahl ? ' aktiv' : '') + (dm && !gr.sichtbar ? ' verborgen' : ''),
         style: {
@@ -3030,16 +2638,16 @@ const KartenLeinwand = ({
         },
         title: gr.name,
         onClick: () => onReiseWahl && onReiseWahl(gr.id)
-      }, /*#__PURE__*/React.createElement("span", {
+      }, React.createElement("span", {
         "aria-hidden": "true"
-      }, "\uD83E\uDDED"), /*#__PURE__*/React.createElement("span", {
+      }, "\uD83E\uDDED"), React.createElement("span", {
         className: "pl-ort-name"
       }, gr.name));
     }), orte.map(o => {
       const gezogen = zieh && zieh.id === o.id ? zieh : null;
       const s = schirm(gezogen ? gezogen : o);
       if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
-      return /*#__PURE__*/React.createElement("button", {
+      return React.createElement("button", {
         key: o.id,
         className: 'pl-ort' + (o.id === ortWahl ? ' aktiv' : '') + (dm && !o.sichtbar ? ' verborgen' : '') + (gezogen ? ' gezogen' : ''),
         style: {
@@ -3057,12 +2665,12 @@ const KartenLeinwand = ({
             onOrtWahl && onOrtWahl(o.id);
           }
         }
-      }, /*#__PURE__*/React.createElement("span", {
+      }, React.createElement("span", {
         className: "pl-ort-symbol",
         "aria-hidden": "true"
-      }, o.symbol || '📍'), /*#__PURE__*/React.createElement("span", {
+      }, o.symbol || '📍'), React.createElement("span", {
         className: "pl-ort-name"
-      }, o.name), questOrte && questOrte.has(o.id) && /*#__PURE__*/React.createElement("span", {
+      }, o.name), questOrte && questOrte.has(o.id) && React.createElement("span", {
         className: "pl-quest-abzeichen",
         title: "Hier gibt es eine Quest"
       }, "\u2757"));
@@ -3071,7 +2679,7 @@ const KartenLeinwand = ({
       const gezogen = zieh && zieh.id === hg.id ? zieh : null;
       const s = schirm(gezogen ? gezogen : jetzt);
       if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
-      return /*#__PURE__*/React.createElement("button", {
+      return React.createElement("button", {
         key: hg.id,
         className: 'pl-heldengruppe' + (hg.id === gruppeWahl ? ' aktiv' : '') + (dm && !hg.sichtbar ? ' verborgen' : ''),
         style: {
@@ -3093,18 +2701,18 @@ const KartenLeinwand = ({
             onGruppeWahl && onGruppeWahl(hg.id);
           }
         }
-      }, /*#__PURE__*/React.createElement("span", {
+      }, React.createElement("span", {
         "aria-hidden": "true"
-      }, hg.symbol || '🛡'), /*#__PURE__*/React.createElement("span", {
+      }, hg.symbol || '🛡'), React.createElement("span", {
         className: "pl-ort-name"
-      }, hg.name), /*#__PURE__*/React.createElement("span", {
+      }, hg.name), React.createElement("span", {
         className: "pl-gruppe-zahl"
       }, (hg.helden || []).length));
     }), (figuren || []).filter(f => f.punkt).map(f => {
       const gezogen = zieh && zieh.id === f.id ? zieh : null;
       const s = schirm(gezogen ? gezogen : f.punkt);
       if (s.x < -60 || s.y < -60 || s.x > g.breite + 60 || s.y > g.hoehe + 60) return null;
-      return /*#__PURE__*/React.createElement("button", {
+      return React.createElement("button", {
         key: f.id,
         className: 'pl-figur' + (f.id === figurWahl ? ' aktiv' : '') + (dm && !f.sichtbar ? ' verborgen' : '') + (f.punkt.unterwegs ? ' unterwegs' : ''),
         style: {
@@ -3126,38 +2734,38 @@ const KartenLeinwand = ({
             onFigurWahl && onFigurWahl(f.id);
           }
         }
-      }, /*#__PURE__*/React.createElement("span", {
+      }, React.createElement("span", {
         "aria-hidden": "true"
-      }, f.symbol || '🧍'), /*#__PURE__*/React.createElement("span", {
+      }, f.symbol || '🧍'), React.createElement("span", {
         className: "pl-ort-name"
       }, f.name));
-    }), leiste && /*#__PURE__*/React.createElement("div", {
+    }), leiste && React.createElement("div", {
       className: "pl-massstab-leiste",
       "aria-label": 'Maßstab: ' + leiste.text
-    }, /*#__PURE__*/React.createElement("div", {
+    }, React.createElement("div", {
       style: {
         width: leiste.px
       }
-    }), /*#__PURE__*/React.createElement("span", null, leiste.text)), /*#__PURE__*/React.createElement("div", {
+    }), React.createElement("span", null, leiste.text)), React.createElement("div", {
       className: "pl-zoom"
-    }, /*#__PURE__*/React.createElement("button", {
+    }, React.createElement("button", {
       className: "pl-symbol",
       "aria-label": "N\xE4her heran",
       title: "N\xE4her heran",
       onClick: () => knopfZoom(0.5)
-    }, "\uFF0B"), /*#__PURE__*/React.createElement("button", {
+    }, "\uFF0B"), React.createElement("button", {
       className: "pl-symbol",
       "aria-label": "Weiter weg",
       title: "Weiter weg",
       onClick: () => knopfZoom(-0.5)
-    }, "\u2212"), /*#__PURE__*/React.createElement("button", {
+    }, "\u2212"), React.createElement("button", {
       className: "pl-symbol",
       "aria-label": "Ganze Karte",
       title: "Ganze Karte",
       onClick: () => setA(ansichtEinpassen(plan, g))
     }, "\u2922")));
   }
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     ref: box,
     className: 'pl-leinwand-karte werkzeug-' + (werkzeug || 'ansehen') + (bild ? '' : ' leer'),
     "data-stufe": a && plan ? stufeFuer(a.zoom, plan) : '',
@@ -3165,19 +2773,13 @@ const KartenLeinwand = ({
     onPointerMove: bewegen,
     onPointerUp: hoch,
     onPointerCancel: hoch
-  }, !bild && /*#__PURE__*/React.createElement("div", {
+  }, !bild && React.createElement("div", {
     className: "pl-leinwand-raster",
     "aria-hidden": "true"
   }), inhalt);
 };
 
 // ==== planer/src/3-ort.jsx ====
-// ── Bilder, Orte, Maßstab ────────────────────────────────────────
-
-// ── Bilder im Browser ────────────────────────────────────────────
-// Kacheln werden hier geschnitten, nicht auf dem Server: ein Webhosting
-// bricht bei einem Bild von 20 000 Pixeln an seiner Speichergrenze ab,
-// der Browser auf dem Rechner der Spielleitung nicht.
 const neueLeinwand = (b, h) => {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(b, h);
   const c = document.createElement('canvas');
@@ -3195,12 +2797,9 @@ const leinwandBytes = async (c, typ, qualitaet) => {
     bytes: new Uint8Array(await blob.arrayBuffer())
   };
 };
-// WebP, wo der Browser es schreiben kann; sonst JPEG.
 let bildFormatGemerkt = null;
 const bildFormat = async () => {
   if (bildFormatGemerkt) return bildFormatGemerkt;
-  // Eine Leinwand ohne Zeichenflaeche laesst sich nicht umwandeln — die
-  // Probe braucht also einen Pinselstrich.
   const c = neueLeinwand(2, 2);
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#808080';
@@ -3217,16 +2816,13 @@ const bildFormat = async () => {
   };
   return bildFormatGemerkt;
 };
-
-// Gelingt das Bild nicht am Stueck, dann verkleinert: lieber eine Karte
-// mit halber Aufloesung als gar keine.
 const bildOeffnen = async (datei, masse) => {
   try {
     return {
       bitmap: await createImageBitmap(datei),
       faktor: 1
     };
-  } catch (e) {/* weiter unten kleiner */}
+  } catch (e) {}
   if (masse) {
     for (const f of [0.5, 0.25]) {
       try {
@@ -3239,7 +2835,7 @@ const bildOeffnen = async (datei, masse) => {
           bitmap,
           faktor: f
         };
-      } catch (e) {/* noch kleiner */}
+      } catch (e) {}
     }
   }
   throw new Error('Der Browser kann dieses Bild nicht öffnen' + (masse ? ' (' + masse.breite + ' × ' + masse.hoehe + ' Pixel)' : '') + '. Bitte in PNG, JPEG oder WebP speichern, oder in zwei Teilkarten zerlegen.');
@@ -3289,8 +2885,6 @@ const bildVerkleinert = async (quelle, hoechstens, format) => {
   return (await leinwandBytes(c, format.typ, 0.86)).bytes;
 };
 const dateiKopf = async datei => new Uint8Array(await datei.slice(0, 1024 * 1024).arrayBuffer());
-
-// ── Maßstab festlegen ────────────────────────────────────────────
 const MassstabDialog = ({
   punkte,
   alt,
@@ -3301,10 +2895,10 @@ const MassstabDialog = ({
   const [einh, setEinh] = useState(alt ? alt.einheit : 'km');
   const zahl = parseFloat(laenge.replace(',', '.'));
   const m = massstabAus(punkte[0], punkte[1], zahl, einh);
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-schleier",
     onClick: onZu
-  }, /*#__PURE__*/React.createElement("form", {
+  }, React.createElement("form", {
     className: "pl-dialog",
     role: "dialog",
     "aria-modal": "true",
@@ -3313,41 +2907,37 @@ const MassstabDialog = ({
       e.preventDefault();
       if (m) onSpeichern(m);
     }
-  }, /*#__PURE__*/React.createElement("h2", null, "Ma\xDFstab festlegen"), /*#__PURE__*/React.createElement("p", null, "Wie weit liegen die beiden Punkte auf der Karte auseinander?"), /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("h2", null, "Ma\xDFstab festlegen"), React.createElement("p", null, "Wie weit liegen die beiden Punkte auf der Karte auseinander?"), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     autoFocus: true,
     className: "pl-feld pl-zahl",
     inputMode: "decimal",
     value: laenge,
     onChange: e => setLaenge(e.target.value),
     "aria-label": "Entfernung"
-  }), /*#__PURE__*/React.createElement("select", {
+  }), React.createElement("select", {
     className: "pl-feld",
     value: einh,
     onChange: e => setEinh(e.target.value),
     "aria-label": "Einheit"
-  }, EINHEITEN.map(x => /*#__PURE__*/React.createElement("option", {
+  }, EINHEITEN.map(x => React.createElement("option", {
     key: x.k,
     value: x.k
-  }, x.l)))), /*#__PURE__*/React.createElement("p", {
+  }, x.l)))), React.createElement("p", {
     className: "pl-hinweis"
-  }, Math.round(abstandPx(punkte[0], punkte[1])), " Pixel im Bild", m ? ' · ' + zahlText(pxJeEinheit(m)) + ' Pixel je ' + einheit(einh).kurz : ''), /*#__PURE__*/React.createElement("div", {
+  }, Math.round(abstandPx(punkte[0], punkte[1])), " Pixel im Bild", m ? ' · ' + zahlText(pxJeEinheit(m)) + ' Pixel je ' + einheit(einh).kurz : ''), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf",
     onClick: onZu
-  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+  }, "Abbrechen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt",
     disabled: !m
   }, "\xDCbernehmen"))));
 };
-
-// ── Die Tafel eines Orts ─────────────────────────────────────────
-// Die Spielleitung bearbeitet, alle anderen lesen. Was unter dm steht,
-// kommt bei Spielern gar nicht erst an.
 const OrtTafel = ({
   ort,
   dm,
@@ -3368,9 +2958,6 @@ const OrtTafel = ({
   const [entwurf, setEntwurf] = useState(ort);
   const [gross, setGross] = useState(null);
   const bildEingabe = useRef(null);
-  // Kommt eine neue Fassung vom Server — ein Bild ist dazugekommen, der
-  // Ort wurde verschoben —, gilt sie fuer alles, was hier nicht gerade
-  // bearbeitet wird. Was hier geaendert ist, bleibt.
   const [basis, setBasis] = useState(ort);
   const gleich = (x, y) => JSON.stringify(x) === JSON.stringify(y);
   useEffect(() => {
@@ -3400,149 +2987,149 @@ const OrtTafel = ({
   }));
   const unter = karten.find(k => k.id === (dm ? entwurf.unterkarte : ort.unterkarte));
   const bilder = (dm ? entwurf.bilder : ort.bilder) || [];
-  const bildLeiste = bilder.length > 0 && /*#__PURE__*/React.createElement("div", {
+  const bildLeiste = bilder.length > 0 && React.createElement("div", {
     className: "pl-ort-bilder"
-  }, bilder.map(p => /*#__PURE__*/React.createElement("figure", {
+  }, bilder.map(p => React.createElement("figure", {
     key: p
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-ort-bild",
     onClick: () => setGross(p),
     "aria-label": "Bild gro\xDF ansehen"
-  }, /*#__PURE__*/React.createElement("img", {
+  }, React.createElement("img", {
     src: planerDateiUrl(karte.ablage, p),
     alt: "",
     loading: "lazy"
-  })), dm && /*#__PURE__*/React.createElement("button", {
+  })), dm && React.createElement("button", {
     className: "pl-symbol pl-symbol-weg",
     "aria-label": "Bild entfernen",
     title: "Bild entfernen",
     onClick: () => onBildWeg(entwurf, p),
     disabled: arbeitet
   }, "\u2715"))));
-  const hexZeile = karte.hex && karte.hex.an && karte.massstab && typeof ort.x === 'number' ? /*#__PURE__*/React.createElement("p", {
+  const hexZeile = karte.hex && karte.hex.an && karte.massstab && typeof ort.x === 'number' ? React.createElement("p", {
     className: "pl-leise pl-klein-text"
   }, "\u2B21 Feld ", hexAdresse(hexAchsial(ort, hexRadiusPx(karte.hex.groesse || 10, karte.massstab)))) : null;
-  const geschichte = (wissen || []).length || (quests || []).length ? /*#__PURE__*/React.createElement("div", {
+  const geschichte = (wissen || []).length || (quests || []).length ? React.createElement("div", {
     className: "pl-ort-geschichte"
-  }, (quests || []).map(q => /*#__PURE__*/React.createElement("button", {
+  }, (quests || []).map(q => React.createElement("button", {
     type: "button",
     key: q.id,
     className: "pl-knopf pl-klein",
     onClick: () => onGeschichte(q)
-  }, questStatus(q.status).zeichen, " ", q.titel)), (wissen || []).map(w => /*#__PURE__*/React.createElement("button", {
+  }, questStatus(q.status).zeichen, " ", q.titel)), (wissen || []).map(w => React.createElement("button", {
     type: "button",
     key: w.id,
     className: "pl-knopf pl-klein pl-wissen-knopf",
     onClick: () => onGeschichte(w)
   }, (HINWEIS_ARTEN.find(h => h.k === w.artDesWissens) || HINWEIS_ARTEN[0]).zeichen, " ", String(w.text || '').slice(0, 60)))) : null;
-  const lupe = gross && /*#__PURE__*/React.createElement("div", {
+  const lupe = gross && React.createElement("div", {
     className: "pl-schleier pl-lupe",
     onClick: () => setGross(null),
     role: "dialog",
     "aria-label": "Bild"
-  }, /*#__PURE__*/React.createElement("img", {
+  }, React.createElement("img", {
     src: planerDateiUrl(karte.ablage, gross),
     alt: ""
   }));
   if (!dm) {
-    return /*#__PURE__*/React.createElement("aside", {
+    return React.createElement("aside", {
       className: "pl-tafel",
       "aria-label": 'Ort: ' + ort.name
-    }, /*#__PURE__*/React.createElement("header", {
+    }, React.createElement("header", {
       className: "pl-tafel-kopf"
-    }, /*#__PURE__*/React.createElement("span", {
+    }, React.createElement("span", {
       className: "pl-tafel-symbol",
       "aria-hidden": "true"
-    }, ort.symbol || '📍'), /*#__PURE__*/React.createElement("h2", null, ort.name), /*#__PURE__*/React.createElement("button", {
+    }, ort.symbol || '📍'), React.createElement("h2", null, ort.name), React.createElement("button", {
       className: "pl-symbol",
       "aria-label": "Schlie\xDFen",
       onClick: onSchliessen
-    }, "\u2715")), ort.text ? /*#__PURE__*/React.createElement("p", {
+    }, "\u2715")), ort.text ? React.createElement("p", {
       className: "pl-ort-text"
-    }, ort.text) : /*#__PURE__*/React.createElement("p", {
+    }, ort.text) : React.createElement("p", {
       className: "pl-leise"
-    }, "\xDCber diesen Ort ist noch nichts bekannt."), hexZeile, geschichte, bildLeiste, unter && /*#__PURE__*/React.createElement("button", {
+    }, "\xDCber diesen Ort ist noch nichts bekannt."), hexZeile, geschichte, bildLeiste, unter && React.createElement("button", {
       className: "pl-knopf pl-haupt",
       onClick: () => onUnterkarte(unter.id)
     }, "\uD83D\uDDFA ", unter.name, " \xF6ffnen"), lupe);
   }
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel",
     "aria-label": 'Ort bearbeiten: ' + ort.name
-  }, /*#__PURE__*/React.createElement("header", {
+  }, React.createElement("header", {
     className: "pl-tafel-kopf"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     className: "pl-tafel-symbol",
     "aria-hidden": "true"
-  }, entwurf.symbol || '📍'), /*#__PURE__*/React.createElement("h2", null, entwurf.name || 'Ohne Namen'), /*#__PURE__*/React.createElement("button", {
+  }, entwurf.symbol || '📍'), React.createElement("h2", null, entwurf.name || 'Ohne Namen'), React.createElement("button", {
     className: "pl-symbol",
     "aria-label": "Schlie\xDFen",
     onClick: onSchliessen
-  }, "\u2715")), /*#__PURE__*/React.createElement("form", {
+  }, "\u2715")), React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Name", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.name || '',
     maxLength: 120,
     onChange: e => setze('name', e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-symbole",
     role: "radiogroup",
     "aria-label": "Zeichen"
-  }, ORT_SYMBOLE.map(s => /*#__PURE__*/React.createElement("button", {
+  }, ORT_SYMBOLE.map(s => React.createElement("button", {
     type: "button",
     key: s,
     role: "radio",
     "aria-checked": (entwurf.symbol || '📍') === s,
     className: 'pl-symbolwahl' + ((entwurf.symbol || '📍') === s ? ' an' : ''),
     onClick: () => setze('symbol', s)
-  }, s))), /*#__PURE__*/React.createElement("label", null, "Was die Spieler lesen", /*#__PURE__*/React.createElement("textarea", {
+  }, s))), React.createElement("label", null, "Was die Spieler lesen", React.createElement("textarea", {
     className: "pl-feld",
     rows: 4,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: e => setze('text', e.target.value)
-  })), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+  })), React.createElement("label", null, "Notiz der Spielleitung ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u2014 sehen Spieler nie"), React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 3,
     value: entwurf.dm && entwurf.dm.notiz || '',
     maxLength: 20000,
     onChange: e => setzeDm('notiz', e.target.value)
-  })), /*#__PURE__*/React.createElement("label", null, "F\xFChrt zu Karte", /*#__PURE__*/React.createElement("select", {
+  })), React.createElement("label", null, "F\xFChrt zu Karte", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.unterkarte || '',
     onChange: e => setze('unterkarte', e.target.value || undefined)
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 keine \u2014"), karten.filter(k => k.id !== entwurf.karteId).map(k => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 keine \u2014"), karten.filter(k => k.id !== entwurf.karteId).map(k => React.createElement("option", {
     key: k.id,
     value: k.id
-  }, k.name)))), /*#__PURE__*/React.createElement("label", {
+  }, k.name)))), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: e => setze('sichtbar', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), !entwurf.sichtbar && /*#__PURE__*/React.createElement("label", {
+  }), React.createElement("span", null, "F\xFCr Spieler sichtbar")), !entwurf.sichtbar && React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.mitNebel,
     onChange: e => setze('mitNebel', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "Sichtbar, sobald der Nebel \xFCber ihm aufgeht")), hexZeile, geschichte, bildLeiste, /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("span", null, "Sichtbar, sobald der Nebel \xFCber ihm aufgeht")), hexZeile, geschichte, bildLeiste, React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: arbeitet,
     onClick: () => bildEingabe.current && bildEingabe.current.click()
-  }, "\uFF0B Bild"), /*#__PURE__*/React.createElement("input", {
+  }, "\uFF0B Bild"), React.createElement("input", {
     ref: bildEingabe,
     type: "file",
     accept: "image/*",
@@ -3553,26 +3140,26 @@ const OrtTafel = ({
       e.target.value = '';
       if (f.length) onBilderHoch(entwurf, f);
     }
-  }), unter && /*#__PURE__*/React.createElement("button", {
+  }), unter && React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => onUnterkarte(unter.id)
-  }, "\uD83D\uDDFA ", unter.name)), /*#__PURE__*/React.createElement(DateiListe, {
+  }, "\uD83D\uDDFA ", unter.name)), React.createElement(DateiListe, {
     dateien: entwurf.dm && entwurf.dm.dateien || [],
     onMeldung: onMeldung,
     onDateien: liste => setzeDm('dateien', liste)
-  }), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(ort)
-  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+  }, "L\xF6schen"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !geaendert,
     onClick: () => setEntwurf(ort)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein",
     disabled: !geaendert || !String(entwurf.name || '').trim()
@@ -3580,14 +3167,6 @@ const OrtTafel = ({
 };
 
 // ==== planer/src/3b-reise.jsx ====
-// ── Routen und Reisen: die Tafeln ────────────────────────────────
-// Die Rechnung steht in 1c-reise.jsx. Hier: die Tafel einer Route
-// (Gelaende je Abschnitt) und die einer Reise (Einstellungen, Plan Tag
-// fuer Tag, Wetter, der naechste Reisetag, Uebergaben ans Heldenbuch).
-
-// Ein Auftrag an das Heldenbuch: in den gemeinsamen Speicher legen und
-// kurz auf die Quittung warten. Kommt keine, ist kein Heldenbuch im
-// DM-Modus offen — dann wartet der Auftrag dort eine halbe Stunde.
 const anHeldenbuch = auftrag => new Promise(ok => {
   const id = planNeueId('a');
   try {
@@ -3617,9 +3196,6 @@ const anHeldenbuch = auftrag => new Promise(ok => {
     }
   }, 120);
 });
-
-// Wie OrtTafel: der Entwurf nimmt neue Fassungen vom Server, wo hier
-// nichts geaendert ist.
 const useEntwurf = wert => {
   const [entwurf, setEntwurf] = useState(wert);
   const [basis, setBasis] = useState(wert);
@@ -3643,18 +3219,16 @@ const TafelKopf = ({
   symbol,
   titel,
   onSchliessen
-}) => /*#__PURE__*/React.createElement("header", {
+}) => React.createElement("header", {
   className: "pl-tafel-kopf"
-}, /*#__PURE__*/React.createElement("span", {
+}, React.createElement("span", {
   className: "pl-tafel-symbol",
   "aria-hidden": "true"
-}, symbol), /*#__PURE__*/React.createElement("h2", null, titel), /*#__PURE__*/React.createElement("button", {
+}, symbol), React.createElement("h2", null, titel), React.createElement("button", {
   className: "pl-symbol",
   "aria-label": "Schlie\xDFen",
   onClick: onSchliessen
 }, "\u2715"));
-
-// ── Route ────────────────────────────────────────────────────────
 const RouteTafel = ({
   route,
   dm,
@@ -3685,84 +3259,84 @@ const RouteTafel = ({
   const eigeneReisen = reisen.filter(r => r.routeId === route.id);
   const laengeZeile = m ? laengeText(laenge, m.einheit) : 'ohne Maßstab';
   if (!dm) {
-    return /*#__PURE__*/React.createElement("aside", {
+    return React.createElement("aside", {
       className: "pl-tafel",
       "aria-label": 'Route: ' + route.name
-    }, /*#__PURE__*/React.createElement(TafelKopf, {
+    }, React.createElement(TafelKopf, {
       symbol: "\uD83D\uDEE4",
       titel: route.name,
       onSchliessen: onSchliessen
-    }), /*#__PURE__*/React.createElement("p", {
+    }), React.createElement("p", {
       className: "pl-leise"
-    }, laengeZeile, " \xB7 ", ab.length, " Abschnitte"), route.text ? /*#__PURE__*/React.createElement("p", {
+    }, laengeZeile, " \xB7 ", ab.length, " Abschnitte"), route.text ? React.createElement("p", {
       className: "pl-ort-text"
-    }, route.text) : null, eigeneReisen.map(r => /*#__PURE__*/React.createElement("button", {
+    }, route.text) : null, eigeneReisen.map(r => React.createElement("button", {
       key: r.id,
       className: "pl-knopf pl-klein",
       onClick: () => onReiseWahl(r.id)
     }, "\uD83E\uDDED ", r.name)));
   }
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel",
     "aria-label": 'Route bearbeiten: ' + route.name
-  }, /*#__PURE__*/React.createElement(TafelKopf, {
+  }, React.createElement(TafelKopf, {
     symbol: "\uD83D\uDEE4",
     titel: entwurf.name || 'Ohne Namen',
     onSchliessen: onSchliessen
-  }), /*#__PURE__*/React.createElement("form", {
+  }), React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Name", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.name || '',
     maxLength: 120,
     onChange: e => setze('name', e.target.value)
-  })), /*#__PURE__*/React.createElement("p", {
+  })), React.createElement("p", {
     className: "pl-leise"
-  }, laengeZeile, " \xB7 ", ab.length, " Abschnitte"), /*#__PURE__*/React.createElement("label", null, "Alle Abschnitte", /*#__PURE__*/React.createElement("select", {
+  }, laengeZeile, " \xB7 ", ab.length, " Abschnitte"), React.createElement("label", null, "Alle Abschnitte", React.createElement("select", {
     className: "pl-feld pl-alle-gelaende",
     value: "",
     onChange: e => {
       const g = e.target.value;
       if (g) setze('gelaende', ab.map(() => g));
     }
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 Gel\xE4nde f\xFCr alle setzen \u2014"), GELAENDE.map(g => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 Gel\xE4nde f\xFCr alle setzen \u2014"), GELAENDE.map(g => React.createElement("option", {
     key: g.k,
     value: g.k
-  }, g.l)))), /*#__PURE__*/React.createElement("ol", {
+  }, g.l)))), React.createElement("ol", {
     className: "pl-abschnitte"
-  }, ab.map(a => /*#__PURE__*/React.createElement("li", {
+  }, ab.map(a => React.createElement("li", {
     key: a.i
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     className: "pl-farbpunkt",
     style: {
       background: gelaende(a.gelaende).farbe
     },
     "aria-hidden": "true"
-  }), /*#__PURE__*/React.createElement("span", {
+  }), React.createElement("span", {
     className: "pl-abschnitt-laenge"
-  }, m ? laengeText(a.laenge, m.einheit) : Math.round(a.px) + ' px'), /*#__PURE__*/React.createElement("select", {
+  }, m ? laengeText(a.laenge, m.einheit) : Math.round(a.px) + ' px'), React.createElement("select", {
     className: "pl-feld",
     value: a.gelaende,
     "aria-label": 'Gelände Abschnitt ' + (a.i + 1),
     onChange: e => setzeGelaende(a.i, e.target.value)
-  }, GELAENDE.map(g => /*#__PURE__*/React.createElement("option", {
+  }, GELAENDE.map(g => React.createElement("option", {
     key: g.k,
     value: g.k
-  }, g.l)))))), /*#__PURE__*/React.createElement("label", null, "Was die Spieler lesen", /*#__PURE__*/React.createElement("textarea", {
+  }, g.l)))))), React.createElement("label", null, "Was die Spieler lesen", React.createElement("textarea", {
     className: "pl-feld",
     rows: 2,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: e => setze('text', e.target.value)
-  })), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+  })), React.createElement("label", null, "Notiz der Spielleitung ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u2014 sehen Spieler nie"), React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 2,
     value: entwurf.dm && entwurf.dm.notiz || '',
@@ -3774,44 +3348,42 @@ const RouteTafel = ({
         notiz: e.target.value
       }
     }))
-  })), /*#__PURE__*/React.createElement("label", {
+  })), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: e => setze('sichtbar', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("span", null, "F\xFCr Spieler sichtbar")), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein pl-haupt",
     disabled: geaendert || !m,
     onClick: () => onReiseNeu(route),
     title: !m ? 'Die Karte braucht zuerst einen Maßstab' : geaendert ? 'Erst speichern' : ''
-  }, "\uD83E\uDDED Reise planen"), eigeneReisen.map(r => /*#__PURE__*/React.createElement("button", {
+  }, "\uD83E\uDDED Reise planen"), eigeneReisen.map(r => React.createElement("button", {
     type: "button",
     key: r.id,
     className: "pl-knopf pl-klein",
     onClick: () => onReiseWahl(r.id)
-  }, "\uD83E\uDDED ", r.name))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83E\uDDED ", r.name))), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(route)
-  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+  }, "L\xF6schen"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !geaendert,
     onClick: () => setEntwurf(route)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein",
     disabled: !geaendert
   }, "Speichern"))));
 };
-
-// ── Reise ────────────────────────────────────────────────────────
 const neueReise = route => ({
   id: planNeueId('j'),
   karteId: route.karteId,
@@ -3835,9 +3407,6 @@ const neueReise = route => ({
     notiz: ''
   }
 });
-
-// Das Wetter der Tage ab dem Start: gewuerfelt aus dem Samen, und wo
-// die Spielleitung etwas festgelegt hat, das.
 const reiseWetter = (reise, anzahl) => {
   const vorgaben = [];
   Object.entries(reise.wetterVorgaben || {}).forEach(([i, w]) => {
@@ -3870,7 +3439,7 @@ const WetterWahl = ({
   wetter,
   onWetter
 }) => {
-  const feld = (name, liste) => /*#__PURE__*/React.createElement("select", {
+  const feld = (name, liste) => React.createElement("select", {
     className: "pl-feld",
     value: wetter[name],
     "aria-label": name,
@@ -3878,11 +3447,11 @@ const WetterWahl = ({
       ...wetter,
       [name]: e.target.value
     })
-  }, liste.map(k => /*#__PURE__*/React.createElement("option", {
+  }, liste.map(k => React.createElement("option", {
     key: k,
     value: k
   }, WETTER_WORTE[k])));
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-wetter-wahl"
   }, feld('niederschlag', WETTER_NIEDERSCHLAG), feld('temperatur', WETTER_TEMPERATUR), feld('wind', WETTER_WIND));
 };
@@ -3926,8 +3495,6 @@ const ReiseTafel = ({
   const f = fortbewegung(entwurf.optionen && entwurf.optionen.fortbewegung);
   const verpf = verpflegung(st.plan.tage.length, entwurf.personen);
   const ankunft = chronikZeit != null && st.plan.angekommen ? 'Tag ' + (Math.floor((chronikZeit + st.plan.tage.length * 24) / 24) + 1) : '';
-  // Die Wachen des naechsten Tags, mit einem Samen je Tag: dieselbe Reise
-  // wuerfelt dasselbe, bis jemand ausdruecklich neu wuerfelt.
   const nochmal = (entwurf.nochmal || {})[st.tag] || 0;
   const pruefungen = heute && m ? tagesPruefungen({
     tag: heute,
@@ -3997,7 +3564,6 @@ const ReiseTafel = ({
   };
   const tagAbschliessen = () => {
     if (!heute) return;
-    // Verirrt: die Stunden vergehen, die Strecke nicht.
     const eintrag = {
       nr: st.tag + 1,
       strecke: verirrt ? 0 : heute.strecke,
@@ -4031,9 +3597,6 @@ const ReiseTafel = ({
       tagebuch: [...(entwurf.tagebuch || []), eintrag]
     });
     if (verirrt) return;
-    // Reist eine Figur mit — ein Bote, eine Karawane, ein NSC —, bekommt
-    // sie fuer diesen Tag einen Wegpunkt am Ende der Tagesstrecke. Der
-    // Nebel bleibt davon unberuehrt: sie gehoert nicht zur Gruppe.
     const fg = entwurf.figurId && (figuren || []).find(x => x.id === entwurf.figurId);
     if (fg && onFigurReist) {
       const ende = punktAufRoute(st.r, m, heute.bis);
@@ -4041,14 +3604,11 @@ const ReiseTafel = ({
       const von = Math.max(chronikZeit || 0, letzte ? letzte.zeit : 0);
       if (ende) onFigurReist(fg, ende, Math.round(von + heute.stunden));
     }
-    // Reist eine Heldengruppe mit, zieht sie die Route entlang und lichtet
-    // den Nebel mit ihrer eigenen Sichtweite.
     const hg = entwurf.gruppeId && (heldengruppen || []).find(x => x.id === entwurf.gruppeId);
     if (hg && onGruppeReist) {
       onGruppeReist(hg, routenPunkteZwischen(st.r, m, heute.von, heute.bis), heute.stunden, entwurf.startStunde ?? 8);
       return;
     }
-    // Wo die Gruppe hinkam, weicht der Nebel — so weit, wie sie sieht.
     if (nebelVon(karte).an && (+entwurf.sichtweite || 0) > 0 && onNebelAufdecken) {
       onNebelAufdecken(kreiseEntlang(st.r, m, heute.von, heute.bis, +entwurf.sichtweite));
     }
@@ -4077,95 +3637,95 @@ const ReiseTafel = ({
   };
   const letzter = (entwurf.tagebuch || [])[(entwurf.tagebuch || []).length - 1];
   if (!dm) {
-    return /*#__PURE__*/React.createElement("aside", {
+    return React.createElement("aside", {
       className: "pl-tafel",
       "aria-label": 'Reise: ' + reise.name
-    }, /*#__PURE__*/React.createElement(TafelKopf, {
+    }, React.createElement(TafelKopf, {
       symbol: "\uD83E\uDDED",
       titel: reise.name,
       onSchliessen: onSchliessen
-    }), m && /*#__PURE__*/React.createElement("p", null, st.tag ? 'Tag ' + st.tag + ' · ' : '', laengeText(reise.pos || 0, einh), " von ", laengeText(st.gesamt, einh), angekommen ? ' · angekommen' : ''), letzter && letzter.wetter && /*#__PURE__*/React.createElement("p", {
+    }), m && React.createElement("p", null, st.tag ? 'Tag ' + st.tag + ' · ' : '', laengeText(reise.pos || 0, einh), " von ", laengeText(st.gesamt, einh), angekommen ? ' · angekommen' : ''), letzter && letzter.wetter && React.createElement("p", {
       className: "pl-leise"
     }, "Zuletzt: ", WETTER_ZEICHEN[letzter.wetter.niederschlag], " ", wetterText(letzter.wetter)));
   }
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel pl-reise",
     "aria-label": 'Reise: ' + reise.name
-  }, /*#__PURE__*/React.createElement(TafelKopf, {
+  }, React.createElement(TafelKopf, {
     symbol: "\uD83E\uDDED",
     titel: entwurf.name || 'Reise',
     onSchliessen: onSchliessen
-  }), /*#__PURE__*/React.createElement("form", {
+  }), React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Name", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.name || '',
     maxLength: 120,
     onChange: e => setze('name', e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-raster2"
-  }, /*#__PURE__*/React.createElement("label", null, "Richtung", /*#__PURE__*/React.createElement("select", {
+  }, React.createElement("label", null, "Richtung", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.richtung,
     onChange: e => setze('richtung', e.target.value),
     disabled: (entwurf.tagebuch || []).length > 0
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: "hin"
-  }, "Vom Anfang zum Ende"), /*#__PURE__*/React.createElement("option", {
+  }, "Vom Anfang zum Ende"), React.createElement("option", {
     value: "zurueck"
-  }, "Vom Ende zum Anfang"))), /*#__PURE__*/React.createElement("label", null, "Fortbewegung", /*#__PURE__*/React.createElement("select", {
+  }, "Vom Ende zum Anfang"))), React.createElement("label", null, "Fortbewegung", React.createElement("select", {
     className: "pl-feld",
     value: f.k,
     onChange: e => setzeOpt('fortbewegung', e.target.value)
-  }, FORTBEWEGUNG.map(x => /*#__PURE__*/React.createElement("option", {
+  }, FORTBEWEGUNG.map(x => React.createElement("option", {
     key: x.k,
     value: x.k
-  }, x.l)))), f.art !== 'wasser' && /*#__PURE__*/React.createElement("label", null, "Tempo", /*#__PURE__*/React.createElement("select", {
+  }, x.l)))), f.art !== 'wasser' && React.createElement("label", null, "Tempo", React.createElement("select", {
     className: "pl-feld",
     value: tempo(entwurf.optionen && entwurf.optionen.tempo).k,
     onChange: e => setzeOpt('tempo', e.target.value)
-  }, TEMPO.map(x => /*#__PURE__*/React.createElement("option", {
+  }, TEMPO.map(x => React.createElement("option", {
     key: x.k,
     value: x.k
-  }, x.l)))), /*#__PURE__*/React.createElement("label", null, "Stunden am Tag", /*#__PURE__*/React.createElement("input", {
+  }, x.l)))), React.createElement("label", null, "Stunden am Tag", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 1,
     max: 24,
     value: reiseStunden(entwurf.optionen),
     onChange: e => setzeOpt('stunden', Math.max(1, Math.min(24, +e.target.value || 1)))
-  })), /*#__PURE__*/React.createElement("label", null, "Aufbruch um", /*#__PURE__*/React.createElement("input", {
+  })), React.createElement("label", null, "Aufbruch um", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
     max: 23,
     value: entwurf.startStunde ?? 8,
     onChange: e => setze('startStunde', Math.max(0, Math.min(23, Math.round(+e.target.value || 0))))
-  })), /*#__PURE__*/React.createElement("label", null, "Heldengruppe", /*#__PURE__*/React.createElement("select", {
+  })), React.createElement("label", null, "Heldengruppe", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.gruppeId || '',
     onChange: e => setze('gruppeId', e.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 keine \u2014"), (heldengruppen || []).map(x => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 keine \u2014"), (heldengruppen || []).map(x => React.createElement("option", {
     key: x.id,
     value: x.id
-  }, x.name)))), /*#__PURE__*/React.createElement("label", null, "Figur unterwegs", /*#__PURE__*/React.createElement("select", {
+  }, x.name)))), React.createElement("label", null, "Figur unterwegs", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.figurId || '',
     "aria-label": "Figur unterwegs",
     title: "Ein Bote, eine Karawane, ein NSC: jeder abgeschlossene Tag setzt ihr einen Wegpunkt",
     onChange: e => setze('figurId', e.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 keine \u2014"), (figuren || []).map(x => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 keine \u2014"), (figuren || []).map(x => React.createElement("option", {
     key: x.id,
     value: x.id
-  }, (x.symbol || '🧍') + ' ' + x.name)))), /*#__PURE__*/React.createElement("label", null, "Sichtweite (", einh, ")", /*#__PURE__*/React.createElement("input", {
+  }, (x.symbol || '🧍') + ' ' + x.name)))), React.createElement("label", null, "Sichtweite (", einh, ")", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
@@ -4173,7 +3733,7 @@ const ReiseTafel = ({
     value: entwurf.sichtweite ?? 0,
     title: "Wie weit der Nebel entlang des Wegs aufgeht; 0 hei\xDFt gar nicht",
     onChange: e => setze('sichtweite', Math.max(0, +e.target.value || 0))
-  })), /*#__PURE__*/React.createElement("label", null, "Rationen im Gep\xE4ck", /*#__PURE__*/React.createElement("input", {
+  })), React.createElement("label", null, "Rationen im Gep\xE4ck", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
@@ -4186,7 +3746,7 @@ const ReiseTafel = ({
         rationen: Math.max(0, +e.target.value || 0)
       }
     }))
-  })), /*#__PURE__*/React.createElement("label", null, "Wasser (l)", /*#__PURE__*/React.createElement("input", {
+  })), React.createElement("label", null, "Wasser (l)", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
@@ -4199,57 +3759,57 @@ const ReiseTafel = ({
         wasserLiter: Math.max(0, +e.target.value || 0)
       }
     }))
-  })), /*#__PURE__*/React.createElement("label", null, "Personen", /*#__PURE__*/React.createElement("input", {
+  })), React.createElement("label", null, "Personen", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
     max: 999,
     value: entwurf.personen ?? 4,
     onChange: e => setze('personen', Math.max(0, +e.target.value || 0))
-  })), /*#__PURE__*/React.createElement("label", null, "Klima", /*#__PURE__*/React.createElement("select", {
+  })), React.createElement("label", null, "Klima", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.klima,
     onChange: e => setze('klima', e.target.value)
-  }, KLIMA.map(x => /*#__PURE__*/React.createElement("option", {
+  }, KLIMA.map(x => React.createElement("option", {
     key: x.k,
     value: x.k
-  }, x.l)))), /*#__PURE__*/React.createElement("label", null, "Jahreszeit", /*#__PURE__*/React.createElement("select", {
+  }, x.l)))), React.createElement("label", null, "Jahreszeit", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.jahreszeit,
     onChange: e => setze('jahreszeit', e.target.value)
-  }, JAHRESZEITEN.map(x => /*#__PURE__*/React.createElement("option", {
+  }, JAHRESZEITEN.map(x => React.createElement("option", {
     key: x.k,
     value: x.k
-  }, x.l))))), /*#__PURE__*/React.createElement("label", {
+  }, x.l))))), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: e => setze('sichtbar', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "Spieler sehen die Gruppe auf der Karte")), geaendert && /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("span", null, "Spieler sehen die Gruppe auf der Karte")), geaendert && React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setEntwurf(reise)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein"
-  }, "Speichern"))), !m ? /*#__PURE__*/React.createElement("p", {
+  }, "Speichern"))), !m ? React.createElement("p", {
     className: "pl-warnung"
-  }, "Die Karte braucht einen Ma\xDFstab, sonst l\xE4sst sich nichts rechnen.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dl", {
+  }, "Die Karte braucht einen Ma\xDFstab, sonst l\xE4sst sich nichts rechnen.") : React.createElement(React.Fragment, null, React.createElement("dl", {
     className: "pl-fakten pl-reise-fakten"
-  }, /*#__PURE__*/React.createElement("dt", null, "Strecke"), /*#__PURE__*/React.createElement("dd", null, laengeText(entwurf.pos || 0, einh), " von ", laengeText(st.gesamt, einh)), /*#__PURE__*/React.createElement("dt", null, "Noch"), /*#__PURE__*/React.createElement("dd", null, angekommen ? 'angekommen' : st.plan.tage.length + (st.plan.tage.length === 1 ? ' Tag' : ' Tage') + (st.plan.angekommen ? '' : ' bis zum Hindernis')), ankunft && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Ankunft"), /*#__PURE__*/React.createElement("dd", null, ankunft, " der Chronik")), entwurf.personen > 0 && st.plan.tage.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Verpflegung"), /*#__PURE__*/React.createElement("dd", null, verpf.rationen, " Rationen, ", verpf.wasserLiter, " l Wasser")), f.art !== 'wasser' && tempo(entwurf.optionen && entwurf.optionen.tempo).folge && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Tempo"), /*#__PURE__*/React.createElement("dd", null, tempo(entwurf.optionen.tempo).folge))), st.plan.warnungen.map(w => /*#__PURE__*/React.createElement("p", {
+  }, React.createElement("dt", null, "Strecke"), React.createElement("dd", null, laengeText(entwurf.pos || 0, einh), " von ", laengeText(st.gesamt, einh)), React.createElement("dt", null, "Noch"), React.createElement("dd", null, angekommen ? 'angekommen' : st.plan.tage.length + (st.plan.tage.length === 1 ? ' Tag' : ' Tage') + (st.plan.angekommen ? '' : ' bis zum Hindernis')), ankunft && React.createElement(React.Fragment, null, React.createElement("dt", null, "Ankunft"), React.createElement("dd", null, ankunft, " der Chronik")), entwurf.personen > 0 && st.plan.tage.length > 0 && React.createElement(React.Fragment, null, React.createElement("dt", null, "Verpflegung"), React.createElement("dd", null, verpf.rationen, " Rationen, ", verpf.wasserLiter, " l Wasser")), f.art !== 'wasser' && tempo(entwurf.optionen && entwurf.optionen.tempo).folge && React.createElement(React.Fragment, null, React.createElement("dt", null, "Tempo"), React.createElement("dd", null, tempo(entwurf.optionen.tempo).folge))), st.plan.warnungen.map(w => React.createElement("p", {
     key: w,
     className: "pl-warnung"
-  }, w)), heute && !angekommen && /*#__PURE__*/React.createElement("section", {
+  }, w)), heute && !angekommen && React.createElement("section", {
     className: "pl-heute",
     "aria-label": "Der n\xE4chste Reisetag"
-  }, /*#__PURE__*/React.createElement("h3", null, "Tag ", st.tag + 1), /*#__PURE__*/React.createElement("p", {
+  }, React.createElement("h3", null, "Tag ", st.tag + 1), React.createElement("p", {
     className: "pl-heute-zeile"
-  }, /*#__PURE__*/React.createElement("strong", null, laengeText(heute.strecke, einh)), " in ", stundenText(heute.stunden), ' · ', heute.teile.map(t => gelaende(t.gelaende).l).join(', '), heute.angekommen ? ' · Ankunft' : ''), /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("strong", null, laengeText(heute.strecke, einh)), " in ", stundenText(heute.stunden), ' · ', heute.teile.map(t => gelaende(t.gelaende).l).join(', '), heute.angekommen ? ' · Ankunft' : ''), React.createElement("div", {
     className: "pl-zeile pl-wetter-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, WETTER_ZEICHEN[st.heute.niederschlag], " Wetter"), /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("span", null, WETTER_ZEICHEN[st.heute.niederschlag], " Wetter"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     title: "Neu w\xFCrfeln",
@@ -4264,7 +3824,7 @@ const ReiseTafel = ({
         wetterVorgaben: v
       });
     }
-  }, "\uD83C\uDFB2")), /*#__PURE__*/React.createElement(WetterWahl, {
+  }, "\uD83C\uDFB2")), React.createElement(WetterWahl, {
     wetter: st.heute,
     onWetter: w => onSpeichern({
       ...entwurf,
@@ -4273,11 +3833,11 @@ const ReiseTafel = ({
         [st.tag]: w
       }
     })
-  }), heute.gewaltmarsch.length > 0 && /*#__PURE__*/React.createElement("p", {
+  }), heute.gewaltmarsch.length > 0 && React.createElement("p", {
     className: "pl-warnung"
-  }, "Gewaltmarsch: KO-Rettungsw\xFCrfe SG ", heute.gewaltmarsch.map(g => g.sg).join(', '), " \u2014 bei Misserfolg eine Stufe Ersch\xF6pfung."), /*#__PURE__*/React.createElement("div", {
+  }, "Gewaltmarsch: KO-Rettungsw\xFCrfe SG ", heute.gewaltmarsch.map(g => g.sg).join(', '), " \u2014 bei Misserfolg eine Stufe Ersch\xF6pfung."), React.createElement("div", {
     className: "pl-zeile pl-wetter-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "\uD83C\uDFB2 Wachen"), pruefungen.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("span", null, "\uD83C\uDFB2 Wachen"), pruefungen.length > 0 && React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     title: "Alle Wachen dieses Tags neu w\xFCrfeln",
@@ -4288,86 +3848,86 @@ const ReiseTafel = ({
         [st.tag]: nochmal + 1
       }
     })
-  }, "\uD83C\uDFB2")), /*#__PURE__*/React.createElement(WachenListe, {
+  }, "\uD83C\uDFB2")), React.createElement(WachenListe, {
     pruefungen: pruefungen,
     begegnungen: begegnungen,
     advId: advId,
     onMeldung: onMeldung
-  }), navSg > 0 && /*#__PURE__*/React.createElement("div", {
+  }), navSg > 0 && React.createElement("div", {
     className: "pl-navigation"
-  }, /*#__PURE__*/React.createElement("span", null, "\uD83E\uDDED Abseits der Wege: \xDCberlebenskunst SG ", navSg), /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("span", null, "\uD83E\uDDED Abseits der Wege: \xDCberlebenskunst SG ", navSg), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !!uebergabe,
     onClick: () => uebergeben(auftragNavigation(advId, navSg, 'Navigation, Reisetag ' + (st.tag + 1)), '🧭 Navigation')
-  }, "\uD83C\uDFB2 Probe ansagen"), /*#__PURE__*/React.createElement("label", {
+  }, "\uD83C\uDFB2 Probe ansagen"), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: verirrt,
     onChange: e => setVerirrt(e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "Verirrt: heute kein Weiterkommen"))), entwurf.vorratFuehren && entwurf.vorrat && /*#__PURE__*/React.createElement("p", {
+  }), React.createElement("span", null, "Verirrt: heute kein Weiterkommen"))), entwurf.vorratFuehren && entwurf.vorrat && React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "\uD83C\uDF5E Vorrat: ", entwurf.vorrat.rationen || 0, " Rationen, ", entwurf.vorrat.wasserLiter || 0, " l Wasser", entwurf.personen > 0 ? ' — reicht ' + Math.floor((entwurf.vorrat.rationen || 0) / entwurf.personen) + ' Tage' : ''), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83C\uDF5E Vorrat: ", entwurf.vorrat.rationen || 0, " Rationen, ", entwurf.vorrat.wasserLiter || 0, " l Wasser", entwurf.personen > 0 ? ' — reicht ' + Math.floor((entwurf.vorrat.rationen || 0) / entwurf.personen) + ' Tage' : ''), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-haupt",
     onClick: tagAbschliessen
-  }, "\u2713 Tag ", st.tag + 1, " abschlie\xDFen")), letzter && /*#__PURE__*/React.createElement("section", {
+  }, "\u2713 Tag ", st.tag + 1, " abschlie\xDFen")), letzter && React.createElement("section", {
     className: "pl-heute",
     "aria-label": "Der letzte Reisetag"
-  }, /*#__PURE__*/React.createElement("h3", null, "Nach Tag ", letzter.nr), /*#__PURE__*/React.createElement("p", {
+  }, React.createElement("h3", null, "Nach Tag ", letzter.nr), React.createElement("p", {
     className: "pl-leise"
-  }, laengeText(letzter.strecke, einh), " \xB7 ", letzter.wetter ? wetterText(letzter.wetter) : ''), /*#__PURE__*/React.createElement("div", {
+  }, laengeText(letzter.strecke, einh), " \xB7 ", letzter.wetter ? wetterText(letzter.wetter) : ''), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !!uebergabe,
     onClick: () => uebergeben(auftragZeit(advId, 24), '⏩ Einen Tag weiter')
-  }, "\u23E9 Chronik: +1 Tag"), /*#__PURE__*/React.createElement("button", {
+  }, "\u23E9 Chronik: +1 Tag"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !!uebergabe,
     onClick: () => uebergeben(auftragRast(advId, letzter.wetter, 'Lager nach Reisetag ' + letzter.nr + ' (' + entwurf.name + ')'), '☾ Lager')
-  }, "\u263E Lager aufschlagen"), (letzter.gewaltmarsch || []).map(g => /*#__PURE__*/React.createElement("button", {
+  }, "\u263E Lager aufschlagen"), (letzter.gewaltmarsch || []).map(g => React.createElement("button", {
     type: "button",
     key: g.stunde,
     className: "pl-knopf pl-klein",
     disabled: !!uebergabe,
     onClick: () => uebergeben(auftragGewaltmarsch(advId, g.sg, 'Gewaltmarsch, Stunde ' + g.stunde), '🎲 Gewaltmarsch')
-  }, "\uD83C\uDFB2 KO SG ", g.sg))), uebergabe && /*#__PURE__*/React.createElement("p", {
+  }, "\uD83C\uDFB2 KO SG ", g.sg))), uebergabe && React.createElement("p", {
     className: "pl-leise"
-  }, uebergabe), (letzter.pruefungen || []).some(p => p.treffer) && /*#__PURE__*/React.createElement(WachenListe, {
+  }, uebergabe), (letzter.pruefungen || []).some(p => p.treffer) && React.createElement(WachenListe, {
     pruefungen: letzter.pruefungen.filter(p => p.treffer),
     begegnungen: begegnungen,
     advId: advId,
     onMeldung: onMeldung
-  }), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: loggt || letzter.geloggt,
     onClick: () => insLog(letzter)
-  }, "\uD83D\uDCD6 ", letzter.geloggt ? 'Steht im Abenteuerlog' : 'Ins Abenteuerlog'), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCD6 ", letzter.geloggt ? 'Steht im Abenteuerlog' : 'Ins Abenteuerlog'), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: kopieren
-  }, "\uD83D\uDCCB Tagebuch kopieren"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCCB Tagebuch kopieren"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: tagZuruecknehmen
-  }, "\u21B6 Tag ", letzter.nr, " zur\xFCcknehmen"))), st.plan.tage.length > 1 && /*#__PURE__*/React.createElement("details", {
+  }, "\u21B6 Tag ", letzter.nr, " zur\xFCcknehmen"))), st.plan.tage.length > 1 && React.createElement("details", {
     className: "pl-plan"
-  }, /*#__PURE__*/React.createElement("summary", null, "Plan: ", st.plan.tage.length, " Tage"), /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("summary", null, "Plan: ", st.plan.tage.length, " Tage"), React.createElement("div", {
     className: "pl-plan-rolle"
-  }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Tag"), /*#__PURE__*/React.createElement("th", null, "Strecke"), /*#__PURE__*/React.createElement("th", null, "Zeit"), /*#__PURE__*/React.createElement("th", null, "Wetter"), /*#__PURE__*/React.createElement("th", null, "KO"))), /*#__PURE__*/React.createElement("tbody", null, st.plan.tage.slice(0, 60).map((t, i) => /*#__PURE__*/React.createElement("tr", {
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Tag"), React.createElement("th", null, "Strecke"), React.createElement("th", null, "Zeit"), React.createElement("th", null, "Wetter"), React.createElement("th", null, "KO"))), React.createElement("tbody", null, st.plan.tage.slice(0, 60).map((t, i) => React.createElement("tr", {
     key: i
-  }, /*#__PURE__*/React.createElement("td", null, st.tag + t.nr), /*#__PURE__*/React.createElement("td", null, laengeText(t.strecke, einh)), /*#__PURE__*/React.createElement("td", null, stundenText(t.stunden)), /*#__PURE__*/React.createElement("td", {
+  }, React.createElement("td", null, st.tag + t.nr), React.createElement("td", null, laengeText(t.strecke, einh)), React.createElement("td", null, stundenText(t.stunden)), React.createElement("td", {
     title: wetterText(t.wetter)
-  }, t.wetter ? WETTER_ZEICHEN[t.wetter.niederschlag] + ' ' + WETTER_WORTE[t.wetter.temperatur] : ''), /*#__PURE__*/React.createElement("td", null, t.gewaltmarsch.map(g => g.sg).join(', '))))))))), /*#__PURE__*/React.createElement("div", {
+  }, t.wetter ? WETTER_ZEICHEN[t.wetter.niederschlag] + ' ' + WETTER_WORTE[t.wetter.temperatur] : ''), React.createElement("td", null, t.gewaltmarsch.map(g => g.sg).join(', '))))))))), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(reise)
@@ -4375,11 +3935,6 @@ const ReiseTafel = ({
 };
 
 // ==== planer/src/3c-begegnung.jsx ====
-// ── Regionen und Begegnungen: die Tafeln ─────────────────────────
-// Rechnung in 1d-begegnung.jsx. Hier die Tafel einer Region mit ihrer
-// Begegnungstabelle, ein Wurf von Hand, und die Liste der Wachen, die
-// ReiseTafel fuer den naechsten Reisetag zeigt.
-
 const BegegnungErgebnis = ({
   p,
   begegnungen,
@@ -4402,12 +3957,12 @@ const BegegnungErgebnis = ({
       text: '⚔ Der Auftrag wartet eine halbe Stunde. Öffne das Heldenbuch im DM-Modus, dann fragt der Kampftracker nach.'
     });
   };
-  return /*#__PURE__*/React.createElement("span", {
+  return React.createElement("span", {
     className: 'pl-wurf' + (p.treffer ? ' treffer' : '')
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     className: "pl-wurf-zahl",
     title: 'Wurf ' + p.wurf + ', etwas geschieht ab ' + p.ab
-  }, p.wurf), /*#__PURE__*/React.createElement("span", null, begegnungName(p, begegnungen)), p.treffer && art === 'kampf' && id && /*#__PURE__*/React.createElement("button", {
+  }, p.wurf), React.createElement("span", null, begegnungName(p, begegnungen)), p.treffer && art === 'kampf' && id && React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: schickt || !b,
@@ -4421,18 +3976,18 @@ const WachenListe = ({
   advId,
   onMeldung
 }) => {
-  if (!pruefungen.length) return /*#__PURE__*/React.createElement("p", {
+  if (!pruefungen.length) return React.createElement("p", {
     className: "pl-leise"
   }, "Keine Region mit Begegnungstabelle auf dem Weg.");
-  return /*#__PURE__*/React.createElement("ul", {
+  return React.createElement("ul", {
     className: "pl-wachen"
-  }, pruefungen.map((p, i) => /*#__PURE__*/React.createElement("li", {
+  }, pruefungen.map((p, i) => React.createElement("li", {
     key: i
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     className: "pl-wache-zeit"
-  }, p.nacht ? '🌙' : '☀', " ", String(p.uhr).padStart(2, '0'), " Uhr"), /*#__PURE__*/React.createElement("span", {
+  }, p.nacht ? '🌙' : '☀', " ", String(p.uhr).padStart(2, '0'), " Uhr"), React.createElement("span", {
     className: "pl-wache-ort"
-  }, p.unterwegs ? 'unterwegs' : 'im Lager', " \xB7 ", p.regionName || p.region), /*#__PURE__*/React.createElement(BegegnungErgebnis, {
+  }, p.unterwegs ? 'unterwegs' : 'im Lager', " \xB7 ", p.regionName || p.region), React.createElement(BegegnungErgebnis, {
     p: p,
     begegnungen: begegnungen,
     advId: advId,
@@ -4458,38 +4013,38 @@ const TabellenEditor = ({
   } : e));
   const summe = t.eintraege.reduce((s, e) => s + (+e.gewicht || 0), 0);
   const prozent = ab => Math.max(0, Math.min(100, Math.round((t.wuerfel - ab + 1) / t.wuerfel * 100)));
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-tabelle"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-raster3"
-  }, /*#__PURE__*/React.createElement("label", null, "Pr\xFCfen alle", /*#__PURE__*/React.createElement("select", {
+  }, React.createElement("label", null, "Pr\xFCfen alle", React.createElement("select", {
     className: "pl-feld",
     value: t.jeStunden,
     onChange: e => setze('jeStunden', +e.target.value)
-  }, WACHE_STUNDEN.map(h => /*#__PURE__*/React.createElement("option", {
+  }, WACHE_STUNDEN.map(h => React.createElement("option", {
     key: h,
     value: h
-  }, h, " Std.")))), /*#__PURE__*/React.createElement("label", null, "Tags ab W20", /*#__PURE__*/React.createElement("input", {
+  }, h, " Std.")))), React.createElement("label", null, "Tags ab W20", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 1,
     max: 21,
     value: t.ab,
     onChange: e => setze('ab', Math.max(1, Math.min(21, +e.target.value || 1)))
-  })), /*#__PURE__*/React.createElement("label", null, "Nachts ab", /*#__PURE__*/React.createElement("input", {
+  })), React.createElement("label", null, "Nachts ab", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 1,
     max: 21,
     value: t.abNacht,
     onChange: e => setze('abNacht', Math.max(1, Math.min(21, +e.target.value || 1)))
-  }))), /*#__PURE__*/React.createElement("p", {
+  }))), React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "Je Pr\xFCfung tags ", prozent(t.ab), " %, nachts ", prozent(t.abNacht), " % \xB7 ", Math.floor(24 / t.jeStunden), " Pr\xFCfungen am Tag"), /*#__PURE__*/React.createElement("ul", {
+  }, "Je Pr\xFCfung tags ", prozent(t.ab), " %, nachts ", prozent(t.abNacht), " % \xB7 ", Math.floor(24 / t.jeStunden), " Pr\xFCfungen am Tag"), React.createElement("ul", {
     className: "pl-tabelle-zeilen"
-  }, t.eintraege.map((e, i) => /*#__PURE__*/React.createElement("li", {
+  }, t.eintraege.map((e, i) => React.createElement("li", {
     key: e.id
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     className: "pl-feld pl-gewicht",
     type: "number",
     min: 0,
@@ -4498,49 +4053,49 @@ const TabellenEditor = ({
     "aria-label": 'Gewicht Zeile ' + (i + 1),
     title: summe ? Math.round((+e.gewicht || 0) / summe * 100) + ' % der Treffer' : '',
     onChange: ev => eintrag(e.id, 'gewicht', Math.max(0, +ev.target.value || 0))
-  }), /*#__PURE__*/React.createElement("select", {
+  }), React.createElement("select", {
     className: "pl-feld",
     value: e.art,
     "aria-label": 'Art Zeile ' + (i + 1),
     onChange: ev => eintrag(e.id, 'art', ev.target.value)
-  }, BEGEGNUNG_ART.map(a => /*#__PURE__*/React.createElement("option", {
+  }, BEGEGNUNG_ART.map(a => React.createElement("option", {
     key: a.k,
     value: a.k
-  }, a.l))), /*#__PURE__*/React.createElement("select", {
+  }, a.l))), React.createElement("select", {
     className: "pl-feld",
     value: e.zeit,
     "aria-label": 'Zeit Zeile ' + (i + 1),
     onChange: ev => eintrag(e.id, 'zeit', ev.target.value)
-  }, BEGEGNUNG_ZEIT.map(a => /*#__PURE__*/React.createElement("option", {
+  }, BEGEGNUNG_ZEIT.map(a => React.createElement("option", {
     key: a.k,
     value: a.k
-  }, a.l))), /*#__PURE__*/React.createElement("button", {
+  }, a.l))), React.createElement("button", {
     type: "button",
     className: "pl-symbol pl-symbol-weg",
     "aria-label": 'Zeile ' + (i + 1) + ' entfernen',
     onClick: () => setze('eintraege', t.eintraege.filter(x => x.id !== e.id))
-  }, "\u2715"), e.art === 'kampf' && /*#__PURE__*/React.createElement("select", {
+  }, "\u2715"), e.art === 'kampf' && React.createElement("select", {
     className: "pl-feld pl-breit",
     value: e.begegnungId || '',
     "aria-label": 'Begegnung Zeile ' + (i + 1),
     onChange: ev => eintrag(e.id, 'begegnungId', ev.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 Begegnung aus dem Heldenbuch \u2014"), (begegnungen || []).map(b => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 Begegnung aus dem Heldenbuch \u2014"), (begegnungen || []).map(b => React.createElement("option", {
     key: b.id,
     value: b.id
-  }, b.name, " \xB7 ", b.difficulty, " \xB7 ", (b.enemies || []).reduce((s, x) => s + (+x.count || 1), 0), " Gegner"))), /*#__PURE__*/React.createElement("input", {
+  }, b.name, " \xB7 ", b.difficulty, " \xB7 ", (b.enemies || []).reduce((s, x) => s + (+x.count || 1), 0), " Gegner"))), React.createElement("input", {
     className: "pl-feld pl-breit",
     value: e.text || '',
     maxLength: 300,
     "aria-label": 'Text Zeile ' + (i + 1),
     placeholder: e.art === 'kampf' ? 'Zusatz, z. B. „aus dem Hinterhalt“' : 'Was geschieht',
     onChange: ev => eintrag(e.id, 'text', ev.target.value)
-  })))), /*#__PURE__*/React.createElement("button", {
+  })))), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setze('eintraege', [...t.eintraege, neuerTabellenEintrag(planNeueId('t'))])
-  }, "\uFF0B Zeile"), begegnungen && !begegnungen.length && /*#__PURE__*/React.createElement("p", {
+  }, "\uFF0B Zeile"), begegnungen && !begegnungen.length && React.createElement("p", {
     className: "pl-leise pl-klein-text"
   }, "Im Heldenbuch gibt es f\xFCr dieses Abenteuer noch keine Begegnung (\uD83D\uDCDA Datenbank \u203A Begegnungen)."));
 };
@@ -4570,45 +4125,45 @@ const RegionTafel = ({
   }));
   const flaeche = flaecheText(entwurf.punkte || [], karte.massstab);
   if (!dm) {
-    return /*#__PURE__*/React.createElement("aside", {
+    return React.createElement("aside", {
       className: "pl-tafel",
       "aria-label": 'Region: ' + region.name
-    }, /*#__PURE__*/React.createElement(TafelKopf, {
+    }, React.createElement(TafelKopf, {
       symbol: "\u2B21",
       titel: region.name,
       onSchliessen: onSchliessen
-    }), flaeche && /*#__PURE__*/React.createElement("p", {
+    }), flaeche && React.createElement("p", {
       className: "pl-leise"
-    }, flaeche), region.text ? /*#__PURE__*/React.createElement("p", {
+    }, flaeche), region.text ? React.createElement("p", {
       className: "pl-ort-text"
-    }, region.text) : /*#__PURE__*/React.createElement("p", {
+    }, region.text) : React.createElement("p", {
       className: "pl-leise"
     }, "\xDCber diese Gegend ist noch nichts bekannt."));
   }
   const tabelle = entwurf.dm && entwurf.dm.tabelle || null;
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel",
     "aria-label": 'Region bearbeiten: ' + region.name
-  }, /*#__PURE__*/React.createElement(TafelKopf, {
+  }, React.createElement(TafelKopf, {
     symbol: "\u2B21",
     titel: entwurf.name || 'Ohne Namen',
     onSchliessen: onSchliessen
-  }), /*#__PURE__*/React.createElement("form", {
+  }), React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Name", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.name || '',
     maxLength: 120,
     onChange: e => setze('name', e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-zeile",
     role: "radiogroup",
     "aria-label": "Farbe"
-  }, REGION_FARBEN.map(f => /*#__PURE__*/React.createElement("button", {
+  }, REGION_FARBEN.map(f => React.createElement("button", {
     type: "button",
     key: f,
     role: "radio",
@@ -4619,69 +4174,69 @@ const RegionTafel = ({
       background: f
     },
     onClick: () => setze('farbe', f)
-  })), flaeche && /*#__PURE__*/React.createElement("span", {
+  })), flaeche && React.createElement("span", {
     className: "pl-leise"
-  }, flaeche)), /*#__PURE__*/React.createElement("label", null, "Was die Spieler lesen", /*#__PURE__*/React.createElement("textarea", {
+  }, flaeche)), React.createElement("label", null, "Was die Spieler lesen", React.createElement("textarea", {
     className: "pl-feld",
     rows: 2,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: e => setze('text', e.target.value)
-  })), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+  })), React.createElement("label", null, "Notiz der Spielleitung ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u2014 sehen Spieler nie"), React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 2,
     value: entwurf.dm && entwurf.dm.notiz || '',
     maxLength: 20000,
     onChange: e => setzeDm('notiz', e.target.value)
-  })), /*#__PURE__*/React.createElement("label", {
+  })), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: e => setze('sichtbar', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), /*#__PURE__*/React.createElement("h3", {
+  }), React.createElement("span", null, "F\xFCr Spieler sichtbar")), React.createElement("h3", {
     className: "pl-unterkopf"
-  }, "Zufallsbegegnungen ", /*#__PURE__*/React.createElement("span", {
+  }, "Zufallsbegegnungen ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 nur Spielleitung")), tabelle ? /*#__PURE__*/React.createElement(TabellenEditor, {
+  }, "\u2014 nur Spielleitung")), tabelle ? React.createElement(TabellenEditor, {
     tabelle: tabelle,
     begegnungen: begegnungen,
     onTabelle: t => setzeDm('tabelle', t)
-  }) : /*#__PURE__*/React.createElement("button", {
+  }) : React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setzeDm('tabelle', neueTabelle())
-  }, "\uFF0B Begegnungstabelle anlegen"), tabelle && /*#__PURE__*/React.createElement("div", {
+  }, "\uFF0B Begegnungstabelle anlegen"), tabelle && React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setWurf(begegnungPruefen(tabelle, false, Math.random))
-  }, "\uD83C\uDFB2 Tags w\xFCrfeln"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83C\uDFB2 Tags w\xFCrfeln"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setWurf(begegnungPruefen(tabelle, true, Math.random))
-  }, "\uD83C\uDFB2 Nachts w\xFCrfeln")), wurf && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83C\uDFB2 Nachts w\xFCrfeln")), wurf && React.createElement("div", {
     className: "pl-wurf-zeile"
-  }, /*#__PURE__*/React.createElement(BegegnungErgebnis, {
+  }, React.createElement(BegegnungErgebnis, {
     p: wurf,
     begegnungen: begegnungen,
     advId: advId,
     onMeldung: onMeldung
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(region)
-  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+  }, "L\xF6schen"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !geaendert,
     onClick: () => setEntwurf(region)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein",
     disabled: !geaendert
@@ -4689,11 +4244,6 @@ const RegionTafel = ({
 };
 
 // ==== planer/src/3d-sicht.jsx ====
-// ── Spielersicht: Handouts und der Tisch ─────────────────────────
-// Rechnung in 1e-sicht.jsx. Hier: die Tafel eines Handouts fuer die
-// Spielleitung, das Lesefenster fuer Spieler, die Liste, und das
-// Tischfenster fuer Beamer oder zweiten Bildschirm.
-
 const PlanerHandoutListe = ({
   handouts,
   wahl,
@@ -4703,56 +4253,54 @@ const PlanerHandoutListe = ({
   onNeu
 }) => {
   if (!dm && !handouts.length) return null;
-  return /*#__PURE__*/React.createElement("nav", {
+  return React.createElement("nav", {
     className: "pl-liste",
     "aria-label": "Handouts"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-liste-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "Handouts \xB7 ", handouts.length), dm && /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("span", null, "Handouts \xB7 ", handouts.length), dm && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: onNeu
-  }, "\uFF0B Handout")), /*#__PURE__*/React.createElement("ul", null, handouts.map(h => /*#__PURE__*/React.createElement("li", {
+  }, "\uFF0B Handout")), React.createElement("ul", null, handouts.map(h => React.createElement("li", {
     key: h.id,
     className: 'pl-eintrag' + (h.id === wahl ? ' aktiv' : '')
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onWahl(h.id)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, "\uD83D\uDCDC"), /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDCDC"), React.createElement("span", {
     className: 'pl-eintrag-text' + (dm && !h.sichtbar ? ' pl-verborgen-text' : '')
-  }, h.titel || 'Ohne Titel'), dm && h.sichtbar && /*#__PURE__*/React.createElement("span", {
+  }, h.titel || 'Ohne Titel'), dm && h.sichtbar && React.createElement("span", {
     className: "pl-leise"
-  }, (h.an || []).length ? 'an ' + h.an.length : 'an alle'), !dm && gesehen && !gesehen.includes(handoutFassung(h)) && /*#__PURE__*/React.createElement("span", {
+  }, (h.an || []).length ? 'an ' + h.an.length : 'an alle'), !dm && gesehen && !gesehen.includes(handoutFassung(h)) && React.createElement("span", {
     className: "pl-neu-punkt",
     title: "Neu"
   }, "neu"))))));
 };
-
-// Das Lesefenster: fuer Spieler, wenn etwas Neues kommt, und aus der Liste.
 const HandoutLeser = ({
   handout,
   onZu
-}) => /*#__PURE__*/React.createElement("div", {
+}) => React.createElement("div", {
   className: "pl-schleier",
   onClick: onZu
-}, /*#__PURE__*/React.createElement("article", {
+}, React.createElement("article", {
   className: "pl-dialog pl-handout-leser",
   role: "dialog",
   "aria-modal": "true",
   "aria-label": 'Handout: ' + handout.titel,
   onClick: e => e.stopPropagation()
-}, /*#__PURE__*/React.createElement("div", {
+}, React.createElement("div", {
   className: "pl-etikett"
-}, "\uD83D\uDCDC Handout"), /*#__PURE__*/React.createElement("h2", null, handout.titel || 'Ohne Titel'), handout.bild && handout.ablage && /*#__PURE__*/React.createElement("img", {
+}, "\uD83D\uDCDC Handout"), React.createElement("h2", null, handout.titel || 'Ohne Titel'), handout.bild && handout.ablage && React.createElement("img", {
   className: "pl-handout-bild",
   src: planerDateiUrl(handout.ablage, handout.bild),
   alt: ""
-}), handout.text && /*#__PURE__*/React.createElement("p", {
+}), handout.text && React.createElement("p", {
   className: "pl-ort-text"
-}, handout.text), /*#__PURE__*/React.createElement("div", {
+}, handout.text), React.createElement("div", {
   className: "pl-dialog-knoepfe"
-}, /*#__PURE__*/React.createElement("button", {
+}, React.createElement("button", {
   className: "pl-knopf pl-haupt",
   onClick: onZu
 }, "Gelesen"))));
@@ -4775,50 +4323,50 @@ const HandoutTafel = ({
   }));
   const an = entwurf.an || [];
   const um = id => setze('an', an.includes(id) ? an.filter(x => x !== id) : [...an, id]);
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel",
     "aria-label": 'Handout: ' + handout.titel
-  }, /*#__PURE__*/React.createElement(TafelKopf, {
+  }, React.createElement(TafelKopf, {
     symbol: "\uD83D\uDCDC",
     titel: entwurf.titel || 'Ohne Titel',
     onSchliessen: onSchliessen
-  }), /*#__PURE__*/React.createElement("p", {
+  }), React.createElement("p", {
     className: 'pl-sicht ' + (handout.sichtbar ? 'an' : 'aus')
-  }, handout.sichtbar ? 'Verteilt ' + ((handout.an || []).length ? 'an ' + handout.an.length + (handout.an.length === 1 ? ' Spieler' : ' Spieler') : 'an alle') : 'Noch nicht verteilt'), /*#__PURE__*/React.createElement("form", {
+  }, handout.sichtbar ? 'Verteilt ' + ((handout.an || []).length ? 'an ' + handout.an.length + (handout.an.length === 1 ? ' Spieler' : ' Spieler') : 'an alle') : 'Noch nicht verteilt'), React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, /*#__PURE__*/React.createElement("label", null, "Titel", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Titel", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.titel || '',
     maxLength: 120,
     onChange: e => setze('titel', e.target.value)
-  })), /*#__PURE__*/React.createElement("label", null, "Text", /*#__PURE__*/React.createElement("textarea", {
+  })), React.createElement("label", null, "Text", React.createElement("textarea", {
     className: "pl-feld",
     rows: 5,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: e => setze('text', e.target.value)
-  })), entwurf.bild && handout.ablage && /*#__PURE__*/React.createElement("div", {
+  })), entwurf.bild && handout.ablage && React.createElement("div", {
     className: "pl-handout-vorschau"
-  }, /*#__PURE__*/React.createElement("img", {
+  }, React.createElement("img", {
     src: planerDateiUrl(handout.ablage, entwurf.bild),
     alt: ""
-  }), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setze('bild', '')
-  }, "Bild entfernen")), /*#__PURE__*/React.createElement("div", {
+  }, "Bild entfernen")), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: arbeitet || geaendert,
     title: geaendert ? 'Erst speichern' : '',
     onClick: () => bildEingabe.current && bildEingabe.current.click()
-  }, "\uD83D\uDDBC ", entwurf.bild ? 'Anderes Bild' : 'Bild'), /*#__PURE__*/React.createElement("input", {
+  }, "\uD83D\uDDBC ", entwurf.bild ? 'Anderes Bild' : 'Bild'), React.createElement("input", {
     ref: bildEingabe,
     type: "file",
     accept: "image/*",
@@ -4828,27 +4376,27 @@ const HandoutTafel = ({
       e.target.value = '';
       if (f) onBild(entwurf, f);
     }
-  })), /*#__PURE__*/React.createElement("fieldset", {
+  })), React.createElement("fieldset", {
     className: "pl-empfaenger"
-  }, /*#__PURE__*/React.createElement("legend", null, "F\xFCr wen"), /*#__PURE__*/React.createElement("label", {
+  }, React.createElement("legend", null, "F\xFCr wen"), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "radio",
     name: 'an-' + handout.id,
     checked: !an.length,
     onChange: () => setze('an', [])
-  }), /*#__PURE__*/React.createElement("span", null, "Alle in der Gruppe")), (mitglieder || []).map(m => /*#__PURE__*/React.createElement("label", {
+  }), React.createElement("span", null, "Alle in der Gruppe")), (mitglieder || []).map(m => React.createElement("label", {
     key: m.id,
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: an.includes(+m.id),
     onChange: () => um(+m.id)
-  }), /*#__PURE__*/React.createElement("span", null, m.name, m.rolle === 'dm' ? ' (Spielleitung)' : ''))), mitglieder === null && /*#__PURE__*/React.createElement("p", {
+  }), React.createElement("span", null, m.name, m.rolle === 'dm' ? ' (Spielleitung)' : ''))), mitglieder === null && React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "Die Mitglieder der Gruppe werden geladen \u2026")), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+  }, "Die Mitglieder der Gruppe werden geladen \u2026")), React.createElement("label", null, "Notiz der Spielleitung ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u2014 sehen Spieler nie"), React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 2,
     value: entwurf.dm && entwurf.dm.notiz || '',
@@ -4860,42 +4408,35 @@ const HandoutTafel = ({
         notiz: e.target.value
       }
     }))
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein pl-haupt",
     disabled: geaendert || arbeitet,
     title: geaendert ? 'Erst speichern' : '',
     onClick: () => onVerteilen(handout, !handout.sichtbar)
-  }, handout.sichtbar ? '↶ Zurücknehmen' : '📜 An die Spieler geben'), /*#__PURE__*/React.createElement("button", {
+  }, handout.sichtbar ? '↶ Zurücknehmen' : '📜 An die Spieler geben'), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => onTisch(entwurf)
-  }, "\uD83D\uDCFA Auf dem Tisch zeigen")), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCFA Auf dem Tisch zeigen")), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(handout)
-  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+  }, "L\xF6schen"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !geaendert,
     onClick: () => setEntwurf(handout)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein",
     disabled: !geaendert
   }, "Speichern"))));
 };
-
-// ── Das Tischfenster ─────────────────────────────────────────────
-// Oeffnet die Spielleitung mit 📺 Tisch. Es laedt mit ihrer Anmeldung,
-// zeigt aber nur, was die Runde sehen darf (spielerSicht), mit deckendem
-// Nebel und ohne jedes Werkzeug. Welche Karte, welcher Ausschnitt und ob
-// ein Handout gross zu sehen ist, sagt die Seite der Spielleitung ueber
-// den gemeinsamen Kanal.
 const TischApp = ({
   adv
 }) => {
@@ -4940,8 +4481,6 @@ const TischApp = ({
     k.onmessage = ev => {
       const n = ev.data || {};
       if (n.advId && n.advId !== advId) return;
-      // Ein anderer Ausschnitt laesst ein gezeigtes Handout liegen; erst eine
-      // andere Karte oder „Karte zeigen“ nimmt es weg.
       if (n.art === 'karte') setZeigen(null);
       if (n.art === 'karte' || n.art === 'ansicht') {
         setKarteId(n.karteId);
@@ -4964,13 +4503,13 @@ const TischApp = ({
     }));
     return () => k.close();
   }, []);
-  if (!angemeldet) return /*#__PURE__*/React.createElement(PlanerNichtAngemeldet, null);
-  if (fehlerText) return /*#__PURE__*/React.createElement("div", {
+  if (!angemeldet) return React.createElement(PlanerNichtAngemeldet, null);
+  if (fehlerText) return React.createElement("div", {
     className: "pl-tisch-leer"
-  }, /*#__PURE__*/React.createElement("p", null, fehlerText));
-  if (!daten) return /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("p", null, fehlerText));
+  if (!daten) return React.createElement("div", {
     className: "pl-tisch-leer"
-  }, /*#__PURE__*/React.createElement("p", null, "\uD83D\uDDFA Der Tisch l\xE4dt \u2026"));
+  }, React.createElement("p", null, "\uD83D\uDDFA Der Tisch l\xE4dt \u2026"));
   const karte = daten.karten.find(k => k.id === karteId) || daten.karten[0] || null;
   const aufKarte = art => karte ? daten.objekte.filter(o => o.art === art && o.karteId === karte.id) : [];
   const routen = aufKarte('route');
@@ -4984,12 +4523,10 @@ const TischApp = ({
       punkt: punktAufRoute(routeInRichtung(r, j.richtung), karte.massstab, j.pos || 0)
     };
   }).filter(Boolean) : [];
-  // Ein Handout, das an einzelne geht, schickt die Spielleitung trotzdem
-  // mit; auf dem Tisch zeigt es, wer es zeigt.
   const handout = zeigen && zeigen.art === 'handout' ? zeigen.handout || daten.objekte.find(o => o.id === zeigen.id) : null;
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-tisch"
-  }, karte ? /*#__PURE__*/React.createElement(KartenLeinwand, {
+  }, karte ? React.createElement(KartenLeinwand, {
     karte: karte,
     orte: aufKarte('ort'),
     dm: false,
@@ -5010,16 +4547,16 @@ const TischApp = ({
     onRouteWahl: () => {},
     onReiseWahl: () => {},
     onRegionWahl: () => {}
-  }) : /*#__PURE__*/React.createElement("div", {
+  }) : React.createElement("div", {
     className: "pl-tisch-leer"
-  }, /*#__PURE__*/React.createElement("p", null, "Noch keine Karte f\xFCr die Runde.")), handout && /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("p", null, "Noch keine Karte f\xFCr die Runde.")), handout && React.createElement("div", {
     className: "pl-tisch-handout"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-etikett"
-  }, "\uD83D\uDCDC ", handout.titel), handout.bild && handout.ablage && /*#__PURE__*/React.createElement("img", {
+  }, "\uD83D\uDCDC ", handout.titel), handout.bild && handout.ablage && React.createElement("img", {
     src: planerDateiUrl(handout.ablage, handout.bild),
     alt: ""
-  }), handout.text && /*#__PURE__*/React.createElement("p", null, handout.text)), /*#__PURE__*/React.createElement("button", {
+  }), handout.text && React.createElement("p", null, handout.text)), React.createElement("button", {
     className: "pl-tisch-voll pl-symbol",
     "aria-label": "Vollbild",
     title: "Vollbild",
@@ -5031,12 +4568,6 @@ const TischApp = ({
 };
 
 // ==== planer/src/3e-welt.jsx ====
-// ── Die Welt: Tafeln fuer Figuren, Zeit, Dateien, Quests, Wissen, Fraktionen, Hex ──
-// Rechnung in 1f-welt.jsx.
-
-// ── Zeitleiste ───────────────────────────────────────────────────
-// Die Spielleitung schiebt die Zeit und sieht, wo die Figuren dann sind.
-// Spieler sehen die Figuren zu der Zeit, die sie freigegeben hat.
 const Zeitleiste = ({
   dm,
   zeit,
@@ -5047,17 +4578,17 @@ const Zeitleiste = ({
   onFreigeben
 }) => {
   if (!dm) {
-    return Number.isFinite(+freigegeben) ? /*#__PURE__*/React.createElement("div", {
+    return Number.isFinite(+freigegeben) ? React.createElement("div", {
       className: "pl-zeitleiste"
-    }, /*#__PURE__*/React.createElement("span", {
+    }, React.createElement("span", {
       className: "pl-leise"
     }, "\uD83D\uDD70 Stand: ", zeitText(freigegeben))) : null;
   }
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-zeitleiste"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     className: "pl-zeit-text"
-  }, "\uD83D\uDD70 ", zeitText(zeit)), /*#__PURE__*/React.createElement("input", {
+  }, "\uD83D\uDD70 ", zeitText(zeit)), React.createElement("input", {
     type: "range",
     min: bereich.min,
     max: bereich.max,
@@ -5065,27 +4596,25 @@ const Zeitleiste = ({
     value: zeit,
     "aria-label": "Zeit",
     onChange: e => onZeit(+e.target.value)
-  }), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("button", {
     className: "pl-symbol",
     "aria-label": "Eine Stunde zur\xFCck",
     onClick: () => onZeit(Math.max(bereich.min, zeit - 1))
-  }, "\u2039"), /*#__PURE__*/React.createElement("button", {
+  }, "\u2039"), React.createElement("button", {
     className: "pl-symbol",
     "aria-label": "Eine Stunde weiter",
     onClick: () => onZeit(zeit + 1)
-  }, "\u203A"), chronikZeit != null && /*#__PURE__*/React.createElement("button", {
+  }, "\u203A"), chronikZeit != null && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => onZeit(chronikZeit),
     title: "Die Uhr der Chronik"
-  }, "\u27F2 Chronik"), /*#__PURE__*/React.createElement("button", {
+  }, "\u27F2 Chronik"), React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => onFreigeben(zeit),
     disabled: +freigegeben === zeit,
     title: "Spieler sehen die Figuren zu dieser Zeit"
   }, "\uD83D\uDC41 F\xFCr Spieler: ", Number.isFinite(+freigegeben) ? zeitText(freigegeben) : '—'));
 };
-
-// ── Figur ────────────────────────────────────────────────────────
 const FIGUR_SYMBOLE = ['🧍', '🧙', '🧛', '🐺', '🐉', '🏇', '🛒', '⛵', '⚔', '👑', '💀', '🦅'];
 const neueFigur = (karteId, zeit, p) => ({
   id: planNeueId('p'),
@@ -5132,8 +4661,6 @@ const FigurTafel = ({
     } : w)
   }));
   const nsc = nscZuFigur(entwurf, helden);
-  // Einen NSC waehlen heisst: Name und Zeichen kommen mit. Beides bleibt
-  // danach aenderbar — der Bote heisst auf der Karte vielleicht „Reiter“.
   const nscWaehlen = id => setEntwurf(e => {
     const h = (helden || []).find(x => x.id === id);
     if (!h) {
@@ -5151,82 +4678,82 @@ const FigurTafel = ({
     };
   });
   if (!dm) {
-    return /*#__PURE__*/React.createElement("aside", {
+    return React.createElement("aside", {
       className: "pl-tafel",
       "aria-label": 'Figur: ' + figur.name
-    }, /*#__PURE__*/React.createElement(TafelKopf, {
+    }, React.createElement(TafelKopf, {
       symbol: figur.symbol || '🧍',
       titel: figur.name,
       onSchliessen: onSchliessen
-    }), figur.text ? /*#__PURE__*/React.createElement("p", {
+    }), figur.text ? React.createElement("p", {
       className: "pl-ort-text"
-    }, figur.text) : /*#__PURE__*/React.createElement("p", {
+    }, figur.text) : React.createElement("p", {
       className: "pl-leise"
     }, "Mehr ist nicht bekannt."));
   }
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel",
     "aria-label": 'Figur bearbeiten: ' + figur.name
-  }, /*#__PURE__*/React.createElement(TafelKopf, {
+  }, React.createElement(TafelKopf, {
     symbol: entwurf.symbol || '🧍',
     titel: entwurf.name || 'Ohne Namen',
     onSchliessen: onSchliessen
-  }), /*#__PURE__*/React.createElement("p", {
+  }), React.createElement("p", {
     className: "pl-leise"
-  }, zeitText(zeit), ": ", pos ? pos.unterwegs ? 'unterwegs' : 'steht' : 'noch nirgends'), /*#__PURE__*/React.createElement("form", {
+  }, zeitText(zeit), ": ", pos ? pos.unterwegs ? 'unterwegs' : 'steht' : 'noch nirgends'), React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Name", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.name || '',
     maxLength: 120,
     onChange: e => setze('name', e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-symbole",
     role: "radiogroup",
     "aria-label": "Zeichen"
-  }, FIGUR_SYMBOLE.map(s => /*#__PURE__*/React.createElement("button", {
+  }, FIGUR_SYMBOLE.map(s => React.createElement("button", {
     type: "button",
     key: s,
     role: "radio",
     "aria-checked": entwurf.symbol === s,
     className: 'pl-symbolwahl' + (entwurf.symbol === s ? ' an' : ''),
     onClick: () => setze('symbol', s)
-  }, s))), (helden === null || nscListe(helden).length > 0 || entwurf.charId) && /*#__PURE__*/React.createElement("label", null, "NSC aus dem Heldenbuch", /*#__PURE__*/React.createElement("select", {
+  }, s))), (helden === null || nscListe(helden).length > 0 || entwurf.charId) && React.createElement("label", null, "NSC aus dem Heldenbuch", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.charId || '',
     "aria-label": "NSC aus dem Heldenbuch",
     onChange: e => nscWaehlen(e.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 keiner, nur eine Figur \u2014"), nscListe(helden).map(h => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 keiner, nur eine Figur \u2014"), nscListe(helden).map(h => React.createElement("option", {
     key: h.id,
     value: h.id
-  }, nscZeichen(h), " ", h.name)), entwurf.charId && !nscZuFigur(entwurf, helden) && /*#__PURE__*/React.createElement("option", {
+  }, nscZeichen(h), " ", h.name)), entwurf.charId && !nscZuFigur(entwurf, helden) && React.createElement("option", {
     value: entwurf.charId
-  }, "(nicht mehr im Abenteuer)"))), nsc && /*#__PURE__*/React.createElement("p", {
+  }, "(nicht mehr im Abenteuer)"))), nsc && React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, nscZeichen(nsc), " ", nsc.haltung === 'feindlich' ? 'feindlich' : 'freundlich', " \xB7 ", nscWerte(nsc), onBogen && /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 ", /*#__PURE__*/React.createElement("button", {
+  }, nscZeichen(nsc), " ", nsc.haltung === 'feindlich' ? 'feindlich' : 'freundlich', " \xB7 ", nscWerte(nsc), onBogen && React.createElement(React.Fragment, null, " \xB7 ", React.createElement("button", {
     type: "button",
     className: "pl-verweis",
     onClick: () => onBogen(nsc)
-  }, "Bogen \xF6ffnen"))), /*#__PURE__*/React.createElement("h3", {
+  }, "Bogen \xF6ffnen"))), React.createElement("h3", {
     className: "pl-unterkopf"
-  }, "Wegpunkte"), /*#__PURE__*/React.createElement("ol", {
+  }, "Wegpunkte"), React.createElement("ol", {
     className: "pl-wegpunkte"
-  }, wp.map((w, i) => /*#__PURE__*/React.createElement("li", {
+  }, wp.map((w, i) => React.createElement("li", {
     key: i + ':' + w.zeit
-  }, /*#__PURE__*/React.createElement("label", null, "Tag ", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Tag ", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 1,
     value: Math.floor(w.zeit / 24) + 1,
     "aria-label": 'Tag Wegpunkt ' + (i + 1),
     onChange: e => setzeWp(i, 'zeit', zeitAus(e.target.value, w.zeit % 24))
-  })), /*#__PURE__*/React.createElement("label", null, "Uhr ", /*#__PURE__*/React.createElement("input", {
+  })), React.createElement("label", null, "Uhr ", React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
@@ -5234,7 +4761,7 @@ const FigurTafel = ({
     value: w.zeit % 24,
     "aria-label": 'Stunde Wegpunkt ' + (i + 1),
     onChange: e => setzeWp(i, 'zeit', zeitAus(Math.floor(w.zeit / 24) + 1, e.target.value))
-  })), /*#__PURE__*/React.createElement("button", {
+  })), React.createElement("button", {
     type: "button",
     className: "pl-symbol pl-symbol-weg",
     "aria-label": 'Wegpunkt ' + (i + 1) + ' entfernen',
@@ -5243,28 +4770,28 @@ const FigurTafel = ({
       ...e,
       wegpunkte: wegpunkteSortiert(e).filter((_, j) => j !== i)
     }))
-  }, "\u2715"), /*#__PURE__*/React.createElement("input", {
+  }, "\u2715"), React.createElement("input", {
     className: "pl-feld pl-breit",
     value: w.notiz || '',
     placeholder: "Was dort geschieht",
     maxLength: 300,
     "aria-label": 'Notiz Wegpunkt ' + (i + 1),
     onChange: e => setzeWp(i, 'notiz', e.target.value)
-  })))), /*#__PURE__*/React.createElement("button", {
+  })))), React.createElement("button", {
     type: "button",
     className: 'pl-knopf pl-klein' + (wegpunktWartet ? ' an' : ''),
     disabled: geaendert,
     title: geaendert ? 'Erst speichern' : '',
     onClick: onWegpunktHier
-  }, "\uD83D\uDCCD Wegpunkt f\xFCr ", zeitText(zeit), " auf die Karte setzen"), /*#__PURE__*/React.createElement("label", null, "Was die Spieler lesen", /*#__PURE__*/React.createElement("textarea", {
+  }, "\uD83D\uDCCD Wegpunkt f\xFCr ", zeitText(zeit), " auf die Karte setzen"), React.createElement("label", null, "Was die Spieler lesen", React.createElement("textarea", {
     className: "pl-feld",
     rows: 2,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: e => setze('text', e.target.value)
-  })), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+  })), React.createElement("label", null, "Notiz der Spielleitung ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u2014 sehen Spieler nie"), React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 2,
     value: entwurf.dm && entwurf.dm.notiz || '',
@@ -5276,34 +4803,29 @@ const FigurTafel = ({
         notiz: e.target.value
       }
     }))
-  })), /*#__PURE__*/React.createElement("label", {
+  })), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: e => setze('sichtbar', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "F\xFCr Spieler sichtbar")), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("span", null, "F\xFCr Spieler sichtbar")), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(figur)
-  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+  }, "L\xF6schen"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !geaendert,
     onClick: () => setEntwurf(figur)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein",
     disabled: !geaendert
   }, "Speichern"))));
 };
-
-// ── Lokale Dateien ───────────────────────────────────────────────
-// Freigegebene Ordner leben in diesem Browser (IndexedDB), nie auf dem
-// Server. Der Speicher ist austauschbar, damit dev/planer-echt.html ihn
-// ohne Dateiauswahl pruefen kann.
 const planerOrdner = {
   speicher: null,
   idb: () => new Promise((ok, nein) => {
@@ -5371,43 +4893,41 @@ const DateiBetrachter = ({
     return () => URL.revokeObjectURL(u);
   }, [datei.file]);
   const art = dateiArt(datei.verweis.pfad);
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-schleier",
     onClick: onZu
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-dialog pl-betrachter",
     role: "dialog",
     "aria-modal": "true",
     "aria-label": datei.verweis.titel,
     onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-tafel-kopf"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, DATEI_ZEICHEN[art]), /*#__PURE__*/React.createElement("h2", null, datei.verweis.titel), /*#__PURE__*/React.createElement("button", {
+  }, DATEI_ZEICHEN[art]), React.createElement("h2", null, datei.verweis.titel), React.createElement("button", {
     className: "pl-symbol",
     "aria-label": "Schlie\xDFen",
     onClick: onZu
-  }, "\u2715")), url && art === 'bild' && /*#__PURE__*/React.createElement("img", {
+  }, "\u2715")), url && art === 'bild' && React.createElement("img", {
     src: url,
     alt: ""
-  }), url && art === 'ton' && /*#__PURE__*/React.createElement("audio", {
+  }), url && art === 'ton' && React.createElement("audio", {
     src: url,
     controls: true,
     autoPlay: true
-  }), url && art === 'video' && /*#__PURE__*/React.createElement("video", {
+  }), url && art === 'video' && React.createElement("video", {
     src: url,
     controls: true,
     autoPlay: true
-  }), url && (dateiEndung(datei.verweis.pfad) === 'pdf' || ['txt', 'md'].includes(dateiEndung(datei.verweis.pfad))) && /*#__PURE__*/React.createElement("iframe", {
+  }), url && (dateiEndung(datei.verweis.pfad) === 'pdf' || ['txt', 'md'].includes(dateiEndung(datei.verweis.pfad))) && React.createElement("iframe", {
     src: url,
     title: datei.verweis.titel
-  }), /*#__PURE__*/React.createElement("p", {
+  }), React.createElement("p", {
     className: "pl-leise pl-klein-text"
   }, datei.verweis.bibliothek, " / ", datei.verweis.pfad)));
 };
-
-// Die Dateien eines Orts. Nur fuer die Spielleitung: sie stehen unter dm.
 const DateiListe = ({
   dateien,
   onDateien,
@@ -5497,96 +5017,94 @@ const DateiListe = ({
       });
     }
   };
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-dateien"
-  }, /*#__PURE__*/React.createElement("h3", {
+  }, React.createElement("h3", {
     className: "pl-unterkopf"
-  }, "Dateien auf diesem Rechner ", /*#__PURE__*/React.createElement("span", {
+  }, "Dateien auf diesem Rechner ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 nur Spielleitung")), /*#__PURE__*/React.createElement("ul", {
+  }, "\u2014 nur Spielleitung")), React.createElement("ul", {
     className: "pl-datei-liste"
-  }, (dateien || []).map(v => /*#__PURE__*/React.createElement("li", {
+  }, (dateien || []).map(v => React.createElement("li", {
     key: v.bibliothek + '/' + v.pfad
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, DATEI_ZEICHEN[dateiArt(v.pfad)]), /*#__PURE__*/React.createElement("span", {
+  }, DATEI_ZEICHEN[dateiArt(v.pfad)]), React.createElement("span", {
     className: "pl-eintrag-text",
     title: v.bibliothek + ' / ' + v.pfad
-  }, v.titel), imBrowserZeigbar(v.pfad) && /*#__PURE__*/React.createElement("button", {
+  }, v.titel), imBrowserZeigbar(v.pfad) && React.createElement("button", {
     type: "button",
     className: "pl-symbol",
     "aria-label": 'Ansehen: ' + v.titel,
     title: "Im Browser ansehen",
     onClick: () => ansehen(v)
-  }, "\uD83D\uDC41"), /*#__PURE__*/React.createElement("a", {
+  }, "\uD83D\uDC41"), React.createElement("a", {
     className: "pl-symbol",
     href: brueckenAdresse(v),
     "aria-label": 'Öffnen: ' + v.titel,
     title: "Im Programm \xF6ffnen (Planer-Br\xFCcke)"
-  }, "\u25B6"), /*#__PURE__*/React.createElement("button", {
+  }, "\u25B6"), React.createElement("button", {
     type: "button",
     className: "pl-symbol pl-symbol-weg",
     "aria-label": 'Entfernen: ' + v.titel,
     onClick: () => onDateien(dateien.filter(d => d !== v))
-  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")))), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("select", {
+  }, React.createElement("select", {
     className: "pl-feld",
     value: bib,
     onChange: e => setBib(e.target.value),
     "aria-label": "Bibliothek"
-  }, !bibliotheken.length && /*#__PURE__*/React.createElement("option", {
+  }, !bibliotheken.length && React.createElement("option", {
     value: ""
-  }, "\u2014 keine Bibliothek \u2014"), bibliotheken.map(n => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 keine Bibliothek \u2014"), bibliotheken.map(n => React.createElement("option", {
     key: n,
     value: n
-  }, n))), ordnerFreigabeGeht() && bib && /*#__PURE__*/React.createElement("button", {
+  }, n))), ordnerFreigabeGeht() && bib && React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: waehlen
-  }, "\uD83D\uDCC1 Datei w\xE4hlen")), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCC1 Datei w\xE4hlen")), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     className: "pl-feld pl-breit-feld",
     value: pfad,
     placeholder: "oder Pfad in der Bibliothek, z. B. Musik/Taverne.mp3",
     "aria-label": "Pfad",
     onChange: e => setPfad(e.target.value)
-  }), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !pfad.trim() || !bib,
     onClick: () => hinzu(dateiVerweis(bib, pfad))
-  }, "\uFF0B")), ordnerFreigabeGeht() ? /*#__PURE__*/React.createElement("div", {
+  }, "\uFF0B")), ordnerFreigabeGeht() ? React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     className: "pl-feld",
     value: neuName,
     placeholder: "Name der Bibliothek",
     maxLength: 40,
     "aria-label": "Name der neuen Bibliothek",
     onChange: e => setNeuName(e.target.value)
-  }), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: freigeben
-  }, "\uD83D\uDCC1 Ordner freigeben")) : /*#__PURE__*/React.createElement("p", {
+  }, "\uD83D\uDCC1 Ordner freigeben")) : React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "Ordner freigeben geht nur in Chrome und Edge. \xD6ffnen \xFCber die Planer-Br\xFCcke geht \xFCberall."), /*#__PURE__*/React.createElement("p", {
+  }, "Ordner freigeben geht nur in Chrome und Edge. \xD6ffnen \xFCber die Planer-Br\xFCcke geht \xFCberall."), React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "\u25B6 braucht die Planer-Br\xFCcke, einmal je Rechner: ", /*#__PURE__*/React.createElement("a", {
+  }, "\u25B6 braucht die Planer-Br\xFCcke, einmal je Rechner: ", React.createElement("a", {
     href: "bruecke/planer-bruecke.ps1",
     download: true
-  }, "planer-bruecke.ps1"), " und ", /*#__PURE__*/React.createElement("a", {
+  }, "planer-bruecke.ps1"), " und ", React.createElement("a", {
     href: "bruecke/installieren.ps1",
     download: true
-  }, "installieren.ps1"), " in einen Ordner laden, dann ", /*#__PURE__*/React.createElement("code", null, "installieren.ps1 -Bibliothek \"Name\" -Ordner \"Pfad\""), " ausf\xFChren."), zeigen && /*#__PURE__*/React.createElement(DateiBetrachter, {
+  }, "installieren.ps1"), " in einen Ordner laden, dann ", React.createElement("code", null, "installieren.ps1 -Bibliothek \"Name\" -Ordner \"Pfad\""), " ausf\xFChren."), zeigen && React.createElement(DateiBetrachter, {
     datei: zeigen,
     onZu: () => setZeigen(null)
   }));
 };
-
-// ── Quests, Wissen, Fraktionen ───────────────────────────────────
 const GeschichteListe = ({
   dm,
   quests,
@@ -5612,39 +5130,39 @@ const GeschichteListe = ({
     n: fraktionen.length
   }];
   const eintraege = reiter === 'quest' ? questsSortiert(quests) : reiter === 'hinweis' ? hinweise : fraktionen;
-  return /*#__PURE__*/React.createElement("nav", {
+  return React.createElement("nav", {
     className: "pl-liste",
     "aria-label": "Geschichte"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-reiter",
     role: "tablist"
-  }, reiterListe.map(r => /*#__PURE__*/React.createElement("button", {
+  }, reiterListe.map(r => React.createElement("button", {
     key: r.k,
     role: "tab",
     "aria-selected": reiter === r.k,
     className: 'pl-reiter-knopf' + (reiter === r.k ? ' an' : ''),
     onClick: () => setReiter(r.k)
-  }, r.l, " \xB7 ", r.n))), dm && /*#__PURE__*/React.createElement("button", {
+  }, r.l, " \xB7 ", r.n))), dm && React.createElement("button", {
     className: "pl-knopf pl-klein pl-neu-zeile",
     onClick: () => onNeu(reiter)
-  }, "\uFF0B ", reiter === 'quest' ? 'Quest' : reiter === 'hinweis' ? 'Gerücht oder Hinweis' : 'Fraktion'), /*#__PURE__*/React.createElement("ul", null, eintraege.map(o => /*#__PURE__*/React.createElement("li", {
+  }, "\uFF0B ", reiter === 'quest' ? 'Quest' : reiter === 'hinweis' ? 'Gerücht oder Hinweis' : 'Fraktion'), React.createElement("ul", null, eintraege.map(o => React.createElement("li", {
     key: o.id,
     className: 'pl-eintrag' + (o.id === wahl ? ' aktiv' : '')
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onWahl(o)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, o.art === 'quest' ? questStatus(o.status).zeichen : o.art === 'hinweis' ? (HINWEIS_ARTEN.find(h => h.k === o.artDesWissens) || HINWEIS_ARTEN[0]).zeichen : /*#__PURE__*/React.createElement("span", {
+  }, o.art === 'quest' ? questStatus(o.status).zeichen : o.art === 'hinweis' ? (HINWEIS_ARTEN.find(h => h.k === o.artDesWissens) || HINWEIS_ARTEN[0]).zeichen : React.createElement("span", {
     className: "pl-farbpunkt",
     style: {
       background: o.farbe
     }
-  })), /*#__PURE__*/React.createElement("span", {
+  })), React.createElement("span", {
     className: 'pl-eintrag-text' + (dm && !o.sichtbar ? ' pl-verborgen-text' : '') + (o.status === 'erledigt' || o.status === 'gescheitert' ? ' pl-durch' : '')
-  }, o.art === 'hinweis' ? o.text || 'Ohne Text' : o.titel || o.name || 'Ohne Namen'), o.art === 'quest' && questFortschritt(o).alle > 0 && /*#__PURE__*/React.createElement("span", {
+  }, o.art === 'hinweis' ? o.text || 'Ohne Text' : o.titel || o.name || 'Ohne Namen'), o.art === 'quest' && questFortschritt(o).alle > 0 && React.createElement("span", {
     className: "pl-leise"
-  }, questFortschritt(o).fertig, "/", questFortschritt(o).alle), o.art === 'fraktion' && /*#__PURE__*/React.createElement("span", {
+  }, questFortschritt(o).fertig, "/", questFortschritt(o).alle), o.art === 'fraktion' && React.createElement("span", {
     className: "pl-leise"
   }, rufText(o.ruf)))))));
 };
@@ -5653,13 +5171,13 @@ const OrtWahl = ({
   orte,
   onWert,
   label
-}) => /*#__PURE__*/React.createElement("label", null, label, /*#__PURE__*/React.createElement("select", {
+}) => React.createElement("label", null, label, React.createElement("select", {
   className: "pl-feld",
   value: wert || '',
   onChange: e => onWert(e.target.value)
-}, /*#__PURE__*/React.createElement("option", {
+}, React.createElement("option", {
   value: ""
-}, "\u2014 keiner \u2014"), orte.map(o => /*#__PURE__*/React.createElement("option", {
+}, "\u2014 keiner \u2014"), orte.map(o => React.createElement("option", {
   key: o.id,
   value: o.id
 }, o.name))));
@@ -5691,91 +5209,91 @@ const GeschichteTafel = ({
   const symbol = e.art === 'quest' ? '❗' : e.art === 'hinweis' ? '🔎' : '⚑';
   const titel = e.art === 'hinweis' ? (HINWEIS_ARTEN.find(h => h.k === e.artDesWissens) || HINWEIS_ARTEN[0]).l : e.titel || e.name || 'Ohne Namen';
   if (!dm) {
-    return /*#__PURE__*/React.createElement("aside", {
+    return React.createElement("aside", {
       className: "pl-tafel",
       "aria-label": titel
-    }, /*#__PURE__*/React.createElement(TafelKopf, {
+    }, React.createElement(TafelKopf, {
       symbol: symbol,
       titel: titel,
       onSchliessen: onSchliessen
-    }), e.art === 'quest' && /*#__PURE__*/React.createElement("p", {
+    }), e.art === 'quest' && React.createElement("p", {
       className: "pl-sicht an"
-    }, questStatus(e.status).zeichen, " ", questStatus(e.status).l), e.art === 'quest' && e.auftraggeber && /*#__PURE__*/React.createElement("p", {
+    }, questStatus(e.status).zeichen, " ", questStatus(e.status).l), e.art === 'quest' && e.auftraggeber && React.createElement("p", {
       className: "pl-leise"
-    }, "Auftraggeber: ", e.auftraggeber), e.art === 'fraktion' && /*#__PURE__*/React.createElement("p", {
+    }, "Auftraggeber: ", e.auftraggeber), e.art === 'fraktion' && React.createElement("p", {
       className: "pl-sicht an"
-    }, "Ruf: ", rufText(e.ruf)), e.text && /*#__PURE__*/React.createElement("p", {
+    }, "Ruf: ", rufText(e.ruf)), e.text && React.createElement("p", {
       className: "pl-ort-text"
-    }, e.text), e.art === 'quest' && (e.schritte || []).length > 0 && /*#__PURE__*/React.createElement("ul", {
+    }, e.text), e.art === 'quest' && (e.schritte || []).length > 0 && React.createElement("ul", {
       className: "pl-schritte"
-    }, e.schritte.map((s, i) => /*#__PURE__*/React.createElement("li", {
+    }, e.schritte.map((s, i) => React.createElement("li", {
       key: i,
       className: s.erledigt ? 'pl-durch' : ''
-    }, s.erledigt ? '☑' : '☐', " ", s.text))), e.art === 'quest' && e.belohnung && /*#__PURE__*/React.createElement("p", {
+    }, s.erledigt ? '☑' : '☐', " ", s.text))), e.art === 'quest' && e.belohnung && React.createElement("p", {
       className: "pl-leise"
-    }, "Belohnung: ", e.belohnung), e.art === 'hinweis' && e.bekanntSeit && /*#__PURE__*/React.createElement("p", {
+    }, "Belohnung: ", e.belohnung), e.art === 'hinweis' && e.bekanntSeit && React.createElement("p", {
       className: "pl-leise"
-    }, "Bekannt seit: ", e.bekanntSeit), ort && /*#__PURE__*/React.createElement("button", {
+    }, "Bekannt seit: ", e.bekanntSeit), ort && React.createElement("button", {
       className: "pl-knopf pl-klein",
       onClick: () => onOrt(ort)
     }, "\uD83D\uDCCD ", ort.name));
   }
-  const notizFeld = /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+  const notizFeld = React.createElement("label", null, "Notiz der Spielleitung ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u2014 sehen Spieler nie"), React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 2,
     value: entwurf.dm && entwurf.dm.notiz || '',
     maxLength: 20000,
     onChange: ev => setzeDm('notiz', ev.target.value)
   }));
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel",
     "aria-label": 'Bearbeiten: ' + titel
-  }, /*#__PURE__*/React.createElement(TafelKopf, {
+  }, React.createElement(TafelKopf, {
     symbol: symbol,
     titel: titel,
     onSchliessen: onSchliessen
-  }), /*#__PURE__*/React.createElement("form", {
+  }), React.createElement("form", {
     className: "pl-formular",
     onSubmit: ev => {
       ev.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, e.art === 'quest' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", null, "Titel", /*#__PURE__*/React.createElement("input", {
+  }, e.art === 'quest' && React.createElement(React.Fragment, null, React.createElement("label", null, "Titel", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.titel || '',
     maxLength: 120,
     onChange: ev => setze('titel', ev.target.value)
-  })), /*#__PURE__*/React.createElement("label", null, "Stand", /*#__PURE__*/React.createElement("select", {
+  })), React.createElement("label", null, "Stand", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.status || 'offen',
     onChange: ev => setze('status', ev.target.value)
-  }, QUEST_STATUS.map(s => /*#__PURE__*/React.createElement("option", {
+  }, QUEST_STATUS.map(s => React.createElement("option", {
     key: s.k,
     value: s.k
-  }, s.zeichen, " ", s.l)))), /*#__PURE__*/React.createElement("label", null, "Auftraggeber", /*#__PURE__*/React.createElement("input", {
+  }, s.zeichen, " ", s.l)))), React.createElement("label", null, "Auftraggeber", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.auftraggeber || '',
     maxLength: 120,
     onChange: ev => setze('auftraggeber', ev.target.value)
-  })), /*#__PURE__*/React.createElement(OrtWahl, {
+  })), React.createElement(OrtWahl, {
     label: "Wohin",
     wert: entwurf.zielOrt,
     orte: orte,
     onWert: v => setze('zielOrt', v)
-  }), /*#__PURE__*/React.createElement("label", null, "Was die Spieler wissen", /*#__PURE__*/React.createElement("textarea", {
+  }), React.createElement("label", null, "Was die Spieler wissen", React.createElement("textarea", {
     className: "pl-feld",
     rows: 3,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: ev => setze('text', ev.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-schritte-edit"
-  }, (entwurf.schritte || []).map((s, i) => /*#__PURE__*/React.createElement("div", {
+  }, (entwurf.schritte || []).map((s, i) => React.createElement("div", {
     key: i,
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!s.erledigt,
     "aria-label": 'Schritt ' + (i + 1) + ' erledigt',
@@ -5783,7 +5301,7 @@ const GeschichteTafel = ({
       ...x,
       erledigt: ev.target.checked
     } : x))
-  }), /*#__PURE__*/React.createElement("input", {
+  }), React.createElement("input", {
     className: "pl-feld pl-breit-feld",
     value: s.text,
     maxLength: 200,
@@ -5792,76 +5310,76 @@ const GeschichteTafel = ({
       ...x,
       text: ev.target.value
     } : x))
-  }), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("button", {
     type: "button",
     className: "pl-symbol pl-symbol-weg",
     "aria-label": 'Schritt ' + (i + 1) + ' entfernen',
     onClick: () => setze('schritte', entwurf.schritte.filter((_, j) => j !== i))
-  }, "\u2715"))), /*#__PURE__*/React.createElement("button", {
+  }, "\u2715"))), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setze('schritte', [...(entwurf.schritte || []), {
       text: '',
       erledigt: false
     }])
-  }, "\uFF0B Schritt")), /*#__PURE__*/React.createElement("label", null, "Belohnung", /*#__PURE__*/React.createElement("input", {
+  }, "\uFF0B Schritt")), React.createElement("label", null, "Belohnung", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.belohnung || '',
     maxLength: 200,
     onChange: ev => setze('belohnung', ev.target.value)
-  }))), e.art === 'hinweis' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", null, "Art", /*#__PURE__*/React.createElement("select", {
+  }))), e.art === 'hinweis' && React.createElement(React.Fragment, null, React.createElement("label", null, "Art", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.artDesWissens || 'geruecht',
     onChange: ev => setze('artDesWissens', ev.target.value)
-  }, HINWEIS_ARTEN.map(h => /*#__PURE__*/React.createElement("option", {
+  }, HINWEIS_ARTEN.map(h => React.createElement("option", {
     key: h.k,
     value: h.k
-  }, h.zeichen, " ", h.l)))), /*#__PURE__*/React.createElement("label", null, "Was man h\xF6rt", /*#__PURE__*/React.createElement("textarea", {
+  }, h.zeichen, " ", h.l)))), React.createElement("label", null, "Was man h\xF6rt", React.createElement("textarea", {
     className: "pl-feld",
     rows: 3,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: ev => setze('text', ev.target.value)
-  })), /*#__PURE__*/React.createElement(OrtWahl, {
+  })), React.createElement(OrtWahl, {
     label: "Geh\xF6rt zu Ort",
     wert: entwurf.ortId,
     orte: orte,
     onWert: v => setze('ortId', v)
-  }), /*#__PURE__*/React.createElement("label", null, "Geh\xF6rt zu Quest", /*#__PURE__*/React.createElement("select", {
+  }), React.createElement("label", null, "Geh\xF6rt zu Quest", React.createElement("select", {
     className: "pl-feld",
     value: entwurf.questId || '',
     onChange: ev => setze('questId', ev.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 keiner \u2014"), quests.map(q => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 keiner \u2014"), quests.map(q => React.createElement("option", {
     key: q.id,
     value: q.id
-  }, q.titel)))), /*#__PURE__*/React.createElement("label", null, "Stimmt es?", /*#__PURE__*/React.createElement("select", {
+  }, q.titel)))), React.createElement("label", null, "Stimmt es?", React.createElement("select", {
     className: "pl-feld pl-dm-feld",
     value: entwurf.dm && entwurf.dm.wahr || 'wahr',
     onChange: ev => setzeDm('wahr', ev.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: "wahr"
-  }, "Ja"), /*#__PURE__*/React.createElement("option", {
+  }, "Ja"), React.createElement("option", {
     value: "teils"
-  }, "Zum Teil"), /*#__PURE__*/React.createElement("option", {
+  }, "Zum Teil"), React.createElement("option", {
     value: "falsch"
-  }, "Nein"))), /*#__PURE__*/React.createElement("label", null, "Bekannt seit", /*#__PURE__*/React.createElement("input", {
+  }, "Nein"))), React.createElement("label", null, "Bekannt seit", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.bekanntSeit || '',
     placeholder: "z. B. Sitzung 12",
     maxLength: 60,
     onChange: ev => setze('bekanntSeit', ev.target.value)
-  }))), e.art === 'fraktion' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+  }))), e.art === 'fraktion' && React.createElement(React.Fragment, null, React.createElement("label", null, "Name", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.name || '',
     maxLength: 120,
     onChange: ev => setze('name', ev.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-zeile",
     role: "radiogroup",
     "aria-label": "Farbe"
-  }, REGION_FARBEN.map(f => /*#__PURE__*/React.createElement("button", {
+  }, REGION_FARBEN.map(f => React.createElement("button", {
     type: "button",
     key: f,
     role: "radio",
@@ -5872,7 +5390,7 @@ const GeschichteTafel = ({
       background: f
     },
     onClick: () => setze('farbe', f)
-  }))), /*#__PURE__*/React.createElement("label", null, "Ruf der Gruppe: ", /*#__PURE__*/React.createElement("strong", null, rufText(entwurf.ruf)), /*#__PURE__*/React.createElement("input", {
+  }))), React.createElement("label", null, "Ruf der Gruppe: ", React.createElement("strong", null, rufText(entwurf.ruf)), React.createElement("input", {
     type: "range",
     min: -3,
     max: 3,
@@ -5880,68 +5398,66 @@ const GeschichteTafel = ({
     value: Math.round(+entwurf.ruf || 0),
     onChange: ev => setze('ruf', +ev.target.value),
     "aria-label": "Ruf"
-  })), /*#__PURE__*/React.createElement("label", null, "Was die Spieler wissen", /*#__PURE__*/React.createElement("textarea", {
+  })), React.createElement("label", null, "Was die Spieler wissen", React.createElement("textarea", {
     className: "pl-feld",
     rows: 3,
     value: entwurf.text || '',
     maxLength: 20000,
     onChange: ev => setze('text', ev.target.value)
-  })), /*#__PURE__*/React.createElement("fieldset", {
+  })), React.createElement("fieldset", {
     className: "pl-empfaenger"
-  }, /*#__PURE__*/React.createElement("legend", null, "Einfluss in"), regionen.map(r => /*#__PURE__*/React.createElement("label", {
+  }, React.createElement("legend", null, "Einfluss in"), regionen.map(r => React.createElement("label", {
     key: r.id,
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: (entwurf.regionen || []).includes(r.id),
     onChange: () => setze('regionen', (entwurf.regionen || []).includes(r.id) ? entwurf.regionen.filter(x => x !== r.id) : [...(entwurf.regionen || []), r.id])
-  }), /*#__PURE__*/React.createElement("span", null, r.name))), !regionen.length && /*#__PURE__*/React.createElement("p", {
+  }), React.createElement("span", null, r.name))), !regionen.length && React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "Noch keine Region gezeichnet.")), /*#__PURE__*/React.createElement("label", null, "Ziele", /*#__PURE__*/React.createElement("textarea", {
+  }, "Noch keine Region gezeichnet.")), React.createElement("label", null, "Ziele", React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 2,
     value: entwurf.dm && entwurf.dm.ziele || '',
     maxLength: 20000,
     onChange: ev => setzeDm('ziele', ev.target.value)
-  }))), notizFeld, /*#__PURE__*/React.createElement("label", {
+  }))), notizFeld, React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: ev => setze('sichtbar', ev.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, e.art === 'hinweis' ? 'Die Spieler wissen es' : 'Für Spieler sichtbar')), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("span", null, e.art === 'hinweis' ? 'Die Spieler wissen es' : 'Für Spieler sichtbar')), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(eintrag)
-  }, "L\xF6schen"), /*#__PURE__*/React.createElement("button", {
+  }, "L\xF6schen"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !geaendert,
     onClick: () => setEntwurf(eintrag)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein",
     disabled: !geaendert
   }, "Speichern"))));
 };
-
-// ── Hexfelder ────────────────────────────────────────────────────
 const HexEinstellung = ({
   karte,
   onSpeichern
 }) => {
   const h = karte.hex || {};
   const einh = karte.massstab ? einheit(karte.massstab.einheit).kurz : '';
-  if (!karte.massstab) return /*#__PURE__*/React.createElement("span", {
+  if (!karte.massstab) return React.createElement("span", {
     className: "pl-leise pl-klein-text"
   }, "Hexfelder brauchen einen Ma\xDFstab.");
-  return /*#__PURE__*/React.createElement("span", {
+  return React.createElement("span", {
     className: "pl-hex-steuer"
-  }, /*#__PURE__*/React.createElement("label", {
+  }, React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!h.an,
     onChange: e => onSpeichern({
@@ -5949,9 +5465,9 @@ const HexEinstellung = ({
       an: e.target.checked,
       groesse: h.groesse || 10
     })
-  }), /*#__PURE__*/React.createElement("span", null, "\u2B21 Hexfelder")), h.an && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+  }), React.createElement("span", null, "\u2B21 Hexfelder")), h.an && React.createElement(React.Fragment, null, React.createElement("label", {
     className: "pl-schalter"
-  }, "je Feld ", /*#__PURE__*/React.createElement("input", {
+  }, "je Feld ", React.createElement("input", {
     className: "pl-feld pl-zahl-klein",
     type: "number",
     min: 0.1,
@@ -5961,23 +5477,19 @@ const HexEinstellung = ({
       ...h,
       groesse: Math.max(0.1, +e.target.value || 10)
     })
-  }), " ", einh), /*#__PURE__*/React.createElement("label", {
+  }), " ", einh), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!h.spieler,
     onChange: e => onSpeichern({
       ...h,
       spieler: e.target.checked
     })
-  }), /*#__PURE__*/React.createElement("span", null, "auch f\xFCr Spieler"))));
+  }), React.createElement("span", null, "auch f\xFCr Spieler"))));
 };
 
 // ==== planer/src/3f-gruppe.jsx ====
-// ── Heldengruppen: die Tafel ─────────────────────────────────────
-// Rechnung in 1g-gruppe.jsx. Nur die Spielleitung setzt, zieht, teilt und
-// vereint; Spieler sehen die Gruppe und — wenn freigegeben — ihre Spur.
-
 const SPUR_WORTE = {
   start: 'Aufbruch',
   zug: 'gezogen',
@@ -5992,22 +5504,22 @@ const PlanerGruppenListe = ({
   onWahl
 }) => {
   if (!gruppen.length) return null;
-  return /*#__PURE__*/React.createElement("nav", {
+  return React.createElement("nav", {
     className: "pl-liste",
     "aria-label": "Heldengruppen"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-liste-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "Heldengruppen \xB7 ", gruppen.length)), /*#__PURE__*/React.createElement("ul", null, gruppen.map(g => /*#__PURE__*/React.createElement("li", {
+  }, React.createElement("span", null, "Heldengruppen \xB7 ", gruppen.length)), React.createElement("ul", null, gruppen.map(g => React.createElement("li", {
     key: g.id,
     className: 'pl-eintrag' + (g.id === wahl ? ' aktiv' : '')
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onWahl(g)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, g.symbol || '🛡'), /*#__PURE__*/React.createElement("span", {
+  }, g.symbol || '🛡'), React.createElement("span", {
     className: 'pl-eintrag-text' + (dm && !g.sichtbar ? ' pl-verborgen-text' : '')
-  }, g.name), /*#__PURE__*/React.createElement("span", {
+  }, g.name), React.createElement("span", {
     className: "pl-leise"
   }, (g.helden || []).length))))));
 };
@@ -6027,7 +5539,7 @@ const GruppeTafel = ({
   onVereinen
 }) => {
   const [entwurf, setEntwurf, geaendert] = useEntwurf(gruppe);
-  const [teilen, setTeilen] = useState(null); // ausgewaehlte Helden fuer eine neue Gruppe
+  const [teilen, setTeilen] = useState(null);
   const [mit, setMit] = useState('');
   const setze = (feld, wert) => setEntwurf(e => ({
     ...e,
@@ -6039,14 +5551,14 @@ const GruppeTafel = ({
   const namen = entwurf.heldenNamen || {};
   const laenge = spurLaenge(gruppe, m);
   if (!dm) {
-    return /*#__PURE__*/React.createElement("aside", {
+    return React.createElement("aside", {
       className: "pl-tafel",
       "aria-label": 'Heldengruppe: ' + gruppe.name
-    }, /*#__PURE__*/React.createElement(TafelKopf, {
+    }, React.createElement(TafelKopf, {
       symbol: gruppe.symbol || '🛡',
       titel: gruppe.name,
       onSchliessen: onSchliessen
-    }), /*#__PURE__*/React.createElement("p", null, (gruppe.helden || []).map(h => (gruppe.heldenNamen || {})[h] || '?').join(', ') || 'Niemand'), spur.length > 1 && m && /*#__PURE__*/React.createElement("p", {
+    }), React.createElement("p", null, (gruppe.helden || []).map(h => (gruppe.heldenNamen || {})[h] || '?').join(', ') || 'Niemand'), spur.length > 1 && m && React.createElement("p", {
       className: "pl-leise"
     }, "Bisher ", laengeText(laenge, m.einheit), " unterwegs, seit ", zeitText(spur[0].zeit), "."));
   }
@@ -6064,73 +5576,73 @@ const GruppeTafel = ({
     };
   });
   const vergeben = h => andere.find(g => (g.helden || []).includes(h.id));
-  return /*#__PURE__*/React.createElement("aside", {
+  return React.createElement("aside", {
     className: "pl-tafel",
     "aria-label": 'Heldengruppe bearbeiten: ' + gruppe.name
-  }, /*#__PURE__*/React.createElement(TafelKopf, {
+  }, React.createElement(TafelKopf, {
     symbol: entwurf.symbol || '🛡',
     titel: entwurf.name || 'Heldengruppe',
     onSchliessen: onSchliessen
-  }), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: 'pl-knopf pl-klein pl-haupt' + (zieht ? ' an' : ''),
     disabled: geaendert,
     title: geaendert ? 'Erst speichern' : 'Oder die Marke auf der Karte ziehen',
     onClick: onZiehenWaehlen
-  }, "\uD83D\uDCCD Hierhin ziehen \u2026"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCCD Hierhin ziehen \u2026"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: spur.length < 2 || geaendert,
     onClick: onZuruecknehmen,
     title: "Der Nebel bleibt, wo er schon gewichen ist"
-  }, "\u21B6 Letzten Zug zur\xFCck")), !nebelVon(karte).an ? /*#__PURE__*/React.createElement("p", {
+  }, "\u21B6 Letzten Zug zur\xFCck")), !nebelVon(karte).an ? React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "Auf dieser Karte liegt kein Nebel \u2014 die Gruppe hinterl\xE4sst nur ihre Spur.") : !m ? /*#__PURE__*/React.createElement("p", {
+  }, "Auf dieser Karte liegt kein Nebel \u2014 die Gruppe hinterl\xE4sst nur ihre Spur.") : !m ? React.createElement("p", {
     className: "pl-warnung"
-  }, "Ohne Ma\xDFstab weicht der Nebel nicht; die Sichtweite braucht eine Einheit.") : nebelFolgt(nebelVon(karte)) ? /*#__PURE__*/React.createElement("p", {
+  }, "Ohne Ma\xDFstab weicht der Nebel nicht; die Sichtweite braucht eine Einheit.") : nebelFolgt(nebelVon(karte)) ? React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "Der Nebel folgt der Gruppe: klar ist, was sie gerade sieht", nebelVon(karte).modus === 'daemmrig' ? ', wo sie war, bleibt es dämmrig' : '', ".", !gruppe.sichtbar ? ' Solange sie verborgen ist, sieht sie für die Spieler nichts.' : '') : null, /*#__PURE__*/React.createElement("form", {
+  }, "Der Nebel folgt der Gruppe: klar ist, was sie gerade sieht", nebelVon(karte).modus === 'daemmrig' ? ', wo sie war, bleibt es dämmrig' : '', ".", !gruppe.sichtbar ? ' Solange sie verborgen ist, sieht sie für die Spieler nichts.' : '') : null, React.createElement("form", {
     className: "pl-formular",
     onSubmit: e => {
       e.preventDefault();
       if (geaendert) onSpeichern(entwurf);
     }
-  }, /*#__PURE__*/React.createElement("label", null, "Name", /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("label", null, "Name", React.createElement("input", {
     className: "pl-feld",
     value: entwurf.name || '',
     maxLength: 120,
     onChange: e => setze('name', e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), React.createElement("div", {
     className: "pl-symbole",
     role: "radiogroup",
     "aria-label": "Zeichen"
-  }, GRUPPE_SYMBOLE.map(s => /*#__PURE__*/React.createElement("button", {
+  }, GRUPPE_SYMBOLE.map(s => React.createElement("button", {
     type: "button",
     key: s,
     role: "radio",
     "aria-checked": entwurf.symbol === s,
     className: 'pl-symbolwahl' + (entwurf.symbol === s ? ' an' : ''),
     onClick: () => setze('symbol', s)
-  }, s))), /*#__PURE__*/React.createElement("fieldset", {
+  }, s))), React.createElement("fieldset", {
     className: "pl-empfaenger"
-  }, /*#__PURE__*/React.createElement("legend", null, "Wer dabei ist"), (helden || []).map(h => {
+  }, React.createElement("legend", null, "Wer dabei ist"), (helden || []).map(h => {
     const woanders = vergeben(h);
-    return /*#__PURE__*/React.createElement("label", {
+    return React.createElement("label", {
       key: h.id,
       className: "pl-schalter"
-    }, /*#__PURE__*/React.createElement("input", {
+    }, React.createElement("input", {
       type: "checkbox",
       checked: (entwurf.helden || []).includes(h.id),
       disabled: !!woanders,
       onChange: () => umHeld(h)
-    }), /*#__PURE__*/React.createElement("span", null, h.npc ? nscZeichen(h) + ' ' : '', h.name, h.npc ? ' · NSC, ' + (h.haltung === 'feindlich' ? 'feindlich' : 'freundlich') : h.nurDm ? ' (nur Spielleitung)' : '', woanders ? ' — in „' + woanders.name + '“' : ''));
-  }), helden === null && /*#__PURE__*/React.createElement("p", {
+    }), React.createElement("span", null, h.npc ? nscZeichen(h) + ' ' : '', h.name, h.npc ? ' · NSC, ' + (h.haltung === 'feindlich' ? 'feindlich' : 'freundlich') : h.nurDm ? ' (nur Spielleitung)' : '', woanders ? ' — in „' + woanders.name + '“' : ''));
+  }), helden === null && React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "Die B\xF6gen werden geladen \u2026"), helden && !helden.length && /*#__PURE__*/React.createElement("p", {
+  }, "Die B\xF6gen werden geladen \u2026"), helden && !helden.length && React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, "In diesem Abenteuer gibt es noch keinen Bogen.")), /*#__PURE__*/React.createElement("label", null, "Sichtweite", einh ? ' (' + einh + ')' : '', /*#__PURE__*/React.createElement("input", {
+  }, "In diesem Abenteuer gibt es noch keinen Bogen.")), React.createElement("label", null, "Sichtweite", einh ? ' (' + einh + ')' : '', React.createElement("input", {
     className: "pl-feld",
     type: "number",
     min: 0,
@@ -6138,21 +5650,21 @@ const GruppeTafel = ({
     value: entwurf.sichtweite ?? 0,
     title: "So weit weicht der Nebel um die Gruppe; 0 hei\xDFt gar nicht",
     onChange: e => setze('sichtweite', Math.max(0, +e.target.value || 0))
-  })), /*#__PURE__*/React.createElement("label", {
+  })), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.sichtbar,
     onChange: e => setze('sichtbar', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "Spieler sehen die Gruppe")), /*#__PURE__*/React.createElement("label", {
+  }), React.createElement("span", null, "Spieler sehen die Gruppe")), React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: !!entwurf.spurFuerSpieler,
     onChange: e => setze('spurFuerSpieler', e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "Spieler sehen die Spur")), /*#__PURE__*/React.createElement("label", null, "Notiz der Spielleitung ", /*#__PURE__*/React.createElement("span", {
+  }), React.createElement("span", null, "Spieler sehen die Spur")), React.createElement("label", null, "Notiz der Spielleitung ", React.createElement("span", {
     className: "pl-leise"
-  }, "\u2014 sehen Spieler nie"), /*#__PURE__*/React.createElement("textarea", {
+  }, "\u2014 sehen Spieler nie"), React.createElement("textarea", {
     className: "pl-feld pl-dm-feld",
     rows: 2,
     value: entwurf.dm && entwurf.dm.notiz || '',
@@ -6164,48 +5676,48 @@ const GruppeTafel = ({
         notiz: e.target.value
       }
     }))
-  })), geaendert && /*#__PURE__*/React.createElement("div", {
+  })), geaendert && React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setEntwurf(gruppe)
-  }, "Verwerfen"), /*#__PURE__*/React.createElement("button", {
+  }, "Verwerfen"), React.createElement("button", {
     type: "submit",
     className: "pl-knopf pl-haupt pl-klein"
-  }, "Speichern"))), /*#__PURE__*/React.createElement("h3", {
+  }, "Speichern"))), React.createElement("h3", {
     className: "pl-unterkopf"
-  }, "Spur"), /*#__PURE__*/React.createElement("p", {
+  }, "Spur"), React.createElement("p", {
     className: "pl-leise pl-klein-text"
-  }, spur.length, " ", spur.length === 1 ? 'Punkt' : 'Punkte', m && spur.length > 1 ? ' · ' + laengeText(laenge, m.einheit) : ''), /*#__PURE__*/React.createElement("ol", {
+  }, spur.length, " ", spur.length === 1 ? 'Punkt' : 'Punkte', m && spur.length > 1 ? ' · ' + laengeText(laenge, m.einheit) : ''), React.createElement("ol", {
     className: "pl-spur-liste"
-  }, spur.slice(-6).reverse().map((p, i) => /*#__PURE__*/React.createElement("li", {
+  }, spur.slice(-6).reverse().map((p, i) => React.createElement("li", {
     key: i
-  }, /*#__PURE__*/React.createElement("span", null, zeitText(p.zeit)), /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", null, zeitText(p.zeit)), React.createElement("span", {
     className: "pl-leise"
-  }, SPUR_WORTE[p.art] || p.art || '')))), (gruppe.helden || []).length > 1 && (teilen === null ? /*#__PURE__*/React.createElement("button", {
+  }, SPUR_WORTE[p.art] || p.art || '')))), (gruppe.helden || []).length > 1 && (teilen === null ? React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: geaendert,
     onClick: () => setTeilen([])
-  }, "\u2702 Gruppe aufteilen \u2026") : /*#__PURE__*/React.createElement("div", {
+  }, "\u2702 Gruppe aufteilen \u2026") : React.createElement("div", {
     className: "pl-teilen"
-  }, /*#__PURE__*/React.createElement("p", {
+  }, React.createElement("p", {
     className: "pl-klein-text"
-  }, "Wer zieht als eigene Gruppe los?"), (gruppe.helden || []).map(h => /*#__PURE__*/React.createElement("label", {
+  }, "Wer zieht als eigene Gruppe los?"), (gruppe.helden || []).map(h => React.createElement("label", {
     key: h,
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: teilen.includes(h),
     onChange: () => setTeilen(t => t.includes(h) ? t.filter(x => x !== h) : [...t, h])
-  }), /*#__PURE__*/React.createElement("span", null, namen[h] || h))), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("span", null, namen[h] || h))), React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     onClick: () => setTeilen(null)
-  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+  }, "Abbrechen"), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein pl-haupt",
     disabled: !teilen.length || teilen.length === gruppe.helden.length,
@@ -6213,19 +5725,19 @@ const GruppeTafel = ({
       onTeilen(gruppe, teilen);
       setTeilen(null);
     }
-  }, "Abteilen")))), andere.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "Abteilen")))), andere.length > 0 && React.createElement("div", {
     className: "pl-zeile"
-  }, /*#__PURE__*/React.createElement("select", {
+  }, React.createElement("select", {
     className: "pl-feld",
     value: mit,
     onChange: e => setMit(e.target.value),
     "aria-label": "Vereinen mit"
-  }, /*#__PURE__*/React.createElement("option", {
+  }, React.createElement("option", {
     value: ""
-  }, "\u2014 vereinen mit \u2014"), andere.map(g => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 vereinen mit \u2014"), andere.map(g => React.createElement("option", {
     key: g.id,
     value: g.id
-  }, g.name))), /*#__PURE__*/React.createElement("button", {
+  }, g.name))), React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-klein",
     disabled: !mit || geaendert,
@@ -6234,9 +5746,9 @@ const GruppeTafel = ({
       if (q) onVereinen(gruppe, q);
       setMit('');
     }
-  }, "\u2935 Vereinen")), /*#__PURE__*/React.createElement("div", {
+  }, "\u2935 Vereinen")), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     className: "pl-knopf pl-gefahr pl-klein",
     onClick: () => onLoeschen(gruppe)
@@ -6244,16 +5756,6 @@ const GruppeTafel = ({
 };
 
 // ==== planer/src/4-app.jsx ====
-// ── Abenteuerplaner: die Seite ───────────────────────────────────
-// Wer bin ich, welches Abenteuer, welche Karten — und auf der Karte das
-// Bild, die Orte, Lineal und Maßstab. Dazu das Paket hinaus und wieder
-// hinein.
-//
-// Die Wege nach draussen stehen in planer/index.html (planerApi,
-// planerDateiHolen, planerDateiUrl, planerSpeichern, planerZugang),
-// damit dev/planer-echt.html dieselbe Seite gegen ein Gedaechtnis fahren
-// kann.
-
 const PLANER_ADV_SPEICHER = 'hb_planer_adv';
 const PLANER_ABGLEICH_MS = 15000;
 const PLANER_ABGLEICH_SPIELER_MS = 5000;
@@ -6263,7 +5765,7 @@ const planerAdvAnfang = liste => {
   let ausAdresse = '';
   try {
     ausAdresse = new URLSearchParams(location.search).get('adv') || '';
-  } catch (e) {/* ohne Adresse */}
+  } catch (e) {}
   const gemerkt = (() => {
     try {
       return localStorage.getItem(PLANER_ADV_SPEICHER) || localStorage.getItem('hb_adventure') || '';
@@ -6273,33 +5775,33 @@ const planerAdvAnfang = liste => {
   })();
   return [ausAdresse, gemerkt].find(id => id && ids.includes(id)) || ids[0] || '';
 };
-const PlanerNichtAngemeldet = () => /*#__PURE__*/React.createElement("div", {
+const PlanerNichtAngemeldet = () => React.createElement("div", {
   className: "pl-leer-seite"
-}, /*#__PURE__*/React.createElement("div", {
+}, React.createElement("div", {
   className: "pl-karte-leer"
-}, /*#__PURE__*/React.createElement("div", {
+}, React.createElement("div", {
   className: "pl-marke"
-}, "\uD83D\uDDFA Abenteuerplaner"), /*#__PURE__*/React.createElement("h1", null, "Bitte zuerst im Heldenbuch anmelden"), /*#__PURE__*/React.createElement("p", null, "Der Planer benutzt dieselbe Anmeldung und dieselbe Gruppe wie das Heldenbuch. Melde dich dort an und \xF6ffne den Planer dann wieder."), /*#__PURE__*/React.createElement("a", {
+}, "\uD83D\uDDFA Abenteuerplaner"), React.createElement("h1", null, "Bitte zuerst im Heldenbuch anmelden"), React.createElement("p", null, "Der Planer benutzt dieselbe Anmeldung und dieselbe Gruppe wie das Heldenbuch. Melde dich dort an und \xF6ffne den Planer dann wieder."), React.createElement("a", {
   className: "pl-knopf pl-haupt",
   href: "../"
 }, "\u2694 Zum Heldenbuch")));
 const PlanerFrage = ({
   frage,
   onZu
-}) => /*#__PURE__*/React.createElement("div", {
+}) => React.createElement("div", {
   className: "pl-schleier",
   onClick: onZu
-}, /*#__PURE__*/React.createElement("div", {
+}, React.createElement("div", {
   className: "pl-dialog",
   role: "dialog",
   "aria-modal": "true",
   onClick: e => e.stopPropagation()
-}, /*#__PURE__*/React.createElement("h2", null, frage.titel), /*#__PURE__*/React.createElement("p", null, frage.text), /*#__PURE__*/React.createElement("div", {
+}, React.createElement("h2", null, frage.titel), React.createElement("p", null, frage.text), React.createElement("div", {
   className: "pl-dialog-knoepfe"
-}, /*#__PURE__*/React.createElement("button", {
+}, React.createElement("button", {
   className: "pl-knopf",
   onClick: onZu
-}, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+}, "Abbrechen"), React.createElement("button", {
   className: 'pl-knopf ' + (frage.gefahr ? 'pl-gefahr' : 'pl-haupt'),
   onClick: () => {
     onZu();
@@ -6309,23 +5811,23 @@ const PlanerFrage = ({
 const PlanerArbeit = ({
   arbeit,
   onAbbrechen
-}) => /*#__PURE__*/React.createElement("div", {
+}) => React.createElement("div", {
   className: "pl-schleier"
-}, /*#__PURE__*/React.createElement("div", {
+}, React.createElement("div", {
   className: "pl-dialog",
   role: "status",
   "aria-live": "polite"
-}, /*#__PURE__*/React.createElement("h2", null, arbeit.titel), /*#__PURE__*/React.createElement("p", {
+}, React.createElement("h2", null, arbeit.titel), React.createElement("p", {
   className: "pl-arbeit-text"
-}, arbeit.text || '…'), /*#__PURE__*/React.createElement("div", {
+}, arbeit.text || '…'), React.createElement("div", {
   className: "pl-balken"
-}, /*#__PURE__*/React.createElement("div", {
+}, React.createElement("div", {
   style: {
     width: Math.round((arbeit.anteil || 0) * 100) + '%'
   }
-})), arbeit.abbrechbar && /*#__PURE__*/React.createElement("div", {
+})), arbeit.abbrechbar && React.createElement("div", {
   className: "pl-dialog-knoepfe"
-}, /*#__PURE__*/React.createElement("button", {
+}, React.createElement("button", {
   className: "pl-knopf",
   onClick: onAbbrechen,
   disabled: arbeit.abbruch
@@ -6343,32 +5845,32 @@ const PlanerImportVorschau = ({
       timeStyle: 'short'
     });
   })();
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-schleier",
     onClick: onZu
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-dialog pl-import",
     role: "dialog",
     "aria-modal": "true",
     onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("h2", null, "Paket einspielen"), /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("h2", null, "Paket einspielen"), React.createElement("div", {
     className: "pl-datei"
-  }, vorschau.dateiname), /*#__PURE__*/React.createElement("dl", {
+  }, vorschau.dateiname), React.createElement("dl", {
     className: "pl-fakten"
-  }, m.abenteuer && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Aus dem Abenteuer"), /*#__PURE__*/React.createElement("dd", null, m.abenteuer.name)), erstellt && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Erstellt"), /*#__PURE__*/React.createElement("dd", null, erstellt)), /*#__PURE__*/React.createElement("dt", null, "Karten"), /*#__PURE__*/React.createElement("dd", null, m.karten.length), /*#__PURE__*/React.createElement("dt", null, "Eintr\xE4ge"), /*#__PURE__*/React.createElement("dd", null, m.objekte.length), /*#__PURE__*/React.createElement("dt", null, "Dateien"), /*#__PURE__*/React.createElement("dd", null, m.dateien.length, " \xB7 ", planGroesse(vorschau.paket.bytes))), m.karten.length > 0 && /*#__PURE__*/React.createElement("ul", {
+  }, m.abenteuer && React.createElement(React.Fragment, null, React.createElement("dt", null, "Aus dem Abenteuer"), React.createElement("dd", null, m.abenteuer.name)), erstellt && React.createElement(React.Fragment, null, React.createElement("dt", null, "Erstellt"), React.createElement("dd", null, erstellt)), React.createElement("dt", null, "Karten"), React.createElement("dd", null, m.karten.length), React.createElement("dt", null, "Eintr\xE4ge"), React.createElement("dd", null, m.objekte.length), React.createElement("dt", null, "Dateien"), React.createElement("dd", null, m.dateien.length, " \xB7 ", planGroesse(vorschau.paket.bytes))), m.karten.length > 0 && React.createElement("ul", {
     className: "pl-import-karten"
-  }, m.karten.slice(0, 8).map(k => /*#__PURE__*/React.createElement("li", {
+  }, m.karten.slice(0, 8).map(k => React.createElement("li", {
     key: k.id
-  }, k.name)), m.karten.length > 8 && /*#__PURE__*/React.createElement("li", {
+  }, k.name)), m.karten.length > 8 && React.createElement("li", {
     className: "pl-leise"
-  }, "\u2026 und ", m.karten.length - 8, " weitere")), /*#__PURE__*/React.createElement("p", {
+  }, "\u2026 und ", m.karten.length - 8, " weitere")), React.createElement("p", {
     className: "pl-hinweis"
-  }, "Alles wird zus\xE4tzlich angelegt, nichts Vorhandenes wird \xFCberschrieben. Neue Karten sind f\xFCr Spieler zun\xE4chst so sichtbar, wie sie im Paket stehen."), /*#__PURE__*/React.createElement("div", {
+  }, "Alles wird zus\xE4tzlich angelegt, nichts Vorhandenes wird \xFCberschrieben. Neue Karten sind f\xFCr Spieler zun\xE4chst so sichtbar, wie sie im Paket stehen."), React.createElement("div", {
     className: "pl-dialog-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-knopf",
     onClick: onZu
-  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+  }, "Abbrechen"), React.createElement("button", {
     className: "pl-knopf pl-haupt",
     onClick: onEinspielen
   }, "Einspielen"))));
@@ -6384,7 +5886,7 @@ const PlanerKartenListe = ({
   onLoeschen
 }) => {
   const [neuName, setNeuName] = useState(null);
-  const [umName, setUmName] = useState(null); // {id, name}
+  const [umName, setUmName] = useState(null);
   const neuAbschicken = () => {
     const n = (neuName || '').trim();
     if (n) onNeu(n);
@@ -6394,21 +5896,21 @@ const PlanerKartenListe = ({
     if (umName && umName.name.trim()) onUmbenennen(umName.id, umName.name.trim());
     setUmName(null);
   };
-  return /*#__PURE__*/React.createElement("nav", {
+  return React.createElement("nav", {
     className: "pl-liste",
     "aria-label": "Karten"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-liste-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "Karten"), dm && neuName === null && /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("span", null, "Karten"), dm && neuName === null && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => setNeuName('')
-  }, "\uFF0B Neue Karte")), neuName !== null && /*#__PURE__*/React.createElement("form", {
+  }, "\uFF0B Neue Karte")), neuName !== null && React.createElement("form", {
     className: "pl-neu",
     onSubmit: e => {
       e.preventDefault();
       neuAbschicken();
     }
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     autoFocus: true,
     className: "pl-feld",
     placeholder: "Name der Karte",
@@ -6418,21 +5920,21 @@ const PlanerKartenListe = ({
     onKeyDown: e => {
       if (e.key === 'Escape') setNeuName(null);
     }
-  }), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("button", {
     className: "pl-knopf pl-klein pl-haupt",
     type: "submit"
-  }, "Anlegen")), karten.length === 0 && neuName === null && /*#__PURE__*/React.createElement("p", {
+  }, "Anlegen")), karten.length === 0 && neuName === null && React.createElement("p", {
     className: "pl-leise pl-liste-leer"
-  }, dm ? 'Noch keine Karte. Leg eine an oder spiel ein Paket ein.' : 'Die Spielleitung hat noch keine Karte freigegeben.'), /*#__PURE__*/React.createElement("ul", null, karten.map(k => /*#__PURE__*/React.createElement("li", {
+  }, dm ? 'Noch keine Karte. Leg eine an oder spiel ein Paket ein.' : 'Die Spielleitung hat noch keine Karte freigegeben.'), React.createElement("ul", null, karten.map(k => React.createElement("li", {
     key: k.id,
     className: 'pl-eintrag' + (k.id === auswahl ? ' aktiv' : '')
-  }, umName && umName.id === k.id ? /*#__PURE__*/React.createElement("form", {
+  }, umName && umName.id === k.id ? React.createElement("form", {
     className: "pl-neu",
     onSubmit: e => {
       e.preventDefault();
       umAbschicken();
     }
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     autoFocus: true,
     className: "pl-feld",
     value: umName.name,
@@ -6445,30 +5947,30 @@ const PlanerKartenListe = ({
       if (e.key === 'Escape') setUmName(null);
     },
     onBlur: umAbschicken
-  })) : /*#__PURE__*/React.createElement("button", {
+  })) : React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onWahl(k.id),
     "aria-current": k.id === auswahl
-  }, k.bild && k.bild.vorschau ? /*#__PURE__*/React.createElement("img", {
+  }, k.bild && k.bild.vorschau ? React.createElement("img", {
     className: "pl-vorschau",
     src: planerDateiUrl(k.ablage, k.bild.vorschau),
     alt: "",
     loading: "lazy"
-  }) : /*#__PURE__*/React.createElement("span", {
+  }) : React.createElement("span", {
     className: "pl-vorschau pl-vorschau-leer",
     "aria-hidden": "true"
-  }, "\uD83D\uDDFA"), /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDDFA"), React.createElement("span", {
     className: 'pl-eintrag-text' + (dm && !k.sichtbar ? ' pl-verborgen-text' : ''),
     title: dm && !k.sichtbar ? k.name + ' — für Spieler verborgen' : k.name
-  }, k.name)), dm && !(umName && umName.id === k.id) && /*#__PURE__*/React.createElement("span", {
+  }, k.name)), dm && !(umName && umName.id === k.id) && React.createElement("span", {
     className: "pl-eintrag-knoepfe"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-symbol",
     title: k.sichtbar ? 'Für Spieler verbergen' : 'Für Spieler sichtbar machen',
     "aria-label": k.sichtbar ? 'Verbergen' : 'Sichtbar machen',
     "aria-pressed": !!k.sichtbar,
     onClick: () => onSichtbar(k)
-  }, k.sichtbar ? '👁' : '◌'), /*#__PURE__*/React.createElement("button", {
+  }, k.sichtbar ? '👁' : '◌'), React.createElement("button", {
     className: "pl-symbol",
     title: "Umbenennen",
     "aria-label": "Umbenennen",
@@ -6476,7 +5978,7 @@ const PlanerKartenListe = ({
       id: k.id,
       name: k.name
     })
-  }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+  }, "\u270E"), React.createElement("button", {
     className: "pl-symbol pl-symbol-weg",
     title: "L\xF6schen",
     "aria-label": "L\xF6schen",
@@ -6493,27 +5995,27 @@ const PlanerOrtListe = ({
   if (!orte.length) return null;
   const s = suche.trim().toLowerCase();
   const liste = orte.filter(o => !s || String(o.name || '').toLowerCase().includes(s)).sort((a, b) => String(a.name).localeCompare(String(b.name), 'de'));
-  return /*#__PURE__*/React.createElement("nav", {
+  return React.createElement("nav", {
     className: "pl-liste",
     "aria-label": "Orte auf dieser Karte"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-liste-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "Orte \xB7 ", orte.length)), orte.length > 6 && /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("span", null, "Orte \xB7 ", orte.length)), orte.length > 6 && React.createElement("input", {
     className: "pl-feld pl-suche",
     placeholder: "Ort suchen",
     value: suche,
     onChange: e => setSuche(e.target.value)
-  }), /*#__PURE__*/React.createElement("ul", null, liste.map(o => /*#__PURE__*/React.createElement("li", {
+  }), React.createElement("ul", null, liste.map(o => React.createElement("li", {
     key: o.id,
     className: 'pl-eintrag' + (o.id === auswahl ? ' aktiv' : '')
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onWahl(o)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, o.symbol || '📍'), /*#__PURE__*/React.createElement("span", {
+  }, o.symbol || '📍'), React.createElement("span", {
     className: "pl-eintrag-text"
-  }, o.name), dm && !o.sichtbar && /*#__PURE__*/React.createElement("span", {
+  }, o.name), dm && !o.sichtbar && React.createElement("span", {
     className: "pl-marke-verborgen"
   }, "verborgen"))))));
 };
@@ -6527,33 +6029,33 @@ const PlanerWegListe = ({
   onReiseWahl
 }) => {
   if (!routen.length) return null;
-  return /*#__PURE__*/React.createElement("nav", {
+  return React.createElement("nav", {
     className: "pl-liste",
     "aria-label": "Routen und Reisen"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-liste-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "Routen \xB7 ", routen.length)), /*#__PURE__*/React.createElement("ul", null, routen.map(r => /*#__PURE__*/React.createElement(React.Fragment, {
+  }, React.createElement("span", null, "Routen \xB7 ", routen.length)), React.createElement("ul", null, routen.map(r => React.createElement(React.Fragment, {
     key: r.id
-  }, /*#__PURE__*/React.createElement("li", {
+  }, React.createElement("li", {
     className: 'pl-eintrag' + (r.id === routeWahl ? ' aktiv' : '')
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onRouteWahl(r.id)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, "\uD83D\uDEE4"), /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDEE4"), React.createElement("span", {
     className: 'pl-eintrag-text' + (dm && !r.sichtbar ? ' pl-verborgen-text' : '')
-  }, r.name))), reisen.filter(j => j.routeId === r.id).map(j => /*#__PURE__*/React.createElement("li", {
+  }, r.name))), reisen.filter(j => j.routeId === r.id).map(j => React.createElement("li", {
     key: j.id,
     className: 'pl-eintrag pl-eintrag-unter' + (j.id === reiseWahl ? ' aktiv' : '')
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onReiseWahl(j.id)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     "aria-hidden": "true"
-  }, "\uD83E\uDDED"), /*#__PURE__*/React.createElement("span", {
+  }, "\uD83E\uDDED"), React.createElement("span", {
     className: 'pl-eintrag-text' + (dm && !j.sichtbar ? ' pl-verborgen-text' : '')
-  }, j.name), (j.tagebuch || []).length > 0 && /*#__PURE__*/React.createElement("span", {
+  }, j.name), (j.tagebuch || []).length > 0 && React.createElement("span", {
     className: "pl-leise"
   }, "Tag ", (j.tagebuch || []).length))))))));
 };
@@ -6564,37 +6066,34 @@ const PlanerRegionListe = ({
   onWahl
 }) => {
   if (!regionen.length) return null;
-  return /*#__PURE__*/React.createElement("nav", {
+  return React.createElement("nav", {
     className: "pl-liste",
     "aria-label": "Regionen"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-liste-kopf"
-  }, /*#__PURE__*/React.createElement("span", null, "Regionen \xB7 ", regionen.length)), /*#__PURE__*/React.createElement("ul", null, regionen.map(r => /*#__PURE__*/React.createElement("li", {
+  }, React.createElement("span", null, "Regionen \xB7 ", regionen.length)), React.createElement("ul", null, regionen.map(r => React.createElement("li", {
     key: r.id,
     className: 'pl-eintrag' + (r.id === regionWahl ? ' aktiv' : '')
-  }, /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("button", {
     className: "pl-eintrag-name",
     onClick: () => onWahl(r)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     className: "pl-farbpunkt",
     style: {
       background: r.farbe || REGION_FARBEN[0]
     },
     "aria-hidden": "true"
-  }), /*#__PURE__*/React.createElement("span", {
+  }), React.createElement("span", {
     className: 'pl-eintrag-text' + (dm && !r.sichtbar ? ' pl-verborgen-text' : '')
-  }, r.name), dm && r.dm && r.dm.tabelle && /*#__PURE__*/React.createElement("span", {
+  }, r.name), dm && r.dm && r.dm.tabelle && React.createElement("span", {
     className: "pl-leise",
     title: "Mit Begegnungstabelle"
   }, "\uD83C\uDFB2"))))));
 };
-
-// Offline: der letzte Stand liegt im Browser. Ist der Server nicht zu
-// erreichen, zeigt der Planer ihn — lesen geht, schreiben erst wieder mit Netz.
 const offlineMerken = (schluessel, wert) => {
   try {
     localStorage.setItem(OFFLINE_SPEICHER + schluessel, offlineStand(null, wert));
-  } catch (e) {/* zu gross oder kein Speicher */}
+  } catch (e) {}
 };
 const offlineHolen = schluessel => {
   try {
@@ -6710,14 +6209,11 @@ const PlanerApp = () => {
     if (!advId) return;
     try {
       localStorage.setItem(PLANER_ADV_SPEICHER, advId);
-    } catch (e) {/* ohne Speicher */}
+    } catch (e) {}
     setDaten(null);
     setVerlauf([]);
     laden(advId).catch(fehler);
   }, [advId]);
-
-  // Der Abgleich: nur die Zahl fragen, und nur laden, wenn sie sich bewegt.
-  // Spieler fragen oefter — sie warten auf das, was die Spielleitung tut.
   const dmFuerAbgleich = !!(daten && daten.dm);
   useEffect(() => {
     if (!advId) return;
@@ -6743,7 +6239,6 @@ const PlanerApp = () => {
   const route = routen.find(r => r.id === routeWahl) || null;
   const reise = reisen.find(r => r.id === reiseWahl) || null;
   const reiseRoute = reise ? routen.find(r => r.id === reise.routeId) || null : null;
-  // Wo jede Gruppe gerade steht.
   const gruppen = karte ? reisen.filter(j => !j.gruppeId).map(j => {
     const r = routen.find(x => x.id === j.routeId);
     if (!r) return null;
@@ -6755,7 +6250,6 @@ const PlanerApp = () => {
       punkt: karte.massstab ? punktAufRoute(rr, karte.massstab, j.pos || 0) : (rr.punkte || [])[0]
     };
   }).filter(Boolean) : [];
-  // Nur eine Tafel zugleich.
   const tafelZu = () => {
     setOrtWahl('');
     setRouteWahl('');
@@ -6786,8 +6280,6 @@ const PlanerApp = () => {
   const handouts = daten ? daten.objekte.filter(o => o.art === 'handout') : [];
   const handout = handouts.find(h => h.id === handoutWahl) || null;
   const nebel = nebelVon(karte);
-
-  // Was dieser Spieler schon gelesen hat, merkt sich sein Browser.
   useEffect(() => {
     try {
       setGesehen(JSON.parse(localStorage.getItem(PLANER_GESEHEN + advId) || '[]'));
@@ -6800,11 +6292,9 @@ const PlanerApp = () => {
     setGesehen(neu);
     try {
       localStorage.setItem(PLANER_GESEHEN + advId, JSON.stringify(neu));
-    } catch (e) {/* ohne Speicher */}
+    } catch (e) {}
   };
   const ungelesen = daten && !daten.dm ? ungeseheneHandouts(handouts, gesehen) : [];
-
-  // Der Kanal zum Tischfenster.
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return;
     kanal.current = new BroadcastChannel(TISCH_KANAL);
@@ -6872,8 +6362,6 @@ const PlanerApp = () => {
     if (id) tafelZu();
     setGruppeWahl(id);
   };
-
-  // Die Boegen des Abenteuers, fuer die Heldengruppen.
   useEffect(() => {
     setHelden(null);
     if (!dm || !advId) return;
@@ -6881,9 +6369,6 @@ const PlanerApp = () => {
       adv_id: advId
     }).then(r => setHelden(r.helden || [])).catch(() => setHelden([]));
   }, [dm, advId]);
-
-  // Der Bogen eines NSC steht im Heldenbuch, nicht hier. Der Auftrag
-  // oeffnet ihn dort — wie die Zeit, die Rast und der Kampf.
   const nscBogenOeffnen = async h => {
     const genommen = await anHeldenbuch({
       art: 'nsc',
@@ -6899,8 +6384,6 @@ const PlanerApp = () => {
       text: '🎭 Der Auftrag wartet eine halbe Stunde. Öffne das Heldenbuch im DM-Modus.'
     });
   };
-
-  // Eine Gruppe zieht: Spur speichern, dann den Nebel entlang des Wegs lichten.
   const gruppeBewegt = async (ergebnis, meldung) => {
     try {
       await objSpeichern(ergebnis.gruppe);
@@ -6927,7 +6410,6 @@ const PlanerApp = () => {
     if (id) tafelZu();
     setGeschichteWahl(id);
   };
-  // Von einer Quest zu ihrem Ort, auch auf einer anderen Karte.
   const zumOrt = o => {
     if (!o) return;
     if (o.karteId !== auswahl) {
@@ -6976,14 +6458,10 @@ const PlanerApp = () => {
       fehler(e);
     }
   };
-
-  // Die Mitglieder der Gruppe, fuer die Empfaenger eines Handouts.
   useEffect(() => {
     if (!dm || !handoutWahl || mitglieder) return;
     planerApi('member_list', {}).then(r => setMitglieder(r.mitglieder || [])).catch(() => setMitglieder([]));
   }, [dm, handoutWahl]);
-
-  // Die Begegnungen des Heldenbuchs, auf die Tabellen verweisen. Nur lesen.
   useEffect(() => {
     setBegegnungen(null);
     if (!dm || !advId) return;
@@ -6996,9 +6474,6 @@ const PlanerApp = () => {
       })));
     }).catch(() => setBegegnungen([]));
   }, [dm, advId]);
-
-  // Die Uhr der Chronik, damit die Reise ihren Ankunftstag nennt. Nur
-  // lesen: gedreht wird sie im Heldenbuch.
   useEffect(() => {
     setChronikZeit(null);
     if (!dm || !advId) return;
@@ -7024,8 +6499,6 @@ const PlanerApp = () => {
       aktuell = false;
     };
   }, [auswahl, dm, daten && daten.stand]);
-
-  // Werkzeug und Auswahl gehoeren zur Karte.
   useEffect(() => {
     setWerkzeug('ansehen');
     setPunkte([]);
@@ -7138,11 +6611,6 @@ const PlanerApp = () => {
       }
     }
   });
-
-  // ── Das Kartenbild ──────────────────────────────────────────────
-  // Die neuen Kacheln kommen in einen neuen Ordner (b1, b2, …). Erst
-  // wenn alle oben sind, zeigt die Karte darauf, und erst dann geht der
-  // alte weg. Wer gerade schaut, sieht nie eine halbe Karte.
   const kartenbildSetzen = async (k, datei) => {
     const alt = k.bild || null;
     const version = (alt && alt.version || 0) + 1;
@@ -7205,8 +6673,6 @@ const PlanerApp = () => {
           verkleinert: faktor < 1 ? faktor : undefined
         };
         melde('Karte umstellen …', 1);
-        // Hatte die Karte schon ein Bild anderer Groesse, wandern Orte
-        // und Maßstab mit.
         const anders = alt && (alt.breite !== bild.breite || alt.hoehe !== bild.hoehe);
         const massstab = anders && k.massstab ? {
           ...k.massstab,
@@ -7218,8 +6684,6 @@ const PlanerApp = () => {
           bild,
           massstab
         });
-        // Ab hier zeigt die Karte auf den neuen Ordner: er darf bei einem
-        // spaeteren Fehler nicht mehr weggeraeumt werden.
         angefangen = false;
         if (anders) {
           for (const o of daten.objekte.filter(o => o.karteId === k.id && typeof o.x === 'number')) {
@@ -7272,12 +6736,6 @@ const PlanerApp = () => {
       kartenbildSetzen(k, datei);
     }
   };
-
-  // ── Klicks auf die Karte ────────────────────────────────────────
-  // ── Nebel ───────────────────────────────────────────────────────
-  // Jede Aenderung wird gleich gespeichert; die Spieler sehen sie mit dem
-  // naechsten Abgleich. Orte, die mit dem Nebel aufgehen sollen, werden
-  // dabei sichtbar geschaltet.
   const nebelSetzen = async (flaechen, an) => {
     if (!karte) return;
     const neu = {
@@ -7410,7 +6868,6 @@ const PlanerApp = () => {
       fehler(e);
     }
   };
-  // ── Routen und Reisen ───────────────────────────────────────────
   const routeAnlegen = async punkteListe => {
     if (!karte || punkteListe.length < 2) return;
     const neu = {
@@ -7498,8 +6955,6 @@ const PlanerApp = () => {
     setPunkte([]);
     setWerkzeug(v => v === w ? 'ansehen' : w);
   };
-
-  // ── Orte ────────────────────────────────────────────────────────
   const ortSpeichern = async o => {
     try {
       await objSpeichern({
@@ -7598,8 +7053,6 @@ const PlanerApp = () => {
     setVerlauf(v);
     if (id && karten.some(k => k.id === id)) setAuswahl(id);
   };
-
-  // ── Paket ───────────────────────────────────────────────────────
   const advName = ((start && start.abenteuer || []).find(a => a.id === advId) || {}).name || '';
   const exportieren = async () => {
     try {
@@ -7695,98 +7148,98 @@ const PlanerApp = () => {
       laden(advId).catch(() => {});
     }
   };
-  if (!angemeldet) return /*#__PURE__*/React.createElement(PlanerNichtAngemeldet, null);
+  if (!angemeldet) return React.createElement(PlanerNichtAngemeldet, null);
   const linie = ['lineal', 'massstab', 'route', 'region', 'nebel'].includes(werkzeug) ? {
     punkte: (werkzeug === 'region' || werkzeug === 'nebel') && punkte.length > 2 ? [...punkte, punkte[0]] : punkte,
     art: werkzeug === 'nebel' ? 'region' : werkzeug
   } : null;
   const strecke = werkzeug === 'lineal' && karte && karte.massstab && punkte.length > 1 ? wegLaenge(punkte, karte.massstab) : 0;
   const vorige = verlauf.length ? karten.find(k => k.id === verlauf[verlauf.length - 1]) : null;
-  return /*#__PURE__*/React.createElement("div", {
+  return React.createElement("div", {
     className: "pl-seite"
-  }, /*#__PURE__*/React.createElement("header", {
+  }, React.createElement("header", {
     className: "pl-kopf"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-marke"
-  }, "\uD83D\uDDFA Abenteuerplaner ", /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDDFA Abenteuerplaner ", React.createElement("span", {
     className: "pl-ausgabe"
-  }, PLANER_VERSION)), start && start.abenteuer.length > 0 && /*#__PURE__*/React.createElement("label", {
+  }, PLANER_VERSION)), start && start.abenteuer.length > 0 && React.createElement("label", {
     className: "pl-adv"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, React.createElement("span", {
     className: "pl-leise"
-  }, "Abenteuer"), /*#__PURE__*/React.createElement("select", {
+  }, "Abenteuer"), React.createElement("select", {
     className: "pl-feld",
     value: advId,
     onChange: e => setAdvId(e.target.value)
-  }, start.abenteuer.map(a => /*#__PURE__*/React.createElement("option", {
+  }, start.abenteuer.map(a => React.createElement("option", {
     key: a.id,
     value: a.id
-  }, a.name)))), daten && /*#__PURE__*/React.createElement("span", {
+  }, a.name)))), daten && React.createElement("span", {
     className: 'pl-rolle ' + (dm ? 'dm' : 'spieler')
-  }, dm ? 'Spielleitung' : 'Spieler'), /*#__PURE__*/React.createElement("div", {
+  }, dm ? 'Spielleitung' : 'Spieler'), React.createElement("div", {
     className: "pl-kopf-rechts"
-  }, dm && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+  }, dm && React.createElement(React.Fragment, null, React.createElement("button", {
     className: "pl-knopf",
     onClick: exportieren,
     disabled: !karten.length,
     title: karten.length ? 'Alle Karten, Einträge und Dateien als .hbplan-Datei speichern' : 'Noch nichts zu exportieren'
-  }, "\u21E9 Exportieren"), /*#__PURE__*/React.createElement("button", {
+  }, "\u21E9 Exportieren"), React.createElement("button", {
     className: "pl-knopf",
     onClick: () => dateiEingabe.current && dateiEingabe.current.click(),
     title: "Eine .hbplan-Datei in dieses Abenteuer einspielen"
-  }, "\u21E7 Importieren"), /*#__PURE__*/React.createElement("input", {
+  }, "\u21E7 Importieren"), React.createElement("input", {
     ref: dateiEingabe,
     type: "file",
     accept: ".hbplan,.zip,application/zip",
     hidden: true,
     onChange: dateiGewaehlt
-  }), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("button", {
     className: "pl-knopf",
     onClick: tischOeffnen,
     title: "Ein Fenster f\xFCr Beamer oder zweiten Bildschirm: zeigt, was die Runde sehen darf"
-  }, "\uD83D\uDCFA Tisch"), /*#__PURE__*/React.createElement("label", {
+  }, "\uD83D\uDCFA Tisch"), React.createElement("label", {
     className: 'pl-schalter pl-tisch-folgt' + (tischFolgt ? ' an' : ''),
     title: "Der Tisch zeigt deine Karte und deinen Ausschnitt"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: tischFolgt,
     onChange: e => setTischFolgt(e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "folgt mir")), /*#__PURE__*/React.createElement("button", {
+  }), React.createElement("span", null, "folgt mir")), React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => anTisch('leer', {}),
     title: "Ein gezeigtes Handout vom Tisch nehmen"
-  }, "\uD83D\uDCFA Karte zeigen")), daten && karten.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCFA Karte zeigen")), daten && karten.length > 0 && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: offlineBereit,
     disabled: !!offline,
     title: "Alle Karten, Bilder und Handouts f\xFCr den Fall ohne Netz in diesem Browser ablegen"
-  }, "\uD83D\uDCE5 Offline"), start && /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDCE5 Offline"), start && React.createElement("span", {
     className: "pl-nutzer"
-  }, start.nutzer.name), /*#__PURE__*/React.createElement("a", {
+  }, start.nutzer.name), React.createElement("a", {
     className: "pl-knopf pl-zurueck",
     href: "../"
-  }, "\u2694 Heldenbuch"))), offline && /*#__PURE__*/React.createElement("div", {
+  }, "\u2694 Heldenbuch"))), offline && React.createElement("div", {
     className: "pl-meldung fehler",
     role: "status"
-  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCF4 Kein Netz \u2014 der Stand vom ", new Date(offline.zeit).toLocaleString('de-DE', {
+  }, React.createElement("span", null, "\uD83D\uDCF4 Kein Netz \u2014 der Stand vom ", new Date(offline.zeit).toLocaleString('de-DE', {
     dateStyle: 'short',
     timeStyle: 'short'
-  }), ". Ansehen geht, \xC4ndern erst wieder mit Netz.")), meldung && /*#__PURE__*/React.createElement("div", {
+  }), ". Ansehen geht, \xC4ndern erst wieder mit Netz.")), meldung && React.createElement("div", {
     className: 'pl-meldung ' + meldung.art,
     role: meldung.art === 'fehler' ? 'alert' : 'status'
-  }, /*#__PURE__*/React.createElement("span", null, meldung.text), /*#__PURE__*/React.createElement("button", {
+  }, React.createElement("span", null, meldung.text), React.createElement("button", {
     className: "pl-symbol",
     "aria-label": "Meldung schlie\xDFen",
     onClick: () => setMeldung(null)
-  }, "\u2715")), start && start.abenteuer.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), start && start.abenteuer.length === 0 ? React.createElement("div", {
     className: "pl-buehne-leer"
-  }, /*#__PURE__*/React.createElement("p", null, "In dieser Gruppe gibt es noch kein Abenteuer. Lege im Heldenbuch eines an.")) : !daten ? /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("p", null, "In dieser Gruppe gibt es noch kein Abenteuer. Lege im Heldenbuch eines an.")) : !daten ? React.createElement("div", {
     className: "pl-buehne-leer"
-  }, /*#__PURE__*/React.createElement("p", null, "L\xE4dt \u2026")) : /*#__PURE__*/React.createElement("main", {
+  }, React.createElement("p", null, "L\xE4dt \u2026")) : React.createElement("main", {
     className: 'pl-haupt-flaeche' + (ort || route || region || handout || figur || geschichte || heldengruppe || reise && reiseRoute ? ' mit-tafel' : '')
-  }, /*#__PURE__*/React.createElement("div", {
+  }, React.createElement("div", {
     className: "pl-spalte"
-  }, /*#__PURE__*/React.createElement(PlanerKartenListe, {
+  }, React.createElement(PlanerKartenListe, {
     karten: karten,
     auswahl: auswahl,
     dm: dm,
@@ -7802,7 +7255,7 @@ const PlanerApp = () => {
       sichtbar: !k.sichtbar
     }),
     onLoeschen: karteLoeschen
-  }), karte && /*#__PURE__*/React.createElement(PlanerOrtListe, {
+  }), karte && React.createElement(PlanerOrtListe, {
     orte: orte,
     auswahl: ortWahl,
     dm: dm,
@@ -7814,7 +7267,7 @@ const PlanerApp = () => {
         n: Date.now()
       });
     }
-  }), /*#__PURE__*/React.createElement(PlanerHandoutListe, {
+  }), React.createElement(PlanerHandoutListe, {
     handouts: handouts,
     wahl: handoutWahl,
     dm: dm,
@@ -7838,7 +7291,7 @@ const PlanerApp = () => {
         fehler(e);
       }
     }
-  }), /*#__PURE__*/React.createElement(GeschichteListe, {
+  }), React.createElement(GeschichteListe, {
     dm: dm,
     quests: quests,
     hinweise: hinweise,
@@ -7855,7 +7308,7 @@ const PlanerApp = () => {
         fehler(e);
       }
     }
-  }), karte && /*#__PURE__*/React.createElement(PlanerGruppenListe, {
+  }), karte && React.createElement(PlanerGruppenListe, {
     gruppen: heldengruppen,
     wahl: gruppeWahl,
     dm: dm,
@@ -7868,7 +7321,7 @@ const PlanerApp = () => {
         n: Date.now()
       });
     }
-  }), karte && /*#__PURE__*/React.createElement(PlanerRegionListe, {
+  }), karte && React.createElement(PlanerRegionListe, {
     regionen: regionen,
     regionWahl: regionWahl,
     dm: dm,
@@ -7879,7 +7332,7 @@ const PlanerApp = () => {
         n: Date.now()
       });
     }
-  }), karte && /*#__PURE__*/React.createElement(PlanerWegListe, {
+  }), karte && React.createElement(PlanerWegListe, {
     routen: routen,
     reisen: reisen,
     routeWahl: routeWahl,
@@ -7901,103 +7354,103 @@ const PlanerApp = () => {
         n: Date.now()
       });
     }
-  })), !karte ? /*#__PURE__*/React.createElement("div", {
+  })), !karte ? React.createElement("div", {
     className: "pl-buehne-leer"
-  }, /*#__PURE__*/React.createElement("p", null, karten.length ? 'Wähle links eine Karte.' : '')) : /*#__PURE__*/React.createElement("section", {
+  }, React.createElement("p", null, karten.length ? 'Wähle links eine Karte.' : '')) : React.createElement("section", {
     className: "pl-buehne"
-  }, /*#__PURE__*/React.createElement("header", {
+  }, React.createElement("header", {
     className: "pl-buehne-kopf"
-  }, vorige && /*#__PURE__*/React.createElement("button", {
+  }, vorige && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: zurueck
-  }, "\u2190 ", vorige.name), /*#__PURE__*/React.createElement("h1", null, karte.name), dm && /*#__PURE__*/React.createElement("span", {
+  }, "\u2190 ", vorige.name), React.createElement("h1", null, karte.name), dm && React.createElement("span", {
     className: 'pl-sicht ' + (karte.sichtbar ? 'an' : 'aus')
-  }, karte.sichtbar ? 'für Spieler sichtbar' : 'für Spieler verborgen'), dm && nebel.an && /*#__PURE__*/React.createElement("label", {
+  }, karte.sichtbar ? 'für Spieler sichtbar' : 'für Spieler verborgen'), dm && nebel.an && React.createElement("label", {
     className: "pl-schalter pl-nebel-zeigen",
     title: "Nur f\xFCr dich: den Nebel halb durchsichtig dar\xFCberlegen"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: nebelZeigen,
     onChange: e => setNebelZeigen(e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "\u2601 Nebel zeigen")), /*#__PURE__*/React.createElement("div", {
+  }), React.createElement("span", null, "\u2601 Nebel zeigen")), React.createElement("div", {
     className: "pl-werkzeuge",
     role: "toolbar",
     "aria-label": "Werkzeuge"
-  }, dm && /*#__PURE__*/React.createElement("button", {
+  }, dm && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => bildEingabe.current && bildEingabe.current.click()
-  }, "\uD83D\uDDBC ", karte.bild ? 'Bild ersetzen' : 'Kartenbild'), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDDBC ", karte.bild ? 'Bild ersetzen' : 'Kartenbild'), dm && karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'ort' ? ' an' : ''),
     "aria-pressed": werkzeug === 'ort',
     onClick: () => werkzeugWaehlen('ort')
-  }, "\uD83D\uDCCD Ort setzen"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCCD Ort setzen"), dm && karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'massstab' ? ' an' : ''),
     "aria-pressed": werkzeug === 'massstab',
     onClick: () => werkzeugWaehlen('massstab')
-  }, "\uD83D\uDCCF Ma\xDFstab"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCCF Ma\xDFstab"), dm && karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'gruppe' ? ' an' : ''),
     "aria-pressed": werkzeug === 'gruppe',
     onClick: () => werkzeugWaehlen('gruppe')
-  }, "\uD83D\uDEE1 Gruppe"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDEE1 Gruppe"), dm && karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'figur' ? ' an' : ''),
     "aria-pressed": werkzeug === 'figur',
     onClick: () => werkzeugWaehlen('figur')
-  }, "\uD83E\uDDCD Figur"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83E\uDDCD Figur"), dm && karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'nebel' ? ' an' : ''),
     "aria-pressed": werkzeug === 'nebel',
     onClick: () => werkzeugWaehlen('nebel')
-  }, "\u2601 Nebel"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\u2601 Nebel"), dm && karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'region' ? ' an' : ''),
     "aria-pressed": werkzeug === 'region',
     onClick: () => werkzeugWaehlen('region')
-  }, "\u2B21 Region"), dm && karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\u2B21 Region"), dm && karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'route' ? ' an' : ''),
     "aria-pressed": werkzeug === 'route',
     onClick: () => werkzeugWaehlen('route')
-  }, "\uD83D\uDEE4 Route"), karte.bild && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDEE4 Route"), karte.bild && React.createElement("button", {
     className: 'pl-knopf pl-klein' + (werkzeug === 'lineal' ? ' an' : ''),
     "aria-pressed": werkzeug === 'lineal',
     onClick: () => werkzeugWaehlen('lineal')
-  }, "\uD83D\uDCD0 Messen"), /*#__PURE__*/React.createElement("input", {
+  }, "\uD83D\uDCD0 Messen"), React.createElement("input", {
     ref: bildEingabe,
     type: "file",
     accept: "image/png,image/jpeg,image/webp,image/gif,image/avif",
     hidden: true,
     onChange: bildGewaehlt
-  }), dm && karte.bild && /*#__PURE__*/React.createElement(HexEinstellung, {
+  }), dm && karte.bild && React.createElement(HexEinstellung, {
     karte: karte,
     onSpeichern: h => karteAendern(karte, {
       hex: h
     })
-  }))), werkzeug !== 'ansehen' && /*#__PURE__*/React.createElement("div", {
+  }))), werkzeug !== 'ansehen' && React.createElement("div", {
     className: "pl-werkzeug-hinweis",
     role: "status"
-  }, /*#__PURE__*/React.createElement("span", null, WERKZEUG_HINWEIS[werkzeug]), werkzeug === 'lineal' && /*#__PURE__*/React.createElement("strong", {
+  }, React.createElement("span", null, WERKZEUG_HINWEIS[werkzeug]), werkzeug === 'lineal' && React.createElement("strong", {
     className: "pl-strecke"
-  }, !karte.massstab ? 'Ohne Maßstab lässt sich nicht messen' + (dm ? ' — leg ihn mit 📏 fest.' : '.') : punkte.length > 1 ? laengeText(strecke, karte.massstab.einheit) + ' · ' + fussZeitText(strecke, karte.massstab.einheit) : ''), werkzeug === 'route' && /*#__PURE__*/React.createElement("strong", {
+  }, !karte.massstab ? 'Ohne Maßstab lässt sich nicht messen' + (dm ? ' — leg ihn mit 📏 fest.' : '.') : punkte.length > 1 ? laengeText(strecke, karte.massstab.einheit) + ' · ' + fussZeitText(strecke, karte.massstab.einheit) : ''), werkzeug === 'route' && React.createElement("strong", {
     className: "pl-strecke"
-  }, punkte.length > 1 && karte.massstab ? laengeText(wegLaenge(punkte, karte.massstab), karte.massstab.einheit) : punkte.length + ' Punkte'), (werkzeug === 'lineal' || werkzeug === 'route' || werkzeug === 'region') && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, punkte.length > 1 && karte.massstab ? laengeText(wegLaenge(punkte, karte.massstab), karte.massstab.einheit) : punkte.length + ' Punkte'), (werkzeug === 'lineal' || werkzeug === 'route' || werkzeug === 'region') && punkte.length > 0 && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => setPunkte(v => v.slice(0, -1))
-  }, "\u21B6 Punkt"), werkzeug === 'lineal' && punkte.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, "\u21B6 Punkt"), werkzeug === 'lineal' && punkte.length > 0 && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => setPunkte([])
-  }, "Neu"), werkzeug === 'lineal' && dm && punkte.length > 1 && /*#__PURE__*/React.createElement("button", {
+  }, "Neu"), werkzeug === 'lineal' && dm && punkte.length > 1 && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => routeAnlegen(punkte)
-  }, "\uD83D\uDEE4 Als Route speichern"), werkzeug === 'route' && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDEE4 Als Route speichern"), werkzeug === 'route' && React.createElement("button", {
     className: "pl-knopf pl-klein pl-haupt",
     disabled: punkte.length < 2,
     onClick: () => routeAnlegen(punkte)
-  }, "Route anlegen"), werkzeug === 'nebel' && /*#__PURE__*/React.createElement("span", {
+  }, "Route anlegen"), werkzeug === 'nebel' && React.createElement("span", {
     className: "pl-nebel-steuer"
-  }, /*#__PURE__*/React.createElement("label", {
+  }, React.createElement("label", {
     className: "pl-schalter"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, React.createElement("input", {
     type: "checkbox",
     checked: nebel.an,
     onChange: e => nebelSetzen(nebel.flaechen, e.target.checked)
-  }), /*#__PURE__*/React.createElement("span", null, "Nebel f\xFCr Spieler")), /*#__PURE__*/React.createElement("select", {
+  }), React.createElement("span", null, "Nebel f\xFCr Spieler")), React.createElement("select", {
     className: "pl-feld pl-klein",
     value: nebel.modus,
     "aria-label": "Wenn die Gruppe weiterzieht",
@@ -8010,15 +7463,15 @@ const PlanerApp = () => {
         modus: e.target.value
       }
     })
-  }, NEBEL_MODI.map(x => /*#__PURE__*/React.createElement("option", {
+  }, NEBEL_MODI.map(x => React.createElement("option", {
     key: x.k,
     value: x.k,
     title: x.t
-  }, x.l))), /*#__PURE__*/React.createElement("span", {
+  }, x.l))), React.createElement("span", {
     className: "pl-knopfgruppe",
     role: "radiogroup",
     "aria-label": "Aufdecken"
-  }, NEBEL_RADIEN.map(x => /*#__PURE__*/React.createElement("button", {
+  }, NEBEL_RADIEN.map(x => React.createElement("button", {
     key: x.k,
     role: "radio",
     "aria-checked": nebelArt === 'kreis' && nebelRadius === x.k,
@@ -8028,7 +7481,7 @@ const PlanerApp = () => {
       setNebelRadius(x.k);
       setPunkte([]);
     }
-  }, "\u25EF ", x.l)), /*#__PURE__*/React.createElement("button", {
+  }, "\u25EF ", x.l)), React.createElement("button", {
     role: "radio",
     "aria-checked": nebelArt === 'vieleck',
     className: 'pl-knopf pl-klein' + (nebelArt === 'vieleck' ? ' an' : ''),
@@ -8036,7 +7489,7 @@ const PlanerApp = () => {
       setNebelArt('vieleck');
       setPunkte([]);
     }
-  }, "\u2B21 Fl\xE4che")), nebelArt === 'vieleck' && /*#__PURE__*/React.createElement("button", {
+  }, "\u2B21 Fl\xE4che")), nebelArt === 'vieleck' && React.createElement("button", {
     className: "pl-knopf pl-klein pl-haupt",
     disabled: punkte.length < 3,
     onClick: () => {
@@ -8046,19 +7499,19 @@ const PlanerApp = () => {
       }]);
       setPunkte([]);
     }
-  }, "Aufdecken"), /*#__PURE__*/React.createElement("button", {
+  }, "Aufdecken"), React.createElement("button", {
     className: "pl-knopf pl-klein",
     disabled: !nebel.flaechen.length,
     onClick: () => nebelSetzen(nebel.flaechen.slice(0, -1))
-  }, "\u21B6 Zur\xFCck"), /*#__PURE__*/React.createElement("button", {
+  }, "\u21B6 Zur\xFCck"), React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => nebelSetzen([{
       art: 'alles'
     }])
-  }, "Alles aufdecken"), /*#__PURE__*/React.createElement("button", {
+  }, "Alles aufdecken"), React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => nebelSetzen([])
-  }, "Alles zudecken")), werkzeug === 'region' && karte.bild && punkte.length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, "Alles zudecken")), werkzeug === 'region' && karte.bild && punkte.length === 0 && React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => regionAnlegen([{
       x: 0,
@@ -8073,17 +7526,17 @@ const PlanerApp = () => {
       x: 0,
       y: karte.bild.hoehe
     }])
-  }, "\u25AD Ganze Karte"), werkzeug === 'region' && /*#__PURE__*/React.createElement("button", {
+  }, "\u25AD Ganze Karte"), werkzeug === 'region' && React.createElement("button", {
     className: "pl-knopf pl-klein pl-haupt",
     disabled: punkte.length < 3,
     onClick: () => regionAnlegen(punkte)
-  }, "Region anlegen"), /*#__PURE__*/React.createElement("button", {
+  }, "Region anlegen"), React.createElement("button", {
     className: "pl-knopf pl-klein",
     onClick: () => {
       setWerkzeug('ansehen');
       setPunkte([]);
     }
-  }, "Fertig")), figurenRoh.length > 0 && /*#__PURE__*/React.createElement(Zeitleiste, {
+  }, "Fertig")), figurenRoh.length > 0 && React.createElement(Zeitleiste, {
     dm: dm,
     zeit: zeit,
     bereich: zeitSpanne,
@@ -8093,7 +7546,7 @@ const PlanerApp = () => {
     onFreigeben: z => karteAendern(karte, {
       zeit: z
     })
-  }), /*#__PURE__*/React.createElement(KartenLeinwand, {
+  }), React.createElement(KartenLeinwand, {
     karte: karte,
     orte: orte,
     dm: dm,
@@ -8134,9 +7587,9 @@ const PlanerApp = () => {
     onOrtWahl: waehleOrt,
     onOrtVerschieben: ortVerschieben,
     onBildWaehlen: () => bildEingabe.current && bildEingabe.current.click()
-  }), /*#__PURE__*/React.createElement("dl", {
+  }), React.createElement("dl", {
     className: "pl-fakten pl-fakten-quer"
-  }, karte.bild && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Bild"), /*#__PURE__*/React.createElement("dd", null, karte.bild.breite, " \xD7 ", karte.bild.hoehe)), karte.massstab && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Ma\xDFstab"), /*#__PURE__*/React.createElement("dd", null, laengeText(karte.massstab.laenge, karte.massstab.einheit), " = ", Math.round(abstandPx(karte.massstab.a, karte.massstab.b)), " px")), /*#__PURE__*/React.createElement("dt", null, "Orte"), /*#__PURE__*/React.createElement("dd", null, orte.length), dm && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("dt", null, "Dateien"), /*#__PURE__*/React.createElement("dd", null, dateien ? dateien.anzahl + ' · ' + planGroesse(dateien.bytes) : '…')))), ort && karte && /*#__PURE__*/React.createElement(OrtTafel, {
+  }, karte.bild && React.createElement(React.Fragment, null, React.createElement("dt", null, "Bild"), React.createElement("dd", null, karte.bild.breite, " \xD7 ", karte.bild.hoehe)), karte.massstab && React.createElement(React.Fragment, null, React.createElement("dt", null, "Ma\xDFstab"), React.createElement("dd", null, laengeText(karte.massstab.laenge, karte.massstab.einheit), " = ", Math.round(abstandPx(karte.massstab.a, karte.massstab.b)), " px")), React.createElement("dt", null, "Orte"), React.createElement("dd", null, orte.length), dm && React.createElement(React.Fragment, null, React.createElement("dt", null, "Dateien"), React.createElement("dd", null, dateien ? dateien.anzahl + ' · ' + planGroesse(dateien.bytes) : '…')))), ort && karte && React.createElement(OrtTafel, {
     key: ort.id,
     ort: ort,
     dm: dm,
@@ -8153,7 +7606,7 @@ const PlanerApp = () => {
     onUnterkarte: zurUnterkarte,
     onBilderHoch: ortBilderHoch,
     onBildWeg: ortBildWeg
-  }), heldengruppe && karte && /*#__PURE__*/React.createElement(GruppeTafel, {
+  }), heldengruppe && karte && React.createElement(GruppeTafel, {
     key: heldengruppe.id,
     gruppe: heldengruppe,
     dm: dm,
@@ -8192,8 +7645,6 @@ const PlanerApp = () => {
       }
     },
     onVereinen: async (a, b) => {
-      // Die groessere Gruppe bleibt bestehen — mit ihrer ganzen Spur;
-      // die kleinere geht in ihr auf.
       const [bleibt, geht] = (b.helden || []).length > (a.helden || []).length ? [b, a] : [a, b];
       try {
         await objSpeichern(gruppenVereinen(bleibt, geht, zeit));
@@ -8211,7 +7662,7 @@ const PlanerApp = () => {
         fehler(e);
       }
     }
-  }), figur && karte && /*#__PURE__*/React.createElement(FigurTafel, {
+  }), figur && karte && React.createElement(FigurTafel, {
     key: figur.id,
     figur: figur,
     dm: dm,
@@ -8229,7 +7680,7 @@ const PlanerApp = () => {
       setPunkte([]);
       setWerkzeug(v => v === 'wegpunkt' ? 'ansehen' : 'wegpunkt');
     }
-  }), geschichte && /*#__PURE__*/React.createElement(GeschichteTafel, {
+  }), geschichte && React.createElement(GeschichteTafel, {
     key: geschichte.id,
     eintrag: geschichte,
     dm: dm,
@@ -8240,7 +7691,7 @@ const PlanerApp = () => {
     onLoeschen: o => objWeg(o, 'Löschen?', '„' + (o.titel || o.name || String(o.text || '').slice(0, 40)) + '“ wird gelöscht.', async () => setGeschichteWahl('')),
     onSchliessen: () => setGeschichteWahl(''),
     onOrt: zumOrt
-  }), handout && dm && /*#__PURE__*/React.createElement(HandoutTafel, {
+  }), handout && dm && React.createElement(HandoutTafel, {
     key: handout.id,
     handout: handout,
     mitglieder: mitglieder,
@@ -8273,8 +7724,6 @@ const PlanerApp = () => {
     },
     onBild: async (h, datei) => {
       try {
-        // Speichern und Neuladen gehoeren mit in die Arbeit: sonst
-        // verteilt ein schneller Klick die alte Fassung ohne Bild.
         await ausfuehren('Bild', async melde => {
           melde('Bild verkleinern …');
           const format = await bildFormat();
@@ -8309,7 +7758,7 @@ const PlanerApp = () => {
         fehler(e);
       }
     }
-  }), region && karte && /*#__PURE__*/React.createElement(RegionTafel, {
+  }), region && karte && React.createElement(RegionTafel, {
     key: region.id,
     region: region,
     dm: dm,
@@ -8323,7 +7772,7 @@ const PlanerApp = () => {
     onLoeschen: r => objWeg(r, 'Region löschen?', '„' + r.name + '“ wird mit ihrer Begegnungstabelle gelöscht.', async () => setRegionWahl('')),
     onSchliessen: () => setRegionWahl(''),
     onMeldung: setMeldung
-  }), route && karte && /*#__PURE__*/React.createElement(RouteTafel, {
+  }), route && karte && React.createElement(RouteTafel, {
     key: route.id,
     route: route,
     dm: dm,
@@ -8337,7 +7786,7 @@ const PlanerApp = () => {
     onSchliessen: () => setRouteWahl(''),
     onReiseNeu: reiseAnlegen,
     onReiseWahl: waehleReise
-  }), reise && reiseRoute && karte && /*#__PURE__*/React.createElement(ReiseTafel, {
+  }), reise && reiseRoute && karte && React.createElement(ReiseTafel, {
     key: reise.id,
     reise: reise,
     route: reiseRoute,
@@ -8359,13 +7808,13 @@ const PlanerApp = () => {
     onLoeschen: j => objWeg(j, 'Reise löschen?', '„' + j.name + '“ wird gelöscht. Die Route bleibt.', async () => setReiseWahl('')),
     onSchliessen: () => setReiseWahl(''),
     onMeldung: setMeldung
-  })), !dm && (lesen || ungelesen[0]) && /*#__PURE__*/React.createElement(HandoutLeser, {
+  })), !dm && (lesen || ungelesen[0]) && React.createElement(HandoutLeser, {
     handout: lesen || ungelesen[0],
     onZu: () => {
       gelesen(lesen || ungelesen[0]);
       setLesen(null);
     }
-  }), massstabFrage && /*#__PURE__*/React.createElement(MassstabDialog, {
+  }), massstabFrage && React.createElement(MassstabDialog, {
     punkte: massstabFrage,
     alt: karte && karte.massstab,
     onSpeichern: massstabSpeichern,
@@ -8373,14 +7822,14 @@ const PlanerApp = () => {
       setMassstabFrage(null);
       setPunkte([]);
     }
-  }), vorschau && /*#__PURE__*/React.createElement(PlanerImportVorschau, {
+  }), vorschau && React.createElement(PlanerImportVorschau, {
     vorschau: vorschau,
     onEinspielen: einspielen,
     onZu: () => setVorschau(null)
-  }), frage && /*#__PURE__*/React.createElement(PlanerFrage, {
+  }), frage && React.createElement(PlanerFrage, {
     frage: frage,
     onZu: () => setFrage(null)
-  }), arbeit && /*#__PURE__*/React.createElement(PlanerArbeit, {
+  }), arbeit && React.createElement(PlanerArbeit, {
     arbeit: arbeit,
     onAbbrechen: () => {
       abbruchRef.current = true;
@@ -8391,14 +7840,12 @@ const PlanerApp = () => {
     }
   }));
 };
-
-// Der Einstieg — aus planer/index.html und aus dev/planer-echt.html.
 const planerWurzeln = new Map();
 const planerStarten = (el, optionen) => {
   if (planerWurzeln.has(el)) planerWurzeln.get(el).unmount();
   const w = ReactDOM.createRoot(el);
   planerWurzeln.set(el, w);
-  w.render(optionen && optionen.tisch ? /*#__PURE__*/React.createElement(TischApp, {
+  w.render(optionen && optionen.tisch ? React.createElement(TischApp, {
     adv: optionen.adv
-  }) : /*#__PURE__*/React.createElement(PlanerApp, null));
+  }) : React.createElement(PlanerApp, null));
 };

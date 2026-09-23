@@ -5113,7 +5113,8 @@ function App() {
             () => tagebuchTun((url, code) => apiTagebuchAbendWeg(url, code, advId, s.id)), 'Löschen')}
           onEintrag={(id, text, nurDm, charId, charName) => tagebuchTun((url, code) =>
             apiTagebuchEintrag(url, code, advId, id, {text, nurDm, charId, charName}))}
-          onBilder={(id, bilder) => tagebuchTun((url, code) => apiTagebuchBilder(url, code, advId, id, bilder))}
+          onStueck={(id, teil) => { const {url, code} = serverCreds(); return apiTagebuchStueck(url, code, advId, id, teil); }}
+          onFertig={tagebuchLaden}
           onBildWeg={(b) => tagebuchTun((url, code) => apiTagebuchBildWeg(url, code, advId, b.id))}
           onZu={()=>setTagebuch(null)} />
       )}

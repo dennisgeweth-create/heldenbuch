@@ -242,12 +242,31 @@
         geaendert: Date.now()});
       return Promise.resolve({});
     };
-    const apiTagebuchBilder = (u, c, adv, id, bilder) => {
+    // Stückweise wie api.php: der Reihe nach, ein verlorenes Stück wird
+    // mit 409 und „erwartet" zurückgewiesen, erst das letzte legt die Datei
+    // an. `wbTagebuch.stoerung` lässt ein bestimmtes Stück einmal scheitern,
+    // als wäre das Netz weg gewesen.
+    wbTagebuch.teile = {};
+    wbTagebuch.gesehen = [];
+    wbTagebuch.stoerung = null;
+    const apiTagebuchStueck = (u, c, adv, id, t) => {
       const s = wbAbend(id);
       if (!s) return Promise.reject(new Error('Die Sitzung gibt es nicht.'));
-      bilder.forEach(b => s.bilder.push({id: ++wbTagebuch.nr, datei: 'wb' + wbTagebuch.nr + '.' + b.endung,
-        titel: b.titel || '', bytes: Math.round((b.daten || '').length * 0.75), user: 'Werkbank'}));
-      return Promise.resolve({bilder: [], ablage: 'wbablage'});
+      wbTagebuch.gesehen.push(t.nr);
+      if (wbTagebuch.stoerung === t.nr) {
+        wbTagebuch.stoerung = null;
+        return Promise.reject(new Error('Server nicht erreichbar.'));
+      }
+      const da = t.nr === 0 ? 0 : (wbTagebuch.teile[t.upload] || 0);
+      if (t.nr !== da) {
+        return Promise.reject(Object.assign(new Error('Da fehlt ein Stück.'), {status: 409, daten: {erwartet: da}}));
+      }
+      wbTagebuch.teile[t.upload] = t.nr + 1;
+      if (t.nr < t.gesamt - 1) return Promise.resolve({nr: t.nr});
+      delete wbTagebuch.teile[t.upload];
+      s.bilder.push({id: ++wbTagebuch.nr, datei: 'wb' + wbTagebuch.nr + '.' + t.endung,
+        titel: t.titel || '', bytes: t.groesse, user: 'Werkbank'});
+      return Promise.resolve({bild: {}, ablage: 'wbablage'});
     };
     const apiTagebuchBildWeg = (u, c, adv, bildId) => {
       wbTagebuch.sitzungen.forEach(s => { s.bilder = s.bilder.filter(b => b.id !== bildId); });
@@ -1549,6 +1568,32 @@
                 weg.click();
                 ja('  … der es auch löscht',
                    !!(await warten(() => wbTagebuch.sitzungen[0].bilder.length === 0 ? true : null, 3000)));
+              }
+            }
+
+            // Ein Video über mehrere Stücke — und mitten darin ist das Netz
+            // einmal weg. Das Stück wird wiederholt, nichts doppelt angehängt.
+            const groß = new Uint8Array(9000000);
+            groß.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70], 0);   // …ftyp
+            wbTagebuch.gesehen = [];
+            wbTagebuch.stoerung = 1;
+            const dt3 = new DataTransfer();
+            dt3.items.add(new File([groß], 'Die Brücke.mp4', {type: 'video/mp4'}));
+            bildEin.files = dt3.files;
+            bildEin.dispatchEvent(new Event('change', {bubbles: true}));
+            const videoDa = await warten(() => wbTagebuch.sitzungen[0].bilder.length === 1 ? true : null, 15000);
+            if (ja('Ein Video von 9 MB geht in Stücken hinauf', !!videoDa, JSON.stringify(wbTagebuch.gesehen))) {
+              ja('  … drei Stücke, das zweite nach dem Aussetzer noch einmal',
+                 JSON.stringify(wbTagebuch.gesehen) === '[0,1,1,2]', JSON.stringify(wbTagebuch.gesehen));
+              const v = wbTagebuch.sitzungen[0].bilder[0];
+              ja('  … und kommt ganz an', v.bytes === 9000000 && v.datei.endsWith('.mp4') && v.titel === 'Die Brücke',
+                 JSON.stringify(v));
+              ja('  … ohne Fehlermeldung', !document.querySelector('.tb-fenster .tb-fehler'),
+                 (document.querySelector('.tb-fenster .tb-fehler') || {}).textContent);
+              const wegV = await warten(() => document.querySelector('.tb-bild-weg'));
+              if (wegV) {
+                wegV.click();
+                await warten(() => wbTagebuch.sitzungen[0].bilder.length === 0 ? true : null, 3000);
               }
             }
 

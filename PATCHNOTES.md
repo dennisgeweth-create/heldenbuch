@@ -1,5 +1,35 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.25.0
+
+### Videos bis 1 GB — hochgeladen in Stücken
+
+Bisher ging ein Video in **einer** Anfrage zum Server, und die durfte
+nicht beliebig groß sein: bei 32 MB war Schluss, also nach gut einer
+Minute Handyvideo.
+
+- Bilder und Videos gehen jetzt **in Stücken von 4 MB** hinauf, eines
+  nach dem anderen. Ein Video darf damit **bis 1 GB** groß sein.
+- Das Fenster zeigt, wie weit es ist: **„2 von 3: „Die Brücke" — 45 %"**.
+- **Bricht das Netz kurz weg**, wird das Stück wiederholt — bis zu
+  dreimal, mit wachsender Pause. Kommt eine Antwort nicht an, obwohl das
+  Stück angekommen war, wird nichts doppelt angehängt.
+- Ein Video wird **nicht mehr ganz in den Speicher** gelesen, sondern
+  Stück für Stück beim Senden — das schont Telefone.
+- Scheitert eine Datei endgültig, gehen die übrigen trotzdem hinauf; am
+  Ende steht, welche nicht.
+- Halbe Uploads, die niemand fortsetzt, räumt der Server nach einem Tag
+  weg. Geprüft, ob der Inhalt zur Endung passt, wird wie bisher — mit dem
+  letzten Stück, bevor die Datei ihren Namen bekommt.
+
+### Schneller geladen
+
+Das Programm, das der Browser beim Start lädt, trug bisher alle
+Kommentare aus dem Quelltext mit. Die bleiben jetzt in der Quelle:
+**ein gutes Viertel weniger** zu laden (gepackt rund 255 statt 350 KB), am
+Telefon spürbar. Lesbar bleibt es trotzdem, damit eine Fehlermeldung
+weiter auf eine verständliche Zeile zeigt.
+
 ## v5.24.0
 
 ### Am Telefon fehlte die halbe Werkzeugleiste

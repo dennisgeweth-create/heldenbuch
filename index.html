@@ -83,6 +83,9 @@
         // nicht endlos wiederholt werden, 500 heisst "gleich nochmal".
         const fehler = new Error(data.message || 'Serverfehler ' + res.status);
         fehler.status = res.status;
+        // Was der Server sonst noch sagt — beim stueckweisen Hochladen etwa,
+        // ab welchem Stueck er weitermachen will.
+        fehler.daten = data;
         throw fehler;
       }
       return data;
@@ -241,8 +244,9 @@
     const apiTagebuchSitzung = (url, code, advId, sitzung)       => apiRequest(url, 'tagebuch_sitzung',     { code, adv_id: advId, sitzung });
     const apiTagebuchAbendWeg= (url, code, advId, id)            => apiRequest(url, 'tagebuch_sitzung_weg', { code, adv_id: advId, sitzung_id: id });
     const apiTagebuchEintrag = (url, code, advId, id, e)         => apiRequest(url, 'tagebuch_eintrag',     { code, adv_id: advId, sitzung_id: id, text: e.text, nur_dm: e.nurDm, char_id: e.charId, char_name: e.charName });
-    const apiTagebuchBilder  = (url, code, advId, id, bilder)    => apiRequest(url, 'tagebuch_bild_hoch',   { code, adv_id: advId, sitzung_id: id, bilder });
     const apiTagebuchBildWeg = (url, code, advId, bildId)        => apiRequest(url, 'tagebuch_bild_weg',    { code, adv_id: advId, bild_id: bildId });
+    // Ein Stueck einer groesseren Datei; der Server setzt sie zusammen.
+    const apiTagebuchStueck  = (url, code, advId, id, teil)      => apiRequest(url, 'tagebuch_stueck',      { code, adv_id: advId, sitzung_id: id, ...teil });
     const apiLoadLogs      = (url, code, pass, charId, opts) => apiRequest(url, 'load_logs', { code, password: pass, char_id: charId||null, limit: (opts&&opts.limit)||50, offset: (opts&&opts.offset)||0, search: (opts&&opts.search)||'', tab_filter: (opts&&opts.tabFilter)||[] });
   </script>
 

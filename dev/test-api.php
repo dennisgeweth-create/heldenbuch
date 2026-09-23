@@ -1413,52 +1413,124 @@ $fremd = array_column((($r['body']['sitzungen'] ?? [])[0]['eintraege'] ?? []), '
 pruefe('ein Spieler kann sich nicht verstecken — nur die Spielleitung darf das',
        in_array('Heimlich', $fremd, true), json_encode($fremd, JSON_UNESCAPED_UNICODE));
 
-// Bilder haengen an der Sitzung.
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'png', 'daten' => $png, 'titel' => 'Der Tisch']]]);
+// Bilder und Videos haengen an der Sitzung. Sie gehen stueckweise hinauf
+// (tagebuch_stueck, je 4 MB); eine kleine Datei ist ein einziges Stueck.
+const STUECK = 4194304;
+$ablagePfad = __DIR__ . '/../planer-dateien/' . $ablage;
+$stueck = function (string $token, string $upload, int $nr, string $ganz, string $endung, array $mehr = [])
+          use ($code, $sitzungId) {
+    $groesse = strlen($ganz);
+    return ruf('tagebuch_stueck', array_merge([
+        'code' => $code, 'token' => $token, 'adv_id' => 'strahd', 'sitzung_id' => $sitzungId,
+        'upload' => $upload, 'nr' => $nr, 'gesamt' => max(1, (int)ceil($groesse / STUECK)),
+        'groesse' => $groesse, 'endung' => $endung,
+        'daten' => base64_encode(substr($ganz, $nr * STUECK, STUECK)),
+    ], $mehr));
+};
+// Eine ganze Datei, Stueck fuer Stueck; zurueck kommt die letzte Antwort.
+$hinauf = function (string $token, string $ganz, string $endung, string $titel = '') use ($stueck) {
+    $upload = bin2hex(random_bytes(16));
+    $gesamt = max(1, (int)ceil(strlen($ganz) / STUECK));
+    for ($nr = 0; $nr < $gesamt; $nr++) {
+        $r = $stueck($token, $upload, $nr, $ganz, $endung, ['titel' => $titel]);
+        if ($r['status'] !== 200) return $r;
+    }
+    return $r;
+};
+$pngRoh = base64_decode($png);
+
+$r = $hinauf($tSpieler, $pngRoh, 'png', 'Der Tisch');
 pruefe('ein Spieler hängt ein Bild an (201)', $r['status'] === 201, kurz($r));
-$bildId = (int)((($r['body']['bilder'] ?? [])[0]['id']) ?? 0);
-$datei = (string)((($r['body']['bilder'] ?? [])[0]['datei']) ?? '');
+$bildId = (int)($r['body']['bild']['id'] ?? 0);
+$datei = (string)($r['body']['bild']['datei'] ?? '');
 pruefe('  … der Name kommt vom Server, nicht vom Browser', preg_match('/^[0-9a-f]{16}\.png$/', $datei) === 1, $datei);
-pruefe('  … und die Datei liegt in der Ablage', is_file(__DIR__ . '/../planer-dateien/' . $ablage . '/' . $datei));
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'png', 'daten' => base64_encode('kein Bild')]]]);
+pruefe('  … und die Datei liegt in der Ablage', is_file($ablagePfad . '/' . $datei));
+$r = $hinauf($tSpieler, 'kein Bild', 'png');
 pruefe('was kein Bild ist, kommt nicht hinein (415)', $r['status'] === 415, kurz($r));
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'exe', 'daten' => $png]]]);
+clearstatcache();
+pruefe('  … und lässt keine halbe Datei zurück', !glob($ablagePfad . '/*.teil'), implode(', ', glob($ablagePfad . '/*.teil') ?: []));
+$r = $hinauf($tSpieler, $pngRoh, 'exe');
 pruefe('  … und eine fremde Endung erst recht nicht (415)', $r['status'] === 415, kurz($r));
 
 // Ein Video: der kleinste MP4-Kopf, der die Kennung traegt.
-$mp4 = base64_encode("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" . str_repeat("\x00", 64));
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'mp4', 'daten' => $mp4, 'titel' => 'Der Wurf']]]);
+$mp4 = "\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" . str_repeat("\x00", 64);
+$r = $hinauf($tSpieler, $mp4, 'mp4', 'Der Wurf');
 pruefe('ein Video geht hinein (201)', $r['status'] === 201, kurz($r));
-$videoId = (int)((($r['body']['bilder'] ?? [])[0]['id']) ?? 0);
-$videoDatei = (string)((($r['body']['bilder'] ?? [])[0]['datei']) ?? '');
+$videoId = (int)($r['body']['bild']['id'] ?? 0);
+$videoDatei = (string)($r['body']['bild']['datei'] ?? '');
 pruefe('  … und heißt .mp4', preg_match('/^[0-9a-f]{16}\.mp4$/', $videoDatei) === 1, $videoDatei);
-$webm = base64_encode("\x1A\x45\xDF\xA3" . str_repeat("\x00", 64));
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'webm', 'daten' => $webm]]]);
+$r = $hinauf($tSpieler, "\x1A\x45\xDF\xA3" . str_repeat("\x00", 64), 'webm');
 pruefe('WebM auch (201)', $r['status'] === 201, kurz($r));
-$webmId = (int)((($r['body']['bilder'] ?? [])[0]['id']) ?? 0);
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'mp4', 'daten' => base64_encode('kein Video')]]]);
+$webmId = (int)($r['body']['bild']['id'] ?? 0);
+$r = $hinauf($tSpieler, 'kein Video', 'mp4');
 pruefe('was kein Video ist, bleibt draußen (415)', $r['status'] === 415, kurz($r));
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'mov', 'daten' => $mp4]]]);
+$r = $hinauf($tSpieler, $mp4, 'mov');
 pruefe('  … und MOV ebenso (415)', $r['status'] === 415, kurz($r));
-// Die Grenze selbst wird am Bild geprueft: ein Video ueber 32 MB passt
-// als Base64 nicht mehr durch die post_max_size dieses Rechners (40 MB),
-// und dann pruefte man die PHP-Einstellung statt des Codes. Beide gehen
-// durch dieselbe Zeile.
-$r = ruf('tagebuch_bild_hoch', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
-    'sitzung_id' => $sitzungId, 'bilder' => [['endung' => 'png', 'daten' => base64_encode("\x89PNG\r\n\x1a\n" . str_repeat('x', 13000000))]]]);
-pruefe('was zu groß ist, wird abgewiesen (413)', $r['status'] === 413, kurz($r));
+
+// Die Grenzen stehen in der angesagten Groesse — der Server sagt nein,
+// bevor ein Byte liegt. Ein Video darf seit dem stueckweisen Hochladen
+// weit groesser sein als eine einzelne Anfrage.
+$ansage = function (int $groesse, string $endung, int $gesamt, string $daten = 'x') use ($code, $tSpieler, $sitzungId) {
+    return ruf('tagebuch_stueck', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+        'sitzung_id' => $sitzungId, 'upload' => bin2hex(random_bytes(16)), 'nr' => 0,
+        'gesamt' => $gesamt, 'groesse' => $groesse, 'endung' => $endung, 'daten' => base64_encode($daten)]);
+};
+$r = $ansage(13000000, 'png', 4);
+pruefe('ein Bild über 12 MB wird abgewiesen (413)', $r['status'] === 413, kurz($r));
+$r = $ansage(1200000000, 'mp4', 287);
+pruefe('  … ein Video über 1 GB ebenso (413)', $r['status'] === 413 && strpos($r['body']['message'] ?? '', '1 GB') !== false, kurz($r));
+$r = $ansage(300000000, 'mp4', 3);
+pruefe('Stücke, die nicht zur Größe passen, werden abgewiesen (400)', $r['status'] === 400, kurz($r));
+$r = $ansage(300000000, 'mp4', 72, 'zu kurz');
+pruefe('  … ebenso ein Stück mit falscher Länge (400)', $r['status'] === 400, kurz($r));
+$r = ruf('tagebuch_stueck', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'sitzung_id' => $sitzungId,
+    'upload' => '../../etc', 'nr' => 0, 'gesamt' => 1, 'groesse' => 1, 'endung' => 'png', 'daten' => 'eA==']);
+pruefe('  … und eine Kennung, die ein Pfad sein will (400)', $r['status'] === 400, kurz($r));
+
+// Mehrere Stuecke, mit allem, was unterwegs passiert: eine Antwort geht
+// verloren (dasselbe Stueck kommt zweimal), eines wird uebersprungen.
+$lang = $mp4 . random_bytes(2 * STUECK + 1000 - strlen($mp4));
+$upl = bin2hex(random_bytes(16));
+// Ein halber Upload von vorgestern liegt noch herum.
+$altTeil = $ablagePfad . '/' . str_repeat('a', 32) . '.teil';
+file_put_contents($altTeil, 'alt');
+touch($altTeil, time() - 3 * 86400);
+$r = $stueck($tSpieler, $upl, 0, $lang, 'mp4', ['titel' => 'Die Brücke']);
+pruefe('das erste von drei Stücken kommt an (200)', $r['status'] === 200 && ($r['body']['nr'] ?? -1) === 0, kurz($r));
+clearstatcache();
+pruefe('  … und räumt halbe Uploads von vorgestern weg', !is_file($altTeil));
+$r = $stueck($tSpieler, $upl, 0, $lang, 'mp4', ['titel' => 'Die Brücke']);
+pruefe('  … ein zweites Mal geschickt, ist es kein Fehler (200)', $r['status'] === 200, kurz($r));
+clearstatcache();
+pruefe('  … und liegt trotzdem nur einmal da', filesize($ablagePfad . '/' . $upl . '.teil') === STUECK,
+       (string)@filesize($ablagePfad . '/' . $upl . '.teil'));
+$r = $stueck($tSpieler, $upl, 2, $lang, 'mp4', ['titel' => 'Die Brücke']);
+pruefe('ein übersprungenes Stück wird bemerkt (409)', $r['status'] === 409, kurz($r));
+pruefe('  … und der Server sagt, wo es weitergeht', ($r['body']['erwartet'] ?? null) === 1, kurz($r));
+$r = $stueck($tSpieler, $upl, 1, $lang, 'mp4', ['titel' => 'Die Brücke']);
+pruefe('  … also das zweite (200)', $r['status'] === 200, kurz($r));
+$r = $stueck($tSpieler, $upl, 2, $lang, 'mp4', ['titel' => 'Die Brücke']);
+pruefe('  … und das letzte legt das Video an (201)', $r['status'] === 201, kurz($r));
+$langDatei = (string)($r['body']['bild']['datei'] ?? '');
+$langId = (int)($r['body']['bild']['id'] ?? 0);
+clearstatcache();
+pruefe('  … Byte für Byte, was hinaufging', is_file($ablagePfad . '/' . $langDatei)
+       && md5_file($ablagePfad . '/' . $langDatei) === md5($lang), $langDatei);
+pruefe('  … und ohne Teildatei daneben', !is_file($ablagePfad . '/' . $upl . '.teil'));
+$r = $stueck($tSpieler, bin2hex(random_bytes(16)), 1, $lang, 'mp4');
+pruefe('wer mitten in einem fremden Upload einsteigt, fängt vorne an (409)',
+       $r['status'] === 409 && ($r['body']['erwartet'] ?? null) === 0, kurz($r));
+$r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$das = array_values(array_filter((($r['body']['sitzungen'] ?? [])[0]['bilder'] ?? []), fn($b) => ($b['id'] ?? 0) === $langId));
+pruefe('das lange Video steht mit Titel und Größe in der Liste',
+       ($das[0]['titel'] ?? '') === 'Die Brücke' && (int)($das[0]['bytes'] ?? 0) === strlen($lang), json_encode($das, JSON_UNESCAPED_UNICODE));
+
 $r = ruf('tagebuch_bild_weg', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'bild_id' => $videoId]);
 pruefe('wer es hochgeladen hat, löscht es auch (200)', $r['status'] === 200, kurz($r));
 clearstatcache();
-pruefe('  … und die Datei ist fort', !is_file(__DIR__ . '/../planer-dateien/' . $ablage . '/' . $videoDatei));
+pruefe('  … und die Datei ist fort', !is_file($ablagePfad . '/' . $videoDatei));
 ruf('tagebuch_bild_weg', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'bild_id' => $webmId]);
+ruf('tagebuch_bild_weg', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'bild_id' => $langId]);
 
 $r = ruf('tagebuch_liste', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
 $bilder = (($r['body']['sitzungen'] ?? [])[0]['bilder'] ?? []);

@@ -83,18 +83,40 @@ ist('  … und nach dem Namen, wenn der Typ fehlt', tbEndung({type: '', name: 'A
 // Was nicht hineindarf, sagt das Fenster — vor dem Hochladen.
 ist('ein gutes Bild wird nicht getadelt', tbTadel({type: 'image/jpeg', name: 'a.jpg', size: 900000}), '');
 ist('ein gutes Video auch nicht', tbTadel({type: 'video/mp4', name: 'a.mp4', size: 20000000}), '');
+// Seit v5.25 geht ein Video in Stücken: 300 MB sind kein Problem mehr.
+ist('  … auch ein langes nicht', tbTadel({type: 'video/mp4', name: 'a.mp4', size: 300000000}), '');
 wahr('ein zu großes Bild schon', /12 MB je Bild/.test(tbTadel({type: 'image/png', name: 'a.png', size: 13000000})));
-wahr('  … und ein zu großes Video', /32 MB je Video/.test(tbTadel({type: 'video/mp4', name: 'a.mp4', size: 40000000})));
+wahr('  … und ein Video über 1 GB', /1 GB je Video/.test(tbTadel({type: 'video/mp4', name: 'a.mp4', size: 1200000000})));
 wahr('  … MOV bleibt draußen', /nur PNG/.test(tbTadel({type: 'video/quicktime', name: 'a.mov', size: 100})));
+wahr('  … und eine leere Datei ebenso', /ist leer/.test(tbTadel({type: 'image/png', name: 'a.png', size: 0})));
 
-// Pakete: nach Zahl und nach Größe, damit keine Anfrage platzt.
-const stueck = (mb) => ({bytes: {length: mb * 1000000}});
-ist('mehr als zwanzig gehen in Paketen',
-    tbPakete(Array.from({length: 45}, () => stueck(0.1))).map(p => p.length), [20, 20, 5]);
-ist('  … und zu viele Bytes ebenso',
-    tbPakete([stueck(20), stueck(20), stueck(5)]).map(p => p.length), [1, 2]);
-ist('  … ein einzelnes Großes steht allein', tbPakete([stueck(31)]).map(p => p.length), [1]);
-ist('  … und nichts ergibt nichts', tbPakete([]), []);
+// ── Stückweise ───────────────────────────────────────────────────
+const MB4 = TB_STUECK;
+ist('ein Stück ist 4 MB groß', MB4, 4194304);
+ist('eine kleine Datei ist ein Stück', tbTeile(1000), [{nr: 0, von: 0, bis: 1000}]);
+ist('genau 4 MB sind genau eines', tbTeile(MB4).length, 1);
+ist('  … ein Byte mehr sind zwei, das zweite winzig', tbTeile(MB4 + 1).map(t => t.bis - t.von), [MB4, 1]);
+const lang = tbTeile(300 * 1024 * 1024);
+ist('300 MB sind 75 Stücke', lang.length, 75);
+wahr('  … lückenlos und ohne Überlappung',
+     lang.every((t, i) => t.nr === i && (i === 0 ? t.von === 0 : t.von === lang[i - 1].bis)) && lang[74].bis === 300 * 1024 * 1024);
+ist('nichts ergibt keine Stücke', [tbTeile(0), tbTeile(-5)], [[], []]);
+
+ist('der Fortschritt in ganzen Prozent', [tbProzent(0, 400), tbProzent(100, 400), tbProzent(399, 400)], [0, 25, 99]);
+ist('  … 100 erst, wenn alles da ist', tbProzent(400, 400), 100);
+ist('  … und ohne Größe null', tbProzent(5, 0), 0);
+
+// Was nach einem Fehler geschieht.
+const fehler = (status, daten) => Object.assign(new Error('x'), {status, daten});
+ist('der Server will ein früheres Stück: dorthin springen',
+    tbNachFehler(fehler(409, {erwartet: 3}), 7, 0), {tun: 'springen', nr: 3});
+ist('das Netz war weg: nochmal, mit Pause', tbNachFehler(new Error('Server nicht erreichbar.'), 5, 0), {tun: 'nochmal', nr: 5, warten: 1500});
+ist('  … die Pause wird länger', tbNachFehler(fehler(502), 5, 2).warten, 4500);
+ist('  … nach drei Versuchen ist Schluss', tbNachFehler(fehler(500), 5, 3), {tun: 'aufgeben'});
+ist('was grundsätzlich nicht geht, wird nicht wiederholt',
+    [tbNachFehler(fehler(413), 0, 0).tun, tbNachFehler(fehler(415), 0, 0).tun, tbNachFehler(fehler(403), 0, 0).tun],
+    ['aufgeben', 'aufgeben', 'aufgeben']);
+ist('  … auch ein 409 ohne Angabe nicht', tbNachFehler(fehler(409, {}), 2, 0), {tun: 'aufgeben'});
 
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);
