@@ -4007,10 +4007,14 @@
 
   /* Am schmalen Schirm ist ein schwebendes Fenster keine gute Idee — dort
      bleibt die Taverne das, was sie vorher war: bildschirmfüllend.
-     !important, weil die Stelle im Code die Position setzt. */
+     !important, weil die Stelle im Code die Position setzt. Die
+     Mindestbreite muss mit weg: sie ist die Breite des Tisches (460 für
+     die Walzen, 600 fürs Roulette), und stand sie, ragte das Fenster am
+     Telefon rechts über den Rand — die fünfte Walze halb abgeschnitten. */
   @media (max-width: 700px) {
     .automat-schirm { left:0 !important; top:0 !important; right:0; bottom:0;
-      width:auto !important; max-height:none; border-radius:0; border:none; }
+      width:auto !important; min-width:0 !important; max-width:none;
+      max-height:none; border-radius:0; border:none; }
     .automat-kopf { cursor:default; }
   }
 
@@ -4122,6 +4126,95 @@
     top:50%; height:1px; background:var(--text-muted); }
   .auge-sprosse.unten { opacity:1;
     text-shadow:0 0 9px rgba(217,164,65,0.75); }
+
+  /* ── Der Hut des Gauklers ─────────────────────────────────
+     Die Würfel: eine Form je Seitenzahl, wie sie auf dem Spieltisch
+     liegen. Die Schriftgröße ist die halbe des Feldes, die Form doppelt
+     so groß wie die Schrift — so steht ein Würfel so groß da wie ein
+     Bild daneben. */
+  .wuerfel { display:inline-flex; align-items:center; justify-content:center;
+    width:2.1em; height:2.1em; font-size:0.5em; line-height:1;
+    font-family:'Roboto Condensed',sans-serif; font-weight:700; letter-spacing:-0.02em;
+    color:#fff; text-shadow:0 1px 1px rgba(0,0,0,0.55);
+    background:linear-gradient(155deg, var(--w-hell), var(--w-dunkel)); }
+  .wuerfel.w20 { --w-hell:#e06a5e; --w-dunkel:#8f2b24;
+    clip-path:polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%); }
+  .wuerfel.w12 { --w-hell:#a77ad6; --w-dunkel:#55307f;
+    clip-path:polygon(50% 0, 98% 37%, 80% 97%, 20% 97%, 2% 37%); padding-top:0.15em; }
+  .wuerfel.w10 { --w-hell:#6c9be0; --w-dunkel:#2c4f86;
+    clip-path:polygon(50% 0, 97% 55%, 50% 100%, 3% 55%); padding-top:0.2em; }
+  .wuerfel.w8 { --w-hell:#63bd88; --w-dunkel:#23633e;
+    clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .wuerfel.w6 { --w-hell:#efe4c6; --w-dunkel:#b3a47b; color:#3b3222;
+    text-shadow:none; width:1.8em; height:1.8em; border-radius:0.3em; }
+  .walzen-tabelle .sym .wuerfel { font-size:0.55em; }
+
+  /* Die Zelle trägt, was aus dem Hut steigt und was umkippt. */
+  .walzen-zelle { position:relative; }
+  .hut-zelle { box-shadow:inset 0 0 0 2px var(--inspiration), inset 0 0 14px rgba(217,164,65,0.28); }
+  /* Ein Feld, das der Hut verwandelt hat — gestrichelt, kein Treffer. */
+  .walzen-zelle.verwandelt::after { content:''; position:absolute; inset:3px;
+    border:1px dashed rgba(232,184,75,0.65); border-radius:4px; pointer-events:none; }
+
+  /* Während des Zaubers: erst drehen die Walzen verwischt, dann steht
+     das Feld scharf da, während der Hut arbeitet. Die Verwischung hängt
+     deshalb am Lauf des Bandes und nicht an der ganzen Laufzeit. */
+  .walzen-feld.zaubert.laeuft .walzen-zelle { filter:none; opacity:1; }
+  .walzen-feld.zaubert.laeuft .walzen-band { animation-name:walzen-lauf, walzen-wisch; }
+  @keyframes walzen-wisch { from, 80% { filter:blur(0.6px); } to { filter:none; } }
+
+  .walzen-feld.laeuft .hut-zelle { box-shadow:none;
+    animation:hut-leuchten 700ms ease-out both; }
+  @keyframes hut-leuchten {
+    from { box-shadow:inset 0 0 0 0 transparent; background:transparent; }
+    to   { box-shadow:inset 0 0 0 2px var(--inspiration), inset 0 0 18px rgba(217,164,65,0.45);
+           background:rgba(217,164,65,0.12); }
+  }
+  .hut-glyphe { display:inline-block; transform-origin:50% 85%;
+    animation:hut-wackeln 620ms ease-in-out both; }
+  @keyframes hut-wackeln {
+    0%, 100% { transform:rotate(0) translateY(0); }
+    15% { transform:rotate(-16deg) translateY(-6%); }
+    32% { transform:rotate(13deg) translateY(-3%); }
+    50% { transform:rotate(-10deg) translateY(-7%); }
+    68% { transform:rotate(7deg); }
+    84% { transform:rotate(-3deg); }
+  }
+  /* Was der Gaukler herauszieht, steigt aus dem Hut, leuchtet, und
+     verblasst über ihm. */
+  .hut-bild { position:absolute; inset:0; display:flex; align-items:center;
+    justify-content:center; pointer-events:none; z-index:1;
+    filter:drop-shadow(0 0 7px rgba(232,184,75,0.9));
+    animation:hut-heraus 900ms cubic-bezier(.2,.8,.3,1) both; }
+  @keyframes hut-heraus {
+    0%   { opacity:0; transform:translateY(30%) scale(0.2); }
+    35%  { opacity:1; transform:translateY(-24%) scale(1.2); }
+    75%  { opacity:1; transform:translateY(-24%) scale(1.2); }
+    100% { opacity:0; transform:translateY(-44%) scale(1.5); }
+  }
+  /* Das Umkippen: das alte Bild dreht sich weg, der Gaukler herein. */
+  .wandel-alt, .wandel-neu { position:absolute; inset:0; display:flex;
+    align-items:center; justify-content:center; backface-visibility:hidden; }
+  .wandel-alt { animation:wandel-weg 260ms ease-in both; }
+  .wandel-neu { animation:wandel-her 420ms ease-out both; }
+  @keyframes wandel-weg {
+    from { transform:perspective(200px) rotateY(0); opacity:1; }
+    to   { transform:perspective(200px) rotateY(90deg); opacity:0; }
+  }
+  @keyframes wandel-her {
+    0%, 55% { transform:perspective(200px) rotateY(-90deg); opacity:0; }
+    80%     { transform:perspective(200px) rotateY(0) scale(1.25); opacity:1;
+              filter:drop-shadow(0 0 8px rgba(232,184,75,0.95)); }
+    100%    { transform:perspective(200px) rotateY(0) scale(1); opacity:1; }
+  }
+  .hut-ansage { font-size:12.5px; color:var(--inspiration);
+    animation:hut-auf 300ms ease-out both; }
+  .hut-ansage b { font-weight:500; animation:hut-auf 300ms ease-out both; }
+  @keyframes hut-auf { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .hut-glyphe, .hut-bild, .wandel-alt, .wandel-neu, .hut-ansage, .hut-ansage b,
+    .walzen-feld.laeuft .hut-zelle { animation:none; }
+  }
 
   /* ── Was im Tavernenfenster nicht schrumpfen darf ──────────
      Der Rumpf ist eine Flex-Spalte, und Flex-Kinder schrumpfen von

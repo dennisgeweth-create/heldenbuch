@@ -442,6 +442,57 @@ Bonusrunden, drei Quoten zwischen 94,2 % und 95,3 % — und drei sehr
 verschiedene Abende. Geprüft mit 169 Rechnungen in `node` und in der
 Werkbank durchgespielt.
 
+## Stufe 12 · 🎩 Der Hut des Gauklers ✓
+
+*Steht, seit v5.26.* Nach dem Vorbild von **Joker's Cap** (Merkur):
+5×3, zehn feste Linien, **keine Freispiele**, Quote im Original 96,4 %.
+Der Narr ist Wild und das höchste Zeichen; die Narrenkappe liegt nur auf
+der mittleren Walze, ist selbst Wild, wackelt, und „zaubert ein oder zwei
+Bilder aus dem Hut" — jedes Zeichen dieser Bilder auf dem Feld wird zum
+Narren. Risiko nach jedem Gewinn, Leiter und Karten.
+
+*Ein Fest am Hof.* Der Gaukler jongliert, sein Hut liegt auf Walze 3.
+
+So gebaut (Vielfaches des **Linien**einsatzes):
+
+| Zeichen | 3 | 4 | 5 |
+|---|--:|--:|--:|
+| 🤹 **Der Gaukler** — Wild, zahlt selbst am meisten | 45 | 125 | 400 |
+| 👑 Der König | 20 | 60 | 200 |
+| 👸 Die Prinzessin | 12 | 30 | 100 |
+| 🧙 🐎 🦉 Hofmagier · Streitross · Eule | 8 | 20 | 50 |
+| W20 · W12 | 4 | 10 | 30 |
+| W10 · W8 · W6 | 2 | 8 | 25 |
+| 🎩 **Der Hut** — nur Walze 3, Wild, zahlt nichts | – | – | – |
+
+Die Form ist die des Vorbilds: der Narr beim Doppelten des Königs,
+darunter eine flache Staffel. Die Kartenzeichen A–10 sind hier Würfel,
+jeder in seiner Form gezeichnet — ein Emoji für „W12" gibt es nicht.
+
+**Der Zauber.** Fällt der Hut, zieht er ein Bild (zwei in einem Drittel
+der Fälle) aus denen, die gerade auf dem Feld liegen — nie den Gaukler,
+nie sich selbst. Die Wahl hängt nur am Feld und nicht an den
+Auszahlungen; sonst wäre die gemessene Häufigkeitstafel falsch, sobald
+die Spielleitung eine Zahl verstellt.
+
+**Die Rechnung.** Drei Hüte auf sechzig Plätzen: er kommt jede
+**6,7. Drehung**. Gemessen mit zehn Millionen Drehungen: **96,2 %**,
+Gewinn in 38 % der Drehungen. Ohne den Zauber zahlten dieselben Bänder
+26,7 % — der Hut trägt gut **zwei Drittel** der Quote. Das ist mehr als
+die Freispielrunden der anderen drei (gut die Hälfte), und liegt an der
+Regel selbst: jedes Zeichen eines Bildes zu verwandeln ist stark. Mehr
+Gaukler auf die Bänder und mehr niedrige Würfel heben die Trefferquote
+ohne Hut auf 24 %; weiter ließ sich der Anteil mit keiner der
+geprüften Bandmischungen drücken.
+
+**Der Ablauf am Tisch** — alles davon ist Anzeige, gebucht ist sofort:
+die Walzen halten (1,6 s), der Hut leuchtet auf und wackelt, das
+gezogene Bild steigt aus ihm auf, ein zweites eine gute halbe Sekunde
+danach, und zuletzt kippen die Felder um, Walze für Walze von links. Mit
+zwei Bildern ist nach 4,6 s alles vorbei. `prefers-reduced-motion`
+zeigt gleich das Ende. Was verwandelt wurde, bleibt danach gestrichelt
+markiert.
+
 ## Woher die Zahlen stammen
 
 Die Bonusregeln und die Kennzahlen — Linien, Quote, Höchstgewinn,

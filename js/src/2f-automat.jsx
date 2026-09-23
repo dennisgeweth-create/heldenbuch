@@ -1096,6 +1096,9 @@ const TAVERNEN_TISCHE = [
   {k:'auge',      z:'👁️', name:'Das Wachsame Auge', gruppe:'walze',
    unter:'Der Wächter füllt die Walze — und veredelt, was auf ihr liegt',
    da:true, breit:460, weit:560},
+  {k:'hut',       z:'🎩', name:'Der Hut des Gauklers', gruppe:'walze',
+   unter:'Ein Fest am Hof — was der Gaukler aus dem Hut zieht, wird zum Gaukler',
+   da:true, breit:460, weit:560},
 
   {k:'rennen',    z:'🐎', name:'Die Rennbahn vor dem Tor', gruppe:'wette',
    unter:'Sechs Pferde, echt gelaufen — die Quoten kommen aus dem Lauf',
@@ -1422,6 +1425,8 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
         <ArenaTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'auge' ? (
         <AugeTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
+      ) : jetzt && jetzt.k === 'hut' ? (
+        <HutTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : (
         <div className="automat-mitte halle-mitte">
           <TavernenHalle tische={offen} onWahl={setTisch} />

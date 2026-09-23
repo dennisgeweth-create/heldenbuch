@@ -1149,6 +1149,47 @@
               eintrag('Taverne').querySelector('.fl-x').click(); await ruhe(150);
               ja('  … und die Leiste schließt sie', !document.querySelector('.automat-schirm') && !eintrag('Taverne'));
             }
+
+            // Der Hut des Gauklers: der Tisch geht auf, passt auf den
+            // Schirm — am Telefon ragte die Taverne bis v5.25 rechts
+            // hinaus —, und ein Dreh mit Hut verwandelt, was er zieht.
+            knopfMit('🎰 Taverne').click();
+            const hutK = await warten(() => [...document.querySelectorAll('.automat-schirm button')]
+              .find(b => /Hut des Gauklers/.test(b.textContent)));
+            if (ja('In der Halle steht der Hut des Gauklers', !!hutK)) {
+              hutK.click();
+              const feld = await warten(() => document.querySelector('.automat-schirm .walzen-feld'));
+              ja('  … mit fünf Walzen', !!feld && feld.querySelectorAll('.walzen-walze').length === 5);
+              const rs = document.querySelector('.automat-schirm').getBoundingClientRect();
+              ja('  … und das Fenster ragt nicht über den Schirm', rs.left >= -1 && rs.right <= innerWidth + 1,
+                 Math.round(rs.left) + '–' + Math.round(rs.right) + ' bei ' + innerWidth);
+              let hebel = document.querySelector('.automat-schirm .automat-hebel');
+              if (hebel && hebel.disabled) {
+                const nach = document.querySelector('.automat-schirm .automat-nachschub');
+                if (nach) { nach.click(); await ruhe(200); }
+                hebel = document.querySelector('.automat-schirm .automat-hebel');
+              }
+              if (ja('  … und lässt sich drehen', !!hebel && !hebel.disabled, hebel ? hebel.textContent : 'kein Hebel')) {
+                // Der Zufall so gestellt, dass der Hut in der Mitte liegt,
+                // links und rechts je zwei Könige — und dass er die Könige
+                // zieht (ein Bild, das erste der Tafel).
+                const b = HUT_BAENDER, hp = b[2].indexOf('hut');
+                const kp = [0, 1, 3, 4].map(w => b[w].findIndex((x, i) => b[w][(i + 1) % 60] === 'koenig'));
+                const folge = [kp[0], kp[1], (hp + 59) % 60, kp[2], kp[3]].map(p => (p + 0.5) / 60).concat([0.9, 0]);
+                const echt = Math.random; let n = 0;
+                Math.random = () => n < folge.length ? folge[n++] : echt();
+                hebel.click();
+                Math.random = echt;
+                const fertig = await warten(() => document.querySelectorAll('.automat-schirm .walzen-zelle.verwandelt').length
+                  ? true : null, 8000);
+                ja('  … der Hut verwandelt die vier Könige', !!fertig
+                   && document.querySelectorAll('.automat-schirm .walzen-zelle.verwandelt').length === 4,
+                   document.querySelectorAll('.automat-schirm .walzen-zelle.verwandelt').length + ' verwandelt');
+                const meldung = (document.querySelector('.automat-schirm .automat-meldung') || {}).textContent || '';
+                ja('  … und sagt, was er gezogen hat', /König → Gaukler \(4 Felder\)/.test(meldung), meldung);
+              }
+              eintrag('Taverne').querySelector('.fl-x').click(); await ruhe(150);
+            }
           }
           ja('Ohne offene Fenster ist die Leiste weg', !document.querySelector('.fl-leiste'));
           knopfMit('⚔ Kampf').click(); await ruhe(200);

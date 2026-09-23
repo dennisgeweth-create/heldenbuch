@@ -1,5 +1,32 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.26.0
+
+### 🎩 Ein vierter Walzenautomat: Der Hut des Gauklers
+
+Ein Fest am Hof. Der Gaukler jongliert, der König schaut zu — und auf
+der mittleren Walze liegt manchmal sein Hut.
+
+- **Fällt der Hut**, wackelt er, und der Gaukler zieht ein Bild heraus,
+  manchmal zwei. **Jedes Zeichen dieses Bildes** auf dem Feld kippt um
+  und wird zum Gaukler — auf allen Walzen zugleich.
+- Der **Gaukler** ist Wild und das höchste Zeichen: fünf auf einer Linie
+  zahlen das 400-Fache des Linieneinsatzes. Der Hut selbst ersetzt jedes
+  Zeichen, zahlt aber nichts.
+- **Keine Freispiele.** Der Zauber fällt im gewöhnlichen Dreh, etwa jedes
+  siebte Mal — hier wartet niemand auf drei Streuzeichen.
+- Die niedrigen Zeichen sind **Würfel**: W20, W12, W10, W8 und W6, jeder
+  in seiner Form.
+- Zehn Linien, Quote **96,2 %**, gemessen mit zehn Millionen Drehungen.
+  Nach jedem Gewinn stehen Leiter und „Rabe oder Rose" bereit.
+
+### Die Taverne am Telefon
+
+Am schmalen Schirm ragte das Tavernenfenster **rechts über den Rand**:
+bei den Walzen war die fünfte halb abgeschnitten, beim Roulette mehr.
+Das Fenster behielt seine Mindestbreite, obwohl es den Schirm füllen
+sollte. Jetzt passt jeder Tisch.
+
 ## v5.25.0
 
 ### Videos bis 1 GB — hochgeladen in Stücken

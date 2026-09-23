@@ -49,7 +49,7 @@ const alle = fs.readdirSync(ordner).filter(f => f.endsWith('-test.js')).sort();
 const BEREICHE = [
   {name: 'Abenteuerplaner', passt: (f) => /^planer-/.test(f) || f === 'bruecke-test.js'},
   {name: 'Kampf und Karte', passt: (f) => /^(karte|import|kopieren|gegner|rueck)/.test(f)},
-  {name: 'Taverne',         passt: (f) => /^(arena|auge|buch|walzen)-/.test(f)},
+  {name: 'Taverne',         passt: (f) => /^(arena|auge|buch|hut|walzen)-/.test(f)},
   {name: 'Der Bogen',       passt: (f) => /^(assistent|bogentext|heldtext|laden|mensch|nsc|rast)-/.test(f)},
   {name: 'Das Gerüst',      passt: () => true},
 ];

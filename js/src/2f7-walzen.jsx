@@ -5,9 +5,11 @@
 // verstreuten Zeichen und Freispielrunden geht das nicht mehr — und
 // deshalb steht hier ein anderes Geruest, kein groesseres.
 //
-// Drei Automaten setzen darauf auf. Sie unterscheiden sich einzig in der
-// Regel, die im Freispiel zusaetzlich gilt; alles andere — Bandlauf,
-// Linienwertung, Streuzeichen, Rechnung, Anzeige — steht hier einmal.
+// Vier Automaten setzen darauf auf. Drei davon unterscheiden sich einzig
+// in der Regel, die im Freispiel zusaetzlich gilt; der vierte, der Hut des
+// Gauklers, hat keine Freispiele und zaubert im gewoehnlichen Dreh. Alles
+// andere — Bandlauf, Linienwertung, Streuzeichen, Rechnung, Anzeige —
+// steht hier einmal.
 //
 // Was hier NICHT steht: React-Zustand fuer ein bestimmtes Spiel. Der
 // obere Teil dieser Datei ist reine Rechnung ohne React und ohne JSX und
@@ -447,12 +449,24 @@ const useLinienWechsel = (treffer) => {
   return i;
 };
 
+// Wie ein Zeichen aussieht. Meist ist es sein Bild; ein Wuerfel des
+// Gauklerhuts ist eine Form mit seiner Augenzahl darin, denn ein Emoji
+// fuer „W12" gibt es nicht.
+const wZeichen = (s) => !s ? '·' : s.wuerfel
+  ? <span className={'wuerfel w' + s.wuerfel} role="img" aria-label={s.name}>{s.wuerfel}</span>
+  : s.z;
+
 // ── Der Schirm ───────────────────────────────────────────────────
 // Fuenf Walzen mit je einem Fenster von drei Zellen. Das Band ist 16
 // Zellen lang und faehrt auf die letzten drei — daher -81,25 % (13 von
 // 16), wie beim bestehenden Automaten.
-const WalzenSchirm = ({ baender, symbole, dreh, laeuft, leuchtet, klebt, gefuellt }) => (
-  <div className={'walzen-feld' + (laeuft ? ' laeuft' : '')} role="group" aria-label="Walzen">
+//
+// `wandel` braucht nur der Hut des Gauklers: welche Felder sich nach dem
+// Halt verwandeln (Feld -> was vorher dalag), wo der Hut liegt, was er
+// herauszieht, und wann. Ohne `wandel` ist der Schirm, was er war.
+const WalzenSchirm = ({ baender, symbole, dreh, laeuft, leuchtet, klebt, gefuellt, wandel, art }) => (
+  <div className={'walzen-feld' + (laeuft ? ' laeuft' : '') + (art ? ' ' + art : '')}
+    role="group" aria-label="Walzen">
     {[0,1,2,3,4].map(walze => (
       <div className={'walzen-walze' + (gefuellt && gefuellt.includes(walze) ? ' voll' : '')} key={walze}>
         {/* Der Schluessel traegt die Nummer des Drehs: React baut das Band
@@ -465,14 +479,41 @@ const WalzenSchirm = ({ baender, symbole, dreh, laeuft, leuchtet, klebt, gefuell
             const reihe = i - (W_BAND - W_REIHEN);
             const nr = reihe >= 0 ? reihe * W_WALZEN + walze : -1;
             const s = wSymbol(k, symbole);
+            const vorher = wandel && nr >= 0 ? wandel.felder[nr] : undefined;
+            const hut = !!wandel && nr >= 0 && wandel.hut === nr;
             // Ein Feld kann beides sein: ein Treffer und ein Zeichen, das
             // stehenbleibt. Dann gilt der Treffer — er sagt, was gerade
             // passiert ist, das Kleben nur, was bleibt.
             return (
               <div key={i} className={'walzen-zelle'
                   + (leuchtet && leuchtet.has(nr) ? ' treffer'
-                     : klebt && klebt.has(nr) ? ' klebt' : '')}>
-                <span>{s ? s.z : '·'}</span>
+                     : klebt && klebt.has(nr) ? ' klebt' : '')
+                  // Erst nach dem Lauf markiert — waehrend er laeuft,
+                  // verriete die Markierung, was gleich umkippt.
+                  + (vorher !== undefined && !laeuft ? ' verwandelt' : '')
+                  + (hut ? ' hut-zelle' : '')}
+                style={hut && laeuft ? {animationDelay: wandel.zeit.wackeln + 'ms'} : undefined}>
+                {laeuft && vorher !== undefined ? (
+                  <>
+                    {/* Erst steht da, was gezogen wurde; dann kippt es weg,
+                        und der Gaukler kippt herein. */}
+                    <span className="wandel-alt"
+                      style={{animationDelay: (wandel.zeit.wandel + walze * wandel.zeit.walzenVersatz) + 'ms'}}>
+                      {wZeichen(wSymbol(vorher, symbole))}</span>
+                    <span className="wandel-neu"
+                      style={{animationDelay: (wandel.zeit.wandel + walze * wandel.zeit.walzenVersatz) + 'ms'}}>
+                      {wZeichen(s)}</span>
+                  </>
+                ) : (
+                  <span className={hut && laeuft ? 'hut-glyphe' : undefined}
+                    style={hut && laeuft ? {animationDelay: wandel.zeit.wackeln + 'ms'} : undefined}>
+                    {wZeichen(s)}</span>
+                )}
+                {hut && laeuft && wandel.aus.map((b, j) => (
+                  <span key={b} className="hut-bild" aria-hidden="true"
+                    style={{animationDelay: (wandel.zeit.bild + j * wandel.zeit.bildAbstand) + 'ms'}}>
+                    {wZeichen(wSymbol(b, symbole))}</span>
+                ))}
               </div>
             );
           })}
@@ -519,10 +560,11 @@ const WalzenTafel = ({ symbole, quote, kinder }) => {
             <tbody>
               {symbole.map(s => (
                 <tr key={s.k}>
-                  <td className="sym">{s.z}</td>
+                  <td className="sym">{wZeichen(s)}</td>
                   <td className="nam">
                     {s.name}
-                    {s.wild && <i>ersetzt jedes Zeichen</i>}
+                    {s.wild && <i>ersetzt jedes Zeichen{s.nurWalze !== undefined
+                      ? ' — liegt nur auf Walze ' + (s.nurWalze + 1) : ''}{!s.zahlt ? ', zahlt selbst nichts' : ''}</i>}
                     {s.streu && <i>zählt verstreut{s.streuWalzen
                       ? ' — nur Walze ' + s.streuWalzen.map(w => w + 1).join(', ') : ''}</i>}
                   </td>

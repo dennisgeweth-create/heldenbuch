@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 2o-tagebuch.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2fb-hut.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 2o-tagebuch.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 const {
@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.25.0';
+const HB_VERSION = 'v5.26.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -9488,6 +9488,15 @@ const TAVERNEN_TISCHE = [{
   breit: 460,
   weit: 560
 }, {
+  k: 'hut',
+  z: '🎩',
+  name: 'Der Hut des Gauklers',
+  gruppe: 'walze',
+  unter: 'Ein Fest am Hof — was der Gaukler aus dem Hut zieht, wird zum Gaukler',
+  da: true,
+  breit: 460,
+  weit: 560
+}, {
   k: 'rennen',
   z: '🐎',
   name: 'Die Rennbahn vor dem Tor',
@@ -9838,6 +9847,11 @@ const TaverneSchirm = ({
     zahlen: zahlen,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'auge' ? React.createElement(AugeTisch, {
+    cfg: cfgTisch,
+    marken: marken,
+    zahlen: zahlen,
+    onLaeuft: setLaeuft
+  }) : jetzt && jetzt.k === 'hut' ? React.createElement(HutTisch, {
     cfg: cfgTisch,
     marken: marken,
     zahlen: zahlen,
@@ -13087,6 +13101,11 @@ const useLinienWechsel = treffer => {
   }, [zahl]);
   return i;
 };
+const wZeichen = s => !s ? '·' : s.wuerfel ? React.createElement("span", {
+  className: 'wuerfel w' + s.wuerfel,
+  role: "img",
+  "aria-label": s.name
+}, s.wuerfel) : s.z;
 const WalzenSchirm = ({
   baender,
   symbole,
@@ -13094,9 +13113,11 @@ const WalzenSchirm = ({
   laeuft,
   leuchtet,
   klebt,
-  gefuellt
+  gefuellt,
+  wandel,
+  art
 }) => React.createElement("div", {
-  className: 'walzen-feld' + (laeuft ? ' laeuft' : ''),
+  className: 'walzen-feld' + (laeuft ? ' laeuft' : '') + (art ? ' ' + art : ''),
   role: "group",
   "aria-label": "Walzen"
 }, [0, 1, 2, 3, 4].map(walze => React.createElement("div", {
@@ -13114,10 +13135,37 @@ const WalzenSchirm = ({
   const reihe = i - (W_BAND - W_REIHEN);
   const nr = reihe >= 0 ? reihe * W_WALZEN + walze : -1;
   const s = wSymbol(k, symbole);
+  const vorher = wandel && nr >= 0 ? wandel.felder[nr] : undefined;
+  const hut = !!wandel && nr >= 0 && wandel.hut === nr;
   return React.createElement("div", {
     key: i,
-    className: 'walzen-zelle' + (leuchtet && leuchtet.has(nr) ? ' treffer' : klebt && klebt.has(nr) ? ' klebt' : '')
-  }, React.createElement("span", null, s ? s.z : '·'));
+    className: 'walzen-zelle' + (leuchtet && leuchtet.has(nr) ? ' treffer' : klebt && klebt.has(nr) ? ' klebt' : '') + (vorher !== undefined && !laeuft ? ' verwandelt' : '') + (hut ? ' hut-zelle' : ''),
+    style: hut && laeuft ? {
+      animationDelay: wandel.zeit.wackeln + 'ms'
+    } : undefined
+  }, laeuft && vorher !== undefined ? React.createElement(React.Fragment, null, React.createElement("span", {
+    className: "wandel-alt",
+    style: {
+      animationDelay: wandel.zeit.wandel + walze * wandel.zeit.walzenVersatz + 'ms'
+    }
+  }, wZeichen(wSymbol(vorher, symbole))), React.createElement("span", {
+    className: "wandel-neu",
+    style: {
+      animationDelay: wandel.zeit.wandel + walze * wandel.zeit.walzenVersatz + 'ms'
+    }
+  }, wZeichen(s))) : React.createElement("span", {
+    className: hut && laeuft ? 'hut-glyphe' : undefined,
+    style: hut && laeuft ? {
+      animationDelay: wandel.zeit.wackeln + 'ms'
+    } : undefined
+  }, wZeichen(s)), hut && laeuft && wandel.aus.map((b, j) => React.createElement("span", {
+    key: b,
+    className: "hut-bild",
+    "aria-hidden": "true",
+    style: {
+      animationDelay: wandel.zeit.bild + j * wandel.zeit.bildAbstand + 'ms'
+    }
+  }, wZeichen(wSymbol(b, symbole)))));
 })))));
 const wLeuchtet = (ergebnis, zeigeLinie) => {
   const raus = new Set();
@@ -13151,9 +13199,9 @@ const WalzenTafel = ({
     key: s.k
   }, React.createElement("td", {
     className: "sym"
-  }, s.z), React.createElement("td", {
+  }, wZeichen(s)), React.createElement("td", {
     className: "nam"
-  }, s.name, s.wild && React.createElement("i", null, "ersetzt jedes Zeichen"), s.streu && React.createElement("i", null, "z\xE4hlt verstreut", s.streuWalzen ? ' — nur Walze ' + s.streuWalzen.map(w => w + 1).join(', ') : '')), spalten.map(n => {
+  }, s.name, s.wild && React.createElement("i", null, "ersetzt jedes Zeichen", s.nurWalze !== undefined ? ' — liegt nur auf Walze ' + (s.nurWalze + 1) : '', !s.zahlt ? ', zahlt selbst nichts' : ''), s.streu && React.createElement("i", null, "z\xE4hlt verstreut", s.streuWalzen ? ' — nur Walze ' + s.streuWalzen.map(w => w + 1).join(', ') : '')), spalten.map(n => {
     const v = wZahlt(s, n) || wStreut(s, n);
     return React.createElement("td", {
       key: n,
@@ -14464,6 +14512,452 @@ const AugeTisch = ({
     kinder: React.createElement("p", {
       className: "automat-fussnote"
     }, React.createElement("b", null, "Der Blick"), " \u2014 der W\xE4chter liegt nur auf Walze 2, 3 und 4 und f\xFCllt die ganze Walze, auf der er f\xE4llt. Er zahlt selbst nichts, ersetzt aber jedes Zeichen au\xDFer dem Tor. ", AUGE_AUSLOESER, " Tore \xF6ffnen", ' ', AUGE_FREISPIELE, " Freispiele, und darin nimmt jeder W\xE4chter das unterste Zeichen der Tafel von den Walzen \u2014 alles r\xFCckt eine Stufe hoch, f\xFCr den Rest der Runde. Dazu ein Freidreh je W\xE4chter, drei bei zweien, f\xFCnf bei dreien.")
+  })));
+};
+
+// ==== js/src/2fb-hut.jsx ====
+const HUT_WALZE = 2;
+const HUT_ZWEI = 1 / 3;
+const HUT_SYMBOLE = [{
+  k: 'gaukler',
+  z: '🤹',
+  name: 'Der Gaukler',
+  wild: true,
+  zahlt: {
+    3: 45,
+    4: 125,
+    5: 400
+  }
+}, {
+  k: 'koenig',
+  z: '👑',
+  name: 'Der König',
+  zahlt: {
+    3: 20,
+    4: 60,
+    5: 200
+  }
+}, {
+  k: 'prinzessin',
+  z: '👸',
+  name: 'Die Prinzessin',
+  zahlt: {
+    3: 12,
+    4: 30,
+    5: 100
+  }
+}, {
+  k: 'magier',
+  z: '🧙',
+  name: 'Der Hofmagier',
+  zahlt: {
+    3: 8,
+    4: 20,
+    5: 50
+  }
+}, {
+  k: 'ross',
+  z: '🐎',
+  name: 'Das Streitross',
+  zahlt: {
+    3: 8,
+    4: 20,
+    5: 50
+  }
+}, {
+  k: 'eule',
+  z: '🦉',
+  name: 'Die Eule',
+  zahlt: {
+    3: 8,
+    4: 20,
+    5: 50
+  }
+}, {
+  k: 'w20',
+  z: '20',
+  name: 'Der W20',
+  wuerfel: 20,
+  zahlt: {
+    3: 4,
+    4: 10,
+    5: 30
+  }
+}, {
+  k: 'w12',
+  z: '12',
+  name: 'Der W12',
+  wuerfel: 12,
+  zahlt: {
+    3: 4,
+    4: 10,
+    5: 30
+  }
+}, {
+  k: 'w10',
+  z: '10',
+  name: 'Der W10',
+  wuerfel: 10,
+  zahlt: {
+    3: 2,
+    4: 8,
+    5: 25
+  }
+}, {
+  k: 'w8',
+  z: '8',
+  name: 'Der W8',
+  wuerfel: 8,
+  zahlt: {
+    3: 2,
+    4: 8,
+    5: 25
+  }
+}, {
+  k: 'w6',
+  z: '6',
+  name: 'Der W6',
+  wuerfel: 6,
+  zahlt: {
+    3: 2,
+    4: 8,
+    5: 25
+  }
+}, {
+  k: 'hut',
+  z: '🎩',
+  name: 'Der Hut',
+  wild: true,
+  nurWalze: HUT_WALZE
+}];
+const HUT_BANDLAENGE = 60;
+const HUT_AUSSEN = {
+  gaukler: 3,
+  koenig: 2,
+  prinzessin: 3,
+  magier: 4,
+  ross: 4,
+  eule: 4,
+  w20: 6,
+  w12: 7,
+  w10: 9,
+  w8: 9,
+  w6: 9
+};
+const HUT_MITTE = {
+  gaukler: 3,
+  koenig: 2,
+  prinzessin: 3,
+  magier: 4,
+  ross: 4,
+  eule: 4,
+  w20: 6,
+  w12: 7,
+  w10: 8,
+  w8: 8,
+  w6: 8,
+  hut: 3
+};
+const HUT_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(w === HUT_WALZE ? HUT_MITTE : HUT_AUSSEN, HUT_BANDLAENGE, w * 0.2 + 0.05));
+const hutWo = feld => {
+  for (let z = 0; z < W_REIHEN; z++) {
+    const i = z * W_WALZEN + HUT_WALZE;
+    if (feld[i] === 'hut') return i;
+  }
+  return -1;
+};
+const hutWahl = (feld, symbole, zufall) => {
+  const r = zufall || Math.random;
+  const da = symbole.filter(s => s.zahlt && !s.wild && feld.includes(s.k)).map(s => s.k);
+  const wieviele = Math.min(da.length, r() < HUT_ZWEI ? 2 : 1);
+  const raus = [];
+  while (raus.length < wieviele) {
+    const rest = da.filter(k => !raus.includes(k));
+    raus.push(rest[Math.floor(r() * rest.length)]);
+  }
+  return raus;
+};
+const hutZaubern = (feld, gezogen) => {
+  if (!gezogen || !gezogen.length) return feld;
+  return feld.map(k => gezogen.includes(k) ? 'gaukler' : k);
+};
+const hutDreh = (feld, symbole, einsatz, zufall) => {
+  const hut = hutWo(feld);
+  const gezogen = hut >= 0 ? hutWahl(feld, symbole, zufall) : [];
+  const bild = hutZaubern(feld, gezogen);
+  const verwandelt = [];
+  for (let i = 0; i < W_FELDER; i++) if (bild[i] !== feld[i]) verwandelt.push(i);
+  const e = wWerten(bild, symbole, einsatz);
+  return {
+    feld: bild,
+    roh: feld,
+    gewinn: e.gewinn,
+    treffer: e.treffer,
+    streu: e.streu,
+    hut,
+    gezogen,
+    verwandelt
+  };
+};
+const hutMessen = (symbole, baender, drehungen, zufall) => {
+  const r = zufall || Math.random;
+  const z = wZaehler();
+  z.hut = 0;
+  z.zwei = 0;
+  for (let i = 0; i < drehungen; i++) {
+    const feld = wZiehen(baender, r);
+    const gezogen = hutWo(feld) >= 0 ? hutWahl(feld, symbole, r) : null;
+    if (gezogen) {
+      z.hut++;
+      if (gezogen.length > 1) z.zwei++;
+    }
+    wZaehlen(z, hutZaubern(feld, gezogen), symbole);
+    z.drehungen++;
+  }
+  return z;
+};
+const HUT_HAEUFIGKEIT = {
+  drehungen: 1,
+  linie: {
+    eule: {
+      3: 0.02918,
+      4: 0.006672,
+      5: 0.003579
+    },
+    gaukler: {
+      3: 0.02559,
+      4: 0.007117,
+      5: 0.003007
+    },
+    koenig: {
+      3: 0.01453,
+      4: 0.004179,
+      5: 0.002001
+    },
+    magier: {
+      3: 0.02873,
+      4: 0.006484,
+      5: 0.003454
+    },
+    prinzessin: {
+      3: 0.01824,
+      4: 0.003733,
+      5: 0.001952
+    },
+    ross: {
+      3: 0.02679,
+      4: 0.00571,
+      5: 0.003032
+    },
+    w10: {
+      3: 0.0913,
+      4: 0.02437,
+      5: 0.01152
+    },
+    w12: {
+      3: 0.06958,
+      4: 0.0186,
+      5: 0.009116
+    },
+    w20: {
+      3: 0.05055,
+      4: 0.01192,
+      5: 0.005231
+    },
+    w6: {
+      3: 0.09679,
+      4: 0.02767,
+      5: 0.01403
+    },
+    w8: {
+      3: 0.09313,
+      4: 0.02557,
+      5: 0.01242
+    }
+  },
+  streu: {}
+};
+const HUT_TAKT = {
+  wackeln: 1650,
+  bild: 2200,
+  bildAbstand: 550,
+  wandelPause: 200,
+  walzenVersatz: 70,
+  kippen: 680
+};
+const hutZeitplan = gezogen => {
+  const n = gezogen && gezogen.length || 0;
+  const wandel = HUT_TAKT.bild + n * HUT_TAKT.bildAbstand + HUT_TAKT.wandelPause;
+  return {
+    wackeln: HUT_TAKT.wackeln,
+    bild: HUT_TAKT.bild,
+    bildAbstand: HUT_TAKT.bildAbstand,
+    wandel,
+    walzenVersatz: HUT_TAKT.walzenVersatz,
+    ende: wandel + (W_WALZEN - 1) * HUT_TAKT.walzenVersatz + HUT_TAKT.kippen + 120
+  };
+};
+const HutTisch = ({
+  cfg,
+  marken,
+  zahlen,
+  onLaeuft
+}) => {
+  const symbole = React.useMemo(() => wSymboleAus(HUT_SYMBOLE, cfg && cfg.hutSymbole), [cfg]);
+  const vorlauf = React.useMemo(() => [0, 1, 2, 3, 4].map(w => symbole.filter(s => s.nurWalze === undefined || s.nurWalze === w)), [symbole]);
+  const einsaetze = React.useMemo(() => automatEinsaetze(cfg), [cfg]);
+  const [einsatz, setEinsatz] = React.useState(() => einsaetze[Math.min(1, einsaetze.length - 1)]);
+  const [baender, setBaender] = React.useState(() => {
+    const feld = wZiehen(HUT_BAENDER, Math.random);
+    return [0, 1, 2, 3, 4].map(w => wBandBauen(feld, w, vorlauf[w], Math.random));
+  });
+  const [dreh, setDreh] = React.useState(0);
+  const [ergebnis, setErgebnis] = React.useState(null);
+  const [unterwegs, setUnterwegs] = React.useState(null);
+  const [riskierbar, setRiskierbar] = React.useState(0);
+  const [risiko, setRisiko] = React.useState(null);
+  const {
+    laeuft,
+    starten
+  } = useWalzenLauf();
+  const zeigeLinie = useLinienWechsel(ergebnis && ergebnis.treffer);
+  const zaehler = useHochzaehler(ergebnis ? Math.round(ergebnis.gewinn) : 0);
+  React.useEffect(() => {
+    if (onLaeuft) onLaeuft(laeuft);
+  }, [laeuft]);
+  React.useEffect(() => {
+    if (!einsaetze.includes(einsatz)) setEinsatz(einsaetze[einsaetze.length - 1]);
+  }, [einsaetze]);
+  const quote = React.useMemo(() => wQuote(HUT_HAEUFIGKEIT, symbole), [symbole]);
+  const kannDrehen = !laeuft && !risiko && marken >= einsatz;
+  const drehen = () => {
+    if (!kannDrehen) return;
+    const e = hutDreh(wZiehen(HUT_BAENDER, Math.random), symbole, einsatz, Math.random);
+    const gewinn = Math.round(e.gewinn);
+    zahlen(-einsatz + gewinn);
+    setBaender([0, 1, 2, 3, 4].map(w => wBandBauen(e.feld, w, vorlauf[w], Math.random)));
+    setErgebnis(null);
+    setRiskierbar(0);
+    setRisiko(null);
+    setUnterwegs(e);
+    setDreh(d => d + 1);
+    starten(() => {
+      setErgebnis({
+        ...e,
+        gewinn
+      });
+      setRiskierbar(gewinn);
+    }, e.hut >= 0 ? hutZeitplan(e.gezogen).ende : undefined);
+  };
+  const risikoStarten = art => {
+    const gesamt = riskierbar;
+    if (gesamt <= 0 || risiko) return;
+    zahlen(-gesamt);
+    setRiskierbar(0);
+    setRisiko({
+      art,
+      betrag: gesamt,
+      stufe: 0,
+      aus: false,
+      letztes: null,
+      laeuft: art === 'leiter',
+      pos: 0,
+      ziel: Math.floor(Math.random() * LEITER_FELDER),
+      gezogen: null
+    });
+  };
+  const zauber = laeuft ? unterwegs : ergebnis;
+  const wandel = React.useMemo(() => {
+    if (!zauber || zauber.hut < 0) return null;
+    const felder = {};
+    zauber.verwandelt.forEach(i => {
+      felder[i] = zauber.roh[i];
+    });
+    return {
+      felder,
+      hut: zauber.hut,
+      aus: zauber.gezogen,
+      zeit: hutZeitplan(zauber.gezogen)
+    };
+  }, [zauber]);
+  const leuchtet = laeuft ? new Set() : wLeuchtet(ergebnis, zeigeLinie);
+  const bildName = k => {
+    const s = wSymbol(k, symbole);
+    return s ? s.name : k;
+  };
+  const gezogenText = e => e.gezogen.map(bildName).join(' und ');
+  return React.createElement(React.Fragment, null, risiko && React.createElement(RisikoFenster, {
+    risiko: risiko,
+    setRisiko: setRisiko,
+    onNehmen: b => {
+      zahlen(b);
+      setRisiko(null);
+    },
+    onSchliessen: () => setRisiko(null)
+  }), React.createElement("div", {
+    className: "automat-mitte aut-mitte"
+  }, React.createElement("div", {
+    className: "automat-kasten walzen-kasten hut-kasten"
+  }, React.createElement(WalzenSchirm, {
+    baender: baender,
+    symbole: symbole,
+    dreh: dreh,
+    laeuft: laeuft,
+    leuchtet: leuchtet,
+    wandel: wandel,
+    art: laeuft && wandel ? 'zaubert' : ''
+  }), React.createElement("div", {
+    className: "automat-meldung",
+    "aria-live": "polite"
+  }, laeuft ? wandel ? React.createElement("span", {
+    className: "hut-ansage",
+    style: {
+      animationDelay: wandel.zeit.wackeln + 'ms'
+    }
+  }, "\uD83C\uDFA9 Der Hut wackelt \u2026", React.createElement("b", {
+    style: {
+      animationDelay: wandel.zeit.bild + 'ms'
+    }
+  }, " ", gezogenText(unterwegs), "!")) : React.createElement("span", {
+    className: "leise"
+  }, "\u2026") : !ergebnis ? React.createElement("span", {
+    className: "leise"
+  }, "Einsatz w\xE4hlen und drehen.") : ergebnis.gewinn > 0 ? React.createElement(React.Fragment, null, React.createElement("b", {
+    className: "gewinn"
+  }, "+", zaehler), React.createElement("span", {
+    className: "leise"
+  }, ergebnis.treffer.length > 1 && zeigeLinie >= 0 ? ergebnis.treffer[zeigeLinie].name + ' · ' + ergebnis.treffer[zeigeLinie].sym.name + ' ×' + ergebnis.treffer[zeigeLinie].laenge + '  (' + (zeigeLinie + 1) + ' von ' + ergebnis.treffer.length + ')' : ergebnis.treffer.map(t => t.name + ' · ' + t.sym.name).join('   '))) : React.createElement("span", {
+    className: "leise"
+  }, ergebnis.hut >= 0 ? 'Der Zauber verpufft.' : 'Nichts. Nochmal.'), ergebnis && !laeuft && ergebnis.hut >= 0 && React.createElement("span", {
+    className: "freidreh"
+  }, "\uD83C\uDFA9 ", gezogenText(ergebnis), " \u2192 Gaukler", ' ', "(", ergebnis.verwandelt.length, " ", ergebnis.verwandelt.length === 1 ? 'Feld' : 'Felder', ")")), React.createElement("div", {
+    className: "automat-einsatz"
+  }, React.createElement("span", {
+    className: "automat-label"
+  }, "Einsatz"), einsaetze.map(n => React.createElement("button", {
+    key: n,
+    className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
+    onClick: () => setEinsatz(n)
+  }, n))), React.createElement("button", {
+    className: "automat-hebel",
+    disabled: !kannDrehen,
+    onClick: drehen
+  }, laeuft ? 'Läuft…' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), riskierbar > 0 && !laeuft && !risiko && React.createElement("div", {
+    className: "risiko-angebot"
+  }, React.createElement("span", {
+    className: "risiko-angebot-text"
+  }, riskierbar, " setzen?"), React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => risikoStarten('leiter')
+  }, "\uD83E\uDE9C Leiter"), React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: () => risikoStarten('karte')
+  }, "\uD83C\uDCA0 Rabe oder Rose"))), React.createElement(WalzenTafel, {
+    symbole: symbole,
+    quote: quote,
+    kinder: React.createElement("p", {
+      className: "automat-fussnote"
+    }, React.createElement("b", null, "Der Hut"), " \u2014 er liegt nur auf der mittleren Walze und ersetzt dort jedes Zeichen. F\xE4llt er, zieht der Gaukler ein Bild aus ihm heraus, manchmal zwei \u2014 eines, das gerade auf dem Feld liegt. Jedes Zeichen dieses Bildes wird zum Gaukler, auf allen Walzen, und der Gaukler ersetzt nicht nur, er zahlt auch selbst am meisten. Freispiele gibt es keine: der Zauber f\xE4llt im gew\xF6hnlichen Dreh, etwa jedes siebte Mal.")
   })));
 };
 

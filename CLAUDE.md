@@ -27,6 +27,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2f8-buch.jsx` | „Das Verschollene Kapitel“ — gelostes Sonderzeichen, das ganze Walzen füllt |
 | ↳ `2f9-arena.jsx` | „Klinge und Hörner“ — klebende Wilds in zehn Freispielen |
 | ↳ `2fa-auge.jsx` | „Das Wachsame Auge“ — Wild füllt die Walze und veredelt die Tafel |
+| ↳ `2fb-hut.jsx` | „Der Hut des Gauklers“ — kein Freispiel; der Hut auf Walze 3 macht ein oder zwei Bilder zu Wilds |
 | ↳ `2h-proben.jsx` | Proben auf Ansage — Balken und Ansagefenster |
 | ↳ `2i-beute.jsx` | Beute — hinlegen, nehmen, in die Bögen eintragen |
 | ↳ `2j-laden.jsx` | Laden — Auslage (auch als Liste einfügbar), kaufen, verkaufen |
