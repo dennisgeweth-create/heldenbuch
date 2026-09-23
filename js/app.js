@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.27.0';
+const HB_VERSION = 'v5.28.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -13267,11 +13267,34 @@ const useLinienWechsel = treffer => {
   }, [zahl]);
   return i;
 };
-const wZeichen = s => !s ? '·' : s.wuerfel ? React.createElement("span", {
-  className: 'wuerfel w' + s.wuerfel,
-  role: "img",
-  "aria-label": s.name
-}, s.wuerfel) : s.z;
+const W_BILD_BASIS = (() => {
+  try {
+    const src = document.currentScript && document.currentScript.src;
+    return src ? src.replace(/js\/app\.js(\?.*)?$/, '') : '';
+  } catch (e) {
+    return '';
+  }
+})();
+const wZeichen = s => {
+  if (!s) return '·';
+  if (s.bild) return React.createElement("img", {
+    className: "zeichen-bild",
+    src: W_BILD_BASIS + s.bild,
+    alt: s.name,
+    draggable: false,
+    onError: e => {
+      const t = document.createElement('span');
+      t.textContent = s.z;
+      e.currentTarget.replaceWith(t);
+    }
+  });
+  if (s.karte) return React.createElement("span", {
+    className: 'karte karte-' + s.k,
+    role: "img",
+    "aria-label": s.name
+  }, s.karte);
+  return s.z;
+};
 const AUTO_STUFEN = [10, 25, 50, 100];
 const useAutolauf = (bereit, weiter, pause) => {
   const [auto, setAuto] = React.useState(null);
@@ -14792,6 +14815,7 @@ const HUT_SYMBOLE = [{
   k: 'gaukler',
   z: '🤹',
   name: 'Der Gaukler',
+  bild: 'bilder/hut/gaukler.jpg',
   wild: true,
   zahlt: {
     3: 45,
@@ -14802,6 +14826,7 @@ const HUT_SYMBOLE = [{
   k: 'koenig',
   z: '👑',
   name: 'Der König',
+  bild: 'bilder/hut/koenig.jpg',
   zahlt: {
     3: 20,
     4: 60,
@@ -14811,15 +14836,17 @@ const HUT_SYMBOLE = [{
   k: 'prinzessin',
   z: '👸',
   name: 'Die Prinzessin',
+  bild: 'bilder/hut/prinzessin.jpg',
   zahlt: {
     3: 12,
     4: 30,
     5: 100
   }
 }, {
-  k: 'magier',
-  z: '🧙',
-  name: 'Der Hofmagier',
+  k: 'falke',
+  z: '🦅',
+  name: 'Der Falke',
+  bild: 'bilder/hut/falke.jpg',
   zahlt: {
     3: 8,
     4: 20,
@@ -14829,65 +14856,67 @@ const HUT_SYMBOLE = [{
   k: 'ross',
   z: '🐎',
   name: 'Das Streitross',
+  bild: 'bilder/hut/ross.jpg',
   zahlt: {
     3: 8,
     4: 20,
     5: 50
   }
 }, {
-  k: 'eule',
-  z: '🦉',
-  name: 'Die Eule',
+  k: 'hund',
+  z: '🐕',
+  name: 'Der Jagdhund',
+  bild: 'bilder/hut/hund.jpg',
   zahlt: {
     3: 8,
     4: 20,
     5: 50
   }
 }, {
-  k: 'w20',
-  z: '20',
-  name: 'Der W20',
-  wuerfel: 20,
+  k: 'a',
+  z: 'A',
+  name: 'A',
+  karte: 'A',
   zahlt: {
     3: 4,
     4: 10,
     5: 30
   }
 }, {
-  k: 'w12',
-  z: '12',
-  name: 'Der W12',
-  wuerfel: 12,
+  k: 'k',
+  z: 'K',
+  name: 'K',
+  karte: 'K',
   zahlt: {
     3: 4,
     4: 10,
     5: 30
   }
 }, {
-  k: 'w10',
+  k: 'zehn',
   z: '10',
-  name: 'Der W10',
-  wuerfel: 10,
+  name: '10',
+  karte: '10',
   zahlt: {
     3: 2,
     4: 8,
     5: 25
   }
 }, {
-  k: 'w8',
-  z: '8',
-  name: 'Der W8',
-  wuerfel: 8,
+  k: 'j',
+  z: 'J',
+  name: 'J',
+  karte: 'J',
   zahlt: {
     3: 2,
     4: 8,
     5: 25
   }
 }, {
-  k: 'w6',
-  z: '6',
-  name: 'Der W6',
-  wuerfel: 6,
+  k: 'q',
+  z: 'Q',
+  name: 'Q',
+  karte: 'Q',
   zahlt: {
     3: 2,
     4: 8,
@@ -14897,6 +14926,7 @@ const HUT_SYMBOLE = [{
   k: 'hut',
   z: '🎩',
   name: 'Der Hut',
+  bild: 'bilder/hut/hut.jpg',
   wild: true,
   nurWalze: HUT_WALZE
 }];
@@ -14905,27 +14935,27 @@ const HUT_AUSSEN = {
   gaukler: 3,
   koenig: 2,
   prinzessin: 3,
-  magier: 4,
+  falke: 4,
   ross: 4,
-  eule: 4,
-  w20: 6,
-  w12: 7,
-  w10: 9,
-  w8: 9,
-  w6: 9
+  hund: 4,
+  a: 6,
+  k: 7,
+  zehn: 9,
+  j: 9,
+  q: 9
 };
 const HUT_MITTE = {
   gaukler: 3,
   koenig: 2,
   prinzessin: 3,
-  magier: 4,
+  falke: 4,
   ross: 4,
-  eule: 4,
-  w20: 6,
-  w12: 7,
-  w10: 8,
-  w8: 8,
-  w6: 8,
+  hund: 4,
+  a: 6,
+  k: 7,
+  zehn: 8,
+  j: 8,
+  q: 8,
   hut: 3
 };
 const HUT_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(w === HUT_WALZE ? HUT_MITTE : HUT_AUSSEN, HUT_BANDLAENGE, w * 0.2 + 0.05));
@@ -14989,60 +15019,60 @@ const hutMessen = (symbole, baender, drehungen, zufall) => {
 const HUT_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
-    eule: {
-      3: 0.02918,
-      4: 0.006672,
-      5: 0.003579
+    a: {
+      3: 0.05037,
+      4: 0.01198,
+      5: 0.005263
+    },
+    falke: {
+      3: 0.02922,
+      4: 0.006667,
+      5: 0.003588
     },
     gaukler: {
-      3: 0.02559,
-      4: 0.007117,
-      5: 0.003007
+      3: 0.02556,
+      4: 0.007115,
+      5: 0.002973
+    },
+    hund: {
+      3: 0.02865,
+      4: 0.006437,
+      5: 0.003478
+    },
+    j: {
+      3: 0.09099,
+      4: 0.02447,
+      5: 0.01159
+    },
+    k: {
+      3: 0.06963,
+      4: 0.01853,
+      5: 0.00914
     },
     koenig: {
-      3: 0.01453,
-      4: 0.004179,
-      5: 0.002001
-    },
-    magier: {
-      3: 0.02873,
-      4: 0.006484,
-      5: 0.003454
+      3: 0.01452,
+      4: 0.00415,
+      5: 0.002002
     },
     prinzessin: {
-      3: 0.01824,
-      4: 0.003733,
+      3: 0.01818,
+      4: 0.003774,
       5: 0.001952
     },
+    q: {
+      3: 0.09673,
+      4: 0.02769,
+      5: 0.01399
+    },
     ross: {
-      3: 0.02679,
-      4: 0.00571,
-      5: 0.003032
+      3: 0.02683,
+      4: 0.005757,
+      5: 0.003063
     },
-    w10: {
-      3: 0.0913,
-      4: 0.02437,
-      5: 0.01152
-    },
-    w12: {
-      3: 0.06958,
-      4: 0.0186,
-      5: 0.009116
-    },
-    w20: {
-      3: 0.05055,
-      4: 0.01192,
-      5: 0.005231
-    },
-    w6: {
-      3: 0.09679,
-      4: 0.02767,
-      5: 0.01403
-    },
-    w8: {
-      3: 0.09313,
-      4: 0.02557,
-      5: 0.01242
+    zehn: {
+      3: 0.09316,
+      4: 0.02559,
+      5: 0.01236
     }
   },
   streu: {}

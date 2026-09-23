@@ -20,12 +20,12 @@ const ist = (name, a, b) => {
 const wahr = (name, a) => ist(name, !!a, true);
 
 const S = HUT_SYMBOLE;
-// G Gaukler, K Koenig, P Prinzessin, M Magier, R Ross, E Eule, H Hut.
-// Der Punkt ist Fuellung: je Walze ein anderer Wuerfel, damit keine
-// Kette entsteht, die niemand gemeint hat.
-const KURZ = {G:'gaukler', K:'koenig', P:'prinzessin', M:'magier', R:'ross', E:'eule', H:'hut',
-              a:'w20', b:'w12', c:'w10', d:'w8', e:'w6'};
-const FUELL = ['w6', 'w8', 'w10', 'w12', 'w20'];
+// G Gaukler, K Koenig, P Prinzessin, F Falke, R Ross, E Jagdhund, H Hut.
+// Der Punkt ist Fuellung: je Walze ein anderer Kartenbuchstabe, damit
+// keine Kette entsteht, die niemand gemeint hat.
+const KURZ = {G:'gaukler', K:'koenig', P:'prinzessin', F:'falke', R:'ross', E:'hund', H:'hut',
+              a:'a', b:'k', c:'zehn', d:'j', e:'q'};
+const FUELL = ['q', 'j', 'zehn', 'k', 'a'];
 const F = (s) => s.split('').map((c, i) => c === '.' ? FUELL[i % 5] : KURZ[c]);
 const EIN = 10;      // Gesamteinsatz; der Linieneinsatz ist 1
 // Ein Zufall, der sagt, was er sagen soll.
@@ -43,6 +43,9 @@ wahr('zwei Huete liegen nie im selben Fenster', HUT_BAENDER[2].every((k, i, b) =
   k !== 'hut' || (b[(i + 1) % b.length] !== 'hut' && b[(i + 2) % b.length] !== 'hut')));
 wahr('der Gaukler liegt auf jeder Walze',
   HUT_BAENDER.every(b => b.filter(k => k === 'gaukler').length === 3));
+wahr('jedes gemalte Zeichen hat sein Bild',
+  S.filter(s => !s.karte).every(s => s.bild && fs.existsSync(s.bild)));
+wahr('  … und jeder Buchstabe seine Karte', S.filter(s => /^[a-z]$|^zehn$/.test(s.k)).every(s => s.karte));
 wahr('jedes Zeichen der Tafel liegt irgendwo',
   S.every(s => HUT_BAENDER.some(b => b.includes(s.k))));
 
@@ -55,7 +58,7 @@ ist('auf einer anderen Walze zaehlt er nicht', hutWo(F('H...H' + '.....' + '....
 
 // ── Was er zieht ─────────────────────────────────────────────────
 const feld1 = F('K.H..' + '.E...' + 'G....');
-// Da liegen: Koenig, Eule, und die Wuerfel der Fuellung. Der Gaukler und
+// Da liegen: Koenig, Jagdhund, und die Buchstaben der Fuellung. Der Gaukler und
 // der Hut kommen nicht in Frage.
 const alle = new Set();
 let zwei = 0;
@@ -70,19 +73,19 @@ wahr('er zieht nur, was auf dem Feld liegt',
 wahr('  … nie den Gaukler und nie sich selbst', !alle.has('gaukler') && !alle.has('hut'));
 wahr('  … und nie zweimal dasselbe Bild', !alle.has('DOPPELT'));
 wahr('  … und jedes, das daliegt, kommt einmal dran',
-  ['koenig', 'eule', 'w6', 'w8', 'w12', 'w20'].every(k => alle.has(k)));
+  ['koenig', 'hund', 'q', 'j', 'zehn', 'k', 'a'].every(k => alle.has(k)));
 wahr('zwei Bilder etwa jedes dritte Mal (' + Math.round(zwei / 30) + ' %)',
   Math.abs(zwei / 3000 - HUT_ZWEI) < 0.04);
 
 // Mit einem festen Zufall: 0,9 heisst ein Bild, 0,1 heisst zwei. Die
-// Bilder stehen in der Reihenfolge der Tafel zur Wahl: Koenig, Eule,
-// W20, W12, W8, W6.
+// Bilder stehen in der Reihenfolge der Tafel zur Wahl: Koenig, Jagdhund,
+// A, K, 10, J, Q.
 ist('ein Bild — das erste der Tafel', hutWahl(feld1, S, folge(0.9, 0)), ['koenig']);
-ist('ein Bild — das letzte', hutWahl(feld1, S, folge(0.9, 0.99)), ['w6']);
-ist('zwei Bilder, das zweite aus dem Rest', hutWahl(feld1, S, folge(0.1, 0, 0)), ['koenig', 'eule']);
+ist('ein Bild — das letzte', hutWahl(feld1, S, folge(0.9, 0.99)), ['q']);
+ist('zwei Bilder, das zweite aus dem Rest', hutWahl(feld1, S, folge(0.1, 0, 0)), ['koenig', 'hund']);
 // Die Wahl haengt nicht an den Auszahlungen — sonst stimmte die
 // gemessene Tafel nicht mehr, sobald die Spielleitung eine Zahl aendert.
-const anders = wSymboleAus(S, [{k:'koenig', zahlt:{3:1, 4:1, 5:1}}, {k:'w6', zahlt:{3:99, 4:99, 5:999}}]);
+const anders = wSymboleAus(S, [{k:'koenig', zahlt:{3:1, 4:1, 5:1}}, {k:'q', zahlt:{3:99, 4:99, 5:999}}]);
 ist('eine andere Tafel zieht dasselbe', hutWahl(feld1, anders, folge(0.1, 0.5, 0.5)),
   hutWahl(feld1, S, folge(0.1, 0.5, 0.5)));
 
@@ -91,7 +94,7 @@ const verzaubert = hutZaubern(F('K.H.K' + 'K....' + '..E..'), ['koenig']);
 ist('jeder Koenig auf dem Feld wird zum Gaukler',
   [verzaubert[0], verzaubert[4], verzaubert[5]], ['gaukler', 'gaukler', 'gaukler']);
 ist('  … der Hut bleibt ein Hut', verzaubert[2], 'hut');
-ist('  … und die Eule eine Eule', verzaubert[12], 'eule');
+ist('  … und der Jagdhund ein Jagdhund', verzaubert[12], 'hund');
 ist('nichts gezogen, nichts verwandelt',
   hutZaubern(F('K.H..' + '.....' + '.....'), []), F('K.H..' + '.....' + '.....'));
 
@@ -125,7 +128,7 @@ const verpufft = hutDreh(F('....P' + '..H..' + '.....'), S, EIN, folge(0.9, 0));
 ist('ein Zauber kann auch verpuffen', [verpufft.gezogen, verpufft.gewinn], [['prinzessin'], 0]);
 
 // ── Der Takt ─────────────────────────────────────────────────────
-const z1 = hutZeitplan(['koenig']), z2 = hutZeitplan(['koenig', 'eule']);
+const z1 = hutZeitplan(['koenig']), z2 = hutZeitplan(['koenig', 'hund']);
 wahr('erst wackeln, dann ziehen, dann kippen', z1.wackeln < z1.bild && z1.bild < z1.wandel && z1.wandel < z1.ende);
 wahr('  … und das Wackeln erst nach dem letzten Walzenhalt', z1.wackeln > 1600);
 ist('zwei Bilder dauern ein Bild laenger', z2.ende - z1.ende, HUT_TAKT.bildAbstand);

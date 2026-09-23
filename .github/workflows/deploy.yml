@@ -73,6 +73,9 @@ jobs:
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
           cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
+          # Die Bilder der Automaten (bilder/hut/: Der Hut des Gauklers).
+          mkdir -p deploy/bilder
+          cp -r bilder/. deploy/bilder/
           # Der Abenteuerplaner: eigene Seite, eigenes Buendel. Seine
           # Dateiablage planer-dateien/ legt api.php auf dem Server selbst
           # an; sie steht nicht im Repo und wird hier nie beruehrt.
@@ -117,7 +120,7 @@ jobs:
         if: env.SFTP_HOST != ''
         run: |
           FAIL=0
-          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js"
+          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

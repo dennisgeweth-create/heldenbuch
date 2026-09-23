@@ -465,14 +465,17 @@ So gebaut (Vielfaches des **Linien**einsatzes):
 | 🤹 **Der Gaukler** — Wild, zahlt selbst am meisten | 45 | 125 | 400 |
 | 👑 Der König | 20 | 60 | 200 |
 | 👸 Die Prinzessin | 12 | 30 | 100 |
-| 🧙 🐎 🦉 Hofmagier · Streitross · Eule | 8 | 20 | 50 |
-| W20 · W12 | 4 | 10 | 30 |
-| W10 · W8 · W6 | 2 | 8 | 25 |
+| 🦅 🐎 🐕 Falke · Streitross · Jagdhund | 8 | 20 | 50 |
+| A · K | 4 | 10 | 30 |
+| 10 · J · Q | 2 | 8 | 25 |
 | 🎩 **Der Hut** — nur Walze 3, Wild, zahlt nichts | – | – | – |
 
 Die Form ist die des Vorbilds: der Narr beim Doppelten des Königs,
-darunter eine flache Staffel. Die Kartenzeichen A–10 sind hier Würfel,
-jeder in seiner Form gezeichnet — ein Emoji für „W12" gibt es nicht.
+darunter eine flache Staffel, unten die Kartenbuchstaben. Die Zeichen
+sind seit v5.28 gemalt (`bilder/hut/*.jpg`, 160 px, zusammen rund
+70 KB); die Buchstaben setzt `styles.css` (`.karte`). Bis v5.27 standen
+Emoji da, Hofmagier und Eule statt Falke und Jagdhund, und Würfel statt
+der Buchstaben.
 
 **Der Zauber.** Fällt der Hut, zieht er ein Bild (zwei in einem Drittel
 der Fälle) aus denen, die gerade auf dem Feld liegen — nie den Gaukler,
@@ -481,9 +484,9 @@ Auszahlungen; sonst wäre die gemessene Häufigkeitstafel falsch, sobald
 die Spielleitung eine Zahl verstellt.
 
 **Die Rechnung.** Drei Hüte auf sechzig Plätzen: er kommt jede
-**6,7. Drehung**. Gemessen mit zehn Millionen Drehungen: **96,2 %**,
+**6,7. Drehung**. Gemessen mit zehn Millionen Drehungen: **96,1 %**,
 Gewinn in 38 % der Drehungen. Ohne den Zauber zahlten dieselben Bänder
-26,7 % — der Hut trägt gut **zwei Drittel** der Quote. Das ist mehr als
+26,6 % — der Hut trägt gut **zwei Drittel** der Quote. Das ist mehr als
 die Freispielrunden der anderen drei (gut die Hälfte), und liegt an der
 Regel selbst: jedes Zeichen eines Bildes zu verwandeln ist stark. Mehr
 Gaukler auf die Bänder und mehr niedrige Würfel heben die Trefferquote

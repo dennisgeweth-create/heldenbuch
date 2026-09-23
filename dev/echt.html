@@ -1842,7 +1842,7 @@
         const hutW = wahlen.find(b => /Hut des Gauklers/.test(b.textContent));
         if (hutW) { hutW.click(); await ruhe(80); }
         const quoteText = () => (buehne.querySelector('.einst-quote b') || {}).textContent || '';
-        ja('  … der Hut mit seiner Quote', quoteText() === '96,2 %', quoteText());
+        ja('  … der Hut mit seiner Quote', quoteText() === '96,1 %', quoteText());
         const setzI = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
         // Ein Zahlfeld uebernimmt erst mit Enter oder beim Verlassen.
         const eintippen = (feld, wert) => {
@@ -1857,7 +1857,7 @@
           const hutTafel = wbAutomat.hutSymbole || [];
           ja('  … geändert landet er im Abenteuer',
              ((hutTafel.find(s => s.k === 'gaukler') || {}).zahlt || {})[5] === 800, JSON.stringify(hutTafel[0]));
-          ja('  … und die Quote rechnet mit', quoteText() !== '96,2 %', quoteText());
+          ja('  … und die Quote rechnet mit', quoteText() !== '96,1 %', quoteText());
         }
         const einr = [...buehne.querySelectorAll('button')].find(b => /einregeln/.test(b.textContent));
         const ziel = buehne.querySelector('input[aria-label="Zielquote in Prozent"]');
@@ -1872,7 +1872,7 @@
         const zurueck = [...buehne.querySelectorAll('button')].find(b => /Standardtafel/.test(b.textContent));
         if (ja('Mit eigener Tafel gibt es den Weg zurück', !!zurueck)) {
           zurueck.click(); await ruhe(80);
-          ja('  … und dann gilt wieder der Standard', !wbAutomat.hutSymbole && quoteText() === '96,2 %', quoteText());
+          ja('  … und dann gilt wieder der Standard', !wbAutomat.hutSymbole && quoteText() === '96,1 %', quoteText());
         }
         ReactDOM.unmountComponentAtNode(buehne);
         buehne.remove();

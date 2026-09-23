@@ -473,12 +473,31 @@ const useLinienWechsel = (treffer) => {
   return i;
 };
 
-// Wie ein Zeichen aussieht. Meist ist es sein Bild; ein Wuerfel des
-// Gauklerhuts ist eine Form mit seiner Augenzahl darin, denn ein Emoji
-// fuer „W12" gibt es nicht.
-const wZeichen = (s) => !s ? '·' : s.wuerfel
-  ? <span className={'wuerfel w' + s.wuerfel} role="img" aria-label={s.name}>{s.wuerfel}</span>
-  : s.z;
+// Wo die Bilder der Automaten liegen: neben js/, gleich von welcher
+// Seite aus die Anwendung geladen wurde — der Heldenbuchseite, der
+// Vorfuehrung oder einer Werkbank in dev/. Gelesen einmal beim Laden,
+// solange das Skript noch weiss, woher es kam.
+const W_BILD_BASIS = (() => {
+  try {
+    const src = document.currentScript && document.currentScript.src;
+    return src ? src.replace(/js\/app\.js(\?.*)?$/, '') : '';
+  } catch (e) { return ''; }
+})();
+
+// Wie ein Zeichen aussieht: ein gemaltes Bild, wenn es eines hat (der
+// Hut des Gauklers), ein Kartenbuchstabe in seinem Rahmen, oder sein
+// Emoji. Das Emoji bleibt auch beim Bild stehen — als Ersatz, falls das
+// Bild nicht laedt, und fuer alles, was nur Text zeigt.
+const wZeichen = (s) => {
+  if (!s) return '·';
+  if (s.bild) return (
+    <img className="zeichen-bild" src={W_BILD_BASIS + s.bild} alt={s.name} draggable={false}
+      onError={e => { const t = document.createElement('span'); t.textContent = s.z;
+                      e.currentTarget.replaceWith(t); }} />
+  );
+  if (s.karte) return <span className={'karte karte-' + s.k} role="img" aria-label={s.name}>{s.karte}</span>;
+  return s.z;
+};
 
 // ── Der Autolauf ─────────────────────────────────────────────────
 // So viele Drehungen, wie gewaehlt, eine nach der anderen. Der Tisch

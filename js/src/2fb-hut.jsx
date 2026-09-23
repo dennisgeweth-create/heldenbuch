@@ -29,27 +29,27 @@ const HUT_ZWEI = 1 / 3;
 // ── Die Tafel ────────────────────────────────────────────────────
 // Vielfache des LINIENeinsatzes; der ist ein Zehntel dessen, was auf der
 // Leiste steht. Die Form ist die des Vorbilds: der Gaukler oben mit dem
-// Doppelten des Koenigs, darunter eine flache Staffel. Die niedrigen
-// Zeichen sind Wuerfel, wie sie auf jedem Spieltisch liegen — der W20
-// oben, der W6 unten.
+// Doppelten des Koenigs, darunter eine flache Staffel, und unten die
+// Kartenbuchstaben — A und K ueber 10, J und Q.
 //
-// Die Zahlen sind auf 96 % gestreckt; die Form hat die Tafel des
-// Vorbilds, der Betrag die Messung (unten).
+// Die Zeichen sind gemalt (bilder/hut/), die Buchstaben gesetzt. Das
+// Emoji bleibt als Ersatz, falls ein Bild nicht laedt.
 const HUT_SYMBOLE = [
-  {k:'gaukler',    z:'🤹', name:'Der Gaukler', wild:true, zahlt:{3:45, 4:125, 5:400}},
-  {k:'koenig',     z:'👑', name:'Der König',               zahlt:{3:20, 4:60, 5:200}},
-  {k:'prinzessin', z:'👸', name:'Die Prinzessin',          zahlt:{3:12, 4:30, 5:100}},
-  {k:'magier',     z:'🧙', name:'Der Hofmagier',           zahlt:{3:8, 4:20, 5:50}},
-  {k:'ross',       z:'🐎', name:'Das Streitross',          zahlt:{3:8, 4:20, 5:50}},
-  {k:'eule',       z:'🦉', name:'Die Eule',                zahlt:{3:8, 4:20, 5:50}},
-  {k:'w20',        z:'20', name:'Der W20', wuerfel:20,     zahlt:{3:4, 4:10, 5:30}},
-  {k:'w12',        z:'12', name:'Der W12', wuerfel:12,     zahlt:{3:4, 4:10, 5:30}},
-  {k:'w10',        z:'10', name:'Der W10', wuerfel:10,     zahlt:{3:2, 4:8, 5:25}},
-  {k:'w8',         z:'8',  name:'Der W8',  wuerfel:8,      zahlt:{3:2, 4:8, 5:25}},
-  {k:'w6',         z:'6',  name:'Der W6',  wuerfel:6,      zahlt:{3:2, 4:8, 5:25}},
+  {k:'gaukler',    z:'🤹', name:'Der Gaukler',    bild:'bilder/hut/gaukler.jpg', wild:true,
+   zahlt:{3:45, 4:125, 5:400}},
+  {k:'koenig',     z:'👑', name:'Der König',      bild:'bilder/hut/koenig.jpg',  zahlt:{3:20, 4:60, 5:200}},
+  {k:'prinzessin', z:'👸', name:'Die Prinzessin', bild:'bilder/hut/prinzessin.jpg', zahlt:{3:12, 4:30, 5:100}},
+  {k:'falke',      z:'🦅', name:'Der Falke',      bild:'bilder/hut/falke.jpg',   zahlt:{3:8, 4:20, 5:50}},
+  {k:'ross',       z:'🐎', name:'Das Streitross', bild:'bilder/hut/ross.jpg',    zahlt:{3:8, 4:20, 5:50}},
+  {k:'hund',       z:'🐕', name:'Der Jagdhund',   bild:'bilder/hut/hund.jpg',    zahlt:{3:8, 4:20, 5:50}},
+  {k:'a',          z:'A',  name:'A',  karte:'A',  zahlt:{3:4, 4:10, 5:30}},
+  {k:'k',          z:'K',  name:'K',  karte:'K',  zahlt:{3:4, 4:10, 5:30}},
+  {k:'zehn',       z:'10', name:'10', karte:'10', zahlt:{3:2, 4:8, 5:25}},
+  {k:'j',          z:'J',  name:'J',  karte:'J',  zahlt:{3:2, 4:8, 5:25}},
+  {k:'q',          z:'Q',  name:'Q',  karte:'Q',  zahlt:{3:2, 4:8, 5:25}},
   // Der Hut ersetzt jedes Zeichen, zahlt aber selbst nichts — er ist der
   // Anlass, nicht der Gewinn.
-  {k:'hut',        z:'🎩', name:'Der Hut', wild:true, nurWalze:HUT_WALZE},
+  {k:'hut',        z:'🎩', name:'Der Hut', bild:'bilder/hut/hut.jpg', wild:true, nurWalze:HUT_WALZE},
 ];
 
 // ── Die Baender ──────────────────────────────────────────────────
@@ -58,12 +58,12 @@ const HUT_SYMBOLE = [
 // Fenster, und er zeigt sich etwa jede siebte Drehung (3 × 3 / 60).
 const HUT_BANDLAENGE = 60;
 const HUT_AUSSEN = {
-  gaukler: 3, koenig: 2, prinzessin: 3, magier: 4, ross: 4, eule: 4,
-  w20: 6, w12: 7, w10: 9, w8: 9, w6: 9,
+  gaukler: 3, koenig: 2, prinzessin: 3, falke: 4, ross: 4, hund: 4,
+  a: 6, k: 7, zehn: 9, j: 9, q: 9,
 };
 const HUT_MITTE = {
-  gaukler: 3, koenig: 2, prinzessin: 3, magier: 4, ross: 4, eule: 4,
-  w20: 6, w12: 7, w10: 8, w8: 8, w6: 8, hut: 3,
+  gaukler: 3, koenig: 2, prinzessin: 3, falke: 4, ross: 4, hund: 4,
+  a: 6, k: 7, zehn: 8, j: 8, q: 8, hut: 3,
 };
 const HUT_BAENDER = [0, 1, 2, 3, 4].map(w => wBandAusAnzahlen(
   w === HUT_WALZE ? HUT_MITTE : HUT_AUSSEN, HUT_BANDLAENGE, w * 0.2 + 0.05));
@@ -147,23 +147,23 @@ const hutMessen = (symbole, baender, drehungen, zufall) => {
 // muss neu messen — wer die Auszahlungen aendert, nicht.
 // Gemessen mit 10.000.000 stillen Drehungen; die Zahlen sind Treffer je
 // Drehung. Der Hut kam jede 6,7. Drehung, und in einem Drittel davon zog
-// er zwei Bilder. Ohne ihn zahlten dieselben Baender 26,7 % — der Hut
+// er zwei Bilder. Ohne ihn zahlten dieselben Baender 26,6 % — der Hut
 // traegt also gut zwei Drittel der Quote, so wie bei den anderen dreien
 // die Freispielrunde fast die Haelfte.
 const HUT_HAEUFIGKEIT = {
   drehungen: 1,
   linie: {
-    eule: {3:0.02918, 4:0.006672, 5:0.003579},
-    gaukler: {3:0.02559, 4:0.007117, 5:0.003007},
-    koenig: {3:0.01453, 4:0.004179, 5:0.002001},
-    magier: {3:0.02873, 4:0.006484, 5:0.003454},
-    prinzessin: {3:0.01824, 4:0.003733, 5:0.001952},
-    ross: {3:0.02679, 4:0.00571, 5:0.003032},
-    w10: {3:0.0913, 4:0.02437, 5:0.01152},
-    w12: {3:0.06958, 4:0.0186, 5:0.009116},
-    w20: {3:0.05055, 4:0.01192, 5:0.005231},
-    w6: {3:0.09679, 4:0.02767, 5:0.01403},
-    w8: {3:0.09313, 4:0.02557, 5:0.01242},
+    a: {3:0.05037, 4:0.01198, 5:0.005263},
+    falke: {3:0.02922, 4:0.006667, 5:0.003588},
+    gaukler: {3:0.02556, 4:0.007115, 5:0.002973},
+    hund: {3:0.02865, 4:0.006437, 5:0.003478},
+    j: {3:0.09099, 4:0.02447, 5:0.01159},
+    k: {3:0.06963, 4:0.01853, 5:0.00914},
+    koenig: {3:0.01452, 4:0.00415, 5:0.002002},
+    prinzessin: {3:0.01818, 4:0.003774, 5:0.001952},
+    q: {3:0.09673, 4:0.02769, 5:0.01399},
+    ross: {3:0.02683, 4:0.005757, 5:0.003063},
+    zehn: {3:0.09316, 4:0.02559, 5:0.01236},
   },
   streu: {},
 };

@@ -1,5 +1,20 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.28.0
+
+### Der Hut des Gauklers bekommt seine Bilder
+
+Die Zeichen sind jetzt **gemalt**: Joker, Hut, König, Prinzessin, Falke,
+Pferd und Jagdhund — auch in der Auszahlungstafel und in dem, was aus
+dem Hut steigt.
+
+- **Falke und Jagdhund** ersetzen Hofmagier und Eule, wie auf dem
+  Entwurf. Die Auszahlungen bleiben dieselben.
+- Die Würfel sind den **Kartenbuchstaben A, K, 10, J und Q** gewichen —
+  farbig, gold gerandet, im goldenen Rahmen, die Q mit ihrer Krone.
+- Die Quote bleibt bei **96,1 %** (neu gemessen, zehn Millionen
+  Drehungen — die Walzen sind dieselben geblieben).
+
 ## v5.27.0
 
 ### Der Gewinn kommt, wenn die Walzen stehen
