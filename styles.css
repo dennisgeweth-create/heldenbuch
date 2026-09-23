@@ -4152,6 +4152,15 @@
     user-select:none; }
   .walzen-tabelle .sym .zeichen-bild, .einst-walzentafel .zeichen .zeichen-bild {
     width:1.7em; height:1.7em; border-radius:4px; }
+  /* Freigestellte Bilder (das Dreifache Glück): ohne Rahmen, dafür ein
+     weicher Schatten, damit die Frucht auf dem dunklen Grund liegt. */
+  .zeichen-bild.frei { object-fit:contain; border-radius:0; box-shadow:none;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.55)); }
+  .automat-zelle .zeichen-bild { width:2.3em; height:2.3em; }
+  .automat-tabelle .sym .zeichen-bild { display:inline-block; vertical-align:middle;
+    width:1.25em; height:1.25em; }
+  .einst-automat .zeichen .zeichen-bild { width:1.7em; height:1.7em; }
+
   /* Die Kartenbuchstaben: farbig, gold gerandet, auf dunklem Grund im
      goldenen Rahmen — wie die gemalten Zeichen daneben. */
   .karte { display:inline-flex; align-items:center; justify-content:center;

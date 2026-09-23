@@ -2,8 +2,8 @@
 //
 // Im Ablauf nach dem Vorbild klassischer Dreiwalzer gebaut: 3×3 Felder,
 // fünf feste Linien (die drei Reihen und die beiden Diagonalen), Gewinn
-// ist immer drei gleiche Symbole auf einer Linie. Name, Symbole und
-// Aussehen sind eigene — nachgebaut wird der Ablauf, nicht die Aufmachung.
+// ist immer drei gleiche Symbole auf einer Linie. Seit v5.29 mit den
+// Zeichen eines klassischen Früchteautomaten, gemalt (bilder/glueck/).
 //
 // Die Marken liegen im Geraet, nicht am Server und nicht am Charakter:
 // das hier ist Zeitvertreib, kein Teil der Kampagnenwirtschaft. Kein
@@ -17,16 +17,22 @@ const MARKEN_START = 200;
 // Gewicht steuert, wie oft ein Symbol faellt; zahlt ist das Vielfache des
 // Einsatzes bei drei gleichen auf einer Linie. Beides zusammen ergibt die
 // Quote, und die rechnet automatQuote() aus — geraten wird hier nichts.
+//
+// Die vier Fruechte zaehlen fuers Vollbild (`speise` — der Name stammt
+// aus der Zeit, als hier Krug, Kaese, Keule und Apfel lagen). Die Sonne
+// bringt den Freidreh, die Sieben zahlt am meisten. Die Zahlen sind auf
+// dieselbe Quote gestreckt wie die alte Tafel: 89,5 % statt 88,9 %.
+// Das Emoji bleibt als Ersatz, falls ein Bild nicht laedt.
+const AUTOMAT_BILD = 'bilder/glueck/';
 const AUTOMAT_STANDARD = [
-  {k:'ratte',  z:'🐀', name:'Ratte',        gewicht:40, zahlt:1},
-  {k:'krug',   z:'🍺', name:'Krug',         gewicht:30, zahlt:2.5, speise:true},
-  {k:'kaese',  z:'🧀', name:'Käse',         gewicht:22, zahlt:4,   speise:true},
-  {k:'keule',  z:'🍗', name:'Keule',        gewicht:14, zahlt:8,   speise:true},
-  {k:'apfel',  z:'🍎', name:'Apfel',        gewicht:9,  zahlt:17,  speise:true},
-  {k:'muenze', z:'🪙', name:'Glücksmünze',  gewicht:6,  zahlt:22,  freidreh:true},
-  {k:'kelch',  z:'🏺', name:'Kelch',        gewicht:4,  zahlt:45},
-  {k:'rubin',  z:'💠', name:'Rubin',        gewicht:3,  zahlt:85},
-  {k:'drache', z:'🐉', name:'Drachenauge',  gewicht:2,  zahlt:225},
+  {k:'kirsche', z:'🍒', name:'Kirsche', bild:AUTOMAT_BILD + 'kirsche.png', frei:true, gewicht:40, zahlt:1.2, speise:true},
+  {k:'zitrone', z:'🍋', name:'Zitrone', bild:AUTOMAT_BILD + 'zitrone.png', frei:true, gewicht:30, zahlt:3,   speise:true},
+  {k:'orange',  z:'🍊', name:'Orange',  bild:AUTOMAT_BILD + 'orange.png',  frei:true, gewicht:22, zahlt:4.8, speise:true},
+  {k:'pflaume', z:'🟣', name:'Pflaume', bild:AUTOMAT_BILD + 'pflaume.png', frei:true, gewicht:14, zahlt:10,  speise:true},
+  {k:'glocke',  z:'🔔', name:'Glocke',  bild:AUTOMAT_BILD + 'glocke.png',  frei:true, gewicht:9,  zahlt:25},
+  {k:'sonne',   z:'☀️', name:'Sonne',   bild:AUTOMAT_BILD + 'sonne.png',   frei:true, gewicht:6,  zahlt:25,  freidreh:true},
+  {k:'diamant', z:'💎', name:'Diamant', bild:AUTOMAT_BILD + 'diamant.png', frei:true, gewicht:4,  zahlt:70},
+  {k:'sieben',  z:'77', name:'Sieben',  bild:AUTOMAT_BILD + 'sieben.png',  frei:true, gewicht:2,  zahlt:250},
 ];
 
 // Die fuenf Linien auf dem Feld 0..8 (oben links nach unten rechts).
@@ -62,12 +68,12 @@ const automatEinsaetze = (cfg) => {
   return gefiltert.length ? gefiltert : [leiter[0]];
 };
 // ── Das Vollbild ─────────────────────────────────────────────────
-// Neun gleiche Speisen — das Bonusspiel des Automaten. Von allein faellt
+// Neun gleiche Fruechte — das Bonusspiel des Automaten. Von allein faellt
 // das so gut wie nie (die Wahrscheinlichkeit hoch neun: beim Krug einmal
 // in zweihundertfuenfzigtausend Drehungen), und ein Bonus, den niemand je
 // zu sehen bekommt, ist keiner. Deshalb wird es gezogen: mit einer
 // eingestellten Haeufigkeit legt der Automat statt neun einzelner Symbole
-// ein volles Bild. Welche Speise, entscheidet ihre Haeufigkeit — der Krug
+// ein volles Bild. Welche Frucht, entscheidet ihre Haeufigkeit — die Kirsche
 // oft, der Apfel selten.
 //
 // Was das kostet, steht in der Quote und wird dort auch verrechnet: ein
@@ -124,7 +130,7 @@ const automatRechnung = (symbole, vollbildP) => {
     voll += q * 5 * (+x.zahlt || 0) * (1 + RAD_ERWARTUNG);
     if (x.freidreh) vollFrei += q;
   });
-  // Ohne Speisen auf den Walzen gibt es nichts zu ziehen.
+  // Ohne Fruechte auf den Walzen gibt es nichts zu ziehen.
   const v = gs ? Math.max(0, Math.min(1, +vollbildP || 0)) : 0;
 
   const pFrei = Math.min(0.5, AUTOMAT_LINIEN.length * freidrehP);
@@ -139,7 +145,7 @@ const automatQuote = (symbole, vollbildP) => automatRechnung(symbole, vollbildP)
 // verschiebt es wieder ein wenig, und deshalb steht danach die erreichte
 // Zahl da und nicht die gewuenschte.
 // Fein genug runden, damit die Zahl am Ende stimmt. Ganze Zahlen waren zu
-// grob: die Ratte faellt so oft, dass ihre Auszahlung ein Drittel der
+// grob: die Kirsche faellt so oft, dass ihre Auszahlung ein Drittel der
 // ganzen Quote traegt — eine halbe Stelle mehr oder weniger verschob das
 // Ziel um mehrere Prozentpunkte. Deshalb feiner, wo es haeufig ist, und
 // glatt, wo die Zahlen ohnehin gross sind.
@@ -192,7 +198,7 @@ const werteAus = (feld, einsatz, liste) => {
     if (sym.freidreh) freidreh = true;
     treffer.push({nr: i, name: linie.name, felder: linie.felder, sym, betrag});
   });
-  // Ein Vollbild aus Speisen — das Rad dazu kommt in Stufe 4.
+  // Ein Vollbild aus Fruechten — das Rad dazu kommt in Stufe 4.
   const erstes = feld[0];
   const vollbild = feld.every(x => x === erstes) && !!symbolVon(erstes, liste).speise;
   return {gewinn, treffer, freidreh, vollbild};
@@ -498,7 +504,7 @@ const bandBauen = (feld, spalte, liste) => {
 };
 
 // ── Das Rad der Fortuna ──────────────────────────────────────────
-// Ein Vollbild aus Speisen oeffnet das Rad: vier Felder, drei gruene und
+// Ein Vollbild aus Fruechten oeffnet das Rad: vier Felder, drei gruene und
 // ein rotes. Jedes gruene zahlt den Vollbildgewinn noch einmal, das rote
 // beendet es, hoechstens dreimal. Daher der Name des Automaten.
 //
@@ -691,11 +697,11 @@ const AutomatTisch = ({ cfg, marken, setMarken, zahlen, onLaeuft }) => {
   const vollbildP    = React.useMemo(() => automatVollbildP(cfg), [cfg]);
   const vollbildEins = React.useMemo(() => automatVollbildEins(cfg), [cfg]);
   const [einsatz, setEinsatz] = React.useState(10);
-  const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
+  const [feld, setFeld] = React.useState(() => Array(9).fill('kirsche'));
   const [ergebnis, setErgebnis] = React.useState(null);   // {gewinn, treffer, …}
   const [freidrehe, setFreidrehe] = React.useState(0);
   const [tafelOffen, setTafelOffen] = React.useState(false);
-  const [baender, setBaender] = React.useState(() => [0,1,2].map(() => Array(WALZEN_BAND).fill('ratte')));
+  const [baender, setBaender] = React.useState(() => [0,1,2].map(() => Array(WALZEN_BAND).fill('kirsche')));
   const [dreh, setDreh] = React.useState(0);        // erzwingt den Neustart der Animation
   const [laeuft, setLaeuft] = React.useState(false);
   const [zeigeLinie, setZeigeLinie] = React.useState(-1);  // -1 = alle
@@ -974,7 +980,7 @@ const AutomatTisch = ({ cfg, marken, setMarken, zahlen, onLaeuft }) => {
                     const feldNr = reihe >= 0 ? reihe * 3 + spalte : -1;
                     return (
                       <div className={'automat-zelle' + (leuchtet.has(feldNr) ? ' treffer' : '')} key={i}>
-                        <span>{symbolVon(k, symbole).z}</span>
+                        <span>{wZeichen(symbolVon(k, symbole))}</span>
                       </div>
                     );
                   })}
@@ -1053,7 +1059,7 @@ const AutomatTisch = ({ cfg, marken, setMarken, zahlen, onLaeuft }) => {
                 <tbody>
                   {[...symbole].reverse().map(s => (
                     <tr key={s.k}>
-                      <td className="sym">{s.z}{s.z}{s.z}</td>
+                      <td className="sym">{wZeichen(s)}{wZeichen(s)}{wZeichen(s)}</td>
                       <td className="nam">
                         {s.name}
                         {s.freidreh && <i>bringt einen Freidreh</i>}
@@ -1071,7 +1077,7 @@ const AutomatTisch = ({ cfg, marken, setMarken, zahlen, onLaeuft }) => {
                 gerechnet, nicht geschätzt.
               </p>
               <p className="automat-fussnote">
-                <b>Vollbild</b> — alle neun Felder dieselbe Speise: fünf Linien
+                <b>Vollbild</b> — alle neun Felder dieselbe Frucht: fünf Linien
                 auf einmal und danach das Rad der Fortuna.{' '}
                 {vollbildEins
                   ? 'Etwa jede ' + vollbildEins + '. Drehung.'

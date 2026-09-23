@@ -485,13 +485,15 @@ const W_BILD_BASIS = (() => {
 })();
 
 // Wie ein Zeichen aussieht: ein gemaltes Bild, wenn es eines hat (der
-// Hut des Gauklers), ein Kartenbuchstabe in seinem Rahmen, oder sein
+// Hut des Gauklers, das Dreifache Glueck — dort freigestellt, `frei`),
+// ein Kartenbuchstabe in seinem Rahmen, oder sein
 // Emoji. Das Emoji bleibt auch beim Bild stehen — als Ersatz, falls das
 // Bild nicht laedt, und fuer alles, was nur Text zeigt.
 const wZeichen = (s) => {
   if (!s) return '·';
   if (s.bild) return (
-    <img className="zeichen-bild" src={W_BILD_BASIS + s.bild} alt={s.name} draggable={false}
+    <img className={'zeichen-bild' + (s.frei ? ' frei' : '')} src={W_BILD_BASIS + s.bild}
+      alt={s.name} draggable={false}
       onError={e => { const t = document.createElement('span'); t.textContent = s.z;
                       e.currentTarget.replaceWith(t); }} />
   );

@@ -405,7 +405,7 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
               </select>
             </div>
             <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
-              Neun gleiche Speisen: fünf Linien auf einmal und danach das Rad
+              Neun gleiche Früchte: fünf Linien auf einmal und danach das Rad
               der Fortuna — das Bonusspiel des Automaten. Von allein fällt das
               praktisch nie, deshalb wird es gezogen.{' '}
               {autoVoll ? (
@@ -428,7 +428,7 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                 <tbody>
                   {autoSym.map((sym, i) => (
                     <tr key={sym.k}>
-                      <td className="zeichen">{sym.z}</td>
+                      <td className="zeichen">{wZeichen(sym)}</td>
                       <td className="name">{sym.name}</td>
                       <td>
                         <ZahlFeld className="form-input" min={0} max={999}

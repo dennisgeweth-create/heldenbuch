@@ -46,7 +46,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `js/util.js` | reine Hilfsfunktionen ohne React |
 | `js/zip.js` | ZIP schreiben und lesen im Browser — von **beiden** Seiten geladen (Heldenbuch und Planer); keine Bibliothek |
 | `styles.css` | gesamte Oberfläche |
-| `bilder/` | Bilder der Automaten (`bilder/hut/`: Der Hut des Gauklers) — der Deploy kopiert den ganzen Ordner |
+| `bilder/` | Bilder der Automaten (`bilder/hut/`: Der Hut des Gauklers, `bilder/glueck/`: Dreifaches Glück, freigestellt als PNG) — der Deploy kopiert den ganzen Ordner |
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
 | ↳ `data-merkmale.json` | Klassen- **und Unterklassenmerkmale** Stufe 1–20 (SRD 5.1); der Aufstieg lädt sie beim Öffnen |
 | `planer/` | **Abenteuerplaner** — eigene Seite mit eigenem Bündel, gleiche Anmeldung und `api.php`. Konzept, Rechte, Paketformat und Stufen: `PLANER.md` |

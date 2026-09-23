@@ -73,7 +73,8 @@ jobs:
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
           cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
-          # Die Bilder der Automaten (bilder/hut/: Der Hut des Gauklers).
+          # Die Bilder der Automaten (bilder/hut/: Der Hut des Gauklers,
+          # bilder/glueck/: Dreifaches Glück).
           mkdir -p deploy/bilder
           cp -r bilder/. deploy/bilder/
           # Der Abenteuerplaner: eigene Seite, eigenes Buendel. Seine
@@ -120,7 +121,7 @@ jobs:
         if: env.SFTP_HOST != ''
         run: |
           FAIL=0
-          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg"
+          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg bilder/glueck/sonne.png bilder/glueck/sieben.png"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

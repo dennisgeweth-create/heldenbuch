@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.28.0';
+const HB_VERSION = 'v5.29.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -8385,7 +8385,7 @@ const AbenteuerEinstellungen = ({
       marginTop: 0,
       marginBottom: 10
     }
-  }, "Neun gleiche Speisen: f\xFCnf Linien auf einmal und danach das Rad der Fortuna \u2014 das Bonusspiel des Automaten. Von allein f\xE4llt das praktisch nie, deshalb wird es gezogen.", ' ', autoVoll ? React.createElement("b", null, "Davon kommen ", (rechnung.bonus * 100).toFixed(0), " % der Quote.") : React.createElement("b", null, "Ohne Vollbild liegt die ganze Quote auf den Linien."), ' ', "H\xE4ufiger hei\xDFt kleinere Linien: nach dem Umstellen wieder einregeln, dann stimmen die Auszahlungen dazu.", rechnung.quote > 1.05 && React.createElement("b", {
+  }, "Neun gleiche Fr\xFCchte: f\xFCnf Linien auf einmal und danach das Rad der Fortuna \u2014 das Bonusspiel des Automaten. Von allein f\xE4llt das praktisch nie, deshalb wird es gezogen.", ' ', autoVoll ? React.createElement("b", null, "Davon kommen ", (rechnung.bonus * 100).toFixed(0), " % der Quote.") : React.createElement("b", null, "Ohne Vollbild liegt die ganze Quote auf den Linien."), ' ', "H\xE4ufiger hei\xDFt kleinere Linien: nach dem Umstellen wieder einregeln, dann stimmen die Auszahlungen dazu.", rechnung.quote > 1.05 && React.createElement("b", {
     className: "einst-warnung"
   }, " \xDCber 100 % \u2014 auf Dauer zahlt das Haus drauf.")), React.createElement("div", {
     className: "tabellenhuelle"
@@ -8397,7 +8397,7 @@ const AbenteuerEinstellungen = ({
     key: sym.k
   }, React.createElement("td", {
     className: "zeichen"
-  }, sym.z), React.createElement("td", {
+  }, wZeichen(sym)), React.createElement("td", {
     className: "name"
   }, sym.name), React.createElement("td", null, React.createElement(ZahlFeld, {
     className: "form-input",
@@ -8600,65 +8600,76 @@ const AbenteuerEinstellungen = ({
 // ==== js/src/2f-automat.jsx ====
 const AUTOMAT_SPEICHER = 'hb_automat';
 const MARKEN_START = 200;
+const AUTOMAT_BILD = 'bilder/glueck/';
 const AUTOMAT_STANDARD = [{
-  k: 'ratte',
-  z: '🐀',
-  name: 'Ratte',
+  k: 'kirsche',
+  z: '🍒',
+  name: 'Kirsche',
+  bild: AUTOMAT_BILD + 'kirsche.png',
+  frei: true,
   gewicht: 40,
-  zahlt: 1
+  zahlt: 1.2,
+  speise: true
 }, {
-  k: 'krug',
-  z: '🍺',
-  name: 'Krug',
+  k: 'zitrone',
+  z: '🍋',
+  name: 'Zitrone',
+  bild: AUTOMAT_BILD + 'zitrone.png',
+  frei: true,
   gewicht: 30,
-  zahlt: 2.5,
+  zahlt: 3,
   speise: true
 }, {
-  k: 'kaese',
-  z: '🧀',
-  name: 'Käse',
+  k: 'orange',
+  z: '🍊',
+  name: 'Orange',
+  bild: AUTOMAT_BILD + 'orange.png',
+  frei: true,
   gewicht: 22,
-  zahlt: 4,
+  zahlt: 4.8,
   speise: true
 }, {
-  k: 'keule',
-  z: '🍗',
-  name: 'Keule',
+  k: 'pflaume',
+  z: '🟣',
+  name: 'Pflaume',
+  bild: AUTOMAT_BILD + 'pflaume.png',
+  frei: true,
   gewicht: 14,
-  zahlt: 8,
+  zahlt: 10,
   speise: true
 }, {
-  k: 'apfel',
-  z: '🍎',
-  name: 'Apfel',
+  k: 'glocke',
+  z: '🔔',
+  name: 'Glocke',
+  bild: AUTOMAT_BILD + 'glocke.png',
+  frei: true,
   gewicht: 9,
-  zahlt: 17,
-  speise: true
+  zahlt: 25
 }, {
-  k: 'muenze',
-  z: '🪙',
-  name: 'Glücksmünze',
+  k: 'sonne',
+  z: '☀️',
+  name: 'Sonne',
+  bild: AUTOMAT_BILD + 'sonne.png',
+  frei: true,
   gewicht: 6,
-  zahlt: 22,
+  zahlt: 25,
   freidreh: true
 }, {
-  k: 'kelch',
-  z: '🏺',
-  name: 'Kelch',
+  k: 'diamant',
+  z: '💎',
+  name: 'Diamant',
+  bild: AUTOMAT_BILD + 'diamant.png',
+  frei: true,
   gewicht: 4,
-  zahlt: 45
+  zahlt: 70
 }, {
-  k: 'rubin',
-  z: '💠',
-  name: 'Rubin',
-  gewicht: 3,
-  zahlt: 85
-}, {
-  k: 'drache',
-  z: '🐉',
-  name: 'Drachenauge',
+  k: 'sieben',
+  z: '77',
+  name: 'Sieben',
+  bild: AUTOMAT_BILD + 'sieben.png',
+  frei: true,
   gewicht: 2,
-  zahlt: 225
+  zahlt: 250
 }];
 const AUTOMAT_LINIEN = [{
   name: 'Oben',
@@ -9186,11 +9197,11 @@ const AutomatTisch = ({
   const vollbildP = React.useMemo(() => automatVollbildP(cfg), [cfg]);
   const vollbildEins = React.useMemo(() => automatVollbildEins(cfg), [cfg]);
   const [einsatz, setEinsatz] = React.useState(10);
-  const [feld, setFeld] = React.useState(() => Array(9).fill('ratte'));
+  const [feld, setFeld] = React.useState(() => Array(9).fill('kirsche'));
   const [ergebnis, setErgebnis] = React.useState(null);
   const [freidrehe, setFreidrehe] = React.useState(0);
   const [tafelOffen, setTafelOffen] = React.useState(false);
-  const [baender, setBaender] = React.useState(() => [0, 1, 2].map(() => Array(WALZEN_BAND).fill('ratte')));
+  const [baender, setBaender] = React.useState(() => [0, 1, 2].map(() => Array(WALZEN_BAND).fill('kirsche')));
   const [dreh, setDreh] = React.useState(0);
   const [laeuft, setLaeuft] = React.useState(false);
   const [zeigeLinie, setZeigeLinie] = React.useState(-1);
@@ -9483,7 +9494,7 @@ const AutomatTisch = ({
     return React.createElement("div", {
       className: 'automat-zelle' + (leuchtet.has(feldNr) ? ' treffer' : ''),
       key: i
-    }, React.createElement("span", null, symbolVon(k, symbole).z));
+    }, React.createElement("span", null, wZeichen(symbolVon(k, symbole))));
   }))))), React.createElement("div", {
     className: "automat-meldung",
     "aria-live": "polite"
@@ -9546,7 +9557,7 @@ const AutomatTisch = ({
     key: s.k
   }, React.createElement("td", {
     className: "sym"
-  }, s.z, s.z, s.z), React.createElement("td", {
+  }, wZeichen(s), wZeichen(s), wZeichen(s)), React.createElement("td", {
     className: "nam"
   }, s.name, s.freidreh && React.createElement("i", null, "bringt einen Freidreh"), s.speise && React.createElement("i", null, "z\xE4hlt f\xFCrs Vollbild")), React.createElement("td", {
     className: "zahl"
@@ -9554,7 +9565,7 @@ const AutomatTisch = ({
     className: "automat-fussnote"
   }, "F\xFCnf Linien: die drei Reihen und die beiden Diagonalen. Drei gleiche Symbole auf einer Linie zahlen das Vielfache des Einsatzes. Die Quote ist aus H\xE4ufigkeit und Auszahlung gerechnet, nicht gesch\xE4tzt."), React.createElement("p", {
     className: "automat-fussnote"
-  }, React.createElement("b", null, "Vollbild"), " \u2014 alle neun Felder dieselbe Speise: f\xFCnf Linien auf einmal und danach das Rad der Fortuna.", ' ', vollbildEins ? 'Etwa jede ' + vollbildEins + '. Drehung.' : 'Nur, wenn es von allein fällt — und das tut es so gut wie nie.')))));
+  }, React.createElement("b", null, "Vollbild"), " \u2014 alle neun Felder dieselbe Frucht: f\xFCnf Linien auf einmal und danach das Rad der Fortuna.", ' ', vollbildEins ? 'Etwa jede ' + vollbildEins + '. Drehung.' : 'Nur, wenn es von allein fällt — und das tut es so gut wie nie.')))));
 };
 const TAVERNEN_TISCHE = [{
   k: 'blackjack',
@@ -13278,7 +13289,7 @@ const W_BILD_BASIS = (() => {
 const wZeichen = s => {
   if (!s) return '·';
   if (s.bild) return React.createElement("img", {
-    className: "zeichen-bild",
+    className: 'zeichen-bild' + (s.frei ? ' frei' : ''),
     src: W_BILD_BASIS + s.bild,
     alt: s.name,
     draggable: false,

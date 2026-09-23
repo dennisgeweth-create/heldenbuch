@@ -1,5 +1,22 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.29.0
+
+### Dreifaches Glück: jetzt ein Früchteautomat
+
+Der dreiwalzige Automat hat neue, gemalte Zeichen — die klassischen:
+
+- **Kirsche, Zitrone, Orange und Pflaume** — die vier Früchte zählen
+  fürs Vollbild (neun gleiche, dann das Rad der Fortuna).
+- **Glocke**, **Sonne** (bringt wie bisher die Münze einen Freidreh),
+  **Diamant** und die **77** ganz oben mit dem 250-Fachen.
+- Ratte, Krug, Käse, Keule, Apfel, Münze, Kelch, Rubin und Drachenauge
+  sind in Rente. Aus neun Zeichen wurden acht; die Auszahlungen sind neu
+  gestreckt, die Quote bleibt fast, wo sie war: **89,5 %** statt 88,9 %.
+- Wer die Tafel in den Einstellungen verstellt hatte: die alten Zeichen
+  gibt es nicht mehr, also gilt wieder die Standardtafel — einmal neu
+  einstellen.
+
 ## v5.28.0
 
 ### Der Hut des Gauklers bekommt seine Bilder
