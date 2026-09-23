@@ -316,7 +316,9 @@ const wEinregeln = (symbole, z, ziel) => {
   const strecken = (t) => {
     if (!t) return t;
     const neu = {};
-    Object.keys(t).forEach(n => { neu[n] = wRunden(+t[n] * f); });
+    // Was null zahlt, bleibt null: die Hoerner der Arena oeffnen nur, und
+    // „nie ganz auf null" (wRunden) liesse sie nach dem Einregeln zahlen.
+    Object.keys(t).forEach(n => { neu[n] = +t[n] ? wRunden(+t[n] * f) : 0; });
     return neu;
   };
   return symbole.map(s => ({...s, zahlt: strecken(s.zahlt), streu: strecken(s.streu)}));
@@ -344,6 +346,21 @@ const wSymboleAus = (standard, eig) => {
   return zahltWas ? liste : standard;
 };
 
+// ── Die Tafel in den Einstellungen ───────────────────────────────
+// Eine Zahl aendern. Nur, was die Tafel schon hat: eine Spalte, die das
+// Zeichen nicht kennt, legt die Spielleitung nicht neu an — sonst zahlte
+// der Gaukler ploetzlich fuer zwei, und dafuer gibt es keine Messung.
+const wTafelSetzen = (symbole, k, art, n, wert) => symbole.map(s =>
+  (s.k !== k || !s[art] || !(n in s[art])) ? s
+    : {...s, [art]: {...s[art], [n]: Math.max(0, +wert || 0)}});
+// Was davon im Abenteuer gespeichert wird: Kennung und Zahlen. Name,
+// Zeichen und Rolle kommen immer aus dem Standard (wSymboleAus).
+const wTafelAlsCfg = (symbole) => symbole.filter(s => s.zahlt || s.streu).map(s => ({
+  k: s.k,
+  ...(s.zahlt ? {zahlt: {...s.zahlt}} : {}),
+  ...(s.streu ? {streu: {...s.streu}} : {}),
+}));
+
 // ══ Ende der reinen Rechnung ═══════════════════════════════════════
 // Alles darueber laeuft ohne React und ohne Browser und wird so geprueft.
 
@@ -363,15 +380,16 @@ const wBandBauen = (feld, walze, symbole, zufall) => {
   return [...vorlauf, ...sicht];
 };
 
-// ── Sofort buchen, danach zeigen ─────────────────────────────────
-// Derselbe Grund wie beim bestehenden Automaten, hier noch dringender:
-// eine Freispielrunde sind zehn Laeufe hintereinander. Der Ausgang steht
-// fest, sobald gezogen wurde; der Lauf zeigt ihn nur. Haengt der
-// Zeitgeber im Hintergrund fest — und das darf ein Browser —, stuende
-// der Automat sonst auf „Laeuft…" und die Taste bliebe gesperrt.
+// ── Der Einsatz sofort, der Gewinn beim Halt ─────────────────────
+// Der Ausgang steht fest, sobald gezogen wurde; der Lauf zeigt ihn nur.
+// Gebucht wird der Einsatz beim Hebel, der Gewinn aber erst, wenn die
+// Walzen stehen — bis v5.26 sprang die Kasse sofort, und wer hinsah,
+// wusste vor dem Halt, ob etwas kommt.
 //
-// Deshalb loest jeder Weg auf: der Zeitgeber, das Zurueckkommen zum
-// Fenster, und das Verlassen der Seite.
+// Damit der Gewinn an keinem Zeitgeber haengenbleibt, den der Browser
+// im Hintergrund aufschieben darf, loest jeder Weg auf: der Zeitgeber,
+// das Zurueckkommen zum Fenster, das Verlassen der Seite — und das
+// Verlassen des Tisches.
 const useWalzenLauf = () => {
   const [laeuft, setLaeuft] = React.useState(false);
   const schwebend = React.useRef(null);       // {fertig, faellig}
@@ -399,6 +417,12 @@ const useWalzenLauf = () => {
     return () => {
       document.removeEventListener('visibilitychange', wach);
       if (uhr.current) clearTimeout(uhr.current);
+      // Wer den Tisch mitten im Lauf verlaesst — die Taverne zu, das
+      // Fenster weg —, bekommt seinen Gewinn trotzdem: gebucht wird er
+      // erst beim Halt, und dieser Halt ist jetzt.
+      const s = schwebend.current;
+      schwebend.current = null;
+      if (s) s.fertig();
     };
   }, [aufloesen]);
 
@@ -455,6 +479,54 @@ const useLinienWechsel = (treffer) => {
 const wZeichen = (s) => !s ? '·' : s.wuerfel
   ? <span className={'wuerfel w' + s.wuerfel} role="img" aria-label={s.name}>{s.wuerfel}</span>
   : s.z;
+
+// ── Der Autolauf ─────────────────────────────────────────────────
+// So viele Drehungen, wie gewaehlt, eine nach der anderen. Der Tisch
+// sagt mit `weiter`, was als Naechstes dran ist, und tut es auch: ein
+// Freidreh, das Schliessen einer fertigen Runde, oder ein bezahlter
+// Dreh — Letzteres nur, solange der Autolauf noch welche uebrig hat
+// (`darfZahlen`). Kommt nichts mehr (kein Geld, keine Drehungen), ist
+// Schluss. Freidrehe zaehlen nicht: eine Runde, die im zehnten Dreh
+// aufgeht, wird zu Ende gespielt.
+//
+// `bereit` heisst: nichts laeuft, nichts wartet auf eine Antwort. Erst
+// dann, und nach einer Pause, in der man den Gewinn sieht, kommt der
+// naechste Schritt.
+const AUTO_STUFEN = [10, 25, 50, 100];
+const useAutolauf = (bereit, weiter, pause) => {
+  const [auto, setAuto] = React.useState(null);        // {rest, takt}
+  const weiterRef = React.useRef(weiter);
+  weiterRef.current = weiter;
+  React.useEffect(() => {
+    if (!auto || !bereit) return undefined;
+    const uhr = setTimeout(() => {
+      const art = weiterRef.current(auto.rest > 0);
+      if (!art) { setAuto(null); return; }
+      setAuto(a => a && {rest: a.rest - (art === 'bezahlt' ? 1 : 0), takt: a.takt + 1});
+    }, pause || 500);
+    return () => clearTimeout(uhr);
+  }, [auto, bereit]);
+  return {
+    auto,
+    starten: (n) => setAuto({rest: n, takt: 0}),
+    stoppen: () => setAuto(null),
+  };
+};
+
+// Die Leiste darunter: vier Stufen, und waehrend es laeuft ein Stopp.
+const AutolaufLeiste = ({ lauf, gesperrt }) => (
+  <div className="automat-einsatz automat-auto">
+    <span className="automat-label">Autolauf</span>
+    {lauf.auto ? (
+      <button className="automat-chip aktiv auto-stopp" onClick={lauf.stoppen}>
+        ■ Stopp · {lauf.auto.rest > 0 ? 'noch ' + lauf.auto.rest : 'nur noch Freispiele'}
+      </button>
+    ) : AUTO_STUFEN.map(n => (
+      <button key={n} className="automat-chip" disabled={gesperrt}
+        onClick={() => lauf.starten(n)}>{n}×</button>
+    ))}
+  </div>
+);
 
 // ── Der Schirm ───────────────────────────────────────────────────
 // Fuenf Walzen mit je einem Fenster von drei Zellen. Das Band ist 16

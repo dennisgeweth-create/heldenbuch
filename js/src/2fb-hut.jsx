@@ -221,9 +221,9 @@ const HutTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     const e = hutDreh(wZiehen(HUT_BAENDER, Math.random), symbole, einsatz, Math.random);
     const gewinn = Math.round(e.gewinn);
 
-    // Sofort buchen, danach zeigen — der Ausgang steht fest, sobald
-    // gezogen wurde, und der Zauber ist nur noch sein Bild.
-    zahlen(-einsatz + gewinn);
+    // Der Einsatz geht sofort, der Gewinn beim Halt (useWalzenLauf) —
+    // sonst verriete die Kasse den Ausgang, bevor die Walzen stehen.
+    zahlen(-einsatz);
 
     setBaender([0,1,2,3,4].map(w => wBandBauen(e.feld, w, vorlauf[w], Math.random)));
     setErgebnis(null); setRiskierbar(0); setRisiko(null);
@@ -232,10 +232,20 @@ const HutTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
 
     // Mit Hut dauert der Lauf, bis das letzte Feld umgekippt ist.
     starten(() => {
+      zahlen(gewinn);
       setErgebnis({...e, gewinn});
       setRiskierbar(gewinn);
     }, e.hut >= 0 ? hutZeitplan(e.gezogen).ende : undefined);
   };
+
+  // Was der Autolauf als Naechstes tut — und ob es etwas kostet.
+  const weiter = (darfZahlen) => {
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko, weiter,
+                           ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
 
   const risikoStarten = (art) => {
     const gesamt = riskierbar;
@@ -311,15 +321,17 @@ const HutTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             <span className="automat-label">Einsatz</span>
             {einsaetze.map(n => (
               <button key={n} className={'automat-chip' + (einsatz === n ? ' aktiv' : '')}
-                onClick={()=>setEinsatz(n)}>{n}</button>
+                disabled={!!lauf.auto} onClick={()=>setEinsatz(n)}>{n}</button>
             ))}
           </div>
 
-          <button className="automat-hebel" disabled={!kannDrehen} onClick={drehen}>
+          <button className="automat-hebel" disabled={!kannDrehen || !!lauf.auto} onClick={drehen}>
             {laeuft ? 'Läuft…' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'}
           </button>
 
-          {riskierbar > 0 && !laeuft && !risiko && (
+          <AutolaufLeiste lauf={lauf} gesperrt={!kannDrehen} />
+
+          {riskierbar > 0 && !laeuft && !risiko && !lauf.auto && (
             <div className="risiko-angebot">
               <span className="risiko-angebot-text">{riskierbar} setzen?</span>
               <button className="risiko-knopf" onClick={()=>risikoStarten('leiter')}>🪜 Leiter</button>
@@ -342,3 +354,15 @@ const HutTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     </>
   );
 };
+
+// ── Alle Walzenautomaten, fuer die Einstellungen ─────────────────
+// Welche Tafel wohin gespeichert wird und woraus die Quote gerechnet
+// wird. Name und Zeichen kommen aus TAVERNEN_TISCHE. Steht hier und nicht
+// in 2f7, weil es die Tafeln aller vier braucht — und das ist die
+// letzte der vier Dateien.
+const WALZEN_AUTOMATEN = [
+  {k:'buch',  feld:'buchSymbole',  symbole:BUCH_SYMBOLE,  haeufigkeit:BUCH_HAEUFIGKEIT},
+  {k:'arena', feld:'arenaSymbole', symbole:ARENA_SYMBOLE, haeufigkeit:ARENA_HAEUFIGKEIT},
+  {k:'auge',  feld:'augeSymbole',  symbole:AUGE_SYMBOLE,  haeufigkeit:AUGE_HAEUFIGKEIT},
+  {k:'hut',   feld:'hutSymbole',   symbole:HUT_SYMBOLE,   haeufigkeit:HUT_HAEUFIGKEIT},
+];

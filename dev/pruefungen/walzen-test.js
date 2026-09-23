@@ -192,6 +192,27 @@ ist('fein bei kleinen Zahlen', wRunden(3.456), 3.46);
 ist('grober in der Mitte', wRunden(34.56), 34.6);
 ist('glatt bei grossen', wRunden(345.6), 346);
 ist('nie ganz auf null', wRunden(0.001), 0.05);
+// … aber was null zahlt, bleibt beim Einregeln null. Sonst zahlten die
+// Hoerner der Arena nach dem Einregeln 0,05 — fuers blosse Oeffnen.
+const mitNull = wEinregeln(SYM, zG, 0.9);
+ist('beim Einregeln bleibt eine Null eine Null', mitNull.find(s => s.k === 'S').streu, {3:0});
+
+// ── Die Tafel in den Einstellungen ───────────────────────────────
+const gesetzt = wTafelSetzen(SYM, 'B', 'zahlt', 4, 99);
+ist('eine Zahl der Tafel aendern', gesetzt.find(s => s.k === 'B').zahlt, {3:20, 4:99, 5:300});
+ist('  … und nur diese', gesetzt.find(s => s.k === 'A').zahlt, SYM[0].zahlt);
+ist('  … die Standardtafel bleibt, wie sie ist', SYM.find(s => s.k === 'B').zahlt[4], 80);
+ist('eine Spalte, die das Zeichen nicht hat, entsteht nicht',
+  wTafelSetzen(SYM, 'B', 'zahlt', 2, 7).find(s => s.k === 'B').zahlt, SYM[1].zahlt);
+ist('  … und ein Streuzeichen bekommt keine Linie',
+  'zahlt' in wTafelSetzen(SYM, 'S', 'zahlt', 3, 7).find(s => s.k === 'S'), false);
+ist('verstreut laesst sich auch aendern',
+  wTafelSetzen(SYM, 'T', 'streu', 3, 4).find(s => s.k === 'T').streu[3], 4);
+ist('weniger als nichts gibt es nicht', wTafelSetzen(SYM, 'C', 'zahlt', 3, -5).find(s => s.k === 'C').zahlt[3], 0);
+const gespeichert = wTafelAlsCfg(gesetzt);
+ist('gespeichert werden nur Kennung und Zahlen',
+  gespeichert.every(x => Object.keys(x).every(f => ['k', 'zahlt', 'streu'].includes(f))), true);
+ist('  … und kommen unveraendert zurueck', wSymboleAus(SYM, gespeichert), gesetzt);
 
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

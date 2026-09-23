@@ -186,9 +186,9 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     const hoerner = arenaZahl(gezogen, symbole);
     const gewinn = Math.round(e.gewinn);
 
-    // Sofort buchen, danach zeigen — der Ausgang steht fest, sobald
-    // gezogen wurde.
-    zahlen((imFrei ? 0 : -einsatz) + gewinn);
+    // Der Einsatz geht sofort, der Gewinn beim Halt (useWalzenLauf) —
+    // sonst verriete die Kasse den Ausgang, bevor die Walzen stehen.
+    if (!imFrei) zahlen(-einsatz);
 
     setFeld(e.feld);
     setBaender([0,1,2,3,4].map(w => wBandBauen(e.feld, w, symbole, Math.random)));
@@ -196,6 +196,7 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     setDreh(d => d + 1);
 
     starten(() => {
+      zahlen(gewinn);
       setErgebnis({...e, gewinn});
       setRiskierbar(imFrei ? 0 : gewinn);
       if (imFrei) {
@@ -208,6 +209,17 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
       }
     });
   };
+
+  // Was der Autolauf als Naechstes tut — und ob es etwas kostet.
+  const weiter = (darfZahlen) => {
+    if (frei && frei.uebrig <= 0) { setFrei(null); return 'frei'; }
+    if (imFrei) { drehen(); return 'frei'; }
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko, weiter,
+                           ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
 
   const risikoStarten = (art) => {
     const gesamt = riskierbar;
@@ -288,18 +300,20 @@ const ArenaTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             <span className="automat-label">Einsatz</span>
             {einsaetze.map(n => (
               <button key={n} className={'automat-chip' + (einsatz === n ? ' aktiv' : '')}
-                disabled={imFrei} onClick={()=>setEinsatz(n)}>{n}</button>
+                disabled={imFrei || !!lauf.auto} onClick={()=>setEinsatz(n)}>{n}</button>
             ))}
           </div>
 
           <button className={'automat-hebel' + (imFrei ? ' frei' : '')}
-            disabled={!kannDrehen} onClick={drehen}>
+            disabled={!kannDrehen || !!lauf.auto} onClick={drehen}>
             {laeuft ? 'Läuft…'
               : imFrei ? '🗡️ Freidreh · noch ' + frei.uebrig
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'}
           </button>
 
-          {riskierbar > 0 && !laeuft && !risiko && !imFrei && (
+          <AutolaufLeiste lauf={lauf} gesperrt={!kannDrehen} />
+
+          {riskierbar > 0 && !laeuft && !risiko && !lauf.auto && !imFrei && (
             <div className="risiko-angebot">
               <span className="risiko-angebot-text">{riskierbar} setzen?</span>
               <button className="risiko-knopf" onClick={()=>risikoStarten('leiter')}>🪜 Leiter</button>

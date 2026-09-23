@@ -683,7 +683,7 @@ const fensterZeigen = (pos, breite) => {
 // Rahmen, Kopf, Beutel und das Schieben liegen seit der Halle eine
 // Ebene hoeher: sie gehoeren der Taverne und nicht dem Automaten. Hier
 // steht nur noch, was auf dem Tisch passiert.
-const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
+const AutomatTisch = ({ cfg, marken, setMarken, zahlen, onLaeuft }) => {
   const waehrung = WAEHRUNGEN.marken;
   // Was die Spielleitung fuer dieses Abenteuer eingestellt hat.
   const symbole   = React.useMemo(() => automatSymbole(cfg), [cfg]);
@@ -707,6 +707,10 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
   const [risiko, setRisiko] = React.useState(null);
   const laufRef = React.useRef(null);
   const radRef  = React.useRef(null);
+  // Gebucht wird auch aus Zeitgebern heraus, die in einem frueheren
+  // Zeichnen angelegt wurden — sie sollen die Kasse von jetzt treffen.
+  const zahlenRef = React.useRef(zahlen);
+  zahlenRef.current = zahlen;
 
   // Solange die Walzen laufen, darf der Beutel oben nicht gewechselt
   // werden — die Taverne muss davon wissen.
@@ -720,13 +724,12 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
     catch { return false; }
   }, []);
 
-  // Der Lauf ist Anzeige, nicht Buchhaltung. Gebucht wird sofort — sonst
-  // haenge der Ausgang eines Spiels an einem Zeitgeber, den der Browser
-  // im Hintergrund beliebig lange aufschieben darf. Hier stand der
-  // Automat dann auf "Läuft…" und die Taste blieb gesperrt.
-  //
-  // Deshalb loest jeder Weg das Ergebnis auf: der Zeitgeber, das
-  // Zurueckkommen zum Fenster, und das Verlassen der Seite.
+  // Der Einsatz geht beim Hebel, der Gewinn beim Halt. Bis v5.26 ging
+  // beides sofort, und die Kasse verriet den Ausgang, bevor die Walzen
+  // standen. Damit der Gewinn an keinem Zeitgeber haengenbleibt, den der
+  // Browser im Hintergrund aufschieben darf, loest jeder Weg auf: der
+  // Zeitgeber, das Zurueckkommen zum Fenster, das Verlassen der Seite
+  // und das Verlassen des Tisches.
   const schwebendRef = React.useRef(null);   // {e, faellig}
   const aufloesen = React.useCallback(() => {
     const sch = schwebendRef.current;
@@ -734,6 +737,7 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
     schwebendRef.current = null;
     if (laufRef.current) { clearTimeout(laufRef.current); laufRef.current = null; }
     setLaeuft(false);
+    if (sch.e.gewinn) zahlenRef.current(sch.e.gewinn);
     setErgebnis(sch.e);
   }, []);
 
@@ -747,6 +751,13 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
     return () => {
       document.removeEventListener('visibilitychange', wach);
       if (laufRef.current) clearTimeout(laufRef.current);
+      // Wer mitten im Lauf geht, bekommt den Gewinn trotzdem.
+      const sch = schwebendRef.current;
+      schwebendRef.current = null;
+      if (sch && sch.e.gewinn) zahlenRef.current(sch.e.gewinn);
+      const r = radRef.current;
+      radRef.current = null;
+      if (r && r.plus) zahlenRef.current(r.plus);
     };
   }, [aufloesen]);
 
@@ -771,13 +782,11 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
     setRiskierbar(0); setRisiko(null);
     setDreh(d => d + 1);
 
-    // Einsatz und Gewinn in einem Schritt und sofort: das Ergebnis steht
-    // in dem Augenblick fest, in dem gezogen wird. Der Lauf zeigt es
-    // nur noch.
-    setMarken(marken - zahlt + e.gewinn);
+    // Der Einsatz sofort; der Gewinn, wenn die Walzen stehen (aufloesen).
+    if (zahlt) zahlen(-zahlt);
     setFreidrehe(f => Math.max(0, f - (frei ? 1 : 0)) + (e.freidreh ? 1 : 0));
 
-    if (reduziert) { setErgebnis(e); return; }
+    if (reduziert) { if (e.gewinn) zahlen(e.gewinn); setErgebnis(e); return; }
     const dauer = Math.max(...WALZEN_DAUER) + 60;
     schwebendRef.current = {e, faellig: Date.now() + dauer};
     setLaeuft(true);
@@ -797,11 +806,12 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
     }
   }, [ergebnis]);
 
-  // Auch hier: erst zahlen, dann drehen. Der Ausgang steht fest, sobald
-  // gezogen wurde — die Drehung zeigt ihn nur.
+  // Auch hier: gezogen wird vorher, gebucht, wenn das Rad steht.
   const radAufloesen = React.useCallback(() => {
-    if (!radRef.current) return;
+    const r0 = radRef.current;
+    if (!r0) return;
     radRef.current = null;
+    if (r0.plus) { zahlenRef.current(r0.plus); setRiskierbar(w => w + r0.plus); }
     setRad(r => r && {...r, dreht: false});
   }, []);
 
@@ -816,16 +826,32 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
     const gruen = Math.random() < RAD_GRUEN / RAD_FELDER;
     const feld = gruen ? 1 + Math.floor(Math.random() * RAD_GRUEN) : 0;
     const runde = rad.runde + 1;
-    if (gruen) { setMarken(marken + rad.basis); setRiskierbar(w => w + rad.basis); }
     setRad({...rad,
       winkel: radZiel(feld, rad.winkel),
       runde, dreht: true, letztes: gruen ? 'gruen' : 'rot',
       gewonnen: rad.gewonnen + (gruen ? rad.basis : 0),
       aus: !gruen || runde >= RAD_GRUEN,
     });
-    radRef.current = true;
+    radRef.current = {plus: gruen ? rad.basis : 0};
+    if (reduziert) { radAufloesen(); return; }
     setTimeout(radAufloesen, RAD_DAUER + 40);
   };
+
+  // Was der Autolauf als Naechstes tut. Das Rad dreht er mit — es kostet
+  // nichts und kann nur bringen.
+  const weiter = (darfZahlen) => {
+    if (rad) {
+      if (rad.aus) { setRad(null); return 'frei'; }
+      if (!rad.dreht) radDrehen();
+      return 'frei';
+    }
+    if (frei) { drehen(); return 'frei'; }
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko && !(rad && rad.dreht), weiter,
+                           ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
 
   // Setzen heisst: der Gewinn geht von der Kasse zurueck auf den Tisch.
   // Danach entscheidet das Spiel, ob er verdoppelt zurueckkommt oder gar
@@ -911,8 +937,10 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
                 : rad.letztes === 'rot'   ? <b className="rad-schlecht">Rot. Vorbei.</b>
                 : <b className="leise">Dreh am Rad.</b>}
             </div>
-            {rad.gewonnen > 0 && (
-              <div className="rad-summe">Zusätzlich gewonnen: <b>{rad.gewonnen}</b></div>
+            {/* Was das Rad gerade dreht, zählt erst, wenn es steht. */}
+            {(rad.dreht && rad.letztes === 'gruen' ? rad.gewonnen - rad.basis : rad.gewonnen) > 0 && (
+              <div className="rad-summe">Zusätzlich gewonnen: <b>
+                {rad.dreht && rad.letztes === 'gruen' ? rad.gewonnen - rad.basis : rad.gewonnen}</b></div>
             )}
 
             <div className="rad-tasten">
@@ -982,18 +1010,20 @@ const AutomatTisch = ({ cfg, marken, setMarken, onLaeuft }) => {
             <span className="automat-label">Einsatz</span>
             {einsaetze.map(n => (
               <button key={n} className={'automat-chip' + (einsatz === n ? ' aktiv' : '')}
-                disabled={frei} onClick={()=>setEinsatz(n)}>{n}</button>
+                disabled={frei || !!lauf.auto} onClick={()=>setEinsatz(n)}>{n}</button>
             ))}
           </div>
 
           <button className={'automat-hebel' + (frei ? ' frei' : '')}
-            disabled={!kannDrehen} onClick={drehen}>
+            disabled={!kannDrehen || !!lauf.auto} onClick={drehen}>
             {laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh'
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'}
           </button>
 
           {/* Setzen statt einstecken. Steht nur da, wenn etwas dasteht. */}
-          {riskierbar > 0 && !laeuft && !rad && !risiko && (
+          <AutolaufLeiste lauf={lauf} gesperrt={!kannDrehen} />
+
+          {riskierbar > 0 && !laeuft && !rad && !risiko && !lauf.auto && (
             <div className="risiko-angebot">
               <span className="risiko-angebot-text">{riskierbar} setzen?</span>
               <button className="risiko-knopf" onClick={()=>risikoStarten('leiter', false)}>🪜 Leiter</button>
@@ -1408,7 +1438,7 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
       </div>
 
       {jetzt && jetzt.k === 'automat' ? (
-        <AutomatTisch cfg={cfgTisch} marken={marken} setMarken={setMarken} onLaeuft={setLaeuft} />
+        <AutomatTisch cfg={cfgTisch} marken={marken} setMarken={setMarken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'blackjack' ? (
         <BlackjackTisch cfg={cfgTisch} marken={marken} zahlen={zahlen} onLaeuft={setLaeuft} />
       ) : jetzt && jetzt.k === 'roulette' ? (

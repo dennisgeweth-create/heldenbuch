@@ -225,11 +225,10 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     const e = buchDreh(neuesFeld, symbole, einsatz, sonderK);
     const buecher = buchZahl(neuesFeld, symbole);
 
-    // Gebucht wird sofort: der Ausgang steht fest, sobald gezogen wurde.
-    // Der Lauf zeigt ihn nur — und ein Zeitgeber, den der Browser im
-    // Hintergrund aufschiebt, darf niemandem das Ergebnis vorenthalten.
+    // Der Einsatz geht sofort, der Gewinn beim Halt (useWalzenLauf) —
+    // sonst verriete die Kasse den Ausgang, bevor die Walzen stehen.
     const gewinn = Math.round(e.gewinn);
-    zahlen((imFrei ? 0 : -einsatz) + gewinn);
+    if (!imFrei) zahlen(-einsatz);
 
     setFeld(e.feld);
     setBaender([0,1,2,3,4].map(w => wBandBauen(e.feld, w, symbole, Math.random)));
@@ -237,6 +236,7 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
     setDreh(d => d + 1);
 
     starten(() => {
+      zahlen(gewinn);
       setErgebnis({...e, gewinn});
       setRiskierbar(imFrei ? 0 : gewinn);
       if (imFrei) {
@@ -276,6 +276,18 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
   // Setzen statt einstecken — dieselben zwei Spiele wie am dreiwalzigen
   // Automaten. Waehrend der Freispiele nicht: dort gehoert der Gewinn der
   // Runde und nicht dem einzelnen Dreh.
+  // Was der Autolauf als Naechstes tut — und ob es etwas kostet.
+  const weiter = (darfZahlen) => {
+    if (blaettert) { if (!blaettert.steht) return null; rundeStarten(); return 'frei'; }
+    if (frei && frei.uebrig <= 0) { setFrei(null); return 'frei'; }
+    if (imFrei) { drehen(); return 'frei'; }
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko && !(blaettert && !blaettert.steht), weiter,
+                           ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
+
   const risikoStarten = (art, halb) => {
     const gesamt = riskierbar;
     if (gesamt <= 0 || risiko) return;
@@ -388,18 +400,20 @@ const BuchTisch = ({ cfg, marken, zahlen, onLaeuft }) => {
             <span className="automat-label">Einsatz</span>
             {einsaetze.map(n => (
               <button key={n} className={'automat-chip' + (einsatz === n ? ' aktiv' : '')}
-                disabled={imFrei} onClick={()=>setEinsatz(n)}>{n}</button>
+                disabled={imFrei || !!lauf.auto} onClick={()=>setEinsatz(n)}>{n}</button>
             ))}
           </div>
 
           <button className={'automat-hebel' + (imFrei ? ' frei' : '')}
-            disabled={!kannDrehen} onClick={drehen}>
+            disabled={!kannDrehen || !!lauf.auto} onClick={drehen}>
             {laeuft ? 'Läuft…'
               : imFrei ? '📜 Freidreh · noch ' + frei.uebrig
               : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig ' + (marken >= 0 ? 'im Beutel' : '')}
           </button>
 
-          {riskierbar > 0 && !laeuft && !risiko && !imFrei && (
+          <AutolaufLeiste lauf={lauf} gesperrt={!kannDrehen} />
+
+          {riskierbar > 0 && !laeuft && !risiko && !lauf.auto && !imFrei && (
             <div className="risiko-angebot">
               <span className="risiko-angebot-text">{riskierbar} setzen?</span>
               <button className="risiko-knopf" onClick={()=>risikoStarten('leiter', false)}>🪜 Leiter</button>

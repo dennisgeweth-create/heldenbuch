@@ -1,5 +1,49 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.27.0
+
+### Der Gewinn kommt, wenn die Walzen stehen
+
+Bisher wurde an den Automaten Einsatz **und** Gewinn in dem Augenblick
+gebucht, in dem man den Hebel zog. Wer auf die Kasse schaute — oder aufs
+Gold im Bogen —, wusste vor dem Halt, ob etwas kommt.
+
+- Der **Einsatz** geht weiterhin beim Hebel ab, der **Gewinn** erst, wenn
+  die Walzen stehen und der Zauber des Hutes fertig ist. Das gilt für
+  alle fünf Walzenautomaten und für das Rad der Fortuna.
+- Verloren geht dabei nichts: wer mitten im Lauf die Taverne schließt
+  oder die Seite verlässt, bekommt den Gewinn trotzdem.
+
+### Autolauf
+
+Unter dem Hebel jedes Walzenautomaten: **10×, 25×, 50× oder 100×**.
+
+- Gedreht wird eins nach dem anderen, mit einer kurzen Pause — nach
+  einem Gewinn etwas länger, damit man ihn sieht.
+- **Freispiele zählen nicht mit** und werden zu Ende gespielt, auch wenn
+  der Autolauf gerade seine letzte Drehung verbraucht hat. Das Rad der
+  Fortuna dreht er mit.
+- **■ Stopp** hält an; der Dreh, der gerade läuft, wird noch ausgezahlt.
+  Von selbst hält er, wenn nichts mehr im Beutel ist.
+- Solange er läuft, bleiben Einsatz und Hebel gesperrt, und das
+  Risikospiel wird nicht angeboten.
+
+### Die Auszahlungen der Walzen sind einstellbar
+
+In den Einstellungen des Abenteuers steht ein neuer Block
+**🎰 Walzenautomaten**:
+
+- Für jeden der vier Fünfwalzer die ganze Tafel — jedes Zeichen, jede
+  Länge, auch die verstreuten Bücher.
+- Die **Quote steht daneben** und rechnet bei jeder Änderung mit; ein
+  Knopf **regelt die Tafel auf eine Zielquote** ein.
+- **↺ Standardtafel** holt die ursprüngliche zurück.
+- Nicht einstellbar sind Bänder, Linien und Bonusregeln — an ihnen hängt
+  die Messung, aus der die Quote gerechnet wird.
+
+Nebenbei: beim Einregeln wurde eine Null zu 0,05 — die Hörner der Arena
+hätten danach fürs bloße Öffnen gezahlt. Eine Null bleibt jetzt null.
+
 ## v5.26.0
 
 ### 🎩 Ein vierter Walzenautomat: Der Hut des Gauklers

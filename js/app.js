@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.26.0';
+const HB_VERSION = 'v5.27.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -7967,6 +7967,100 @@ const ZeitDialog = ({
 };
 
 // ==== js/src/2e-abenteuer.jsx ====
+const WalzenEinstellungen = ({
+  automat,
+  onFeld
+}) => {
+  const [wahl, setWahl] = useState(WALZEN_AUTOMATEN[0].k);
+  const [ziel, setZiel] = useState(95);
+  const m = WALZEN_AUTOMATEN.find(x => x.k === wahl) || WALZEN_AUTOMATEN[0];
+  const tafelVon = x => wSymboleAus(x.symbole, automat && automat[x.feld]);
+  const symbole = tafelVon(m);
+  const quote = wQuote(m.haeufigkeit, symbole);
+  const eigen = !!(automat && automat[m.feld]);
+  const setzen = liste => onFeld({
+    [m.feld]: wTafelAlsCfg(liste)
+  });
+  const spalten = wZahlSpalten.filter(n => symbole.some(s => s.zahlt && n in s.zahlt || s.streu && n in s.streu));
+  const feld = (s, art, n) => React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: 0,
+    max: 99999,
+    step: "0.05",
+    "aria-label": s.name + ', ' + n + ' gleiche',
+    wert: s[art][n],
+    onWert: v => setzen(wTafelSetzen(symbole, s.k, art, n, v))
+  });
+  return React.createElement(React.Fragment, null, React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: 0,
+      marginBottom: 10
+    }
+  }, "Was ein Zeichen auf einer Linie bringt, als Vielfaches des Linieneinsatzes \u2014 der ist ein Zehntel des Einsatzes. Verstreute Zeichen zahlen \xFCber den ganzen Einsatz. Die Quote wird aus Millionen gemessener Drehungen gerechnet und stimmt, solange die Rangfolge der Zeichen bleibt: wer die niedrigen \xFCber die hohen stellt, bekommt eine ungef\xE4hre Zahl."), React.createElement("div", {
+    className: "einst-wahl einst-walzenwahl"
+  }, WALZEN_AUTOMATEN.map(x => {
+    const t = TAVERNEN_TISCHE.find(t2 => t2.k === x.k) || {};
+    return React.createElement("button", {
+      type: "button",
+      key: x.k,
+      className: 'einst-option' + (x.k === m.k ? ' aktiv' : ''),
+      onClick: () => setWahl(x.k)
+    }, React.createElement("b", null, t.z, " ", t.name), React.createElement("i", null, wProzent(wQuote(x.haeufigkeit, tafelVon(x))), automat && automat[x.feld] ? ' · eigene Tafel' : ' · Standard'));
+  })), React.createElement("div", {
+    className: "einst-quote",
+    style: {
+      marginTop: 12
+    }
+  }, React.createElement("span", {
+    className: "einst-quote-label"
+  }, "Auszahlungsquote"), React.createElement("b", null, wProzent(quote)), React.createElement(ZahlFeld, {
+    className: "form-input einst-ziel",
+    min: 10,
+    max: 200,
+    "aria-label": "Zielquote in Prozent",
+    wert: ziel,
+    onWert: v => setZiel(v)
+  }), React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => setzen(wEinregeln(symbole, m.haeufigkeit, ziel / 100))
+  }, "auf ", ziel, " % einregeln")), quote > 1.0 && React.createElement("div", {
+    className: "einst-hinweis",
+    style: {
+      marginTop: -6,
+      marginBottom: 10
+    }
+  }, React.createElement("b", {
+    className: "einst-warnung"
+  }, "\xDCber 100 % \u2014 auf Dauer zahlt das Haus drauf.")), React.createElement("div", {
+    className: "tabellenhuelle"
+  }, React.createElement("table", {
+    className: "einst-automat einst-walzentafel"
+  }, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", {
+    colSpan: 2
+  }, "Zeichen"), spalten.map(n => React.createElement("th", {
+    key: n
+  }, n, " gleiche")))), React.createElement("tbody", null, symbole.map(s => React.createElement("tr", {
+    key: s.k
+  }, React.createElement("td", {
+    className: "zeichen"
+  }, wZeichen(s)), React.createElement("td", {
+    className: "name"
+  }, s.name, (s.wild || s.streu) && React.createElement("i", null, [s.wild ? 'Wild' : '', s.streu ? 'verstreut, ganzer Einsatz' : ''].filter(Boolean).join(' · '))), spalten.map(n => React.createElement("td", {
+    key: n
+  }, s.zahlt && n in s.zahlt ? feld(s, 'zahlt', n) : s.streu && n in s.streu ? feld(s, 'streu', n) : React.createElement("span", {
+    className: "einst-leer"
+  }, "\u2013")))))))), eigen && React.createElement("div", {
+    className: "einst-klassen-fuss"
+  }, React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => onFeld({
+      [m.feld]: undefined
+    })
+  }, "\u21BA Standardtafel")));
+};
 const AbenteuerEinstellungen = ({
   adv,
   helden,
@@ -8237,6 +8331,15 @@ const AbenteuerEinstellungen = ({
       className: "einst-tisch-t"
     }, React.createElement("b", null, t.name), React.createElement("i", null, t.da ? t.unter : 'wird noch gebaut')));
   }))), React.createElement(EinstBlock, {
+    titel: "\uD83C\uDFB0 Walzenautomaten",
+    kurz: (() => {
+      const n = WALZEN_AUTOMATEN.filter(x => adv.automat && adv.automat[x.feld]).length;
+      return WALZEN_AUTOMATEN.length + ' Automaten · ' + (n ? n + ' mit eigener Tafel' : 'Standard');
+    })()
+  }, React.createElement(WalzenEinstellungen, {
+    automat: adv.automat,
+    onFeld: autoFeld
+  })), React.createElement(EinstBlock, {
     titel: "\uD83C\uDFB0 Automat der Taverne",
     kurz: (rechnung.quote * 100).toFixed(0) + ' % · Vollbild ' + (autoVoll ? '1 auf ' + autoVoll : 'aus')
   }, React.createElement("div", {
@@ -9074,6 +9177,7 @@ const AutomatTisch = ({
   cfg,
   marken,
   setMarken,
+  zahlen,
   onLaeuft
 }) => {
   const waehrung = WAEHRUNGEN.marken;
@@ -9096,6 +9200,8 @@ const AutomatTisch = ({
   const [risiko, setRisiko] = React.useState(null);
   const laufRef = React.useRef(null);
   const radRef = React.useRef(null);
+  const zahlenRef = React.useRef(zahlen);
+  zahlenRef.current = zahlen;
   React.useEffect(() => {
     if (onLaeuft) onLaeuft(laeuft);
   }, [laeuft]);
@@ -9117,6 +9223,7 @@ const AutomatTisch = ({
       laufRef.current = null;
     }
     setLaeuft(false);
+    if (sch.e.gewinn) zahlenRef.current(sch.e.gewinn);
     setErgebnis(sch.e);
   }, []);
   React.useEffect(() => {
@@ -9127,6 +9234,12 @@ const AutomatTisch = ({
     return () => {
       document.removeEventListener('visibilitychange', wach);
       if (laufRef.current) clearTimeout(laufRef.current);
+      const sch = schwebendRef.current;
+      schwebendRef.current = null;
+      if (sch && sch.e.gewinn) zahlenRef.current(sch.e.gewinn);
+      const r = radRef.current;
+      radRef.current = null;
+      if (r && r.plus) zahlenRef.current(r.plus);
     };
   }, [aufloesen]);
   React.useEffect(() => {
@@ -9147,9 +9260,10 @@ const AutomatTisch = ({
     setRiskierbar(0);
     setRisiko(null);
     setDreh(d => d + 1);
-    setMarken(marken - zahlt + e.gewinn);
+    if (zahlt) zahlen(-zahlt);
     setFreidrehe(f => Math.max(0, f - (frei ? 1 : 0)) + (e.freidreh ? 1 : 0));
     if (reduziert) {
+      if (e.gewinn) zahlen(e.gewinn);
       setErgebnis(e);
       return;
     }
@@ -9178,8 +9292,13 @@ const AutomatTisch = ({
     }
   }, [ergebnis]);
   const radAufloesen = React.useCallback(() => {
-    if (!radRef.current) return;
+    const r0 = radRef.current;
+    if (!r0) return;
     radRef.current = null;
+    if (r0.plus) {
+      zahlenRef.current(r0.plus);
+      setRiskierbar(w => w + r0.plus);
+    }
     setRad(r => r && {
       ...r,
       dreht: false
@@ -9197,10 +9316,6 @@ const AutomatTisch = ({
     const gruen = Math.random() < RAD_GRUEN / RAD_FELDER;
     const feld = gruen ? 1 + Math.floor(Math.random() * RAD_GRUEN) : 0;
     const runde = rad.runde + 1;
-    if (gruen) {
-      setMarken(marken + rad.basis);
-      setRiskierbar(w => w + rad.basis);
-    }
     setRad({
       ...rad,
       winkel: radZiel(feld, rad.winkel),
@@ -9210,9 +9325,33 @@ const AutomatTisch = ({
       gewonnen: rad.gewonnen + (gruen ? rad.basis : 0),
       aus: !gruen || runde >= RAD_GRUEN
     });
-    radRef.current = true;
+    radRef.current = {
+      plus: gruen ? rad.basis : 0
+    };
+    if (reduziert) {
+      radAufloesen();
+      return;
+    }
     setTimeout(radAufloesen, RAD_DAUER + 40);
   };
+  const weiter = darfZahlen => {
+    if (rad) {
+      if (rad.aus) {
+        setRad(null);
+        return 'frei';
+      }
+      if (!rad.dreht) radDrehen();
+      return 'frei';
+    }
+    if (frei) {
+      drehen();
+      return 'frei';
+    }
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko && !(rad && rad.dreht), weiter, ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
   const risikoStarten = (art, halb) => {
     const gesamt = riskierbar;
     if (gesamt <= 0 || risiko) return;
@@ -9307,9 +9446,9 @@ const AutomatTisch = ({
     className: "rad-schlecht"
   }, "Rot. Vorbei.") : React.createElement("b", {
     className: "leise"
-  }, "Dreh am Rad.")), rad.gewonnen > 0 && React.createElement("div", {
+  }, "Dreh am Rad.")), (rad.dreht && rad.letztes === 'gruen' ? rad.gewonnen - rad.basis : rad.gewonnen) > 0 && React.createElement("div", {
     className: "rad-summe"
-  }, "Zus\xE4tzlich gewonnen: ", React.createElement("b", null, rad.gewonnen)), React.createElement("div", {
+  }, "Zus\xE4tzlich gewonnen: ", React.createElement("b", null, rad.dreht && rad.letztes === 'gruen' ? rad.gewonnen - rad.basis : rad.gewonnen)), React.createElement("div", {
     className: "rad-tasten"
   }, !rad.aus ? React.createElement("button", {
     className: "automat-hebel",
@@ -9369,13 +9508,16 @@ const AutomatTisch = ({
   }, "Einsatz"), einsaetze.map(n => React.createElement("button", {
     key: n,
     className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
-    disabled: frei,
+    disabled: frei || !!lauf.auto,
     onClick: () => setEinsatz(n)
   }, n))), React.createElement("button", {
     className: 'automat-hebel' + (frei ? ' frei' : ''),
-    disabled: !kannDrehen,
+    disabled: !kannDrehen || !!lauf.auto,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), riskierbar > 0 && !laeuft && !rad && !risiko && React.createElement("div", {
+  }, laeuft ? 'Läuft…' : rad ? 'Das Rad läuft' : frei ? '🪙 Freidreh' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig Marken'), React.createElement(AutolaufLeiste, {
+    lauf: lauf,
+    gesperrt: !kannDrehen
+  }), riskierbar > 0 && !laeuft && !rad && !risiko && !lauf.auto && React.createElement("div", {
     className: "risiko-angebot"
   }, React.createElement("span", {
     className: "risiko-angebot-text"
@@ -9810,6 +9952,7 @@ const TaverneSchirm = ({
     cfg: cfgTisch,
     marken: marken,
     setMarken: setMarken,
+    zahlen: zahlen,
     onLaeuft: setLaeuft
   }) : jetzt && jetzt.k === 'blackjack' ? React.createElement(BlackjackTisch, {
     cfg: cfgTisch,
@@ -12970,7 +13113,7 @@ const wEinregeln = (symbole, z, ziel) => {
     if (!t) return t;
     const neu = {};
     Object.keys(t).forEach(n => {
-      neu[n] = wRunden(+t[n] * f);
+      neu[n] = +t[n] ? wRunden(+t[n] * f) : 0;
     });
     return neu;
   };
@@ -13002,6 +13145,26 @@ const wSymboleAus = (standard, eig) => {
   const zahltWas = liste.some(s => s.zahlt && Object.keys(s.zahlt).some(n => +s.zahlt[n] > 0));
   return zahltWas ? liste : standard;
 };
+const wTafelSetzen = (symbole, k, art, n, wert) => symbole.map(s => s.k !== k || !s[art] || !(n in s[art]) ? s : {
+  ...s,
+  [art]: {
+    ...s[art],
+    [n]: Math.max(0, +wert || 0)
+  }
+});
+const wTafelAlsCfg = symbole => symbole.filter(s => s.zahlt || s.streu).map(s => ({
+  k: s.k,
+  ...(s.zahlt ? {
+    zahlt: {
+      ...s.zahlt
+    }
+  } : {}),
+  ...(s.streu ? {
+    streu: {
+      ...s.streu
+    }
+  } : {})
+}));
 const W_BAND = 16;
 const W_DAUER = [800, 1000, 1200, 1400, 1600];
 const wBandBauen = (feld, walze, symbole, zufall) => {
@@ -13043,6 +13206,9 @@ const useWalzenLauf = () => {
     return () => {
       document.removeEventListener('visibilitychange', wach);
       if (uhr.current) clearTimeout(uhr.current);
+      const s = schwebend.current;
+      schwebend.current = null;
+      if (s) s.fertig();
     };
   }, [aufloesen]);
   const starten = React.useCallback((fertig, dauer) => {
@@ -13106,6 +13272,51 @@ const wZeichen = s => !s ? '·' : s.wuerfel ? React.createElement("span", {
   role: "img",
   "aria-label": s.name
 }, s.wuerfel) : s.z;
+const AUTO_STUFEN = [10, 25, 50, 100];
+const useAutolauf = (bereit, weiter, pause) => {
+  const [auto, setAuto] = React.useState(null);
+  const weiterRef = React.useRef(weiter);
+  weiterRef.current = weiter;
+  React.useEffect(() => {
+    if (!auto || !bereit) return undefined;
+    const uhr = setTimeout(() => {
+      const art = weiterRef.current(auto.rest > 0);
+      if (!art) {
+        setAuto(null);
+        return;
+      }
+      setAuto(a => a && {
+        rest: a.rest - (art === 'bezahlt' ? 1 : 0),
+        takt: a.takt + 1
+      });
+    }, pause || 500);
+    return () => clearTimeout(uhr);
+  }, [auto, bereit]);
+  return {
+    auto,
+    starten: n => setAuto({
+      rest: n,
+      takt: 0
+    }),
+    stoppen: () => setAuto(null)
+  };
+};
+const AutolaufLeiste = ({
+  lauf,
+  gesperrt
+}) => React.createElement("div", {
+  className: "automat-einsatz automat-auto"
+}, React.createElement("span", {
+  className: "automat-label"
+}, "Autolauf"), lauf.auto ? React.createElement("button", {
+  className: "automat-chip aktiv auto-stopp",
+  onClick: lauf.stoppen
+}, "\u25A0 Stopp \xB7 ", lauf.auto.rest > 0 ? 'noch ' + lauf.auto.rest : 'nur noch Freispiele') : AUTO_STUFEN.map(n => React.createElement("button", {
+  key: n,
+  className: "automat-chip",
+  disabled: gesperrt,
+  onClick: () => lauf.starten(n)
+}, n, "\xD7")));
 const WalzenSchirm = ({
   baender,
   symbole,
@@ -13493,7 +13704,7 @@ const BuchTisch = ({
     const e = buchDreh(neuesFeld, symbole, einsatz, sonderK);
     const buecher = buchZahl(neuesFeld, symbole);
     const gewinn = Math.round(e.gewinn);
-    zahlen((imFrei ? 0 : -einsatz) + gewinn);
+    if (!imFrei) zahlen(-einsatz);
     setFeld(e.feld);
     setBaender([0, 1, 2, 3, 4].map(w => wBandBauen(e.feld, w, symbole, Math.random)));
     setErgebnis(null);
@@ -13501,6 +13712,7 @@ const BuchTisch = ({
     setRisiko(null);
     setDreh(d => d + 1);
     starten(() => {
+      zahlen(gewinn);
       setErgebnis({
         ...e,
         gewinn
@@ -13564,6 +13776,25 @@ const BuchTisch = ({
       neu: 0
     });
   };
+  const weiter = darfZahlen => {
+    if (blaettert) {
+      if (!blaettert.steht) return null;
+      rundeStarten();
+      return 'frei';
+    }
+    if (frei && frei.uebrig <= 0) {
+      setFrei(null);
+      return 'frei';
+    }
+    if (imFrei) {
+      drehen();
+      return 'frei';
+    }
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko && !(blaettert && !blaettert.steht), weiter, ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
   const risikoStarten = (art, halb) => {
     const gesamt = riskierbar;
     if (gesamt <= 0 || risiko) return;
@@ -13664,13 +13895,16 @@ const BuchTisch = ({
   }, "Einsatz"), einsaetze.map(n => React.createElement("button", {
     key: n,
     className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
-    disabled: imFrei,
+    disabled: imFrei || !!lauf.auto,
     onClick: () => setEinsatz(n)
   }, n))), React.createElement("button", {
     className: 'automat-hebel' + (imFrei ? ' frei' : ''),
-    disabled: !kannDrehen,
+    disabled: !kannDrehen || !!lauf.auto,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : imFrei ? '📜 Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig ' + (marken >= 0 ? 'im Beutel' : '')), riskierbar > 0 && !laeuft && !risiko && !imFrei && React.createElement("div", {
+  }, laeuft ? 'Läuft…' : imFrei ? '📜 Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig ' + (marken >= 0 ? 'im Beutel' : '')), React.createElement(AutolaufLeiste, {
+    lauf: lauf,
+    gesperrt: !kannDrehen
+  }), riskierbar > 0 && !laeuft && !risiko && !lauf.auto && !imFrei && React.createElement("div", {
     className: "risiko-angebot"
   }, React.createElement("span", {
     className: "risiko-angebot-text"
@@ -13960,7 +14194,7 @@ const ArenaTisch = ({
     const e = arenaDreh(gezogen, symbole, einsatz, imFrei ? frei.klebt : null);
     const hoerner = arenaZahl(gezogen, symbole);
     const gewinn = Math.round(e.gewinn);
-    zahlen((imFrei ? 0 : -einsatz) + gewinn);
+    if (!imFrei) zahlen(-einsatz);
     setFeld(e.feld);
     setBaender([0, 1, 2, 3, 4].map(w => wBandBauen(e.feld, w, symbole, Math.random)));
     setErgebnis(null);
@@ -13968,6 +14202,7 @@ const ArenaTisch = ({
     setRisiko(null);
     setDreh(d => d + 1);
     starten(() => {
+      zahlen(gewinn);
       setErgebnis({
         ...e,
         gewinn
@@ -13989,6 +14224,20 @@ const ArenaTisch = ({
       }
     });
   };
+  const weiter = darfZahlen => {
+    if (frei && frei.uebrig <= 0) {
+      setFrei(null);
+      return 'frei';
+    }
+    if (imFrei) {
+      drehen();
+      return 'frei';
+    }
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko, weiter, ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
   const risikoStarten = art => {
     const gesamt = riskierbar;
     if (gesamt <= 0 || risiko) return;
@@ -14062,13 +14311,16 @@ const ArenaTisch = ({
   }, "Einsatz"), einsaetze.map(n => React.createElement("button", {
     key: n,
     className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
-    disabled: imFrei,
+    disabled: imFrei || !!lauf.auto,
     onClick: () => setEinsatz(n)
   }, n))), React.createElement("button", {
     className: 'automat-hebel' + (imFrei ? ' frei' : ''),
-    disabled: !kannDrehen,
+    disabled: !kannDrehen || !!lauf.auto,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : imFrei ? '🗡️ Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), riskierbar > 0 && !laeuft && !risiko && !imFrei && React.createElement("div", {
+  }, laeuft ? 'Läuft…' : imFrei ? '🗡️ Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), React.createElement(AutolaufLeiste, {
+    lauf: lauf,
+    gesperrt: !kannDrehen
+  }), riskierbar > 0 && !laeuft && !risiko && !lauf.auto && !imFrei && React.createElement("div", {
     className: "risiko-angebot"
   }, React.createElement("span", {
     className: "risiko-angebot-text"
@@ -14362,7 +14614,7 @@ const AugeTisch = ({
     const e = augeDreh(gezogen, symbole, einsatz, stufe);
     const tore = augeZahl(e.roh, symbole);
     const gewinn = Math.round(e.gewinn);
-    zahlen((imFrei ? 0 : -einsatz) + gewinn);
+    if (!imFrei) zahlen(-einsatz);
     setFeld(e.feld);
     setBaender([0, 1, 2, 3, 4].map(w => wBandBauen(e.feld, w, symbole, Math.random)));
     setErgebnis(null);
@@ -14370,6 +14622,7 @@ const AugeTisch = ({
     setRisiko(null);
     setDreh(d => d + 1);
     starten(() => {
+      zahlen(gewinn);
       setErgebnis({
         ...e,
         gewinn
@@ -14403,6 +14656,20 @@ const AugeTisch = ({
       }
     });
   };
+  const weiter = darfZahlen => {
+    if (frei && frei.uebrig <= 0) {
+      setFrei(null);
+      return 'frei';
+    }
+    if (imFrei) {
+      drehen();
+      return 'frei';
+    }
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko, weiter, ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
   const risikoStarten = art => {
     const gesamt = riskierbar;
     if (gesamt <= 0 || risiko) return;
@@ -14490,13 +14757,16 @@ const AugeTisch = ({
   }, "Einsatz"), einsaetze.map(n => React.createElement("button", {
     key: n,
     className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
-    disabled: imFrei,
+    disabled: imFrei || !!lauf.auto,
     onClick: () => setEinsatz(n)
   }, n))), React.createElement("button", {
     className: 'automat-hebel' + (imFrei ? ' frei' : ''),
-    disabled: !kannDrehen,
+    disabled: !kannDrehen || !!lauf.auto,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : imFrei ? '👁️ Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), riskierbar > 0 && !laeuft && !risiko && !imFrei && React.createElement("div", {
+  }, laeuft ? 'Läuft…' : imFrei ? '👁️ Freidreh · noch ' + frei.uebrig : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), React.createElement(AutolaufLeiste, {
+    lauf: lauf,
+    gesperrt: !kannDrehen
+  }), riskierbar > 0 && !laeuft && !risiko && !lauf.auto && !imFrei && React.createElement("div", {
     className: "risiko-angebot"
   }, React.createElement("span", {
     className: "risiko-angebot-text"
@@ -14834,7 +15104,7 @@ const HutTisch = ({
     if (!kannDrehen) return;
     const e = hutDreh(wZiehen(HUT_BAENDER, Math.random), symbole, einsatz, Math.random);
     const gewinn = Math.round(e.gewinn);
-    zahlen(-einsatz + gewinn);
+    zahlen(-einsatz);
     setBaender([0, 1, 2, 3, 4].map(w => wBandBauen(e.feld, w, vorlauf[w], Math.random)));
     setErgebnis(null);
     setRiskierbar(0);
@@ -14842,6 +15112,7 @@ const HutTisch = ({
     setUnterwegs(e);
     setDreh(d => d + 1);
     starten(() => {
+      zahlen(gewinn);
       setErgebnis({
         ...e,
         gewinn
@@ -14849,6 +15120,12 @@ const HutTisch = ({
       setRiskierbar(gewinn);
     }, e.hut >= 0 ? hutZeitplan(e.gezogen).ende : undefined);
   };
+  const weiter = darfZahlen => {
+    if (!darfZahlen || !kannDrehen) return null;
+    drehen();
+    return 'bezahlt';
+  };
+  const lauf = useAutolauf(!laeuft && !risiko, weiter, ergebnis && ergebnis.gewinn > 0 ? 1400 : 450);
   const risikoStarten = art => {
     const gesamt = riskierbar;
     if (gesamt <= 0 || risiko) return;
@@ -14937,12 +15214,16 @@ const HutTisch = ({
   }, "Einsatz"), einsaetze.map(n => React.createElement("button", {
     key: n,
     className: 'automat-chip' + (einsatz === n ? ' aktiv' : ''),
+    disabled: !!lauf.auto,
     onClick: () => setEinsatz(n)
   }, n))), React.createElement("button", {
     className: "automat-hebel",
-    disabled: !kannDrehen,
+    disabled: !kannDrehen || !!lauf.auto,
     onClick: drehen
-  }, laeuft ? 'Läuft…' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), riskierbar > 0 && !laeuft && !risiko && React.createElement("div", {
+  }, laeuft ? 'Läuft…' : kannDrehen ? 'Drehen · ' + einsatz : 'Zu wenig im Beutel'), React.createElement(AutolaufLeiste, {
+    lauf: lauf,
+    gesperrt: !kannDrehen
+  }), riskierbar > 0 && !laeuft && !risiko && !lauf.auto && React.createElement("div", {
     className: "risiko-angebot"
   }, React.createElement("span", {
     className: "risiko-angebot-text"
@@ -14960,6 +15241,27 @@ const HutTisch = ({
     }, React.createElement("b", null, "Der Hut"), " \u2014 er liegt nur auf der mittleren Walze und ersetzt dort jedes Zeichen. F\xE4llt er, zieht der Gaukler ein Bild aus ihm heraus, manchmal zwei \u2014 eines, das gerade auf dem Feld liegt. Jedes Zeichen dieses Bildes wird zum Gaukler, auf allen Walzen, und der Gaukler ersetzt nicht nur, er zahlt auch selbst am meisten. Freispiele gibt es keine: der Zauber f\xE4llt im gew\xF6hnlichen Dreh, etwa jedes siebte Mal.")
   })));
 };
+const WALZEN_AUTOMATEN = [{
+  k: 'buch',
+  feld: 'buchSymbole',
+  symbole: BUCH_SYMBOLE,
+  haeufigkeit: BUCH_HAEUFIGKEIT
+}, {
+  k: 'arena',
+  feld: 'arenaSymbole',
+  symbole: ARENA_SYMBOLE,
+  haeufigkeit: ARENA_HAEUFIGKEIT
+}, {
+  k: 'auge',
+  feld: 'augeSymbole',
+  symbole: AUGE_SYMBOLE,
+  haeufigkeit: AUGE_HAEUFIGKEIT
+}, {
+  k: 'hut',
+  feld: 'hutSymbole',
+  symbole: HUT_SYMBOLE,
+  haeufigkeit: HUT_HAEUFIGKEIT
+}];
 
 // ==== js/src/2g-kampfsicht.jsx ====
 const zustandFarbe = label => (TP_ZUSTAENDE.find(z => z.label === label) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1]).color;

@@ -382,6 +382,11 @@ Skalarprodukt.
 
 ## Einstellungen je Abenteuer
 
+*Die Auszahlungen stehen seit v5.27 in den Einstellungen* (Block
+„Walzenautomaten", `WalzenEinstellungen` in `2e-abenteuer.jsx`,
+gespeichert als `automat.buchSymbole` usw.). Einen eigenen
+Höchsteinsatz je Automat gibt es nicht; es gilt der gemeinsame.
+
 Wie bei allem anderen: nichts eingetragen heißt, es gilt der Standard.
 
 - **Offen oder zu**, je Automat — die drei tragen sich in `zu` ein wie

@@ -2,6 +2,110 @@
 // Was hier steht, gilt fuer alle in der Gruppe — es liegt in derselben
 // geteilten Datenbank wie die Abenteuerliste selbst. Deshalb sind es
 // bewusst wenige, klar benannte Schalter und keine Sammelkiste.
+// ── Die Walzenautomaten ──────────────────────────────────────────
+// Einstellbar sind nur die Auszahlungen — wie beim dreiwalzigen
+// Automaten. Baender, Linien und Bonusregeln bleiben: an ihnen haengt die
+// Messung, aus der die Quote gerechnet wird, und wer daran dreht, dreht
+// am Spiel und nicht an seiner Runde.
+//
+// Gespeichert wird je Automat eine Liste {k, zahlt, streu} unter
+// `automat.buchSymbole` usw.; der Tisch liest sie mit wSymboleAus. Fehlt
+// sie, gilt der Standard.
+const WalzenEinstellungen = ({ automat, onFeld }) => {
+  const [wahl, setWahl] = useState(WALZEN_AUTOMATEN[0].k);
+  const [ziel, setZiel] = useState(95);
+  const m = WALZEN_AUTOMATEN.find(x => x.k === wahl) || WALZEN_AUTOMATEN[0];
+  const tafelVon = (x) => wSymboleAus(x.symbole, automat && automat[x.feld]);
+  const symbole = tafelVon(m);
+  const quote = wQuote(m.haeufigkeit, symbole);
+  const eigen = !!(automat && automat[m.feld]);
+  const setzen = (liste) => onFeld({[m.feld]: wTafelAlsCfg(liste)});
+  // Nur die Spalten, die dieser Automat kennt — der Gräber zahlt schon
+  // zu zweit, die anderen nicht.
+  const spalten = wZahlSpalten.filter(n => symbole.some(s =>
+    (s.zahlt && n in s.zahlt) || (s.streu && n in s.streu)));
+  const feld = (s, art, n) => (
+    <ZahlFeld className="form-input" min={0} max={99999} step="0.05"
+      aria-label={s.name + ', ' + n + ' gleiche'} wert={s[art][n]}
+      onWert={v => setzen(wTafelSetzen(symbole, s.k, art, n, v))} />
+  );
+  return (
+    <>
+      <div className="einst-hinweis" style={{marginTop:0, marginBottom:10}}>
+        Was ein Zeichen auf einer Linie bringt, als Vielfaches des Linieneinsatzes —
+        der ist ein Zehntel des Einsatzes. Verstreute Zeichen zahlen über den ganzen
+        Einsatz. Die Quote wird aus Millionen gemessener Drehungen gerechnet und
+        stimmt, solange die Rangfolge der Zeichen bleibt: wer die niedrigen über die
+        hohen stellt, bekommt eine ungefähre Zahl.
+      </div>
+
+      <div className="einst-wahl einst-walzenwahl">
+        {WALZEN_AUTOMATEN.map(x => {
+          const t = TAVERNEN_TISCHE.find(t2 => t2.k === x.k) || {};
+          return (
+            <button type="button" key={x.k}
+              className={'einst-option' + (x.k === m.k ? ' aktiv' : '')}
+              onClick={() => setWahl(x.k)}>
+              <b>{t.z} {t.name}</b>
+              <i>{wProzent(wQuote(x.haeufigkeit, tafelVon(x)))}
+                {automat && automat[x.feld] ? ' · eigene Tafel' : ' · Standard'}</i>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="einst-quote" style={{marginTop:12}}>
+        <span className="einst-quote-label">Auszahlungsquote</span>
+        <b>{wProzent(quote)}</b>
+        <ZahlFeld className="form-input einst-ziel" min={10} max={200}
+          aria-label="Zielquote in Prozent" wert={ziel} onWert={v => setZiel(v)} />
+        <button type="button" className="btn-icon"
+          onClick={() => setzen(wEinregeln(symbole, m.haeufigkeit, ziel / 100))}>
+          auf {ziel} % einregeln
+        </button>
+      </div>
+      {quote > 1.0 && (
+        <div className="einst-hinweis" style={{marginTop:-6, marginBottom:10}}>
+          <b className="einst-warnung">Über 100 % — auf Dauer zahlt das Haus drauf.</b>
+        </div>
+      )}
+
+      <div className="tabellenhuelle">
+        <table className="einst-automat einst-walzentafel">
+          <thead>
+            <tr><th colSpan={2}>Zeichen</th>{spalten.map(n => <th key={n}>{n} gleiche</th>)}</tr>
+          </thead>
+          <tbody>
+            {symbole.map(s => (
+              <tr key={s.k}>
+                <td className="zeichen">{wZeichen(s)}</td>
+                <td className="name">{s.name}
+                  {(s.wild || s.streu) && <i>{[s.wild ? 'Wild' : '', s.streu ? 'verstreut, ganzer Einsatz' : '']
+                    .filter(Boolean).join(' · ')}</i>}</td>
+                {spalten.map(n => (
+                  <td key={n}>
+                    {s.zahlt && n in s.zahlt ? feld(s, 'zahlt', n)
+                      : s.streu && n in s.streu ? feld(s, 'streu', n)
+                      : <span className="einst-leer">–</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {eigen && (
+        <div className="einst-klassen-fuss">
+          <button type="button" className="btn-icon" onClick={() => onFeld({[m.feld]: undefined})}>
+            ↺ Standardtafel
+          </button>
+        </div>
+      )}
+    </>
+  );
+};
+
 const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrechen,
                                   besitzer, mitglieder, onBesitzer,
                                   advDms, istAdmin, onAdvDms }) => {
@@ -253,6 +357,15 @@ const AbenteuerEinstellungen = ({ adv, helden, onAendern, onSpeichern, onAbbrech
                 );
               })}
             </div>
+          </EinstBlock>
+
+          {/* ── Die Walzenautomaten ── */}
+          <EinstBlock titel="🎰 Walzenautomaten"
+            kurz={(() => {
+              const n = WALZEN_AUTOMATEN.filter(x => adv.automat && adv.automat[x.feld]).length;
+              return WALZEN_AUTOMATEN.length + ' Automaten · ' + (n ? n + ' mit eigener Tafel' : 'Standard');
+            })()}>
+            <WalzenEinstellungen automat={adv.automat} onFeld={autoFeld} />
           </EinstBlock>
 
           {/* ── Der Automat ── */}
