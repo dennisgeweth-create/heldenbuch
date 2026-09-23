@@ -390,6 +390,15 @@
              leisten.length < 2 || leisten[0].textContent === leisten[1].textContent,
              leisten.length < 2 ? 'nur eine' : leisten.map(l => l.querySelectorAll('.btn-tool, a.btn-tool').length).join(' / '));
         }
+        // Dasselbe für die Kontoreihe: Anmeldung, DM-Modus, Neu laden, Abmelden.
+        const konten = [...document.querySelectorAll('.sync-actions')];
+        if (ja('Die Kontoreihe steht da', konten.length >= 1, konten.length + ' gefunden')) {
+          ja('  … mit Neu laden und Abmelden',
+             !!konten[0].querySelector('[aria-label="Neu laden"]') && !!konten[0].querySelector('[aria-label="Abmelden"]'));
+          ja('  … und wo sie zweimal steht, trägt sie dasselbe',
+             konten.length < 2 || konten[0].innerHTML === konten[1].innerHTML,
+             konten.map(k => k.textContent.trim()).join(' / '));
+        }
 
         // ── Die Fensterleiste vom letzten Mal ──
         const eintragL = (t) => [...document.querySelectorAll('.fl-eintrag')].find(e => e.textContent.includes(t));

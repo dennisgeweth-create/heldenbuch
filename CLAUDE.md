@@ -119,7 +119,8 @@ was nicht. Ihr Speicher liegt nur im Arbeitsspeicher, sie kann also keine
 echten Helden überschreiben.
 
 Sonst schlägt der Deploy fehl — die Action prüft mit `node build.js --check`,
-ob `js/app.js` zu den Quellen passt.
+ob `js/app.js` zu den Quellen passt, und lässt danach `node dev/pruefen.js`
+laufen. Fällt dort eine Prüfung durch, wird nichts ausgeliefert.
 
 Die Dateien werden in Namensreihenfolge (`0-`, `1-`, …) aneinandergehängt und
 teilen sich einen Geltungsbereich — es gibt keine Imports. Reihenfolge zählt:
@@ -211,3 +212,7 @@ ausgelieferte Datei per Prüfsumme mit der hochgeladenen.
 
 Der Upload löscht bewusst nichts auf dem Server — `config.php` mit den
 Datenbank-Zugangsdaten liegt nur dort und muss überleben.
+
+Die Datenbank sichert der Hoster alle 24 Stunden. Ob das auch die Dateien
+auf dem Webspace umfasst (`planer-dateien/`: Kartenkacheln, Bilder und
+Videos des Tagebuchs), ist nicht geklärt.

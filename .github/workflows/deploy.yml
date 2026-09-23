@@ -45,6 +45,15 @@ jobs:
       - name: Check built app.js is current
         run: node build.js --check
 
+      # Die Rechnungspruefungen: 34 Dateien, ohne Browser, ohne Server und
+      # ohne Datenbank, in wenigen Sekunden. Bis v5.24 liefen sie nur, wenn
+      # jemand sie von Hand startete — ein Fehler in der Rechnung ging
+      # damit ungehindert auf den Server. Schlaegt eine fehl, bleibt die
+      # alte Fassung stehen. Die Brueckenpruefung braucht die Windows-
+      # PowerShell und meldet sich hier mit null Pruefungen ab.
+      - name: Rechnungspruefungen
+        run: node dev/pruefen.js
+
       # Die Dateiliste ist bewusst ausgeschrieben statt "alles kopieren":
       # so landen .git, .github, js/src/ und vendor/babel nie im Webroot.
       # Die PATCHNOTES.md geht seit v5.0 mit: die Ausgabe-Nummer in der

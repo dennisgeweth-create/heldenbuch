@@ -3429,6 +3429,40 @@ function App() {
   const unarchiveChar = id => save(charsRef.current.map(c=>c.id===id?{...c,archived:false}:c));
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
+  // ── Das Konto ───────────────────────────────────────────────────
+  // Anmeldung, DM-Modus, Neu laden, Abmelden. Wie die Werkzeuge steht
+  // die Reihe am breiten Schirm in der Seitenleiste und am schmalen auf
+  // der Heldenliste — und wie die Werkzeuge ist sie deshalb nur einmal
+  // gebaut. Als Abschrift liefen die beiden schon auseinander.
+  const kontoLeiste = (stil) => (
+    <div className="sync-actions" style={stil}>
+      {konto ? (
+        <button className="btn-konto" onClick={kontoOeffnen}
+          title={'Angemeldet als ' + konto.name
+                 + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
+                 + ' — Passwort ändern, und was über dich gespeichert ist'}>
+          <span className="btn-konto-name">👤 {konto.name}</span>
+          {konto.ist_admin && <i className="btn-konto-rolle">Verwaltung</i>}
+          {!konto.ist_admin && isDmMode && <i className="btn-konto-rolle">Spielleitung</i>}
+        </button>
+      ) : <span className="btn-konto leer">Ohne Konto verbunden</span>}
+      {/* Wer als Spielleitung angemeldet ist, kommt ohne zweites
+          Passwort hinein — die Rolle steht am Konto. */}
+      {konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && (
+        <button className="btn-sync dm" title="In den DM-Modus wechseln"
+          onClick={dmMitKonto}>🔮 DM</button>
+      )}
+      {isDmMode && (
+        <button className="btn-sync dm active" title="DM-Modus verlassen"
+          onClick={doDmLogout}>🔮 aus</button>
+      )}
+      <button className="btn-sync schmal" title="Daten neu vom Server laden"
+        aria-label="Neu laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺</button>
+      <button className="btn-sync schmal" title="Abmelden"
+        aria-label="Abmelden" onClick={signOut}>⎋</button>
+    </div>
+  );
+
   // ── Die Werkzeuge ───────────────────────────────────────────────
   // Dieselbe Leiste steht an zwei Stellen: in der Seitenleiste am
   // breiten Schirm und auf der Heldenliste am Telefon. Sie wird
@@ -3757,32 +3791,7 @@ function App() {
                     </span>
                   </div>
                 )}
-                <div className="sync-actions">
-                  {konto ? (
-                    <button className="btn-konto" onClick={kontoOeffnen}
-                      title={'Angemeldet als ' + konto.name
-                             + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
-                             + ' — Passwort ändern, und was über dich gespeichert ist'}>
-                      <span className="btn-konto-name">👤 {konto.name}</span>
-                      {konto.ist_admin && <i className="btn-konto-rolle">Verwaltung</i>}
-                      {!konto.ist_admin && isDmMode && <i className="btn-konto-rolle">Spielleitung</i>}
-                    </button>
-                  ) : <span className="btn-konto leer">Ohne Konto verbunden</span>}
-                  {/* Wer als Spielleitung angemeldet ist, kommt ohne zweites
-                      Passwort hinein — die Rolle steht am Konto. */}
-                  {konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && (
-                    <button className="btn-sync dm" title="In den DM-Modus wechseln"
-                      onClick={dmMitKonto}>🔮 DM</button>
-                  )}
-                  {isDmMode && (
-                    <button className="btn-sync dm active" title="DM-Modus verlassen"
-                      onClick={doDmLogout}>🔮 aus</button>
-                  )}
-                  <button className="btn-sync schmal" title="Daten neu vom Server laden"
-                    aria-label="Neu laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺</button>
-                  <button className="btn-sync schmal" title="Abmelden"
-                    aria-label="Abmelden" onClick={signOut}>⎋</button>
-                </div>
+                {kontoLeiste()}
               </>
             ) : (
               <button className="btn-sync" onClick={()=>{setSetupErr('');
@@ -3815,32 +3824,7 @@ function App() {
                     breiten Leiste — auf dem Telefon kam man damit weder in
                     den DM-Modus noch wieder heraus. Dieselbe Reihe, dieselbe
                     Bedienung. */}
-                {svCode && (
-                  <div className="sync-actions" style={{marginTop:10}}>
-                    {konto ? (
-                      <button className="btn-konto" onClick={kontoOeffnen}
-                        title={'Angemeldet als ' + konto.name
-                               + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '')
-                               + ' — Passwort ändern, und was über dich gespeichert ist'}>
-                        <span className="btn-konto-name">👤 {konto.name}</span>
-                        {konto.ist_admin && <i className="btn-konto-rolle">Verwaltung</i>}
-                        {!konto.ist_admin && isDmMode && <i className="btn-konto-rolle">Spielleitung</i>}
-                      </button>
-                    ) : <span className="btn-konto leer">Ohne Konto verbunden</span>}
-                    {konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && (
-                      <button className="btn-sync dm" title="In den DM-Modus wechseln"
-                        onClick={dmMitKonto}>🔮 DM</button>
-                    )}
-                    {isDmMode && (
-                      <button className="btn-sync dm active" title="DM-Modus verlassen"
-                        onClick={doDmLogout}>🔮 aus</button>
-                    )}
-                    <button className="btn-sync schmal" title="Daten neu vom Server laden"
-                      aria-label="Neu laden" onClick={()=>doSyncLoad(svUrl,svCode,svPass)}>↺</button>
-                    <button className="btn-sync schmal" title="Abmelden"
-                      aria-label="Abmelden" onClick={signOut}>⎋</button>
-                  </div>
-                )}
+                {svCode && kontoLeiste({marginTop: 10})}
               </div>
               <div style={{padding:8}}>
                 <div style={{padding:'6px 0 4px'}}>

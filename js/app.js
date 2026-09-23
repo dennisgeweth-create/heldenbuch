@@ -30883,6 +30883,46 @@ function App() {
   } : c));
 
   // ── AdventureLog component (extracted to avoid hooks-in-IIFE error) ─────
+  // ── Das Konto ───────────────────────────────────────────────────
+  // Anmeldung, DM-Modus, Neu laden, Abmelden. Wie die Werkzeuge steht
+  // die Reihe am breiten Schirm in der Seitenleiste und am schmalen auf
+  // der Heldenliste — und wie die Werkzeuge ist sie deshalb nur einmal
+  // gebaut. Als Abschrift liefen die beiden schon auseinander.
+  const kontoLeiste = stil => /*#__PURE__*/React.createElement("div", {
+    className: "sync-actions",
+    style: stil
+  }, konto ? /*#__PURE__*/React.createElement("button", {
+    className: "btn-konto",
+    onClick: kontoOeffnen,
+    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '') + ' — Passwort ändern, und was über dich gespeichert ist'
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "btn-konto-name"
+  }, "\uD83D\uDC64 ", konto.name), konto.ist_admin && /*#__PURE__*/React.createElement("i", {
+    className: "btn-konto-rolle"
+  }, "Verwaltung"), !konto.ist_admin && isDmMode && /*#__PURE__*/React.createElement("i", {
+    className: "btn-konto-rolle"
+  }, "Spielleitung")) : /*#__PURE__*/React.createElement("span", {
+    className: "btn-konto leer"
+  }, "Ohne Konto verbunden"), konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync dm",
+    title: "In den DM-Modus wechseln",
+    onClick: dmMitKonto
+  }, "\uD83D\uDD2E DM"), isDmMode && /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync dm active",
+    title: "DM-Modus verlassen",
+    onClick: doDmLogout
+  }, "\uD83D\uDD2E aus"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync schmal",
+    title: "Daten neu vom Server laden",
+    "aria-label": "Neu laden",
+    onClick: () => doSyncLoad(svUrl, svCode, svPass)
+  }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-sync schmal",
+    title: "Abmelden",
+    "aria-label": "Abmelden",
+    onClick: signOut
+  }, "\u238B"));
+
   // ── Die Werkzeuge ───────────────────────────────────────────────
   // Dieselbe Leiste steht an zwei Stellen: in der Seitenleiste am
   // breiten Schirm und auf der Heldenliste am Telefon. Sie wird
@@ -31430,39 +31470,7 @@ function App() {
     className: "sync-dot " + (offeneAenderungen > 0 ? "err" : syncStatus === "busy" ? "busy" : "err")
   }), /*#__PURE__*/React.createElement("span", {
     className: "sync-line-msg" + (offeneAenderungen > 0 ? " offen" : "")
-  }, offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "…")), /*#__PURE__*/React.createElement("div", {
-    className: "sync-actions"
-  }, konto ? /*#__PURE__*/React.createElement("button", {
-    className: "btn-konto",
-    onClick: kontoOeffnen,
-    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '') + ' — Passwort ändern, und was über dich gespeichert ist'
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "btn-konto-name"
-  }, "\uD83D\uDC64 ", konto.name), konto.ist_admin && /*#__PURE__*/React.createElement("i", {
-    className: "btn-konto-rolle"
-  }, "Verwaltung"), !konto.ist_admin && isDmMode && /*#__PURE__*/React.createElement("i", {
-    className: "btn-konto-rolle"
-  }, "Spielleitung")) : /*#__PURE__*/React.createElement("span", {
-    className: "btn-konto leer"
-  }, "Ohne Konto verbunden"), konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync dm",
-    title: "In den DM-Modus wechseln",
-    onClick: dmMitKonto
-  }, "\uD83D\uDD2E DM"), isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync dm active",
-    title: "DM-Modus verlassen",
-    onClick: doDmLogout
-  }, "\uD83D\uDD2E aus"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync schmal",
-    title: "Daten neu vom Server laden",
-    "aria-label": "Neu laden",
-    onClick: () => doSyncLoad(svUrl, svCode, svPass)
-  }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync schmal",
-    title: "Abmelden",
-    "aria-label": "Abmelden",
-    onClick: signOut
-  }, "\u238B"))) : /*#__PURE__*/React.createElement("button", {
+  }, offeneAenderungen > 0 ? offeneAenderungen + " nicht gesichert" : syncMsg || "…")), kontoLeiste()) : /*#__PURE__*/React.createElement("button", {
     className: "btn-sync",
     onClick: () => {
       setSetupErr('');
@@ -31516,42 +31524,9 @@ function App() {
     }
   }, offeneAenderungen > 0 ? offeneAenderungen + ' nicht gesichert' : syncMsg || '…')), werkzeuge({
     marginTop: 10
-  }), svCode && /*#__PURE__*/React.createElement("div", {
-    className: "sync-actions",
-    style: {
-      marginTop: 10
-    }
-  }, konto ? /*#__PURE__*/React.createElement("button", {
-    className: "btn-konto",
-    onClick: kontoOeffnen,
-    title: 'Angemeldet als ' + konto.name + (rolleIn(konto, svCode) ? ' · ' + rolleIn(konto, svCode) : '') + ' — Passwort ändern, und was über dich gespeichert ist'
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "btn-konto-name"
-  }, "\uD83D\uDC64 ", konto.name), konto.ist_admin && /*#__PURE__*/React.createElement("i", {
-    className: "btn-konto-rolle"
-  }, "Verwaltung"), !konto.ist_admin && isDmMode && /*#__PURE__*/React.createElement("i", {
-    className: "btn-konto-rolle"
-  }, "Spielleitung")) : /*#__PURE__*/React.createElement("span", {
-    className: "btn-konto leer"
-  }, "Ohne Konto verbunden"), konto && leitetAbenteuer(konto, advDms, svCode, advId) && !isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync dm",
-    title: "In den DM-Modus wechseln",
-    onClick: dmMitKonto
-  }, "\uD83D\uDD2E DM"), isDmMode && /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync dm active",
-    title: "DM-Modus verlassen",
-    onClick: doDmLogout
-  }, "\uD83D\uDD2E aus"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync schmal",
-    title: "Daten neu vom Server laden",
-    "aria-label": "Neu laden",
-    onClick: () => doSyncLoad(svUrl, svCode, svPass)
-  }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-sync schmal",
-    title: "Abmelden",
-    "aria-label": "Abmelden",
-    onClick: signOut
-  }, "\u238B"))), /*#__PURE__*/React.createElement("div", {
+  }), svCode && kontoLeiste({
+    marginTop: 10
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 8
     }
