@@ -58,8 +58,12 @@ const fertig = {
 const p = assistentPlan(fertig);
 // Geschicklichkeit 14 + 1 (Waldgnom) = 15, Modifikator +2.
 ist('die Geschicklichkeit zaehlt den Bonus dazu', p.neu.dex, 15);
-ist('die Initiative folgt daraus', p.neu.initiative, 2);
-ist('  … und steht als Zeile da', zeile(p, 'Initiative'), '+2');
+// Die Initiative folgt aus der Geschicklichkeit und steht als Zeile da —
+// gespeichert wird aber kein Wert, sondern nur ein Bonus von null. Bis
+// v5.31 stand hier der Modifikator, und der zaehlte doppelt (im Bogen
+// wurde aus +3 sogar −4).
+ist('die Initiative steht als Zeile da', zeile(p, 'Initiative'), '+2');
+ist('  … gespeichert wird kein Bonus', p.neu.initiative, 0);
 ist('die Ruestungsklasse ist zehn plus Modifikator', p.neu.ac, 12);
 // Intelligenz 12 + 2 (Gnom) = 14; Konstitution 13, Modifikator +1.
 ist('die Intelligenz auch', p.neu.int, 14);

@@ -557,6 +557,13 @@
   @media (hover:hover) { .note-card:hover { border-color:var(--border-bright); } }
   .note-card-header { display:flex; align-items:center; gap:8px; }
   .note-card-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; }
+  /* Der aufgeklappte Text einer Notiz: HTML aus dem Editor, oder alter
+     Klartext mit seinen Zeilenumbruechen. */
+  .note-card-text { margin-top:8px; padding-bottom:4px; font-family:'Roboto',sans-serif; font-size:15px;
+    color:var(--text-secondary); line-height:1.7; overflow-wrap:anywhere; }
+  .note-card-text.klartext { white-space:pre-wrap; }
+  .note-card-text p { margin:0 0 0.8em; }
+  .note-card-text ul, .note-card-text ol { margin:0 0 0.8em; padding-left:1.4em; }
   .note-card-preview { font-size:12px; color:var(--text-muted); margin-top:4px; font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
   .note-card-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.25s ease; overflow:hidden; }
   .note-card-body.open { grid-template-rows:1fr; }

@@ -40,5 +40,23 @@ ist('  … die Vorlage bleibt', alt[0].npc, undefined);
 ist('  … und ein zweites Mal aendert nichts', nscMigration(neu), null);
 ist('eine vorhandene Haltung bleibt stehen', nscMigration([{id: 'c', dmOnly: true, haltung: 'feindlich'}])[0].haltung, 'feindlich');
 
+// ── Die Initiative, einmal geradegezogen ──
+// Das Feld ist ein Bonus zur Geschicklichkeit. Der Assistent schrieb bis
+// v5.31 den fertigen Modifikator hinein (Pip: Geschicklichkeit 17, im
+// Feld 3 — im Bogen −4, im Kampf +6).
+ist('ein neuer Bogen ist schon umgestellt', initiativeMigration([newChar()]), null);
+const pip = {id: 'pip', dex: 17, initiative: 3};
+const umgestellt = initiativeMigration([pip])[0];
+ist('der doppelte Modifikator wird null', umgestellt.initiative, 0);
+ist('  … und charWerte() sagt dann +3', charWerte(umgestellt).initiative, 3);
+ist('  … einmal: ein zweiter Lauf aendert nichts', initiativeMigration([umgestellt]), null);
+ist('auch nach einem Aufstieg (Geschicklichkeit 18, im Feld noch 3)',
+  initiativeMigration([{id: 'p', dex: 18, initiative: 3}])[0].initiative, 0);
+ist('ein echter Bonus bleibt (Aufmerksam, +5 bei Geschicklichkeit 14)',
+  initiativeMigration([{id: 'a', dex: 14, initiative: 5}])[0].initiative, 5);
+ist('null bleibt null', initiativeMigration([{id: 'z', dex: 12, initiative: 0}])[0].initiative, 0);
+ist('ein alter Bogen ohne Zeichen wird gezeichnet',
+  initiativeMigration([{id: 'o', dex: 10}])[0].initMigrated, INIT_MIGRATION);
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

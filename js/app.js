@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.31.0';
+const HB_VERSION = 'v5.32.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -17112,7 +17112,7 @@ const heldText = (c, opts) => {
     notizen.forEach(n => {
       t.push('');
       t.push('  ' + (n.title || 'Notiz') + ((n.tags || []).length ? '   [' + n.tags.join(', ') + ']' : ''));
-      if (n.content) htUmbruch(n.content, '    ').forEach(z => t.push(z));
+      if (n.content) htUmbruch(htmlZuText(n.content), '    ').forEach(z => t.push(z));
     });
   }
   t.push('');
@@ -22721,16 +22721,16 @@ const Sheet = () => {
         className: "note-card-body" + (isEx ? " open" : "")
       }, React.createElement("div", null, !isEx ? React.createElement("div", {
         className: "note-card-preview"
-      }, note.content.length > 120 ? note.content.slice(0, 120) + '…' : note.content) : React.createElement("div", {
-        style: {
-          marginTop: 8,
-          fontFamily: "'Roboto',sans-serif",
-          fontSize: 15,
-          color: "var(--text-secondary)",
-          lineHeight: 1.7,
-          whiteSpace: "pre-wrap",
-          paddingBottom: 4
+      }, (() => {
+        const t = htmlZuText(note.content).replace(/\s+/g, ' ');
+        return t.length > 120 ? t.slice(0, 120) + '…' : t;
+      })()) : /<[a-z][^>]*>/i.test(note.content) ? React.createElement("div", {
+        className: "note-card-text",
+        dangerouslySetInnerHTML: {
+          __html: sanitizeHtml(note.content)
         }
+      }) : React.createElement("div", {
+        className: "note-card-text klartext"
       }, note.content))));
     }));
   })(), React.createElement("button", {
@@ -24631,6 +24631,11 @@ function App() {
         ...p
       } : c;
     }));
+  }, [gearReady, chars]);
+  useEffect(() => {
+    if (!gearReady) return;
+    const neu = initiativeMigration(charsRef.current);
+    if (neu) save(neu);
   }, [gearReady, chars]);
   useEffect(() => {
     if (!gearReady) return;
@@ -26801,7 +26806,7 @@ function App() {
     speed: fx('speed', cur.speed),
     profBonus: fx('profBonus', cur.profBonus)
   } : null;
-  const initTotal = cur ? fx('initiative', mod(cur.initiative || effCur.dex)) : 0;
+  const initTotal = cur ? fx('initiative', mod(effCur.dex) + (+cur.initiative || 0)) : 0;
   const weaponStats = w => {
     const aKey = w.attrKey === "fin" ? mod(effCur.str) >= mod(effCur.dex) ? "str" : "dex" : w.attrKey || "str";
     const attrMod = mod(effCur[aKey] || 10);

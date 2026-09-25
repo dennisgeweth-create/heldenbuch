@@ -60,7 +60,7 @@ Trefferpunkte: 16 von 16     # jetzt von höchstens
 Temporäre TP: 0
 Rüstungsklasse: 12
 Bewegung: 9                  # in Metern, deutsch: 7,5
-Initiative: 0
+Initiative: 0                # Bonus zur Geschicklichkeit, meist 0
 Inspiration: 0 von 1
 Erschöpfung: 0
 Zauberpunkte: 0 Punkte, 0 verbraucht

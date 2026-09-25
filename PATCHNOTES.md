@@ -1,5 +1,28 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.32.0
+
+### Initiative −4 bei Geschicklichkeit 17
+
+Helden aus dem Charakterassistenten hatten eine unsinnige Initiative —
+Pip mit Geschicklichkeit 17 stand bei **−4**. Drei Stellen lasen
+dieselbe Zahl verschieden: der Assistent schrieb den fertigen
+Modifikator hinein (+3), der Bogen hielt ihn für einen Attributswert
+(aus 3 wird −4), und der Kampftracker zählte ihn als Bonus dazu (+6).
+
+- Die Initiative ist jetzt überall **Geschicklichkeitsmodifikator plus
+  Bonus** (meist 0; Effekte wie „Aufmerksam" rechnen weiter dazu).
+- Betroffene Helden werden beim nächsten Laden **einmal
+  geradegezogen** — Pip steht danach bei +3, im Bogen wie im Kampf.
+
+### Notizen zeigen ihre Absätze
+
+Was im Notizeditor mit Absätzen geschrieben war, stand im Bogen als
+`<div><br></div>` mitten im Text. Jetzt stehen die Absätze da — und die
+Vorschau der zugeklappten Notiz zeigt nur den Text. Auch der Bogen als
+Text („Als Text", zum Vorlegen an eine KI) hat die Notizen jetzt ohne
+Auszeichnung.
+
 ## v5.31.0
 
 ### Der Wirt legt nach — an jedem Tisch

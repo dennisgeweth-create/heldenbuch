@@ -547,9 +547,11 @@ const assistentPlan = (e) => {
     }
   }
   if (attrDa('dex')) {
-    neu.initiative = mod(werte.dex);
+    // Das Feld ist ein Bonus zur Geschicklichkeit, kein fertiger Wert —
+    // hier stand bis v5.31 der Modifikator, und er zaehlte doppelt.
+    neu.initiative = 0;
     neu.ac = 10 + mod(werte.dex);
-    zeile('Initiative', (neu.initiative >= 0 ? '+' : '') + neu.initiative);
+    zeile('Initiative', (mod(werte.dex) >= 0 ? '+' : '') + mod(werte.dex));
     zeile('Rüstungsklasse', neu.ac + '  (ohne Rüstung)');
   }
 
@@ -1538,10 +1540,33 @@ const nscMigration = (liste) => {
   return liste.map(c => (c.dmOnly && !c.npc) ? {...c, npc: true, haltung: c.haltung || 'freundlich'} : c);
 };
 
+// ── Die Initiative, einmal geradegezogen ─────────────────────────
+// Das Feld `initiative` ist ein Bonus zur Geschicklichkeit (charWerte()).
+// Der Charakterassistent schrieb bis v5.31 den fertigen Modifikator
+// hinein — der zaehlte im Kampf doppelt, und der Bogen machte aus ihm
+// einen Attributswert (aus +3 wurde −4). Einmal je Held: steht dort
+// ungefaehr der Geschicklichkeitsmodifikator (±1, denn ein Aufstieg kann
+// die Geschicklichkeit seither gehoben haben), wird es null. Ein echter
+// Bonus — Aufmerksam gibt +5 — liegt weiter weg und bleibt.
+// Gibt null zurueck, wenn nichts umzustellen ist.
+const INIT_MIGRATION = 1;
+const initiativeMigration = (liste) => {
+  const offen = (c) => (c.initMigrated || 0) < INIT_MIGRATION;
+  if (!(liste || []).some(offen)) return null;
+  return liste.map(c => {
+    if (!offen(c)) return c;
+    const i = +c.initiative || 0;
+    const m = Math.floor(((+c.dex || 10) - 10) / 2);
+    const doppelt = i !== 0 && Math.abs(i - m) <= 1;
+    return {...c, initiative: doppelt ? 0 : i, initMigrated: INIT_MIGRATION};
+  });
+};
+
 const newChar   = () => ({
   id:Date.now().toString(), name:"", race:"Mensch", charClass:"Kämpfer", level:1,
   multiclasses:[],
-  hp:10, maxHp:10, tempHp:0, ac:10, speed:30, initiative:0, profBonus:2,
+  // initiative ist ein Bonus zur Geschicklichkeit, meist 0.
+  hp:10, maxHp:10, tempHp:0, ac:10, speed:30, initiative:0, initMigrated:INIT_MIGRATION, profBonus:2,
   // Regelkonform hat man Inspiration oder nicht; wer am Tisch mehrere
   // zulaesst, erhoeht das Maximum im Bogen.
   inspiration:0, inspirationMax:1,

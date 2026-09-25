@@ -874,6 +874,13 @@ function App() {
     save(liste.map(c => { const p = migrateGear(c); return p ? {...c, ...p} : c; }));
   }, [gearReady, chars]);
 
+  // Die Initiative, einmal je Held geradegezogen (initiativeMigration).
+  useEffect(() => {
+    if (!gearReady) return;
+    const neu = initiativeMigration(charsRef.current);
+    if (neu) save(neu);
+  }, [gearReady, chars]);
+
   // Aus den alten DM-Helden werden NSC. Sie waren schon dasselbe: ein
   // Bogen, den nur die Spielleitung sieht. Jetzt haben sie dazu eine
   // Haltung — und stehen nicht mehr in der Heldenauswahl.
@@ -2794,10 +2801,15 @@ function App() {
     speed:     fx('speed',     cur.speed),
     profBonus: fx('profBonus', cur.profBonus),
   } : null;
-  // Initiative wird im Bogen als Attributswert gefuehrt und erst bei der
-  // Anzeige in einen Modifikator umgerechnet — ein Initiative-Effekt wirkt
-  // deshalb auf den fertigen Modifikator, nicht auf den Wert.
-  const initTotal = cur ? fx('initiative', mod(cur.initiative || effCur.dex)) : 0;
+  // Initiative ist der Geschicklichkeitsmodifikator plus ein Bonus aus
+  // dem Feld `initiative` (meist 0) — so rechnen auch charWerte() und der
+  // Kampf. Ein Initiative-Effekt wirkt auf die fertige Summe.
+  //
+  // Bis v5.31 las der Bogen das Feld als Attributswert (mod(initiative ||
+  // dex)), der Kampf als Bonus, und der Charakterassistent schrieb den
+  // fertigen Modifikator hinein. Aus Geschicklichkeit 17 wurde so im
+  // Assistenten +3, im Feld 3, im Bogen mod(3) = −4 und im Kampf +6.
+  const initTotal = cur ? fx('initiative', mod(effCur.dex) + (+cur.initiative || 0)) : 0;
 
   // Trefferbonus und Schaden einer Waffe. Stand wortgleich zweimal im Code —
   // einmal fuer die Waffenkarte, einmal fuer die Detailansicht; eine Regel

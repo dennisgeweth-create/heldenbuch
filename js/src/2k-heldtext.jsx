@@ -340,7 +340,8 @@ const heldText = (c, opts) => {
       t.push('');
       t.push('  ' + (n.title || 'Notiz')
         + ((n.tags || []).length ? '   [' + n.tags.join(', ') + ']' : ''));
-      if (n.content) htUmbruch(n.content, '    ').forEach(z => t.push(z));
+      // Der Inhalt ist HTML aus dem Editor — als Text mit Absaetzen.
+      if (n.content) htUmbruch(htmlZuText(n.content), '    ').forEach(z => t.push(z));
     });
   }
 

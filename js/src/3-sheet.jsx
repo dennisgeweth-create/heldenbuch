@@ -1751,9 +1751,16 @@ const Sheet = () => {
                             {note.content && (
                               <div className={"note-card-body"+(isEx?" open":"")}>
                                 <div>
+                                  {/* Der Editor schreibt HTML (<div>, <br>, <b>); bis
+                                      v5.31 stand es hier als Text da, mit allen Zeichen.
+                                      Alte Notizen aus der Zeit vor dem Editor sind
+                                      Klartext — die bekommen ihre Zeilen wie bisher. */}
                                   {!isEx
-                                    ? <div className="note-card-preview">{note.content.length>120?note.content.slice(0,120)+'…':note.content}</div>
-                                    : <div style={{marginTop:8,fontFamily:"'Roboto',sans-serif",fontSize:15,color:"var(--text-secondary)",lineHeight:1.7,whiteSpace:"pre-wrap",paddingBottom:4}}>{note.content}</div>
+                                    ? <div className="note-card-preview">{(() => { const t = htmlZuText(note.content).replace(/\s+/g, ' ');
+                                        return t.length > 120 ? t.slice(0, 120) + '…' : t; })()}</div>
+                                    : /<[a-z][^>]*>/i.test(note.content)
+                                    ? <div className="note-card-text" dangerouslySetInnerHTML={{__html: sanitizeHtml(note.content)}} />
+                                    : <div className="note-card-text klartext">{note.content}</div>
                                   }
                                 </div>
                               </div>

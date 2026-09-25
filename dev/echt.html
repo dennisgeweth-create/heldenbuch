@@ -68,10 +68,16 @@
       id: 'wb1', name: 'Brunhilde Eisenfaust', race: 'Zwergin',
       charClass: 'Kämpfer', subclass: 'Champion', level: 5, multiclasses: [],
       background: 'Soldatin',
-      hp: 31, maxHp: 44, tempHp: 0, ac: 10, speed: 7.5, initiative: 0, profBonus: 3,
+      // initiative: 1 ist, was der Charakterassistent bis v5.31 hineinschrieb
+      // (der Modifikator von Geschicklichkeit 12). Der Bogen zeigte daraus
+      // −5; die Umstellung beim Laden macht es zu einem Bonus von null.
+      hp: 31, maxHp: 44, tempHp: 0, ac: 10, speed: 7.5, initiative: 1, profBonus: 3,
       inspiration: 0, inspirationMax: 1,
       str: 16, dex: 12, con: 15, int: 10, wis: 12, cha: 8,
-      portrait: '', notes: 'Sucht den Hammer ihres Vaters.', notesList: [],
+      portrait: '', notes: 'Sucht den Hammer ihres Vaters.',
+      // Wie der Editor sie schreibt — mit <div> und <br> statt Zeilen.
+      notesList: [{id: 'n1', title: 'Hintergrund', tags: [],
+        content: 'Erster Absatz.<div><br></div><div>Zweiter Absatz.</div>'}],
       features: [{id: 'f1', name: 'Aktionsschub', source: 'Kämpfer 2',
         description: 'Einmal je Rast eine <b>zusätzliche Aktion</b>.',
         effects: [], effectsActive: true},
@@ -484,6 +490,35 @@
         held.click();
         if (!ja('Sein Bogen geht auf', !!(await warten(() => document.querySelector('.sheet')))))
           return schluss();
+
+        // Die Initiative: Geschicklichkeit 12 heisst +1, und der alte Wert
+        // des Assistenten im Feld zaehlt nicht mehr doppelt (bis v5.31 −5).
+        const initBox = await warten(() => [...document.querySelectorAll('.combat-box')]
+          .find(b => /Initiative/.test((b.querySelector('.combat-label') || {}).textContent || '')));
+        ja('Die Initiative ist der Modifikator der Geschicklichkeit',
+           !!initBox && initBox.querySelector('.combat-value').textContent.replace('✦', '').trim() === '+1',
+           initBox ? initBox.querySelector('.combat-value').textContent : 'keine Box');
+
+        // Die Notizen: was der Editor schreibt, steht als Absaetze da und
+        // nicht als <div> im Text.
+        const reiter = (wort) => [...document.querySelectorAll('.tab')].find(t => t.textContent.includes(wort));
+        const notizReiter = reiter('Notizen');
+        if (ja('Der Reiter Notizen steht da', !!notizReiter)) {
+          notizReiter.click();
+          const karte = await warten(() => document.querySelector('.note-card'));
+          if (karte) {
+            ja('  … die Vorschau einer Notiz zeigt keine Auszeichnung',
+               !/<div|<br/.test(karte.querySelector('.note-card-preview').textContent),
+               karte.querySelector('.note-card-preview').textContent);
+            karte.click();
+            const text = await warten(() => document.querySelector('.note-card-text'));
+            ja('Eine Notiz zeigt ihre Absätze statt der Auszeichnung',
+               !!text && !/<div|<br/.test(text.textContent) && text.querySelectorAll('div').length >= 2,
+               text ? text.innerHTML : 'kein Text');
+          } else ja('Die Notiz steht im Reiter', false);
+          const stats = reiter('Attribute');
+          if (stats) { stats.click(); await ruhe(100); }
+        }
 
         // ── Und jetzt der Knopf, um den es geht ──
         const alsText = await warten(() => knopfMit('Als Text'));
