@@ -287,11 +287,66 @@ const KLASSEN_REGELN = {
                  fertZahl:2, fert:['arkaneKunde','fingerfert','geschichte','nachforschung','aufmerksamkeit'],
                  ruestung:'Leichte und mittelschwere Rüstung, Schilde', waffen:'Einfache Waffen',
                  gold:'5W4×10', paket:['Zwei einfache Waffen','Leichte Armbrust mit 20 Bolzen',
-                                       'Beschlagenes Leder','Diebeswerkzeug','Kerker-Erkunderausrüstung']},
+                                       'Beschlagenes Leder','Diebeswerkzeug','Gewölbeforscherpaket']},
   Magier:       {tw:6,  mc:[['int']],  zauber:'voll', asi:[4,8,12,16,19],          unter:2, rw:['int','wis'],
                  fertZahl:2, fert:['arkaneKunde','geschichte','einblick','nachforschung','medizin','religion'],
                  ruestung:'Keine', waffen:'Dolche, Wurfpfeile, Schleudern, Kampfstäbe, leichte Armbrüste',
                  gold:'4W4×10', paket:['Kampfstab','Komponentenbeutel','Zauberbuch','Gelehrtenpaket']},
+};
+
+// ── Die Abenteurerpakete ─────────────────────────────────────────
+// Was in den Paketen steckt, nach SRD 5.1 (CC-BY): ein Paket ist kein
+// Gegenstand, sondern ein Rucksack voll. Der Charakterassistent packt es
+// deshalb aus — Stueck fuer Stueck ins Inventar, mit Anzahl und Gewicht.
+// Gewichte je Stueck in kg (Pfund durch zwei, wie in den deutschen
+// Ausgaben); wo das SRD keines nennt, steht keines.
+const ABENTEURERPAKETE = {
+  'Einbrecherpaket': {preis: 16, inhalt: [
+    ['Rucksack', 1, 2.5], ['Beutel mit 1000 Kugellagern', 1, 1], ['Schnur (3 m)', 1, ''],
+    ['Glocke', 1, ''], ['Kerze', 5, ''], ['Brechstange', 1, 2.5], ['Hammer', 1, 1.5],
+    ['Kletterhaken', 10, 0.125], ['Blendlaterne', 1, 1], ['Ölflasche', 2, 0.5],
+    ['Tagesration', 5, 1], ['Zunderkästchen', 1, 0.5], ['Wasserschlauch', 1, 2.5],
+    ['Hanfseil (15 m)', 1, 5]]},
+  'Diplomatenpaket': {preis: 39, inhalt: [
+    ['Truhe', 1, 12.5], ['Karten- und Schriftrollenbehälter', 2, 0.5], ['Edle Kleidung', 1, 3],
+    ['Tintenfläschchen', 1, ''], ['Schreibfeder', 1, ''], ['Lampe', 1, 0.5], ['Ölflasche', 2, 0.5],
+    ['Papier (Bogen)', 5, ''], ['Parfümfläschchen', 1, ''], ['Siegelwachs', 1, ''], ['Seife', 1, '']]},
+  'Gewölbeforscherpaket': {preis: 12, inhalt: [
+    ['Rucksack', 1, 2.5], ['Brechstange', 1, 2.5], ['Hammer', 1, 1.5], ['Kletterhaken', 10, 0.125],
+    ['Fackel', 10, 0.5], ['Zunderkästchen', 1, 0.5], ['Tagesration', 10, 1],
+    ['Wasserschlauch', 1, 2.5], ['Hanfseil (15 m)', 1, 5]]},
+  'Unterhalterpaket': {preis: 40, inhalt: [
+    ['Rucksack', 1, 2.5], ['Schlafsack', 1, 3.5], ['Kostüm', 2, 2], ['Kerze', 5, ''],
+    ['Tagesration', 5, 1], ['Wasserschlauch', 1, 2.5], ['Verkleidungsset', 1, 1.5]]},
+  'Entdeckerpaket': {preis: 10, inhalt: [
+    ['Rucksack', 1, 2.5], ['Schlafsack', 1, 3.5], ['Essgeschirr', 1, 0.5], ['Zunderkästchen', 1, 0.5],
+    ['Fackel', 10, 0.5], ['Tagesration', 10, 1], ['Wasserschlauch', 1, 2.5], ['Hanfseil (15 m)', 1, 5]]},
+  'Priesterpaket': {preis: 19, inhalt: [
+    ['Rucksack', 1, 2.5], ['Decke', 1, 1.5], ['Kerze', 10, ''], ['Zunderkästchen', 1, 0.5],
+    ['Almosenkasten', 1, ''], ['Weihrauchblock', 2, ''], ['Weihrauchgefäß', 1, ''],
+    ['Priestergewand', 1, 2], ['Tagesration', 2, 1], ['Wasserschlauch', 1, 2.5]]},
+  'Gelehrtenpaket': {preis: 40, inhalt: [
+    ['Rucksack', 1, 2.5], ['Buch voller Wissen', 1, 2.5], ['Tintenfläschchen', 1, ''],
+    ['Schreibfeder', 1, ''], ['Pergament (Bogen)', 10, ''], ['Säckchen mit Sand', 1, ''],
+    ['Kleines Messer', 1, '']]},
+};
+// Welche Pakete eine Klasse zur Wahl hat (SRD 5.1, Startausruestung).
+// Das erste ist das, was im Paket der Klasse (KLASSEN_REGELN.paket)
+// steht; wer nichts waehlt, bekommt es.
+const PAKET_WAHL = {
+  Barbar: ['Entdeckerpaket'],
+  Barde: ['Diplomatenpaket', 'Unterhalterpaket'],
+  Kleriker: ['Priesterpaket', 'Entdeckerpaket'],
+  Druide: ['Entdeckerpaket'],
+  'Kämpfer': ['Entdeckerpaket', 'Gewölbeforscherpaket'],
+  'Mönch': ['Entdeckerpaket', 'Gewölbeforscherpaket'],
+  Paladin: ['Priesterpaket', 'Entdeckerpaket'],
+  'Waldläufer': ['Entdeckerpaket', 'Gewölbeforscherpaket'],
+  Schurke: ['Einbrecherpaket', 'Gewölbeforscherpaket', 'Entdeckerpaket'],
+  Zauberer: ['Entdeckerpaket', 'Gewölbeforscherpaket'],
+  Hexenmeister: ['Gelehrtenpaket', 'Gewölbeforscherpaket'],
+  Artifizient: ['Gewölbeforscherpaket'],
+  Magier: ['Gelehrtenpaket', 'Entdeckerpaket'],
 };
 
 // Die Zauberplätze, Stufe 1 bis 20. Je Zeile die Plätze vom 1. bis zum

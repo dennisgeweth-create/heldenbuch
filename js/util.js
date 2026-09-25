@@ -478,6 +478,16 @@ const unterFinden = (volk, name) => ((volk && volk.unter) || []).find(u => u.nam
 //   zeilen    was drinsteht, für die Vorschau
 //   hinweise  was der Assistent nicht kann
 //   fehlt     was noch fehlt, damit „Fertig“ sagen kann, warum nicht
+// Welches Abenteurerpaket es wird: das gewaehlte, wenn die Klasse es
+// anbietet — sonst das aus ihrem Paket.
+const assistentPaket = (klasse, wahl) => {
+  const kl = KLASSEN_REGELN[klasse];
+  if (!kl) return null;
+  const moeglich = PAKET_WAHL[klasse] || (kl.paket || []).filter(n => ABENTEURERPAKETE[n]);
+  if (wahl && moeglich.includes(wahl) && ABENTEURERPAKETE[wahl]) return wahl;
+  return (kl.paket || []).find(n => ABENTEURERPAKETE[n]) || moeglich[0] || null;
+};
+
 const assistentPlan = (e) => {
   const d = e || {};
   const volk  = volkFinden(d.volk);
@@ -491,9 +501,8 @@ const assistentPlan = (e) => {
   const grund = d.attribute || {};
   const boni = {};
   const dazu = (o) => { for (const k of Object.keys(o || {})) boni[k] = (boni[k] || 0) + o[k]; };
-  dazu(volk && volk.boni);
-  dazu(unter && unter.boni);
-  dazu(d.wahlBoni);
+  // Nach Volk oder frei verteilt (herkunftBoni).
+  dazu(herkunftBoni(d, volk, unter));
   // Ein halbes Talent steigert nebenbei ein Attribut — dasselbe wie beim
   // Aufstieg, nur zwoelf Stufen frueher.
   const tal = d.talentDaten || null;
@@ -585,11 +594,22 @@ const assistentPlan = (e) => {
   }
 
   // ── Ausrüstung: Paket oder Gold ──
+  // Das Abenteurerpaket kommt ausgepackt: Stueck fuer Stueck, mit Anzahl
+  // und Gewicht, und jedes Stueck traegt den Namen des Pakets als
+  // Schlagwort. Welches, waehlt man unter denen der Klasse (PAKET_WAHL).
   if (d.ausruestung === 'paket' && kl) {
-    neu.inventory = (kl.paket || []).map((n, i) => ({
-      ...newItem(), id: 'assi' + Date.now() + i, name: n, qty: 1,
-    }));
-    zeile('Ausrüstung', (kl.paket || []).join(', '));
+    const stuecke = (kl.paket || []).filter(n => !ABENTEURERPAKETE[n]);
+    const paket = assistentPaket(d.klasse, d.abenteuerpaket);
+    const inhalt = paket ? ABENTEURERPAKETE[paket].inhalt : [];
+    let nr = 0;
+    const stamp = Date.now();
+    neu.inventory = [
+      ...stuecke.map(n => ({...newItem(), id: 'assi' + stamp + (nr++), name: n, qty: 1})),
+      ...inhalt.map(([n, anzahl, kg]) => ({...newItem(), id: 'assi' + stamp + (nr++),
+        name: n, qty: anzahl, weight: kg === '' ? '' : String(kg), tags: [paket]})),
+    ];
+    if (stuecke.length) zeile('Ausrüstung', stuecke.join(', '));
+    if (paket) zeile(paket, inhalt.map(([n, anzahl]) => (anzahl > 1 ? anzahl + '× ' : '') + n).join(', '));
   } else if (d.ausruestung === 'gold') {
     const g = Math.max(0, Math.round(+d.gold || 0));
     neu.currency = {pp:0, gp:g, ep:0, sp:0, cp:0};
@@ -600,7 +620,9 @@ const assistentPlan = (e) => {
   if (!d.name)  fehlt.push('ein Name');
   if (!volk)    fehlt.push('ein Volk');
   if (volk && (volk.unter || []).length && !unter) fehlt.push('eine Untergruppe des Volkes');
-  if (volk && volk.wahlBoni && Object.values(d.wahlBoni || {}).reduce((a, b) => a + b, 0) !== volk.wahlBoni)
+  if (d.bonusArt === 'frei') {
+    if (!freiBoniGueltig(d.freiBoni)) fehlt.push('die freien Attributsboni (+2 und +1, oder dreimal +1)');
+  } else if (volk && volk.wahlBoni && Object.values(d.wahlBoni || {}).reduce((a, b) => a + b, 0) !== volk.wahlBoni)
     fehlt.push(volk.wahlBoni + ' Punkte auf frei gewählte Attribute');
   if (!kl)      fehlt.push('eine Klasse');
   if (!hg)      fehlt.push('ein Hintergrund');
@@ -1003,6 +1025,39 @@ const wahlBoniZahl = (volk, unter) =>
   ((unter && +unter.wahlBoni) || (volk && +volk.wahlBoni) || 0);
 // Ob diese Untergruppe ein Talent mitbringt.
 const brauchtTalent = (unter) => !!(unter && unter.talent);
+
+// ── Die Herkunft frei verteilen ──────────────────────────────────
+// Nach den Erweiterungen darf jedes Volk seine Attributsboni frei legen:
+// +2 und +1 auf zwei verschiedene Attribute, oder dreimal +1. Damit wird
+// auch ein Zwerg ein brauchbarer Magier. Die festen Boni des Volkes und
+// die Wahlpunkte von Mensch und Halbelf gelten dann nicht; alles andere
+// am Volk (Merkmale, Tempo, Sprachen, das Talent des begabten Menschen)
+// bleibt.
+const FREI_BONI_SUMME = 3;
+const freiBoniGueltig = (b) => {
+  const w = Object.values(b || {}).map(Number).filter(x => x > 0);
+  return w.reduce((s, x) => s + x, 0) === FREI_BONI_SUMME
+    && w.every(x => x === 1 || x === 2) && w.filter(x => x === 2).length <= 1;
+};
+// Ein Klick auf ein Attribut: 0 → +1 → +2 → 0. Was nicht mehr ginge
+// (mehr als drei Punkte, zweimal +2), faellt zurueck auf 0.
+const freiBoniSchritt = (b, k) => {
+  const neu = {...(b || {})};
+  const jetzt = +neu[k] || 0;
+  const probe = jetzt < 2 ? jetzt + 1 : 0;
+  if (probe) neu[k] = probe; else delete neu[k];
+  const w = Object.values(neu).map(Number);
+  if (w.reduce((s, x) => s + x, 0) > FREI_BONI_SUMME || w.filter(x => x === 2).length > 1) delete neu[k];
+  return neu;
+};
+// Die Boni der Herkunft, wie der Entwurf sie meint.
+const herkunftBoni = (d, volk, unter) => {
+  const boni = {};
+  const dazu = (o) => { for (const k of Object.keys(o || {})) boni[k] = (boni[k] || 0) + (+o[k] || 0); };
+  if (d && d.bonusArt === 'frei') dazu(d.freiBoni);
+  else { dazu(volk && volk.boni); dazu(unter && unter.boni); dazu(d && d.wahlBoni); }
+  return boni;
+};
 
 const dbSchluessel = (n) => String(n || '').toLowerCase()
   .replace(/[\s,.·–—_-]+/g, ' ').trim();

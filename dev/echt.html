@@ -1910,6 +1910,56 @@
           ja('  … und dann gilt wieder der Standard', !wbAutomat.hutSymbole && quoteText() === '96,1 %', quoteText());
         }
         ReactDOM.unmountComponentAtNode(buehne);
+
+        // ── Der Charakterassistent: freie Herkunft und Paket ───────
+        melden('lauf', 'Charakterassistent');
+        ReactDOM.render(React.createElement(CharakterAssistent, {
+          klassen: null, talente: [], onAbbrechen: () => {}, onFertig: () => {},
+        }), buehne);
+        await ruhe(150);
+        const assKarte = (wort) => [...buehne.querySelectorAll('.ass-karte')]
+          .find(k => (k.querySelector('b') || {}).textContent === wort);
+        const zeilenText = () => [...buehne.querySelectorAll('.ass-vorschau .auf-zeile')]
+          .map(z => z.textContent).join(' | ');
+        const nameFeld = buehne.querySelector('input.form-input');
+        setzI.call(nameFeld, 'Thorin'); nameFeld.dispatchEvent(new Event('input', {bubbles: true}));
+        assKarte('Zwerg').click(); await ruhe(60);
+        assKarte('Hügelzwerg').click(); await ruhe(60);
+        ja('Frei verteilen ist die Vorgabe', !!assKarte('Frei verteilen')
+           && assKarte('Frei verteilen').classList.contains('an'));
+        const freiKnopf = (l) => [...buehne.querySelectorAll('.ass-frei .ass-karte')]
+          .find(k => k.querySelector('b').textContent === l);
+        freiKnopf('Intelligenz').click(); await ruhe(40);
+        freiKnopf('Intelligenz').click(); await ruhe(40);
+        freiKnopf('Geschicklichkeit').click(); await ruhe(40);
+        ja('  … Intelligenz +2 und Geschicklichkeit +1',
+           freiKnopf('Intelligenz').textContent.includes('+2') && freiKnopf('Geschicklichkeit').textContent.includes('+1'));
+        ja('  … und damit ist der erste Schritt fertig',
+           buehne.querySelector('.ass-punkt').classList.contains('fertig'));
+        // Die Klasse, dann die Attribute nach dem Standardsatz.
+        [...buehne.querySelectorAll('.ass-punkt')][1].click(); await ruhe(60);
+        assKarte('Magier').click(); await ruhe(60);
+        [...buehne.querySelectorAll('.ass-punkt')][2].click(); await ruhe(60);
+        const satz = {Stärke: 8, Geschicklichkeit: 14, Konstitution: 13, Intelligenz: 15, Weisheit: 12, Charisma: 10};
+        const setzS = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+        for (const zeileA of buehne.querySelectorAll('.ass-attr-zeile')) {
+          const n = zeileA.querySelector('.ass-attr-name').textContent.trim();
+          const sel = zeileA.querySelector('select');
+          if (!sel || !satz[n]) continue;
+          setzS.call(sel, String(satz[n])); sel.dispatchEvent(new Event('change', {bubbles: true}));
+          await ruhe(30);
+        }
+        ja('Der Zwerg-Magier hat Intelligenz 17 (15 + 2)', /Intelligenz17\s*\(15 \+ 2\)/.test(zeilenText()), zeilenText());
+        ja('  … und die Konstitution des Volkes zählt nicht', /Konstitution13(?!\s*\()/.test(zeilenText()), zeilenText());
+        // Das Paket: Gelehrten- oder Entdeckerpaket, ausgepackt.
+        [...buehne.querySelectorAll('.ass-punkt')][5].click(); await ruhe(60);
+        assKarte('Das Paket').click(); await ruhe(60);
+        ja('Der Magier bekommt die Wahl zwischen seinen Paketen',
+           !!assKarte('Gelehrtenpaket') && !!assKarte('Entdeckerpaket') && !assKarte('Priesterpaket'));
+        assKarte('Entdeckerpaket').click(); await ruhe(60);
+        ja('  … und das gewählte steht ausgepackt in der Vorschau',
+           /Entdeckerpaket.*Rucksack.*10× Fackel/.test(zeilenText()), zeilenText());
+        ReactDOM.unmountComponentAtNode(buehne);
         buehne.remove();
 
         ja('Nichts ist unterwegs abgestürzt', kaputt.length === 0, kaputt.join(' · '));

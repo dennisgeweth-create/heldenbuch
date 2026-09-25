@@ -20,6 +20,10 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
   const [e, setE] = React.useState({
     name: '', volk: '', untervolk: '', klasse: '', hintergrund: '',
     attribute: {}, wahlBoni: {}, talent: '', talentAttr: '', fertigkeiten: [], ausruestung: '', gold: 0,
+    // Die Attributsboni frei verteilen (+2/+1 oder dreimal +1), wie es
+    // die Erweiterungen fuer jedes Volk erlauben — die Vorgabe. „Nach
+    // Volk" ist die Regel des Grundbuchs allein.
+    bonusArt: 'frei', freiBoni: {}, abenteuerpaket: '',
   });
   const setzen = (p) => setE(x => ({...x, ...p}));
 
@@ -63,7 +67,9 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
     !e.name.trim() ? 'Ein Name fehlt.'
       : !volk ? 'Wähle ein Volk.'
       : (volk.unter || []).length && !unter ? 'Wähle eine Untergruppe.'
-      : wahlZahl && wahlBoniSumme !== wahlZahl
+      : e.bonusArt === 'frei' && !freiBoniGueltig(e.freiBoni)
+        ? 'Verteile die Boni: +2 und +1, oder dreimal +1.'
+      : e.bonusArt !== 'frei' && wahlZahl && wahlBoniSumme !== wahlZahl
         ? 'Verteile ' + wahlZahl + ' Punkte auf verschiedene Attribute.'
       : (willTalent && !talEintrag) ? 'Wähle ein Talent.' : '',
     !e.klasse ? 'Wähle eine Klasse.' : '',
@@ -152,7 +158,45 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
                   ))}
                 </div>
               )}
-              {wahlZahl > 0 && (() => {
+              {/* Wie die Boni kommen: frei verteilt oder nach Volk. */}
+              {volk && (
+                <>
+                  <div className="ass-warum" style={{marginTop:12}}>
+                    Die Attributsboni: frei verteilt — +2 und +1, oder dreimal +1, auf
+                    beliebige Attribute (so erlauben es die Erweiterungen jedem Volk, damit
+                    auch ein Zwerg ein guter Magier wird) — oder fest nach Volk.
+                  </div>
+                  <div className="ass-wahl">
+                    <button type="button" className={'ass-karte klein' + (e.bonusArt === 'frei' ? ' an' : '')}
+                      onClick={()=>setzen({bonusArt: 'frei'})}>
+                      <b>Frei verteilen</b><i>+2 und +1, oder dreimal +1</i>
+                    </button>
+                    <button type="button" className={'ass-karte klein' + (e.bonusArt !== 'frei' ? ' an' : '')}
+                      onClick={()=>setzen({bonusArt: 'volk'})}>
+                      <b>Nach Volk</b><i>{(() => {
+                        const b = herkunftBoni({bonusArt: 'volk', wahlBoni: {}}, volk, unter);
+                        const t = ATTR_WAHL.filter(a => b[a.k]).map(a => a.l + ' +' + b[a.k]).join(', ');
+                        return (t || '—') + (wahlZahl ? ' · ' + wahlZahl + ' Punkte frei' : '');
+                      })()}</i>
+                    </button>
+                  </div>
+                  {e.bonusArt === 'frei' && (
+                    <div className="ass-wahl ass-frei">
+                      {ATTR_WAHL.map(a => {
+                        const v = +(e.freiBoni || {})[a.k] || 0;
+                        return (
+                          <button type="button" key={a.k} className={'ass-karte klein' + (v ? ' an' : '')}
+                            aria-label={a.l + (v ? ' +' + v : '')}
+                            onClick={()=>setzen({freiBoni: freiBoniSchritt(e.freiBoni, a.k)})}>
+                            <b>{a.l}</b><i>{v ? '+' + v : '—'}</i>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+              {e.bonusArt !== 'frei' && wahlZahl > 0 && (() => {
                 // Der Halbelf hat Charisma schon aus dem Volk und darf
                 // deshalb nicht noch einmal darauf; beim Menschen steht
                 // kein Attribut fest, also stehen alle sechs zur Wahl.
@@ -238,7 +282,7 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
                   return (
                     <button type="button" key={n}
                       className={'ass-karte' + (e.klasse === n ? ' an' : '')}
-                      onClick={()=>setzen({klasse: n, fertigkeiten: [], ausruestung: ''})}>
+                      onClick={()=>setzen({klasse: n, fertigkeiten: [], ausruestung: '', abenteuerpaket: ''})}>
                       <b>{n}</b>
                       <i>{k ? 'W' + k.tw + ' · ' + k.rw.map(x => (ATTR_WAHL.find(a=>a.k===x)||{}).l).join(', ')
                             + (k.zauber ? ' · zaubert' : '') : 'eigene Klasse'}</i>
@@ -277,8 +321,7 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
               <div className="ass-attr">
                 {ATTR_WAHL.map(a => {
                   const wert = e.attribute[a.k];
-                  const bonus = ((volk && volk.boni[a.k]) || 0)
-                    + ((unter && (unter.boni||{})[a.k]) || 0) + ((e.wahlBoni||{})[a.k] || 0);
+                  const bonus = herkunftBoni(e, volk, unter)[a.k] || 0;
                   return (
                     <div className="ass-attr-zeile" key={a.k}>
                       <span className="ass-attr-name">{a.l}</span>
@@ -373,6 +416,31 @@ const CharakterAssistent = ({ klassen, talente, onAbbrechen, onFertig, onVonHand
                                                : 'wird gewürfelt'}</i>
                 </button>
               </div>
+              {/* Das Abenteurerpaket: eines von denen, die die Klasse
+                  anbietet. Es kommt ausgepackt ins Inventar. */}
+              {e.ausruestung === 'paket' && kl && (() => {
+                const wahl = PAKET_WAHL[e.klasse] || [];
+                const jetzt = assistentPaket(e.klasse, e.abenteuerpaket);
+                if (!wahl.length) return null;
+                return (
+                  <>
+                    <div className="ass-warum" style={{marginTop:12}}>
+                      {wahl.length > 1
+                        ? 'Welches Abenteurerpaket? Es kommt ausgepackt ins Inventar — Stück für Stück, mit Gewicht.'
+                        : 'Das Abenteurerpaket der Klasse kommt ausgepackt ins Inventar — Stück für Stück, mit Gewicht.'}
+                    </div>
+                    <div className="ass-wahl">
+                      {wahl.map(n => (
+                        <button type="button" key={n} className={'ass-karte' + (jetzt === n ? ' an' : '')}
+                          onClick={()=>setzen({abenteuerpaket: n})}>
+                          <b>{n}</b>
+                          <i>{ABENTEURERPAKETE[n].inhalt.map(([x, z]) => (z > 1 ? z + '× ' : '') + x).join(', ')}</i>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </>
           )}
         </div>

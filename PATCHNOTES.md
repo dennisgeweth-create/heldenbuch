@@ -1,5 +1,33 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.33.0
+
+### Charakterassistent: Attributsboni frei verteilen
+
+Bisher gab das Volk seine Boni fest vor — der Zwerg Konstitution +2, der
+Elf Geschicklichkeit +2. So steht es im Grundbuch; die Erweiterungen
+erlauben jedem Volk, die Boni frei zu legen, damit auch ein Zwerg ein
+guter Magier wird.
+
+- Im ersten Schritt steht jetzt die Wahl: **Frei verteilen** (+2 und +1,
+  oder dreimal +1, auf beliebige Attribute) oder **Nach Volk**.
+- **Frei ist die Vorgabe.** Ein Klick auf ein Attribut gibt +1, der
+  zweite +2, der dritte nimmt es wieder weg.
+- Alles andere am Volk bleibt: Tempo, Sprachen, Merkmale — und das
+  Talent des begabten Menschen.
+
+### Das Abenteurerpaket kommt ausgepackt ins Inventar
+
+- Wer „Das Paket" nimmt, wählt jetzt, **welches Abenteurerpaket** — aus
+  denen, die seine Klasse anbietet (der Kämpfer etwa Entdecker oder
+  Gewölbeforscher, der Schurke dazu das Einbrecherpaket).
+- Es landet nicht mehr als ein Eintrag „Entdeckerpaket" im Inventar,
+  sondern **Stück für Stück**: Rucksack, Schlafsack, 10 Fackeln,
+  10 Tagesrationen, Hanfseil … — mit Anzahl, **Gewicht** und dem Namen
+  des Pakets als Schlagwort. Damit rechnet auch die Traglast richtig.
+- Alle sieben Pakete des SRD: Einbrecher, Diplomat, Gewölbeforscher,
+  Unterhalter, Entdecker, Priester, Gelehrter.
+
 ## v5.32.0
 
 ### Initiative −4 bei Geschicklichkeit 17

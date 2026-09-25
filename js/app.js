@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.32.0';
+const HB_VERSION = 'v5.33.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -23530,7 +23530,10 @@ const CharakterAssistent = ({
     talentAttr: '',
     fertigkeiten: [],
     ausruestung: '',
-    gold: 0
+    gold: 0,
+    bonusArt: 'frei',
+    freiBoni: {},
+    abenteuerpaket: ''
   });
   const setzen = p => setE(x => ({
     ...x,
@@ -23556,7 +23559,7 @@ const CharakterAssistent = ({
   });
   const ausHg = hg ? hg.fert : [];
   const eigene = (e.fertigkeiten || []).filter(f => !ausHg.includes(f));
-  const offen = [!e.name.trim() ? 'Ein Name fehlt.' : !volk ? 'Wähle ein Volk.' : (volk.unter || []).length && !unter ? 'Wähle eine Untergruppe.' : wahlZahl && wahlBoniSumme !== wahlZahl ? 'Verteile ' + wahlZahl + ' Punkte auf verschiedene Attribute.' : willTalent && !talEintrag ? 'Wähle ein Talent.' : '', !e.klasse ? 'Wähle eine Klasse.' : '', ATTR_WAHL.some(a => !e.attribute[a.k]) ? 'Die Attribute stehen noch nicht.' : '', !hg ? 'Wähle einen Hintergrund.' : '', !kl ? '' : eigene.length !== kl.fertZahl ? 'Genau ' + kl.fertZahl + ' Fertigkeiten — gewählt: ' + eigene.length + '.' : '', !e.ausruestung ? 'Paket oder Startgold.' : ''];
+  const offen = [!e.name.trim() ? 'Ein Name fehlt.' : !volk ? 'Wähle ein Volk.' : (volk.unter || []).length && !unter ? 'Wähle eine Untergruppe.' : e.bonusArt === 'frei' && !freiBoniGueltig(e.freiBoni) ? 'Verteile die Boni: +2 und +1, oder dreimal +1.' : e.bonusArt !== 'frei' && wahlZahl && wahlBoniSumme !== wahlZahl ? 'Verteile ' + wahlZahl + ' Punkte auf verschiedene Attribute.' : willTalent && !talEintrag ? 'Wähle ein Talent.' : '', !e.klasse ? 'Wähle eine Klasse.' : '', ATTR_WAHL.some(a => !e.attribute[a.k]) ? 'Die Attribute stehen noch nicht.' : '', !hg ? 'Wähle einen Hintergrund.' : '', !kl ? '' : eigene.length !== kl.fertZahl ? 'Genau ' + kl.fertZahl + ' Fertigkeiten — gewählt: ' + eigene.length + '.' : '', !e.ausruestung ? 'Paket oder Startgold.' : ''];
   const hakt = offen[schritt];
   const [art, setArt] = React.useState('satz');
   const kosten = punkteKosten(e.attribute);
@@ -23642,7 +23645,46 @@ const CharakterAssistent = ({
       talent: '',
       talentAttr: ''
     })
-  }, React.createElement("b", null, u.name), React.createElement("i", null, ATTR_WAHL.filter(a => (u.boni || {})[a.k]).map(a => a.l + ' +' + u.boni[a.k]).join(', '), u.tempo ? ' · ' + u.tempo + ' m' : '')))), wahlZahl > 0 && (() => {
+  }, React.createElement("b", null, u.name), React.createElement("i", null, ATTR_WAHL.filter(a => (u.boni || {})[a.k]).map(a => a.l + ' +' + u.boni[a.k]).join(', '), u.tempo ? ' · ' + u.tempo + ' m' : '')))), volk && React.createElement(React.Fragment, null, React.createElement("div", {
+    className: "ass-warum",
+    style: {
+      marginTop: 12
+    }
+  }, "Die Attributsboni: frei verteilt \u2014 +2 und +1, oder dreimal +1, auf beliebige Attribute (so erlauben es die Erweiterungen jedem Volk, damit auch ein Zwerg ein guter Magier wird) \u2014 oder fest nach Volk."), React.createElement("div", {
+    className: "ass-wahl"
+  }, React.createElement("button", {
+    type: "button",
+    className: 'ass-karte klein' + (e.bonusArt === 'frei' ? ' an' : ''),
+    onClick: () => setzen({
+      bonusArt: 'frei'
+    })
+  }, React.createElement("b", null, "Frei verteilen"), React.createElement("i", null, "+2 und +1, oder dreimal +1")), React.createElement("button", {
+    type: "button",
+    className: 'ass-karte klein' + (e.bonusArt !== 'frei' ? ' an' : ''),
+    onClick: () => setzen({
+      bonusArt: 'volk'
+    })
+  }, React.createElement("b", null, "Nach Volk"), React.createElement("i", null, (() => {
+    const b = herkunftBoni({
+      bonusArt: 'volk',
+      wahlBoni: {}
+    }, volk, unter);
+    const t = ATTR_WAHL.filter(a => b[a.k]).map(a => a.l + ' +' + b[a.k]).join(', ');
+    return (t || '—') + (wahlZahl ? ' · ' + wahlZahl + ' Punkte frei' : '');
+  })()))), e.bonusArt === 'frei' && React.createElement("div", {
+    className: "ass-wahl ass-frei"
+  }, ATTR_WAHL.map(a => {
+    const v = +(e.freiBoni || {})[a.k] || 0;
+    return React.createElement("button", {
+      type: "button",
+      key: a.k,
+      className: 'ass-karte klein' + (v ? ' an' : ''),
+      "aria-label": a.l + (v ? ' +' + v : ''),
+      onClick: () => setzen({
+        freiBoni: freiBoniSchritt(e.freiBoni, a.k)
+      })
+    }, React.createElement("b", null, a.l), React.createElement("i", null, v ? '+' + v : '—'));
+  }))), e.bonusArt !== 'frei' && wahlZahl > 0 && (() => {
     const gesperrt = volk && (volk.boni || {}).cha ? ['cha'] : [];
     return React.createElement(React.Fragment, null, React.createElement("div", {
       className: "ass-warum",
@@ -23722,7 +23764,8 @@ const CharakterAssistent = ({
       onClick: () => setzen({
         klasse: n,
         fertigkeiten: [],
-        ausruestung: ''
+        ausruestung: '',
+        abenteuerpaket: ''
       })
     }, React.createElement("b", null, n), React.createElement("i", null, k ? 'W' + k.tw + ' · ' + k.rw.map(x => (ATTR_WAHL.find(a => a.k === x) || {}).l).join(', ') + (k.zauber ? ' · zaubert' : '') : 'eigene Klasse'));
   }))), schritt === 2 && React.createElement(React.Fragment, null, React.createElement("div", {
@@ -23754,7 +23797,7 @@ const CharakterAssistent = ({
     className: "ass-attr"
   }, ATTR_WAHL.map(a => {
     const wert = e.attribute[a.k];
-    const bonus = (volk && volk.boni[a.k] || 0) + (unter && (unter.boni || {})[a.k] || 0) + ((e.wahlBoni || {})[a.k] || 0);
+    const bonus = herkunftBoni(e, volk, unter)[a.k] || 0;
     return React.createElement("div", {
       className: "ass-attr-zeile",
       key: a.k
@@ -23829,7 +23872,26 @@ const CharakterAssistent = ({
     type: "button",
     className: 'ass-karte' + (e.ausruestung === 'gold' ? ' an' : ''),
     onClick: goldWuerfeln
-  }, React.createElement("b", null, "Startgold ", kl ? '· ' + kl.gold : ''), React.createElement("i", null, e.ausruestung === 'gold' ? e.gold + ' Goldmünzen — nochmal klicken zum Neuwürfeln' : 'wird gewürfelt'))))), React.createElement("div", {
+  }, React.createElement("b", null, "Startgold ", kl ? '· ' + kl.gold : ''), React.createElement("i", null, e.ausruestung === 'gold' ? e.gold + ' Goldmünzen — nochmal klicken zum Neuwürfeln' : 'wird gewürfelt'))), e.ausruestung === 'paket' && kl && (() => {
+    const wahl = PAKET_WAHL[e.klasse] || [];
+    const jetzt = assistentPaket(e.klasse, e.abenteuerpaket);
+    if (!wahl.length) return null;
+    return React.createElement(React.Fragment, null, React.createElement("div", {
+      className: "ass-warum",
+      style: {
+        marginTop: 12
+      }
+    }, wahl.length > 1 ? 'Welches Abenteurerpaket? Es kommt ausgepackt ins Inventar — Stück für Stück, mit Gewicht.' : 'Das Abenteurerpaket der Klasse kommt ausgepackt ins Inventar — Stück für Stück, mit Gewicht.'), React.createElement("div", {
+      className: "ass-wahl"
+    }, wahl.map(n => React.createElement("button", {
+      type: "button",
+      key: n,
+      className: 'ass-karte' + (jetzt === n ? ' an' : ''),
+      onClick: () => setzen({
+        abenteuerpaket: n
+      })
+    }, React.createElement("b", null, n), React.createElement("i", null, ABENTEURERPAKETE[n].inhalt.map(([x, z]) => (z > 1 ? z + '× ' : '') + x).join(', '))))));
+  })())), React.createElement("div", {
     className: "form-label",
     style: {
       marginTop: 10
