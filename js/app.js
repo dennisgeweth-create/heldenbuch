@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.30.0';
+const HB_VERSION = 'v5.31.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -8600,6 +8600,7 @@ const AbenteuerEinstellungen = ({
 // ==== js/src/2f-automat.jsx ====
 const AUTOMAT_SPEICHER = 'hb_automat';
 const MARKEN_START = 200;
+const MARKEN_NACHLADEN_UNTER = 5;
 const AUTOMAT_BILD = 'bilder/glueck/';
 const AUTOMAT_STANDARD = [{
   k: 'kirsche',
@@ -9586,10 +9587,7 @@ const AutomatTisch = ({
     className: "risiko-knopf halb",
     title: "Nur die H\xE4lfte setzen, den Rest behalten",
     onClick: () => risikoStarten('leiter', true)
-  }, "\xBD Leiter")), marken < einsaetze[0] && !frei && !laeuft && React.createElement("button", {
-    className: "automat-nachschub",
-    onClick: () => setMarken(MARKEN_START)
-  }, "Der Wirt legt ", MARKEN_START, " Marken nach")), React.createElement("div", {
+  }, "\xBD Leiter"))), React.createElement("div", {
     className: "automat-tafel"
   }, React.createElement("button", {
     className: "automat-tafel-kopf",
@@ -9812,6 +9810,13 @@ const TaverneSchirm = ({
   };
   const setMarken = n => stellen(n);
   const zahlen = delta => stellen(markenRef.current + delta);
+  const kannNachladen = !waehrung.gold && !laeuft && marken < MARKEN_NACHLADEN_UNTER;
+  const nachladen = () => {
+    if (waehrung.gold || laeuft) return;
+    markenRef.current = MARKEN_START;
+    waehrung.schreiben(heldId, MARKEN_START);
+    setMarkenRoh(MARKEN_START);
+  };
   const beutelRef = React.useRef(waehrung);
   beutelRef.current = waehrung;
   React.useEffect(() => {
@@ -10003,7 +10008,12 @@ const TaverneSchirm = ({
     className: "automat-x",
     onClick: hinaus,
     "aria-label": "Schlie\xDFen"
-  }, "\u2715")), jetzt && jetzt.k === 'automat' ? React.createElement(AutomatTisch, {
+  }, "\u2715")), kannNachladen && React.createElement("div", {
+    className: "automat-nachladen"
+  }, React.createElement("span", null, marken === 0 ? 'Der Beutel ist leer.' : 'Nur noch ' + marken + (marken === 1 ? ' Marke' : ' Marken') + ' — dafür gibt es keinen Einsatz mehr.'), React.createElement("button", {
+    className: "risiko-knopf",
+    onClick: nachladen
+  }, "\uD83C\uDF7A Der Wirt legt nach \xB7 auf ", MARKEN_START)), jetzt && jetzt.k === 'automat' ? React.createElement(AutomatTisch, {
     cfg: cfgTisch,
     marken: marken,
     setMarken: setMarken,

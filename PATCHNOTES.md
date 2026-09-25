@@ -1,5 +1,21 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.31.0
+
+### Der Wirt legt nach — an jedem Tisch
+
+Wer in der Taverne unter 5 Marken hatte, saß fest: der kleinste Einsatz
+ist 5, und nachladen ließ sich nur am „Dreifachen Glück".
+
+- Liegen **weniger als 5 Marken** im Beutel, steht gleich unter dem Kopf
+  der Taverne ein Streifen: **🍺 Der Wirt legt nach · auf 200** — an
+  jedem Tisch und in der Halle.
+- Das Nachladen zählt **nicht als Gewinn**. Bisher buchte der Knopf am
+  Dreifachen Glück die 200 als gewonnen, in der Serie der Halle und in
+  der Zeile im Abenteuerlog.
+- Mit **echtem Gold** gibt es das nicht: das kommt aus dem Bogen, nicht
+  aus der Theke.
+
 ## v5.30.0
 
 ### Die Risikoleiter wie am Merkur-Gerät

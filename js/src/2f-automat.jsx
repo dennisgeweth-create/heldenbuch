@@ -13,6 +13,9 @@
 
 const AUTOMAT_SPEICHER = 'hb_automat';
 const MARKEN_START = 200;
+// Darunter geht an keinem Tisch mehr etwas — der kleinste Einsatz der
+// Leiter. Dann legt der Wirt nach (TaverneSchirm, bei Marken, nie bei Gold).
+const MARKEN_NACHLADEN_UNTER = 5;
 
 // Gewicht steuert, wie oft ein Symbol faellt; zahlt ist das Vielfache des
 // Einsatzes bei drei gleichen auf einer Linie. Beides zusammen ergibt die
@@ -1111,11 +1114,6 @@ const AutomatTisch = ({ cfg, marken, setMarken, zahlen, onLaeuft }) => {
             </div>
           )}
 
-          {marken < einsaetze[0] && !frei && !laeuft && (
-            <button className="automat-nachschub" onClick={()=>setMarken(MARKEN_START)}>
-              Der Wirt legt {MARKEN_START} Marken nach
-            </button>
-          )}
         </div>
 
         <div className="automat-tafel">
@@ -1332,6 +1330,17 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
   };
   const setMarken = (n) => stellen(n);
   const zahlen = (delta) => stellen(markenRef.current + delta);
+  // Nachladen, wenn nichts mehr geht. Nicht ueber stellen(): das buchte
+  // es als Gewinn, und die Zeile im Abenteuerlog und die Serie in der
+  // Halle zaehlten ein Geschenk des Wirts als gewonnen. Bei echtem Gold
+  // gibt es das nicht — das kommt aus dem Bogen, nicht aus der Theke.
+  const kannNachladen = !waehrung.gold && !laeuft && marken < MARKEN_NACHLADEN_UNTER;
+  const nachladen = () => {
+    if (waehrung.gold || laeuft) return;
+    markenRef.current = MARKEN_START;
+    waehrung.schreiben(heldId, MARKEN_START);
+    setMarkenRoh(MARKEN_START);
+  };
   // Der Beutel liegt im Bogen, und am Bogen sitzt vielleicht noch
   // jemand: das andere Gerät desselben Spielers, die Spielleitung, der
   // Abgleich im Hintergrund. Ändert sich der Stand dort, kommt er hier
@@ -1512,6 +1521,16 @@ const TaverneSchirm = ({ cfg, helden, heldStart, beutel, onSchliessen, onAbend }
         <MiniKnopf className="automat-mini" />
         <button className="automat-x" onClick={hinaus} aria-label="Schließen">✕</button>
       </div>
+
+      {kannNachladen && (
+        <div className="automat-nachladen">
+          <span>{marken === 0 ? 'Der Beutel ist leer.'
+            : 'Nur noch ' + marken + (marken === 1 ? ' Marke' : ' Marken') + ' — dafür gibt es keinen Einsatz mehr.'}</span>
+          <button className="risiko-knopf" onClick={nachladen}>
+            🍺 Der Wirt legt nach · auf {MARKEN_START}
+          </button>
+        </div>
+      )}
 
       {jetzt && jetzt.k === 'automat' ? (
         <AutomatTisch cfg={cfgTisch} marken={marken} setMarken={setMarken} zahlen={zahlen} onLaeuft={setLaeuft} />
