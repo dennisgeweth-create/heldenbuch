@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.33.0';
+const HB_VERSION = 'v5.34.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -24227,6 +24227,11 @@ function App() {
   const pollToken = useRef(null);
   const revRef = useRef(null);
   const ruheRef = useRef(0);
+  const pulsZeit = useRef(0);
+  const ladeZeitRef = useRef(0);
+  const boegenJetzt = useRef(null);
+  const pulsLebt = () => Date.now() - pulsZeit.current < 45000;
+  const nebenPuls = ms => pulsLebt() ? Math.max(ms, 15000) : ms;
   const ansichtGeholt = useRef(false);
   const charsRef = useRef([]);
   const selRef = useRef(null);
@@ -24477,13 +24482,13 @@ function App() {
         setSyncMsg('Gespeichert ✓');
       }
     };
-    const id = setInterval(tick, 1000);
+    const id = setInterval(tick, 300);
     return () => clearInterval(id);
   }, []);
   const POLL_SCHNELL = 5000,
     POLL_RUHIG = 15000,
     POLL_LEISE = 60000;
-  const pollAbstand = () => ruheRef.current < 12 ? POLL_SCHNELL : ruheRef.current < 50 ? POLL_RUHIG : POLL_LEISE;
+  const pollAbstand = () => pulsLebt() ? 30000 : ruheRef.current < 12 ? POLL_SCHNELL : ruheRef.current < 50 ? POLL_RUHIG : POLL_LEISE;
   const vitalsAnwenden = vitals => {
     if (!vitals) return false;
     let geaendert = false;
@@ -24513,12 +24518,31 @@ function App() {
   };
   useEffect(() => {
     let beendet = false,
-      timer = null;
+      timer = null,
+      imLauf = false,
+      nochmal = false;
     const plan = ms => {
       if (!beendet) timer = setTimeout(lauf, ms);
     };
     const lauf = async () => {
       if (beendet) return;
+      if (imLauf) {
+        nochmal = true;
+        return;
+      }
+      imLauf = true;
+      try {
+        await einLauf();
+      } finally {
+        imLauf = false;
+      }
+      if (nochmal) {
+        nochmal = false;
+        if (timer) clearTimeout(timer);
+        plan(0);
+      }
+    };
+    const einLauf = async () => {
       const {
         url,
         code,
@@ -24526,7 +24550,7 @@ function App() {
       } = serverCreds();
       const tok = pollToken.current;
       if (!url || !code || !tok || pendingRef.current || typeof document !== 'undefined' && document.hidden) {
-        plan(POLL_RUHIG);
+        plan(pulsLebt() ? 1000 : POLL_RUHIG);
         return;
       }
       try {
@@ -24535,9 +24559,12 @@ function App() {
         const revNeu = d.rev != null && revRef.current != null && d.rev !== revRef.current;
         if (revNeu) {
           revRef.current = d.rev;
-          const data = await apiLoad(url, code, pass);
+          const seit = ladeZeitRef.current;
+          const data = seit ? await apiLoadSeit(url, code, pass, seit - 2) : await apiLoad(url, code, pass);
+          if (data.zeit) ladeZeitRef.current = data.zeit;
           if (!pendingRef.current) {
-            const eigene = mitEigenen(data.chars);
+            const vomServer = data.delta ? boegenEinfuegen(charsRef.current, data.chars, data.ids) : data.chars;
+            const eigene = mitEigenen(vomServer);
             applyChars(eigene);
             spiegleChars(JSON.stringify(eigene));
             if (data.library) {
@@ -24562,6 +24589,12 @@ function App() {
         if (timer) clearTimeout(timer);
         plan(300);
       }
+    };
+    boegenJetzt.current = () => {
+      if (beendet) return;
+      ruheRef.current = 0;
+      if (timer) clearTimeout(timer);
+      plan(0);
     };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', wach);
     plan(POLL_SCHNELL);
@@ -25021,6 +25054,7 @@ function App() {
       const data = await apiLoad(url, code, pass);
       pollToken.current = data.poll_token || null;
       revRef.current = data.rev != null ? data.rev : null;
+      ladeZeitRef.current = data.zeit || 0;
       ruheRef.current = 0;
       pendingRef.current = false;
       applyChars(data.chars || []);
@@ -25637,6 +25671,7 @@ function App() {
       const data = await apiLoadChars(url, gcode, '');
       pollToken.current = data.poll_token || null;
       revRef.current = data.rev != null ? data.rev : null;
+      ladeZeitRef.current = data.zeit || 0;
       localStorage.setItem('sv_code', gcode);
       localStorage.removeItem('sv_pass');
       setKonto(k);
@@ -26021,7 +26056,7 @@ function App() {
           }
         } catch {}
       }
-      const takt = document.hidden ? 12000 : kampfSichtRef.current ? TAKT_KAMPF : 12000;
+      const takt = document.hidden ? 12000 : nebenPuls(kampfSichtRef.current ? TAKT_KAMPF : 12000);
       uhr = setTimeout(frage, takt);
     };
     frage();
@@ -26084,7 +26119,7 @@ function App() {
           rastStandRef.current = +d.stand || 0;
         } catch {}
       }
-      if (lebt) uhr = setTimeout(frage, document.hidden ? 20000 : rastRef.current ? 4000 : 12000);
+      if (lebt) uhr = setTimeout(frage, document.hidden ? 20000 : nebenPuls(rastRef.current ? 4000 : 12000));
     };
     frage();
     jetztFragen.current.rast = () => {
@@ -26178,9 +26213,15 @@ function App() {
       uhr = null;
     const takt = async () => {
       if (!document.hidden) await postLaden();
-      if (lebt) uhr = setTimeout(takt, 20000);
+      if (lebt) uhr = setTimeout(takt, nebenPuls(20000));
     };
     takt();
+    jetztFragen.current.post = () => {
+      if (lebt && !document.hidden) {
+        clearTimeout(uhr);
+        takt();
+      }
+    };
     return () => {
       lebt = false;
       clearTimeout(uhr);
@@ -26318,7 +26359,7 @@ function App() {
           beuteStandRef.current = +d.stand || 0;
         } catch {}
       }
-      uhr = setTimeout(frage, document.hidden ? 20000 : beuteRef.current ? TAKT_BEUTE : 12000);
+      uhr = setTimeout(frage, document.hidden ? 20000 : nebenPuls(beuteRef.current ? TAKT_BEUTE : 12000));
     };
     frage();
     jetztFragen.current.beute = () => {
@@ -26461,7 +26502,7 @@ function App() {
           probeStandRef.current = +d.stand || 0;
         } catch {}
       }
-      uhr = setTimeout(frage, document.hidden ? 15000 : probeRef.current ? TAKT_PROBE : 9000);
+      uhr = setTimeout(frage, document.hidden ? 15000 : nebenPuls(probeRef.current ? TAKT_PROBE : 9000));
     };
     frage();
     jetztFragen.current.probe = () => {
@@ -26693,12 +26734,78 @@ function App() {
           if (lebt) setAnsagen(Array.isArray(d.ansagen) ? d.ansagen : []);
         } catch {}
       }
-      uhr = setTimeout(frage, 5000);
+      if (lebt) uhr = setTimeout(frage, nebenPuls(5000));
     };
     frage();
+    jetztFragen.current.ansagen = () => {
+      if (lebt && !document.hidden) {
+        clearTimeout(uhr);
+        frage();
+      }
+    };
     return () => {
       lebt = false;
       clearTimeout(uhr);
+    };
+  }, [isDmMode, advId, svCode, konto]);
+  const PULS_WARTEN = 20;
+  useEffect(() => {
+    let beendet = false,
+      uhr = null,
+      fehler = 0;
+    let bekannt = {};
+    const nachste = ms => {
+      if (!beendet) {
+        clearTimeout(uhr);
+        uhr = setTimeout(lauf, ms);
+      }
+    };
+    const lauf = async () => {
+      if (beendet) return;
+      const creds = serverCreds();
+      if (!verbunden(creds) || document.hidden) {
+        nachste(3000);
+        return;
+      }
+      const start = Date.now();
+      try {
+        const d = await apiPuls(creds.url, creds.code, advId || '', bekannt, PULS_WARTEN);
+        if (beendet) return;
+        const neu = d && d.staende || {};
+        const erster = !Object.keys(bekannt).length;
+        const anders = k => !erster && String(bekannt[k]) !== String(neu[k]);
+        const etwas = Object.keys(neu).some(anders);
+        if (anders('rev') || anders('vit')) {
+          if (boegenJetzt.current) boegenJetzt.current();
+        }
+        if (anders('kampf')) {
+          gleichFragen('kampf');
+          gleichFragen('ansagen');
+        }
+        if (anders('probe')) gleichFragen('probe');
+        if (anders('beute')) gleichFragen('beute');
+        if (anders('rast')) gleichFragen('rast');
+        if (anders('post')) gleichFragen('post');
+        bekannt = neu;
+        fehler = 0;
+        pulsZeit.current = Date.now();
+        nachste(etwas || Date.now() - start > 1500 ? 30 : 1000);
+      } catch (e) {
+        if (beendet) return;
+        fehler++;
+        pulsZeit.current = 0;
+        nachste(Math.min(30000, 1000 * Math.pow(2, Math.min(fehler, 5))));
+      }
+    };
+    const wach = () => {
+      if (!document.hidden && !beendet) nachste(0);
+    };
+    document.addEventListener('visibilitychange', wach);
+    nachste(0);
+    return () => {
+      beendet = true;
+      clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
     };
   }, [isDmMode, advId, svCode, konto]);
   const ansageWeg = id => {

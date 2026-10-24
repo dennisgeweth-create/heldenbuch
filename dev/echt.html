@@ -146,7 +146,10 @@
     const apiBesitzerSetzen = wbStumm;
     const apiBeuteNehmen = wbStumm;
     const apiBeuteSetzen = wbStumm;
-    const apiBeuteStand = wbStumm;
+    // Die Beute zaehlt ihre Anfragen — daran sieht die Pruefung des
+    // Pulses, ob er die Beute sofort fragen laesst.
+    const wbBeuteFragen = {n: 0};
+    const apiBeuteStand = () => { wbBeuteFragen.n++; return wbStumm(); };
     const apiDeleteChar = wbStumm;
     const apiDeleteItem = wbStumm;
     const apiDmDeleteEncounter = wbStumm;
@@ -175,6 +178,12 @@
     const apiMitglieder = wbStumm;
     const apiPassAendern = wbStumm;
     const apiPoll = wbStumm;
+    // Der Puls: ohne Staende wie kein Server; mit Staenden antwortet er
+    // sofort (er wartet nicht wie der echte).
+    const wbPuls = {staende: null, anfragen: 0};
+    const apiPuls = () => { wbPuls.anfragen++;
+      return wbPuls.staende ? Promise.resolve({staende: {...wbPuls.staende}}) : wbStumm(); };
+    const apiLoadSeit = wbStumm;
     const apiProbeAntwort = wbStumm;
     const apiProbeNachricht = wbStumm;
     const apiProbeSetzen = wbStumm;
@@ -1813,6 +1822,26 @@
         // Diese Seite fährt als Spielleitung. Die beiden Fenster, die nur
         // Spieler sehen, werden deshalb für sich aufgestellt — dieselben
         // Bausteine aus derselben app.js, nur ohne den Weg dorthin.
+        // ── Der Puls ───────────────────────────────────────────
+        // Meldet der Server einen neuen Stand der Beute, fragt die Beute
+        // sofort — und nicht erst mit ihrem Takt (12 bis 15 Sekunden).
+        melden('lauf', 'Der Puls');
+        wbPuls.staende = {rev: '1', vit: '0', kampf: '0', probe: '0', beute: '0', rast: '0', post: '0'};
+        document.dispatchEvent(new Event('visibilitychange'));   // weckt ihn aus der Pause
+        const pulsDa = await warten(() => wbPuls.anfragen >= 2 ? true : null, 4000);
+        if (ja('Der Puls fragt, sobald der Server antwortet', !!pulsDa, wbPuls.anfragen + ' Anfragen')) {
+          await ruhe(1500);
+          const vorher = wbBeuteFragen.n;
+          const t0 = Date.now();
+          wbPuls.staende = {...wbPuls.staende, beute: '7'};
+          const gefragt = await warten(() => wbBeuteFragen.n > vorher ? true : null, 4000);
+          ja('Ein neuer Stand der Beute: die Beute fragt sofort', !!gefragt,
+             gefragt ? '' : 'nach ' + (Date.now() - t0) + ' ms noch nicht');
+          ja('  … in gut einer Sekunde statt zwölf', !!gefragt && Date.now() - t0 < 2500,
+             (Date.now() - t0) + ' ms');
+        }
+        wbPuls.staende = null;
+
         melden('lauf', 'Spielerseite: Post und geheime Ansage');
         const buehne = document.createElement('div');
         document.body.appendChild(buehne);

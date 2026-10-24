@@ -134,7 +134,7 @@
       'apiDmSaveLibrary', 'apiGruppeNeu', 'apiKampfAnsage', 'apiKampfAnsagen',
       'apiKampfSetzen', 'apiKontoListe', 'apiKontoLoeschen', 'apiKontoNeu',
       'apiKontoReset', 'apiLoadLogs', 'apiLogFrist', 'apiLogin', 'apiLogout',
-      'apiMeineDaten', 'apiMitglieder', 'apiPassAendern', 'apiPoll',
+      'apiMeineDaten', 'apiMitglieder', 'apiPassAendern', 'apiPoll', 'apiPuls', 'apiLoadSeit',
       'apiPostGelesen', 'apiPostListe', 'apiPostLoeschen', 'apiPostSenden',
       'apiRastAntwort', 'apiRastSetzen', 'apiRastStand',
       'apiProbeAntwort', 'apiProbeNachricht', 'apiProbeSetzen', 'apiProbeStand',
@@ -143,6 +143,7 @@
     ].forEach(function (n) { window[n] = gut; });
     window.apiLoadLogs = nichts;
     window.apiPoll = nichts;
+    window.apiPuls = nichts;
 
     // Eine Adresse muss dastehen: ohne sie hält sich die Anwendung für
     // unverbunden und liest ihre Helden gar nicht erst. Angerufen wird

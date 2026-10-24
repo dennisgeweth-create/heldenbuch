@@ -177,6 +177,20 @@ Was die Anwendung schreibt, entscheidet nie ueber Rechte — deshalb liegen
 Besitz und Spielleitung in eigenen Spalten und Tabellen und nicht in
 `char_json` oder der Bibliothek.
 
+## Der Abgleich
+
+Jedes Geraet haelt **eine** Anfrage offen: `puls` in `api.php`. Sie
+bekommt die Staende, die das Geraet kennt (`rev`, `vit`, `kampf`,
+`probe`, `beute`, `rast`, `post` — `pulsStaende()`, eine Abfrage), und
+wartet beim Server bis zu 20 Sekunden, bis einer davon nicht mehr
+stimmt. Das Geraet holt dann ueber die gewohnten Wege, was sich bewegt
+hat (`poll`, `load` mit `seit` — nur geaenderte Boegen —, `kampf_stand`,
+…). Die alten Takte der einzelnen Schleifen bleiben als Netz darunter
+und schlagen langsam (`nebenPuls`), solange der Puls lebt.
+
+Der eingebaute PHP-Server von `dev/start.ps1` bedient nur eine Anfrage
+auf einmal; dort wartet der Puls deshalb hoechstens eine Sekunde.
+
 ## Serverseite lokal testen
 
 `api.php` lief frueher erst auf dem Server zum ersten Mal. Seit XAMPP

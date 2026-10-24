@@ -1617,6 +1617,14 @@ const initiativeMigration = (liste) => {
   });
 };
 
+// ── Laden seit einem Zeitpunkt ───────────────────────────────────
+// Der Server schickt nur die geaenderten Boegen und die Kennungen aller,
+// die es noch gibt. Daraus wird die ganze Liste: in der Reihenfolge des
+// Servers, geaenderte neu, die anderen wie gehabt — und was in der Liste
+// der Kennungen fehlt, ist geloescht.
+const boegenEinfuegen = (alt, neu, ids) => (ids || []).map(id =>
+  (neu || []).find(c => c && c.id === id) || (alt || []).find(c => c && c.id === id)).filter(Boolean);
+
 const newChar   = () => ({
   id:Date.now().toString(), name:"", race:"Mensch", charClass:"Kämpfer", level:1,
   multiclasses:[],

@@ -1,5 +1,27 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.34.0
+
+### Fast Echtzeit: der Puls
+
+Bisher fragte jedes Gerät in sieben eigenen Takten nach, ob sich etwas
+getan hat — die Bögen alle 5 bis 60 Sekunden, der Kampf im Kampf jede
+gute Sekunde, Beute, Rast, Proben und Post dazwischen. Eine Änderung kam
+deshalb je nachdem nach einer bis zwölf Sekunden bei den anderen an.
+
+- Jetzt hält jedes Gerät **eine Anfrage beim Server offen**. Sie kehrt
+  zurück, **sobald sich irgendetwas bewegt** — ein Treffer, ein Bogen,
+  der Kampf, eine Probe, Beute, Rast, Post —, und das Gerät holt genau
+  das. Danach geht sofort die nächste Anfrage los. Eine Änderung ist so
+  in **Bruchteilen einer Sekunde** bei allen.
+- **Eigene Änderungen** gehen alle 0,3 Sekunden hinaus statt jede Sekunde.
+- Ändert sich ein Bogen, holt jedes Gerät **nur diesen Bogen** statt
+  aller samt Bildern — bei jedem verbrauchten Zauberplatz am Tisch ein
+  Megabyte weniger für jeden.
+- Die alten Takte bleiben als Netz darunter: fällt der Puls aus, fragen
+  die Geräte wieder wie bisher. Ein Fenster im Hintergrund pulst nicht;
+  wer zurückkommt, ist sofort auf dem Stand.
+
 ## v5.33.0
 
 ### Charakterassistent: Attributsboni frei verteilen

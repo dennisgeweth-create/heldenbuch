@@ -105,6 +105,11 @@
     // laeuft im Sekundenbereich, und bcrypt bei jeder Anfrage waere die
     // teuerste Zeile der ganzen Anwendung.
     const apiPoll          = (url, code, token)  => apiRequest(url, 'poll',           { code, poll_token: token });
+    // Der Puls: wartet beim Server, bis sich einer der bekannten Staende
+    // bewegt (hoechstens `warten` Sekunden). Und das Laden seit einem
+    // Zeitpunkt — nur die Boegen, die sich geaendert haben.
+    const apiPuls          = (url, code, advId, bekannt, warten) => apiRequest(url, 'puls', { code, adv_id: advId, bekannt, warten });
+    const apiLoadSeit      = (url, code, pass, seit) => apiRequest(url, 'load',           { code, password: pass, seit });
     const apiDmLoad        = (url, code, pass, dmPass)   => apiRequest(url, 'dm_load',         { code, password: pass, dm_password: dmPass });
     const apiDmSaveLibrary = (url, code, pass, dmPass, dmLibrary) => apiRequest(url, 'dm_save_library', { code, password: pass, dm_password: dmPass, dm_library: dmLibrary });
     const apiSetDmPassword = (url, code, pass, dmPass)   => apiRequest(url, 'set_dm_password', { code, password: pass, dm_password: dmPass });

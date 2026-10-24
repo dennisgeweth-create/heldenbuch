@@ -40,6 +40,18 @@ ist('  … die Vorlage bleibt', alt[0].npc, undefined);
 ist('  … und ein zweites Mal aendert nichts', nscMigration(neu), null);
 ist('eine vorhandene Haltung bleibt stehen', nscMigration([{id: 'c', dmOnly: true, haltung: 'feindlich'}])[0].haltung, 'feindlich');
 
+// ── Laden seit einem Zeitpunkt ──
+// Der Server schickt nur geaenderte Boegen und die Kennungen aller.
+const altB = [{id: 'a', name: 'Alt A'}, {id: 'b', name: 'Alt B'}, {id: 'c', name: 'Alt C'}];
+ist('geaenderte Boegen ersetzen die alten, die anderen bleiben',
+  boegenEinfuegen(altB, [{id: 'b', name: 'Neu B'}], ['a', 'b', 'c']).map(c => c.name), ['Alt A', 'Neu B', 'Alt C']);
+ist('was in den Kennungen fehlt, ist geloescht',
+  boegenEinfuegen(altB, [], ['a', 'c']).map(c => c.id), ['a', 'c']);
+ist('ein neuer Bogen kommt dazu, in der Reihenfolge des Servers',
+  boegenEinfuegen(altB, [{id: 'd', name: 'Neu D'}], ['a', 'd', 'b', 'c']).map(c => c.id), ['a', 'd', 'b', 'c']);
+ist('eine Kennung ohne Bogen faellt weg (er kommt beim naechsten Mal)',
+  boegenEinfuegen(altB, [], ['a', 'x']).map(c => c.id), ['a']);
+
 // ── Die Initiative, einmal geradegezogen ──
 // Das Feld ist ein Bonus zur Geschicklichkeit. Der Assistent schrieb bis
 // v5.31 den fertigen Modifikator hinein (Pip: Geschicklichkeit 17, im

@@ -1078,6 +1078,87 @@ function loadAll(PDO $pdo, string $code, array $sessionRow, ?callable $dmSicht =
     return ['chars' => $chars, 'owners' => $besitz, 'updated_at' => $latestTs];
 }
 
+// ── Nur, was sich geaendert hat ─────────────────────────────────
+// Der volle Ladevorgang schickt jeden Bogen samt Bild und Inventar. Das
+// war in Ordnung, solange alle paar Sekunden gefragt wurde; mit dem Puls
+// kommt jede Aenderung sofort an — und dann soll nicht jedes Geraet bei
+// jedem verbrauchten Zauberplatz eines anderen ein Megabyte holen.
+//
+// Geliefert werden die Boegen, deren Zeile oder deren Gegenstaende seit
+// `seit` (Unix-Sekunden) geaendert wurden, dazu die Kennungen aller
+// Boegen, die der Fragende sehen darf (daran erkennt er geloeschte) und
+// die Besitzer. Sekundengenau: wer `seit` eine Sekunde zu frueh setzt,
+// bekommt einen Bogen doppelt und verpasst keinen.
+function ladeSeit(PDO $pdo, string $code, int $seit, callable $darfDm): array {
+    $st = $pdo->prepare("SELECT c.char_id, c.owner, c.adv_id, c.dm_only,
+                                (c.updated_at >= FROM_UNIXTIME(?)
+                                 OR EXISTS (SELECT 1 FROM hb_items i
+                                            WHERE i.session_code=c.session_code AND i.char_id=c.char_id
+                                              AND i.updated_at >= FROM_UNIXTIME(?))) AS neu
+                         FROM hb_chars c WHERE c.session_code=? ORDER BY c.id ASC");
+    $st->execute([$seit, $seit, $code]);
+    $ids = []; $besitz = []; $neu = [];
+    foreach ($st->fetchAll() as $r) {
+        if ((int)($r['dm_only'] ?? 0) === 1 && !$darfDm($r['adv_id'] ?? '')) continue;
+        $id = (string)$r['char_id'];
+        $ids[] = $id;
+        if ($r['owner'] !== null) $besitz[$id] = (int)$r['owner'];
+        if ((int)$r['neu'] === 1) $neu[] = $id;
+    }
+    $chars = [];
+    if ($neu) {
+        $platz = implode(',', array_fill(0, count($neu), '?'));
+        $sti = $pdo->prepare("SELECT char_id, item_json FROM hb_items WHERE session_code=? AND char_id IN ($platz) ORDER BY id ASC");
+        $sti->execute(array_merge([$code], $neu));
+        $items = [];
+        foreach ($sti->fetchAll() as $r) {
+            $it = json_decode($r['item_json'], true);
+            if ($it) $items[(string)$r['char_id']][] = $it;
+        }
+        $stc = $pdo->prepare("SELECT char_id, char_json FROM hb_chars WHERE session_code=? AND char_id IN ($platz) ORDER BY id ASC");
+        $stc->execute(array_merge([$code], $neu));
+        foreach ($stc->fetchAll() as $r) {
+            $c = json_decode($r['char_json'], true);
+            if (!$c) continue;
+            $c['inventory'] = $items[(string)$r['char_id']] ?? [];
+            $chars[] = $c;
+        }
+    }
+    return ['chars' => $chars, 'ids' => $ids, 'owners' => $besitz];
+}
+
+// ── Der Puls ────────────────────────────────────────────────────
+// Alle Staende, an denen ein Geraet merkt, dass es etwas holen muss —
+// in einer einzigen Abfrage. Die Boegen (hb_rev), die Trefferpunkte
+// (hb_vitals, als Pruefsumme: die Zeitspalte ist sekundengenau, und zwei
+// Treffer in derselben Sekunde saehen sonst gleich aus), und je Abenteuer
+// Kampf, Probe, Beute, Rast und Post.
+function pulsStaende(PDO $pdo, string $code, string $advId, bool $dm, int $userId): array {
+    $post = "SELECT CONCAT(COUNT(*), ':', COALESCE(MAX(id), 0), ':', COALESCE(SUM(gelesen), 0))
+             FROM hb_post WHERE session_code=? AND adv_id=?" . ($dm ? '' : ' AND user_id=?');
+    $st = $pdo->prepare("SELECT
+        (SELECT rev FROM hb_rev WHERE session_code=?) AS rev,
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(SUM(CRC32(vitals_json)), 0)) FROM hb_vitals WHERE session_code=?) AS vit,
+        (SELECT stand FROM hb_kampf  WHERE session_code=? AND adv_id=?) AS kampf,
+        (SELECT stand FROM hb_proben WHERE session_code=? AND adv_id=?) AS probe,
+        (SELECT stand FROM hb_beute  WHERE session_code=? AND adv_id=?) AS beute,
+        (SELECT stand FROM hb_rast   WHERE session_code=? AND adv_id=?) AS rast,
+        ($post) AS post");
+    $werte = [$code, $code, $code, $advId, $code, $advId, $code, $advId, $code, $advId, $code, $advId];
+    if (!$dm) $werte[] = $userId;
+    $st->execute($werte);
+    $r = $st->fetch() ?: [];
+    $raus = [];
+    foreach (['rev', 'vit', 'kampf', 'probe', 'beute', 'rast', 'post'] as $k) $raus[$k] = (string)($r[$k] ?? '0');
+    return $raus;
+}
+// Wie lange der Puls hoechstens auf eine Aenderung wartet. Darunter
+// bleibt eine Anfrage offen, solange sich nichts tut, und kehrt zurueck,
+// sobald sich etwas tut — so kommt eine Aenderung in Bruchteilen einer
+// Sekunde an statt mit dem naechsten Takt.
+const PULS_WARTEN_MAX = 20;
+const PULS_SCHRITT_US = 300000;
+
 // ── Abenteuerplaner ─────────────────────────────────────────────
 // Die Dateien einer Karte liegen unter planer-dateien/<ablage>/. Der
 // Ordnername ist zufaellig und 32 Zeichen lang: wer ihn nicht bekommt,
@@ -1247,6 +1328,28 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $z      = zugang($pdo, $code, $pass, $body);
         $row    = $z['row'];
+        // Erst die Uhr des Servers lesen, dann laden: was waehrend des
+        // Ladens geschrieben wird, faellt damit beim naechsten Mal sicher
+        // in „seit".
+        $zeit   = (int)$pdo->query("SELECT UNIX_TIMESTAMP()")->fetchColumn();
+        if (isset($body['seit']) && (int)$body['seit'] > 0) {
+            $seit = (int)$body['seit'];
+            $d = ladeSeit($pdo, $code, $seit, dmSichtPruefer($pdo, $z, $code));
+            // Die Bibliothek nur, wenn die Zeile der Gruppe sich bewegt hat —
+            // in Sekunden der Datenbank, nicht in der Zeitzone von PHP.
+            $stL = $pdo->prepare("SELECT UNIX_TIMESTAMP(updated_at) FROM hb_sessions WHERE code=?");
+            $stL->execute([$code]);
+            $libNeu = (int)$stL->fetchColumn() >= $seit;
+            respond(200, 'OK', array_merge([
+                'delta'   => true,
+                'chars'   => $d['chars'],
+                'ids'     => $d['ids'],
+                'owners'  => (object)$d['owners'],
+                'adv_dms' => (object)advDmKarte($pdo, $code),
+                'rev'     => revStand($pdo, $code),
+                'zeit'    => $zeit,
+            ], $libNeu ? ['library' => json_decode($row['library_json'] ?? '{}', true) ?? []] : []));
+        }
         $result = loadAll($pdo, $code, $row, dmSichtPruefer($pdo, $z, $code));
 
         // hb_vitals einmalig fuellen, damit der Abgleich auch fuer
@@ -1275,6 +1378,7 @@ switch ($action) {
             // Stand, ab dem nichts Neues mehr kam.
             'poll_token' => pollToken($code, (string)$row['password_hash']),
             'rev'        => revStand($pdo, $code),
+            'zeit'       => $zeit,
         ]);
 
     // ── Hintergrundabgleich ─────────────────────────────────────
@@ -1314,6 +1418,42 @@ switch ($action) {
             if (is_array($v)) $vitals[$r['char_id']] = $v;
         }
         respond(200, 'OK', ['rev' => revStand($pdo, $code), 'vitals' => $vitals]);
+
+    // ── Der Puls ────────────────────────────────────────────────
+    // Eine Anfrage fuer alles, was sich tun kann. Das Geraet schickt die
+    // Staende, die es kennt; der Server antwortet, sobald einer davon
+    // nicht mehr stimmt — oder nach `warten` Sekunden mit dem, was ist.
+    // Das Geraet holt danach nur, was sich bewegt hat, ueber die
+    // gewohnten Wege (load, poll, kampf_stand, …).
+    //
+    // Warten kostet hier eine kleine Abfrage alle 0,3 Sekunden und einen
+    // PHP-Prozess. Fuer eine Runde aus fuenf Leuten ist das nichts; fuer
+    // tausend waere es ein anderer Bau.
+    case 'puls': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $bekannt = is_array($body['bekannt'] ?? null) ? $body['bekannt'] : [];
+        $warten = max(0, min(PULS_WARTEN_MAX, (int)($body['warten'] ?? 0)));
+        // Der eingebaute Server der Werkbank (dev/start.ps1) bedient eine
+        // Anfrage nach der anderen — ein wartender Puls legte dort alles
+        // andere still. Auf dem echten Server warten viele nebeneinander.
+        if (PHP_SAPI === 'cli-server') $warten = min($warten, 1);
+        $dm = $advId !== '' && istDmVon($pdo, $z, $code, $advId);
+        $uid = (int)($z['user']['id'] ?? 0);
+        @set_time_limit($warten + 15);
+        $anders = function (array $s) use ($bekannt): bool {
+            foreach ($s as $k => $v) if (!array_key_exists($k, $bekannt) || (string)$bekannt[$k] !== $v) return true;
+            return false;
+        };
+        $ende = microtime(true) + $warten;
+        $s = pulsStaende($pdo, $code, $advId, $dm, $uid);
+        while ($warten > 0 && !$anders($s) && microtime(true) < $ende) {
+            usleep(PULS_SCHRITT_US);
+            $s = pulsStaende($pdo, $code, $advId, $dm, $uid);
+        }
+        respond(200, 'OK', ['staende' => $s]);
+    }
 
     // Charakter-Basis speichern (OHNE inventory)
     case 'save_char':
@@ -1416,6 +1556,11 @@ switch ($action) {
         besitzPruefen($pdo, zugang($pdo, $code, $pass, $body), $code, (string)$charId);
         $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=? AND item_id=?")
             ->execute([$code, $charId, $itemId]);
+        // Ein geloeschter Gegenstand hinterlaesst keine Zeile, an deren Zeit
+        // das Laden-seit ihn erkennen koennte — also traegt der Bogen die
+        // Aenderung.
+        $pdo->prepare("UPDATE hb_chars SET updated_at=NOW() WHERE session_code=? AND char_id=?")
+            ->execute([$code, $charId]);
         revHoch($pdo, $code);
         respond(200, 'Item gelöscht.', ['rev' => revStand($pdo, $code)]);
 

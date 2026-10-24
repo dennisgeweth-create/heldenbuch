@@ -1556,6 +1556,78 @@ $r = ruf('tagebuch_eintrag', ['code' => $code, 'token' => $tDm, 'adv_id' => 'str
     'sitzung_id' => $sitzungId, 'text' => 'Zu spät']);
 pruefe('in einen gelöschten Abend schreibt niemand mehr (404)', $r['status'] === 404, kurz($r));
 
+abschnitt('Der Puls');
+// Eine Anfrage fuer alle Staende. Ohne Warten antwortet sie sofort; mit
+// Warten haelt sie an, solange sich nichts tut — der eingebaute Server
+// hier kappt das auf eine Sekunde, sonst laege alles andere still.
+$puls = function (array $bekannt, int $warten, string $tok = '') use ($code, $tSpieler) {
+    $t0 = microtime(true);
+    $r = ruf('puls', ['code' => $code, 'token' => $tok !== '' ? $tok : $tSpieler, 'adv_id' => 'strahd',
+                      'bekannt' => (object)$bekannt, 'warten' => $warten]);
+    $r['dauer'] = microtime(true) - $t0;
+    return $r;
+};
+$r = $puls([], 0);
+pruefe('der Puls antwortet (200)', $r['status'] === 200, kurz($r));
+$st0 = $r['body']['staende'] ?? [];
+pruefe('  … mit allen Staenden', count(array_intersect(['rev', 'vit', 'kampf', 'probe', 'beute', 'rast', 'post'],
+       array_keys($st0))) === 7, json_encode($st0));
+$r = $puls($st0, 1);
+pruefe('nichts Neues: er wartet', $r['dauer'] >= 0.8 && ($r['body']['staende'] ?? []) == $st0,
+       round($r['dauer'], 2) . ' s');
+// Trefferpunkte: aendern sich nur die, bewegt sich vit und nicht rev.
+$heldP = ['id' => 'pulsheld', 'name' => 'Puls', 'hp' => 10, 'maxHp' => 10, 'adventure' => 'strahd'];
+ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsheld', 'char' => $heldP]);
+$st1 = $puls([], 0)['body']['staende'];
+$heldP['hp'] = 4;
+ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsheld', 'char' => $heldP]);
+$r = $puls($st1, 1);
+pruefe('ein Treffer: der Puls kehrt sofort zurueck', $r['dauer'] < 0.6, round($r['dauer'], 2) . ' s');
+pruefe('  … die Trefferpunkte haben sich bewegt, die Boegen nicht',
+       $r['body']['staende']['vit'] !== $st1['vit'] && $r['body']['staende']['rev'] === $st1['rev'],
+       json_encode([$st1, $r['body']['staende']]));
+$st2 = $r['body']['staende'];
+$heldP['level'] = 2;
+ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsheld', 'char' => $heldP]);
+pruefe('eine Stufe mehr: die Boegen bewegen sich', $puls($st2, 1)['body']['staende']['rev'] !== $st2['rev']);
+$r = ruf('puls', ['code' => $code, 'adv_id' => 'strahd', 'bekannt' => (object)[], 'warten' => 0]);
+pruefe('ohne Konto kein Puls (403)', $r['status'] === 403, kurz($r));
+
+abschnitt('Laden seit einem Zeitpunkt');
+$r = ruf('load', ['code' => $code, 'token' => $tDm]);
+$zeit = (int)($r['body']['zeit'] ?? 0);
+pruefe('das volle Laden nennt die Uhr des Servers', $zeit > 1700000000, (string)$zeit);
+$r = ruf('load', ['code' => $code, 'token' => $tDm, 'seit' => $zeit + 3600]);
+pruefe('seit einer Zeit, nach der nichts kam: kein Bogen, aber alle Kennungen',
+       ($r['body']['delta'] ?? false) === true && ($r['body']['chars'] ?? null) === []
+       && in_array('pulsheld', $r['body']['ids'] ?? [], true), kurz($r));
+pruefe('  … und die Bibliothek bleibt weg', !array_key_exists('library', $r['body']));
+ruf('save_item', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsheld',
+                  'item_id' => 'pi1', 'item' => ['id' => 'pi1', 'name' => 'Pulsseil']]);
+$r = ruf('load', ['code' => $code, 'token' => $tDm, 'seit' => $zeit - 2]);
+$ids = array_column($r['body']['chars'] ?? [], 'id');
+pruefe('ein neuer Gegenstand bringt seinen Bogen mit', in_array('pulsheld', $ids, true), json_encode($ids));
+$ph = array_values(array_filter($r['body']['chars'] ?? [], fn($c) => ($c['id'] ?? '') === 'pulsheld'))[0] ?? [];
+pruefe('  … samt Inventar', (($ph['inventory'][0]['name'] ?? '') === 'Pulsseil'), json_encode($ph['inventory'] ?? null));
+$z2 = (int)ruf('load', ['code' => $code, 'token' => $tDm])['body']['zeit'];
+sleep(1);
+ruf('delete_item', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsheld', 'item_id' => 'pi1']);
+$r = ruf('load', ['code' => $code, 'token' => $tDm, 'seit' => $z2 + 1]);
+$ph = array_values(array_filter($r['body']['chars'] ?? [], fn($c) => ($c['id'] ?? '') === 'pulsheld'))[0] ?? null;
+pruefe('ein geloeschter Gegenstand bringt seinen Bogen auch mit — ohne ihn',
+       $ph !== null && ($ph['inventory'] ?? null) === [], json_encode($ph));
+// Verborgene Boegen bleiben verborgen, auch in der Liste der Kennungen.
+ruf('save_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsnsc',
+                  'char' => ['id' => 'pulsnsc', 'name' => 'Geheim', 'dmOnly' => true, 'npc' => true, 'adventure' => 'strahd']]);
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler, 'seit' => $zeit - 2]);
+pruefe('ein NSC steht beim Spieler weder in den Boegen noch in den Kennungen',
+       !in_array('pulsnsc', $r['body']['ids'] ?? [], true)
+       && !in_array('pulsnsc', array_column($r['body']['chars'] ?? [], 'id'), true));
+ruf('delete_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsnsc']);
+ruf('delete_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsheld']);
+$r = ruf('load', ['code' => $code, 'token' => $tDm, 'seit' => $zeit - 2]);
+pruefe('ein geloeschter Bogen fehlt in den Kennungen', !in_array('pulsheld', $r['body']['ids'] ?? [], true));
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

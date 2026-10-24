@@ -297,6 +297,16 @@ function App() {
   const pollToken   = useRef(null);
   const revRef      = useRef(null);
   const ruheRef     = useRef(0);
+  // Der Puls (weiter unten): wann er zuletzt geantwortet hat, ab welcher
+  // Serverzeit die Boegen geladen sind, und der Weg, den Bogenabgleich
+  // sofort anzustossen. Solange der Puls lebt, sind die Takte der
+  // einzelnen Abfragen nur noch ein Netz unter ihm und duerfen langsam
+  // schlagen.
+  const pulsZeit    = useRef(0);
+  const ladeZeitRef = useRef(0);
+  const boegenJetzt = useRef(null);
+  const pulsLebt    = () => Date.now() - pulsZeit.current < 45000;
+  const nebenPuls   = (ms) => pulsLebt() ? Math.max(ms, 15000) : ms;
   // Wo man beim letzten Mal war. Wird einmal nach dem Laden angewandt.
   const ansichtGeholt = useRef(false);
   const charsRef = useRef([]);
@@ -623,7 +633,10 @@ function App() {
                                                         : abgelehnt + ' Änderungen abgelehnt — fremde Bögen'); }
       else { setSyncStatus('ok'); setSyncMsg('Gespeichert ✓'); }
     };
-    const id = setInterval(tick, 1000);
+    // Alle 0,3 Sekunden statt jeder Sekunde: eine eigene Aenderung soll
+    // bei den anderen ankommen, bevor man den Blick hebt. Ohne Wartendes
+    // kostet der Takt nichts — er schaut nur in die eigene Warteschlange.
+    const id = setInterval(tick, 300);
     return () => clearInterval(id);
   }, []);
 
@@ -645,7 +658,8 @@ function App() {
   //   · Eigene offene Aenderungen: gar nichts. Erst senden, dann fragen.
   //   · Bleibt es ruhig, wird der Abstand groesser.
   const POLL_SCHNELL = 5000, POLL_RUHIG = 15000, POLL_LEISE = 60000;
-  const pollAbstand = () => ruheRef.current < 12 ? POLL_SCHNELL
+  const pollAbstand = () => pulsLebt() ? 30000
+                          : ruheRef.current < 12 ? POLL_SCHNELL
                           : ruheRef.current < 50 ? POLL_RUHIG : POLL_LEISE;
 
   // Die vier Werte aus der Antwort in die Charaktere schreiben. Bewusst
@@ -676,17 +690,27 @@ function App() {
   };
 
   useEffect(() => {
-    let beendet = false, timer = null;
+    let beendet = false, timer = null, imLauf = false, nochmal = false;
     const plan = (ms) => { if (!beendet) timer = setTimeout(lauf, ms); };
 
     const lauf = async () => {
       if (beendet) return;
+      // Stoesst der Puls an, waehrend schon gefragt wird: danach gleich
+      // noch einmal, statt zwei Abfragen nebeneinander laufen zu lassen.
+      if (imLauf) { nochmal = true; return; }
+      imLauf = true;
+      try { await einLauf(); } finally { imLauf = false; }
+      if (nochmal) { nochmal = false; if (timer) clearTimeout(timer); plan(0); }
+    };
+    const einLauf = async () => {
       const {url, code, pass} = serverCreds();
       const tok = pollToken.current;
       // Nichts zu tun — und das ist der haeufigste Fall.
       if (!url || !code || !tok || pendingRef.current
           || (typeof document !== 'undefined' && document.hidden)) {
-        plan(POLL_RUHIG);
+        // Mit Puls bald wieder: er hat vielleicht gerade etwas gemeldet,
+        // und eigene Aenderungen sind nach einer Sekunde meist unterwegs.
+        plan(pulsLebt() ? 1000 : POLL_RUHIG);
         return;
       }
       try {
@@ -697,9 +721,14 @@ function App() {
           // Am Bogen hat sich mehr geaendert als Trefferpunkte — jetzt
           // lohnt der volle Ladevorgang, und nur jetzt.
           revRef.current = d.rev;
-          const data = await apiLoad(url, code, pass);
+          // Nur, was sich seit dem letzten Laden geaendert hat — zwei
+          // Sekunden Spielraum, die Zeitspalte ist sekundengenau.
+          const seit = ladeZeitRef.current;
+          const data = seit ? await apiLoadSeit(url, code, pass, seit - 2) : await apiLoad(url, code, pass);
+          if (data.zeit) ladeZeitRef.current = data.zeit;
           if (!pendingRef.current) {
-            const eigene = mitEigenen(data.chars);
+            const vomServer = data.delta ? boegenEinfuegen(charsRef.current, data.chars, data.ids) : data.chars;
+            const eigene = mitEigenen(vomServer);
             applyChars(eigene);
             spiegleChars(JSON.stringify(eigene));
             if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
@@ -728,6 +757,14 @@ function App() {
         if (timer) clearTimeout(timer);
         plan(300);
       }
+    };
+    // Der Puls meldet: an den Boegen oder an den Trefferpunkten hat sich
+    // etwas bewegt — jetzt fragen, nicht erst mit dem Takt.
+    boegenJetzt.current = () => {
+      if (beendet) return;
+      ruheRef.current = 0;
+      if (timer) clearTimeout(timer);
+      plan(0);
     };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', wach);
     plan(POLL_SCHNELL);
@@ -1139,6 +1176,7 @@ function App() {
       const data = await apiLoad(url, code, pass);
       pollToken.current = data.poll_token || null;
       revRef.current    = data.rev != null ? data.rev : null;
+      ladeZeitRef.current = data.zeit || 0;
       ruheRef.current   = 0;
       // User explicitly requested reload — always apply server data
       pendingRef.current = false;   // cancel any pending local saves
@@ -1684,6 +1722,7 @@ function App() {
       const data = await apiLoadChars(url, gcode, '');
       pollToken.current = data.poll_token || null;
       revRef.current    = data.rev != null ? data.rev : null;
+      ladeZeitRef.current = data.zeit || 0;
       localStorage.setItem('sv_code', gcode);
       localStorage.removeItem('sv_pass');
       setKonto(k);
@@ -2024,7 +2063,7 @@ function App() {
       // Fenster fragt gar nicht erst, und dann muss die Uhr auch nicht
       // schnell schlagen.
       const takt = document.hidden ? 12000
-        : kampfSichtRef.current ? TAKT_KAMPF : 12000;
+        : nebenPuls(kampfSichtRef.current ? TAKT_KAMPF : 12000);
       uhr = setTimeout(frage, takt);
     };
     frage();
@@ -2086,7 +2125,7 @@ function App() {
           rastStandRef.current = +d.stand || 0;
         } catch {}
       }
-      if (lebt) uhr = setTimeout(frage, document.hidden ? 20000 : (rastRef.current ? 4000 : 12000));
+      if (lebt) uhr = setTimeout(frage, document.hidden ? 20000 : nebenPuls(rastRef.current ? 4000 : 12000));
     };
     frage();
     jetztFragen.current.rast = () => { if (lebt) { clearTimeout(uhr); frage(); } };
@@ -2151,9 +2190,10 @@ function App() {
     let lebt = true, uhr = null;
     const takt = async () => {
       if (!document.hidden) await postLaden();
-      if (lebt) uhr = setTimeout(takt, 20000);
+      if (lebt) uhr = setTimeout(takt, nebenPuls(20000));
     };
     takt();
+    jetztFragen.current.post = () => { if (lebt && !document.hidden) { clearTimeout(uhr); takt(); } };
     return () => { lebt = false; clearTimeout(uhr); };
   }, [isDmMode, advId, svCode, konto]);
   useEffect(() => { if (postOffen) postLaden(); }, [postOffen]);
@@ -2268,7 +2308,7 @@ function App() {
           beuteStandRef.current = +d.stand || 0;
         } catch { /* der naechste Versuch kommt gleich */ }
       }
-      uhr = setTimeout(frage, document.hidden ? 20000 : (beuteRef.current ? TAKT_BEUTE : 12000));
+      uhr = setTimeout(frage, document.hidden ? 20000 : nebenPuls(beuteRef.current ? TAKT_BEUTE : 12000));
     };
     frage();
     jetztFragen.current.beute = () => {
@@ -2384,7 +2424,7 @@ function App() {
           probeStandRef.current = +d.stand || 0;
         } catch { /* der naechste Versuch kommt gleich */ }
       }
-      uhr = setTimeout(frage, document.hidden ? 15000 : (probeRef.current ? TAKT_PROBE : 9000));
+      uhr = setTimeout(frage, document.hidden ? 15000 : nebenPuls(probeRef.current ? TAKT_PROBE : 9000));
     };
     frage();
     jetztFragen.current.probe = () => {
@@ -2615,10 +2655,70 @@ function App() {
           if (lebt) setAnsagen(Array.isArray(d.ansagen) ? d.ansagen : []);
         } catch { /* der naechste Versuch kommt gleich */ }
       }
-      uhr = setTimeout(frage, 5000);
+      if (lebt) uhr = setTimeout(frage, nebenPuls(5000));
     };
     frage();
+    jetztFragen.current.ansagen = () => { if (lebt && !document.hidden) { clearTimeout(uhr); frage(); } };
     return () => { lebt = false; clearTimeout(uhr); };
+  }, [isDmMode, advId, svCode, konto]);
+
+  // ── Der Puls ───────────────────────────────────────────────────
+  // Eine Anfrage, die beim Server wartet, bis sich etwas tut: an den
+  // Boegen, an den Trefferpunkten, am Kampf, an Probe, Beute, Rast oder
+  // Post. Dann kehrt sie sofort zurueck, und hier wird genau das geholt,
+  // was sich bewegt hat — ueber dieselben Wege wie bisher. Danach geht
+  // sofort die naechste Anfrage los. Eine Aenderung ist damit in
+  // Bruchteilen einer Sekunde bei allen, statt mit dem naechsten Takt.
+  //
+  // Die einzelnen Abfragen bleiben als Netz darunter: faellt der Puls aus
+  // (Server weg, Netz weg), schlagen sie wieder in ihrem alten Takt.
+  // Ein verstecktes Fenster pulst nicht; wer zurueckkommt, fragt sofort.
+  const PULS_WARTEN = 20;
+  useEffect(() => {
+    let beendet = false, uhr = null, fehler = 0;
+    let bekannt = {};
+    const nachste = (ms) => { if (!beendet) { clearTimeout(uhr); uhr = setTimeout(lauf, ms); } };
+    const lauf = async () => {
+      if (beendet) return;
+      const creds = serverCreds();
+      if (!verbunden(creds) || document.hidden) { nachste(3000); return; }
+      const start = Date.now();
+      try {
+        const d = await apiPuls(creds.url, creds.code, advId || '', bekannt, PULS_WARTEN);
+        if (beendet) return;
+        const neu = (d && d.staende) || {};
+        const erster = !Object.keys(bekannt).length;
+        const anders = (k) => !erster && String(bekannt[k]) !== String(neu[k]);
+        const etwas = Object.keys(neu).some(anders);
+        if (anders('rev') || anders('vit')) { if (boegenJetzt.current) boegenJetzt.current(); }
+        if (anders('kampf')) { gleichFragen('kampf'); gleichFragen('ansagen'); }
+        if (anders('probe')) gleichFragen('probe');
+        if (anders('beute')) gleichFragen('beute');
+        if (anders('rast'))  gleichFragen('rast');
+        if (anders('post'))  gleichFragen('post');
+        bekannt = neu;
+        fehler = 0;
+        pulsZeit.current = Date.now();
+        // Kam die Antwort schnell und ohne Neues, hat der Server nicht
+        // gewartet (die Werkbank, die Vorfuehrung) — dann nicht im Kreis
+        // fragen, sondern eine Sekunde Luft lassen.
+        nachste(etwas || Date.now() - start > 1500 ? 30 : 1000);
+      } catch (e) {
+        if (beendet) return;
+        fehler++;
+        // Zurueck auf die alten Takte: der Puls gilt als tot, bis er
+        // wieder antwortet.
+        pulsZeit.current = 0;
+        nachste(Math.min(30000, 1000 * Math.pow(2, Math.min(fehler, 5))));
+      }
+    };
+    const wach = () => { if (!document.hidden && !beendet) nachste(0); };
+    document.addEventListener('visibilitychange', wach);
+    nachste(0);
+    return () => {
+      beendet = true; clearTimeout(uhr);
+      document.removeEventListener('visibilitychange', wach);
+    };
   }, [isDmMode, advId, svCode, konto]);
 
   // Abgearbeitet ist abgearbeitet: die Spielleitung nimmt die Ansage aus
