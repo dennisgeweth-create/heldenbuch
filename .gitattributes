@@ -1,0 +1,6 @@
+# Binaerdateien: Git soll keine Zeilenenden umschreiben. Ein PDF zaehlt
+# seine Bytes (xref) — ein CR mehr, und es ist kaputt.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.webp binary

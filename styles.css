@@ -591,15 +591,31 @@
   .pdf-extern { margin-left:auto; text-decoration:none; }
   .pdf-buehne { flex:1; min-height:0; overflow:auto; border-radius:6px; padding:12px;
     background:radial-gradient(circle at 50% 30%, #24201a, #0d0c0a 75%); text-align:center;
-    touch-action:pan-x pan-y pinch-zoom; }
-  .pdf-blatt { display:inline-block; background:#fff; border-radius:2px;
+    touch-action:pan-x pan-y pinch-zoom;
+    /* Der Rollbalken hat seinen Platz von Anfang an: sonst aendert sein
+       Erscheinen die Breite, die Seite wird neu eingepasst, und im
+       ungluecklichsten Fall springt sie hin und her. */
+    scrollbar-gutter:stable; }
+  .pdf-aufschlag { display:inline-flex; gap:4px; align-items:flex-start; vertical-align:top; }
+  .pdf-blatt { display:block; background:#fff; border-radius:2px;
     box-shadow:0 0 0 1px rgba(232,184,75,0.25), 0 14px 40px rgba(0,0,0,0.65); }
+  /* Aufgeschlagen: der Falz in der Mitte, ein Hauch Schatten zum Bund. */
+  .pdf-aufschlag.doppel { position:relative; gap:0; }
+  .pdf-aufschlag.doppel::after { content:''; position:absolute; top:0; bottom:0; left:50%; width:56px;
+    transform:translateX(-50%); pointer-events:none;
+    background:linear-gradient(90deg, transparent, rgba(40,28,10,.16) 40%, rgba(20,14,5,.34) 50%,
+      rgba(40,28,10,.16) 60%, transparent); }
+  .pdf-blatt.links { border-radius:3px 0 0 3px; }
+  .pdf-blatt.rechts { border-radius:0 3px 3px 0; }
+  .pdf-blatt.wende { animation:pdf-wende .28s ease-out; }
+  @keyframes pdf-wende { from { opacity:.35; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { .pdf-blatt.wende { animation:none; } }
   .pdf-rahmen { flex:1; min-height:0; width:100%; border:1px solid var(--border); border-radius:6px; background:#fff; }
   .pdf-hinweis { padding:10px 2px 0; font-size:12.5px; color:var(--text-muted); }
   .pdf-hinweis a { color:var(--inspiration); }
   @media (max-width: 700px) {
     .form-modal.pdf-leser { width:100vw; height:100dvh; border-radius:0; }
-    .pdf-trenner { display:none; }
+    .pdf-trenner, .pdf-doppel { display:none; }
   }
 
   /* Der aufgeklappte Text einer Notiz: HTML aus dem Editor, oder alter

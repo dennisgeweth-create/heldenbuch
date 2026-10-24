@@ -1,43 +1,108 @@
 %PDF-1.4
 1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>
+<< /Length 170 >>
+stream
+0.55 0.42 0.2 RG 3 w 36 36 523 770 re S
+BT /F1 30 Tf 72 740 Td
+(Das Tagebuch des Wirts) Tj 0 -34 Td
+/F1 18 Tf
+() Tj 0 -34 Td
+(Ein Probebuch fuer den Leser) Tj 0 -34 Td
+ET
+endstream
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>
+<< /Length 187 >>
+stream
+0.55 0.42 0.2 RG 3 w 36 36 523 770 re S
+BT /F1 30 Tf 72 740 Td
+(Seite zwei) Tj 0 -34 Td
+/F1 18 Tf
+() Tj 0 -34 Td
+(Am dritten Abend kamen sie) Tj 0 -34 Td
+(durch den Regen.) Tj 0 -34 Td
+ET
+endstream
 endobj
 4 0 obj
-<< /Length 56 >>
+<< /Length 196 >>
 stream
-BT /F1 28 Tf 72 720 Td (Seite eins: Lieber Strahd) Tj ET
+0.55 0.42 0.2 RG 3 w 36 36 523 770 re S
+BT /F1 30 Tf 72 740 Td
+(Seite drei) Tj 0 -34 Td
+/F1 18 Tf
+() Tj 0 -34 Td
+(Der Zwerg bestellte zwei Kruege) Tj 0 -34 Td
+(und bezahlte keinen.) Tj 0 -34 Td
+ET
 endstream
 endobj
 5 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>
+<< /Length 156 >>
+stream
+0.55 0.42 0.2 RG 3 w 36 36 523 770 re S
+BT /F1 30 Tf 72 740 Td
+(Seite vier) Tj 0 -34 Td
+/F1 18 Tf
+() Tj 0 -34 Td
+(Um Mitternacht klopfte es.) Tj 0 -34 Td
+ET
+endstream
 endobj
 6 0 obj
-<< /Length 56 >>
+<< /Length 136 >>
 stream
-BT /F1 28 Tf 72 720 Td (Seite zwei: Gruss, Ireena) Tj ET
+0.55 0.42 0.2 RG 3 w 36 36 523 770 re S
+BT /F1 30 Tf 72 740 Td
+(Seite fuenf) Tj 0 -34 Td
+/F1 18 Tf
+() Tj 0 -34 Td
+(Ende.) Tj 0 -34 Td
+ET
 endstream
 endobj
 7 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595 842] /Contents 2 0 R /Resources << /Font << /F1 1 0 R >> >> >>
+endobj
+8 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595 842] /Contents 3 0 R /Resources << /Font << /F1 1 0 R >> >> >>
+endobj
+9 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 1 0 R >> >> >>
+endobj
+10 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595 842] /Contents 5 0 R /Resources << /Font << /F1 1 0 R >> >> >>
+endobj
+11 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595 842] /Contents 6 0 R /Resources << /Font << /F1 1 0 R >> >> >>
+endobj
+12 0 obj
+<< /Type /Pages /Kids [7 0 R 8 0 R 9 0 R 10 0 R 11 0 R] /Count 5 >>
+endobj
+13 0 obj
+<< /Type /Catalog /Pages 12 0 R >>
 endobj
 xref
-0 8
+0 14
 0000000000 65535 f 
 0000000009 00000 n 
-0000000058 00000 n 
-0000000121 00000 n 
-0000000247 00000 n 
-0000000353 00000 n 
-0000000479 00000 n 
-0000000585 00000 n 
+0000000079 00000 n 
+0000000300 00000 n 
+0000000538 00000 n 
+0000000785 00000 n 
+0000000992 00000 n 
+0000001179 00000 n 
+0000001306 00000 n 
+0000001433 00000 n 
+0000001560 00000 n 
+0000001688 00000 n 
+0000001816 00000 n 
+0000001900 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R >>
+<< /Size 14 /Root 13 0 R >>
 startxref
-655
+1951
 %%EOF

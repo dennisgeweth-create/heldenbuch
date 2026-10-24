@@ -50,7 +50,7 @@ const BEREICHE = [
   {name: 'Abenteuerplaner', passt: (f) => /^planer-/.test(f) || f === 'bruecke-test.js'},
   {name: 'Kampf und Karte', passt: (f) => /^(karte|import|kopieren|gegner|rueck)/.test(f)},
   {name: 'Taverne',         passt: (f) => /^(arena|auge|buch|glueck|hut|walzen)-/.test(f)},
-  {name: 'Der Bogen',       passt: (f) => /^(assistent|bogentext|heldtext|laden|mensch|nsc|rast)-/.test(f)},
+  {name: 'Der Bogen',       passt: (f) => /^(anhang|assistent|bogentext|heldtext|laden|mensch|nsc|rast)-/.test(f)},
   {name: 'Das Gerüst',      passt: () => true},
 ];
 const bereichNr = (f) => { const i = BEREICHE.findIndex(b => b.passt(f)); return i < 0 ? BEREICHE.length - 1 : i; };

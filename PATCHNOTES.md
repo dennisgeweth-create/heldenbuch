@@ -1,5 +1,21 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.37.0
+
+### Der eigene PDF-Leser
+
+- PDFs an Gegenständen schlagen jetzt im **Leser des Heldenbuchs** auf
+  statt im Leser des Browsers: die Seite auf dunklem Grund, scharf auch
+  am Telefon.
+- **Blättern** mit ◀ ▶, den Pfeiltasten (Pos1 und Ende springen an Anfang
+  und Schluss), einem Wisch am Telefon — oder die Seitenzahl eintippen.
+- **↔** passt die Seite in die Breite, **⤢** zeigt sie ganz, **− +**
+  vergrößern und verkleinern.
+- **📖 Buch** schlägt ein Buch auf wie ein Buch: der Einband allein,
+  danach zwei Seiten nebeneinander mit dem Falz in der Mitte. (Am
+  Telefon wären zwei Seiten zu klein — dort gibt es den Knopf nicht.)
+- **↗ Im Browser** bleibt: zum Drucken und Speichern.
+
 ## v5.36.1
 
 - Die **Ansicht eines Gegenstands** (ein Klick auf die Karte im Inventar

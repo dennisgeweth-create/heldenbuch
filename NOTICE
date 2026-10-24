@@ -60,6 +60,14 @@ React und Babel, © Meta Platforms, Inc. und Mitwirkende, MIT-Lizenz.
 Sie liegen als Datei bei, damit das Heldenbuch ohne Paketverwaltung und
 ohne Netzzugang beim Bauen auskommt.
 
+    vendor/pdfjs/pdf.min.js
+    vendor/pdfjs/pdf.worker.min.js
+
+PDF.js 3.11.174 (pdfjs-dist), © Mozilla Foundation und Mitwirkende,
+Apache-Lizenz 2.0 — der Wortlaut liegt daneben in vendor/pdfjs/LICENSE.
+Unverändert übernommen; der PDF-Leser (js/src/2p-anhang.jsx) lädt sie
+erst, wenn jemand ein PDF aufschlägt.
+
 
 Marken
 ------

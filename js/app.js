@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.36.1';
+const HB_VERSION = 'v5.37.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -19902,6 +19902,19 @@ const pdfjsLaden = () => {
   return pdfjsVersprechen;
 };
 const PDF_ZOOM = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+const pdfOffen = (seite, seiten, doppel) => {
+  const n = Math.max(1, seiten || 1);
+  const s = Math.max(1, Math.min(n, seite || 1));
+  if (!doppel || s === 1) return [s];
+  const links = s % 2 === 0 ? s : s - 1;
+  return links + 1 <= n ? [links, links + 1] : [links];
+};
+const pdfBlaettern = (seite, seiten, doppel, d) => {
+  const offen = pdfOffen(seite, seiten, doppel);
+  const ziel = d > 0 ? offen[offen.length - 1] + 1 : offen[0] - 1;
+  if (ziel < 1 || ziel > Math.max(1, seiten || 1)) return offen[0];
+  return pdfOffen(ziel, seiten, doppel)[0];
+};
 const PdfLeser = ({
   anhang,
   server,
@@ -19913,9 +19926,10 @@ const PdfLeser = ({
   const [seite, setSeite] = useState(1);
   const [passen, setPassen] = useState('breite');
   const [zoom, setZoom] = useState(1);
+  const [doppel, setDoppel] = useState(false);
   const buehne = useRef(null);
-  const leinwand = useRef(null);
-  const auftrag = useRef(null);
+  const leinwaende = useRef([]);
+  const auftraege = useRef([]);
   const wisch = useRef(null);
   const [mass, setMass] = useState(0);
   useEffect(() => {
@@ -19926,7 +19940,8 @@ const PdfLeser = ({
     setSeite(1);
     pdfjsLaden().then(lib => lib.getDocument({
       url,
-      withCredentials: false
+      withCredentials: false,
+      isEvalSupported: false
     }).promise).then(d => {
       geladen = d;
       if (weg) {
@@ -19950,46 +19965,67 @@ const PdfLeser = ({
     beo.observe(el);
     return () => beo.disconnect();
   }, [art]);
+  const seiten = doc ? doc.numPages : 0;
+  const schmal = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 700px)').matches;
+  const alsBuch = doppel && !schmal;
+  const offen = pdfOffen(seite, seiten, alsBuch);
+  const offenText = offen.join(',');
   useEffect(() => {
-    if (art !== 'eigen' || !doc || !leinwand.current || !buehne.current) return undefined;
+    if (art !== 'eigen' || !doc || !buehne.current) return undefined;
     let weg = false;
-    doc.getPage(seite).then(p => {
-      if (weg) return;
-      const grund = p.getViewport({
+    const el = buehne.current;
+    delete el.dataset.gezeichnet;
+    const vorher = auftraege.current;
+    vorher.forEach(a => {
+      try {
+        a.cancel();
+      } catch (e) {}
+    });
+    Promise.all([Promise.all(offen.map(n => doc.getPage(n))), ...vorher.map(a => a.promise.catch(() => {}))]).then(([blaetter]) => {
+      if (weg || !buehne.current) return;
+      const grund = blaetter.map(p => p.getViewport({
         scale: 1
-      });
-      const platzB = Math.max(100, buehne.current.clientWidth - 24);
-      const platzH = Math.max(100, buehne.current.clientHeight - 24);
-      const massstab = passen === 'breite' ? platzB / grund.width : passen === 'seite' ? Math.min(platzB / grund.width, platzH / grund.height) : zoom;
-      const vp = p.getViewport({
-        scale: massstab
-      });
+      }));
+      const breitest = Math.max(...grund.map(g => g.width));
+      const hoechst = Math.max(...grund.map(g => g.height));
+      const platzB = Math.max(100, (el.clientWidth - 24) / blaetter.length);
+      const platzH = Math.max(100, el.clientHeight - 24);
+      const massstab = passen === 'breite' ? platzB / breitest : passen === 'seite' ? Math.min(platzB / breitest, platzH / hoechst) : zoom;
       const dpr = window.devicePixelRatio || 1;
-      const c = leinwand.current;
-      c.width = Math.floor(vp.width * dpr);
-      c.height = Math.floor(vp.height * dpr);
-      c.style.width = Math.floor(vp.width) + 'px';
-      c.style.height = Math.floor(vp.height) + 'px';
-      if (auftrag.current) {
-        try {
-          auftrag.current.cancel();
-        } catch (e) {}
-      }
-      const ctx = c.getContext('2d');
-      auftrag.current = p.render({
-        canvasContext: ctx,
-        viewport: vp,
-        transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
-      });
-      auftrag.current.promise.catch(() => {});
-      buehne.current.scrollTop = 0;
+      const neu = blaetter.map((p, i) => {
+        const c = leinwaende.current[i];
+        if (!c) return null;
+        const vp = p.getViewport({
+          scale: massstab
+        });
+        c.width = Math.floor(vp.width * dpr);
+        c.height = Math.floor(vp.height * dpr);
+        c.style.width = Math.floor(vp.width) + 'px';
+        c.style.height = Math.floor(vp.height) + 'px';
+        return p.render({
+          canvasContext: c.getContext('2d'),
+          viewport: vp,
+          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
+        });
+      }).filter(Boolean);
+      auftraege.current = neu;
+      el.scrollTop = 0;
+      Promise.all(neu.map(a => a.promise)).then(() => {
+        if (weg) return;
+        el.dataset.gezeichnet = offenText;
+        leinwaende.current.forEach(c => {
+          if (!c) return;
+          c.classList.remove('wende');
+          void c.offsetWidth;
+          c.classList.add('wende');
+        });
+      }, () => {});
     });
     return () => {
       weg = true;
     };
-  }, [art, doc, seite, passen, zoom, mass]);
-  const seiten = doc ? doc.numPages : 0;
-  const blaettern = d => setSeite(s => Math.max(1, Math.min(seiten || 1, s + d)));
+  }, [art, doc, offenText, passen, zoom, mass]);
+  const blaettern = d => setSeite(s => pdfBlaettern(s, seiten, alsBuch, d));
   const zoomen = d => {
     const i = PDF_ZOOM.findIndex(z => z >= zoom - 0.001);
     const j = Math.max(0, Math.min(PDF_ZOOM.length - 1, (i < 0 ? 2 : i) + d));
@@ -20005,6 +20041,14 @@ const PdfLeser = ({
     if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault();
       blaettern(-1);
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      setSeite(1);
+    }
+    if (e.key === 'End') {
+      e.preventDefault();
+      setSeite(pdfOffen(seiten, seiten, alsBuch)[0]);
     }
   };
   const wischStart = e => {
@@ -20042,7 +20086,7 @@ const PdfLeser = ({
     type: "button",
     className: "btn-icon",
     onClick: () => blaettern(-1),
-    disabled: seite <= 1,
+    disabled: offen[0] <= 1,
     "aria-label": "Vorige Seite"
   }, "\u25C0"), React.createElement("span", {
     className: "pdf-seite"
@@ -20056,11 +20100,11 @@ const PdfLeser = ({
       const n = +e.target.value;
       if (n >= 1 && n <= seiten) setSeite(n);
     }
-  }), React.createElement("i", null, "von ", seiten)), React.createElement("button", {
+  }), React.createElement("i", null, offen.length > 1 ? '–' + offen[1] + ' ' : '', "von ", seiten)), React.createElement("button", {
     type: "button",
     className: "btn-icon",
     onClick: () => blaettern(1),
-    disabled: seite >= seiten,
+    disabled: offen[offen.length - 1] >= seiten,
     "aria-label": "N\xE4chste Seite"
   }, "\u25B6"), React.createElement("span", {
     className: "pdf-trenner"
@@ -20074,7 +20118,13 @@ const PdfLeser = ({
     className: 'btn-icon' + (passen === 'seite' ? ' an' : ''),
     onClick: () => setPassen('seite'),
     title: "Ganze Seite"
-  }, "\u2922"), React.createElement("button", {
+  }, "\u2922"), seiten > 2 && React.createElement("button", {
+    type: "button",
+    className: 'btn-icon pdf-doppel' + (doppel ? ' an' : ''),
+    "aria-pressed": doppel,
+    onClick: () => setDoppel(v => !v),
+    title: "Aufgeschlagen wie ein Buch: zwei Seiten nebeneinander"
+  }, "\uD83D\uDCD6 Buch"), React.createElement("button", {
     type: "button",
     className: "btn-icon",
     onClick: () => zoomen(-1),
@@ -20097,10 +20147,15 @@ const PdfLeser = ({
     ref: buehne,
     onTouchStart: wischStart,
     onTouchEnd: wischEnde
-  }, React.createElement("canvas", {
-    ref: leinwand,
-    className: "pdf-blatt"
-  })), art === 'browser' && React.createElement(React.Fragment, null, React.createElement("iframe", {
+  }, React.createElement("div", {
+    className: 'pdf-aufschlag' + (offen.length > 1 ? ' doppel' : '')
+  }, offen.map((n, i) => React.createElement("canvas", {
+    key: i,
+    ref: c => {
+      leinwaende.current[i] = c;
+    },
+    className: 'pdf-blatt' + (offen.length > 1 ? i === 0 ? ' links' : ' rechts' : '')
+  })))), art === 'browser' && React.createElement(React.Fragment, null, React.createElement("iframe", {
     className: "pdf-rahmen",
     src: url,
     title: anhang.name

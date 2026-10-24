@@ -136,10 +136,28 @@ const pdfjsLaden = () => {
 };
 
 // ── Der Leser ───────────────────────────────────────────────────
-// Eine Seite auf einmal, wie ein Buch: blaettern mit den Knoepfen, den
-// Pfeiltasten oder einem Wisch. Die Seite passt sich in die Breite ein
-// oder ganz ins Fenster, und laesst sich groesser ziehen.
+// Eine Seite auf einmal, oder aufgeschlagen wie ein Buch: blaettern mit
+// den Knoepfen, den Pfeiltasten oder einem Wisch. Die Seite passt sich in
+// die Breite ein oder ganz ins Fenster, und laesst sich groesser ziehen.
 const PDF_ZOOM = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+// Welche Seiten gerade offen liegen. Als Buch steht Seite 1 allein —
+// der Einband —, danach immer eine gerade links, eine ungerade rechts,
+// wie beim Gedruckten: 1 · 2|3 · 4|5 …
+const pdfOffen = (seite, seiten, doppel) => {
+  const n = Math.max(1, seiten || 1);
+  const s = Math.max(1, Math.min(n, seite || 1));
+  if (!doppel || s === 1) return [s];
+  const links = s % 2 === 0 ? s : s - 1;
+  return links + 1 <= n ? [links, links + 1] : [links];
+};
+// Wohin ein Blaettern fuehrt: auf die erste Seite des naechsten (oder
+// vorigen) Aufschlags.
+const pdfBlaettern = (seite, seiten, doppel, d) => {
+  const offen = pdfOffen(seite, seiten, doppel);
+  const ziel = d > 0 ? offen[offen.length - 1] + 1 : offen[0] - 1;
+  if (ziel < 1 || ziel > Math.max(1, seiten || 1)) return offen[0];
+  return pdfOffen(ziel, seiten, doppel)[0];
+};
 const PdfLeser = ({ anhang, server, onZu }) => {
   const url = anhangUrl(server, anhang);
   const [art, setArt] = useState('laedt');        // laedt | eigen | browser
@@ -147,9 +165,10 @@ const PdfLeser = ({ anhang, server, onZu }) => {
   const [seite, setSeite] = useState(1);
   const [passen, setPassen] = useState('breite'); // breite | seite | frei
   const [zoom, setZoom] = useState(1);
+  const [doppel, setDoppel] = useState(false);    // aufgeschlagen wie ein Buch
   const buehne = useRef(null);
-  const leinwand = useRef(null);
-  const auftrag = useRef(null);
+  const leinwaende = useRef([]);
+  const auftraege = useRef([]);
   const wisch = useRef(null);
   const [mass, setMass] = useState(0);            // erzwingt Neuzeichnen bei neuer Fenstergroesse
 
@@ -159,7 +178,10 @@ const PdfLeser = ({ anhang, server, onZu }) => {
     let weg = false, geladen = null;
     setArt('laedt'); setDoc(null); setSeite(1);
     pdfjsLaden()
-      .then(lib => lib.getDocument({url, withCredentials: false}).promise)
+      // isEvalSupported aus: pdf.js 3.x baut Schriften sonst als Funktion
+      // aus dem Text des PDFs, und ein boeses PDF fuehrt so eigenen Code
+      // aus (CVE-2024-4367). Ohne ist es kaum langsamer.
+      .then(lib => lib.getDocument({url, withCredentials: false, isEvalSupported: false}).promise)
       .then(d => { geladen = d; if (weg) { d.destroy(); return; } setDoc(d); setArt('eigen'); })
       .catch(() => { if (!weg) setArt('browser'); });
     return () => { weg = true; if (geladen) geladen.destroy(); };
@@ -174,36 +196,64 @@ const PdfLeser = ({ anhang, server, onZu }) => {
     return () => beo.disconnect();
   }, [art]);
 
+  const seiten = doc ? doc.numPages : 0;
+  // Am Telefon waeren zwei Seiten nebeneinander Briefmarken: dort gilt
+  // das Buch nicht, auch wenn es eingeschaltet ist. (Wer das Fenster
+  // schmaler zieht, loest ueber den ResizeObserver ohnehin neu aus.)
+  const schmal = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 700px)').matches;
+  const alsBuch = doppel && !schmal;
+  const offen = pdfOffen(seite, seiten, alsBuch);
+  const offenText = offen.join(',');
+
   // Zeichnen.
   useEffect(() => {
-    if (art !== 'eigen' || !doc || !leinwand.current || !buehne.current) return undefined;
+    if (art !== 'eigen' || !doc || !buehne.current) return undefined;
     let weg = false;
-    doc.getPage(seite).then(p => {
-      if (weg) return;
-      const grund = p.getViewport({scale: 1});
-      const platzB = Math.max(100, buehne.current.clientWidth - 24);
-      const platzH = Math.max(100, buehne.current.clientHeight - 24);
-      const massstab = passen === 'breite' ? platzB / grund.width
-        : passen === 'seite' ? Math.min(platzB / grund.width, platzH / grund.height)
+    const el = buehne.current;
+    delete el.dataset.gezeichnet;
+    // Zeichnet noch der vorige Aufschlag, wird er abgebrochen — und erst
+    // wenn er wirklich steht, faengt der neue an: pdf.js nimmt keine zwei
+    // Auftraege auf einer Leinwand.
+    const vorher = auftraege.current;
+    vorher.forEach(a => { try { a.cancel(); } catch (e) {} });
+    Promise.all([Promise.all(offen.map(n => doc.getPage(n))),
+                 ...vorher.map(a => a.promise.catch(() => {}))]).then(([blaetter]) => {
+      if (weg || !buehne.current) return;
+      // Alle offenen Seiten im selben Massstab, eingepasst an der groessten.
+      const grund = blaetter.map(p => p.getViewport({scale: 1}));
+      const breitest = Math.max(...grund.map(g => g.width));
+      const hoechst = Math.max(...grund.map(g => g.height));
+      const platzB = Math.max(100, (el.clientWidth - 24) / blaetter.length);
+      const platzH = Math.max(100, el.clientHeight - 24);
+      const massstab = passen === 'breite' ? platzB / breitest
+        : passen === 'seite' ? Math.min(platzB / breitest, platzH / hoechst)
         : zoom;
-      const vp = p.getViewport({scale: massstab});
       const dpr = window.devicePixelRatio || 1;
-      const c = leinwand.current;
-      c.width = Math.floor(vp.width * dpr);
-      c.height = Math.floor(vp.height * dpr);
-      c.style.width = Math.floor(vp.width) + 'px';
-      c.style.height = Math.floor(vp.height) + 'px';
-      if (auftrag.current) { try { auftrag.current.cancel(); } catch (e) {} }
-      const ctx = c.getContext('2d');
-      auftrag.current = p.render({canvasContext: ctx, viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null});
-      auftrag.current.promise.catch(() => {});
-      buehne.current.scrollTop = 0;
+      const neu = blaetter.map((p, i) => {
+        const c = leinwaende.current[i];
+        if (!c) return null;
+        const vp = p.getViewport({scale: massstab});
+        c.width = Math.floor(vp.width * dpr);
+        c.height = Math.floor(vp.height * dpr);
+        c.style.width = Math.floor(vp.width) + 'px';
+        c.style.height = Math.floor(vp.height) + 'px';
+        return p.render({canvasContext: c.getContext('2d'), viewport: vp,
+                         transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null});
+      }).filter(Boolean);
+      auftraege.current = neu;
+      el.scrollTop = 0;
+      Promise.all(neu.map(a => a.promise)).then(() => {
+        if (weg) return;
+        el.dataset.gezeichnet = offenText;
+        // Ein leises Umschlagen, wenn das Blatt fertig ist.
+        leinwaende.current.forEach(c => { if (!c) return;
+          c.classList.remove('wende'); void c.offsetWidth; c.classList.add('wende'); });
+      }, () => {});
     });
     return () => { weg = true; };
-  }, [art, doc, seite, passen, zoom, mass]);
+  }, [art, doc, offenText, passen, zoom, mass]);
 
-  const seiten = doc ? doc.numPages : 0;
-  const blaettern = (d) => setSeite(s => Math.max(1, Math.min(seiten || 1, s + d)));
+  const blaettern = (d) => setSeite(s => pdfBlaettern(s, seiten, alsBuch, d));
   const zoomen = (d) => {
     const i = PDF_ZOOM.findIndex(z => z >= zoom - 0.001);
     const j = Math.max(0, Math.min(PDF_ZOOM.length - 1, (i < 0 ? 2 : i) + d));
@@ -216,6 +266,8 @@ const PdfLeser = ({ anhang, server, onZu }) => {
     if (art !== 'eigen') return;
     if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); blaettern(1); }
     if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); blaettern(-1); }
+    if (e.key === 'Home') { e.preventDefault(); setSeite(1); }
+    if (e.key === 'End') { e.preventDefault(); setSeite(pdfOffen(seiten, seiten, alsBuch)[0]); }
   };
   // Wischen am Telefon: waagerecht genug, und nicht beim Herumschieben
   // einer vergroesserten Seite.
@@ -235,20 +287,25 @@ const PdfLeser = ({ anhang, server, onZu }) => {
         <div className="pdf-leiste">
           {art === 'eigen' && (
             <>
-              <button type="button" className="btn-icon" onClick={() => blaettern(-1)} disabled={seite <= 1}
+              <button type="button" className="btn-icon" onClick={() => blaettern(-1)} disabled={offen[0] <= 1}
                 aria-label="Vorige Seite">◀</button>
               <span className="pdf-seite">
                 <input type="number" min={1} max={seiten} value={seite} aria-label="Seite"
                   onChange={e => { const n = +e.target.value; if (n >= 1 && n <= seiten) setSeite(n); }} />
-                <i>von {seiten}</i>
+                <i>{offen.length > 1 ? '–' + offen[1] + ' ' : ''}von {seiten}</i>
               </span>
-              <button type="button" className="btn-icon" onClick={() => blaettern(1)} disabled={seite >= seiten}
-                aria-label="Nächste Seite">▶</button>
+              <button type="button" className="btn-icon" onClick={() => blaettern(1)}
+                disabled={offen[offen.length - 1] >= seiten} aria-label="Nächste Seite">▶</button>
               <span className="pdf-trenner" />
               <button type="button" className={'btn-icon' + (passen === 'breite' ? ' an' : '')}
                 onClick={() => setPassen('breite')} title="In die Breite einpassen">↔</button>
               <button type="button" className={'btn-icon' + (passen === 'seite' ? ' an' : '')}
                 onClick={() => setPassen('seite')} title="Ganze Seite">⤢</button>
+              {seiten > 2 && (
+                <button type="button" className={'btn-icon pdf-doppel' + (doppel ? ' an' : '')}
+                  aria-pressed={doppel} onClick={() => setDoppel(v => !v)}
+                  title="Aufgeschlagen wie ein Buch: zwei Seiten nebeneinander">📖 Buch</button>
+              )}
               <button type="button" className="btn-icon" onClick={() => zoomen(-1)} aria-label="Kleiner">−</button>
               <button type="button" className="btn-icon" onClick={() => zoomen(1)} aria-label="Größer">+</button>
             </>
@@ -259,7 +316,12 @@ const PdfLeser = ({ anhang, server, onZu }) => {
         {art === 'laedt' && <div className="pdf-hinweis">Das Buch wird aufgeschlagen …</div>}
         {art === 'eigen' && (
           <div className="pdf-buehne" ref={buehne} onTouchStart={wischStart} onTouchEnd={wischEnde}>
-            <canvas ref={leinwand} className="pdf-blatt" />
+            <div className={'pdf-aufschlag' + (offen.length > 1 ? ' doppel' : '')}>
+              {offen.map((n, i) => (
+                <canvas key={i} ref={c => { leinwaende.current[i] = c; }}
+                  className={'pdf-blatt' + (offen.length > 1 ? (i === 0 ? ' links' : ' rechts') : '')} />
+              ))}
+            </div>
           </div>
         )}
         {art === 'browser' && (

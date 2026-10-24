@@ -1982,25 +1982,59 @@
         ReactDOM.unmountComponentAtNode(buehne);
 
         const mitPdfjs = await fetch('../vendor/pdfjs/pdf.min.js', {method: 'HEAD'}).then(r => r.ok).catch(() => false);
+        // pdf.js zeichnet im Takt von requestAnimationFrame. Ein Tab, der
+        // nicht zu sehen ist, bekommt diesen Takt nie — dann zeichnet die
+        // Werkbank mit einer Uhr. Nur hier: das Heldenbuch selbst wird
+        // ja angeschaut, wenn jemand liest.
+        const taktDa = await new Promise(r => { requestAnimationFrame(() => r(true)); setTimeout(() => r(false), 300); });
+        if (!taktDa) window.requestAnimationFrame = (f) => setTimeout(() => f(performance.now()), 16);
         let leserZu = false;
         ReactDOM.render(React.createElement(PdfLeser, {anhang: probeAnhang,
           server: location.origin + '/dev/pdf-probe', onZu: () => { leserZu = true; }}), buehne);
         if (mitPdfjs) {
-          const blatt = await warten(() => {
-            const c = document.querySelector('.pdf-blatt');
-            return c && c.width > 100 ? c : null; }, 10000);
-          if (ja('Der eigene Leser schlägt das Buch auf', !!blatt)) {
-            ja('  … mit seinen zwei Seiten', /von 2/.test(document.querySelector('.pdf-seite').textContent),
+          // Fertig gezeichnet ist ein Aufschlag, wenn der Leser ihn an der
+          // Buehne vermerkt — vorher kann ein Neueinpassen das Blatt leeren.
+          const gezeichnet = (soll) => warten(() => {
+            const el = document.querySelector('.pdf-buehne');
+            return el && el.dataset.gezeichnet === soll ? el : null; }, 10000);
+          const dunkleP = (c) => {
+            const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+            let n = 0;
+            for (let i = 0; i < px.length; i += 16) if (px[i + 3] > 200 && px[i] < 90) n++;
+            return n;
+          };
+          const knopf = (name) => [...document.querySelectorAll('.pdf-leiste button')]
+            .find(k => k.getAttribute('aria-label') === name || (k.textContent || '').includes(name));
+          if (ja('Der eigene Leser schlägt das Buch auf', !!(await gezeichnet('1')))) {
+            ja('  … mit seinen fünf Seiten', /von 5/.test(document.querySelector('.pdf-seite').textContent),
                document.querySelector('.pdf-seite').textContent);
-            // Ist auf dem Blatt auch Schrift? Dunkle Punkte zaehlen.
-            await ruhe(600);
-            const px = blatt.getContext('2d').getImageData(0, 0, blatt.width, Math.floor(blatt.height / 3)).data;
-            let dunkel = 0;
-            for (let i = 0; i < px.length; i += 16) if (px[i + 3] > 200 && px[i] < 90) dunkel++;
-            ja('  … und darauf steht Text', dunkel > 20, dunkel + ' dunkle Punkte');
-            [...document.querySelectorAll('.pdf-leiste button')].find(b => b.getAttribute('aria-label') === 'Nächste Seite').click();
-            await ruhe(300);
-            ja('  … ▶ blättert auf Seite 2', document.querySelector('.pdf-seite input').value === '2');
+            const n = dunkleP(document.querySelector('.pdf-blatt'));
+            ja('  … und darauf steht Text', n > 20, n + ' dunkle Punkte');
+            knopf('Nächste Seite').click();
+            ja('  … ▶ blättert auf Seite 2', !!(await gezeichnet('2'))
+               && document.querySelector('.pdf-seite input').value === '2');
+            if (matchMedia('(max-width: 700px)').matches) {
+              // Am Telefon gibt es kein Buch — zwei Seiten waeren zu klein.
+              ja('Am Telefon fehlt der Knopf „Buch"', !knopf('Buch') || getComputedStyle(knopf('Buch')).display === 'none');
+              if (knopf('Buch')) knopf('Buch').click();
+              await ruhe(200);
+              ja('  … und selbst eingeschaltet liegt nur eine Seite offen',
+                 document.querySelectorAll('.pdf-blatt').length === 1);
+            } else {
+              knopf('Buch').click();
+              ja('„Buch" schlägt es auf wie ein Buch: 2 und 3 nebeneinander', !!(await gezeichnet('2,3'))
+                 && document.querySelectorAll('.pdf-blatt').length === 2
+                 && document.querySelector('.pdf-seite input').value === '2'
+                 && /–3 von 5/.test(document.querySelector('.pdf-seite').textContent));
+              knopf('Nächste Seite').click();
+              ja('  … ▶ schlägt um auf 4 und 5', !!(await gezeichnet('4,5')));
+              ja('  … dort ist das Buch zu Ende', knopf('Nächste Seite').disabled);
+              const zweite = document.querySelectorAll('.pdf-blatt')[1];
+              ja('  … und auch auf der rechten Seite steht Text', !!zweite && dunkleP(zweite) > 20);
+              knopf('Vorige Seite').click(); knopf('Vorige Seite').click();
+              ja('  … zweimal ◀ führt zum Einband, allein', !!(await gezeichnet('1'))
+                 && document.querySelectorAll('.pdf-blatt').length === 1);
+            }
           }
         } else {
           const rahmen = await warten(() => document.querySelector('.pdf-rahmen'), 10000);
