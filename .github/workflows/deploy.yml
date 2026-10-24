@@ -129,10 +129,14 @@ jobs:
         if: env.SFTP_HOST != ''
         run: |
           FAIL=0
+          # Der Server weist einzelne der vielen schnellen Abrufe ab und an
+          # mit einem TLS-Fehler ab (curl 35) — die Datei ist dann in
+          # Ordnung, nur der Abruf leer. Deshalb bis zu dreimal, mit Pause.
+          holen() { curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 "$1"; }
           FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg bilder/glueck/sonne.png bilder/glueck/sieben.png js/neu.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
-            REMOTE=$(curl -fsSL "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
+            REMOTE=$(holen "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
             if [ "$LOCAL" = "$REMOTE" ]; then
               echo "OK      $f  ($LOCAL)"
             else
@@ -143,7 +147,7 @@ jobs:
             fi
           done
           # Und die Nummer, an der die offenen Seiten die neue Fassung erkennen.
-          BAU=$(curl -fsSL "$SITE_URL/version.json?cachebust=${GITHUB_SHA}" || true)
+          BAU=$(holen "$SITE_URL/version.json?cachebust=${GITHUB_SHA}" || true)
           if echo "$BAU" | grep -q "${GITHUB_SHA:0:8}"; then
             echo "OK      version.json  ($BAU)"
           else
