@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.36.0';
+const HB_VERSION = 'v5.36.1';
 const EinstBlock = ({
   titel,
   kurz,
@@ -31157,7 +31157,20 @@ function App() {
       dangerouslySetInnerHTML: {
         __html: sanitizeHtml(item.description)
       }
-    }), item.source && React.createElement("div", {
+    }), (item.anhaenge || []).length > 0 && React.createElement("div", {
+      className: "inv-anhaenge",
+      style: {
+        marginBottom: 8
+      }
+    }, item.anhaenge.map((a, ai) => React.createElement("button", {
+      key: a.id || ai,
+      type: "button",
+      className: "inv-anhang",
+      onClick: e => {
+        e.stopPropagation();
+        setPdfLeser(a);
+      }
+    }, "\uD83D\uDCD6 ", a.name))), item.source && React.createElement("div", {
       style: {
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 9,

@@ -4995,6 +4995,15 @@ function App() {
                     <div style={{fontFamily:"'Roboto',sans-serif",fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,marginBottom:8}}
                       dangerouslySetInnerHTML={{__html:sanitizeHtml(item.description)}} />
                   )}
+                  {/* Angehaengte PDFs — ein Buch, ein Brief: hier schlaegt man sie auf. */}
+                  {(item.anhaenge||[]).length>0 && (
+                    <div className="inv-anhaenge" style={{marginBottom:8}}>
+                      {item.anhaenge.map((a,ai)=>(
+                        <button key={a.id||ai} type="button" className="inv-anhang"
+                          onClick={e=>{e.stopPropagation();setPdfLeser(a);}}>📖 {a.name}</button>
+                      ))}
+                    </div>
+                  )}
                   {item.source && (
                     <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>📦 {item.source}</div>
                   )}

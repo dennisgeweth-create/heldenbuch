@@ -104,7 +104,8 @@
       inventory: [{id: 'i1', name: 'Kettenhemd', qty: 1, weight: '25', wert: 5000,
         rarity: 'gewöhnlich', description: '', tags: [], source: '', effects: [],
         effectsActive: false, kampf: false, gearKind: 'ruestung',
-        armorType: 'heavy', baseAC: 16, acBonus: 0}],
+        armorType: 'heavy', baseAC: 16, acBonus: 0,
+        anhaenge: [{id: 1, ablage: 'd0c0ffee'.repeat(4), datei: 'probe.pdf', name: 'Pflege des Kettenhemds.pdf', bytes: 878}]}],
       currency: {pp: 0, gp: 12, ep: 0, sp: 0, cp: 0}, equipment: [], acBonuses: [],
       gear: {ruestung: {k: 'i', id: 'i1'}, haupthand: {k: 'w', id: 'w1'}},
       gearMigrated: 3, adventure: '',
@@ -1288,6 +1289,26 @@
            !!hemd && !!hemd.querySelector('.inv-wert .inv-taler')
            && hemd.querySelector('.inv-wert').textContent.trim() === '50',
            hemd ? ((hemd.querySelector('.inv-wert') || {}).textContent || 'kein Wert') : 'keine Karte');
+        // Die Ansicht des Gegenstands: dort schlaegt man den Anhang auf.
+        if (hemd) {
+          hemd.click();
+          const ansicht = await warten(() => [...document.querySelectorAll('.form-modal')]
+            .find(m => m.querySelector('.inv-anhang') && /Pflege des Kettenhemds/.test(m.textContent)), 3000);
+          ja('Die Ansicht des Gegenstands zeigt sein PDF', !!ansicht);
+          if (ansicht) {
+            ansicht.querySelector('.inv-anhang').click();
+            const leser = await warten(() => document.querySelector('.form-modal.pdf-leser'), 3000);
+            // Beide Fenster stehen in der Leiste — dort gehen sie auch zu.
+            const leistenX = (t) => [...document.querySelectorAll('.fl-x')]
+              .find(k => (k.getAttribute('aria-label') || '').startsWith(t));
+            ja('  … ein Klick schlägt es im Leser auf', !!leser && !!leistenX('Pflege des Kettenhemds'));
+            if (leistenX('Pflege des Kettenhemds')) { leistenX('Pflege des Kettenhemds').click(); await ruhe(120); }
+            if (leistenX('Kettenhemd')) { leistenX('Kettenhemd').click(); await ruhe(120); }
+            ja('  … und beide Fenster gehen wieder zu', !document.querySelector('.form-modal.pdf-leser')
+               && ![...document.querySelectorAll('.form-modal')].some(m => /Pflege des Kettenhemds/.test(m.textContent)));
+          }
+        }
+
         // Der fremde Bogen ist hier nicht zu haben (die Werkbank leitet
         // alles). Geprüft wird deshalb die Darstellung: unter
         // sheet-nur-lesen dürfen die Ausrüstungsplätze nicht verschwinden —

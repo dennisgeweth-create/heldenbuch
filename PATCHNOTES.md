@@ -1,5 +1,11 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.36.1
+
+- Die **Ansicht eines Gegenstands** (ein Klick auf die Karte im Inventar
+  oder auf den Platz an der Puppe) zeigt jetzt auch seine PDFs — als
+  **📖 Name** unter der Beschreibung, ein Klick schlägt sie auf.
+
 ## v5.36.0
 
 ### PDFs an Gegenständen — Bücher zum Aufschlagen, Briefe zum Lesen
