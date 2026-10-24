@@ -19,3 +19,6 @@ Thumbs.db
 # Sie liegen nur auf dem Server und gehoeren nicht ins Repo — schon
 # gar nicht gekaufte Karten.
 planer-dateien/
+
+# Schreibt der Deploy (js/neu.js liest sie); von Hand nur zum Ausprobieren.
+/version.json

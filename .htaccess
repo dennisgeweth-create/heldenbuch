@@ -7,6 +7,19 @@ Options -Indexes
   Header set Expires 0
 </FilesMatch>
 
+# Patchnotes und Regeldaten haben keine Nummer im Namen: immer nachfragen
+# (meist kommt ein kurzes „unveraendert" zurueck), statt dass der Browser
+# selbst raet, wie lange die alte Fassung noch gilt.
+<FilesMatch "\.(md|json)$">
+  Header set Cache-Control "no-cache"
+</FilesMatch>
+
+# Woran js/neu.js eine neue Auslieferung erkennt — nie aus dem Speicher.
+# Steht nach der Regel fuer .json: die spaetere gewinnt.
+<FilesMatch "^version\.json$">
+  Header set Cache-Control "no-store"
+</FilesMatch>
+
 # Der Service Worker des Abenteuerplaners muss frisch kommen, sonst haengt
 # eine alte Fassung bis zu einem Tag fest.
 <FilesMatch "^sw\.js$">

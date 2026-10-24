@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Werkbank — neue Fassung erkennen</title>
+  <!-- ══════════════════════════════════════════════════════════════
+       Prueft js/neu.js von Hand: die Seite gibt sich als Fassung „alt"
+       aus. Liegt im Wurzelordner eine version.json mit einer anderen
+       Nummer (zum Ausprobieren von Hand anlegen, nie einchecken), muss
+       unten der Hinweis erscheinen — und ein Wechsel in den Hintergrund
+       und zurueck laedt die Seite einmal neu, danach nicht wieder.
+       ?offen=1 spielt einen offenen Dialog: dann nie von selbst.
+       ══════════════════════════════════════════════════════════════ -->
+  <style>body{margin:0;padding:24px;background:#0f1011;color:#e4e6e8;font:14px sans-serif}</style>
+</head>
+<body>
+  <h1>Fassung „alt"</h1>
+  <p id="geladen"></p>
+  <script>
+    document.getElementById('geladen').textContent = 'geladen um ' + new Date().toLocaleTimeString()
+      + ' · Merker: ' + (sessionStorage.getItem('hb_neu_versucht') || '—');
+    window.hbOffen = () => /offen=1/.test(location.search);
+    window.HB_BAU = 'alt';
+  </script>
+  <script src="../js/neu.js"></script>
+</body>
+</html>

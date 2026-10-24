@@ -45,6 +45,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `js/data.js` | Regeltabellen (Klassen, Zauberschulen, Fertigkeiten, Effektziele) |
 | `js/util.js` | reine Hilfsfunktionen ohne React |
 | `js/zip.js` | ZIP schreiben und lesen im Browser — von **beiden** Seiten geladen (Heldenbuch und Planer); keine Bibliothek |
+| `js/neu.js` | Erkennt eine neue Auslieferung (`version.json` gegen `window.HB_BAU`) und laedt neu oder zeigt einen Hinweis — von **beiden** Seiten geladen; ohne React |
 | `styles.css` | gesamte Oberfläche |
 | `bilder/` | Bilder der Automaten (`bilder/hut/`, `bilder/buch/`, `bilder/arena/`, `bilder/auge/` je 160 px JPEG; `bilder/glueck/`: Dreifaches Glück, freigestellt als PNG) — der Deploy kopiert den ganzen Ordner |
 | `data-*.json` | SRD-Vorlagen, nach Art getrennt geladen |
@@ -228,6 +229,14 @@ ausgelieferte Datei per Prüfsumme mit der hochgeladenen.
 
 Der Upload löscht bewusst nichts auf dem Server — `config.php` mit den
 Datenbank-Zugangsdaten liegt nur dort und muss überleben.
+
+Offene Seiten erfahren von einer neuen Auslieferung über `version.json`:
+die Action stempelt die Nummer in `window.HB_BAU` der Seiten und lädt
+`version.json` als **letzte** Datei hoch, nach allem anderen. `js/neu.js`
+fragt jede Minute und beim Zurückkommen zum Tab; ist nichts ungespeichert
+und kein Dialog offen (`window.hbOffen`), lädt die Seite sich selbst neu,
+sonst steht unten ein Hinweis. Ausprobieren von Hand: `dev/neu-schau.html`
+mit einer selbst angelegten `version.json` im Wurzelordner (gitignored).
 
 Die Datenbank sichert der Hoster alle 24 Stunden. Ob das auch die Dateien
 auf dem Webspace umfasst (`planer-dateien/`: Kartenkacheln, Bilder und

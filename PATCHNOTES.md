@@ -1,5 +1,27 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.35.0
+
+### Nie mehr hart neu laden
+
+Nach einer neuen Auslieferung lief auf vielen Geräten die alte Fassung
+weiter — am Telefon holt der Browser einen Tab aus dem Hintergrund
+zurück, ohne die Seite neu zu laden, und am Rechner bleibt der Tab
+tagelang offen.
+
+- Die Seite **merkt jetzt selbst**, wenn eine neue Fassung da ist — sie
+  schaut jede Minute nach und jedes Mal, wenn man zum Tab zurückkommt.
+- Liegt der Tab im Hintergrund oder kommt man gerade zurück, und ist
+  nichts ungespeichert und kein Dialog offen, **lädt sie sich selbst
+  neu** — wo man war, merkt sie sich.
+- Sonst steht unten ein Hinweis: **„Eine neue Fassung ist da · Neu
+  laden"**.
+- Gilt für das Heldenbuch und den Abenteuerplaner.
+- Nebenbei: die Bilder der Automaten, die Patchnotes und die
+  Regelvorlagen kommen nach einer Auslieferung jetzt ebenfalls frisch —
+  ein neu zugeschnittenes Bild unter altem Namen blieb bisher bis zu
+  einem Jahr im Speicher des Browsers.
+
 ## v5.34.0
 
 ### Fast Echtzeit: der Puls

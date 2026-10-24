@@ -483,6 +483,16 @@ const W_BILD_BASIS = (() => {
     return src ? src.replace(/js\/app\.js(\?.*)?$/, '') : '';
   } catch (e) { return ''; }
 })();
+// Und die Nummer der Auslieferung dazu: die Bilder liegen ein Jahr im
+// Speicher des Browsers, und ein neu zugeschnittenes Bild unter dem alten
+// Namen kaeme sonst nie an.
+const W_BILD_V = (() => {
+  try {
+    const src = document.currentScript && document.currentScript.src;
+    const v = src ? (src.split('?')[1] || '') : '';
+    return v ? '?' + v : '';
+  } catch (e) { return ''; }
+})();
 
 // Wie ein Zeichen aussieht: ein gemaltes Bild, wenn es eines hat (der
 // Hut des Gauklers, das Dreifache Glueck — dort freigestellt, `frei`),
@@ -492,7 +502,7 @@ const W_BILD_BASIS = (() => {
 const wZeichen = (s) => {
   if (!s) return '·';
   if (s.bild) return (
-    <img className={'zeichen-bild' + (s.frei ? ' frei' : '')} src={W_BILD_BASIS + s.bild}
+    <img className={'zeichen-bild' + (s.frei ? ' frei' : '')} src={W_BILD_BASIS + s.bild + W_BILD_V}
       alt={s.name} draggable={false}
       onError={e => { const t = document.createElement('span'); t.textContent = s.z;
                       e.currentTarget.replaceWith(t); }} />

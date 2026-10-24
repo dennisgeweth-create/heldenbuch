@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.34.0';
+const HB_VERSION = 'v5.35.0';
 const EinstBlock = ({
   titel,
   kurz,
@@ -13340,11 +13340,20 @@ const W_BILD_BASIS = (() => {
     return '';
   }
 })();
+const W_BILD_V = (() => {
+  try {
+    const src = document.currentScript && document.currentScript.src;
+    const v = src ? src.split('?')[1] || '' : '';
+    return v ? '?' + v : '';
+  } catch (e) {
+    return '';
+  }
+})();
 const wZeichen = s => {
   if (!s) return '·';
   if (s.bild) return React.createElement("img", {
     className: 'zeichen-bild' + (s.frei ? ' frei' : ''),
-    src: W_BILD_BASIS + s.bild,
+    src: W_BILD_BASIS + s.bild + W_BILD_V,
     alt: s.name,
     draggable: false,
     onError: e => {
@@ -24231,6 +24240,12 @@ function App() {
   const ladeZeitRef = useRef(0);
   const boegenJetzt = useRef(null);
   const pulsLebt = () => Date.now() - pulsZeit.current < 45000;
+  useEffect(() => {
+    window.hbOffen = () => !!pendingRef.current || !!document.querySelector('.form-overlay');
+    return () => {
+      if (window.hbOffen) delete window.hbOffen;
+    };
+  }, []);
   const nebenPuls = ms => pulsLebt() ? Math.max(ms, 15000) : ms;
   const ansichtGeholt = useRef(false);
   const charsRef = useRef([]);
@@ -27846,7 +27861,9 @@ function App() {
     const [key, datei] = eintrag;
     if (tplData && tplData[key]) return true;
     try {
-      const r = await fetch(datei);
+      const s = document.querySelector('script[src*="app.js"]');
+      const v = s ? (s.getAttribute('src') || '').split('?')[1] || '' : '';
+      const r = await fetch(datei + (v ? '?' + v : ''));
       if (!r.ok) throw new Error(r.status);
       const d = await r.json();
       setTplData(prev => ({

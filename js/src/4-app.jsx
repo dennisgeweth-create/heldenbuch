@@ -306,6 +306,14 @@ function App() {
   const ladeZeitRef = useRef(0);
   const boegenJetzt = useRef(null);
   const pulsLebt    = () => Date.now() - pulsZeit.current < 45000;
+  // Fuer js/neu.js: darf sich die Seite selbst neu laden, wenn eine neue
+  // Fassung da ist? Nicht, solange eigene Aenderungen auf dem Weg sind,
+  // und nicht, solange ein Dialog offen steht — darin koennte etwas
+  // Eingetipptes stehen, das noch niemand gespeichert hat.
+  useEffect(() => {
+    window.hbOffen = () => !!pendingRef.current || !!document.querySelector('.form-overlay');
+    return () => { if (window.hbOffen) delete window.hbOffen; };
+  }, []);
   const nebenPuls   = (ms) => pulsLebt() ? Math.max(ms, 15000) : ms;
   // Wo man beim letzten Mal war. Wird einmal nach dem Laden angewandt.
   const ansichtGeholt = useRef(false);
@@ -3501,7 +3509,10 @@ function App() {
     const [key, datei] = eintrag;
     if (tplData && tplData[key]) return true;      // schon geladen
     try {
-      const r = await fetch(datei);
+      // Mit der Nummer der Auslieferung, wie Patchnotes und Merkmale.
+      const s = document.querySelector('script[src*="app.js"]');
+      const v = s ? ((s.getAttribute('src') || '').split('?')[1] || '') : '';
+      const r = await fetch(datei + (v ? '?' + v : ''));
       if (!r.ok) throw new Error(r.status);
       const d = await r.json();
       setTplData(prev => ({...(prev || {}), [key]: d[key] || []}));

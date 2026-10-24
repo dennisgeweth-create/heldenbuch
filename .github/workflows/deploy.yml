@@ -69,7 +69,7 @@ jobs:
           # keinen Server und keine Anmeldung — alles steht in demo.json.
           cp demo.html demo.json deploy/
           cp data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json deploy/
-          cp js/data.js js/util.js js/zip.js js/app.js deploy/js/
+          cp js/data.js js/util.js js/zip.js js/neu.js js/app.js deploy/js/
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
           cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
@@ -90,6 +90,13 @@ jobs:
           # kommen, waehrend index.html schon neu ist. Der Commit-Hash macht
           # jede Auslieferung zu einer neuen URL.
           sed -i "s/?v=dev/?v=${GITHUB_SHA:0:8}/g" deploy/index.html deploy/demo.html deploy/planer/index.html
+          # Die Nummer der Auslieferung fuer js/neu.js — in der Seite und in
+          # version.json. Die liegt bewusst NICHT in deploy/: sie geht erst
+          # hoch, wenn alles andere oben ist (siehe Upload), sonst laede
+          # eine Seite neu und bekaeme noch die alte Fassung.
+          sed -i "s/window.HB_BAU = 'dev'/window.HB_BAU = '${GITHUB_SHA:0:8}'/" deploy/index.html deploy/planer/index.html
+          grep -q "HB_BAU = '${GITHUB_SHA:0:8}'" deploy/index.html
+          printf '{"bau":"%s"}\n' "${GITHUB_SHA:0:8}" > version.json
           echo "Asset-Version: ${GITHUB_SHA:0:8}"
           grep -o 'href="styles.css?[^"]*"' deploy/index.html
           echo "Zu übertragen:"
@@ -111,6 +118,7 @@ jobs:
             set sftp:auto-confirm yes;
             set cmd:fail-exit yes;
             mirror --reverse --verbose --no-perms --continue ./deploy/ $REMOTE_DIR/;
+            put ./version.json -o $REMOTE_DIR/version.json;
             bye
           EOF
 
@@ -121,7 +129,7 @@ jobs:
         if: env.SFTP_HOST != ''
         run: |
           FAIL=0
-          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg bilder/glueck/sonne.png bilder/glueck/sieben.png"
+          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg bilder/glueck/sonne.png bilder/glueck/sieben.png js/neu.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(curl -fsSL "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)
@@ -134,6 +142,14 @@ jobs:
               FAIL=1
             fi
           done
+          # Und die Nummer, an der die offenen Seiten die neue Fassung erkennen.
+          BAU=$(curl -fsSL "$SITE_URL/version.json?cachebust=${GITHUB_SHA}" || true)
+          if echo "$BAU" | grep -q "${GITHUB_SHA:0:8}"; then
+            echo "OK      version.json  ($BAU)"
+          else
+            echo "ABWEICH version.json: $BAU"
+            FAIL=1
+          fi
           if [ "$FAIL" != "0" ]; then
             echo "::error::Mindestens eine ausgelieferte Datei stimmt nicht mit der hochgeladenen überein."
             exit 1
