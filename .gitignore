@@ -19,6 +19,8 @@ Thumbs.db
 # Sie liegen nur auf dem Server und gehoeren nicht ins Repo — schon
 # gar nicht gekaufte Karten.
 planer-dateien/
+# Das Probe-PDF der Werkbank (dev/echt.html, PDF-Leser) liegt wie auf dem Server.
+!dev/pdf-probe/planer-dateien/
 
 # Schreibt der Deploy (js/neu.js liest sie); von Hand nur zum Ausprobieren.
 /version.json

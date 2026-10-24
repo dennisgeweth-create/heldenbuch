@@ -352,6 +352,27 @@ $pdo->exec("
         CONSTRAINT fk_hbtbb_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+    -- ── Anhaenge ──────────────────────────────────────────────
+    -- PDFs an Gegenstaenden (ein Buch, ein Brief). Die Datei liegt unter
+    -- planer-dateien/<ablage>/, je Anhang ein Ordner mit zufaelligem
+    -- Namen; der Gegenstand traegt nur den Verweis. upload ist die
+    -- Kennung, die das Geraet beim Hochladen vergibt — an ihr finden die
+    -- Stuecke ihren Anhang.
+    CREATE TABLE IF NOT EXISTS hb_anhang (
+        id           BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        session_code VARCHAR(20)  NOT NULL,
+        upload       CHAR(32)     NOT NULL,
+        ablage       CHAR(32)     NOT NULL,
+        datei        VARCHAR(40)  NOT NULL DEFAULT '',
+        name         VARCHAR(200) NOT NULL DEFAULT '',
+        bytes        BIGINT       NOT NULL DEFAULT 0,
+        fertig       TINYINT      NOT NULL DEFAULT 0,
+        user_id      INT          NULL,
+        created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_anh (session_code, upload),
+        CONSTRAINT fk_hbanh_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     -- ── Abenteuerplaner ─────────────────────────────────────
     -- Karten und alles, was darauf liegt, je Abenteuer. Die Bilder
     -- liegen nicht hier, sondern als Dateien unter planer-dateien/ —
@@ -807,6 +828,9 @@ const TB_MAX_BILD   = 12000000;
 // deshalb nicht mehr an post_max_size (bis v5.24 waren es 32 MB am Stueck),
 // sondern am Platz auf dem Webspace und der Geduld beim Hochladen.
 const TB_STUECK     = 4194304;
+// Ein PDF an einem Gegenstand (anhang_stueck) — ein ganzes Abenteuerbuch
+// passt, ein eingescannter Foliant auch.
+const ANHANG_MAX    = 52428800;     // 50 MB
 const TB_MAX_VIDEO  = 1073741824;   // 1 GB
 const TB_TEIL_ALTER     = 86400;           // halbe Uploads nach einem Tag weg
 const TB_MAX_TEXT   = 60000;
@@ -3006,6 +3030,99 @@ switch ($action) {
                        (int)$z['user']['id'], mb_substr((string)$z['user']['name'], 0, 100)]);
         respond(201, 'Hochgeladen.', ['bild' => ['id' => (int)$pdo->lastInsertId(), 'datei' => $name, 'titel' => $titel],
                                       'ablage' => (string)$s['ablage']]);
+    }
+
+    // ── Anhaenge: ein PDF an einen Gegenstand ──────────────────
+    // Stueckweise wie die Videos des Tagebuchs (4 MB je Anfrage). Das
+    // erste Stueck legt den Anhang an — mit eigenem Ordner —, die
+    // weiteren haengen sich an, das letzte prueft, ob es wirklich ein PDF
+    // ist, und gibt den Verweis zurueck, den der Gegenstand dann traegt.
+    // Wiederholte Stuecke zaehlen nicht doppelt, fehlende melden sich
+    // mit 409 und „erwartet". Halbe Uploads von gestern raeumen sich weg.
+    //
+    // Geloescht wird ein Anhang nicht, wenn man ihn vom Gegenstand
+    // nimmt: der Gegenstand kann laengst kopiert, verschenkt oder in die
+    // Beute gelegt worden sein, und alle Kopien zeigen auf dieselbe Datei.
+    case 'anhang_stueck': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        if (empty($z['user'])) respond(403, 'Dafür braucht es ein Konto.');
+        $upload = (string)($body['upload'] ?? '');
+        if (!preg_match('/^[0-9a-f]{32}$/', $upload)) respond(400, 'Ungültige Kennung des Uploads.');
+        $nr = (int)($body['nr'] ?? -1);
+        $gesamt = (int)($body['gesamt'] ?? 0);
+        $groesse = (int)($body['groesse'] ?? 0);
+        $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 200);
+        if (!preg_match('/\.pdf$/i', $name)) respond(415, 'Nur PDF-Dateien.');
+        if ($groesse < 1) respond(400, 'Leere Datei.');
+        if ($groesse > ANHANG_MAX) respond(413, 'Ein PDF ist größer als 50 MB.');
+        if ($gesamt !== (int)ceil($groesse / TB_STUECK) || $nr < 0 || $nr >= $gesamt) {
+            respond(400, 'Die Stücke passen nicht zur Größe.');
+        }
+        $daten = base64_decode((string)($body['daten'] ?? ''), true);
+        if ($daten === false) respond(400, 'Das Stück kam nicht lesbar an.');
+        $soll = $nr === $gesamt - 1 ? $groesse - $nr * TB_STUECK : TB_STUECK;
+        if (strlen($daten) !== $soll) respond(400, 'Das Stück hat die falsche Länge.');
+
+        $holen = function () use ($pdo, $code, $upload) {
+            $st = $pdo->prepare("SELECT * FROM hb_anhang WHERE session_code=? AND upload=?");
+            $st->execute([$code, $upload]);
+            return $st->fetch() ?: null;
+        };
+        $aus = fn(array $r) => ['id' => (int)$r['id'], 'ablage' => (string)$r['ablage'],
+                                'datei' => (string)$r['datei'], 'name' => (string)$r['name'],
+                                'bytes' => (int)$r['bytes']];
+        $row = $holen();
+        // Die Antwort auf das letzte Stueck ging verloren, und es kommt
+        // noch einmal: dann steht der Anhang schon da.
+        if ($row && (int)$row['fertig'] === 1) {
+            if ($nr === $gesamt - 1) respond(201, 'Schon da.', ['anhang' => $aus($row)]);
+            respond(400, 'Dieser Upload ist abgeschlossen.');
+        }
+        if ($nr === 0) {
+            $stA = $pdo->prepare("SELECT id, ablage FROM hb_anhang
+                                  WHERE session_code=? AND fertig=0 AND created_at < NOW() - INTERVAL 1 DAY");
+            $stA->execute([$code]);
+            foreach ($stA->fetchAll() as $alt) {
+                planOrdnerLeeren(planOrdner((string)$alt['ablage'], false), true);
+                $pdo->prepare("DELETE FROM hb_anhang WHERE id=?")->execute([(int)$alt['id']]);
+            }
+            if (!$row) {
+                $pdo->prepare("INSERT INTO hb_anhang (session_code, upload, ablage, name, bytes, user_id)
+                               VALUES(?,?,?,?,?,?)")
+                    ->execute([$code, $upload, bin2hex(random_bytes(16)), $name, $groesse, (int)$z['user']['id']]);
+                $row = $holen();
+            }
+        } elseif (!$row) {
+            respond(409, 'Da fehlt ein Stück.', ['erwartet' => 0]);
+        }
+        if ((int)$row['bytes'] !== $groesse) respond(400, 'Die Größe passt nicht zu diesem Upload.');
+
+        $ordner = planOrdner((string)$row['ablage'], true);
+        $teil = $ordner . '/anhang.teil';
+        if ($nr === 0) @unlink($teil);
+        clearstatcache(true, $teil);
+        $da = is_file($teil) ? (int)filesize($teil) : 0;
+        $ab = $nr * TB_STUECK;
+        if ($da === $ab + $soll) {
+            // Schon angekommen — die Antwort ging verloren. Nichts doppelt.
+        } elseif ($da === $ab) {
+            if (@file_put_contents($teil, $daten, FILE_APPEND | LOCK_EX) === false) {
+                respond(507, 'Das Stück ließ sich nicht schreiben (Speicherplatz?).');
+            }
+        } else {
+            respond(409, 'Da fehlt ein Stück.', ['erwartet' => intdiv($da, TB_STUECK)]);
+        }
+        if ($nr < $gesamt - 1) respond(200, 'Stück angekommen.', ['nr' => $nr]);
+
+        clearstatcache(true, $teil);
+        if ((int)filesize($teil) !== $groesse) { @unlink($teil); respond(400, 'Die Datei kam nicht vollständig an.'); }
+        $kopf = (string)@file_get_contents($teil, false, null, 0, 8);
+        if (strncmp($kopf, '%PDF-', 5) !== 0) { @unlink($teil); respond(415, 'Das ist kein PDF.'); }
+        $datei = bin2hex(random_bytes(8)) . '.pdf';
+        if (!@rename($teil, $ordner . '/' . $datei)) { @unlink($teil); respond(500, 'Die Datei ließ sich nicht ablegen.'); }
+        $pdo->prepare("UPDATE hb_anhang SET datei=?, fertig=1 WHERE id=?")->execute([$datei, (int)$row['id']]);
+        respond(201, 'Hochgeladen.', ['anhang' => $aus($holen())]);
     }
 
     case 'tagebuch_bild_weg': {

@@ -114,6 +114,8 @@
     // Zeitpunkt — nur die Boegen, die sich geaendert haben.
     const apiPuls          = (url, code, advId, bekannt, warten) => apiRequest(url, 'puls', { code, adv_id: advId, bekannt, warten });
     const apiLoadSeit      = (url, code, pass, seit) => apiRequest(url, 'load',           { code, password: pass, seit });
+    // Ein Stueck eines PDF-Anhangs an einem Gegenstand (2p-anhang.jsx).
+    const apiAnhangStueck  = (url, code, teil)   => apiRequest(url, 'anhang_stueck',  { code, ...teil });
     const apiDmLoad        = (url, code, pass, dmPass)   => apiRequest(url, 'dm_load',         { code, password: pass, dm_password: dmPass });
     const apiDmSaveLibrary = (url, code, pass, dmPass, dmLibrary) => apiRequest(url, 'dm_save_library', { code, password: pass, dm_password: dmPass, dm_library: dmLibrary });
     const apiSetDmPassword = (url, code, pass, dmPass)   => apiRequest(url, 'set_dm_password', { code, password: pass, dm_password: dmPass });

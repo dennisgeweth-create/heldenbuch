@@ -557,6 +557,51 @@
   @media (hover:hover) { .note-card:hover { border-color:var(--border-bright); } }
   .note-card-header { display:flex; align-items:center; gap:8px; }
   .note-card-title { font-family:'Roboto Condensed',sans-serif; font-size:13px; color:var(--text-primary); flex:1; }
+  /* ── PDF-Anhänge an Gegenständen ───────────────────────────
+     Im Dialog die Liste mit Knopf, an der Inventarkarte die Bücher zum
+     Aufschlagen, und der Leser selbst: eine Seite auf dunklem Grund. */
+  .anhang-feld { display:flex; flex-direction:column; gap:6px; }
+  .anhang-zeile { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:5px;
+    background:var(--bg-void); border:1px solid var(--border); }
+  .anhang-name { flex:1; min-width:0; text-align:left; background:none; border:none; cursor:pointer;
+    color:var(--text-primary); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .anhang-name:hover { color:var(--inspiration); }
+  .anhang-groesse { font-family:'Roboto Condensed',sans-serif; font-size:11px; color:var(--text-muted); }
+  .anhang-weg { background:none; border:none; color:#d98a8a; cursor:pointer; font-size:12px; padding:2px 6px; }
+  .anhang-knopf { align-self:flex-start; cursor:pointer; }
+  .anhang-stand { font-size:12px; color:var(--inspiration); }
+  .anhang-tadel { font-size:12px; color:var(--gold-bright); }
+  .anhang-hinweis { font-size:11px; color:var(--text-muted); line-height:1.45; }
+  .inv-anhaenge { display:flex; flex-wrap:wrap; gap:4px; margin:2px 0 5px; }
+  .inv-anhang { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;
+    padding:3px 8px; border-radius:4px; font-family:'Roboto Condensed',sans-serif; font-size:11px;
+    background:rgba(232,184,75,0.10); border:1px solid var(--inspiration-dim); color:var(--inspiration); }
+  .inv-anhang:hover { background:rgba(232,184,75,0.18); }
+
+  .form-modal.pdf-leser { width:min(980px, 96vw); max-width:none; height:min(90vh, 1100px);
+    display:flex; flex-direction:column; padding-bottom:14px; }
+  .pdf-leiste { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .pdf-leiste .btn-icon.an { border-color:var(--inspiration); color:var(--inspiration); }
+  .pdf-seite { display:inline-flex; align-items:baseline; gap:5px; font-family:'Roboto Condensed',sans-serif;
+    font-size:13px; color:var(--text-secondary); }
+  .pdf-seite input { width:52px; text-align:center; padding:4px 4px; border-radius:4px;
+    background:var(--bg-void); border:1px solid var(--border-bright); color:var(--text-primary); }
+  .pdf-seite i { font-style:normal; color:var(--text-muted); }
+  .pdf-trenner { width:1px; align-self:stretch; background:var(--border); margin:0 4px; }
+  .pdf-extern { margin-left:auto; text-decoration:none; }
+  .pdf-buehne { flex:1; min-height:0; overflow:auto; border-radius:6px; padding:12px;
+    background:radial-gradient(circle at 50% 30%, #24201a, #0d0c0a 75%); text-align:center;
+    touch-action:pan-x pan-y pinch-zoom; }
+  .pdf-blatt { display:inline-block; background:#fff; border-radius:2px;
+    box-shadow:0 0 0 1px rgba(232,184,75,0.25), 0 14px 40px rgba(0,0,0,0.65); }
+  .pdf-rahmen { flex:1; min-height:0; width:100%; border:1px solid var(--border); border-radius:6px; background:#fff; }
+  .pdf-hinweis { padding:10px 2px 0; font-size:12.5px; color:var(--text-muted); }
+  .pdf-hinweis a { color:var(--inspiration); }
+  @media (max-width: 700px) {
+    .form-modal.pdf-leser { width:100vw; height:100dvh; border-radius:0; }
+    .pdf-trenner { display:none; }
+  }
+
   /* Der aufgeklappte Text einer Notiz: HTML aus dem Editor, oder alter
      Klartext mit seinen Zeilenumbruechen. */
   .note-card-text { margin-top:8px; padding-bottom:4px; font-family:'Roboto',sans-serif; font-size:15px;

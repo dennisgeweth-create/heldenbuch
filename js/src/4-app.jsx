@@ -66,6 +66,8 @@ function App() {
   const [sfEditId, setSfEditId] = useState(null);
   const [invRarity,  setInvRarity]  = useState('all');
   const [imgViewer,  setImgViewer]  = useState(null);  // {name, imageData}
+  // Der PDF-Leser: welcher Anhang offen ist (2p-anhang.jsx).
+  const [pdfLeser,   setPdfLeser]   = useState(null);  // {id, ablage, datei, name, bytes}
   const [itemViewer,    setItemViewer]    = useState(null);
   // Nur die id: die Waffe wird beim Rendern frisch aus cur geholt, damit die
   // Detailansicht nach einer Bearbeitung nicht auf einer Kopie stehen bleibt.
@@ -3792,7 +3794,7 @@ function App() {
     resetAll, resources, save, sel, selectChar, setCharMenuOpen,
     setCollapsedLevels, setExFeature,
     setExNote, setExSpell, setFf, setFfEditId, setGearPick, setGearSlot,
-    setImgViewer, setInsp, setInspMax, setInvRarity, setInvTagFilter,
+    setImgViewer, setPdfLeser, setInsp, setInspMax, setInvRarity, setInvTagFilter,
     setItemViewer, setItf, setItfEditId, setNf, setNfEditId,
     setNoteTagFilter, setOpenUnprepared, setResEdit, setSf, setSfEditId,
     setShowFF, setShowIF, setShowNF, setShowSF, setShowTransfer,
@@ -4858,6 +4860,13 @@ function App() {
                   onBild={(d)=>setItf(prev=>({...prev,imageData:d}))}
                   onWeg={()=>setItf(prev=>({...prev,imageData:''}))} />
               </div>
+              {/* PDFs: ein Buch, ein Brief. Die Datei liegt auf dem Server,
+                  der Gegenstand traegt nur den Verweis (2p-anhang.jsx). */}
+              <div className="form-group form-full">
+                <div className="form-label">📎 Anhänge (PDF)</div>
+                <AnhangFeld anhaenge={itf.anhaenge} onLesen={setPdfLeser}
+                  onAendern={(l)=>setItf(prev=>({...prev,anhaenge:l}))} />
+              </div>
               <div className="form-group form-full">
                 <div className="form-label">✦ Effekte</div>
                 <EffectEditor effects={itf.effects} onChange={v=>setItf({...itf,effects:v})}
@@ -5135,6 +5144,9 @@ function App() {
       })()}
 
       {/* Image Viewer Modal */}
+      {pdfLeser && (
+        <PdfLeser anhang={pdfLeser} server={serverCreds().url} onZu={()=>setPdfLeser(null)} />
+      )}
       {imgViewer && (
         <div className="form-overlay" style={{background:'rgba(0,0,0,0.85)'}} onClick={()=>setImgViewer(null)}>
           <div style={{maxWidth:'90vw',maxHeight:'90vh',display:'flex',flexDirection:'column',alignItems:'center',gap:12}} onClick={e=>e.stopPropagation()}>

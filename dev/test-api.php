@@ -1556,6 +1556,53 @@ $r = ruf('tagebuch_eintrag', ['code' => $code, 'token' => $tDm, 'adv_id' => 'str
     'sitzung_id' => $sitzungId, 'text' => 'Zu spät']);
 pruefe('in einen gelöschten Abend schreibt niemand mehr (404)', $r['status'] === 404, kurz($r));
 
+abschnitt('PDF-Anhaenge an Gegenstaenden');
+$anh = function (string $upload, int $nr, string $ganz, string $name = 'Brief.pdf', array $mehr = [])
+       use ($code, $tSpieler) {
+    $g = strlen($ganz);
+    return ruf('anhang_stueck', array_merge(['code' => $code, 'token' => $tSpieler, 'upload' => $upload,
+        'nr' => $nr, 'gesamt' => max(1, (int)ceil($g / STUECK)), 'groesse' => $g, 'name' => $name,
+        'daten' => base64_encode(substr($ganz, $nr * STUECK, STUECK))], $mehr));
+};
+$brief = "%PDF-1.4\n" . str_repeat("Lieber Strahd, ", 200) . "\n%%EOF";
+$r = $anh(bin2hex(random_bytes(16)), 0, $brief);
+pruefe('ein kleines PDF geht in einem Stueck hinauf (201)', $r['status'] === 201, kurz($r));
+$a = $r['body']['anhang'] ?? [];
+pruefe('  … und kommt als Verweis zurueck', preg_match('/^[0-9a-f]{32}$/', $a['ablage'] ?? '') === 1
+       && preg_match('/^[0-9a-f]{16}\.pdf$/', $a['datei'] ?? '') === 1 && ($a['name'] ?? '') === 'Brief.pdf'
+       && ($a['bytes'] ?? 0) === strlen($brief), json_encode($a));
+pruefe('  … die Datei liegt in ihrem Ordner, Byte fuer Byte',
+       @file_get_contents(__DIR__ . '/../planer-dateien/' . ($a['ablage'] ?? 'x') . '/' . ($a['datei'] ?? 'x')) === $brief);
+$r = $anh(bin2hex(random_bytes(16)), 0, 'kein PDF, nur Text');
+pruefe('was kein PDF ist, bleibt draussen (415)', $r['status'] === 415, kurz($r));
+$r = $anh(bin2hex(random_bytes(16)), 0, $brief, 'Brief.txt');
+pruefe('  … auch dem Namen nach (415)', $r['status'] === 415, kurz($r));
+$r = ruf('anhang_stueck', ['code' => $code, 'token' => $tSpieler, 'upload' => bin2hex(random_bytes(16)),
+    'nr' => 0, 'gesamt' => 13, 'groesse' => 52428801, 'name' => 'Foliant.pdf', 'daten' => base64_encode('x')]);
+pruefe('ueber 50 MB wird abgewiesen (413)', $r['status'] === 413, kurz($r));
+$r = ruf('anhang_stueck', ['code' => $code, 'upload' => bin2hex(random_bytes(16)), 'nr' => 0, 'gesamt' => 1,
+    'groesse' => strlen($brief), 'name' => 'Brief.pdf', 'daten' => base64_encode($brief)]);
+pruefe('ohne Konto kein Anhang (403)', $r['status'] === 403, kurz($r));
+// Ein dickes Buch in drei Stuecken, mit allem, was unterwegs passiert.
+$buch = "%PDF-1.7\n" . random_bytes(2 * STUECK + 5000);
+$up = bin2hex(random_bytes(16));
+pruefe('das erste von drei Stuecken (200)', $anh($up, 0, $buch, 'Buch der Schatten.pdf')['status'] === 200);
+pruefe('  … zweimal geschickt, kein Fehler (200)', $anh($up, 0, $buch, 'Buch der Schatten.pdf')['status'] === 200);
+$r = $anh($up, 2, $buch, 'Buch der Schatten.pdf');
+pruefe('ein uebersprungenes Stueck wird bemerkt (409, weiter bei 1)',
+       $r['status'] === 409 && ($r['body']['erwartet'] ?? null) === 1, kurz($r));
+pruefe('  … also das zweite (200)', $anh($up, 1, $buch, 'Buch der Schatten.pdf')['status'] === 200);
+$r = $anh($up, 2, $buch, 'Buch der Schatten.pdf');
+pruefe('  … und das letzte legt den Anhang an (201)', $r['status'] === 201, kurz($r));
+$ab = $r['body']['anhang'] ?? [];
+pruefe('  … ganz', md5_file(__DIR__ . '/../planer-dateien/' . ($ab['ablage'] ?? 'x') . '/' . ($ab['datei'] ?? 'x')) === md5($buch));
+$r2 = $anh($up, 2, $buch, 'Buch der Schatten.pdf');
+pruefe('kommt das letzte Stueck noch einmal, steht der Anhang schon da',
+       $r2['status'] === 201 && ($r2['body']['anhang']['id'] ?? 0) === ($ab['id'] ?? -1), kurz($r2));
+$r = $anh(bin2hex(random_bytes(16)), 1, $buch, 'Buch der Schatten.pdf');
+pruefe('wer mitten in einem unbekannten Upload einsteigt, faengt vorne an (409, 0)',
+       $r['status'] === 409 && ($r['body']['erwartet'] ?? null) === 0, kurz($r));
+
 abschnitt('Der Puls');
 // Eine Anfrage fuer alle Staende. Ohne Warten antwortet sie sofort; mit
 // Warten haelt sie an, solange sich nichts tut — der eingebaute Server

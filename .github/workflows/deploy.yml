@@ -73,6 +73,9 @@ jobs:
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
           cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
+          # pdf.js fuer den PDF-Leser (2p-anhang.jsx) — erst beim ersten
+          # Aufschlagen geladen. Fehlt es, liest der Browser selbst.
+          if [ -d vendor/pdfjs ]; then mkdir -p deploy/vendor/pdfjs && cp vendor/pdfjs/* deploy/vendor/pdfjs/; fi
           # Die Bilder der Automaten (bilder/hut/: Der Hut des Gauklers,
           # bilder/glueck/: Dreifaches Glück).
           mkdir -p deploy/bilder

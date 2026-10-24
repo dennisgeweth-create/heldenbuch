@@ -1,5 +1,22 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.36.0
+
+### PDFs an Gegenständen — Bücher zum Aufschlagen, Briefe zum Lesen
+
+- Im Dialog eines Gegenstands steht jetzt **📎 Anhänge (PDF)**: ein oder
+  mehrere PDFs, auch dicke, bis 50 MB je Datei. Sie werden in Stücken
+  hochgeladen, mit Fortschritt, und überstehen einen kurzen Netzausfall.
+- An der Karte im Inventar steht der Anhang als **📖 Name** — ein Klick
+  schlägt ihn auf.
+- Der **Leser** öffnet als eigenes Fenster in der Fensterleiste, lässt
+  sich minimieren und schieben. **↗ Im Browser** öffnet das PDF im Leser
+  des Browsers, in einem eigenen Tab — dort lässt es sich auch drucken
+  und speichern.
+- Die Datei liegt auf dem Server, nicht im Bogen: der Gegenstand trägt nur
+  den Verweis. Wer ihn verschenkt, in die Beute legt oder kopiert, gibt
+  das Buch mit.
+
 ## v5.35.0
 
 ### Nie mehr hart neu laden

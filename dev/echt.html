@@ -184,6 +184,7 @@
     const apiPuls = () => { wbPuls.anfragen++;
       return wbPuls.staende ? Promise.resolve({staende: {...wbPuls.staende}}) : wbStumm(); };
     const apiLoadSeit = wbStumm;
+    const apiAnhangStueck = wbStumm;
     const apiProbeAntwort = wbStumm;
     const apiProbeNachricht = wbStumm;
     const apiProbeSetzen = wbStumm;
@@ -1938,6 +1939,56 @@
           zurueck.click(); await ruhe(80);
           ja('  … und dann gilt wieder der Standard', !wbAutomat.hutSymbole && quoteText() === '96,1 %', quoteText());
         }
+        ReactDOM.unmountComponentAtNode(buehne);
+
+        // ── PDF-Anhänge: das Feld im Gegenstand und der Leser ──────
+        melden('lauf', 'PDF-Anhänge');
+        const probeAnhang = {id: 1, ablage: 'd0c0ffee'.repeat(4), datei: 'probe.pdf',
+                             name: 'Brief an Strahd.pdf', bytes: 878};
+        let anhangListe = [probeAnhang], gelesen = null;
+        const feldZeichnen = () => ReactDOM.render(React.createElement(AnhangFeld, {
+          anhaenge: anhangListe, onAendern: (l) => { anhangListe = l; feldZeichnen(); },
+          onLesen: (x) => { gelesen = x; } }), buehne);
+        feldZeichnen();
+        await ruhe(80);
+        ja('Der Anhang steht im Gegenstand', /Brief an Strahd\.pdf/.test(buehne.textContent), buehne.textContent);
+        ja('  … mit einem Knopf, der nur PDFs nimmt',
+           !!buehne.querySelector('input[type=file][accept*="pdf"]'));
+        buehne.querySelector('.anhang-name').click();
+        ja('  … ein Klick auf den Namen schlägt ihn auf', gelesen === probeAnhang);
+        buehne.querySelector('.anhang-weg').click(); await ruhe(60);
+        ja('  … und ✕ nimmt ihn vom Gegenstand', anhangListe.length === 0);
+        ReactDOM.unmountComponentAtNode(buehne);
+
+        const mitPdfjs = await fetch('../vendor/pdfjs/pdf.min.js', {method: 'HEAD'}).then(r => r.ok).catch(() => false);
+        let leserZu = false;
+        ReactDOM.render(React.createElement(PdfLeser, {anhang: probeAnhang,
+          server: location.origin + '/dev/pdf-probe', onZu: () => { leserZu = true; }}), buehne);
+        if (mitPdfjs) {
+          const blatt = await warten(() => {
+            const c = document.querySelector('.pdf-blatt');
+            return c && c.width > 100 ? c : null; }, 10000);
+          if (ja('Der eigene Leser schlägt das Buch auf', !!blatt)) {
+            ja('  … mit seinen zwei Seiten', /von 2/.test(document.querySelector('.pdf-seite').textContent),
+               document.querySelector('.pdf-seite').textContent);
+            // Ist auf dem Blatt auch Schrift? Dunkle Punkte zaehlen.
+            await ruhe(600);
+            const px = blatt.getContext('2d').getImageData(0, 0, blatt.width, Math.floor(blatt.height / 3)).data;
+            let dunkel = 0;
+            for (let i = 0; i < px.length; i += 16) if (px[i + 3] > 200 && px[i] < 90) dunkel++;
+            ja('  … und darauf steht Text', dunkel > 20, dunkel + ' dunkle Punkte');
+            [...document.querySelectorAll('.pdf-leiste button')].find(b => b.getAttribute('aria-label') === 'Nächste Seite').click();
+            await ruhe(300);
+            ja('  … ▶ blättert auf Seite 2', document.querySelector('.pdf-seite input').value === '2');
+          }
+        } else {
+          const rahmen = await warten(() => document.querySelector('.pdf-rahmen'), 10000);
+          ja('Ohne pdf.js liest der Browser: das PDF steht im Rahmen',
+             !!rahmen && /\/probe\.pdf$/.test(rahmen.getAttribute('src') || ''), rahmen ? rahmen.getAttribute('src') : 'kein Rahmen');
+        }
+        ja('  … und „Im Browser" öffnet dieselbe Datei',
+           /\/planer-dateien\/d0c0ffee(d0c0ffee){3}\/probe\.pdf$/.test((document.querySelector('.pdf-extern') || {}).href || ''),
+           (document.querySelector('.pdf-extern') || {}).href);
         ReactDOM.unmountComponentAtNode(buehne);
 
         // ── Der Charakterassistent: freie Herkunft und Paket ───────

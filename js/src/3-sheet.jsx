@@ -25,7 +25,7 @@ const Sheet = () => {
     openUnprepared, patchChar, patchCurrent, resEdit, resetAll, resources, save, sel,
     selectChar, setCharMenuOpen, setDefs, textOffen, setTextOffen,
     setCollapsedLevels, setExFeature, setExNote, setExSpell, setFf,
-    setFfEditId, setImgViewer, setInsp, setInspMax, setInvRarity,
+    setFfEditId, setImgViewer, setPdfLeser, setInsp, setInspMax, setInvRarity,
     setInvTagFilter, setItemViewer, setItf, setItfEditId, setNf,
     setNfEditId, setNoteTagFilter, setOpenUnprepared, setResEdit, setSf,
     setSfEditId, setShowFF, setShowIF, setShowNF, setShowSF,
@@ -1635,6 +1635,15 @@ const Sheet = () => {
                                       onClick={e=>{e.stopPropagation();setImgViewer({name:item.name,imageData:item.imageData});}} />
                                   )}
                                   {item.description && <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--text-secondary)',lineHeight:1.45,marginBottom:4}} dangerouslySetInnerHTML={{__html:sanitizeHtml(item.description)}} />}
+                                  {/* Angehaengte PDFs: ein Klick schlaegt sie auf. */}
+                                  {(item.anhaenge||[]).length>0 && (
+                                    <div className="inv-anhaenge">
+                                      {item.anhaenge.map((a,ai)=>(
+                                        <button key={a.id||ai} type="button" className="inv-anhang"
+                                          onClick={e=>{e.stopPropagation();setPdfLeser(a);}}>📖 {a.name}</button>
+                                      ))}
+                                    </div>
+                                  )}
                                   {item.source && <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>📦 {item.source}</div>}
                                   {(item.tags||[]).length>0 && (
                                     <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:4}}>
