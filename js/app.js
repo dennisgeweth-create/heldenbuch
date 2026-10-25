@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.2.0';
+const HB_VERSION = 'v6.2.1';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -20372,6 +20372,7 @@ const ANK_DAUER = {
   laden: 2400
 };
 const ankHoerer = new Set();
+const ankVorrat = [];
 const ankuendigen = (art, text, unter, erzwingen) => {
   if (!erzwingen && !ankAn()) return;
   const a = {
@@ -20380,7 +20381,20 @@ const ankuendigen = (art, text, unter, erzwingen) => {
     unter: unter || '',
     id: Date.now() + Math.random()
   };
+  if (!ankHoerer.size) {
+    ankVorrat.push(a);
+    return;
+  }
   ankHoerer.forEach(f => f(a));
+};
+const ANK_RANG = {
+  kampf: 0,
+  zug: 1,
+  probe: 2,
+  rast: 3,
+  post: 4,
+  beute: 5,
+  laden: 6
 };
 const ankIcon = name => window.HB_IKONEN ? window.HB_IKONEN.react(name) : null;
 const AnkSchwert = ({
@@ -20483,15 +20497,24 @@ const ANK_BILD = {
   }, ankIcon('laden'))
 };
 const AnkuendigungsBuehne = () => {
-  const [schlange, setSchlange] = React.useState([]);
+  const [schlange, setSchlange] = React.useState(() => ankVorrat.splice(0));
+  const [sichtbar, setSichtbar] = React.useState(() => !document.hidden);
   React.useEffect(() => {
-    const f = a => setSchlange(s => s.length >= 3 ? s : [...s, a]);
+    const f = a => setSchlange(s => {
+      const [vorn, ...rest] = s;
+      const warten = [...rest.filter(x => x.art !== a.art), a].sort((x, y) => (ANK_RANG[x.art] ?? 9) - (ANK_RANG[y.art] ?? 9));
+      return vorn ? [vorn, ...warten] : warten;
+    });
     ankHoerer.add(f);
+    if (ankVorrat.length) ankVorrat.splice(0).forEach(f);
+    const sicht = () => setSichtbar(!document.hidden);
+    document.addEventListener('visibilitychange', sicht);
     return () => {
       ankHoerer.delete(f);
+      document.removeEventListener('visibilitychange', sicht);
     };
   }, []);
-  const jetzt = schlange[0];
+  const jetzt = sichtbar ? schlange[0] : null;
   React.useEffect(() => {
     if (!jetzt) return undefined;
     const t = setTimeout(() => setSchlange(s => s.slice(1)), ANK_DAUER[jetzt.art] || 2500);

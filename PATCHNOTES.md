@@ -1,5 +1,13 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.2.1
+
+- Die **Ankündigungen** (Post, Kampf!, am Zug, Probe, Rast, Beute,
+  Laden) werden jetzt **immer gezeigt**: keine fällt mehr weg, sie
+  liegen über allem, auch über offenen Fenstern, und Wichtiges kommt
+  zuerst (Kampf vor Zug vor Probe …). Ist der Tab im Hintergrund,
+  warten sie, bis du zurückkommst.
+
 ## v6.2.0
 
 ### Gut sichtbar, auch im Darkmode des Telefons

@@ -21,12 +21,17 @@ const ANK_DAUER = {post: 2700, kampf: 2500, zug: 2300, probe: 2400, rast: 2700, 
 
 // Wer zuhört: die Bühne. Ein kleiner Verteiler statt eines Zustands in
 // der App, damit jede Stelle ankündigen kann, ohne etwas durchzureichen.
+// Was kommt, bevor die Bühne steht, wartet in `ankVorrat`.
 const ankHoerer = new Set();
+const ankVorrat = [];
 const ankuendigen = (art, text, unter, erzwingen) => {
   if (!erzwingen && !ankAn()) return;
   const a = {art, text: text || '', unter: unter || '', id: Date.now() + Math.random()};
+  if (!ankHoerer.size) { ankVorrat.push(a); return; }
   ankHoerer.forEach(f => f(a));
 };
+// Wichtiges zuerst: der Kampf vor dem Zug, der Zug vor der Probe …
+const ANK_RANG = {kampf: 0, zug: 1, probe: 2, rast: 3, post: 4, beute: 5, laden: 6};
 
 // ── Die Bilder ──────────────────────────────────────────────────
 const ankIcon = (name) => (window.HB_IKONEN ? window.HB_IKONEN.react(name) : null);
@@ -82,14 +87,27 @@ const ANK_BILD = {
 
 // ── Die Bühne ───────────────────────────────────────────────────
 const AnkuendigungsBuehne = () => {
-  const [schlange, setSchlange] = React.useState([]);
+  // Jede Ankündigung wird gezeigt — keine fällt weg. Dieselbe Art zweimal
+  // wird eine (die neuere gilt), und die Wartenden stehen nach Rang. Die
+  // laufende bleibt vorn, bis sie fertig ist.
+  const [schlange, setSchlange] = React.useState(() => ankVorrat.splice(0));
+  const [sichtbar, setSichtbar] = React.useState(() => !document.hidden);
   React.useEffect(() => {
-    // Mehr als drei Wartende sind Getöse; die übrigen fallen weg.
-    const f = (a) => setSchlange(s => (s.length >= 3 ? s : [...s, a]));
+    const f = (a) => setSchlange(s => {
+      const [vorn, ...rest] = s;
+      const warten = [...rest.filter(x => x.art !== a.art), a]
+        .sort((x, y) => (ANK_RANG[x.art] ?? 9) - (ANK_RANG[y.art] ?? 9));
+      return vorn ? [vorn, ...warten] : warten;
+    });
     ankHoerer.add(f);
-    return () => { ankHoerer.delete(f); };
+    if (ankVorrat.length) ankVorrat.splice(0).forEach(f);
+    // Ein verborgener Tab sieht nichts: dann wartet die Ankündigung, bis
+    // man zurückkommt.
+    const sicht = () => setSichtbar(!document.hidden);
+    document.addEventListener('visibilitychange', sicht);
+    return () => { ankHoerer.delete(f); document.removeEventListener('visibilitychange', sicht); };
   }, []);
-  const jetzt = schlange[0];
+  const jetzt = sichtbar ? schlange[0] : null;
   React.useEffect(() => {
     if (!jetzt) return undefined;
     const t = setTimeout(() => setSchlange(s => s.slice(1)), ANK_DAUER[jetzt.art] || 2500);

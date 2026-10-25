@@ -5017,7 +5017,7 @@
      Eine Bühne über allem, die keinen Klick annimmt. Schleier, ein Bild in
      der Mitte, darunter die Zeile. Jede Art hat ihre Bewegung; die
      Gesamtdauer steht in ANK_DAUER und muss zu den Keyframes passen. */
-  .ank { position:fixed; inset:0; z-index:100500; pointer-events:none; display:flex;
+  .ank { position:fixed; inset:0; z-index:2147483000; pointer-events:none; display:flex;
     align-items:center; justify-content:center; --ank-gold:#e8c56b; --ank-glut:rgba(232,197,107,0.55); }
   .ank-schleier { position:absolute; inset:0;
     background:radial-gradient(circle at 50% 46%, rgba(0,0,0,0.55), rgba(0,0,0,0.15) 55%, transparent 75%);
