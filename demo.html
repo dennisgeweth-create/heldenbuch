@@ -223,6 +223,8 @@
       var naechstes = function (i) {
         if (i >= stuecke.length) {
           document.getElementById('demo-laden').style.display = 'none';
+          // Die Kopfzeile ist festes HTML: ihre Zeichen werden hier Icons.
+          if (window.HB_IKONEN) window.HB_IKONEN.inHtml(document.getElementById('demo-kopf'));
           return;
         }
         var s = document.createElement('script');

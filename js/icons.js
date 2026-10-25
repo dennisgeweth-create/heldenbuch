@@ -520,6 +520,21 @@
     tilgen: tilgen,
     // Ein Icon gezielt, mit Namen: HB_IKONEN.react('schwerter').
     react: function (name, key) { return reactIcon(window.React, name, key); },
+    // Festes HTML ohne React (die Kopfzeile der Vorfuehrung): die Zeichen
+    // in den Textknoten unter `wurzel` werden Icons.
+    inHtml: function (wurzel) {
+      if (!wurzel) return;
+      var w = document.createTreeWalker(wurzel, NodeFilter.SHOW_TEXT), knoten = [], t;
+      while ((t = w.nextNode())) if (VORAB.test(t.textContent)) knoten.push(t);
+      knoten.forEach(function (tn) {
+        var html = tn.textContent.replace(/[&<>]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]; });
+        MUSTER.lastIndex = 0;
+        html = html.replace(MUSTER, function (z) { var n = nameVon(z); return n ? markup(n) : z; });
+        var span = document.createElement('span');
+        span.innerHTML = html;
+        tn.parentNode.replaceChild(span, tn);
+      });
+    },
   };
   if (window.React) anReact(window.React);
 })();
