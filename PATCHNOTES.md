@@ -1,5 +1,29 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.37.1
+
+### Die Spielleitung bleibt Spielleitung
+
+- Nach dem Neuladen — auch dem von selbst, wenn eine neue Fassung da
+  ist — stand die Spielleitung wieder als Spieler da, und mit dem
+  DM-Modus waren **✉ Post**, Kampf und Gegner verschwunden. Jetzt merkt
+  sich der Tab den DM-Modus und geht nach dem Laden von selbst wieder
+  hinein (nur, wer das Abenteuer auch leitet). „🔮 aus" vergisst es.
+
+### Rast: der Rechner nach Gradueller Rauer Realismus
+
+- Die **Rastregel steht jetzt im Fenster „Rast ansagen"** selbst:
+  Standard oder Gradueller Rauer Realismus. Vorher war der Rechner nur
+  zu sehen, wenn das Abenteuer in seinen Einstellungen schon auf der
+  Variante stand. Die Wahl gilt fürs Abenteuer und bleibt.
+- Zwei Maßnahmen aus dem Heft kamen dazu: **Fackel** (wärmt bei Kälte
+  wie ein Feuer, neben einem Lagerfeuer zählt sie nicht doppelt) und
+  **Magisches Zelt** (drinnen zählt das Wetter nicht).
+- Der **Sonnenschirm** hilft nur bei unerträglicher Hitze, nicht schon
+  bei Hitze — so steht es im Heft.
+- Wer die **Kanalpest** hat, bekommt aus der langen Rast keine
+  Trefferpunkte.
+
 ## v5.37.0
 
 ### Der eigene PDF-Leser

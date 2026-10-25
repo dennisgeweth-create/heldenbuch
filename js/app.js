@@ -144,7 +144,8 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.37.0';
+const HB_VERSION = 'v5.37.1';
+const DM_MERKER = 'hb_dm_modus';
 const EinstBlock = ({
   titel,
   kurz,
@@ -17501,6 +17502,9 @@ const RAST_MASSNAHMEN = [{
   k: 'feuer',
   l: 'Lagerfeuer'
 }, {
+  k: 'fackel',
+  l: 'Fackel'
+}, {
   k: 'schlafsack',
   l: 'Schlafsack oder Bettrolle'
 }, {
@@ -17515,6 +17519,9 @@ const RAST_MASSNAHMEN = [{
 }, {
   k: 'schirm',
   l: 'Sonnenschirm'
+}, {
+  k: 'magzelt',
+  l: 'Magisches Zelt'
 }, {
   k: 'huette',
   l: 'Zauber: Winzige Hütte'
@@ -17572,7 +17579,7 @@ const rastVorschlag = ({
       }]
     };
   }
-  const ohneWetter = m.has('huette');
+  const ohneWetter = m.has('huette') || m.has('magzelt');
   let wetter = 0;
   if (!ohneWetter) {
     if (niederschlag === 'klar' && temp.k === 'glut') post('Wolkenlos bei Glut', -1), wetter -= 1;
@@ -17585,14 +17592,14 @@ const rastVorschlag = ({
     if (wind === 'boeen') post('Starke Böen', -1), wetter -= 1;
     if (wind === 'orkan') post('Sturm', -2), wetter -= 2;
   } else {
-    post('Winzige Hütte: das Wetter bleibt draußen', 0);
+    post((m.has('huette') ? 'Winzige Hütte' : 'Magisches Zelt') + ': das Wetter bleibt draußen', 0);
   }
   let hilfe = 0;
   const hilft = (text, wert) => {
     post(text, wert);
     hilfe += wert;
   };
-  if (m.has('feuer') && kaltArt) hilft('Lagerfeuer', 1);
+  if (m.has('feuer') && kaltArt) hilft('Lagerfeuer', 1);else if (m.has('fackel') && kaltArt) hilft('Fackel', 1);
   if (m.has('schlafsack')) {
     if (temp.k === 'glut') hilft('Schlafsack bei Glut', -1);else if (temp.k !== 'heiss') hilft('Schlafsack', 1);
   }
@@ -17607,7 +17614,7 @@ const rastVorschlag = ({
       if (!(hatSchlafsack && m.has('decke')) || temp.k === 'arktis') hilft('Winterkleidung', 1);
     } else if (temp.k === 'warm' || heiss) hilft('Winterkleidung bei Wärme', -1);
   }
-  if (m.has('schirm') && niederschlag === 'klar' && heiss) hilft('Sonnenschirm', 1);
+  if (m.has('schirm') && niederschlag === 'klar' && temp.k === 'glut') hilft('Sonnenschirm', 1);
   return {
     stufe: Math.max(1, Math.min(7, b + wetter + hilfe)),
     teile
@@ -17796,10 +17803,11 @@ const rastAnwenden = (held, werte, rast, wahl = {}) => {
     saetze.unshift('Volle Trefferpunkte, alle Zauberplätze');
   } else {
     const jeStufe = 1 + con + lageStufe.tp;
-    const gewinn = Math.max(lageStufe.tpMin, jeStufe * stufe);
+    const pest = (c.rastLeiden || []).includes('Kanalpest');
+    const gewinn = pest ? 0 : Math.max(lageStufe.tpMin, jeStufe * stufe);
     hp = Math.min(hpDecke, hp + gewinn);
     patch.hp = hp;
-    saetze.push('+' + gewinn + ' TP (' + lageStufe.name + ')');
+    saetze.push(pest ? 'Kanalpest — keine TP aus der langen Rast' : '+' + gewinn + ' TP (' + lageStufe.name + ')');
     patch.trefferwuerfel = trefferwuerfelZurueck(c, 1);
     if (lageStufe.ersch && ersch > 0) {
       ersch -= 1;
@@ -17884,6 +17892,7 @@ const RastWahl = ({
 }, o.l))));
 const RastAnsage = ({
   regel,
+  onRegel,
   helden,
   vorlage,
   onAbbrechen,
@@ -17900,7 +17909,12 @@ const RastAnsage = ({
   const [essen, setEssen] = React.useState(true);
   const [text, setText] = React.useState(String(v.text || ''));
   const [fuer, setFuer] = React.useState(() => helden.map(h => h.id));
-  const grr = regel === 'grr';
+  const [regelHier, setRegelHier] = React.useState(regel === 'grr' ? 'grr' : 'standard');
+  const grr = regelHier === 'grr';
+  const regelWaehlen = r => {
+    setRegelHier(r);
+    if (onRegel && r !== regel) onRegel(r);
+  };
   const vorschlag = rastVorschlag({
     basis,
     niederschlag,
@@ -17919,6 +17933,21 @@ const RastAnsage = ({
   }, React.createElement("div", {
     className: "form-title"
   }, "\u263E Rast ansagen"), React.createElement("div", {
+    className: "rast-regel",
+    role: "group",
+    "aria-label": "Rastregel"
+  }, React.createElement("span", null, "Regel"), React.createElement("button", {
+    type: "button",
+    className: 'zust-chip' + (!grr ? ' an' : ''),
+    "aria-pressed": !grr,
+    onClick: () => regelWaehlen('standard')
+  }, "Standard"), React.createElement("button", {
+    type: "button",
+    className: 'zust-chip' + (grr ? ' an gut' : ''),
+    "aria-pressed": grr,
+    onClick: () => regelWaehlen('grr'),
+    title: "Lange Rast gibt nur einen Teil zur\xFCck \u2014 je nach Lage, Wetter und Ausr\xFCstung"
+  }, "Gradueller Rauer Realismus")), React.createElement("div", {
     className: "einst-wahl"
   }, React.createElement("button", {
     type: "button",
@@ -25545,6 +25574,11 @@ function App() {
       setDmLibrary(data.dm_library || {});
       setDmPass(dm);
       setIsDmMode(true);
+      if (dm === '') {
+        try {
+          sessionStorage.setItem(DM_MERKER, '1');
+        } catch (e) {}
+      }
       try {
         const [g, b] = await Promise.all([apiDmLoadEnemies(url, code, pass, dm), apiDmLoadEncounters(url, code, pass, dm)]);
         setEnemies(Array.isArray(g.enemies) ? g.enemies : []);
@@ -25618,6 +25652,9 @@ function App() {
     }
   };
   const doDmLogout = () => {
+    try {
+      sessionStorage.removeItem(DM_MERKER);
+    } catch (e) {}
     setIsDmMode(false);
     setDmPass('');
     setDmLibrary({});
@@ -26412,6 +26449,25 @@ function App() {
   const cur = chars.find(c => c.id === sel);
   const abenteuer = advListe(userLibrary);
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
+  const dmZurueck = useRef(false);
+  useEffect(() => {
+    if (dmZurueck.current || isDmMode || !konto || !svCode || !advId) return;
+    let gemerkt = false;
+    try {
+      gemerkt = sessionStorage.getItem(DM_MERKER) === '1';
+    } catch (e) {}
+    if (!gemerkt) {
+      dmZurueck.current = true;
+      return;
+    }
+    if (!leitetAbenteuer(konto, advDms, svCode, advId)) return;
+    dmZurueck.current = true;
+    dmLaden('').catch(() => {
+      try {
+        sessionStorage.removeItem(DM_MERKER);
+      } catch (e) {}
+    });
+  }, [konto, advDms, svCode, advId, isDmMode]);
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
   const advObj = abenteuer.find(a => a.id === advId) || null;
   advIdRef.current = advId;
@@ -31670,6 +31726,10 @@ function App() {
   }), rastAnsage && React.createElement(RastAnsage, {
     regel: rastRegel,
     vorlage: rastAnsage === true ? null : rastAnsage,
+    onRegel: r => advSpeichern(abenteuer.map(a => a.id === advId ? {
+      ...a,
+      rastRegel: r
+    } : a)),
     onAbbrechen: () => setRastAnsage(false),
     onAnsagen: rastSetzen,
     helden: advChars.filter(c => !c.archived && c.dmOnly !== true)

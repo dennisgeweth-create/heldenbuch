@@ -1226,6 +1226,11 @@ function App() {
       setDmLibrary(data.dm_library || {});
       setDmPass(dm);
       setIsDmMode(true);
+      // Ueber das Konto betreten: fuer diesen Tab merken, damit ein
+      // Neuladen — von Hand oder von js/neu.js bei einer neuen Fassung —
+      // die Spielleitung nicht stillschweigend zum Spieler macht. Dann
+      // fehlten ihr Post, Kampf und Gegner, ohne dass sie es merkt.
+      if (dm === '') { try { sessionStorage.setItem(DM_MERKER, '1'); } catch (e) {} }
       // Gegner kommen aus einer eigenen Tabelle und nur fuer die
       // Spielleitung. Faellt der Abruf aus, bleibt der DM-Modus trotzdem
       // nutzbar — die Gegnerliste sagt dann, dass sie nicht geladen ist.
@@ -1295,6 +1300,7 @@ function App() {
   };
 
   const doDmLogout = () => {
+    try { sessionStorage.removeItem(DM_MERKER); } catch (e) {}
     setIsDmMode(false);
     setDmPass('');
     setDmLibrary({});
@@ -1917,6 +1923,19 @@ function App() {
   // Einstellungen des offenen Abenteuers gehen in beides ein.
   const abenteuer = advListe(userLibrary);
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
+  // Nach dem Neuladen wieder hinein, wenn dieser Tab im DM-Modus war und
+  // das Konto das Abenteuer leitet. Einmal je Laden; geht es nicht, ist
+  // der Merker weg und die Seite bleibt still im Spielermodus.
+  const dmZurueck = useRef(false);
+  useEffect(() => {
+    if (dmZurueck.current || isDmMode || !konto || !svCode || !advId) return;
+    let gemerkt = false;
+    try { gemerkt = sessionStorage.getItem(DM_MERKER) === '1'; } catch (e) {}
+    if (!gemerkt) { dmZurueck.current = true; return; }
+    if (!leitetAbenteuer(konto, advDms, svCode, advId)) return;
+    dmZurueck.current = true;
+    dmLaden('').catch(() => { try { sessionStorage.removeItem(DM_MERKER); } catch (e) {} });
+  }, [konto, advDms, svCode, advId, isDmMode]);
   const advName = (abenteuer.find(a => a.id === advId) || {}).name || 'Abenteuer';
   const advObj  = abenteuer.find(a => a.id === advId) || null;
   advIdRef.current = advId;
@@ -5175,6 +5194,7 @@ function App() {
 
       {rastAnsage && (
         <RastAnsage regel={rastRegel} vorlage={rastAnsage === true ? null : rastAnsage}
+          onRegel={(r)=>advSpeichern(abenteuer.map(a => a.id === advId ? {...a, rastRegel: r} : a))}
           onAbbrechen={()=>setRastAnsage(false)} onAnsagen={rastSetzen}
           helden={advChars.filter(c => !c.archived && c.dmOnly !== true)} />
       )}

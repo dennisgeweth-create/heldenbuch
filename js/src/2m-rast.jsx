@@ -64,11 +64,13 @@ const RAST_WIND = [
 ];
 const RAST_MASSNAHMEN = [
   {k: 'feuer',    l: 'Lagerfeuer'},
+  {k: 'fackel',   l: 'Fackel'},
   {k: 'schlafsack', l: 'Schlafsack oder Bettrolle'},
   {k: 'decke',    l: 'Decke'},
   {k: 'zelt',     l: 'Zelt'},
   {k: 'winter',   l: 'Winterfeste Kleidung'},
   {k: 'schirm',   l: 'Sonnenschirm'},
+  {k: 'magzelt',  l: 'Magisches Zelt'},
   {k: 'huette',   l: 'Zauber: Winzige Hütte'},
   {k: 'herrenhaus', l: 'Zauber: Prächtiges Herrenhaus'},
 ];
@@ -95,7 +97,9 @@ const rastVorschlag = ({basis, niederschlag, temperatur, wind, massnahmen} = {})
   if (m.has('herrenhaus')) {
     return {stufe: 5, teile: [{text: 'Prächtiges Herrenhaus: komfortabel', wert: 0}]};
   }
-  const ohneWetter = m.has('huette');
+  // Im magischen Zelt ist es moderat — wie in der Hütte zählt das
+  // Wetter draußen nicht.
+  const ohneWetter = m.has('huette') || m.has('magzelt');
 
   let wetter = 0;
   if (!ohneWetter) {
@@ -112,13 +116,15 @@ const rastVorschlag = ({basis, niederschlag, temperatur, wind, massnahmen} = {})
     if (wind === 'boeen') post('Starke Böen', -1), wetter -= 1;
     if (wind === 'orkan') post('Sturm', -2), wetter -= 2;
   } else {
-    post('Winzige Hütte: das Wetter bleibt draußen', 0);
+    post((m.has('huette') ? 'Winzige Hütte' : 'Magisches Zelt') + ': das Wetter bleibt draußen', 0);
   }
 
   // Was die Gruppe dagegen tut.
   let hilfe = 0;
   const hilft = (text, wert) => { post(text, wert); hilfe += wert; };
   if (m.has('feuer') && kaltArt) hilft('Lagerfeuer', 1);
+  // Eine Fackel waermt wie ein Feuer — brennt schon eins, ist sie nur Licht.
+  else if (m.has('fackel') && kaltArt) hilft('Fackel', 1);
   if (m.has('schlafsack')) {
     if (temp.k === 'glut') hilft('Schlafsack bei Glut', -1);
     else if (temp.k !== 'heiss') hilft('Schlafsack', 1);
@@ -134,7 +140,7 @@ const rastVorschlag = ({basis, niederschlag, temperatur, wind, massnahmen} = {})
       if (!(hatSchlafsack && m.has('decke')) || temp.k === 'arktis') hilft('Winterkleidung', 1);
     } else if (temp.k === 'warm' || heiss) hilft('Winterkleidung bei Wärme', -1);
   }
-  if (m.has('schirm') && niederschlag === 'klar' && heiss) hilft('Sonnenschirm', 1);
+  if (m.has('schirm') && niederschlag === 'klar' && temp.k === 'glut') hilft('Sonnenschirm', 1);
 
   return {stufe: Math.max(1, Math.min(7, b + wetter + hilfe)), teile};
 };
@@ -282,12 +288,15 @@ const rastAnwenden = (held, werte, rast, wahl = {}) => {
     if (ersch > 0) { ersch -= 1; saetze.push('Erschöpfung −1'); }
     saetze.unshift('Volle Trefferpunkte, alle Zauberplätze');
   } else {
-    // Trefferpunkte nach der Variante
+    // Trefferpunkte nach der Variante — wer die Kanalpest hat, bekommt
+    // nach der langen Rast keine.
     const jeStufe = 1 + con + lageStufe.tp;
-    const gewinn = Math.max(lageStufe.tpMin, jeStufe * stufe);
+    const pest = (c.rastLeiden || []).includes('Kanalpest');
+    const gewinn = pest ? 0 : Math.max(lageStufe.tpMin, jeStufe * stufe);
     hp = Math.min(hpDecke, hp + gewinn);
     patch.hp = hp;
-    saetze.push('+' + gewinn + ' TP (' + lageStufe.name + ')');
+    saetze.push(pest ? 'Kanalpest — keine TP aus der langen Rast'
+                     : '+' + gewinn + ' TP (' + lageStufe.name + ')');
     patch.trefferwuerfel = trefferwuerfelZurueck(c, 1);
     if (lageStufe.ersch && ersch > 0) { ersch -= 1; saetze.push('Erschöpfung −1'); }
     // Zauberplätze nach Auswahl, Pakt ganz
@@ -345,7 +354,10 @@ const RastWahl = ({ titel, optionen, wert, onWert }) => (
   </label>
 );
 // vorlage: was der Abenteuerplaner mitgibt — das Wetter des Reisetags.
-const RastAnsage = ({ regel, helden, vorlage, onAbbrechen, onAnsagen }) => {
+// regel: was im Abenteuer eingestellt ist. Sie laesst sich hier
+// umstellen — onRegel traegt die Wahl ins Abenteuer, damit sie beim
+// naechsten Mal wieder gilt.
+const RastAnsage = ({ regel, onRegel, helden, vorlage, onAbbrechen, onAnsagen }) => {
   const v = vorlage || {};
   const [art, setArt] = React.useState(v.art === 'kurz' ? 'kurz' : 'lang');
   const [basis, setBasis] = React.useState(+v.basis || 2);
@@ -358,7 +370,9 @@ const RastAnsage = ({ regel, helden, vorlage, onAbbrechen, onAnsagen }) => {
   const [text, setText] = React.useState(String(v.text || ''));
   const [fuer, setFuer] = React.useState(() => helden.map(h => h.id));
 
-  const grr = regel === 'grr';
+  const [regelHier, setRegelHier] = React.useState(regel === 'grr' ? 'grr' : 'standard');
+  const grr = regelHier === 'grr';
+  const regelWaehlen = (r) => { setRegelHier(r); if (onRegel && r !== regel) onRegel(r); };
   const vorschlag = rastVorschlag({basis, niederschlag, temperatur, wind, massnahmen});
   const stufe = von || vorschlag.stufe;
   const lage = rastStufe(stufe);
@@ -370,6 +384,14 @@ const RastAnsage = ({ regel, helden, vorlage, onAbbrechen, onAnsagen }) => {
     <Fenster onClick={onAbbrechen}>
       <div className="form-modal rast-fenster" onClick={e=>e.stopPropagation()}>
         <div className="form-title">☾ Rast ansagen</div>
+        <div className="rast-regel" role="group" aria-label="Rastregel">
+          <span>Regel</span>
+          <button type="button" className={'zust-chip' + (!grr ? ' an' : '')} aria-pressed={!grr}
+            onClick={()=>regelWaehlen('standard')}>Standard</button>
+          <button type="button" className={'zust-chip' + (grr ? ' an gut' : '')} aria-pressed={grr}
+            onClick={()=>regelWaehlen('grr')} title="Lange Rast gibt nur einen Teil zurück — je nach Lage, Wetter und Ausrüstung">
+            Gradueller Rauer Realismus</button>
+        </div>
         <div className="einst-wahl">
           <button type="button" className={'einst-option' + (art === 'kurz' ? ' aktiv' : '')} onClick={()=>setArt('kurz')}>
             <b>Kurze Rast</b><i>{grr ? 'Trefferwürfel geben temporäre TP' : 'Trefferwürfel heilen'}</i>

@@ -613,6 +613,12 @@
   .pdf-rahmen { flex:1; min-height:0; width:100%; border:1px solid var(--border); border-radius:6px; background:#fff; }
   .pdf-hinweis { padding:10px 2px 0; font-size:12.5px; color:var(--text-muted); }
   .pdf-hinweis a { color:var(--inspiration); }
+
+  /* Die Rastregel im Fenster „Rast ansagen" — dieselbe Wahl wie in den
+     Einstellungen des Abenteuers, nur dort, wo man sie braucht. */
+  .rast-regel { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:-2px 0 10px; }
+  .rast-regel > span { font-family:'Roboto Condensed',sans-serif; font-size:10px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); margin-right:2px; }
   @media (max-width: 700px) {
     .form-modal.pdf-leser { width:100vw; height:100dvh; border-radius:0; }
     .pdf-trenner, .pdf-doppel { display:none; }

@@ -122,5 +122,26 @@ ist('der Hexenmeister holt nach Standard seinen Pakt schon kurz',
   rastAnwenden({charClass: 'Hexenmeister', level: 3, spellSlots: {2: {max: 2, used: 2}}}, null,
                {art: 'kurz', regel: 'standard'}).patch.spellSlots[2].used, 0);
 
+// ── Was im Heft noch steht ───────────────────────────────────────
+ist('eine Fackel wärmt bei Kälte wie ein Feuer',
+  rastVorschlag({basis: 2, temperatur: 'kalt', massnahmen: ['fackel']}).stufe, 1);
+ist('  … neben einem Lagerfeuer ist sie nur Licht',
+  rastVorschlag({basis: 4, temperatur: 'kalt', massnahmen: ['feuer', 'fackel']}).stufe, 3);
+ist('  … und bei Wärme nichts',
+  rastVorschlag({basis: 2, temperatur: 'warm', massnahmen: ['fackel']}).stufe, 3);
+ist('im magischen Zelt zählt das Wetter nicht',
+  rastVorschlag({basis: 2, niederschlag: 'sturm', temperatur: 'arktis', wind: 'orkan', massnahmen: ['magzelt']}).stufe, 2);
+ist('  … der Schlafsack darin schon',
+  rastVorschlag({basis: 2, niederschlag: 'sturm', temperatur: 'arktis', massnahmen: ['magzelt', 'schlafsack']}).stufe, 3);
+ist('der Sonnenschirm hilft bei unerträglicher Hitze',
+  rastVorschlag({basis: 4, niederschlag: 'klar', temperatur: 'glut', massnahmen: ['schirm']}).stufe, 2);
+ist('  … bei bloßer Hitze nicht',
+  rastVorschlag({basis: 4, niederschlag: 'klar', temperatur: 'heiss', massnahmen: ['schirm']}).stufe, 3);
+const verpestet = {...kaempfer, rastLeiden: ['Kanalpest']};
+const pest = rastAnwenden(verpestet, w(verpestet), {art: 'lang', regel: 'grr', stufe: 5, essen: true});
+ist('mit Kanalpest gibt die lange Rast keine TP', pest.patch.hp, 10);
+ist('  … und sagt warum', pest.saetze[0], 'Kanalpest — keine TP aus der langen Rast');
+ist('  … der Trefferwürfel kommt trotzdem', pest.patch.trefferwuerfel, {10: 2});
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

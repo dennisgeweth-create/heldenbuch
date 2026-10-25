@@ -118,6 +118,9 @@
     // einen Ort hat. Der Held steht ohne eigenes darin.
     localStorage.setItem('hb_library', JSON.stringify({_adventures: [{id: 'wb', name: 'Werkbank', rastRegel: 'grr'}]}));
     localStorage.setItem('hb_adventure', 'wb');
+    // Der DM-Modus vom letzten Lauf in diesem Tab gilt nicht: die
+    // Werkbank betritt ihn selbst, als erste Prüfung.
+    try { sessionStorage.removeItem('hb_dm_modus'); } catch (e) {}
     // Die Fensterleiste vom „letzten Mal": die Datenbank war offen und
     // lag minimiert in der Leiste. Nach dem Start muss sie dort wieder stehen.
     localStorage.setItem('hb_fensterleiste', JSON.stringify({offen: ['datenbank'], versteckt: {datenbank: true}, vorne: ['datenbank']}));
@@ -410,6 +413,9 @@
         dm.click();
         if (!ja('Der DM-Modus geht auf', !!(await warten(() => knopfMit('🔮 aus')))))
           return schluss();
+        // Damit ein Neuladen — auch das von selbst bei einer neuen Fassung —
+        // die Spielleitung nicht zum Spieler macht und ihr die Post nimmt.
+        ja('  … und der Tab merkt ihn sich fürs Neuladen', sessionStorage.getItem('hb_dm_modus') === '1');
 
         // ── Die Werkzeuge: eine Leiste, zwei Stellen ───────────────
         // Am breiten Schirm steht sie in der Seitenleiste, am schmalen auf
@@ -1790,6 +1796,19 @@
           rastK.click();
           const ansage = await warten(() => document.querySelector('.rast-rechner'));
           if (ja('Die Variante zeigt den Rechner', !!ansage)) {
+            // Die Regel steht im Fenster selbst — nicht nur in den
+            // Einstellungen des Abenteuers — und wird dorthin gemerkt.
+            const regelK = (t) => [...document.querySelectorAll('.rast-regel button')].find(b => b.textContent.trim() === t);
+            const advRegel = () => ((JSON.parse(wbSpeicher.hb_library || '{}')._adventures || [])[0] || {}).rastRegel;
+            ja('„Rast ansagen" zeigt die Regel zur Wahl', !!regelK('Standard') && !!regelK('Gradueller Rauer Realismus'));
+            regelK('Standard').click(); await ruhe(150);
+            ja('  … „Standard" nimmt den Rechner weg und merkt es sich im Abenteuer',
+               !document.querySelector('.rast-rechner') && advRegel() === 'standard', advRegel());
+            regelK('Gradueller Rauer Realismus').click();
+            ja('  … und zurück: der Rechner ist wieder da', !!(await warten(() => document.querySelector('.rast-rechner')))
+               && advRegel() === 'grr', advRegel());
+            ja('  … mit Fackel und magischem Zelt aus dem Heft',
+               ['Fackel', 'Magisches Zelt'].every(n => [...document.querySelectorAll('.rast-massnahmen .zust-chip')].some(b => b.textContent === n)));
             const sel = [...document.querySelectorAll('.rast-rechner select')];
             const setzS = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
             const waehle = (i, v) => { setzS.call(sel[i], v); sel[i].dispatchEvent(new Event('change', {bubbles: true})); };
