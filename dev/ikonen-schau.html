@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Werkbank · Icons</title>
+  <link rel="stylesheet" href="../styles.css?v=dev">
+  <style>
+    body { padding:20px; }
+    .bogen { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:8px; }
+    .zelle { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 4px 8px;
+      border:1px solid var(--border); border-radius:6px; background:var(--bg-card); color:var(--text-primary); }
+    .zelle .ik { width:40px; height:40px; }
+    .zelle small { font:11px 'Roboto Condensed',sans-serif; color:var(--text-muted); }
+    h2 { font:600 14px 'Roboto Condensed',sans-serif; color:var(--gold); margin:22px 0 10px; letter-spacing:.08em; text-transform:uppercase; }
+    .probe { display:flex; flex-wrap:wrap; gap:8px; }
+  </style>
+</head>
+<body>
+  <h2>Alle Icons</h2>
+  <div class="bogen" id="bogen"></div>
+  <h2>Im Text</h2>
+  <div id="probe"></div>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/icons.js?v=dev"></script>
+  <script>
+    const b = document.getElementById('bogen');
+    b.innerHTML = HB_IKONEN.namen.map(n => '<div class="zelle">' + HB_IKONEN.markup(n) + '<small>' + n + '</small></div>').join('');
+    const e = React.createElement;
+    ReactDOM.render(e('div', {className: 'probe'},
+      e('button', {className: 'btn-tool'}, '⚔ Kampf · Vorbereitung'),
+      e('button', {className: 'btn-tool'}, '📚 Datenbank'),
+      e('button', {className: 'btn-tool'}, '📥 Bögen'),
+      e('button', {className: 'btn-tool'}, '📔 Tagebuch'),
+      e('button', {className: 'btn-tool'}, '📖 Abenteuerlog'),
+      e('button', {className: 'btn-tool'}, '🗺 Planer'),
+      e('button', {className: 'btn-tool'}, '☾ Rast'),
+      e('button', {className: 'btn-tool'}, '✉ Post'),
+      e('button', {className: 'btn-tool'}, '🏪 Laden'),
+      e('button', {className: 'btn-tool'}, '💰 Beute'),
+      e('button', {className: 'btn-tool'}, '🎲 Probe'),
+      e('button', {className: 'btn-tool'}, '🕰 Chronik'),
+      e('button', {className: 'btn-tool'}, '🎰 Taverne'),
+      e('button', {className: 'btn-save'}, '✎ Bearbeiten'),
+      e('button', {className: 'btn-cancel'}, '✕ Schließen'),
+      e('span', {style: {fontSize: 40}}, '🛡'),
+      e('input', {className: 'form-input', placeholder: '🔍 Suchen…'}),
+      e('select', {className: 'form-select'}, e('option', null, '🎯 Attribute'))
+    ), document.getElementById('probe'));
+  </script>
+</body>
+</html>

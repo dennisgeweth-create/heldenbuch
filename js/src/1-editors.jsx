@@ -68,11 +68,13 @@ const RichEditor = ({ value, onChange, placeholder, rows }) => {
         <div style={{width:1,height:16,background:'var(--border)',margin:'0 2px'}}/>
         <div className="rte-emoji-wrap">
           <button type="button" className="rte-btn"
-            onMouseDown={e=>{e.preventDefault();saveRange();setShowEmoji(s=>!s);}}>😊 Emoji</button>
+            onMouseDown={e=>{e.preventDefault();saveRange();setShowEmoji(s=>!s);}}>Emoji</button>
           {showEmoji && (
             <div className="rte-emoji-grid">
+              {/* Emojis, die in den Text kommen — Inhalt, kein Icon. data-emoji
+                  hält js/icons.js davon ab, sie zu ersetzen. */}
               {EMOJI_LIST.map(em=>(
-                <button key={em} type="button" className="rte-emoji-item"
+                <button key={em} type="button" className="rte-emoji-item" data-emoji="1"
                   onMouseDown={e=>{e.preventDefault();insertEmoji(em);}}>{em}</button>
               ))}
             </div>

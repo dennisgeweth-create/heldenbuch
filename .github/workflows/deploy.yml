@@ -69,7 +69,7 @@ jobs:
           # keinen Server und keine Anmeldung — alles steht in demo.json.
           cp demo.html demo.json deploy/
           cp data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json deploy/
-          cp js/data.js js/util.js js/zip.js js/neu.js js/app.js deploy/js/
+          cp js/data.js js/util.js js/zip.js js/neu.js js/icons.js js/app.js deploy/js/
           # babel.min.js bleibt absichtlich zurueck: es wird nur noch von
           # build.js gebraucht, nicht mehr im Browser.
           cp vendor/react.production.min.js vendor/react-dom.production.min.js deploy/vendor/
@@ -136,7 +136,7 @@ jobs:
           # mit einem TLS-Fehler ab (curl 35) — die Datei ist dann in
           # Ordnung, nur der Abruf leer. Deshalb bis zu dreimal, mit Pause.
           holen() { curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 "$1"; }
-          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg bilder/glueck/sonne.png bilder/glueck/sieben.png js/neu.js vendor/pdfjs/pdf.min.js vendor/pdfjs/pdf.worker.min.js"
+          FILES="index.html demo.html demo.json styles.css PATCHNOTES.md js/data.js js/util.js js/zip.js js/app.js planer/index.html planer/planer.css planer/planer.js planer/sw.js data-spells.json data-weapons.json data-wildshapes.json data-merkmale.json vendor/react.production.min.js vendor/react-dom.production.min.js bilder/hut/gaukler.jpg bilder/hut/hut.jpg bilder/glueck/sonne.png bilder/glueck/sieben.png js/neu.js js/icons.js vendor/pdfjs/pdf.min.js vendor/pdfjs/pdf.worker.min.js"
           for f in $FILES; do
             LOCAL=$(sha256sum "deploy/$f" | cut -d' ' -f1)
             REMOTE=$(holen "$SITE_URL/$f?cachebust=${GITHUB_SHA}" | sha256sum | cut -d' ' -f1)

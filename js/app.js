@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2fb-hut.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 2o-tagebuch.jsx, 2p-anhang.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2fb-hut.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 2o-tagebuch.jsx, 2p-anhang.jsx, 2q-ankuendigung.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 const {
@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.38.0';
+const HB_VERSION = 'v6.0.0';
 const DM_MERKER = 'hb_dm_modus';
 const EinstBlock = ({
   titel,
@@ -1151,12 +1151,13 @@ const RichEditor = ({
       saveRange();
       setShowEmoji(s => !s);
     }
-  }, "\uD83D\uDE0A Emoji"), showEmoji && React.createElement("div", {
+  }, "Emoji"), showEmoji && React.createElement("div", {
     className: "rte-emoji-grid"
   }, EMOJI_LIST.map(em => React.createElement("button", {
     key: em,
     type: "button",
     className: "rte-emoji-item",
+    "data-emoji": "1",
     onMouseDown: e => {
       e.preventDefault();
       insertEmoji(em);
@@ -20329,6 +20330,174 @@ const PdfLeser = ({
   }, " Im Browser \xF6ffnen \u2197")))));
 };
 
+// ==== js/src/2q-ankuendigung.jsx ====
+const ANK_MERKER = 'hb_animationen';
+const ankAn = () => {
+  try {
+    return localStorage.getItem(ANK_MERKER) !== 'aus';
+  } catch (e) {
+    return true;
+  }
+};
+const ankSetzen = an => {
+  try {
+    localStorage.setItem(ANK_MERKER, an ? 'an' : 'aus');
+  } catch (e) {}
+};
+const ANK_DAUER = {
+  post: 2700,
+  kampf: 2500,
+  zug: 2300,
+  probe: 2400,
+  rast: 2700,
+  beute: 2500,
+  laden: 2400
+};
+const ankHoerer = new Set();
+const ankuendigen = (art, text, unter, erzwingen) => {
+  if (!erzwingen && !ankAn()) return;
+  const a = {
+    art,
+    text: text || '',
+    unter: unter || '',
+    id: Date.now() + Math.random()
+  };
+  ankHoerer.forEach(f => f(a));
+};
+const ankIcon = name => window.HB_IKONEN ? window.HB_IKONEN.react(name) : null;
+const AnkSchwert = ({
+  klasse
+}) => React.createElement("svg", {
+  className: 'ank-schwert ' + klasse,
+  viewBox: "0 0 30 120",
+  "aria-hidden": "true"
+}, React.createElement("path", {
+  className: "ank-klinge",
+  d: "M15 3l4.5 10.5V79h-9V13.5z"
+}), React.createElement("path", {
+  className: "ank-kehle",
+  d: "M15 16v58"
+}), React.createElement("rect", {
+  className: "ank-parier",
+  x: "2",
+  y: "79",
+  width: "26",
+  height: "6",
+  rx: "3"
+}), React.createElement("rect", {
+  className: "ank-griff",
+  x: "12",
+  y: "85",
+  width: "6",
+  height: "21",
+  rx: "2"
+}), React.createElement("circle", {
+  className: "ank-knauf",
+  cx: "15",
+  cy: "110",
+  r: "5"
+}));
+const ANK_BILD = {
+  post: () => React.createElement("div", {
+    className: "ank-flug"
+  }, React.createElement("svg", {
+    className: "ank-brief",
+    viewBox: "0 0 120 96",
+    "aria-hidden": "true"
+  }, React.createElement("g", {
+    className: "ank-papier"
+  }, React.createElement("rect", {
+    x: "24",
+    y: "14",
+    width: "72",
+    height: "56",
+    rx: "3"
+  }), React.createElement("path", {
+    d: "M34 28h52M34 38h52M34 48h36"
+  })), React.createElement("path", {
+    className: "ank-umschlag",
+    d: "M8 36h104v52H8z"
+  }), React.createElement("path", {
+    className: "ank-falz",
+    d: "M8 88l40-28M112 88L72 60"
+  }), React.createElement("path", {
+    className: "ank-klappe",
+    d: "M8 36l52 34 52-34"
+  }), React.createElement("circle", {
+    className: "ank-siegel",
+    cx: "60",
+    cy: "68",
+    r: "8"
+  }))),
+  kampf: () => React.createElement("div", {
+    className: "ank-kreuz"
+  }, React.createElement("div", {
+    className: "ank-blitz"
+  }), React.createElement(AnkSchwert, {
+    klasse: "links"
+  }), React.createElement(AnkSchwert, {
+    klasse: "rechts"
+  })),
+  zug: () => React.createElement("div", {
+    className: "ank-symbol ank-wippen"
+  }, ankIcon('klinge')),
+  probe: () => React.createElement("div", {
+    className: "ank-symbol ank-rollen"
+  }, ankIcon('wuerfel')),
+  rast: () => React.createElement("div", {
+    className: "ank-nacht"
+  }, React.createElement("div", {
+    className: "ank-symbol ank-steigen"
+  }, ankIcon('mond')), [0, 1, 2, 3, 4].map(i => React.createElement("span", {
+    key: i,
+    className: 'ank-sternchen s' + i
+  }, ankIcon('funke')))),
+  beute: () => React.createElement("div", {
+    className: "ank-schatz"
+  }, React.createElement("div", {
+    className: "ank-symbol ank-huepfen"
+  }, ankIcon('truhe')), [0, 1, 2, 3, 4, 5].map(i => React.createElement("span", {
+    key: i,
+    className: 'ank-muenze m' + i
+  }))),
+  laden: () => React.createElement("div", {
+    className: "ank-symbol ank-schwingen"
+  }, ankIcon('laden'))
+};
+const AnkuendigungsBuehne = () => {
+  const [schlange, setSchlange] = React.useState([]);
+  React.useEffect(() => {
+    const f = a => setSchlange(s => s.length >= 3 ? s : [...s, a]);
+    ankHoerer.add(f);
+    return () => {
+      ankHoerer.delete(f);
+    };
+  }, []);
+  const jetzt = schlange[0];
+  React.useEffect(() => {
+    if (!jetzt) return undefined;
+    const t = setTimeout(() => setSchlange(s => s.slice(1)), ANK_DAUER[jetzt.art] || 2500);
+    return () => clearTimeout(t);
+  }, [jetzt && jetzt.id]);
+  if (!jetzt) return null;
+  const bild = ANK_BILD[jetzt.art];
+  return React.createElement("div", {
+    className: 'ank ank-' + jetzt.art,
+    key: jetzt.id,
+    role: "status",
+    "aria-live": "polite"
+  }, React.createElement("div", {
+    className: "ank-schleier"
+  }), React.createElement("div", {
+    className: "ank-mitte"
+  }, React.createElement("div", {
+    className: "ank-bild"
+  }, bild ? bild() : null), React.createElement("div", {
+    className: "ank-text"
+  }, React.createElement("b", null, jetzt.text), jetzt.unter && React.createElement("i", null, jetzt.unter))));
+};
+const ANK_PROBEN = [['post', 'Neue Post', 'von Ilvara'], ['kampf', 'Kampf!', 'Würfelt Initiative'], ['zug', 'Du bist am Zug', 'Brunhilde'], ['probe', 'Probe', 'Wahrnehmung · SG 13'], ['rast', 'Lange Rast', 'Die Nacht im Schilf am Fluss'], ['beute', 'Beute liegt bereit', 'Truhe des Wirts'], ['laden', 'Der Laden hat geöffnet', 'Waffen und Rüstung']];
+
 // ==== js/src/3-sheet.jsx ====
 const SheetCtx = React.createContext(null);
 const Sheet = () => {
@@ -26831,16 +27000,26 @@ function App() {
   };
   const [post, setPost] = useState([]);
   const [postOffen, setPostOffen] = useState(false);
+  const postGrund = useRef(null);
   const postLaden = async () => {
     const creds = serverCreds();
     if (!verbunden(creds) || !advId) return;
     try {
       const d = await apiPostListe(creds.url, creds.code, advId);
-      setPost(d && d.post || []);
+      const liste = d && d.post || [];
+      const ein = liste.filter(p => p.eingang);
+      const hoechste = ein.reduce((m, p) => Math.max(m, +p.id || 0), 0);
+      if (postGrund.current !== null && hoechste > postGrund.current) {
+        const neu = ein.find(p => +p.id === hoechste);
+        ankuendigen('post', 'Neue Post', neu && neu.von && neu.von.name ? 'von ' + neu.von.name : '');
+      }
+      postGrund.current = Math.max(postGrund.current || 0, hoechste);
+      setPost(liste);
     } catch {}
   };
   useEffect(() => {
     setPost([]);
+    postGrund.current = null;
     if (!advId || !konto) return;
     let lebt = true,
       uhr = null;
@@ -27556,6 +27735,53 @@ function App() {
     if (dran && drin.some(t => t.charId === dran.charId)) return dran.charId;
     return drin[0].charId;
   })();
+  const ankStand = useRef({});
+  const ankMelden = (art, schluessel, text, unter) => {
+    const k = art + '|' + advId + '|' + (isDmMode ? 'dm' : 'sp');
+    const st = ankStand.current;
+    if (!(k in st)) {
+      st[k] = schluessel;
+      return;
+    }
+    if (st[k] === schluessel) return;
+    st[k] = schluessel;
+    if (schluessel) ankuendigen(art, text, unter);
+  };
+  const ankKampf = isDmMode ? kampf && kampf.aktiv && kampf.phase !== 'vorbereitung' ? 'k:' + (kampf.name || '') : null : kampfSichtDaten && kampfSichtDaten.phase !== 'vorbereitung' ? 'k:' + (kampfSichtDaten.name || '') : null;
+  useEffect(() => {
+    if (!isDmMode && kampfStandRef.current < 0) return;
+    ankMelden('kampf', ankKampf, 'Kampf!', (isDmMode ? kampf && kampf.name : kampfSichtDaten && kampfSichtDaten.name) || 'Würfelt Initiative');
+  }, [ankKampf]);
+  const ankDran = (() => {
+    if (isDmMode || !kampfSichtDaten || kampfSichtDaten.phase === 'vorbereitung') return null;
+    const dran = (kampfSichtDaten.teilnehmer || [])[kampfSichtDaten.zug || 0];
+    return dran && dran.art === 'held' && eigeneHeldenIds.includes(dran.charId) ? dran : null;
+  })();
+  const ankZug = ankDran ? (kampfSichtDaten.runde || 1) + ':' + (kampfSichtDaten.zug || 0) + ':' + ankDran.charId : null;
+  useEffect(() => {
+    if (kampfStandRef.current < 0) return;
+    ankMelden('zug', ankZug, 'Du bist am Zug', ankDran && ankDran.name);
+  }, [ankZug]);
+  const ankProbe = probe && !isDmMode && (!(probe.fuer || []).length || probe.fuer.some(id => eigeneHeldenIds.includes(id))) ? probe.id : null;
+  useEffect(() => {
+    if (probeStandRef.current < 0) return;
+    ankMelden('probe', ankProbe, 'Probe', probe ? probeWort(probe) + (probe.verdeckt ? '' : ' · SG ' + probe.sg) : '');
+  }, [ankProbe]);
+  const ankRast = rast && !isDmMode ? rast.id : null;
+  useEffect(() => {
+    if (rastStandRef.current < 0) return;
+    ankMelden('rast', ankRast, rast && rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast', rast && rast.text);
+  }, [ankRast]);
+  const ankBeute = beute && !isDmMode ? beute.id || beute.titel || 'beute' : null;
+  useEffect(() => {
+    if (beuteStandRef.current < 0) return;
+    ankMelden('beute', ankBeute, 'Beute liegt bereit', beute && beute.titel);
+  }, [ankBeute]);
+  const ankLaden = laden && !isDmMode ? 'laden' : null;
+  useEffect(() => {
+    if (!libGeladen) return;
+    ankMelden('laden', ankLaden, 'Der Laden hat geöffnet', laden && laden.name);
+  }, [ankLaden, libGeladen]);
   const einstellungFuer = advEinstellung ? advEinstellung.id : null;
   useEffect(() => {
     if (!einstellungFuer) return;
@@ -29037,13 +29263,7 @@ function App() {
     className: "sidebar" + (sidebarCollapsed ? " collapsed" : "")
   }, React.createElement("div", {
     className: "sidebar-header"
-  }, React.createElement("img", {
-    className: "hb-logo",
-    src: "logo.png",
-    alt: "Heldenbuch",
-    width: 280,
-    height: 280
-  }), React.createElement("div", {
+  }, React.createElement("div", {
     className: "sidebar-wort"
   }, "Heldenbuch", React.createElement("button", {
     className: "app-version",
@@ -29148,17 +29368,11 @@ function App() {
     className: "mobile-list-screen"
   }, React.createElement("div", {
     style: {
-      padding: "16px 12px 12px",
+      padding: "12px 12px 10px",
       borderBottom: "1px solid var(--border)",
       textAlign: "center"
     }
-  }, React.createElement("img", {
-    className: "hb-logo schmal",
-    src: "logo.png",
-    alt: "Heldenbuch",
-    width: 280,
-    height: 280
-  }), React.createElement("div", {
+  }, React.createElement("div", {
     className: "sidebar-wort"
   }, "Heldenbuch", React.createElement("button", {
     className: "app-version",
@@ -30532,46 +30746,8 @@ function App() {
       }, item.name);
     })));
   })(), showIconPicker && (() => {
-    const ICON_CATS = [{
-      label: 'Nahkampfwaffen',
-      icons: ['⚔', '🗡', '🔪', '🪃', '🪓', '🏏', '🪝', '⚒', '🔨', '🪚', '🗾', '🧨']
-    }, {
-      label: 'Fernkampf & Magie',
-      icons: ['🏹', '🪃', '⚡', '🌟', '💥', '🔥', '❄', '🌊', '💨', '☄', '🌀', '🔮', '🌀', '✨', '💫', '🌙']
-    }, {
-      label: 'Rüstung & Schutz',
-      icons: ['🛡', '⛓', '🪖', '🧤', '🥋', '🎭', '🧣', '🧥', '👘', '🦺', '🎩', '👑']
-    }, {
-      label: 'Schmuck & Artefakte',
-      icons: ['💍', '📿', '🪬', '💎', '🪩', '🏺', '🪆', '🪄', '🎀', '🧿', '⭕', '♾']
-    }, {
-      label: 'Tränke & Essen',
-      icons: ['🧪', '🔬', '🫙', '🍶', '🍵', '🫖', '🍷', '🍺', '🍯', '🥃', '🍎', '🍇', '🍄', '🌹', '🌿', '🌾']
-    }, {
-      label: 'Bücher & Schriften',
-      icons: ['📜', '📖', '📚', '📝', '📒', '📋', '🗾', '🔭', '🔬', '🧭', '📡', '📅']
-    }, {
-      label: 'Werkzeuge & Schlösser',
-      icons: ['🔑', '🗝', '⛏', '🔧', '🪛', '🔩', '🪤', '🧰', '🪜', '🪣', '⚙', '🔗', '📎', '✂', '🧲', '🪝']
-    }, {
-      label: 'Licht & Feuer',
-      icons: ['🕯', '🪔', '🔦', '💡', '🔥', '🪵', '🎇', '🎆', '⚡', '☀', '🌟', '✴']
-    }, {
-      label: 'Säcke & Behälter',
-      icons: ['🎒', '👜', '💰', '💴', '💵', '🪙', '📦', '🗃', '🧺', '🪣', '🎁', '📫']
-    }, {
-      label: 'Natur & Edelsteine',
-      icons: ['🪨', '🌊', '🌿', '🍀', '🌱', '🌾', '🌰', '🌹', '🌻', '💧', '🔱', '🌙', '☀', '⭐', '🌈', '❄']
-    }, {
-      label: 'Tiere & Monster',
-      icons: ['🐲', '🦄', '🦅', '🐺', '🦊', '🐗', '🦂', '🕷', '🦇', '🐍', '🦁', '🐻', '🦎', '🐙', '🦀', '🦟', '🐉', '🦋', '🦩', '🦚', '🦜', '🐓', '🦑']
-    }, {
-      label: 'Körper & Seele',
-      icons: ['💀', '☠', '👁', '🫀', '🧠', '🦷', '🦴', '🩸', '💉', '🩺', '🧬', '🫁', '🤚', '✊', '🤝', '👁️‍🗨️']
-    }, {
-      label: 'Sonstiges',
-      icons: ['🎲', '🎯', '🎪', '🎠', '🏺', '🎵', '🎶', '🎸', '📯', '🥁', '🎺', '🎻', '🃏', '🎴', '🀄', '🎭', '🎬', '🎨']
-    }];
+    const ICON_CATS = (window.HB_IKONEN || {}).wahl || [];
+    const gleich = (a, b) => a === b || !!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b);
     return React.createElement("div", {
       className: "form-overlay",
       onClick: () => setShowIconPicker(false)
@@ -30630,7 +30806,7 @@ function App() {
       className: "icon-picker-grid"
     }, cat.icons.map(ic => React.createElement("button", {
       key: ic,
-      className: "icon-picker-btn" + (itf.icon === ic ? " selected" : ""),
+      className: "icon-picker-btn" + (gleich(itf.icon, ic) ? " selected" : ""),
       onClick: () => {
         setItf(p => ({
           ...p,
@@ -31799,7 +31975,7 @@ function App() {
         delWeapon(w.id);
       }
     }, "\u2715 L\xF6schen")))));
-  })(), pdfLeser && React.createElement(PdfLeser, {
+  })(), React.createElement(AnkuendigungsBuehne, null), pdfLeser && React.createElement(PdfLeser, {
     anhang: pdfLeser,
     server: serverCreds().url,
     onZu: () => setPdfLeser(null)
@@ -33017,25 +33193,8 @@ function App() {
       placeholder: "z.B. Heiltrank",
       autoFocus: true
     })), showIconPicker && (() => {
-      const ICON_CATS2 = [{
-        label: 'Waffen',
-        icons: ['⚔', '🗡', '🔪', '🪃', '🪓', '🏹', '🔱', '⚡', '🌟', '💥', '🔥', '❄', '☠', '🩸']
-      }, {
-        label: 'Rüstung',
-        icons: ['🛡', '⛓', '🪬', '💎', '📿', '🔮', '🧿', '🪄', '🎭', '👑', '💍', '🧤', '🎩', '🪖']
-      }, {
-        label: 'Tränke & Magie',
-        icons: ['🧪', '🔬', '🪄', '🔭', '📜', '📖', '🗾', '🧲', '💡', '🕯', '🪔', '🔦', '✨', '💫', '🌀', '♾']
-      }, {
-        label: 'Natur',
-        icons: ['🌿', '🍄', '🌱', '🌾', '🍀', '🌹', '🌻', '🍎', '🍇', '🫙', '🌰', '🌊', '🪨', '🌙', '☀', '⭐']
-      }, {
-        label: 'Werkzeuge',
-        icons: ['🔑', '🗝', '⛏', '🪚', '🔧', '🪛', '🔩', '🪤', '🧰', '🪜', '🪣', '🧱', '💰', '👜', '🎒', '🗃']
-      }, {
-        label: 'Sonstiges',
-        icons: ['💀', '👁', '🫀', '🦷', '🧠', '🤝', '✊', '🎲', '🎯', '🏺', '📦', '🧲', '⚙', '🐲', '🦄', '🦅']
-      }];
+      const ICON_CATS2 = (window.HB_IKONEN || {}).wahl || [];
+      const gleich2 = (a, b) => a === b || !!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b);
       return React.createElement("div", {
         className: "form-overlay",
         style: {
@@ -33071,7 +33230,7 @@ function App() {
         className: "icon-picker-grid"
       }, cat.icons.map(ic => React.createElement("button", {
         key: ic,
-        className: "icon-picker-btn" + ((dbForm.icon || '🎒') === ic ? " selected" : ""),
+        className: "icon-picker-btn" + (gleich2(dbForm.icon || '🎒', ic) ? " selected" : ""),
         onClick: () => {
           setDbForm(f => ({
             ...f,
@@ -33913,7 +34072,24 @@ function App() {
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "form-title"
-  }, "\uD83D\uDC64 Mein Konto"), kontoDlg.laedt && React.createElement("p", {
+  }, "\uD83D\uDC64 Mein Konto"), React.createElement("div", {
+    className: "einst-block"
+  }, React.createElement("div", {
+    className: "einst-titel"
+  }, "\u2726 Auf diesem Ger\xE4t"), React.createElement("label", {
+    className: "zug-lauf-an"
+  }, React.createElement("input", {
+    type: "checkbox",
+    defaultChecked: ankAn(),
+    onChange: e => ankSetzen(e.target.checked)
+  }), React.createElement("span", null, "Animation bei Neuigkeiten \u2014 Post, Kampfbeginn, am Zug, Probe, Rast, Beute, Laden")), React.createElement("div", {
+    className: "ank-proben"
+  }, ANK_PROBEN.map(([art, text, unter]) => React.createElement("button", {
+    key: art,
+    type: "button",
+    className: "bj-taste",
+    onClick: () => ankuendigen(art, text, unter, true)
+  }, text)))), kontoDlg.laedt && React.createElement("p", {
     className: "einst-hinweis"
   }, "Wird geholt\u2026"), kontoDlg.err && React.createElement("div", {
     style: {

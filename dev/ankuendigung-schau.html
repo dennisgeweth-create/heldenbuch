@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Werkbank · Ankündigungen</title>
+  <link rel="stylesheet" href="../styles.css?v=dev">
+  <style>
+    body { padding:20px; min-height:100vh; }
+    .knoepfe { display:flex; flex-wrap:wrap; gap:6px; }
+    .hinter { margin-top:20px; max-width:60ch; color:var(--text-secondary); line-height:1.6; }
+  </style>
+</head>
+<body>
+  <!-- Jede Ankündigung zum Ansehen. ?art=kampf spielt eine gleich beim
+       Laden ab (für Bildschirmfotos aus dem Hintergrund). -->
+  <div class="knoepfe" id="knoepfe"></div>
+  <p class="hinter">Ein Bogen liegt dahinter — die Bühne nimmt keinen Klick an, darunter lässt
+    sich weiterarbeiten. Brunhilde Eisenfaust, Zwergin, Kämpferin der fünften Stufe.</p>
+  <div id="buehne"></div>
+  <script src="../vendor/react.production.min.js?v=dev"></script>
+  <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/icons.js?v=dev"></script>
+  <script src="../vendor/babel.min.js"></script>
+  <script type="text/babel" data-presets="react" src="../js/src/2q-ankuendigung.jsx"></script>
+  <script type="text/babel" data-presets="react">
+    ReactDOM.render(<AnkuendigungsBuehne />, document.getElementById('buehne'));
+    ReactDOM.render(<>{ANK_PROBEN.map(([art, text, unter]) => (
+      <button key={art} className="bj-taste" onClick={() => ankuendigen(art, text, unter, true)}>{text}</button>
+    ))}</>, document.getElementById('knoepfe'));
+    const art = new URLSearchParams(location.search).get('art');
+    // ?t=1000 haelt alles bei 1000 ms an — fuer Bildschirmfotos eines
+    // bestimmten Augenblicks (die eigenen Verzoegerungen gehen dabei verloren).
+    const t = +new URLSearchParams(location.search).get('t');
+    if (t) {
+      const st = document.createElement('style');
+      st.textContent = '.ank, .ank * { animation-play-state: paused !important; animation-delay: -' + t + 'ms !important; }';
+      document.head.appendChild(st);
+      window.ANK_DAUER_ALT = ANK_DAUER; Object.keys(ANK_DAUER).forEach(k => { ANK_DAUER[k] = 60000; });
+    }
+    const p = ANK_PROBEN.find(x => x[0] === art);
+    if (p) setTimeout(() => ankuendigen(p[0], p[1], p[2], true), 50);
+  </script>
+</body>
+</html>

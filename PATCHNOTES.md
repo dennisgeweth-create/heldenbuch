@@ -1,5 +1,39 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.0.0
+
+### Ein neues Gesicht
+
+- **Eigene Icons statt Emojis.** 161 Icons, alle im selben Strich
+  gezeichnet — Schwerter, W20, Kristallkugel, Schriftrolle, Krug,
+  Truhe … Sie sehen auf jedem Gerät gleich aus und nehmen Farbe und
+  Größe der Schrift an. Das gilt überall: Knöpfe, Fenster, Leiste,
+  Bogen, Taverne und der Abenteuerplaner.
+- Die **Icons der Gegenstände** und Waffen kommen aus demselben Set.
+  Alte Gegenstände behalten ihr Bild — das Emoji wird zum passenden
+  Icon.
+- Das **Wappen oben in der Leiste** ist weg — mehr Platz für die Helden.
+  Am Telefon ebenso.
+- Emojis, die ihr selbst in eine Notiz schreibt, bleiben Emojis.
+
+### Neuigkeiten springen ins Auge
+
+Kommt etwas Neues, läuft eine kurze Animation über den Bildschirm —
+man kann dabei weiterklicken:
+
+- **Neue Post** — ein Brief springt auf, das Siegel bricht, und er fliegt davon.
+- **Kampf!** — zwei Schwerter schwingen heran und kreuzen sich mit einem Funken.
+- **Du bist am Zug** — wenn im Kampf dein Held dran ist.
+- **Probe** — ein W20 rollt herein, mit der Probe und dem SG.
+- **Rast** — der Mond steigt, Sterne glimmen auf.
+- **Beute** — Münzen springen aus der Truhe.
+- **Der Laden hat geöffnet** — das Vordach schwingt herein.
+
+Was schon lief, als die Seite aufging, wird nicht angekündigt. In
+**Mein Konto → Auf diesem Gerät** lässt es sich abschalten, und dort
+kann man jede Animation einmal ansehen. Wer im System „weniger
+Bewegung" eingestellt hat, bekommt sie ruhig eingeblendet.
+
 ## v5.38.0
 
 ### Post für alle — wie im Messenger

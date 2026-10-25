@@ -2206,16 +2206,29 @@ function App() {
   // auf Post und nicht nur auf sein Häkchen.
   const [post, setPost] = useState([]);
   const [postOffen, setPostOffen] = useState(false);
+  // Die hoechste Kennung eingegangener Post beim letzten Blick — null
+  // heisst: noch nicht geschaut. Kommt eine hoehere, fliegt ein Brief
+  // (2q-ankuendigung.jsx). Was schon da war, als die Seite aufging, nicht.
+  const postGrund = useRef(null);
   const postLaden = async () => {
     const creds = serverCreds();
     if (!verbunden(creds) || !advId) return;
     try {
       const d = await apiPostListe(creds.url, creds.code, advId);
-      setPost((d && d.post) || []);
+      const liste = (d && d.post) || [];
+      const ein = liste.filter(p => p.eingang);
+      const hoechste = ein.reduce((m, p) => Math.max(m, +p.id || 0), 0);
+      if (postGrund.current !== null && hoechste > postGrund.current) {
+        const neu = ein.find(p => +p.id === hoechste);
+        ankuendigen('post', 'Neue Post', neu && neu.von && neu.von.name ? 'von ' + neu.von.name : '');
+      }
+      postGrund.current = Math.max(postGrund.current || 0, hoechste);
+      setPost(liste);
     } catch {}
   };
   useEffect(() => {
     setPost([]);
+    postGrund.current = null;
     if (!advId || !konto) return;
     let lebt = true, uhr = null;
     const takt = async () => {
@@ -2862,6 +2875,65 @@ function App() {
     if (dran && drin.some(t => t.charId === dran.charId)) return dran.charId;
     return drin[0].charId;
   })();
+
+  // ── Ankündigungen ──────────────────────────────────────────────
+  // Je Art ein Schlüssel für das, was gerade gilt (die laufende Probe,
+  // die Rast, der Kampf …). Wechselt er zu etwas Neuem, läuft eine kurze
+  // Animation (2q-ankuendigung.jsx). Der erste Stand nach dem Laden ist
+  // der Grundstand — was schon lief, als die Seite aufging, wird nicht
+  // angekündigt. Gezählt wird erst, wenn der Server einmal geantwortet
+  // hat (die Stand-Zähler stehen vorher auf −1).
+  const ankStand = useRef({});
+  const ankMelden = (art, schluessel, text, unter) => {
+    const k = art + '|' + advId + '|' + (isDmMode ? 'dm' : 'sp');
+    const st = ankStand.current;
+    if (!(k in st)) { st[k] = schluessel; return; }
+    if (st[k] === schluessel) return;
+    st[k] = schluessel;
+    if (schluessel) ankuendigen(art, text, unter);
+  };
+  // Kampfbeginn: die Vorbereitung zählt noch nicht, erst die erste Runde.
+  const ankKampf = isDmMode
+    ? (kampf && kampf.aktiv && kampf.phase !== 'vorbereitung' ? 'k:' + (kampf.name || '') : null)
+    : (kampfSichtDaten && kampfSichtDaten.phase !== 'vorbereitung' ? 'k:' + (kampfSichtDaten.name || '') : null);
+  useEffect(() => {
+    if (!isDmMode && kampfStandRef.current < 0) return;
+    ankMelden('kampf', ankKampf, 'Kampf!',
+      (isDmMode ? kampf && kampf.name : kampfSichtDaten && kampfSichtDaten.name) || 'Würfelt Initiative');
+  }, [ankKampf]);
+  // Am Zug: ein eigener Held ist dran.
+  const ankDran = (() => {
+    if (isDmMode || !kampfSichtDaten || kampfSichtDaten.phase === 'vorbereitung') return null;
+    const dran = (kampfSichtDaten.teilnehmer || [])[kampfSichtDaten.zug || 0];
+    return dran && dran.art === 'held' && eigeneHeldenIds.includes(dran.charId) ? dran : null;
+  })();
+  const ankZug = ankDran ? (kampfSichtDaten.runde || 1) + ':' + (kampfSichtDaten.zug || 0) + ':' + ankDran.charId : null;
+  useEffect(() => {
+    if (kampfStandRef.current < 0) return;
+    ankMelden('zug', ankZug, 'Du bist am Zug', ankDran && ankDran.name);
+  }, [ankZug]);
+  // Eine Probe, nach der gefragt wird — die Spielleitung hat sie selbst angesagt.
+  const ankProbe = probe && !isDmMode
+    && (!(probe.fuer || []).length || probe.fuer.some(id => eigeneHeldenIds.includes(id))) ? probe.id : null;
+  useEffect(() => {
+    if (probeStandRef.current < 0) return;
+    ankMelden('probe', ankProbe, 'Probe', probe ? probeWort(probe) + (probe.verdeckt ? '' : ' · SG ' + probe.sg) : '');
+  }, [ankProbe]);
+  const ankRast = rast && !isDmMode ? rast.id : null;
+  useEffect(() => {
+    if (rastStandRef.current < 0) return;
+    ankMelden('rast', ankRast, rast && rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast', rast && rast.text);
+  }, [ankRast]);
+  const ankBeute = beute && !isDmMode ? (beute.id || beute.titel || 'beute') : null;
+  useEffect(() => {
+    if (beuteStandRef.current < 0) return;
+    ankMelden('beute', ankBeute, 'Beute liegt bereit', beute && beute.titel);
+  }, [ankBeute]);
+  const ankLaden = laden && !isDmMode ? 'laden' : null;
+  useEffect(() => {
+    if (!libGeladen) return;
+    ankMelden('laden', ankLaden, 'Der Laden hat geöffnet', laden && laden.name);
+  }, [ankLaden, libGeladen]);
 
 
 
@@ -3857,10 +3929,8 @@ function App() {
 
         <div className={"sidebar"+(sidebarCollapsed?" collapsed":"")}>
           <div className="sidebar-header">
-            {/* Das Zeichen ist ein Wappen ohne Schrift — der Name steht
-                deshalb darunter, mit der Ausgabe daneben. */}
-            <img className="hb-logo" src="logo.png" alt="Heldenbuch"
-              width={280} height={280} />
+            {/* Nur der Name und die Ausgabe — das Wappen stand hier bis
+                v5.38 und nahm der Heldenliste ein Drittel der Höhe. */}
             <div className="sidebar-wort">Heldenbuch
               <button className="app-version" onClick={()=>{ setPatchnotesOffen(true); leiste.zeigen('patchnotes'); }}
                 title="Was sich geändert hat">{HB_VERSION}</button></div>
@@ -3954,9 +4024,7 @@ function App() {
         <div className="main">
           {isTouchLayout && mv==="list" && (
             <div className="mobile-list-screen">
-              <div style={{padding:"16px 12px 12px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
-                <img className="hb-logo schmal" src="logo.png" alt="Heldenbuch"
-                  width={280} height={280} />
+              <div style={{padding:"12px 12px 10px",borderBottom:"1px solid var(--border)",textAlign:"center"}}>
                 <div className="sidebar-wort">Heldenbuch
                   <button className="app-version" onClick={()=>{ setPatchnotesOffen(true); leiste.zeigen('patchnotes'); }}
                 title="Was sich geändert hat">{HB_VERSION}</button></div>
@@ -4618,21 +4686,11 @@ function App() {
 
             {/* Icon picker */}
             {showIconPicker && (() => {
-              const ICON_CATS = [
-                {label:'Nahkampfwaffen',icons:['⚔','🗡','🔪','🪃','🪓','🏏','🪝','⚒','🔨','🪚','🗾','🧨']},
-                {label:'Fernkampf & Magie',icons:['🏹','🪃','⚡','🌟','💥','🔥','❄','🌊','💨','☄','🌀','🔮','🌀','✨','💫','🌙']},
-                {label:'Rüstung & Schutz',icons:['🛡','⛓','🪖','🧤','🥋','🎭','🧣','🧥','👘','🦺','🎩','👑']},
-                {label:'Schmuck & Artefakte',icons:['💍','📿','🪬','💎','🪩','🏺','🪆','🪄','🎀','🧿','⭕','♾']},
-                {label:'Tränke & Essen',icons:['🧪','🔬','🫙','🍶','🍵','🫖','🍷','🍺','🍯','🥃','🍎','🍇','🍄','🌹','🌿','🌾']},
-                {label:'Bücher & Schriften',icons:['📜','📖','📚','📝','📒','📋','🗾','🔭','🔬','🧭','📡','📅']},
-                {label:'Werkzeuge & Schlösser',icons:['🔑','🗝','⛏','🔧','🪛','🔩','🪤','🧰','🪜','🪣','⚙','🔗','📎','✂','🧲','🪝']},
-                {label:'Licht & Feuer',icons:['🕯','🪔','🔦','💡','🔥','🪵','🎇','🎆','⚡','☀','🌟','✴']},
-                {label:'Säcke & Behälter',icons:['🎒','👜','💰','💴','💵','🪙','📦','🗃','🧺','🪣','🎁','📫']},
-                {label:'Natur & Edelsteine',icons:['🪨','🌊','🌿','🍀','🌱','🌾','🌰','🌹','🌻','💧','🔱','🌙','☀','⭐','🌈','❄']},
-                {label:'Tiere & Monster',icons:['🐲','🦄','🦅','🐺','🦊','🐗','🦂','🕷','🦇','🐍','🦁','🐻','🦎','🐙','🦀','🦟','🐉','🦋','🦩','🦚','🦜','🐓','🦑']},
-                {label:'Körper & Seele',icons:['💀','☠','👁','🫀','🧠','🦷','🦴','🩸','💉','🩺','🧬','🫁','🤚','✊','🤝','👁️‍🗨️']},
-                {label:'Sonstiges',icons:['🎲','🎯','🎪','🎠','🏺','🎵','🎶','🎸','📯','🥁','🎺','🎻','🃏','🎴','🀄','🎭','🎬','🎨']},
-              ];
+              // Die Icons kommen aus js/icons.js: jedes einmal, im selben Strich.
+              // Gespeichert wird weiter ein Zeichen — alte Gegenstände mit
+              // einem Emoji bekommen so das nächstpassende Icon.
+              const ICON_CATS = (window.HB_IKONEN || {}).wahl || [];
+              const gleich = (a, b) => a === b || (!!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b));
               return (
                 <div className="form-overlay" onClick={()=>setShowIconPicker(false)}>
                   <div className="form-modal" style={{maxWidth:380}} onClick={e=>e.stopPropagation()}>
@@ -4649,7 +4707,7 @@ function App() {
                         <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:5}}>{cat.label}</div>
                         <div className="icon-picker-grid">
                           {cat.icons.map(ic=>(
-                            <button key={ic} className={"icon-picker-btn"+(itf.icon===ic?" selected":"")}
+                            <button key={ic} className={"icon-picker-btn"+(gleich(itf.icon, ic)?" selected":"")}
                               onClick={()=>{setItf(p=>({...p,icon:ic}));setShowIconPicker(false);}}>
                               {ic}
                             </button>
@@ -5179,6 +5237,8 @@ function App() {
       })()}
 
       {/* Image Viewer Modal */}
+      {/* Die Bühne der Ankündigungen: über allem, nimmt keinen Klick an. */}
+      <AnkuendigungsBuehne />
       {pdfLeser && (
         <PdfLeser anhang={pdfLeser} server={serverCreds().url} onZu={()=>setPdfLeser(null)} />
       )}
@@ -5723,7 +5783,8 @@ function App() {
                           <input className="form-input" style={{flex:1}} value={dbForm.name} onChange={e=>setDbForm(f=>({...f,name:e.target.value}))} placeholder="z.B. Heiltrank" autoFocus/>
                         </div>
                         {showIconPicker && (() => {
-                          const ICON_CATS2=[{label:'Waffen',icons:['⚔','🗡','🔪','🪃','🪓','🏹','🔱','⚡','🌟','💥','🔥','❄','☠','🩸']},{label:'Rüstung',icons:['🛡','⛓','🪬','💎','📿','🔮','🧿','🪄','🎭','👑','💍','🧤','🎩','🪖']},{label:'Tränke & Magie',icons:['🧪','🔬','🪄','🔭','📜','📖','🗾','🧲','💡','🕯','🪔','🔦','✨','💫','🌀','♾']},{label:'Natur',icons:['🌿','🍄','🌱','🌾','🍀','🌹','🌻','🍎','🍇','🫙','🌰','🌊','🪨','🌙','☀','⭐']},{label:'Werkzeuge',icons:['🔑','🗝','⛏','🪚','🔧','🪛','🔩','🪤','🧰','🪜','🪣','🧱','💰','👜','🎒','🗃']},{label:'Sonstiges',icons:['💀','👁','🫀','🦷','🧠','🤝','✊','🎲','🎯','🏺','📦','🧲','⚙','🐲','🦄','🦅']}];
+                          const ICON_CATS2 = (window.HB_IKONEN || {}).wahl || [];
+                          const gleich2 = (a, b) => a === b || (!!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b));
                           return (
                             <div className="form-overlay" style={{zIndex:300}} onClick={()=>setShowIconPicker(false)}>
                               <div className="form-modal" style={{maxWidth:340}} onClick={e=>e.stopPropagation()}>
@@ -5733,7 +5794,7 @@ function App() {
                                     <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{cat.label}</div>
                                     <div className="icon-picker-grid">
                                       {cat.icons.map(ic=>(
-                                        <button key={ic} className={"icon-picker-btn"+((dbForm.icon||'🎒')===ic?" selected":"")}
+                                        <button key={ic} className={"icon-picker-btn"+(gleich2(dbForm.icon||'🎒', ic)?" selected":"")}
                                           onClick={()=>{setDbForm(f=>({...f,icon:ic}));setShowIconPicker(false);}}>
                                           {ic}
                                         </button>
@@ -6228,6 +6289,21 @@ function App() {
         <Fenster onClick={()=>setKontoDlg(null)}>
           <div className="form-modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
             <div className="form-title">👤 Mein Konto</div>
+
+            {/* Nur dieses Gerät: ob Neuigkeiten mit einer Animation kommen. */}
+            <div className="einst-block">
+              <div className="einst-titel">✦ Auf diesem Gerät</div>
+              <label className="zug-lauf-an">
+                <input type="checkbox" defaultChecked={ankAn()} onChange={e=>ankSetzen(e.target.checked)} />
+                <span>Animation bei Neuigkeiten — Post, Kampfbeginn, am Zug, Probe, Rast, Beute, Laden</span>
+              </label>
+              <div className="ank-proben">
+                {ANK_PROBEN.map(([art, text, unter]) => (
+                  <button key={art} type="button" className="bj-taste"
+                    onClick={()=>ankuendigen(art, text, unter, true)}>{text}</button>
+                ))}
+              </div>
+            </div>
 
             {kontoDlg.laedt && <p className="einst-hinweis">Wird geholt…</p>}
             {kontoDlg.err && (

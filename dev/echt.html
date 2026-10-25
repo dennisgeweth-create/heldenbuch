@@ -332,6 +332,7 @@
   <script src="../js/zip.js?v=dev"></script>
   <script src="../vendor/react.production.min.js?v=dev"></script>
   <script src="../vendor/react-dom.production.min.js?v=dev"></script>
+  <script src="../js/icons.js?v=dev"></script>
   <script src="../js/app.js?v=dev"></script>
   <script>
     // ── Der Durchgang ──────────────────────────────────────────────
@@ -423,6 +424,33 @@
         // Damit ein Neuladen — auch das von selbst bei einer neuen Fassung —
         // die Spielleitung nicht zum Spieler macht und ihr die Post nimmt.
         ja('  … und der Tab merkt ihn sich fürs Neuladen', sessionStorage.getItem('hb_dm_modus') === '1');
+
+        // ── Icons statt Emojis (js/icons.js) ───────────────────────
+        // Kein Emoji mehr im Bild: jedes Zeichen ist ein Icon geworden. Das
+        // Zeichen liegt unsichtbar im <desc> des Icons — das zählt nicht.
+        // Pfeile und Formen (← → ◉ ○ …) und Kartenfarben sind Schrift.
+        await ruhe(300);
+        const emojiMuster = /[←-⇿⌀-⏿■-◿☀-➿⬀-⯿]|[\uD83C-\uD83E][\uDC00-\uDFFF]/;
+        const erlaubt = /^[←→↑↓↔↵⇅⌘◉◎◈◇○⬤◑◆●•♠♥♦♣]$/;
+        const wandrer = document.createTreeWalker(document.getElementById('root'), NodeFilter.SHOW_TEXT);
+        const emojiReste = [];
+        for (let tn; (tn = wandrer.nextNode());) {
+          if (tn.parentElement.closest('desc, [data-emoji], textarea')) continue;
+          for (const z of (tn.textContent.match(new RegExp(emojiMuster, 'g')) || [])) {
+            if (!erlaubt.test(z)) emojiReste.push(z + ' in „' + tn.textContent.trim().slice(0, 30) + '"');
+          }
+        }
+        ja('Kein Emoji mehr im Bild — alles Icons', emojiReste.length === 0, emojiReste.slice(0, 5).join(' · '));
+        ja('  … die Icons stehen da', document.querySelectorAll('#root svg.ik').length > 20,
+           document.querySelectorAll('#root svg.ik').length + ' Icons');
+        ja('Das Wappen steht nicht mehr in der Leiste', !document.querySelector('.hb-logo'));
+
+        // ── Ankündigungen (2q-ankuendigung.jsx) ────────────────────
+        ankuendigen('kampf', 'Kampf!', 'Werkbank', true);
+        const ank = await warten(() => document.querySelector('.ank.ank-kampf'), 2000);
+        ja('Eine Ankündigung läuft über den Bildschirm', !!ank && /Kampf!/.test(ank.textContent));
+        ja('  … und nimmt keinen Klick an', !!ank && getComputedStyle(ank).pointerEvents === 'none');
+        ja('  … und geht von selbst wieder', !!(await warten(() => !document.querySelector('.ank') ? true : null, 4000)));
 
         // ── Die Werkzeuge: eine Leiste, zwei Stellen ───────────────
         // Am breiten Schirm steht sie in der Seitenleiste, am schmalen auf

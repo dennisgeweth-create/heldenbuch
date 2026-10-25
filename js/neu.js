@@ -52,7 +52,9 @@
       + 'border-radius:8px;background:#1a1c1e;border:1px solid #e8b84b;box-shadow:0 10px 30px rgba(0,0,0,.6);'
       + "font:13px 'Roboto',sans-serif;color:#e4e6e8";
     var text = document.createElement('span');
-    text.textContent = '✨ Eine neue Fassung ist da.';
+    // Mit dem Icon aus js/icons.js, wenn es geladen ist.
+    if (window.HB_IKONEN) text.innerHTML = window.HB_IKONEN.markup('funke') + ' ';
+    text.appendChild(document.createTextNode('Eine neue Fassung ist da.'));
     var knopf = document.createElement('button');
     knopf.type = 'button';
     knopf.textContent = 'Neu laden';

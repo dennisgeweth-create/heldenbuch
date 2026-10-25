@@ -37,6 +37,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2n-bogentext.jsx` | **Der Textbogen**: Bögen als `.txt` schreiben und lesen, einzeln oder als ZIP-Bündel; Schema in `TEXTBOGEN.md` |
 | ↳ `2o-tagebuch.jsx` | **Sitzungstagebuch**: ein Abend, ein Eintrag je Person, Bilder und Videos gemeinsam; Anschauen ist die Vorgabe, Bearbeiten ein Knopf (Server: `hb_tagebuch`, `hb_tb_eintrag`, `hb_tb_bild`) |
 | ↳ `2p-anhang.jsx` | **PDF-Anhänge** an Gegenständen: stückweise hochladen (Server: `anhang_stueck`, `hb_anhang`, Datei unter `planer-dateien/`), das Feld im Gegenstandsdialog und der Leser: eine Seite oder aufgeschlagen als Buch (`pdfOffen`, `pdfBlaettern`), mit pdf.js 3.11 aus `vendor/pdfjs/` — **immer mit `isEvalSupported: false`** (CVE-2024-4367); scheitert pdf.js, liest der Browser selbst |
+| ↳ `2q-ankuendigung.jsx` | **Ankündigungen**: kurze Animation über dem Bildschirm bei Neuigkeiten (Post, Kampfbeginn, am Zug, Probe, Rast, Beute, Laden). `ankuendigen(art, text, unter)` von überall, `AnkuendigungsBuehne` einmal in der App; je Gerät abschaltbar (`hb_animationen`, Mein Konto). Vorschau: `dev/ankuendigung-schau.html` |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |
@@ -46,6 +47,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `js/data.js` | Regeltabellen (Klassen, Zauberschulen, Fertigkeiten, Effektziele) |
 | `js/util.js` | reine Hilfsfunktionen ohne React |
 | `js/zip.js` | ZIP schreiben und lesen im Browser — von **beiden** Seiten geladen (Heldenbuch und Planer); keine Bibliothek |
+| `js/icons.js` | **Das Icon-Set** — eigene SVG-Icons statt Emojis, von **beiden** Seiten geladen (nach React, vor der Anwendung). Hängt sich vor `React.createElement`: Zeichen wie ⚔ 📜 ✎ im Text werden beim Zeichnen zu Icons, das Zeichen bleibt unsichtbar im `<desc>` (für Suche und Prüfungen). Neues Zeichen → in `zu(...)` einem Icon zuordnen; neues Motiv → in `I` zeichnen (24er Raster, Strich). Kontaktbogen: `dev/ikonen-schau.html` |
 | `js/neu.js` | Erkennt eine neue Auslieferung (`version.json` gegen `window.HB_BAU`) und laedt neu oder zeigt einen Hinweis — von **beiden** Seiten geladen; ohne React |
 | `styles.css` | gesamte Oberfläche |
 | `bilder/` | Bilder der Automaten (`bilder/hut/`, `bilder/buch/`, `bilder/arena/`, `bilder/auge/` je 160 px JPEG; `bilder/glueck/`: Dreifaches Glück, freigestellt als PNG) — der Deploy kopiert den ganzen Ordner |
