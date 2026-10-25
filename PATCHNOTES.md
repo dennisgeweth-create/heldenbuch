@@ -1,5 +1,16 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.2.2
+
+- **Gegenstände übergeben geht wieder — und verliert nichts mehr.**
+  Bisher schrieb das Gerät beide Bögen selbst. Den Bogen eines anderen
+  Spielers darf es aber nicht ändern: der Gegenstand verschwand aus dem
+  eigenen Inventar und kam beim anderen nie an. Jetzt verschiebt der
+  Server ihn in einem Schritt — entweder liegt er danach beim anderen,
+  oder er bleibt, wo er war, und du bekommst gesagt, warum.
+- Was an einem fremden Bogen nicht gespeichert werden darf, fällt nicht
+  mehr stillschweigend weg — es steht oben „Nicht erlaubt — fremder Bogen".
+
 ## v6.2.1
 
 - Die **Ankündigungen** (Post, Kampf!, am Zug, Probe, Rast, Beute,

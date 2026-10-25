@@ -1571,7 +1571,9 @@ function App() {
       // Diff inventory separately
       // Was ohnehin abgelehnt wuerde, wird gar nicht erst eingereiht.
       if (!darfSchreiben(c)) {
-        if (JSON.stringify({...c, inventory:[]}) !== JSON.stringify(prevC ? {...prevC, inventory:[]} : null)) verweigert++;
+        // Auch eine Änderung nur am Inventar zählt — sie fiel früher
+        // stillschweigend weg (so verschwanden übergebene Gegenstände).
+        if (JSON.stringify(c) !== JSON.stringify(prevC || null)) verweigert++;
         continue;
       }
       const prevInv = new Map((prevC?.inventory||[]).map(i => [i.id, i]));
@@ -3372,15 +3374,48 @@ function App() {
     patchCurrent(c=>({inventory:(c.inventory||[]).filter(i=>i.id!==id)}));
     if (item) addLog(selRef.current, cur2?.name, 'inventar', `Gegenstand gelöscht: ${item.name}`, {seltenheit:item.rarity});
   });
-  const doTransfer = (targetId, ids) => {
+  const doTransfer = async (targetId, ids) => {
+    const vonId = selRef.current;
     const items = (cur.inventory||[]).filter(i=>ids.has(i.id));
     const target = charsRef.current.find(c=>c.id===targetId);
-    const updated = charsRef.current.map(c => {
-      if (c.id === selRef.current) return {...c, inventory:(c.inventory||[]).filter(i=>!ids.has(i.id))};
-      if (c.id === targetId) return {...c, inventory:[...(c.inventory||[]),...items.map(i=>({...i,id:Date.now().toString()+Math.random().toString(36).slice(2)}))]};
-      return c;
-    });
-    save(updated);
+    if (!items.length || !target) return;
+    const creds = serverCreds();
+    if (verbunden(creds) && kontoRef.current) {
+      // Mit Server: er verschiebt in einem Schritt — aus dem eigenen Bogen
+      // in den anderen, auch wenn der jemand anderem gehört. Erst wenn er
+      // ja sagt, ändert sich hier etwas; geht es schief, bleibt alles.
+      // Stehen für diese Gegenstände noch Schreibvorgänge an, gehen sie
+      // vorher hinaus — sonst verschöbe der Server einen alten Stand.
+      const offen = () => [...ids].some(id => pendingItems.current[vonId+'__'+id] || pendingItemDel.current.has(vonId+'__'+id));
+      for (let i = 0; i < 30 && offen(); i++) await new Promise(r => setTimeout(r, 300));
+      if (offen()) { appAlert('Die Gegenstände werden gerade noch gespeichert — versuch es gleich noch einmal.'); return; }
+      let d;
+      try {
+        d = await apiItemUebergeben(creds.url, creds.code, vonId, targetId, [...ids]);
+      } catch (e) {
+        appAlert('Die Übergabe ging nicht: ' + (e.message || 'unbekannter Fehler') + ' — es ist nichts verschoben worden.');
+        return;
+      }
+      const neu = (d && d.ids) || {};
+      const weg = new Set(Object.keys(neu));
+      const angekommen = items.filter(i => neu[i.id]).map(i => ({...i, id: neu[i.id]}));
+      const naechste = charsRef.current.map(c => {
+        if (c.id === vonId) return {...c, inventory:(c.inventory||[]).filter(i=>!weg.has(i.id))};
+        if (c.id === targetId) return {...c, inventory:[...(c.inventory||[]), ...angekommen]};
+        return c;
+      });
+      weg.forEach(id => { delete pendingItems.current[vonId+'__'+id]; pendingItemDel.current.delete(vonId+'__'+id); });
+      applyChars(naechste);
+      spiegleChars(JSON.stringify(naechste));
+    } else {
+      // Ohne Server (Vorführung, Werkbank, altes Gruppenpasswort): wie bisher.
+      const updated = charsRef.current.map(c => {
+        if (c.id === vonId) return {...c, inventory:(c.inventory||[]).filter(i=>!ids.has(i.id))};
+        if (c.id === targetId) return {...c, inventory:[...(c.inventory||[]),...items.map(i=>({...i,id:Date.now().toString()+Math.random().toString(36).slice(2)}))]};
+        return c;
+      });
+      save(updated, true);
+    }
     // Log transfer — only if neither char is DM-only
     if (!cur?.dmOnly && !target?.dmOnly) {
       const itemDetails = items.reduce((acc, i) => {

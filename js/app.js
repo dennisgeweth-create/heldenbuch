@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.2.1';
+const HB_VERSION = 'v6.2.2';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -26336,13 +26336,7 @@ function App() {
     for (const [charId, c] of newMap) {
       const prevC = prevMap.get(charId);
       if (!darfSchreiben(c)) {
-        if (JSON.stringify({
-          ...c,
-          inventory: []
-        }) !== JSON.stringify(prevC ? {
-          ...prevC,
-          inventory: []
-        } : null)) verweigert++;
+        if (JSON.stringify(c) !== JSON.stringify(prevC || null)) verweigert++;
         continue;
       }
       const prevInv = new Map((prevC?.inventory || []).map(i => [i.id, i]));
@@ -28358,24 +28352,66 @@ function App() {
       seltenheit: item.rarity
     });
   });
-  const doTransfer = (targetId, ids) => {
+  const doTransfer = async (targetId, ids) => {
+    const vonId = selRef.current;
     const items = (cur.inventory || []).filter(i => ids.has(i.id));
     const target = charsRef.current.find(c => c.id === targetId);
-    const updated = charsRef.current.map(c => {
-      if (c.id === selRef.current) return {
-        ...c,
-        inventory: (c.inventory || []).filter(i => !ids.has(i.id))
-      };
-      if (c.id === targetId) return {
-        ...c,
-        inventory: [...(c.inventory || []), ...items.map(i => ({
-          ...i,
-          id: Date.now().toString() + Math.random().toString(36).slice(2)
-        }))]
-      };
-      return c;
-    });
-    save(updated);
+    if (!items.length || !target) return;
+    const creds = serverCreds();
+    if (verbunden(creds) && kontoRef.current) {
+      const offen = () => [...ids].some(id => pendingItems.current[vonId + '__' + id] || pendingItemDel.current.has(vonId + '__' + id));
+      for (let i = 0; i < 30 && offen(); i++) await new Promise(r => setTimeout(r, 300));
+      if (offen()) {
+        appAlert('Die Gegenstände werden gerade noch gespeichert — versuch es gleich noch einmal.');
+        return;
+      }
+      let d;
+      try {
+        d = await apiItemUebergeben(creds.url, creds.code, vonId, targetId, [...ids]);
+      } catch (e) {
+        appAlert('Die Übergabe ging nicht: ' + (e.message || 'unbekannter Fehler') + ' — es ist nichts verschoben worden.');
+        return;
+      }
+      const neu = d && d.ids || {};
+      const weg = new Set(Object.keys(neu));
+      const angekommen = items.filter(i => neu[i.id]).map(i => ({
+        ...i,
+        id: neu[i.id]
+      }));
+      const naechste = charsRef.current.map(c => {
+        if (c.id === vonId) return {
+          ...c,
+          inventory: (c.inventory || []).filter(i => !weg.has(i.id))
+        };
+        if (c.id === targetId) return {
+          ...c,
+          inventory: [...(c.inventory || []), ...angekommen]
+        };
+        return c;
+      });
+      weg.forEach(id => {
+        delete pendingItems.current[vonId + '__' + id];
+        pendingItemDel.current.delete(vonId + '__' + id);
+      });
+      applyChars(naechste);
+      spiegleChars(JSON.stringify(naechste));
+    } else {
+      const updated = charsRef.current.map(c => {
+        if (c.id === vonId) return {
+          ...c,
+          inventory: (c.inventory || []).filter(i => !ids.has(i.id))
+        };
+        if (c.id === targetId) return {
+          ...c,
+          inventory: [...(c.inventory || []), ...items.map(i => ({
+            ...i,
+            id: Date.now().toString() + Math.random().toString(36).slice(2)
+          }))]
+        };
+        return c;
+      });
+      save(updated, true);
+    }
     if (!cur?.dmOnly && !target?.dmOnly) {
       const itemDetails = items.reduce((acc, i) => {
         const label = i.qty > 1 ? `${i.name} ×${i.qty}` : i.name;

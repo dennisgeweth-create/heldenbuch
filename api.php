@@ -1580,6 +1580,55 @@ switch ($action) {
         revHoch($pdo, $code);
         respond(200, 'Item gespeichert.', ['rev' => revStand($pdo, $code)]);
 
+    // Gegenstände übergeben: aus einem Bogen in einen anderen, in einem
+    // Schritt. Prüfen muss der Server nur den abgebenden Bogen — wer
+    // etwas bekommt, braucht dafür kein Recht an seinem eigenen. Früher
+    // schrieb das Gerät beide Bögen selbst; der fremde wurde abgelehnt,
+    // der eigene nicht, und der Gegenstand war weg.
+    case 'item_uebergeben': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $von = mb_substr((string)($body['von'] ?? ''), 0, 50);
+        $an  = mb_substr((string)($body['an'] ?? ''), 0, 50);
+        $ids = array_values(array_unique(array_filter(array_map(
+            fn($x) => mb_substr((string)$x, 0, 50), (array)($body['item_ids'] ?? [])))));
+        if ($von === '' || $an === '' || !$ids) respond(400, 'Fehlende Daten.');
+        if ($von === $an) respond(400, 'Das ist derselbe Bogen.');
+        besitzPruefen($pdo, zugang($pdo, $code, $pass, $body), $code, $von);
+        $st = $pdo->prepare("SELECT 1 FROM hb_chars WHERE session_code=? AND char_id=?");
+        $st->execute([$code, $an]);
+        if (!$st->fetchColumn()) respond(404, 'Den Bogen, der es bekommen soll, gibt es nicht.');
+
+        $pdo->beginTransaction();
+        try {
+            $platz = implode(',', array_fill(0, count($ids), '?'));
+            $sel = $pdo->prepare("SELECT item_id, item_json FROM hb_items
+                                  WHERE session_code=? AND char_id=? AND item_id IN ($platz) FOR UPDATE");
+            $sel->execute(array_merge([$code, $von], $ids));
+            $zeilen = $sel->fetchAll();
+            if (!$zeilen) { $pdo->rollBack(); respond(409, 'Diese Gegenstände liegen nicht (mehr) in diesem Bogen.'); }
+            $ins = $pdo->prepare("INSERT INTO hb_items (session_code,char_id,item_id,item_json) VALUES(?,?,?,?)");
+            $del = $pdo->prepare("DELETE FROM hb_items WHERE session_code=? AND char_id=? AND item_id=?");
+            $neu = [];
+            foreach ($zeilen as $r) {
+                $alt = (string)$r['item_id'];
+                $nid = 'u' . bin2hex(random_bytes(8));
+                $item = json_decode((string)$r['item_json'], true) ?: [];
+                $item['id'] = $nid;
+                $ins->execute([$code, $an, $nid, json_encode($item, JSON_UNESCAPED_UNICODE)]);
+                $del->execute([$code, $von, $alt]);
+                $neu[$alt] = $nid;
+            }
+            $pdo->prepare("UPDATE hb_chars SET updated_at=NOW() WHERE session_code=? AND char_id IN (?,?)")
+                ->execute([$code, $von, $an]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            respond(500, 'Die Übergabe ging nicht — es ist nichts verschoben worden.');
+        }
+        revHoch($pdo, $code);
+        respond(200, 'Übergeben.', ['ids' => $neu, 'rev' => revStand($pdo, $code)]);
+    }
+
     // Item löschen
     case 'delete_item':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');

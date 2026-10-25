@@ -1136,6 +1136,35 @@ pruefe('der Empfaenger wirft weg, was er bekam (200)', $r['status'] === 200, kur
 $r = ruf('post_loeschen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'id' => $slId]);
 pruefe('  … auch den Zettel der Spielleitung (200)', $r['status'] === 200, kurz($r));
 
+abschnitt('Gegenstände übergeben');
+// Armin (h1, Spieler) gibt Ilvara (p2, dem zweiten Spieler) etwas. Den
+// fremden Bogen darf er nicht schreiben — die Übergabe muss trotzdem ankommen.
+$r = ruf('save_item', ['code' => $code, 'token' => $tSpieler, 'char_id' => 'h1', 'item_id' => 'i_ueb',
+                       'item' => ['id' => 'i_ueb', 'name' => 'Seil aus Hanf (15 m)', 'qty' => 1]]);
+pruefe('Armin hat ein Seil (200)', $r['status'] === 200, kurz($r));
+$r = ruf('item_uebergeben', ['code' => $code, 'token' => $tSpieler, 'von' => 'h1', 'an' => 'p2', 'item_ids' => ['i_ueb']]);
+$neuId = (string)(($r['body']['ids'] ?? [])['i_ueb'] ?? '');
+pruefe('Armin übergibt es an Ilvara (200)', $r['status'] === 200 && $neuId !== '', kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tZweiter]);
+$inv = [];
+foreach ((array)($r['body']['chars'] ?? []) as $c) if (($c['id'] ?? '') === 'p2') $inv = (array)($c['inventory'] ?? []);
+pruefe('  … es liegt in Ilvaras Inventar', count(array_filter($inv, fn($i) => ($i['id'] ?? '') === $neuId
+       && ($i['name'] ?? '') === 'Seil aus Hanf (15 m)')) === 1, json_encode($inv));
+$r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
+$inv = [];
+foreach ((array)($r['body']['chars'] ?? []) as $c) if (($c['id'] ?? '') === 'h1') $inv = (array)($c['inventory'] ?? []);
+pruefe('  … und nicht mehr bei Armin', !array_filter($inv, fn($i) => ($i['id'] ?? '') === 'i_ueb'), json_encode($inv));
+$r = ruf('item_uebergeben', ['code' => $code, 'token' => $tSpieler, 'von' => 'h1', 'an' => 'p2', 'item_ids' => ['i_ueb']]);
+pruefe('ein zweites Mal geht nicht — es ist schon weg (409)', $r['status'] === 409, kurz($r));
+$r = ruf('item_uebergeben', ['code' => $code, 'token' => $tZweiter, 'von' => 'h1', 'an' => 'p2', 'item_ids' => ['i_x']]);
+pruefe('aus einem fremden Bogen nimmt niemand etwas (403)', $r['status'] === 403, kurz($r));
+$r = ruf('item_uebergeben', ['code' => $code, 'token' => $tZweiter, 'von' => 'p2', 'an' => 'gibtsnicht', 'item_ids' => [$neuId]]);
+pruefe('an einen Bogen, den es nicht gibt, nicht (404)', $r['status'] === 404, kurz($r));
+$r = ruf('load', ['code' => $code, 'token' => $tZweiter]);
+$inv = [];
+foreach ((array)($r['body']['chars'] ?? []) as $c) if (($c['id'] ?? '') === 'p2') $inv = (array)($c['inventory'] ?? []);
+pruefe('  … und dabei verschwindet nichts', count(array_filter($inv, fn($i) => ($i['id'] ?? '') === $neuId)) === 1);
+
 abschnitt('Die Rast');
 $rast = ['art' => 'lang', 'regel' => 'grr', 'stufe' => 2, 'essen' => true,
          'teile' => ['Regen −1'], 'text' => 'Am Fluss', 'fuer' => ['h1'], 'antworten' => [['charId' => 'x']]];
