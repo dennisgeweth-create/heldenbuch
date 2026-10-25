@@ -335,6 +335,240 @@
       'S:braunD M15 22l-3 2M33 22l3 2M16 30l-2.6 3M32 30l2.6 3']},
     spiegel: {linie: 'auge', label: 'Spiegel', teile: [
       'F:holzD M21.4 30h5.2l-.8 14h-3.6z', 'F:gold c 24 18 12.6', 'F:glas c 24 18 9.6', 'h M17 15a8 8 0 0 1 5-5.4L17.6 20z']},
+    // ── Lager und Reise ──
+    zelt: {linie: 'krugHaus', label: 'Zelt', teile: [
+      'F:gruen M24 6L4 40h40z', 'F:gruenD M24 6l-7 34h14z', 'f:#1b1611 M24 22l-4.4 18h8.8z',
+      'S:holzD M24 6V2.5', 'S:holzD M4 40l-2 3.4M44 40l2 3.4', 'h M24 6L8.4 38h3.6z']},
+    kletterhaken: {linie: 'werkzeug', label: 'Kletterhaken', teile: [
+      'E:stahlD c 35 10 6.4 M35 7a3 3 0 1 0 .01 0z',
+      'F:stahl M31 13.4l4.4 4.4L13 42.6l-2.6.6.6-2.6z', 'h M32.4 15l1.4 1.4-19.6 22.4-.8-.8z',
+      'F:stahl M8 8h10l-2 3H8zM8 13h8l-2 3H8z']},
+    heilerausruestung: {linie: 'kreuz', label: 'Heilerausrüstung', teile: [
+      'S:lederD M18 11V6.4h12V11', 'F:leder M7 15h34v26H7z', 'F:lederD M7 15c0-3 3-5 6-5h22c3 0 6 2 6 5v5H7z',
+      'F:#f3ead2 c 24 30.5 7.4', 'F:rot M22.2 25.4h3.6v10.2h-3.6zM18.9 28.7h10.2v3.6H18.9z', 'F:gold M22 18h4v4h-4z']},
+    kristall: {linie: 'edelstein', label: 'Arkaner Fokus (Kristall)', teile: [
+      'F:stahlD M8 40h32l-2.4 4H10.4z',
+      'F:#c9b6ff M12.5 21l5 4-1 15h-5l-1.6-12z', 'F:#c9b6ff M35.5 19l4.6 6-2 15h-5l-.6-16z',
+      'F:#9fd8ff M24 4l7.4 10L28 40h-8l-3.4-26z', 'L M16.6 14h14.8M24 4v36',
+      'h M22.6 7.6l-3.6 6.4 2.4 24h1.2z', 'F:flammeH M38 6l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z']},
+    spinnennetz: {linie: 'hex', label: 'Spinnennetz', teile: [
+      'S:#e8ecf0 M24 24L5 5M24 24L43 5M24 24L5 43M24 24l19 19M24 24V3M24 24v21M24 24H3M24 24h21',
+      'S:#e8ecf0 M24 8.5l11 4.5 4.5 11-4.5 11-11 4.5-11-4.5L8.5 24 13 13z',
+      'S:#e8ecf0 M24 15l6.4 2.6L33 24l-2.6 6.4L24 33l-6.4-2.6L15 24l2.6-6.4z',
+      'L M29 32l-2.4-2M33 32l2.4-2M29 36l-2.4 2M33 36l2.4 2', 'F:#2a1f17 c 31 34 2.8', 'F:rot c 31 34 .9']},
+    ewiges_licht: {linie: 'kerze', label: 'Ewiges Licht', teile: [
+      'F:holz M21 22h6l-1.2 21h-3.6z', 'F:gold M20.2 19.4h7.6v5h-7.6z', 'F:gold M20.6 33h6.8v2.4h-6.8z',
+      'F:#7fd0ff M24 2.5c4 5 8.4 8.2 8.4 13.4a8.4 8.4 0 0 1-16.8 0c0-4.2 3-6.4 4.2-9.4 1 2 2 3 3 3 0-2.2.2-4.4 1.2-7z',
+      'f:#eefaff M24 10.5c2 3 4 4.6 4 7.4a4 4 0 0 1-8 0c0-2.2 1.4-3.6 2.4-5.2.4 1 .8 1.4 1.4 1.4 0-1.2 0-2.4.2-3.6z',
+      'F:#eefaff M38 8l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z', 'F:#eefaff M9.5 14l.5 1.4 1.4.5-1.4.5-.5 1.4-.5-1.4-1.4-.5 1.4-.5z']},
+    sack: {linie: 'beutel', label: 'Sack', teile: [
+      'F:hanf M16 10l-3.4-5h22.8L32 10z', 'F:hanf M15 12c-6 6-8.6 14-6.6 22 2 6 8 8.4 15.6 8.4s13.6-2.4 15.6-8.4c2-8-.6-16-6.6-22z',
+      'F:hanfD M15.6 10h16.8v4H15.6z', 'S:hanfD M15 22c-2 5-2.6 10-1 14M28 30h6v6h-6z']},
+    korb: {linie: 'truhe', label: 'Korb', teile: [
+      'W:hanfD M12 20c0-13 24-13 24 0', 'F:hanf M7.5 20h33l-4.4 22H11.9z',
+      'S:hanfD M9 26h30M10.2 32h27.6M11.4 38h25.2M16 20l1.2 22M24 20v22M32 20l-1.2 22']},
+    fass: {linie: 'truhe', label: 'Fass', teile: [
+      'F:holz M12 5h24c3 6 4.4 12.6 4.4 19S39 37 36 43H12c-3-6-4.4-12.6-4.4-19S9 11 12 5z',
+      'L M18 5.4v37.2M24 5v38M30 5.4v37.2', 'F:stahlD M10.2 11h27.6v3H10.2zM8.2 22.6h31.6v3H8.2zM10.2 34h27.6v3H10.2z',
+      'h M13.4 6.4h3.4c-2 5.6-2.8 11.2-2.8 17.6S14.8 36 16.8 41.6h-3.4c-2.4-5.6-3.4-11.2-3.4-17.6s1-12 3.4-17.6z']},
+    kiste: {linie: 'paket', label: 'Kiste', teile: [
+      'F:holz M7.5 11h33v31h-33z', 'L M7.5 21.4h33M7.5 31.6h33', 'S:holzD M10 13.4l28 26.2',
+      'F:stahlD M7.5 11h5v5h-5zM35.5 11h5v5h-5zM7.5 37h5v5h-5zM35.5 37h5v5h-5z']},
+    eimer: {linie: 'truhe', label: 'Eimer', teile: [
+      'S:stahlD M9.5 15c0-11 29-11 29 0', 'F:holz M9.5 15h29l-4.4 27H13.9z',
+      'F:stahlM M10.4 21h27.2v3H10.4zM12.6 34.6h22.8v3H12.6z', 'L M18 15l1.4 27M24 15v27M30 15l-1.4 27']},
+    leiter: {linie: 'leiter', label: 'Leiter', teile: [
+      'F:holz M11.5 3.5h4.4v41h-4.4zM32.1 3.5h4.4v41h-4.4z',
+      'F:holzD M15.9 10h16.2v3.2H15.9zM15.9 19h16.2v3.2H15.9zM15.9 28h16.2v3.2H15.9zM15.9 37h16.2v3.2H15.9z']},
+    stange: {linie: 'stab', label: 'Stange (3 m)', teile: [
+      'F:holz M41 3.6l3.4 3.4L7 44.4 3.6 41z', 'h M41.8 5.2l.8.8L6.2 42.4l-.8-.8z',
+      'F:stahlD M38.6 6l3.4 3.4-1.4 1.4-3.4-3.4zM24.8 19.8l3.4 3.4-1.4 1.4-3.4-3.4zM11 33.6l3.4 3.4-1.4 1.4-3.4-3.4z']},
+    seil_seide: {linie: 'kette', label: 'Seil aus Seide', teile: [
+      'F:#eee6f3 c 24 25 15', 'F:#cdbfda c 24 25 10.6', 'F:#eee6f3 c 24 25 6.6', 'F:#5a4a66 c 24 25 2.6',
+      'S:#a998ba M12 17q4 2 6-2M34 15q2 4 6 3M37 31q-3 1-3 5M15 35q-3-1-5 2', 'F:#eee6f3 M36 37l7 6-2 2-7-5z']},
+    enterhaken: {linie: 'werkzeug', label: 'Enterhaken', teile: [
+      'S:hanfD M24 3c4-2.4 9-1 11 3.4', 'E:stahlD c 24 7 4.2 M24 4.8a2.2 2.2 0 1 0 .01 0z',
+      'F:stahl M22 10.4h4v21h-4z', 'F:stahl M24 30c-6.4 0-10.4 4.4-12.4 10.4l3.2 1c2-4.4 5-7 9.2-7s7.2 2.6 9.2 7l3.2-1c-2-6-6-10.4-12.4-10.4z',
+      'F:stahl M22 30h4v11l-2 2.6-2-2.6z', 'h M22.8 11.4h1.2v18.6h-1.2z']},
+    oellampe: {linie: 'kerze', label: 'Öllampe', teile: [
+      'S:goldD M9 27c-4.4 0-5.4 6.4 0 6.4', 'F:gold M8 29c0-6 8-8 16-8s14 2 18-.4l-6 8.4c-4 4-10 6-16 6s-12-2-12-6z',
+      'F:goldD M17.6 21.4c0-3.4 3-5.4 6.4-5.4s6.4 2 6.4 5.4z', 'F:goldD c 24 15 1.6',
+      'F:flamme M41 14c2 2.4 3.2 4.4 3.2 5.6a3.2 3.2 0 0 1-6.4 0c0-1.2 1.2-3.2 3.2-5.6z', 'h M11.6 28.4c2.4-2.4 6-3.4 10-3.6-3.4 1.2-6.4 2.4-8.4 4.4z']},
+    zunder: {linie: 'flamme', label: 'Zunderkästchen', teile: [
+      'F:stahlM M7 22h26v17H7z', 'F:stahlD M7 18h26v4H7z', 'L M7 30h26', 'F:#5d6670 M30 9l8.4 4.4-3.2 6-8.4-4.4z',
+      'F:flammeH M40 20l1.2 3.4 3.4 1.2-3.4 1.2-1.2 3.4-1.2-3.4-3.4-1.2 3.4-1.2z', 'F:flamme c 36 30 1.3']},
+
+    // ── Werkzeug und Gerät ──
+    schaufel: {linie: 'werkzeug', label: 'Schaufel', teile: [
+      'F:holz M36.4 6.4l3.2 3.2-16.8 16.8-3.2-3.2z', 'F:holzD M35 2.6l7.8 7.8-2.6 2.6-7.8-7.8z',
+      'F:stahl M19.6 22.6l5.8 5.8-9.2 12c-3 3-8.4 0-8.4-4.4z', 'h M18.6 25.4l2 2-8 10.6c-.6-.6-1-1.6-1-2.4z']},
+    spitzhacke: {linie: 'werkzeug', label: 'Spitzhacke', teile: [
+      'F:holz M24.6 13l3.2 1.8L14 43.4l-3.2-1.8z', 'F:stahlM M5 15.6c8.6-7 28-9 38 0l-2.2 3.2c-9.4-5.8-24-4.8-33.6 0z',
+      'F:stahlD M23 9.6h6.4l1 5.6h-8.4z']},
+    hammer: {linie: 'hammer', label: 'Hammer', teile: [
+      'F:holz M22.6 17.6l4.2 2-13.6 22.6-4.2-2z', 'F:stahlD M15.6 9.4L36 17.6l-2.8 6.6-20.4-8.2z',
+      'F:stahl M33.2 16.6l4 1.6-2.4 6-4-1.6z', 'h M17 11.4l15.6 6.2-.6 1.4-15.6-6.2z']},
+    flaschenzug: {linie: 'werkzeug', label: 'Flaschenzug', teile: [
+      'S:stahlD M24 9.4V3', 'E:stahlM c 24 18 9 M24 15a3 3 0 1 0 .01 0z', 'F:stahlD c 24 18 1.6',
+      'S:hanfD M15 18v24M33 18v17', 'F:stahlD M29 35h8v7h-8z']},
+    rammbock: {linie: 'hammer', label: 'Rammbock', teile: [
+      'F:holz M4.5 19h31v11h-31z', 'L M4.5 23h31M4.5 26.6h31', 'F:stahlD M35.5 16.4h8v16.2h-8z',
+      'S:stahlD M12 30v6.4M27 30v6.4M12 19v-6.4M27 19v-6.4', 'F:stahlM M4.5 18h3v13h-3z']},
+    kreide: {linie: 'stift', label: 'Kreide', teile: [
+      'F:#f4f1ea M10 32l20-20 6.4 6.4-20 20z', 'F:#d9d3c4 M10 32l6.4 6.4-3.2 3.2-6.4-6.4z',
+      'f:#f4f1ea c 32 38 1.2', 'f:#f4f1ea c 37 34 .9', 'f:#f4f1ea c 36 41 .8', 'h M12 31l18.6-18.6 1.2 1.2L13.2 32.2z']},
+    kraehenfuesse: {linie: 'explosion', label: 'Krähenfüße', teile: [
+      'F:stahlM M18 9l3 11 11 3-11 3-3 11-3-11-11-3 11-3z', 'F:stahlD c 18 23 2.4',
+      'F:stahlM M36 24l2 7.2 7.2 2-7.2 2-2 7.2-2-7.2-7.2-2 7.2-2z', 'F:stahlD c 36 33.2 1.6']},
+    fangeisen: {linie: 'werkzeug', label: 'Fangeisen', teile: [
+      'F:stahlD M5 31a19 6.4 0 0 0 38 0z',
+      'F:stahlM M8 31c0-10 7-16.4 16-16.4S40 21 40 31h-4.4c0-7-5-12-11.6-12S12.4 24 12.4 31z',
+      'L M12.4 31l2-4.4 2 4.4 2-4.4 2 4.4 2-4.4 2 4.4 2-4.4 2 4.4 2-4.4 2 4.4 2-4.4 1.2 3.4', 'S:stahlD M24 37.4V44']},
+    kuegelchen: {linie: 'muenze', label: 'Kügelchen', teile: [
+      'F:stahl c 16 31 4.2', 'F:stahl c 25 35 4.2', 'F:stahl c 33.4 29.6 4.2', 'F:stahl c 20.4 23 4.2', 'F:stahl c 29 21.6 4.2',
+      'h M14 29.6a2 2 0 0 1 2-1.4', 'h M23 33.6a2 2 0 0 1 2-1.4', 'h M18.4 21.6a2 2 0 0 1 2-1.4']},
+    schloss: {linie: 'schloss', label: 'Schloss', teile: [
+      'E:stahlM M14.6 22v-6.4a9.4 9.4 0 0 1 18.8 0V22h-4.4v-6.4a5 5 0 0 0-10 0V22z',
+      'F:gold M11.5 21.4h25v21h-25z', 'F:#1b1611 c 24 30 2.4', 'F:#1b1611 M22.8 31h2.4l1.2 6h-4.8z', 'h M13.4 23.2h3.4v17.4h-3.4z']},
+    handschellen: {linie: 'kette', label: 'Handschellen', teile: [
+      'E:stahlM c 13 28 8.4 M13 23a5 5 0 1 0 .01 0z', 'E:stahlM c 35 28 8.4 M35 23a5 5 0 1 0 .01 0z',
+      'W:stahlD M21.4 25.4h5.2', 'F:stahlD M10 18h6v3h-6zM32 18h6v3h-6z']},
+    kette: {linie: 'kette', label: 'Kette', teile: [
+      'E:stahlM M5 12.4h11a4.4 4.4 0 0 1 0 8.8H5a4.4 4.4 0 0 1 0-8.8zM6.4 15v3.6h8.2V15z',
+      'E:stahlD M17.4 17.6h4.4a4.4 4.4 0 0 1 4.4 4.4v6a4.4 4.4 0 0 1-4.4 4.4h-4.4A4.4 4.4 0 0 1 13 28v-6a4.4 4.4 0 0 1 4.4-4.4zM15.6 21.4v7.2h8V21.4z',
+      'E:stahlM M23 28.4h11a4.4 4.4 0 0 1 0 8.8H23a4.4 4.4 0 0 1 0-8.8zM24.4 31v3.6h8.2V31z',
+      'E:stahlD M35.4 33.6h4.4a4.4 4.4 0 0 1 4.4 4.4v1a4.4 4.4 0 0 1-4.4 4.4h-4.4A4.4 4.4 0 0 1 31 39v-1a4.4 4.4 0 0 1 4.4-4.4zM33.6 37.4v2.2h8v-2.2z']},
+    wetzstein: {linie: 'stein', label: 'Wetzstein', teile: [
+      'F:#8b9198 M6 28l26-14 10 6-26 14z', 'F:#6a7178 M6 28v5l10 6v-5zM16 34v5l26-14v-5z',
+      'F:#9fd8ff M36 6c2 3 3.4 5 3.4 6.4a3.4 3.4 0 0 1-6.8 0c0-1.4 1.4-3.4 3.4-6.4z', 'h M9.6 27.4l22-11.8 2.6 1.6-22 11.8z']},
+    seife: {linie: 'tropfen', label: 'Seife', teile: [
+      'F:#bde0d0 M8 24l18-8 14 6-18 8z', 'F:#8fc1aa M8 24v6.4l14 6v-6.4zM22 30v6.4l18-8V22z',
+      'F:glas c 34 11 3.4', 'F:glas c 40.6 17 2.2', 'F:glas c 28 7 1.8', 'h M12 23.6l13.6-6 2.4 1-13.6 6z']},
+    siegelwachs: {linie: 'stift', label: 'Siegelwachs', teile: [
+      'F:rot M7.5 36.5l22-22 5 5-22 22z', 'F:rotD M7.5 36.5l5 5-2.6 2.6-5-5z',
+      'F:rot c 34 34 7.4', 'F:rotD c 34 34 4.4', 'L M32 34h4M34 32v4']},
+    pfeife: {linie: 'horn', label: 'Signalpfeife', teile: [
+      'F:gold M5.5 21h23v8.4h-23z', 'F:gold c 31.5 28 7.4', 'F:#1b1611 M13 21h5v3.4h-5z',
+      'F:goldD c 31.5 28 3', 'S:goldD M5.5 25.2a3.4 3.4 0 0 1-3.4-3.4', 'h M8 22.6h18v1.4H8z']},
+    waage: {linie: 'diagramm', label: 'Waage', teile: [
+      'F:goldD M14 40h20v4H14z', 'F:goldD M22 12h4v28h-4z', 'F:gold M7 11h34v3.4H7z',
+      'L M10 14.4L6 26M10 14.4L14 26M38 14.4l-4 7.6M38 14.4l4 7.6',
+      'F:gold M3.5 26h13l-2.4 4.4H5.9z', 'F:gold M31.5 22h13l-2.4 4.4h-8.2z', 'F:gold c 24 9.4 2.4']},
+    lupe: {linie: 'lupe', label: 'Vergrößerungsglas', teile: [
+      'F:holzD M28 28l4.4-4.4L44 35.2l-4.4 4.4z', 'E:gold c 20 20 12 M20 10a10 10 0 1 0 .01 0z',
+      'F:glas c 20 20 10', 'h M13.6 16.4a7.4 7.4 0 0 1 5.4-4.4']},
+    sanduhr: {linie: 'sanduhr', label: 'Sanduhr', teile: [
+      'F:holzD M12 8h3v32h-3zM33 8h3v32h-3z', 'F:glas M16 8h16c0 8-6 12-6 16s6 8 6 16H16c0-8 6-12 6-16s-6-8-6-16z',
+      'f:hanf M18 34.6c2-3 4-4 6-4s4 1 6 4l1 5.4H17zM19 12h10c-1 3-3 5-5 6-2-1-4-3-5-6z',
+      'F:holz M9.5 4h29v4h-29zM9.5 40h29v4h-29z']},
+    angel: {linie: 'werkzeug', label: 'Angel', teile: [
+      'F:holz M7 42.4L35.4 5.4l2 1.4L9 43.8z', 'S:#e8ecf0 M36.4 6c4.4 8 4.4 20 0 30',
+      'S:stahl M36.4 36c0 3.4-3.4 3.4-3.4 1', 'F:stahlD c 15 32.4 3.6', 'F:stahl c 15 32.4 1.2', 'F:rot c 36.4 30 1.6']},
+
+    // ── Magie und Glaube ──
+    komponentenbeutel: {linie: 'beutel', label: 'Komponentenbeutel', teile: [
+      'F:violett M18 12.5h12l-2 4c7 3 11.4 9 11.4 15 0 6.4-6.4 10.5-15.4 10.5S8.6 37.9 8.6 31.5c0-6 4.4-12 11.4-15z',
+      'F:violettD M16.6 15.4h14.8v3.2H16.6z', 'F:gold M24 23.4l1.6 4 4.2.4-3.2 2.8 1 4.2-3.6-2.2-3.6 2.2 1-4.2-3.2-2.8 4.2-.4z',
+      'S:#a98bd8 M13 30c1-4 3.4-7.4 6.6-9.4']},
+    mistel: {linie: 'blatt', label: 'Mistelzweig', teile: [
+      'S:gruenD M24 24v18', 'F:gruen M24 24c-8-2-14-8-14-16 8 2 14 8 14 16z', 'F:gruen M24 24c8-2 14-8 14-16-8 2-14 8-14 16z',
+      'L M24 24l-9-12M24 24l9-12', 'F:#f4f1ea c 21.6 28 2.4', 'F:#f4f1ea c 26.4 28.6 2.4', 'F:#f4f1ea c 24 32.4 2.4',
+      'F:gold M20 40h8v3h-8z']},
+    totem: {linie: 'maske', label: 'Totem', teile: [
+      'F:holz M17 8h14v35H17z', 'F:holzD M15 5.5h18v4H15z',
+      'F:#1b1611 M19.8 14h3.2v3.2h-3.2zM25 14h3.2v3.2H25z', 'L M20 22.4h8M20 32h8M24 26v4',
+      'F:rot M17 25.4l-7.4 4 7.4 1.4z', 'F:blau M31 25.4l7.4 4-7.4 1.4z', 'F:gold M17 36h14v2.4H17z']},
+    reliquie: {linie: 'amulett', label: 'Reliquie', teile: [
+      'F:goldD M9.5 16.4L24 6l14.5 10.4z', 'F:gold M11.5 16h25v26h-25z', 'F:glas M17.5 22h13v13h-13z',
+      'F:knochen M19.6 31.4l8.4-6.4 2 2-8.4 6.4z', 'F:rubin c 24 39 1.6', 'F:saphir c 24 12 1.6', 'h M13.4 17.6h3v22.8h-3z']},
+    weihwasser: {linie: 'tropfen', label: 'Weihwasser', teile: [
+      'F:holz M19.6 3.4h8.8v4h-8.8z', 'F:glas M20.4 7.4h7.2v6.4c6 2 9.4 7.4 9.4 13.6a13 13 0 0 1-26 0c0-6.2 3.4-11.6 9.4-13.6z',
+      'f:saphir M12.4 27.4c4.4 2.2 7.4-1.6 11.6 0s7.4 2 11.6 0a11.6 11.6 0 0 1-23.2 0z',
+      'F:gold M22.6 21h2.8v14h-2.8zM18.6 25h10.8v2.8H18.6z', 'h M15 23a9.6 9.6 0 0 1 4.6-5']},
+
+    // ── Tränke, Krüge, Kochen ──
+    feuerflasche: {linie: 'flamme', label: 'Alchemistenfeuer', teile: [
+      'F:glas M20.4 12h7.2v6c5.4 2 9 7 9 12.6a12.6 12.6 0 0 1-25.2 0c0-5.6 3.6-10.6 9-12.6z',
+      'f:flamme M12.6 29.4c4.4 2.2 7.4-1.6 11.4 0s7.4 2 11.4 0a11.4 11.4 0 0 1-22.8 0z',
+      'F:#f3ead2 M19.4 9h9.2v4h-9.2z', 'F:flamme M24 0.6c2.4 3 4.2 4.6 4.2 6.6a4.2 4.2 0 0 1-8.4 0c0-2 1.8-3.6 4.2-6.6z',
+      'f:flammeH M24 4c1 1.2 1.6 2 1.6 3a1.6 1.6 0 0 1-3.2 0c0-1 .6-1.8 1.6-3z', 'h M15.4 26a9 9 0 0 1 4.6-5']},
+    phiole: {linie: 'trank', label: 'Phiole', teile: [
+      'F:holz M19 3h10v4H19z', 'F:glas M20 7h8v28.4a4 4 0 0 1-8 0z',
+      'f:violett M20.8 20h6.4v15.4a3.2 3.2 0 0 1-6.4 0z', 'h M21.4 9h1.2v24h-1.2z',
+      'F:holz M32 13h8v3.4h-8z', 'F:glas M32.6 16.4h6.8v18a3.4 3.4 0 0 1-6.8 0z', 'f:smaragd M33.2 26h5.6v8.4a2.8 2.8 0 0 1-5.6 0z']},
+    oelflasche: {linie: 'tropfen', label: 'Öl (Flasche)', teile: [
+      'F:holz M20 4.4h8v3.6h-8z', 'F:braunD M20.4 8h7.2v6.4h-7.2z',
+      'F:braun M18 14.4h12v3.6c6 2 8 8 8 14 0 7-6 10-14 10S10 39 10 32c0-6 2-12 8-14z',
+      'F:papier M16.4 26h15.2v8.4H16.4z', 'L M19 29h10M19 31.6h7', 'h M13 30c.6-4.4 2.6-8 6-10-1.6 2.6-2.4 6-2.6 10z']},
+    humpen: {linie: 'krug', label: 'Humpen', teile: [
+      'S:#7d6650 M32 18h4a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4h-4', 'S:#7d6650 M32 21.4h3a1.6 1.6 0 0 1 1.6 1.6v4a1.6 1.6 0 0 1-1.6 1.6h-3',
+      'F:#a88a6a M10 12.4h22V38a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3z', 'F:#f4efe2 M9 13c0-4.4 4.4-6.4 7.4-4.4 2-3 6-3 8 0 3-1 6.6 0 6.6 4.4z',
+      'S:#7d6650 M10 20h22M10 34h22', 'h M12.6 15h3v23.4h-3z']},
+    krug: {linie: 'vase', label: 'Krug', teile: [
+      'S:#7e4625 M33 18c6.4 0 8.4 10.4 2 14.4', 'F:#b46a3c M16 10h14l-2 6c6 2 10 8 10 14 0 8-6 12-14 12S10 38 10 30c0-6 4-12 10-14z',
+      'F:#b46a3c M16 10l-4.4-3.4h4.4z', 'S:#7e4625 M13 28h22', 'h M13.4 30c.4-4.4 2.6-8 6-10-1.6 2.6-2.4 6-2.6 10z']},
+    topf: {linie: 'krug', label: 'Topf', teile: [
+      'S:#5a6068 M10 17c0-8.4 28-8.4 28 0', 'F:#3b3f45 M8 20h32v10c0 8-7 12-16 12S8 38 8 30z',
+      'F:#5a6068 M6 16.6h36v4H6z', 'F:#3b3f45 M12 40l-2.4 4h4.4zM36 40l2.4 4h-4.4z', 'h M11 22h3v8c0 3 1 5.4 2.6 7-3.4-1.4-5.6-4-5.6-7z']},
+    geschirr: {linie: 'krug', label: 'Reisegeschirr', teile: [
+      'S:stahlD M36 23h8', 'F:stahlM M8 23h28v12a6 6 0 0 1-6 6H14a6 6 0 0 1-6-6z', 'F:stahl M6 20h32v3.4H6z',
+      'S:stahl M35 14l-6.4 9', 'F:stahl c 37.6 10.4 3.6', 'h M10.4 25h2.4v11.4h-1c-.8-1-1.4-2.2-1.4-3.4z']},
+
+    pergament: {linie: 'dokument', label: 'Pergament', teile: [
+      'F:papier M10 5.5h22l6 6V42.5H10z', 'F:papierD M32 5.5v6h6z', 'L M14 16h16M14 21h20M14 26h20M14 31h14',
+      'S:#8a6a48 M15 37c3-2 6 1 9-1', 'h M11.6 7h3v34h-3z']},
+
+    // ── Musik ──
+    floete: {linie: 'musik', label: 'Flöte', teile: [
+      'F:holz M5.5 38.5L37.5 6.5l4 4-32 32z', 'F:holzD M35.5 4.5l6 6 2.4-2.4-6-6z',
+      'f:#3d2c1d c 15 33 1.4', 'f:#3d2c1d c 19.6 28.4 1.4', 'f:#3d2c1d c 24.2 23.8 1.4', 'f:#3d2c1d c 28.8 19.2 1.4',
+      'h M7.4 38.6L38.6 7.4l.8.8L8.2 39.4z']},
+    horn: {linie: 'horn', label: 'Horn', teile: [
+      'F:knochen M5 33c3.6-14.4 17.6-24.6 34-24.6l2.4 8.6c-12.4 0-22 7.6-26 19.4z',
+      'F:#3d2c1d M38.6 8.6c1.6-.4 3.2-.4 4.4 0 1.4 2.6 1.8 5.6.8 8.4-1 .4-2.2.4-3.4.4z',
+      'F:gold M14.4 23l2.6 1.8-3.2 5-2.6-1.6zM25.4 14.8l2 2.4-4.4 3.2-1.8-2.4z', 'F:goldD M4.6 32.6l10.6 3.4-1.2 3.4L4 36z',
+      'S:lederD M8 33c6 4 16 2 22-6', 'h M9.4 29.6c3.6-9 12-15.6 22-17.6-8.4 3.4-15 9.4-18.6 18.6z']},
+    trommel: {linie: 'musik', label: 'Trommel', teile: [
+      'F:rot M8 18h32v18c0 4-7 6.4-16 6.4S8 40 8 36z', 'S:gold M10 22l6 14.6 6-14.6 6 14.6 6-14.6 4 10',
+      'F:#efe2c2 M8 18c0-3 7-5.4 16-5.4s16 2.4 16 5.4-7 5.4-16 5.4S8 21 8 18z',
+      'W:holzD M30 3.6l-5.6 10M41 5.6l-10 8']},
+    leier: {linie: 'musik', label: 'Leier', teile: [
+      'F:gold M10 7c0 18.4 4 28.4 14 30.4 10-2 14-12 14-30.4h-4.4c0 14-3 23.4-9.6 25.4C17.4 30.4 14.4 21 14.4 7z',
+      'F:goldD M11.6 11h24.8v3.4H11.6z', 'S:#efe8d0 M18 14.4v19M22 14.4v22M26 14.4v22M30 14.4v19',
+      'F:goldD M19 37h10l1.4 5.4H17.6z']},
+
+    // ── Weitere Waffen ──
+    kurzschwert: {linie: 'klinge', label: 'Kurzschwert', teile: [
+      'F:stahl M39 8.5l-1.4 5.2-15.6 15.6-3.8-3.8 15.6-15.6z', 'S:stahlM M37 10.6L20.6 27',
+      'F:gold M12.6 23.4l2.8-2.8 11 11-2.8 2.8z', 'F:leder M17.2 29.6l2.2 2.2-5.8 5.8-2.2-2.2z', 'F:gold c 10.4 39.2 2.6',
+      'h M38 9.6l-.6 2-14.2 14.2-1-1z']},
+    morgenstern: {linie: 'explosion', label: 'Morgenstern', teile: [
+      'F:holz M22.4 23.4l3.2 3.2-14.4 14.4-3.2-3.2z', 'F:lederD M12 33.6l3.2 3.2-2.6 2.6-3.2-3.2z',
+      'F:stahl M31 4l2.2 5.4h-4.4zM43.4 16l-5.4 2.2v-4.4zM31 28.4l-2.2-5.4h4.4zM18.6 16l5.4-2.2v4.4zM40 7l-2.2 5.4-3.2-3.2zM40 25l-5.4-2.2 3.2-3.2zM22 7l5.4 2.2-3.2 3.2z',
+      'F:stahlD c 31 16 8', 'h M27 12.6a5 5 0 0 1 4.4-2.4']},
+    hellebarde: {linie: 'dreizack', label: 'Hellebarde', teile: [
+      'F:holz M30.4 11l2.6 2.6L8.6 44.4 6 41.8z',
+      'F:stahl M27.4 7c6.4-.4 11 3.6 13 10l-8.6 6.4-6.4-8.4z', 'F:stahl M38 2.4l3.4 6.4-5-.6z', 'F:stahlD M24.4 13.4l-3.4-2.4 2.4-3z',
+      'h M29.4 9.4c3.4 0 6 2 7.6 5l-4.4 3z']},
+    sichel: {linie: 'klinge', label: 'Sichel', teile: [
+      'F:holz M18.6 27.4l4.4 2-6.4 14-4.4-2z', 'F:stahl M13 30C8.4 18 18 5.6 33 7.4c-10.6 2.4-16.6 10.4-14.4 20.6z',
+      'h M16 26c-1.6-7 3-14 10.6-17-5 3.6-8 8.6-8 15.6z']},
+    keule: {linie: 'hammer', label: 'Keule', teile: [
+      'F:holz M11.6 40.4c-2.2-2.2-2.2-4.4 0-6.6l16-22c4-4.4 10-2.4 12 2 2 4.4 0 8.4-4 10.4L18 40.4c-2.2 2.2-4.4 2.2-6.4 0z',
+      'F:holzD c 30 16 1.6', 'F:holzD c 34.4 20 1.2', 'F:lederD M10 34.4l4 4-2.4 2.4-4-4z',
+      'h M27 14c2-2.4 5-3 7.4-1.6-2.4.4-4.4 1.6-6 3.4z']},
+    peitsche: {linie: 'kette', label: 'Peitsche', teile: [
+      'W:leder M18 30c8-8.4 14-6.4 18 0s8 6.4 10-2.4', 'S:lederD M46 27.6l-1-4',
+      'F:lederD M7.5 40.5l8.4-8.4 3.4 3.4-8.4 8.4z', 'F:gold M15 31.4l3.4 3.4-1.4 1.4-3.4-3.4z']},
+    schleuder: {linie: 'kette', label: 'Schleuder', teile: [
+      'S:leder M8 8c6 10.4 10 22 14 26M40 8c-6 10.4-10 22-14 26', 'F:lederD M17.6 31.4c2.4 4.4 10.4 4.4 12.8 0l-2 6.4h-8.8z',
+      'F:#8b9198 c 24 33.6 3.2', 'F:lederD c 8 8 2.2', 'F:lederD c 40 8 2.2']},
+    blasrohr: {linie: 'stab', label: 'Blasrohr', teile: [
+      'F:holz M5.5 39.5L37.5 7.5l3 3-32 32z', 'F:holzD M35.4 5.4l7.2 7.2-1.8 1.8-7.2-7.2z',
+      'S:stahl M24 40l10-10', 'F:rot M22 42l1.6-4.4 2.4 2.4z', 'S:stahl M30 44l10-10', 'F:rot M28 46l1.6-4.4 2.4 2.4z']},
+    netz: {linie: 'hex', label: 'Netz', teile: [
+      'S:hanf M8 12h32M6 20h36M6 28h36M8 36h32M12 8l-2 32M20 6v36M28 6v36M36 8l2 32',
+      'F:stahlD c 8 8 2.4', 'F:stahlD c 40 8 2.4', 'F:stahlD c 8 40 2.4', 'F:stahlD c 40 40 2.4']},
   };
 
   // Zeichen alter Gegenstände → Bild.
@@ -352,37 +586,62 @@
   zu('fackel', '🔥'); zu('laterne', '🪔 🔦 💡'); zu('kerze', '🕯'); zu('dietriche', '🔑 🗝'); zu('werkzeugkiste', '🔧 🛠 ⛏ 🪛');
   zu('laute', '🎸 🎻 🎵 🎶'); zu('heiliges_symbol', '☀ ✝ ☥'); zu('glocke', '🔔'); zu('wuerfel', '🎲'); zu('spielkarten', '🃏 🎴');
   zu('schaedel', '💀 ☠'); zu('knochen', '🦴 🦷'); zu('fell', '🐺 🦊 🐻'); zu('spiegel', '🪞');
+  zu('zelt', '⛺ 🏕'); zu('spinnennetz', '🕸 🕷'); zu('enterhaken', '🪝'); zu('korb', '🧺'); zu('leiter', '🪜');
+  zu('eimer', '🪣'); zu('sanduhr', '⏳ ⌛'); zu('humpen', '🍺 🍻'); zu('schloss', '🔒 🔐'); zu('seife', '🧼');
+  zu('lupe', '🔍 🔎 🔬'); zu('waage', '⚖'); zu('kette', '⛓ 🔗'); zu('fangeisen', '🪤'); zu('trommel', '🥁');
+  zu('horn', '📯 🎺'); zu('floete', '🪈'); zu('fass', '🛢'); zu('sack', '🛍'); zu('kiste', '📦 🗃');
+  zu('kreide', '🖍'); zu('phiole', '⚗'); zu('topf', '🍲'); zu('heilerausruestung', '🩹 💉 🩺');
+  zu('kristall', '💠'); zu('hammer', '🔨'); zu('spitzhacke', '⛏'); zu('schaufel', '🪏');
 
   // Nach dem Namen raten — der erste Treffer zählt, das Genauere steht oben.
   var RATEN = [
-    [/panzerhandschuh|stulpe/, 'panzerhandschuh'], [/handschuh/, 'handschuhe'],
-    [/zauberstab|stab der|zepter/, 'zauberstab'], [/kampfstab|stab\b/, 'kampfstab'],
-    [/armbrust/, 'armbrust'], [/köcher|pfeil|bolzen/, 'koecher'], [/bogen/, 'bogen'],
-    [/säbel|krummschwert|rapier|degen/, 'saebel'], [/dolch|messer|stilett/, 'dolch'], [/schwert|klinge/, 'langschwert'],
-    [/axt|beil/, 'streitaxt'], [/hammer/, 'kriegshammer'], [/kolben|keule|morgenstern|flegel/, 'streitkolben'],
-    [/speer|lanze|hellebarde|pike|dreizack|glefe/, 'speer'],
+    // Erst, was aus mehreren Wörtern besteht oder ein anderes enthält.
+    [/ewige[sm]? licht|immerwährende flamme|dauerhafte flamme/, 'ewiges_licht'], [/krähenfüße/, 'kraehenfuesse'], [/spinnennetz|spinnweb/, 'spinnennetz'],
+    [/heilerausrüstung|heilerkit|verbandszeug|verband/, 'heilerausruestung'], [/alchemistenfeuer/, 'feuerflasche'],
+    [/komponentenbeutel|materialkomponenten/, 'komponentenbeutel'], [/kletterhaken|kletterausrüstung|eisenkeil|keile/, 'kletterhaken'],
+    [/enterhaken|wurfanker/, 'enterhaken'], [/kristallkugel|kugel\b|\(kugel\)/, 'kristallkugel'],
+    [/arkaner fokus|kristall/, 'kristall'], [/mistel/, 'mistel'], [/totem/, 'totem'], [/reliquie/, 'reliquie'],
+    [/weihwasser/, 'weihwasser'], [/heiliges symbol|emblem/, 'heiliges_symbol'],
+    [/panzerhandschuh|stulpe/, 'panzerhandschuh'], [/handschuh/, 'handschuhe'], [/handschellen|fesseln/, 'handschellen'],
+    [/zauberstab|stab der|zepter|\brute\b/, 'zauberstab'], [/kampfstab|holzstab|stab\b/, 'kampfstab'], [/stange/, 'stange'],
+    [/armbrust/, 'armbrust'], [/köcher|pfeil|bolzen/, 'koecher'], [/blasrohr/, 'blasrohr'], [/bogen/, 'bogen'],
+    [/säbel|krummschwert|rapier|degen/, 'saebel'], [/kurzschwert/, 'kurzschwert'], [/dolch|messer|stilett/, 'dolch'],
+    [/schwert|klinge/, 'langschwert'],
+    [/vorschlaghammer|hammer, leicht|leichter hammer|werkzeughammer|^hammer/, 'hammer'], [/hammer/, 'kriegshammer'],
+    [/spitzhacke|picke/, 'spitzhacke'], [/axt|beil/, 'streitaxt'], [/kolben/, 'streitkolben'],
+    [/morgenstern|flegel/, 'morgenstern'], [/keule|knüppel/, 'keule'], [/sichel/, 'sichel'], [/peitsche/, 'peitsche'],
+    [/schleuderkugel|kügelchen|murmel/, 'kuegelchen'], [/schleuder/, 'schleuder'],
+    [/hellebarde|gleve|glefe|pike/, 'hellebarde'], [/speer|lanze|dreizack/, 'speer'], [/netz\b/, 'netz'],
     [/rundschild/, 'rundschild'], [/schild/, 'wappenschild'],
     [/kettenhemd|kettenpanzer|ringpanzer|kette(n)?rüstung/, 'kettenhemd'], [/schuppen/, 'schuppenpanzer'],
     [/platte|bänder|schienenpanzer/, 'plattenpanzer'], [/brustpanzer|halbplatte|kürass|harnisch/, 'brustpanzer'],
     [/leder.*(rüstung|panzer)|wams|gambeson/, 'lederruestung'],
     [/helm|haube/, 'helm'], [/kapuze/, 'kapuze'], [/hut\b|spitzhut|mütze/, 'spitzhut'],
-    [/umhang|mantel|cape|cloak/, 'umhang'], [/robe|gewand|kutte/, 'robe'], [/hemd|tunika|kleid|weste/, 'tunika'], [/hose/, 'hose'],
+    [/umhang|mantel|cape|cloak/, 'umhang'], [/robe|gewand|kutte/, 'robe'], [/hemd|tunika|kleid|weste|kostüm/, 'tunika'], [/hose/, 'hose'],
     [/armschiene/, 'armschienen'], [/stiefel|schuh/, 'stiefel'], [/gürtel/, 'guertel'],
-    [/\bring\b|ring des|ring der/, 'ring'], [/amulett|halskette|anhänger|talisman|medaillon/, 'amulett'], [/krone|diadem|reif/, 'krone'],
-    [/maske/, 'maske'], [/rubin/, 'rubin'], [/edelstein|saphir|smaragd|diamant|juwel|perle/, 'edelstein'],
-    [/heiltrank|trank der heilung|heilung/, 'trank_rot'], [/gift/, 'trank_gruen'], [/trank|elixier|phiole/, 'trank_blau'],
-    [/ration|brot|proviant|essen|käse|fleisch/, 'brot'], [/wasserschlauch|feldflasche|flasche/, 'wasserschlauch'],
-    [/kraut|kräuter|pflanze|blume/, 'kraeuter'],
-    [/schriftrolle|rolle/, 'schriftrolle'], [/zauberbuch|grimoire/, 'zauberbuch'], [/buch|foliant|tagebuch|journal/, 'buch'],
-    [/karte/, 'karte'], [/feder|tinte|schreib/, 'feder'], [/kompass/, 'kompass'], [/fernrohr|fernglas/, 'fernrohr'],
-    [/kugel|kristall/, 'kristallkugel'],
-    [/rucksack|tornister/, 'rucksack'], [/beutel|börse|geld/, 'beutel'], [/münze|goldstück/, 'muenzen'], [/truhe|kiste\b/, 'truhe'],
-    [/seil|tau\b/, 'seil'], [/fackel/, 'fackel'], [/laterne|lampe/, 'laterne'], [/kerze/, 'kerze'],
-    [/bettrolle|schlafsack|decke/, 'bettrolle'], [/dietrich|diebeswerkzeug|einbruch/, 'dietriche'],
-    [/werkzeug|schmiede|zunder/, 'werkzeugkiste'], [/laute|flöte|harfe|trommel|horn|instrument|leier/, 'laute'],
-    [/heiliges symbol|weihwasser|heilig/, 'heiliges_symbol'], [/glocke/, 'glocke'], [/würfel/, 'wuerfel'],
-    [/spielkarten|karten/, 'spielkarten'], [/schädel/, 'schaedel'], [/knochen/, 'knochen'], [/fell|pelz|haut/, 'fell'],
-    [/spiegel/, 'spiegel'],
+    [/siegelring|\bring\b|ring des|ring der/, 'ring'], [/amulett|halskette|anhänger|talisman|medaillon/, 'amulett'],
+    [/krone|diadem|reif/, 'krone'], [/maske|verkleidung/, 'maske'], [/rubin/, 'rubin'], [/edelstein|saphir|smaragd|diamant|juwel|perle/, 'edelstein'],
+    [/heiltrank|trank der heilung|heilung/, 'trank_rot'], [/gift/, 'trank_gruen'], [/phiole|säure|parfüm|gegengift/, 'phiole'],
+    [/trank|elixier/, 'trank_blau'], [/öllampe|\blampe/, 'oellampe'], [/öl\b|öl \(|ölflasche/, 'oelflasche'],
+    [/ration|brot|proviant|essen|käse|fleisch/, 'brot'], [/wasserschlauch|trinkschlauch|feldflasche/, 'wasserschlauch'],
+    [/humpen|becher/, 'humpen'], [/tonkrug|kanne|krug/, 'krug'], [/topf|kessel/, 'topf'], [/reisegeschirr|kochgeschirr|geschirr/, 'geschirr'],
+    [/flasche/, 'oelflasche'], [/kraut|kräuter|pflanze|blume/, 'kraeuter'],
+    [/schriftrolle|rolle/, 'schriftrolle'], [/behälter|kartenrolle/, 'schriftrolle'], [/zauberbuch|grimoire/, 'zauberbuch'],
+    [/buch|foliant|tagebuch|journal/, 'buch'], [/papier|pergament/, 'pergament'], [/karte\b|landkarte/, 'karte'],
+    [/feder|tinte|schreib|fälscher/, 'feder'], [/kompass|navigation/, 'kompass'], [/fernrohr|fernglas/, 'fernrohr'],
+    [/vergrößerungsglas|lupe/, 'lupe'], [/sanduhr/, 'sanduhr'], [/waage/, 'waage'],
+    [/rucksack|tornister/, 'rucksack'], [/materialbeutel|beutel|börse|geld/, 'beutel'], [/\bsack\b/, 'sack'],
+    [/münze|goldstück/, 'muenzen'], [/truhe/, 'truhe'], [/kiste\b/, 'kiste'], [/korb/, 'korb'], [/fass\b/, 'fass'], [/eimer/, 'eimer'],
+    [/seide/, 'seil_seide'], [/seil|tau\b/, 'seil'], [/zelt/, 'zelt'], [/bettrolle|schlafsack|decke/, 'bettrolle'],
+    [/fackel/, 'fackel'], [/laterne/, 'laterne'], [/kerze/, 'kerze'], [/zunder/, 'zunder'], [/leiter/, 'leiter'],
+    [/dietrich|diebeswerkzeug|einbruch/, 'dietriche'], [/schaufel|spaten/, 'schaufel'], [/flaschenzug/, 'flaschenzug'],
+    [/rammbock/, 'rammbock'], [/kreide/, 'kreide'], [/fangeisen|falle/, 'fangeisen'],
+    [/schloss\b/, 'schloss'], [/kette\b|kette \(/, 'kette'], [/wetzstein|schleifstein/, 'wetzstein'], [/seife/, 'seife'],
+    [/siegelwachs/, 'siegelwachs'], [/signalpfeife|pfeife/, 'pfeife'], [/angel/, 'angel'],
+    [/werkzeug|schmiede|ausrüstung|labor|vorräte/, 'werkzeugkiste'],
+    [/flöte|schalmei|dudelsack/, 'floete'], [/horn\b/, 'horn'], [/trommel|hackbrett/, 'trommel'], [/leier|harfe|gambe/, 'leier'],
+    [/laute|instrument|mandoline/, 'laute'], [/glocke/, 'glocke'], [/würfel/, 'wuerfel'], [/spielkarten|karten/, 'spielkarten'],
+    [/schädel/, 'schaedel'], [/knochen/, 'knochen'], [/fell|pelz|haut/, 'fell'], [/spiegel/, 'spiegel'],
   ];
   var raten = function (name) {
     var n = String(name || '').toLowerCase();
@@ -393,14 +652,17 @@
 
   // Die Auswahl im Gegenstandsdialog.
   var WAHL = [
-    {label: 'Waffen', icons: ['langschwert', 'saebel', 'dolch', 'streitaxt', 'kriegshammer', 'streitkolben', 'speer', 'kampfstab', 'zauberstab', 'bogen', 'armbrust', 'koecher']},
+    {label: 'Waffen', icons: ['langschwert', 'kurzschwert', 'saebel', 'dolch', 'streitaxt', 'kriegshammer', 'streitkolben', 'morgenstern', 'keule', 'sichel', 'speer', 'hellebarde', 'kampfstab', 'peitsche', 'netz', 'bogen', 'armbrust', 'koecher', 'schleuder', 'blasrohr']},
     {label: 'Rüstung & Schilde', icons: ['lederruestung', 'kettenhemd', 'schuppenpanzer', 'brustpanzer', 'plattenpanzer', 'helm', 'wappenschild', 'rundschild', 'panzerhandschuh', 'armschienen']},
     {label: 'Kleidung', icons: ['umhang', 'robe', 'tunika', 'hose', 'kapuze', 'spitzhut', 'handschuhe', 'stiefel', 'guertel', 'maske']},
-    {label: 'Schmuck & Schätze', icons: ['ring', 'amulett', 'krone', 'edelstein', 'rubin', 'muenzen', 'beutel', 'truhe', 'heiliges_symbol']},
-    {label: 'Tränke & Proviant', icons: ['trank_rot', 'trank_blau', 'trank_gruen', 'brot', 'wasserschlauch', 'kraeuter']},
-    {label: 'Schriften & Wissen', icons: ['schriftrolle', 'buch', 'zauberbuch', 'buch_offen', 'karte', 'feder', 'kompass', 'fernrohr', 'kristallkugel']},
-    {label: 'Ausrüstung', icons: ['rucksack', 'seil', 'fackel', 'laterne', 'kerze', 'bettrolle', 'dietriche', 'werkzeugkiste', 'laute', 'glocke', 'spiegel']},
-    {label: 'Sonstiges', icons: ['wuerfel', 'spielkarten', 'schaedel', 'knochen', 'fell']},
+    {label: 'Magie & Glaube', icons: ['zauberstab', 'kristall', 'kristallkugel', 'komponentenbeutel', 'mistel', 'totem', 'heiliges_symbol', 'reliquie', 'weihwasser', 'ewiges_licht', 'spinnennetz']},
+    {label: 'Schmuck & Schätze', icons: ['ring', 'amulett', 'krone', 'edelstein', 'rubin', 'muenzen', 'beutel', 'truhe']},
+    {label: 'Tränke & Proviant', icons: ['trank_rot', 'trank_blau', 'trank_gruen', 'phiole', 'feuerflasche', 'oelflasche', 'brot', 'wasserschlauch', 'humpen', 'krug', 'topf', 'geschirr', 'kraeuter']},
+    {label: 'Lager & Reise', icons: ['rucksack', 'sack', 'zelt', 'bettrolle', 'seil', 'seil_seide', 'kletterhaken', 'enterhaken', 'leiter', 'stange', 'fackel', 'laterne', 'oellampe', 'kerze', 'zunder', 'heilerausruestung', 'korb', 'fass', 'kiste', 'eimer']},
+    {label: 'Werkzeug & Gerät', icons: ['dietriche', 'werkzeugkiste', 'hammer', 'schaufel', 'spitzhacke', 'flaschenzug', 'rammbock', 'kreide', 'kraehenfuesse', 'fangeisen', 'kuegelchen', 'schloss', 'handschellen', 'kette', 'wetzstein', 'seife', 'siegelwachs', 'pfeife', 'waage', 'lupe', 'sanduhr', 'angel', 'glocke', 'spiegel']},
+    {label: 'Schriften & Wissen', icons: ['schriftrolle', 'pergament', 'buch', 'zauberbuch', 'buch_offen', 'karte', 'feder', 'kompass', 'fernrohr']},
+    {label: 'Musik & Spiel', icons: ['laute', 'floete', 'horn', 'trommel', 'leier', 'wuerfel', 'spielkarten']},
+    {label: 'Sonstiges', icons: ['schaedel', 'knochen', 'fell']},
   ].map(function (k) { return {label: k.label, icons: k.icons.map(function (n) { return 'ib:' + n; })}; });
 
   // ── Zeichnen ──────────────────────────────────────────────────

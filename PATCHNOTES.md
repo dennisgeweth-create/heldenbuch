@@ -1,5 +1,44 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.2.0
+
+### Gut sichtbar, auch im Darkmode des Telefons
+
+- Das Heldenbuch sagt dem Browser jetzt, dass es **immer dunkel** ist.
+  Bisher dunkelten Chrome und Samsung Internet die Seite im Darkmode des
+  Geräts selbst nach — die Bilder wurden trübe. Das passiert nicht mehr.
+- Die Bilder der Gegenstände haben einen **hellen Saum**, der sie vom
+  grauen Grund abhebt; wo statt eines Bildes ein schlichtes Icon steht
+  (leere Plätze an der Puppe, Auswahl), ist es **golden**.
+- **Heldenbuch und Ausgabe** stehen oben genau mittig auf einer Zeile,
+  der Abschnitt ist schmaler.
+
+### 63 neue Gegenstände — die ganze Ausrüstungsliste
+
+Jetzt 135 Bilder. Neu sind unter anderem:
+
+- **Lager & Reise:** Zelt, Sack, Korb, Fass, Kiste, Eimer, Leiter,
+  Stange (3 m), Seil aus Seide, Kletterhaken, Enterhaken, Öllampe,
+  Zunderkästchen, Heilerausrüstung.
+- **Werkzeug & Gerät:** Hammer, Schaufel, Spitzhacke, Flaschenzug,
+  Rammbock, Kreide, Krähenfüße, Fangeisen, Kügelchen, Schloss,
+  Handschellen, Kette, Wetzstein, Seife, Siegelwachs, Signalpfeife,
+  Waage, Vergrößerungsglas, Sanduhr, Angel.
+- **Magie & Glaube:** Arkaner Fokus (Kristall), Komponentenbeutel,
+  Mistelzweig, Totem, Reliquie, Weihwasser, Ewiges Licht, Spinnennetz.
+- **Tränke & Proviant:** Phiole, Alchemistenfeuer, Öl, Humpen, Krug,
+  Topf, Reisegeschirr. **Schriften:** Pergament.
+- **Musik:** Flöte, Horn, Trommel, Leier.
+- **Waffen:** Kurzschwert, Morgenstern, Hellebarde, Sichel, Keule,
+  Peitsche, Schleuder, Blasrohr, Netz.
+
+Das **Raten nach dem Namen** kennt die Gegenstände der Ausrüstungsliste:
+„Hammer, leicht" wird zum Hammer (nicht zum Kriegshammer),
+„Krähenfüße (Beutel, 20 Stk.)" zu Krähenfüßen, „Gift, einfach (Phiole)"
+zum Gift, „Kugel (arkaner Fokus)" zur Kristallkugel. Die Auswahl ist neu
+geordnet: Waffen, Rüstung, Kleidung, Magie & Glaube, Schmuck, Tränke,
+Lager & Reise, Werkzeug & Gerät, Schriften, Musik & Spiel.
+
 ## v6.1.0
 
 ### Gegenstände mit Bild

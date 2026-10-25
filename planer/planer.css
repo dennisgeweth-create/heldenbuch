@@ -3,6 +3,7 @@
    einmal, weil der Planer dessen ganze Oberflaeche nicht mitladen soll.
    Wer dort eine Farbe aendert, aendert sie hier mit. */
 :root {
+  color-scheme: dark;
   --bg-void: #0f1011; --bg-deep: #141618; --bg-card: #1a1c1e;
   --bg-panel: #212427; --bg-hover: #2a2e32;
   --border: #2e3236; --border-bright: #454b52;
