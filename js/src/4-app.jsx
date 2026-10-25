@@ -2198,11 +2198,12 @@ function App() {
     catch (e) { appAlert('Im Bogen steht es — bei der Spielleitung kam es nicht an: ' + (e.message || '')); }
   };
 
-  // ── Post an die Spielleitung ───────────────────────────────────
-  // Die Spielleitung fragt alle zwanzig Sekunden, ob etwas gekommen ist —
-  // ein Zettel ist nicht eilig wie ein Zug, aber er soll auch nicht erst
-  // nach der Sitzung auffallen. Ein Spieler fragt nur, wenn er sein
-  // Fenster aufmacht: er will wissen, ob seins gelesen wurde.
+  // ── Post zwischen Runde und Spielleitung ───────────────────────
+  // Beide Seiten fragen alle zwanzig Sekunden (schneller, wenn der Puls
+  // etwas meldet), ob etwas gekommen ist — ein Zettel ist nicht eilig wie
+  // ein Zug, aber er soll auch nicht erst nach der Sitzung auffallen.
+  // Seit die Spielleitung zurückschreiben kann, wartet auch der Spieler
+  // auf Post und nicht nur auf sein Häkchen.
   const [post, setPost] = useState([]);
   const [postOffen, setPostOffen] = useState(false);
   const postLaden = async () => {
@@ -2215,7 +2216,7 @@ function App() {
   };
   useEffect(() => {
     setPost([]);
-    if (!isDmMode || !advId || !konto) return;
+    if (!advId || !konto) return;
     let lebt = true, uhr = null;
     const takt = async () => {
       if (!document.hidden) await postLaden();
@@ -2226,12 +2227,18 @@ function App() {
     return () => { lebt = false; clearTimeout(uhr); };
   }, [isDmMode, advId, svCode, konto]);
   useEffect(() => { if (postOffen) postLaden(); }, [postOffen]);
-  const postUngelesen = isDmMode ? post.filter(p => !p.gelesen).length : 0;
-  const postSenden = async (charId, text) => {
+  const postUngelesen = postUngelesenFuer(post);
+  // Ein Zettel: {char_id (wer schreibt, leer = Spielleitung), an: [Bögen],
+  // an_sl, text}. Wer keinem Konto gehört, kann nichts empfangen — das
+  // sagt der Server, und es steht dann in der Meldung.
+  const postSchreiben = async (teil) => {
     const creds = serverCreds();
     if (!verbunden(creds)) return 'Ohne Verbindung zum Server geht keine Post.';
-    try { await apiPostSenden(creds.url, creds.code, advId, charId, text); await postLaden(); return null; }
-    catch (e) { return e.message || 'Das ging nicht.'; }
+    try {
+      const d = await apiPostSchreiben(creds.url, creds.code, advId, teil);
+      await postLaden();
+      return d && d.ohne && d.ohne.length ? 'Gesendet — aber ' + d.ohne.join(', ') + ' gehört keinem Konto.' : null;
+    } catch (e) { return e.message || 'Das ging nicht.'; }
   };
   const postGelesen = async (id, gelesen) => {
     setPost(l => l.map(p => p.id === id ? {...p, gelesen} : p));
@@ -3646,13 +3653,13 @@ function App() {
                          : 'Rast'}
                 </button>
               )}
-              {/* Post: die Spielleitung sieht, was gekommen ist; wer
-                  einen eigenen Helden im Abenteuer hat, kann schreiben. */}
-              {svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && (
+              {/* Post: jeder schreibt jedem, in Unterhaltungen wie in
+                  einem Messenger (2l-post.jsx). */}
+              {svCode && konto && advId && (
                 <button className={'btn-tool' + (postUngelesen ? ' post-neu' : '')}
                   onClick={()=>{ setPostOffen(true); leiste.zeigen('post'); }}
-                  title={isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'}>
-                  ✉ {isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'}
+                  title="Zettel an die Spielleitung oder an einzelne Helden — die anderen sehen sie nicht">
+                  ✉ Post{postUngelesen ? ' · ' + postUngelesen : ''}
                 </button>
               )}
               {/* Der Laden steht da, sobald die Spielleitung eine Auslage
@@ -5211,15 +5218,22 @@ function App() {
           onSchliessen={()=>{ rastGesehen.current = rast.id; setRastOffen(false); }} />
       )}
 
-      {postOffen && (isDmMode ? (
-        <PostfachFenster post={post} onGelesen={postGelesen}
-          onLoeschen={(id)=>appConfirm('Diesen Zettel wegwerfen?', ()=>postLoeschen(id), 'Wegwerfen')}
+      {/* Post: wer hier sitzt, schreibt jedem — die Spielleitung als
+          Spielleitung, ein Spieler als einer seiner Helden. Empfangen kann
+          ein Held, der einem Konto gehört. */}
+      {postOffen && (
+        <PostFenster post={post} dm={isDmMode}
+          meine={advChars.filter(c => eigeneHeldenIds.includes(c.id) && !c.archived && !istNsc(c))}
+          partner={[
+            ...(isDmMode ? [] : [{charId: '', name: 'Spielleitung'}]),
+            ...advChars.filter(c => !c.archived && !istNsc(c) && (besitzer || {})[c.id]
+                                    && (isDmMode || !eigeneHeldenIds.includes(c.id)))
+                       .map(c => ({charId: c.id, name: c.name || 'Held'})),
+          ]}
+          onSchreiben={postSchreiben} onGelesen={postGelesen}
+          onLoeschen={(id)=>appConfirm('Diesen Zettel löschen?', ()=>postLoeschen(id), 'Löschen')}
           onSchliessen={()=>setPostOffen(false)} />
-      ) : (
-        <PostFenster helden={advChars.filter(c => eigeneHeldenIds.includes(c.id) && !c.archived)}
-          post={post} onSenden={postSenden} onZuruecknehmen={postLoeschen}
-          onSchliessen={()=>setPostOffen(false)} />
-      ))}
+      )}
 
       {ladenOffen && (
         <LadenFenster laden={laden} isDmMode={isDmMode}

@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v5.37.1';
+const HB_VERSION = 'v5.38.0';
 // Merkt je Tab, dass die Spielleitung ueber ihr Konto im DM-Modus war —
 // ein Neuladen bringt sie dorthin zurueck (4-app.jsx).
 const DM_MERKER = 'hb_dm_modus';

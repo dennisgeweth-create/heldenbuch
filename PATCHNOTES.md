@@ -1,5 +1,28 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v5.38.0
+
+### Post für alle — wie im Messenger
+
+- **✉ Post** heißt der Knopf jetzt für alle, und **jeder schreibt
+  jedem**: die Spielleitung einem Helden, ein Spieler der Spielleitung
+  oder einem anderen Helden. Empfangen kann ein Held, der einem Konto
+  gehört; ein Spieler schreibt als einer seiner Helden.
+- Die Post sieht aus wie ein Messenger: links die **Unterhaltungen** —
+  die neueste oben, mit der letzten Zeile und der Zahl des Ungelesenen —,
+  rechts der **Verlauf** mit Sprechblasen, die eigenen rechts, nach Tagen
+  getrennt. Unten schreiben, **Eingabe** schickt ab, Umschalt+Eingabe
+  macht eine neue Zeile. Am Telefon erst die Liste, dann der Verlauf.
+- **✓** heißt zugestellt, **✓✓** gelesen — gelesen ist, was jemand in
+  seiner Unterhaltung aufgeschlagen hat.
+- **✎ Neue Unterhaltung** beginnt eine mit jemandem, dem man noch nicht
+  geschrieben hat.
+- Was zwei Spieler einander schreiben, liest **nur ihr beide** — auch
+  die Spielleitung nicht. Was an die Spielleitung geht, liest jede
+  Spielleitung des Abenteuers.
+- Ein Spieler sieht jetzt auch ohne das Fenster zu öffnen, dass Post
+  gekommen ist: der Knopf zählt mit.
+
 ## v5.37.1
 
 ### Die Spielleitung bleibt Spielleitung

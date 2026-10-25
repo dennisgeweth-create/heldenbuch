@@ -195,8 +195,8 @@
     const apiProbeStand = wbStumm;
     // Post: die Werkbank hat einen Briefkasten im Arbeitsspeicher, damit
     // sich das Fenster der Spielleitung pruefen laesst.
-    const wbPost = [{id: 1, charId: 'wb1', name: 'Brunhilde Eisenfaust',
-                     text: 'Ich stecke den Schlüssel heimlich ein.', gelesen: false,
+    const wbPost = [{id: 1, von: {charId: 'wb1', name: 'Brunhilde Eisenfaust'}, an: {charId: '', name: 'Spielleitung'},
+                     text: 'Ich stecke den Schlüssel heimlich ein.', gelesen: false, eingang: true, eigen: false,
                      zeit: Math.floor(Date.now() / 1000)}];
     const apiPostListe = () => Promise.resolve({post: wbPost.map(p => ({...p})), dm: true});
     const apiPostGelesen = (u, c, a, id, gelesen) => {
@@ -208,6 +208,13 @@
       return Promise.resolve({});
     };
     const apiPostSenden = wbStumm;
+    // Die Spielleitung schreibt zurück: der Zettel liegt danach im Kasten.
+    const apiPostSchreiben = (u, c, a, teil) => {
+      (teil.an || []).forEach(cid => wbPost.push({id: wbPost.length + 100, von: {charId: '', name: 'Spielleitung'},
+        an: {charId: cid, name: cid === 'wb1' ? 'Brunhilde Eisenfaust' : cid}, text: teil.text, gelesen: false,
+        eingang: false, eigen: true, zeit: Math.floor(Date.now() / 1000)}));
+      return Promise.resolve({ids: [1]});
+    };
     // Die Rast: angesagt wird in den Arbeitsspeicher, und was dort steht,
     // bekommt die Anwendung beim naechsten Fragen zurueck.
     let wbRast = null, wbRastStand = 0;
@@ -1762,30 +1769,41 @@
              !!abzeichen && abzeichen.offsetParent !== null);
         }
 
-        // ── Post von der Runde ─────────────────────────────────────
+        // ── Post: Unterhaltungen wie im Messenger ──────────────────
         melden('lauf', 'Post');
         const postK = await warten(() => knopfMit('✉ Post'));
         // Im Hintergrund fragt die Anwendung nicht nach — und diese Seite
-        // läuft oft in einem verborgenen Fenster. Also erst aufmachen,
-        // dann zählen: beim Öffnen wird immer gefragt.
+        // läuft oft in einem verborgenen Fenster. Also erst aufmachen:
+        // beim Öffnen wird immer gefragt.
         if (ja('Die Spielleitung hat einen Postknopf', !!postK)) {
           postK.click();
-          const zettel = await warten(() => document.querySelector('.post-zettel'));
-          ja('  … der zählt, was ungelesen ist', /· 1/.test(knopfMit('✉ Post').textContent),
-             knopfMit('✉ Post').textContent);
-          ja('Der Zettel steht im Postfach', !!zettel && /Schlüssel heimlich/.test(zettel.textContent));
-          const gel = zettel && [...zettel.querySelectorAll('button')].find(b => /Gelesen/.test(b.textContent));
-          if (ja('  … und lässt sich abhaken', !!gel)) {
-            gel.click(); await ruhe(150);
-            ja('  … danach zählt der Knopf ihn nicht mehr', !/· 1/.test(knopfMit('✉ Post').textContent));
+          const eintrag = await warten(() => [...document.querySelectorAll('.chat-eintrag')]
+            .find(e => /Brunhilde/.test(e.textContent)));
+          ja('Brunhildes Zettel steht als Unterhaltung da', !!eintrag
+             && /Schlüssel heimlich/.test(eintrag.textContent), eintrag ? eintrag.textContent : 'keine');
+          if (eintrag) {
+            eintrag.click();
+            const blase = await warten(() => document.querySelector('.chat-blase'));
+            ja('  … aufgeschlagen als Blase links', !!blase && !blase.classList.contains('eigen')
+               && /Schlüssel heimlich/.test(blase.textContent));
+            ja('  … und damit gelesen', !!(await warten(() => wbPost[0].gelesen ? true : null, 2000)));
+            const feld = document.querySelector('.chat-eingabe textarea');
+            if (ja('Die Spielleitung kann antworten', !!feld)) {
+              Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set
+                .call(feld, 'Die Wache hat es gesehen.');
+              feld.dispatchEvent(new Event('input', {bubbles: true}));
+              await ruhe(50);
+              feld.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+              const eigen = await warten(() => [...document.querySelectorAll('.chat-blase.eigen')]
+                .find(b => /Wache hat es gesehen/.test(b.textContent)), 3000);
+              ja('  … Eingabe schickt ab, an Brunhilde', !!wbPost.find(x => x.eigen && x.an.charId === 'wb1'
+                 && x.text === 'Die Wache hat es gesehen.'));
+              ja('  … und die Antwort steht rechts mit einem Häkchen', !!eigen
+                 && /✓/.test(eigen.querySelector('.chat-haken').textContent));
+            }
           }
-          const weg = document.querySelector('.post-zettel .konz-weg');
-          if (weg) {
-            weg.click(); await ruhe(120);
-            const okP = document.querySelector('.confirm-ok'); if (okP) { okP.click(); await ruhe(150); }
-            ja('Weggeworfen ist er fort', !document.querySelector('.post-zettel'));
-          }
-          const zuP = knopfMit('Schließen'); if (zuP) { zuP.click(); await ruhe(100); }
+          const zuP = knopfMit('Post schließen') || [...document.querySelectorAll('.fl-x')].find(k => /^Post/.test(k.getAttribute('aria-label') || ''));
+          if (zuP) { zuP.click(); await ruhe(120); }
         }
 
         // ── Die Rast ───────────────────────────────────────────────
@@ -1887,24 +1905,51 @@
         const buehne = document.createElement('div');
         document.body.appendChild(buehne);
         const setzA = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-        let gesendet = null;
+        // Die Post eines Spielers: Unterhaltungen mit der Spielleitung und
+        // den anderen, Häkchen, eine neue Unterhaltung.
+        let geschrieben = [], abgehakt = [];
+        const SLp = {charId: '', name: 'Spielleitung'}, ichP = {charId: 'wb1', name: WB_HELD.name};
+        const ilvP = {charId: 'wb2', name: 'Ilvara'};
         ReactDOM.render(React.createElement(PostFenster, {
-          helden: [WB_HELD], post: [{id: 7, name: WB_HELD.name, text: 'Alter Zettel', gelesen: true, zeit: 0}],
-          onSenden: (wer, text) => { gesendet = {wer, text}; return Promise.resolve(null); },
-          onZuruecknehmen: () => {}, onSchliessen: () => {},
+          dm: false, meine: [WB_HELD], partner: [SLp, ilvP],
+          post: [{id: 7, von: ichP, an: SLp, text: 'Ich lenke die Wache ab.', gelesen: true, zeit: 100, eigen: true, eingang: false},
+                 {id: 9, von: SLp, an: ichP, text: 'Du erkennst das Wappen.', gelesen: false, zeit: 200, eigen: false, eingang: true}],
+          onSchreiben: (teil) => { geschrieben.push(teil); return Promise.resolve(null); },
+          onGelesen: (id, g) => { abgehakt.push([id, g]); }, onLoeschen: () => {}, onSchliessen: () => {},
         }), buehne);
-        await ruhe(100);
-        const feldP = buehne.querySelector('.post-text');
-        if (ja('Das Postfenster des Spielers steht', !!feldP)) {
-          setzA.call(feldP, 'Ich lenke die Wache ab.');
-          feldP.dispatchEvent(new Event('input', {bubbles: true}));
-          await ruhe(60);
-          [...buehne.querySelectorAll('button')].find(b => /Senden/.test(b.textContent)).click();
-          await ruhe(150);
-          ja('  … schickt Held und Text', !!gesendet && gesendet.wer === 'wb1'
-             && gesendet.text === 'Ich lenke die Wache ab.', JSON.stringify(gesendet));
-          ja('  … und sagt, dass es angekommen ist', /Liegt bei der Spielleitung/.test(buehne.textContent));
-          ja('  … der gelesene Zettel steht als gelesen da', /✓ gelesen/.test(buehne.textContent));
+        await ruhe(120);
+        const slE = [...buehne.querySelectorAll('.chat-eintrag')].find(e => /Spielleitung/.test(e.textContent));
+        if (ja('Der Spieler sieht seine Unterhaltung mit der Spielleitung', !!slE)) {
+          ja('  … mit dem Ungelesenen gezählt', /1/.test((slE.querySelector('em') || {}).textContent || ''));
+          slE.click(); await ruhe(120);
+          const blasen = [...buehne.querySelectorAll('.chat-blase')];
+          ja('  … sein Zettel rechts, die Antwort links', blasen.length === 2 && blasen[0].classList.contains('eigen')
+             && !blasen[1].classList.contains('eigen'));
+          ja('  … gelesen mit zwei Häkchen', /✓✓/.test(blasen[0].textContent));
+          ja('  … und das Aufschlagen hakt die Antwort ab', JSON.stringify(abgehakt) === '[[9,true]]', JSON.stringify(abgehakt));
+          const feldP = buehne.querySelector('.chat-eingabe textarea');
+          setzA.call(feldP, 'Danke.'); feldP.dispatchEvent(new Event('input', {bubbles: true}));
+          await ruhe(50);
+          buehne.querySelector('.chat-senden').click(); await ruhe(120);
+          ja('  … geschrieben wird als Brunhilde an die Spielleitung',
+             JSON.stringify(geschrieben[0]) === JSON.stringify({an_sl: true, char_id: 'wb1', text: 'Danke.'}), JSON.stringify(geschrieben[0]));
+        }
+        const neuK = buehne.querySelector('.chat-neu');
+        if (ja('Eine neue Unterhaltung lässt sich anfangen', !!neuK)) {
+          neuK.click(); await ruhe(80);
+          const ilv = [...buehne.querySelectorAll('.chat-wahl .chat-eintrag')].find(e => /Ilvara/.test(e.textContent));
+          ja('  … auch mit einem anderen Helden', !!ilv);
+          if (ilv) {
+            ilv.click(); await ruhe(80);
+            ja('  … und sie sagt, dass nur Ilvara liest', /Nur Ilvara liest/.test(buehne.textContent));
+            const f2 = buehne.querySelector('.chat-eingabe textarea');
+            setzA.call(f2, 'Lenk du die Wache ab.'); f2.dispatchEvent(new Event('input', {bubbles: true}));
+            await ruhe(50);
+            f2.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); await ruhe(120);
+            ja('  … der Zettel geht an Ilvara, von Brunhilde',
+               JSON.stringify(geschrieben[1]) === JSON.stringify({an: ['wb2'], char_id: 'wb1', text: 'Lenk du die Wache ab.'}),
+               JSON.stringify(geschrieben[1]));
+          }
         }
         ReactDOM.unmountComponentAtNode(buehne);
 

@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v5.37.1';
+const HB_VERSION = 'v5.38.0';
 const DM_MERKER = 'hb_dm_modus';
 const EinstBlock = ({
   titel,
@@ -17221,154 +17221,286 @@ const postZeit = sek => {
     minute: '2-digit'
   });
 };
-const PostFenster = ({
-  helden,
-  post,
-  onSenden,
-  onZuruecknehmen,
-  onSchliessen
-}) => {
-  const [wer, setWer] = React.useState((helden[0] || {}).id || '');
-  const [text, setText] = React.useState('');
-  const [laeuft, setLaeuft] = React.useState(false);
-  const [meldung, setMeldung] = React.useState(null);
-  const senden = async () => {
-    if (!text.trim() || !wer) return;
-    setLaeuft(true);
-    const fehler = await onSenden(wer, text.trim());
-    setLaeuft(false);
-    if (fehler) {
-      setMeldung({
-        gut: false,
-        text: fehler
-      });
-      return;
-    }
-    setText('');
-    setMeldung({
-      gut: true,
-      text: 'Liegt bei der Spielleitung. Die Runde sieht davon nichts.'
-    });
-  };
-  return React.createElement(Fenster, {
-    onClick: onSchliessen,
-    leiste: {
-      id: 'post',
-      titel: 'An die Spielleitung',
-      symbol: '✉'
-    }
-  }, React.createElement("div", {
-    className: "form-modal post-fenster",
-    onClick: e => e.stopPropagation()
-  }, React.createElement("div", {
-    className: "form-title"
-  }, "\u2709 An die Spielleitung"), React.createElement("div", {
-    className: "post-wink"
-  }, "Nur die Spielleitung liest das \u2014 f\xFCr heimliche Handgriffe, Fragen unter vier Augen, einen Plan, den die anderen noch nicht kennen sollen."), helden.length > 1 && React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Wer schreibt"), React.createElement("select", {
-    className: "form-select",
-    value: wer,
-    onChange: e => setWer(e.target.value)
-  }, helden.map(h => React.createElement("option", {
-    key: h.id,
-    value: h.id
-  }, h.name)))), React.createElement("textarea", {
-    className: "form-input post-text",
-    value: text,
-    maxLength: 1000,
-    rows: 5,
-    "aria-label": "Nachricht an die Spielleitung",
-    placeholder: "W\xE4hrend die anderen streiten, stecke ich den Schl\xFCssel vom Tisch ein.",
-    onChange: e => {
-      setText(e.target.value);
-      setMeldung(null);
-    }
-  }), meldung && React.createElement("div", {
-    className: 'post-meldung' + (meldung.gut ? ' gut' : ' weg')
-  }, meldung.text), post.length > 0 && React.createElement(React.Fragment, null, React.createElement("div", {
-    className: "form-label",
-    style: {
-      marginTop: 12
-    }
-  }, "Deine Zettel"), React.createElement("div", {
-    className: "post-liste"
-  }, post.map(p => React.createElement("div", {
-    className: 'post-zettel' + (p.gelesen ? ' gelesen' : ''),
-    key: p.id
-  }, React.createElement("div", {
-    className: "post-kopf"
-  }, React.createElement("b", null, p.name || 'Held'), React.createElement("span", null, postZeit(p.zeit)), React.createElement("span", {
-    className: "post-stand"
-  }, p.gelesen ? '✓ gelesen' : 'noch ungelesen'), !p.gelesen && React.createElement("button", {
-    className: "konz-weg",
-    title: "Zur\xFCcknehmen",
-    onClick: () => onZuruecknehmen(p.id)
-  }, "\u2715")), React.createElement("div", {
-    className: "post-inhalt"
-  }, p.text))))), React.createElement("div", {
-    className: "form-actions",
-    style: {
-      marginTop: 14
-    }
-  }, React.createElement("button", {
-    className: "btn-cancel",
-    onClick: onSchliessen
-  }, "Schlie\xDFen"), React.createElement("button", {
-    className: "btn-save",
-    disabled: !text.trim() || !wer || laeuft,
-    onClick: senden
-  }, laeuft ? 'Wird gesendet…' : '✉ Senden'))));
+const postUhr = sek => sek ? new Date(sek * 1000).toLocaleTimeString('de-DE', {
+  hour: '2-digit',
+  minute: '2-digit'
+}) : '';
+const postTag = sek => {
+  if (!sek) return '';
+  const d = new Date(sek * 1000),
+    h = new Date();
+  const gestern = new Date(h);
+  gestern.setDate(h.getDate() - 1);
+  if (d.toDateString() === h.toDateString()) return 'Heute';
+  if (d.toDateString() === gestern.toDateString()) return 'Gestern';
+  return d.toLocaleDateString('de-DE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  });
 };
-const PostfachFenster = ({
+const postUngelesenFuer = post => (post || []).filter(p => p.eingang && !p.gelesen).length;
+const postGegenueber = p => (p.eigen ? p.an : p.von) || {
+  charId: '',
+  name: 'Spielleitung'
+};
+const postSchluessel = g => g && g.charId || 'sl';
+const postGespraeche = post => {
+  const je = {};
+  (post || []).forEach(p => {
+    const g = postGegenueber(p);
+    const k = postSchluessel(g);
+    const u = je[k] || (je[k] = {
+      schluessel: k,
+      charId: g.charId || '',
+      name: g.name || (k === 'sl' ? 'Spielleitung' : 'Held'),
+      zettel: [],
+      ungelesen: 0,
+      zuletzt: 0
+    });
+    u.zettel.push(p);
+    if (p.eingang && !p.gelesen) u.ungelesen++;
+    if ((p.zeit || 0) >= u.zuletzt) {
+      u.zuletzt = p.zeit || 0;
+      if (g.name) u.name = g.name;
+    }
+  });
+  return Object.values(je).map(u => ({
+    ...u,
+    zettel: u.zettel.slice().sort((a, b) => a.zeit - b.zeit || a.id - b.id)
+  })).sort((a, b) => b.zuletzt - a.zuletzt);
+};
+const postMeinHeld = (gespraech, meine) => {
+  const ids = (meine || []).map(h => h.id);
+  const zettel = (gespraech && gespraech.zettel || []).slice().reverse();
+  for (const p of zettel) {
+    const mein = p.eigen ? p.von : p.an;
+    if (mein && ids.includes(mein.charId)) return mein.charId;
+  }
+  return ids[0] || '';
+};
+const postZeichen = (name, sl) => sl ? '🔮' : ((name || '?').trim()[0] || '?').toUpperCase();
+const PostFenster = ({
   post,
+  dm,
+  meine,
+  partner,
+  onSchreiben,
   onGelesen,
   onLoeschen,
   onSchliessen
 }) => {
-  const sortiert = [...post].sort((a, b) => a.gelesen - b.gelesen || b.zeit - a.zeit);
+  const gespraeche = postGespraeche(post);
+  const [offen, setOffen] = React.useState(null);
+  const [waehlen, setWaehlen] = React.useState(false);
+  const [text, setText] = React.useState('');
+  const [als, setAls] = React.useState('');
+  const [laeuft, setLaeuft] = React.useState(false);
+  const [fehler, setFehler] = React.useState(null);
+  const verlauf = React.useRef(null);
+  React.useEffect(() => {
+    if (offen || !gespraeche.length) return;
+    if (!window.matchMedia || !window.matchMedia('(max-width: 700px)').matches) setOffen(gespraeche[0].schluessel);
+  }, [gespraeche.length]);
+  const g = gespraeche.find(x => x.schluessel === offen) || (offen ? (() => {
+    const p = partner.find(x => postSchluessel(x) === offen);
+    return p ? {
+      schluessel: offen,
+      charId: p.charId,
+      name: p.name,
+      zettel: [],
+      ungelesen: 0
+    } : null;
+  })() : null);
+  const meinHeld = als || postMeinHeld(g, meine);
+  const ungelesen = g ? g.zettel.filter(p => p.eingang && !p.gelesen).map(p => p.id).join(',') : '';
+  React.useEffect(() => {
+    if (ungelesen && onGelesen) ungelesen.split(',').forEach(id => onGelesen(+id, true));
+  }, [ungelesen]);
+  const anzahl = g ? g.zettel.length : 0;
+  React.useEffect(() => {
+    const el = verlauf.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [offen, anzahl]);
+  React.useEffect(() => {
+    setText('');
+    setFehler(null);
+    setAls('');
+  }, [offen]);
+  const senden = async () => {
+    const t = text.trim();
+    if (!t || !g || laeuft) return;
+    setLaeuft(true);
+    setFehler(null);
+    const teil = g.charId ? {
+      an: [g.charId],
+      char_id: dm ? '' : meinHeld,
+      text: t
+    } : {
+      an_sl: true,
+      char_id: meinHeld,
+      text: t
+    };
+    const f = await onSchreiben(teil);
+    setLaeuft(false);
+    if (f) {
+      setFehler(f);
+      return;
+    }
+    setText('');
+  };
+  const taste = e => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      senden();
+    }
+  };
+  const kannSchreiben = !!g && (dm || !!meinHeld);
+  const neuWahl = partner.filter(p => !gespraeche.some(x => x.schluessel === postSchluessel(p)));
   return React.createElement(Fenster, {
     onClick: onSchliessen,
     leiste: {
       id: 'post',
       titel: 'Post',
       symbol: '✉',
-      zaehler: post.filter(p => !p.gelesen).length || ''
+      zaehler: postUngelesenFuer(post) || ''
     }
   }, React.createElement("div", {
     className: "form-modal post-fenster",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "form-title"
-  }, "\u2709 Post von der Runde"), React.createElement("div", {
-    className: "post-liste"
-  }, sortiert.length === 0 && React.createElement("div", {
-    className: "probe-leer"
-  }, "Noch kein Zettel gekommen."), sortiert.map(p => React.createElement("div", {
-    className: 'post-zettel' + (p.gelesen ? ' gelesen' : ' neu'),
-    key: p.id
+  }, "\u2709 Post"), React.createElement("div", {
+    className: 'chat' + (g || waehlen ? ' offen' : '')
   }, React.createElement("div", {
-    className: "post-kopf"
-  }, React.createElement("b", null, p.name || 'Held'), React.createElement("span", null, postZeit(p.zeit)), React.createElement("button", {
-    className: "bj-taste",
-    onClick: () => onGelesen(p.id, !p.gelesen)
-  }, p.gelesen ? 'Wieder ungelesen' : '✓ Gelesen'), React.createElement("button", {
-    className: "konz-weg",
-    title: "Wegwerfen",
-    onClick: () => onLoeschen(p.id)
-  }, "\u2715")), React.createElement("div", {
-    className: "post-inhalt"
-  }, p.text)))), React.createElement("div", {
-    className: "form-actions",
-    style: {
-      marginTop: 14
-    }
+    className: "chat-liste"
   }, React.createElement("button", {
-    className: "btn-cancel",
-    onClick: onSchliessen
-  }, "Schlie\xDFen"))));
+    type: "button",
+    className: "chat-neu",
+    onClick: () => {
+      setWaehlen(true);
+      setOffen(null);
+    }
+  }, "\u270E Neue Unterhaltung"), gespraeche.length === 0 && !waehlen && React.createElement("div", {
+    className: "chat-leer"
+  }, "Noch keine Post. Schreib jemandem \u2014 die anderen sehen davon nichts."), gespraeche.map(u => {
+    const letzte = u.zettel[u.zettel.length - 1];
+    return React.createElement("button", {
+      type: "button",
+      key: u.schluessel,
+      className: 'chat-eintrag' + (u.schluessel === offen ? ' an' : '') + (u.ungelesen ? ' neu' : ''),
+      onClick: () => {
+        setOffen(u.schluessel);
+        setWaehlen(false);
+      }
+    }, React.createElement("span", {
+      className: 'chat-bild' + (u.charId ? '' : ' sl')
+    }, postZeichen(u.name, !u.charId)), React.createElement("span", {
+      className: "chat-mitte"
+    }, React.createElement("b", null, u.name), React.createElement("i", null, letzte ? (letzte.eigen ? 'Du: ' : '') + letzte.text : '')), React.createElement("span", {
+      className: "chat-rechts"
+    }, React.createElement("small", null, letzte ? postZeit(letzte.zeit).replace('heute ', '') : ''), u.ungelesen > 0 && React.createElement("em", null, u.ungelesen)));
+  })), waehlen && !g && React.createElement("div", {
+    className: "chat-verlauf"
+  }, React.createElement("div", {
+    className: "chat-kopf"
+  }, React.createElement("button", {
+    type: "button",
+    className: "chat-zurueck",
+    "aria-label": "Zur\xFCck",
+    onClick: () => setWaehlen(false)
+  }, "\u2190"), React.createElement("b", null, "An wen?")), React.createElement("div", {
+    className: "chat-wahl"
+  }, partner.length === 0 && React.createElement("div", {
+    className: "chat-leer"
+  }, "Niemand da, dem man schreiben k\xF6nnte \u2014 ein Held muss einem Konto geh\xF6ren."), [...neuWahl, ...partner.filter(p => !neuWahl.includes(p))].map(p => React.createElement("button", {
+    type: "button",
+    key: postSchluessel(p),
+    className: "chat-eintrag",
+    onClick: () => {
+      setOffen(postSchluessel(p));
+      setWaehlen(false);
+    }
+  }, React.createElement("span", {
+    className: 'chat-bild' + (p.charId ? '' : ' sl')
+  }, postZeichen(p.name, !p.charId)), React.createElement("span", {
+    className: "chat-mitte"
+  }, React.createElement("b", null, p.name), React.createElement("i", null, p.charId ? '' : 'Nur die Spielleitung liest es')))))), g && React.createElement("div", {
+    className: "chat-verlauf"
+  }, React.createElement("div", {
+    className: "chat-kopf"
+  }, React.createElement("button", {
+    type: "button",
+    className: "chat-zurueck",
+    "aria-label": "Zur\xFCck",
+    onClick: () => setOffen(null)
+  }, "\u2190"), React.createElement("span", {
+    className: 'chat-bild' + (g.charId ? '' : ' sl')
+  }, postZeichen(g.name, !g.charId)), React.createElement("b", null, g.name), !dm && meine.length > 1 && React.createElement("label", {
+    className: "chat-als"
+  }, "als", React.createElement("select", {
+    className: "form-select",
+    value: meinHeld,
+    onChange: e => setAls(e.target.value)
+  }, meine.map(h => React.createElement("option", {
+    key: h.id,
+    value: h.id
+  }, h.name))))), React.createElement("div", {
+    className: "chat-blasen",
+    ref: verlauf
+  }, g.zettel.length === 0 && React.createElement("div", {
+    className: "chat-hinweis"
+  }, g.charId ? 'Nur ' + g.name + ' liest, was du hier schreibst.' : 'Nur die Spielleitung liest, was du hier schreibst.'), g.zettel.map((p, i) => {
+    const tag = postTag(p.zeit);
+    const neuerTag = i === 0 || postTag(g.zettel[i - 1].zeit) !== tag;
+    const fuer = !dm && meine.length > 1 ? p.eigen ? p.von : p.an : null;
+    const wegDarf = p.eingang || p.eigen && (!p.gelesen || dm) || dm && !p.an.charId;
+    return React.createElement(React.Fragment, {
+      key: p.id
+    }, neuerTag && tag && React.createElement("div", {
+      className: "chat-tag"
+    }, React.createElement("span", null, tag)), React.createElement("div", {
+      className: 'chat-blase' + (p.eigen ? ' eigen' : '')
+    }, fuer && fuer.name && React.createElement("div", {
+      className: "chat-fuer"
+    }, p.eigen ? 'als ' : 'an ', fuer.name), React.createElement("div", {
+      className: "chat-text"
+    }, p.text), React.createElement("div", {
+      className: "chat-meta"
+    }, wegDarf && onLoeschen && React.createElement("button", {
+      type: "button",
+      className: "chat-weg",
+      title: p.eigen ? 'Zurücknehmen' : 'Wegwerfen',
+      onClick: () => onLoeschen(p.id)
+    }, "\u2715"), React.createElement("span", null, postUhr(p.zeit)), p.eigen && React.createElement("span", {
+      className: 'chat-haken' + (p.gelesen ? ' gelesen' : ''),
+      title: p.gelesen ? 'Gelesen' : 'Zugestellt, noch nicht gelesen'
+    }, p.gelesen ? '✓✓' : '✓'))));
+  })), fehler && React.createElement("div", {
+    className: "post-meldung weg"
+  }, fehler), kannSchreiben ? React.createElement("div", {
+    className: "chat-eingabe"
+  }, React.createElement("textarea", {
+    className: "form-input",
+    rows: 1,
+    value: text,
+    maxLength: 2000,
+    "aria-label": 'Nachricht an ' + g.name,
+    placeholder: "Nachricht",
+    onChange: e => {
+      setText(e.target.value);
+      setFehler(null);
+    },
+    onKeyDown: taste
+  }), React.createElement("button", {
+    type: "button",
+    className: "chat-senden",
+    "aria-label": "Senden",
+    disabled: !text.trim() || laeuft,
+    onClick: senden
+  }, laeuft ? '…' : '➤')) : React.createElement("div", {
+    className: "chat-hinweis"
+  }, "Schreiben kann, wem ein Held in diesem Abenteuer geh\xF6rt.")))));
 };
 
 // ==== js/src/2m-rast.jsx ====
@@ -26709,7 +26841,7 @@ function App() {
   };
   useEffect(() => {
     setPost([]);
-    if (!isDmMode || !advId || !konto) return;
+    if (!advId || !konto) return;
     let lebt = true,
       uhr = null;
     const takt = async () => {
@@ -26731,14 +26863,14 @@ function App() {
   useEffect(() => {
     if (postOffen) postLaden();
   }, [postOffen]);
-  const postUngelesen = isDmMode ? post.filter(p => !p.gelesen).length : 0;
-  const postSenden = async (charId, text) => {
+  const postUngelesen = postUngelesenFuer(post);
+  const postSchreiben = async teil => {
     const creds = serverCreds();
     if (!verbunden(creds)) return 'Ohne Verbindung zum Server geht keine Post.';
     try {
-      await apiPostSenden(creds.url, creds.code, advId, charId, text);
+      const d = await apiPostSchreiben(creds.url, creds.code, advId, teil);
       await postLaden();
-      return null;
+      return d && d.ohne && d.ohne.length ? 'Gesendet — aber ' + d.ohne.join(', ') + ' gehört keinem Konto.' : null;
     } catch (e) {
       return e.message || 'Das ging nicht.';
     }
@@ -28517,14 +28649,14 @@ function App() {
     className: 'btn-tool' + (rast ? ' post-neu' : ''),
     onClick: () => rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true),
     title: rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'
-  }, "\u263E ", rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast') + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '') : 'Rast'), svCode && konto && advId && (isDmMode || advChars.some(c => eigeneHeldenIds.includes(c.id))) && React.createElement("button", {
+  }, "\u263E ", rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast') + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '') : 'Rast'), svCode && konto && advId && React.createElement("button", {
     className: 'btn-tool' + (postUngelesen ? ' post-neu' : ''),
     onClick: () => {
       setPostOffen(true);
       leiste.zeigen('post');
     },
-    title: isDmMode ? 'Was die Runde dir geschrieben hat' : 'Etwas, das nur die Spielleitung lesen soll'
-  }, "\u2709 ", isDmMode ? 'Post' + (postUngelesen ? ' · ' + postUngelesen : '') : 'An die Spielleitung'), (laden || isDmMode) && React.createElement("button", {
+    title: "Zettel an die Spielleitung oder an einzelne Helden \u2014 die anderen sehen sie nicht"
+  }, "\u2709 Post", postUngelesen ? ' · ' + postUngelesen : ''), (laden || isDmMode) && React.createElement("button", {
     className: "btn-tool",
     onClick: () => {
       setLadenOffen(true);
@@ -31745,18 +31877,22 @@ function App() {
       rastGesehen.current = rast.id;
       setRastOffen(false);
     }
-  }), postOffen && (isDmMode ? React.createElement(PostfachFenster, {
+  }), postOffen && React.createElement(PostFenster, {
     post: post,
+    dm: isDmMode,
+    meine: advChars.filter(c => eigeneHeldenIds.includes(c.id) && !c.archived && !istNsc(c)),
+    partner: [...(isDmMode ? [] : [{
+      charId: '',
+      name: 'Spielleitung'
+    }]), ...advChars.filter(c => !c.archived && !istNsc(c) && (besitzer || {})[c.id] && (isDmMode || !eigeneHeldenIds.includes(c.id))).map(c => ({
+      charId: c.id,
+      name: c.name || 'Held'
+    }))],
+    onSchreiben: postSchreiben,
     onGelesen: postGelesen,
-    onLoeschen: id => appConfirm('Diesen Zettel wegwerfen?', () => postLoeschen(id), 'Wegwerfen'),
+    onLoeschen: id => appConfirm('Diesen Zettel löschen?', () => postLoeschen(id), 'Löschen'),
     onSchliessen: () => setPostOffen(false)
-  }) : React.createElement(PostFenster, {
-    helden: advChars.filter(c => eigeneHeldenIds.includes(c.id) && !c.archived),
-    post: post,
-    onSenden: postSenden,
-    onZuruecknehmen: postLoeschen,
-    onSchliessen: () => setPostOffen(false)
-  })), ladenOffen && React.createElement(LadenFenster, {
+  }), ladenOffen && React.createElement(LadenFenster, {
     laden: laden,
     isDmMode: isDmMode,
     helden: chars.filter(c => !c.archived && (c.adventure || advId) === advId && darfSchreiben(c)),

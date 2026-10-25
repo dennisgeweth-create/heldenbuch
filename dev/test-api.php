@@ -1084,6 +1084,58 @@ pruefe('die Spielleitung wirft ihn weg (200)', $r['status'] === 200, kurz($r));
 $r = ruf('post_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
 pruefe('danach ist das Postfach leer', count((array)($r['body']['post'] ?? [])) === 0);
 
+abschnitt('Post an jeden');
+// Ein Held des zweiten Spielers, damit Spieler einander schreiben koennen.
+$r = ruf('save_char', ['code' => $code, 'token' => $tZweiter, 'char_id' => 'p2',
+                       'char' => ['id' => 'p2', 'name' => 'Ilvara', 'charClass' => 'Schurke', 'level' => 3,
+                                  'hp' => 18, 'maxHp' => 18, 'adventure' => 'strahd']]);
+pruefe('der zweite Spieler hat einen Helden (200)', $r['status'] === 200, kurz($r));
+
+$r = ruf('post_senden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                         'an' => ['h1'], 'text' => 'Du erkennst das Wappen.']);
+pruefe('die Spielleitung schreibt einem Helden (201)', $r['status'] === 201, kurz($r));
+$r = ruf('post_liste', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$z0 = ((array)($r['body']['post'] ?? []))[0] ?? [];
+pruefe('der Spieler bekommt ihn', ($z0['text'] ?? '') === 'Du erkennst das Wappen.'
+       && ($z0['eingang'] ?? false) === true && ($z0['von']['charId'] ?? 'x') === ''
+       && ($z0['von']['name'] ?? '') === 'Spielleitung' && ($r['body']['ungelesen'] ?? 0) === 1, kurz($r));
+$slId = (int)($z0['id'] ?? 0);
+$r = ruf('post_liste', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+pruefe('  … der andere nicht', count((array)($r['body']['post'] ?? [])) === 0, kurz($r));
+$r = ruf('post_gelesen', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd', 'id' => $slId, 'gelesen' => true]);
+pruefe('  … abhaken kann nur der Empfaenger (403)', $r['status'] === 403, kurz($r));
+$r = ruf('post_gelesen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'id' => $slId, 'gelesen' => true]);
+pruefe('  … der hakt ab (200)', $r['status'] === 200, kurz($r));
+$r = ruf('post_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+$z1 = ((array)($r['body']['post'] ?? []))[0] ?? [];
+pruefe('  … und die Spielleitung sieht ihr Haekchen, als eigenen Zettel',
+       ($z1['gelesen'] ?? false) === true && ($z1['eigen'] ?? false) === true
+       && ($z1['an']['charId'] ?? '') === 'h1' && ($r['body']['ungelesen'] ?? 1) === 0, kurz($r));
+
+$r = ruf('post_senden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                         'char_id' => 'h1', 'an' => ['p2'], 'text' => 'Lenk du die Wache ab.']);
+pruefe('ein Spieler schreibt einem anderen (201)', $r['status'] === 201, kurz($r));
+$r = ruf('post_liste', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd']);
+$z2 = ((array)($r['body']['post'] ?? []))[0] ?? [];
+pruefe('  … der bekommt ihn, von Armin an Ilvara', ($z2['von']['charId'] ?? '') === 'h1'
+       && ($z2['an']['charId'] ?? '') === 'p2' && ($z2['eingang'] ?? false) === true, kurz($r));
+$r = ruf('post_liste', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd']);
+pruefe('  … die Spielleitung liest ihn nicht', !in_array('Lenk du die Wache ab.',
+       array_map(fn($p) => $p['text'] ?? '', (array)($r['body']['post'] ?? [])), true), kurz($r));
+$r = ruf('post_senden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                         'an' => ['p2'], 'text' => 'Ohne Held']);
+pruefe('ein Spieler schreibt nur als einer seiner Helden (400)', $r['status'] === 400, kurz($r));
+$r = ruf('post_senden', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                         'char_id' => 'p2', 'an' => ['h1'], 'text' => 'Untergeschoben']);
+pruefe('  … und nicht als fremder (403)', $r['status'] === 403, kurz($r));
+$r = ruf('post_senden', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                         'an' => ['gibtsnicht'], 'text' => 'Hallo?']);
+pruefe('an einen Bogen ohne Konto geht nichts (409)', $r['status'] === 409, kurz($r));
+$r = ruf('post_loeschen', ['code' => $code, 'token' => $tZweiter, 'adv_id' => 'strahd', 'id' => (int)($z2['id'] ?? 0)]);
+pruefe('der Empfaenger wirft weg, was er bekam (200)', $r['status'] === 200, kurz($r));
+$r = ruf('post_loeschen', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd', 'id' => $slId]);
+pruefe('  … auch den Zettel der Spielleitung (200)', $r['status'] === 200, kurz($r));
+
 abschnitt('Die Rast');
 $rast = ['art' => 'lang', 'regel' => 'grr', 'stufe' => 2, 'essen' => true,
          'teile' => ['Regen −1'], 'text' => 'Am Fluss', 'fuer' => ['h1'], 'antworten' => [['charId' => 'x']]];

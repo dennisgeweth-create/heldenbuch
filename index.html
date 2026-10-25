@@ -165,6 +165,9 @@
       apiRequest(url, 'post_gelesen',  { code, adv_id: advId, id, gelesen });
     const apiPostLoeschen = (url, code, advId, id) =>
       apiRequest(url, 'post_loeschen', { code, adv_id: advId, id });
+    // Ein Zettel an jeden: teil = {char_id, an: [Boegen], an_sl, text}.
+    const apiPostSchreiben = (url, code, advId, teil) =>
+      apiRequest(url, 'post_senden',   { code, adv_id: advId, ...teil });
 
     // ── Proben auf Ansage ───────────────────────────────────────
     const apiProbeSetzen  = (url, code, pass, advId, probe) =>

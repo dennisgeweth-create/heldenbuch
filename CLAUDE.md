@@ -32,7 +32,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2i-beute.jsx` | Beute — hinlegen, nehmen, in die Bögen eintragen |
 | ↳ `2j-laden.jsx` | Laden — Auslage (auch als Liste einfügbar), kaufen, verkaufen |
 | ↳ `2k-heldtext.jsx` | Der ganze Bogen als Text — zum Vorlegen an eine KI, samt Fenster |
-| ↳ `2l-post.jsx` | Post an die Spielleitung — Fenster des Spielers und Postfach der Spielleitung (Server: `hb_post`) |
+| ↳ `2l-post.jsx` | **Post** — jeder schreibt jedem, in Unterhaltungen wie in einem Messenger (`postGespraeche`). Die Spielleitung liest, was an sie ging, nicht was Spieler einander schreiben (Server: `hb_post` mit `richtung`, `von_user`, `von_char`, `von_name`) |
 | ↳ `2m-rast.jsx` | Rast auf Ansage — kurz und lang, Standard oder „Gradueller Rauer Realismus“ (nur die Zahlen, nicht der Text des Hefts); Rechner, Fenster, Anwenden auf den Bogen (Server: `hb_rast`) |
 | ↳ `2n-bogentext.jsx` | **Der Textbogen**: Bögen als `.txt` schreiben und lesen, einzeln oder als ZIP-Bündel; Schema in `TEXTBOGEN.md` |
 | ↳ `2o-tagebuch.jsx` | **Sitzungstagebuch**: ein Abend, ein Eintrag je Person, Bilder und Videos gemeinsam; Anschauen ist die Vorgabe, Bearbeiten ein Knopf (Server: `hb_tagebuch`, `hb_tb_eintrag`, `hb_tb_bild`) |

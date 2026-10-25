@@ -449,6 +449,15 @@ try { $pdo->exec("ALTER TABLE hb_sessions ADD COLUMN chars_json LONGTEXT"); } ca
 // damit es bei einer Schemaaenderung bleibt statt zweier.
 try { $pdo->exec("ALTER TABLE hb_chars ADD COLUMN owner INT NULL"); } catch (PDOException $e) {}
 
+// Post zwischen allen: richtung 0 an die Spielleitung, richtung 1 an einen
+// Helden (user_id ist dann der Empfaenger). Wer schrieb, steht in
+// von_user, von_char (der Held — leer: die Spielleitung) und von_name.
+// Siehe 'post_senden'.
+try { $pdo->exec("ALTER TABLE hb_post ADD COLUMN richtung TINYINT NOT NULL DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE hb_post ADD COLUMN von_user INT NULL"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE hb_post ADD COLUMN von_char VARCHAR(50) NULL"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE hb_post ADD COLUMN von_name VARCHAR(100) NULL"); } catch (PDOException $e) {}
+
 // Zwei Angaben aus dem Bogen, die der Server oft braucht und die er sonst
 // jedes Mal aus dem JSON holen muesste — mitsamt Portraet und Inventar.
 // Sie werden beim Speichern aus dem Bogen abgeleitet, nie von aussen
@@ -1159,7 +1168,7 @@ function ladeSeit(PDO $pdo, string $code, int $seit, callable $darfDm): array {
 // Kampf, Probe, Beute, Rast und Post.
 function pulsStaende(PDO $pdo, string $code, string $advId, bool $dm, int $userId): array {
     $post = "SELECT CONCAT(COUNT(*), ':', COALESCE(MAX(id), 0), ':', COALESCE(SUM(gelesen), 0))
-             FROM hb_post WHERE session_code=? AND adv_id=?" . ($dm ? '' : ' AND user_id=?');
+             FROM hb_post WHERE session_code=? AND adv_id=?" . ($dm ? '' : ' AND (user_id=? OR von_user=?)');
     $st = $pdo->prepare("SELECT
         (SELECT rev FROM hb_rev WHERE session_code=?) AS rev,
         (SELECT CONCAT(COUNT(*), ':', COALESCE(SUM(CRC32(vitals_json)), 0)) FROM hb_vitals WHERE session_code=?) AS vit,
@@ -1169,7 +1178,7 @@ function pulsStaende(PDO $pdo, string $code, string $advId, bool $dm, int $userI
         (SELECT stand FROM hb_rast   WHERE session_code=? AND adv_id=?) AS rast,
         ($post) AS post");
     $werte = [$code, $code, $code, $advId, $code, $advId, $code, $advId, $code, $advId, $code, $advId];
-    if (!$dm) $werte[] = $userId;
+    if (!$dm) { $werte[] = $userId; $werte[] = $userId; }
     $st->execute($werte);
     $r = $st->fetch() ?: [];
     $raus = [];
@@ -2734,35 +2743,86 @@ switch ($action) {
         respond(200, 'Übernommen.');
     }
 
-    // ── Post an die Spielleitung ─────────────────────────────────
-    // Schreiben darf, wem der Held gehoert. Lesen darf die Spielleitung
-    // alles in ihrem Abenteuer, ein Spieler nur, was er selbst geschrieben
-    // hat — damit er sieht, ob es angekommen und gelesen ist.
+    // ── Post ─────────────────────────────────────────────────────
+    // Ein Briefkasten fuer das Abenteuer: jeder schreibt jedem. Ein Zettel
+    // geht entweder an die Spielleitung (richtung 0 — char_id ist dann der
+    // Held, der schreibt, user_id sein Konto) oder an einen Helden
+    // (richtung 1 — char_id ist der Empfaenger, user_id das Konto, dem er
+    // gehoert; von_user/von_char/von_name sagen, wer schrieb: ein Held
+    // oder, ohne von_char, die Spielleitung).
+    //
+    // Lesen darf jeder, was an ihn ging und was er selbst schrieb. Die
+    // Spielleitung liest dazu alles, was an die Spielleitung ging — die
+    // Zettel zwischen zwei Spielern aber nicht: die sind unter vier Augen.
     case 'post_senden': {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $z = zugang($pdo, $code, $pass, $body);
+        if (empty($z['user'])) respond(403, 'Dafür braucht es ein Konto.');
+        $ich = (int)$z['user']['id'];
         $advId  = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
-        $charId = mb_substr((string)($body['char_id'] ?? ''), 0, 50);
-        $text   = mb_substr(trim((string)($body['text'] ?? '')), 0, 1000);
-        if ($advId === '' || $charId === '') respond(400, 'Fehlende Daten.');
+        $charId = mb_substr((string)($body['char_id'] ?? ''), 0, 50);   // der Held, der schreibt
+        $text   = mb_substr(trim((string)($body['text'] ?? '')), 0, 2000);
+        if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
         if ($text === '') respond(400, 'Da steht nichts drin.');
+        $dm = istDmVon($pdo, $z, $code, $advId);
         $cs = $pdo->prepare("SELECT owner, char_json FROM hb_chars WHERE session_code=? AND char_id=?");
-        $cs->execute([$code, $charId]);
-        $cr = $cs->fetch();
-        if (!$cr) respond(404, 'Bogen nicht gefunden.');
-        if ($cr['owner'] === null || (int)$cr['owner'] !== (int)$z['user']['id']) {
-            respond(403, 'Das ist nicht dein Bogen.');
+        $heldName = function ($cr) {
+            return mb_substr((string)((json_decode((string)$cr['char_json'], true) ?: [])['name'] ?? ''), 0, 100);
+        };
+
+        // Wer schreibt: ein eigener Held — oder, ohne Held, die Spielleitung.
+        $vonName = 'Spielleitung';
+        if ($charId !== '') {
+            $cs->execute([$code, $charId]);
+            $cr = $cs->fetch();
+            if (!$cr) respond(404, 'Bogen nicht gefunden.');
+            if ($cr['owner'] === null || (int)$cr['owner'] !== $ich) respond(403, 'Das ist nicht dein Bogen.');
+            $vonName = $heldName($cr);
+        } elseif (!$dm) {
+            respond(400, 'Mit welchem Helden schreibst du?');
         }
-        $name = mb_substr((string)((json_decode((string)$cr['char_json'], true) ?: [])['name'] ?? ''), 0, 100);
+
+        // An wen: die Spielleitung (an_sl, alter Weg: kein `an`) und Helden.
+        $anSl = !empty($body['an_sl']) || !isset($body['an']);
+        $an = [];
+        foreach ((array)($body['an'] ?? []) as $cid) {
+            $cid = mb_substr(trim((string)$cid), 0, 50);
+            if ($cid !== '' && $cid !== $charId && !in_array($cid, $an, true)) $an[] = $cid;
+            if (count($an) >= 24) break;
+        }
+        if ($anSl && $charId === '') $anSl = false;    // die Spielleitung schreibt sich nicht selbst
+        if (!$anSl && !$an) respond(400, 'An niemanden.');
+
         // Ein Briefkasten, kein Chat: mehr als dreissig ungelesene von
         // einem Konto sind ein Versehen oder Unfug.
-        $n = $pdo->prepare("SELECT COUNT(*) FROM hb_post WHERE session_code=? AND adv_id=? AND user_id=? AND gelesen=0");
-        $n->execute([$code, $advId, (int)$z['user']['id']]);
-        if ((int)$n->fetchColumn() >= 30) respond(429, 'Die Spielleitung hat noch viel Ungelesenes von dir.');
-        $pdo->prepare("INSERT INTO hb_post (session_code, adv_id, char_id, char_name, user_id, text)
-                       VALUES (?,?,?,?,?,?)")
-            ->execute([$code, $advId, $charId, $name, (int)$z['user']['id'], $text]);
-        respond(201, 'Gesendet.', ['id' => (int)$pdo->lastInsertId()]);
+        if (!$dm) {
+            $n = $pdo->prepare("SELECT COUNT(*) FROM hb_post WHERE session_code=? AND adv_id=? AND gelesen=0
+                                  AND ((richtung=0 AND user_id=?) OR (richtung=1 AND von_user=?))");
+            $n->execute([$code, $advId, $ich, $ich]);
+            if ((int)$n->fetchColumn() >= 30) respond(429, 'Es liegt noch viel Ungelesenes von dir.');
+        }
+
+        $ids = []; $ohne = [];
+        if ($anSl) {
+            $pdo->prepare("INSERT INTO hb_post (session_code, adv_id, char_id, char_name, user_id, text, richtung, von_user)
+                           VALUES (?,?,?,?,?,?,0,?)")
+                ->execute([$code, $advId, $charId, $vonName, $ich, $text, $ich]);
+            $ids[] = (int)$pdo->lastInsertId();
+        }
+        $ins = $pdo->prepare("INSERT INTO hb_post (session_code, adv_id, char_id, char_name, user_id, text,
+                                                   richtung, von_user, von_char, von_name)
+                              VALUES (?,?,?,?,?,?,1,?,?,?)");
+        foreach ($an as $cid) {
+            $cs->execute([$code, $cid]);
+            $cr = $cs->fetch();
+            $name = $cr ? $heldName($cr) : '';
+            if (!$cr || $cr['owner'] === null) { $ohne[] = $name !== '' ? $name : $cid; continue; }
+            $ins->execute([$code, $advId, $cid, $name, (int)$cr['owner'], $text, $ich,
+                           $charId !== '' ? $charId : null, $vonName]);
+            $ids[] = (int)$pdo->lastInsertId();
+        }
+        if (!$ids) respond(409, 'Niemand bekommt es: ' . implode(', ', $ohne) . ' gehört keinem Konto.', ['ohne' => $ohne]);
+        respond(201, 'Gesendet.', ['id' => $ids[0], 'ids' => $ids, 'ohne' => $ohne]);
     }
 
     case 'post_liste': {
@@ -2771,18 +2831,32 @@ switch ($action) {
         $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
         if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
         $dm = istDmVon($pdo, $z, $code, $advId);
-        $sql = "SELECT id, char_id, char_name, text, gelesen, UNIX_TIMESTAMP(created_at) AS zeit
-                FROM hb_post WHERE session_code=? AND adv_id=?"
-             . ($dm ? '' : ' AND user_id=?') . " ORDER BY id DESC LIMIT 60";
-        $st = $pdo->prepare($sql);
-        $st->execute($dm ? [$code, $advId] : [$code, $advId, (int)$z['user']['id']]);
+        $ich = (int)($z['user']['id'] ?? 0);
+        $st = $pdo->prepare("SELECT id, char_id, char_name, user_id, text, gelesen, richtung, von_user, von_char, von_name,
+                                    UNIX_TIMESTAMP(created_at) AS zeit
+                             FROM hb_post WHERE session_code=? AND adv_id=?
+                               AND (user_id=? OR von_user=?" . ($dm ? ' OR richtung=0' : '') . ")
+                             ORDER BY id DESC LIMIT 120");
+        $st->execute([$code, $advId, $ich, $ich]);
         $post = [];
         $ungelesen = 0;
         foreach ($st->fetchAll() as $r) {
-            $post[] = ['id' => (int)$r['id'], 'charId' => (string)$r['char_id'],
-                       'name' => (string)$r['char_name'], 'text' => (string)$r['text'],
-                       'gelesen' => (bool)$r['gelesen'], 'zeit' => (int)$r['zeit']];
-            if (!$r['gelesen']) $ungelesen++;
+            $zuSl = (int)$r['richtung'] === 0;
+            // Alte Zettel kennen von_user noch nicht: dort schrieb, wem
+            // die Zeile gehoert.
+            $vonU = $r['von_user'] !== null ? (int)$r['von_user'] : ($zuSl ? (int)$r['user_id'] : 0);
+            $eigen = $vonU === $ich;
+            $eingang = $zuSl ? ($dm && !$eigen) : ((int)$r['user_id'] === $ich && !$eigen);
+            $von = $zuSl ? ['charId' => (string)$r['char_id'], 'name' => (string)$r['char_name']]
+                         : ['charId' => (string)($r['von_char'] ?? ''), 'name' => (string)($r['von_name'] ?? 'Spielleitung')];
+            $an  = $zuSl ? ['charId' => '', 'name' => 'Spielleitung']
+                         : ['charId' => (string)$r['char_id'], 'name' => (string)$r['char_name']];
+            $post[] = ['id' => (int)$r['id'], 'von' => $von, 'an' => $an, 'text' => (string)$r['text'],
+                       'gelesen' => (bool)$r['gelesen'], 'zeit' => (int)$r['zeit'],
+                       'eingang' => $eingang, 'eigen' => $eigen,
+                       // die alten Namen, fuer Geraete mit der vorigen Fassung
+                       'charId' => (string)$r['char_id'], 'name' => (string)$r['char_name']];
+            if ($eingang && !$r['gelesen']) $ungelesen++;
         }
         respond(200, 'OK', ['post' => $post, 'dm' => $dm, 'ungelesen' => $ungelesen]);
     }
@@ -2791,9 +2865,18 @@ switch ($action) {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $z = zugang($pdo, $code, $pass, $body);
         $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
-        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        // Abhaken darf, wer den Zettel bekommen hat.
+        $g = empty($body['gelesen']) ? 0 : 1;
+        $id = (int)($body['id'] ?? 0);
+        $ich = (int)($z['user']['id'] ?? 0);
+        $st = $pdo->prepare("SELECT richtung, user_id FROM hb_post WHERE session_code=? AND adv_id=? AND id=?");
+        $st->execute([$code, $advId, $id]);
+        $r = $st->fetch();
+        if (!$r) respond(404, 'Nicht gefunden.');
+        $darf = (int)$r['richtung'] === 0 ? istDmVon($pdo, $z, $code, $advId) : (int)$r['user_id'] === $ich;
+        if (!$darf) respond(403, 'Abhaken kann nur, wer ihn bekommen hat.');
         $pdo->prepare("UPDATE hb_post SET gelesen=? WHERE session_code=? AND adv_id=? AND id=?")
-            ->execute([empty($body['gelesen']) ? 0 : 1, $code, $advId, (int)($body['id'] ?? 0)]);
+            ->execute([$g, $code, $advId, $id]);
         respond(200, 'OK');
     }
 
@@ -2802,15 +2885,16 @@ switch ($action) {
         $z = zugang($pdo, $code, $pass, $body);
         $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
         $id = (int)($body['id'] ?? 0);
-        // Die Spielleitung raeumt ihr Postfach auf; wer geschrieben hat,
-        // darf zuruecknehmen, solange es noch nicht gelesen ist.
-        if (istDmVon($pdo, $z, $code, $advId)) {
-            $st = $pdo->prepare("DELETE FROM hb_post WHERE session_code=? AND adv_id=? AND id=?");
-            $st->execute([$code, $advId, $id]);
-        } else {
-            $st = $pdo->prepare("DELETE FROM hb_post WHERE session_code=? AND adv_id=? AND id=? AND user_id=? AND gelesen=0");
-            $st->execute([$code, $advId, $id, (int)$z['user']['id']]);
-        }
+        $ich = (int)($z['user']['id'] ?? 0);
+        // Wegwerfen darf, wer ihn bekam (die Spielleitung alles an die
+        // Spielleitung); zuruecknehmen, wer ihn schrieb — die Spielleitung
+        // immer, die Runde, solange er ungelesen ist.
+        $dm = istDmVon($pdo, $z, $code, $advId);
+        $st = $pdo->prepare("DELETE FROM hb_post WHERE session_code=? AND adv_id=? AND id=? AND (
+                                (richtung=1 AND user_id=?)
+                             OR (COALESCE(von_user, IF(richtung=0, user_id, NULL))=? AND (gelesen=0 OR ?=1))"
+                           . ($dm ? " OR richtung=0" : "") . ")");
+        $st->execute([$code, $advId, $id, $ich, $ich, $dm ? 1 : 0]);
         if (!$st->rowCount()) respond(404, 'Nicht gefunden — oder schon gelesen.');
         respond(200, 'Gelöscht.');
     }
