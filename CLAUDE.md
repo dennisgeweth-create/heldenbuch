@@ -48,6 +48,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | `js/util.js` | reine Hilfsfunktionen ohne React |
 | `js/zip.js` | ZIP schreiben und lesen im Browser — von **beiden** Seiten geladen (Heldenbuch und Planer); keine Bibliothek |
 | `js/icons.js` | **Das Icon-Set** — eigene SVG-Icons statt Emojis, von **beiden** Seiten geladen (nach React, vor der Anwendung). Hängt sich vor `React.createElement`: Zeichen wie ⚔ 📜 ✎ im Text werden beim Zeichnen zu Icons, das Zeichen bleibt unsichtbar im `<desc>` (für Suche und Prüfungen). Neues Zeichen → in `zu(...)` einem Icon zuordnen; neues Motiv → in `I` zeichnen (24er Raster, Strich). Kontaktbogen: `dev/ikonen-schau.html` |
+| `js/gegenstaende.js` | **Die Bilder der Gegenstände** — mehrfarbig, 48er Raster, eine Palette, eine Kontur; dort, wo Gegenstände groß stehen (Inventar, Ansicht, Auswahl, Puppe). Gespeichert als `ib:kettenhemd`, alte Emojis sind zugeordnet, `raten(name)` findet ein Bild nach dem Namen. Klein steht das Strich-Icon aus `linie`. Nach `icons.js` laden; in der App über `GegenstandBild` / `gegenstandZeichen` (0-basis.jsx). Kontaktbogen: `dev/ikonen-schau.html` |
 | `js/neu.js` | Erkennt eine neue Auslieferung (`version.json` gegen `window.HB_BAU`) und laedt neu oder zeigt einen Hinweis — von **beiden** Seiten geladen; ohne React |
 | `styles.css` | gesamte Oberfläche |
 | `bilder/` | Bilder der Automaten (`bilder/hut/`, `bilder/buch/`, `bilder/arena/`, `bilder/auge/` je 160 px JPEG; `bilder/glueck/`: Dreifaches Glück, freigestellt als PNG) — der Deploy kopiert den ganzen Ordner |

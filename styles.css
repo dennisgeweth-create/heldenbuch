@@ -672,6 +672,15 @@
   @media (hover:hover) { .inv-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.6); } }
   .inv-card-header { display:flex; flex-direction:column; align-items:center; padding:12px 8px 10px; text-align:center; position:relative; }
   .inv-card-icon { font-size:28px; line-height:1; margin-bottom:6px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
+  /* Die Bilder der Gegenstände (js/gegenstaende.js): mehrfarbig, 48er Raster. */
+  .ib { display:inline-block; width:1.4em; height:1.4em; vertical-align:middle; flex:0 0 auto; overflow:visible; }
+  .inv-card-icon .ib { width:46px; height:46px; }
+  .gegenstand-bild-gross { flex-shrink:0; line-height:1; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+  .gegenstand-bild-gross .ib { width:64px; height:64px; }
+  .gegenstand-bild-gross .ik { width:48px; height:48px; }
+  .icon-picker-vorschau .ib { width:48px; height:48px; }
+  .icon-picker-btn .ib { width:38px; height:38px; display:block; }
+  .gear-slot-emoji .ib, .gear-pick-ic .ib { width:26px; height:26px; }
   /* Pergament statt Weiß: reines Weiß auf fast schwarzem Grund überstrahlt
      im abgedunkelten Raum (Halation) und bricht aus der warmen Palette aus. */
   .inv-card-name { font-family:'Roboto Condensed',sans-serif; font-size:11px; font-weight:700; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.06em; line-height:1.3; }

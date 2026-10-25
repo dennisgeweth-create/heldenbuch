@@ -32,7 +32,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (u.pathname.includes('/planer/') || u.pathname.includes('/vendor/')
-      || u.pathname.endsWith('/js/zip.js') || u.pathname.endsWith('/js/icons.js')
+      || u.pathname.endsWith('/js/zip.js') || u.pathname.endsWith('/js/icons.js') || u.pathname.endsWith('/js/gegenstaende.js')
       || u.pathname.endsWith('/js/neu.js') || u.pathname.endsWith('/favicon.png')) {
     e.respondWith(fetch(r).then((antwort) => {
       if (antwort.ok) { const kopie = antwort.clone(); caches.open(SEITE).then((c) => c.put(r, kopie)); }

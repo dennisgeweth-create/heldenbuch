@@ -8,26 +8,39 @@
   <style>
     body { padding:20px; }
     .bogen { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:8px; }
+    .bogen.gross { grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); }
     .zelle { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 4px 8px;
       border:1px solid var(--border); border-radius:6px; background:var(--bg-card); color:var(--text-primary); }
     .zelle .ik { width:40px; height:40px; }
     .zelle small { font:11px 'Roboto Condensed',sans-serif; color:var(--text-muted); }
     h2 { font:600 14px 'Roboto Condensed',sans-serif; color:var(--gold); margin:22px 0 10px; letter-spacing:.08em; text-transform:uppercase; }
     .probe { display:flex; flex-wrap:wrap; gap:8px; }
+    .bogen.gross .zelle { gap:4px; }
+    .bogen.gross .ib.g { width:64px; height:64px; }
+    .bogen.gross .ib.k { width:46px; height:46px; }
+    .paar { display:flex; align-items:flex-end; gap:8px; }
   </style>
 </head>
 <body>
   <h2>Alle Icons</h2>
   <div class="bogen" id="bogen"></div>
+  <h2>Gegenstände</h2>
+  <div class="bogen gross" id="bilder"></div>
   <h2>Im Text</h2>
   <div id="probe"></div>
   <script src="../vendor/react.production.min.js?v=dev"></script>
   <script src="../vendor/react-dom.production.min.js?v=dev"></script>
   <script src="../js/icons.js?v=dev"></script>
+  <script src="../js/gegenstaende.js?v=dev"></script>
   <script>
     const b = document.getElementById('bogen');
     b.innerHTML = HB_IKONEN.namen.map(n => '<div class="zelle">' + HB_IKONEN.markup(n) + '<small>' + n + '</small></div>').join('');
     const e = React.createElement;
+    ReactDOM.render(e(React.Fragment, null, HB_IKONEN.bilder.map(n => e('div', {className: 'zelle', key: n},
+      e('div', {className: 'paar'},
+        React.cloneElement(HB_IKONEN.bild('ib:' + n), {className: 'ib g'}),
+        React.cloneElement(HB_IKONEN.bild('ib:' + n), {className: 'ib k'})),
+      e('small', null, HB_IKONEN.bildLabel('ib:' + n))))), document.getElementById('bilder'));
     ReactDOM.render(e('div', {className: 'probe'},
       e('button', {className: 'btn-tool'}, '⚔ Kampf · Vorbereitung'),
       e('button', {className: 'btn-tool'}, '📚 Datenbank'),

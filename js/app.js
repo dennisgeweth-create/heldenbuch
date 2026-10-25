@@ -144,8 +144,22 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.0.1';
+const HB_VERSION = 'v6.1.0';
 const DM_MERKER = 'hb_dm_modus';
+const gegenstandZeichen = g => {
+  const ic = g && g.icon;
+  if (ic && ic !== '🎒') return ic;
+  const H = window.HB_IKONEN;
+  return H && H.raten && H.raten(g && g.name) || ic || '🎒';
+};
+const GegenstandBild = ({
+  g,
+  zeichen
+}) => {
+  const z = zeichen || gegenstandZeichen(g);
+  const H = window.HB_IKONEN;
+  return H && H.bild ? H.bild(z) : z;
+};
 const EinstBlock = ({
   titel,
   kurz,
@@ -23213,7 +23227,9 @@ const Sheet = () => {
         "aria-hidden": "true"
       }), kupferZuGold(item.wert)), React.createElement("div", {
         className: "inv-card-icon"
-      }, icon), React.createElement("div", {
+      }, React.createElement(GegenstandBild, {
+        g: item
+      })), React.createElement("div", {
         className: "inv-card-name"
       }, item.name)), React.createElement("div", {
         className: "inv-card-body-wrap"
@@ -23664,7 +23680,9 @@ const AusruestungsPuppe = () => {
       alt: ""
     }) : React.createElement("span", {
       className: "gear-slot-emoji"
-    }, o && o.icon || s.icon)), React.createElement("span", {
+    }, o ? React.createElement(GegenstandBild, {
+      g: o
+    }) : s.icon)), React.createElement("span", {
       className: "gear-slot-txt"
     }, React.createElement("b", null, s.label), React.createElement("i", null, beschriftung))), o && !gesperrt && darfBearbeiten && React.createElement("button", {
       className: "gear-slot-info",
@@ -23840,7 +23858,9 @@ const AusruestungsPuppe = () => {
       }, obj.imageData ? React.createElement("img", {
         src: obj.imageData,
         alt: ""
-      }) : obj.icon || (k === 'w' ? '⚔' : '🎒')), React.createElement("span", {
+      }) : React.createElement(GegenstandBild, {
+        zeichen: obj.icon || (k === 'w' ? window.HB_IKONEN && window.HB_IKONEN.raten && window.HB_IKONEN.raten(obj.name) || '⚔' : gegenstandZeichen(obj))
+      })), React.createElement("span", {
         className: "gear-pick-txt"
       }, React.createElement("b", null, obj.name || '(ohne Namen)'), React.createElement("i", null, art, k === 'w' && isZweihand(obj) && ' · Zweihänder', k === 'i' && obj.armorType === 'shield' && ' · +' + (+obj.baseAC || 2) + ' RK', k === 'i' && obj.armorType && obj.armorType !== 'shield' && ' · Basis ' + (+obj.baseAC || 0), (+obj.acBonus || 0) !== 0 && ' · ' + (+obj.acBonus >= 0 ? '+' : '') + +obj.acBonus + ' RK', (obj.effects || []).length > 0 && ' · ' + (obj.effects || []).length + ' Effekt' + ((obj.effects || []).length > 1 ? 'e' : ''))), jetzt && React.createElement("span", {
         className: "gear-pick-wo"
@@ -30767,8 +30787,8 @@ function App() {
       }, item.name);
     })));
   })(), showIconPicker && (() => {
-    const ICON_CATS = (window.HB_IKONEN || {}).wahl || [];
-    const gleich = (a, b) => a === b || !!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b);
+    const ICON_CATS = (window.HB_IKONEN || {}).bildWahl || (window.HB_IKONEN || {}).wahl || [];
+    const gleich = (a, b) => a === b || !!window.HB_IKONEN && !!window.HB_IKONEN.gleichesBild && window.HB_IKONEN.gleichesBild(a, b);
     return React.createElement("div", {
       className: "form-overlay",
       onClick: () => setShowIconPicker(false)
@@ -30795,10 +30815,10 @@ function App() {
         border: '1px solid var(--border)'
       }
     }, React.createElement("span", {
-      style: {
-        fontSize: 32
-      }
-    }, itf.icon || '🎒'), React.createElement("div", null, React.createElement("div", {
+      className: "icon-picker-vorschau"
+    }, React.createElement(GegenstandBild, {
+      g: itf
+    })), React.createElement("div", null, React.createElement("div", {
       style: {
         fontFamily: "'Roboto Condensed',sans-serif",
         fontSize: 11,
@@ -30828,6 +30848,7 @@ function App() {
     }, cat.icons.map(ic => React.createElement("button", {
       key: ic,
       className: "icon-picker-btn" + (gleich(itf.icon, ic) ? " selected" : ""),
+      title: window.HB_IKONEN && window.HB_IKONEN.bildLabel && window.HB_IKONEN.bildLabel(ic) || '',
       onClick: () => {
         setItf(p => ({
           ...p,
@@ -30835,7 +30856,9 @@ function App() {
         }));
         setShowIconPicker(false);
       }
-    }, ic))))), React.createElement("div", {
+    }, React.createElement(GegenstandBild, {
+      zeichen: ic
+    })))))), React.createElement("div", {
       className: "form-actions",
       style: {
         marginTop: 12
@@ -30872,7 +30895,9 @@ function App() {
       justifyContent: 'center'
     },
     title: "Icon w\xE4hlen"
-  }, itf.icon || '🎒'), React.createElement("input", {
+  }, React.createElement(GegenstandBild, {
+    g: itf
+  })), React.createElement("input", {
     className: "form-input",
     style: {
       flex: 1
@@ -31487,7 +31512,7 @@ function App() {
   })(), itemViewer && (() => {
     const item = itemViewer;
     const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
-    const icon = item.icon || '🎒';
+    const icon = gegenstandZeichen(item);
     return React.createElement(Fenster, {
       onClick: () => setItemViewer(null),
       leiste: {
@@ -31516,13 +31541,10 @@ function App() {
         alignItems: 'flex-start'
       }
     }, React.createElement("div", {
-      style: {
-        fontSize: 40,
-        lineHeight: 1,
-        filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',
-        flexShrink: 0
-      }
-    }, icon), React.createElement("div", {
+      className: "gegenstand-bild-gross"
+    }, React.createElement(GegenstandBild, {
+      zeichen: icon
+    })), React.createElement("div", {
       style: {
         flex: 1,
         minWidth: 0
@@ -33201,7 +33223,9 @@ function App() {
         justifyContent: 'center'
       },
       title: "Icon w\xE4hlen"
-    }, dbForm.icon || '🎒'), React.createElement("input", {
+    }, React.createElement(GegenstandBild, {
+      g: dbForm
+    })), React.createElement("input", {
       className: "form-input",
       style: {
         flex: 1
@@ -33214,8 +33238,8 @@ function App() {
       placeholder: "z.B. Heiltrank",
       autoFocus: true
     })), showIconPicker && (() => {
-      const ICON_CATS2 = (window.HB_IKONEN || {}).wahl || [];
-      const gleich2 = (a, b) => a === b || !!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b);
+      const ICON_CATS2 = (window.HB_IKONEN || {}).bildWahl || (window.HB_IKONEN || {}).wahl || [];
+      const gleich2 = (a, b) => a === b || !!window.HB_IKONEN && !!window.HB_IKONEN.gleichesBild && window.HB_IKONEN.gleichesBild(a, b);
       return React.createElement("div", {
         className: "form-overlay",
         style: {
@@ -33259,7 +33283,9 @@ function App() {
           }));
           setShowIconPicker(false);
         }
-      }, ic))))), React.createElement("div", {
+      }, React.createElement(GegenstandBild, {
+        zeichen: ic
+      })))))), React.createElement("div", {
         className: "form-actions",
         style: {
           marginTop: 8

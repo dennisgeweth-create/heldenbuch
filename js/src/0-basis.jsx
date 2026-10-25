@@ -156,10 +156,25 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v6.0.1';
+const HB_VERSION = 'v6.1.0';
 // Merkt je Tab, dass die Spielleitung ueber ihr Konto im DM-Modus war —
 // ein Neuladen bringt sie dorthin zurueck (4-app.jsx).
 const DM_MERKER = 'hb_dm_modus';
+
+// Das Bild eines Gegenstands (js/gegenstaende.js): mehrfarbig, wo es groß
+// steht. Ohne eigenes Icon — oder mit dem alten Rucksack, der für alles
+// stand — rät es nach dem Namen: ein „Kettenhemd" zeigt ein Kettenhemd.
+const gegenstandZeichen = (g) => {
+  const ic = g && g.icon;
+  if (ic && ic !== '🎒') return ic;
+  const H = window.HB_IKONEN;
+  return (H && H.raten && H.raten(g && g.name)) || ic || '🎒';
+};
+const GegenstandBild = ({ g, zeichen }) => {
+  const z = zeichen || gegenstandZeichen(g);
+  const H = window.HB_IKONEN;
+  return H && H.bild ? H.bild(z) : z;
+};
 
 // ── Ein einklappbarer Abschnitt der Einstellungen ────────────────
 // Die Einstellungsfenster sind lang geworden — Trefferpunkte, Automat,

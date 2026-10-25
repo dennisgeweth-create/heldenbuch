@@ -455,19 +455,19 @@ const ARMOR_KINDS = [
 // unter der Ausruestungsliste; in der Puppe legen sie das Stueck an und
 // stecken es gleich in seinen Platz.
 const ARMOR_TEMPLATES = [
-  {name:'Lederrüstung',          art:'ruestung', armorType:'light',  baseAC:11},
-  {name:'Verstärkte Lederrüstung',art:'ruestung', armorType:'light',  baseAC:12},
-  {name:'Lederlamellenrüstung',  art:'ruestung', armorType:'light',  baseAC:13},
-  {name:'Schuppenpanzer',        art:'ruestung', armorType:'medium', baseAC:13},
-  {name:'Kettenhemd',            art:'ruestung', armorType:'medium', baseAC:13},
-  {name:'Brustpanzer',           art:'ruestung', armorType:'medium', baseAC:14},
-  {name:'Schienenpanzer',        art:'ruestung', armorType:'medium', baseAC:15},
-  {name:'Halbplatte',            art:'ruestung', armorType:'medium', baseAC:15},
-  {name:'Ringpanzerhemd',        art:'ruestung', armorType:'heavy',  baseAC:14},
-  {name:'Kettenpanzer',          art:'ruestung', armorType:'heavy',  baseAC:16},
-  {name:'Bänderpanzer',          art:'ruestung', armorType:'heavy',  baseAC:17},
-  {name:'Plattenpanzer',         art:'ruestung', armorType:'heavy',  baseAC:18},
-  {name:'Schild',                art:'schild',   armorType:'shield', baseAC:2, icon:'🛡'},
+  {name:'Lederrüstung',          art:'ruestung', armorType:'light',  baseAC:11, icon:'ib:lederruestung'},
+  {name:'Verstärkte Lederrüstung',art:'ruestung', armorType:'light',  baseAC:12, icon:'ib:lederruestung'},
+  {name:'Lederlamellenrüstung',  art:'ruestung', armorType:'light',  baseAC:13, icon:'ib:lederruestung'},
+  {name:'Schuppenpanzer',        art:'ruestung', armorType:'medium', baseAC:13, icon:'ib:schuppenpanzer'},
+  {name:'Kettenhemd',            art:'ruestung', armorType:'medium', baseAC:13, icon:'ib:kettenhemd'},
+  {name:'Brustpanzer',           art:'ruestung', armorType:'medium', baseAC:14, icon:'ib:brustpanzer'},
+  {name:'Schienenpanzer',        art:'ruestung', armorType:'medium', baseAC:15, icon:'ib:plattenpanzer'},
+  {name:'Halbplatte',            art:'ruestung', armorType:'medium', baseAC:15, icon:'ib:brustpanzer'},
+  {name:'Ringpanzerhemd',        art:'ruestung', armorType:'heavy',  baseAC:14, icon:'ib:kettenhemd'},
+  {name:'Kettenpanzer',          art:'ruestung', armorType:'heavy',  baseAC:16, icon:'ib:kettenhemd'},
+  {name:'Bänderpanzer',          art:'ruestung', armorType:'heavy',  baseAC:17, icon:'ib:plattenpanzer'},
+  {name:'Plattenpanzer',         art:'ruestung', armorType:'heavy',  baseAC:18, icon:'ib:plattenpanzer'},
+  {name:'Schild',                art:'schild',   armorType:'shield', baseAC:2, icon:'ib:wappenschild'},
 ];
 
 // Zustaende im Kampf. Feste Liste statt freier Eingabe — so heisst

@@ -1621,7 +1621,7 @@ const Sheet = () => {
                                   {kupferZuGold(item.wert)}
                                 </div>
                               )}
-                              <div className="inv-card-icon">{icon}</div>
+                              <div className="inv-card-icon"><GegenstandBild g={item} /></div>
                               <div className="inv-card-name">{item.name}</div>
                             </div>
                             {/* Expandable body */}

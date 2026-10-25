@@ -79,7 +79,7 @@ const AusruestungsPuppe = () => {
           <span className="gear-slot-ic">
             {o && o.imageData
               ? <img src={o.imageData} alt="" />
-              : <span className="gear-slot-emoji">{(o && o.icon) || s.icon}</span>}
+              : <span className="gear-slot-emoji">{o ? <GegenstandBild g={o} /> : s.icon}</span>}
           </span>
           <span className="gear-slot-txt">
             <b>{s.label}</b>
@@ -249,7 +249,7 @@ const AusruestungsPuppe = () => {
                           <button key={k+obj.id} className={"gear-pick-item"+(hier?" hier":"")}
                             onClick={()=>{ setGearSlot(s.key, k, obj.id); setGearPick(null); }}>
                             <span className="gear-pick-ic">
-                              {obj.imageData ? <img src={obj.imageData} alt="" /> : (obj.icon || (k==='w'?'⚔':'🎒'))}
+                              {obj.imageData ? <img src={obj.imageData} alt="" /> : <GegenstandBild zeichen={obj.icon || (k==='w' ? (window.HB_IKONEN && window.HB_IKONEN.raten && window.HB_IKONEN.raten(obj.name)) || '⚔' : gegenstandZeichen(obj))} />}
                             </span>
                             <span className="gear-pick-txt">
                               <b>{obj.name || '(ohne Namen)'}</b>

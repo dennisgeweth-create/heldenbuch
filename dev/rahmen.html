@@ -24,10 +24,19 @@
     r.onload = () => {
       let i = 0;
       const weiter = () => {
-        if (i >= klicks.length) return;
+        if (i >= klicks.length) {
+          // ?zu=.inv-card — danach dieses Element in den Blick rollen.
+          const zu = q.get('zu');
+          const el = zu && r.contentDocument.querySelector(zu);
+          if (el) el.scrollIntoView({block: 'start'});
+          return;
+        }
         const d = r.contentDocument, wort = klicks[i++];
-        const el = [...d.querySelectorAll('button, a, [role=tab], .tab, .mobile-tab, .sheet-tab, .chat-eintrag, .inv-card')]
-          .find(e => e.offsetParent !== null && (e.textContent || '').trim().includes(wort));
+        // „$.inv-card" klickt das erste sichtbare Element zu diesem Selektor.
+        const el = wort.charAt(0) === '$'
+          ? [...d.querySelectorAll(wort.slice(1))].find(e => e.offsetParent !== null)
+          : [...d.querySelectorAll('button, a, [role=tab], .tab, .mobile-tab, .sheet-tab, .chat-eintrag, .inv-card')]
+              .find(e => e.offsetParent !== null && (e.textContent || '').trim().includes(wort));
         if (el) el.click();
         setTimeout(weiter, 900);
       };

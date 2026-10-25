@@ -1,5 +1,32 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.1.0
+
+### Gegenstände mit Bild
+
+- Im **Inventar**, in der **Ansicht eines Gegenstands**, in der
+  **Icon-Auswahl** und an der **Ausrüstungspuppe** stehen Gegenstände
+  jetzt als **farbige Bilder** — 72 Stück, alle im selben Stil:
+  Stahl glänzt, Leder ist braun, Gold ist golden, Tränke leuchten in
+  ihrer Farbe. In kleinen Listen bleibt das schlichte Icon.
+- **Viel mehr Arten**, vor allem zum Anziehen:
+  - **Rüstung:** Lederrüstung, Kettenhemd, Schuppenpanzer, Brustpanzer,
+    Plattenpanzer, Helm, Wappen- und Rundschild, Panzerhandschuh,
+    Armschienen.
+  - **Kleidung:** Umhang, Robe, Tunika, Hose, Kapuze, Spitzhut,
+    Handschuhe, Stiefel, Gürtel, Maske.
+  - **Waffen:** Langschwert, Säbel, Dolch, Streitaxt, Kriegshammer,
+    Streitkolben, Speer, Kampfstab, Zauberstab, Langbogen, Armbrust, Köcher.
+  - **Schmuck & Schätze, Tränke & Proviant, Schriften & Wissen,
+    Ausrüstung** — vom Ring über Heiltrank, Mana und Gift bis zu Seil,
+    Fackel, Laterne, Bettrolle, Diebeswerkzeug und Laute.
+- **Das Bild kommt von selbst:** Wer seinem Gegenstand kein Icon gibt,
+  bekommt das, was zum Namen passt — ein „Kettenpanzer" zeigt ein
+  Kettenhemd, „Trank der Heilung" den roten Trank, „Seil aus Hanf
+  (15 m)" das Seil. Die Rüstungsvorlagen haben ihr Bild gleich dabei.
+- Alte Gegenstände behalten ihr Bild: ein ⚔ wird zum Langschwert, ein
+  🧪 zum Heiltrank.
+
 ## v6.0.1
 
 - Die Knöpfe im Menü **glimmen golden**, wenn etwas da ist: Post mit

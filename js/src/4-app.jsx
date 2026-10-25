@@ -4696,14 +4696,14 @@ function App() {
               // Die Icons kommen aus js/icons.js: jedes einmal, im selben Strich.
               // Gespeichert wird weiter ein Zeichen — alte Gegenstände mit
               // einem Emoji bekommen so das nächstpassende Icon.
-              const ICON_CATS = (window.HB_IKONEN || {}).wahl || [];
-              const gleich = (a, b) => a === b || (!!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b));
+              const ICON_CATS = (window.HB_IKONEN || {}).bildWahl || (window.HB_IKONEN || {}).wahl || [];
+              const gleich = (a, b) => a === b || (!!window.HB_IKONEN && !!window.HB_IKONEN.gleichesBild && window.HB_IKONEN.gleichesBild(a, b));
               return (
                 <div className="form-overlay" onClick={()=>setShowIconPicker(false)}>
                   <div className="form-modal" style={{maxWidth:380}} onClick={e=>e.stopPropagation()}>
                     <div className="form-title" style={{marginBottom:12}}>Icon wählen</div>
                     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,padding:'8px 12px',background:'var(--bg-void)',borderRadius:6,border:'1px solid var(--border)'}}>
-                      <span style={{fontSize:32}}>{itf.icon||'🎒'}</span>
+                      <span className="icon-picker-vorschau"><GegenstandBild g={itf} /></span>
                       <div>
                         <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:11,color:'var(--gold)'}}>Ausgewählt</div>
                         <div style={{fontSize:12,color:'var(--text-muted)'}}>Klicke ein Icon um es auszuwählen</div>
@@ -4715,8 +4715,9 @@ function App() {
                         <div className="icon-picker-grid">
                           {cat.icons.map(ic=>(
                             <button key={ic} className={"icon-picker-btn"+(gleich(itf.icon, ic)?" selected":"")}
+                              title={(window.HB_IKONEN && window.HB_IKONEN.bildLabel && window.HB_IKONEN.bildLabel(ic)) || ''}
                               onClick={()=>{setItf(p=>({...p,icon:ic}));setShowIconPicker(false);}}>
-                              {ic}
+                              <GegenstandBild zeichen={ic} />
                             </button>
                           ))}
                         </div>
@@ -4736,7 +4737,7 @@ function App() {
                   <button onClick={()=>setShowIconPicker(true)}
                     style={{fontSize:24,width:42,height:42,borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}
                     title="Icon wählen">
-                    {itf.icon||'🎒'}
+                    <GegenstandBild g={itf} />
                   </button>
                   <input className="form-input" style={{flex:1}} placeholder="z.B. Trank der Heilung" value={itf.name} onChange={e=>setItf({...itf,name:e.target.value})} autoFocus/>
                 </div>
@@ -5054,13 +5055,13 @@ function App() {
       {itemViewer && (() => {
         const item = itemViewer;
         const r = RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
-        const icon = item.icon || '🎒';
+        const icon = gegenstandZeichen(item);
         return (
           <Fenster onClick={()=>setItemViewer(null)} leiste={{id: 'gegenstand', titel: item.name || 'Gegenstand', symbol: icon}}>
             <div className="form-modal" style={{maxWidth:460,padding:0,overflow:'hidden',maxHeight:'85vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
               {/* Header */}
               <div style={{background:`linear-gradient(180deg, ${r.color}30 0%, ${r.color}14 100%), var(--bg-card)`,borderBottom:`1px solid ${r.color}55`,padding:'16px 18px 14px',display:'flex',gap:14,alignItems:'flex-start'}}>
-                <div style={{fontSize:40,lineHeight:1,filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',flexShrink:0}}>{icon}</div>
+                <div className="gegenstand-bild-gross"><GegenstandBild zeichen={icon} /></div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:15,fontWeight:700,color:'var(--text-primary)',textTransform:'uppercase',letterSpacing:'0.06em',lineHeight:1.3}}>{item.name}</div>
                   <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--parchment-dim)',marginTop:4,fontStyle:'italic'}}>
@@ -5786,12 +5787,12 @@ function App() {
                         <div style={{display:'flex',gap:8,alignItems:'center'}}>
                           <button type="button" onClick={()=>setShowIconPicker(true)}
                             style={{fontSize:22,width:38,height:38,borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}
-                            title="Icon wählen">{dbForm.icon||'🎒'}</button>
+                            title="Icon wählen"><GegenstandBild g={dbForm} /></button>
                           <input className="form-input" style={{flex:1}} value={dbForm.name} onChange={e=>setDbForm(f=>({...f,name:e.target.value}))} placeholder="z.B. Heiltrank" autoFocus/>
                         </div>
                         {showIconPicker && (() => {
-                          const ICON_CATS2 = (window.HB_IKONEN || {}).wahl || [];
-                          const gleich2 = (a, b) => a === b || (!!window.HB_IKONEN && !!a && window.HB_IKONEN.nameVon(a) === window.HB_IKONEN.nameVon(b));
+                          const ICON_CATS2 = (window.HB_IKONEN || {}).bildWahl || (window.HB_IKONEN || {}).wahl || [];
+                          const gleich2 = (a, b) => a === b || (!!window.HB_IKONEN && !!window.HB_IKONEN.gleichesBild && window.HB_IKONEN.gleichesBild(a, b));
                           return (
                             <div className="form-overlay" style={{zIndex:300}} onClick={()=>setShowIconPicker(false)}>
                               <div className="form-modal" style={{maxWidth:340}} onClick={e=>e.stopPropagation()}>
@@ -5803,7 +5804,7 @@ function App() {
                                       {cat.icons.map(ic=>(
                                         <button key={ic} className={"icon-picker-btn"+(gleich2(dbForm.icon||'🎒', ic)?" selected":"")}
                                           onClick={()=>{setDbForm(f=>({...f,icon:ic}));setShowIconPicker(false);}}>
-                                          {ic}
+                                          <GegenstandBild zeichen={ic} />
                                         </button>
                                       ))}
                                     </div>

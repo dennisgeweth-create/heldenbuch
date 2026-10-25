@@ -423,8 +423,9 @@
   // Ein Zeichen samt Variationswahl (U+FE0F) und Verbindungen (U+200D),
   // z. B. 🐦‍⬛ oder 👁️‍🗨️. Gesucht wird nach dem ersten Zeichen.
   var EINS = '(?:[\\u2190-\\u21FF\\u2300-\\u23FF\\u25A0-\\u25FF\\u2600-\\u27BF\\u2B00-\\u2BFF]|\\uD83C[\\uDC00-\\uDFFF]|\\uD83D[\\uDC00-\\uDFFF]|\\uD83E[\\uDC00-\\uDFFF])';
-  var MUSTER = new RegExp(EINS + '\\uFE0F?(?:\\u200D' + EINS + '\\uFE0F?)*', 'g');
-  var VORAB = /[←-➿⬀-⯿\uD83C-\uD83E]/;
+  // Dazu die Kuerzel der Gegenstandsbilder (js/gegenstaende.js): „ib:helm".
+  var MUSTER = new RegExp('(?:' + EINS + '\\uFE0F?(?:\\u200D' + EINS + '\\uFE0F?)*|(?<![A-Za-z])ib:[a-z_]+)', 'g');
+  var VORAB = /[←-➿⬀-⯿\uD83C-\uD83E]|ib:/;
   var ersterVon = function (s) {
     var c = s.charCodeAt(0);
     return c >= 0xD800 && c <= 0xDBFF ? s.slice(0, 2) : s.charAt(0);
@@ -433,6 +434,10 @@
   // Emoji-Fassung (♠️, mit U+FE0F) stehen sie fuer ein Kartenspiel.
   var FARBEN = '♠♣♥♦';
   var nameVon = function (zeichen) {
+    if (zeichen.indexOf('ib:') === 0) {
+      var H = window.HB_IKONEN;
+      return H && H.linieVonBild ? H.linieVonBild(zeichen) : null;
+    }
     var erst = ersterVon(zeichen);
     if (Z[erst]) return Z[erst];
     if (FARBEN.indexOf(erst) >= 0 && zeichen.indexOf('️') > 0) return 'spielkarte';
