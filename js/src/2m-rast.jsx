@@ -357,7 +357,9 @@ const RastWahl = ({ titel, optionen, wert, onWert }) => (
 // regel: was im Abenteuer eingestellt ist. Sie laesst sich hier
 // umstellen — onRegel traegt die Wahl ins Abenteuer, damit sie beim
 // naechsten Mal wieder gilt.
-const RastAnsage = ({ regel, onRegel, helden, vorlage, onAbbrechen, onAnsagen }) => {
+// mitChronik: die Spielleitung hat eine Chronik — die Uhr rückt mit der
+// Rast vor (eine Stunde, acht Stunden), abschaltbar.
+const RastAnsage = ({ regel, onRegel, helden, vorlage, onAbbrechen, onAnsagen, mitChronik }) => {
   const v = vorlage || {};
   const [art, setArt] = React.useState(v.art === 'kurz' ? 'kurz' : 'lang');
   const [basis, setBasis] = React.useState(+v.basis || 2);
@@ -369,6 +371,7 @@ const RastAnsage = ({ regel, onRegel, helden, vorlage, onAbbrechen, onAnsagen })
   const [essen, setEssen] = React.useState(true);
   const [text, setText] = React.useState(String(v.text || ''));
   const [fuer, setFuer] = React.useState(() => helden.map(h => h.id));
+  const [uhr, setUhr] = React.useState(true);
 
   const [regelHier, setRegelHier] = React.useState(regel === 'grr' ? 'grr' : 'standard');
   const grr = regelHier === 'grr';
@@ -451,6 +454,13 @@ const RastAnsage = ({ regel, onRegel, helden, vorlage, onAbbrechen, onAnsagen })
           </label>
         )}
 
+        {mitChronik && (
+          <label className="zug-lauf-an" style={{marginTop:10}}>
+            <input type="checkbox" checked={uhr} onChange={e=>setUhr(e.target.checked)} />
+            <span>Chronik um {art === 'kurz' ? '1 Stunde' : '8 Stunden'} vorrücken</span>
+          </label>
+        )}
+
         <div className="form-label" style={{marginTop:12}}>Wer rastet</div>
         <div className="rast-massnahmen">
           {helden.map(h => (
@@ -468,7 +478,7 @@ const RastAnsage = ({ regel, onRegel, helden, vorlage, onAbbrechen, onAnsagen })
             onClick={()=>onAnsagen({art, regel: grr ? 'grr' : 'standard',
               stufe: art === 'lang' && grr ? stufe : 0, essen: art === 'lang' ? essen : true,
               teile: art === 'lang' && grr ? vorschlag.teile.map(t => t.text + (t.wert ? ' ' + (t.wert > 0 ? '+' : '−') + Math.abs(t.wert) : '')) : [],
-              text: text.trim(), fuer})}>☾ Ansagen</button>
+              text: text.trim(), fuer, uhr: !!mitChronik && uhr})}>☾ Ansagen</button>
         </div>
       </div>
     </Fenster>

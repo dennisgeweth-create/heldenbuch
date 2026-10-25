@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.2.2';
+const HB_VERSION = 'v6.2.3';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -18047,7 +18047,8 @@ const RastAnsage = ({
   helden,
   vorlage,
   onAbbrechen,
-  onAnsagen
+  onAnsagen,
+  mitChronik
 }) => {
   const v = vorlage || {};
   const [art, setArt] = React.useState(v.art === 'kurz' ? 'kurz' : 'lang');
@@ -18060,6 +18061,7 @@ const RastAnsage = ({
   const [essen, setEssen] = React.useState(true);
   const [text, setText] = React.useState(String(v.text || ''));
   const [fuer, setFuer] = React.useState(() => helden.map(h => h.id));
+  const [uhr, setUhr] = React.useState(true);
   const [regelHier, setRegelHier] = React.useState(regel === 'grr' ? 'grr' : 'standard');
   const grr = regelHier === 'grr';
   const regelWaehlen = r => {
@@ -18187,7 +18189,16 @@ const RastAnsage = ({
     type: "checkbox",
     checked: essen,
     onChange: e => setEssen(e.target.checked)
-  }), React.createElement("span", null, "Essen und Trinken vorhanden \u2014 ohne bringt die lange Rast nichts")), React.createElement("div", {
+  }), React.createElement("span", null, "Essen und Trinken vorhanden \u2014 ohne bringt die lange Rast nichts")), mitChronik && React.createElement("label", {
+    className: "zug-lauf-an",
+    style: {
+      marginTop: 10
+    }
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: uhr,
+    onChange: e => setUhr(e.target.checked)
+  }), React.createElement("span", null, "Chronik um ", art === 'kurz' ? '1 Stunde' : '8 Stunden', " vorr\xFCcken")), React.createElement("div", {
     className: "form-label",
     style: {
       marginTop: 12
@@ -18227,7 +18238,8 @@ const RastAnsage = ({
       essen: art === 'lang' ? essen : true,
       teile: art === 'lang' && grr ? vorschlag.teile.map(t => t.text + (t.wert ? ' ' + (t.wert > 0 ? '+' : '−') + Math.abs(t.wert) : '')) : [],
       text: text.trim(),
-      fuer
+      fuer,
+      uhr: !!mitChronik && uhr
     })
   }, "\u263E Ansagen"))));
 };
@@ -26977,11 +26989,31 @@ function App() {
     };
   }, [advId, svCode, konto]);
   const rastRegel = ((abenteuer || []).find(a => a.id === advId) || {}).rastRegel === 'grr' ? 'grr' : 'standard';
+  const RAST_STUNDEN = {
+    kurz: 1,
+    lang: 8
+  };
+  const rastUhr = art => {
+    const delta = RAST_STUNDEN[art] || 0;
+    if (!delta) return;
+    const jetzt = chronikJetzt(),
+      nachher = jetzt + delta;
+    const feuert = (chronik.ereignisse || []).filter(e => !e.erledigt && e.faellig != null && e.faellig > jetzt && e.faellig <= nachher);
+    if (feuert.some(e => e.bindung)) {
+      setZeitOffen({
+        tage: 0,
+        std: delta
+      });
+      return;
+    }
+    zeitAnwenden(delta, feuert, []);
+  };
   const rastSetzen = async r => {
     const creds = serverCreds();
     try {
       const d = await apiRastSetzen(creds.url, creds.code, advId, r);
       setRastAnsage(false);
+      if (r && r.uhr) rastUhr(r.art);
       if (d && d.rast) {
         rastRef.current = d.rast;
         setRast(d.rast);
@@ -32142,6 +32174,7 @@ function App() {
     } : a)),
     onAbbrechen: () => setRastAnsage(false),
     onAnsagen: rastSetzen,
+    mitChronik: isDmMode,
     helden: advChars.filter(c => !c.archived && c.dmOnly !== true)
   }), rast && (rastOffen || rastGesehen.current !== rast.id && chars.some(c => (rast.fuer || []).includes(c.id) && darfSchreiben(c) && !isDmMode && !(rast.antworten || []).some(a => a.charId === c.id))) && React.createElement(RastFenster, {
     rast: rast,

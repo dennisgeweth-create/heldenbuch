@@ -1839,6 +1839,17 @@
         // ── Die Rast ───────────────────────────────────────────────
         melden('lauf', 'Rast');
         const heldJetzt = () => JSON.parse(wbSpeicher.dnd_chars)[0];
+        // Die Uhr der Chronik, in Stunden: die Rast rückt sie vor.
+        const uhrLesen = async () => {
+          const offen = !!document.querySelector('.chronik-uhr');
+          if (!offen) { const k = knopfMit('Chronik'); if (k) k.click(); }
+          const u = await warten(() => document.querySelector('.chronik-uhr'), 2000);
+          const feld = (sel, muster) => +(((u && u.querySelector(sel) || {}).textContent || '').match(muster) || [])[1] || 0;
+          const tag = feld('.chronik-tag', /(\d+)/), std = feld('.chronik-stunde', /(\d+)/);
+          if (!offen) { const k = knopfMit('Chronik'); if (k) k.click(); await ruhe(100); }
+          return tag ? (tag - 1) * 24 + std : null;
+        };
+        const uhrVorher = await uhrLesen();
         const rastK = await warten(() => knopfMit('☾ Rast'));
         if (ja('Die Spielleitung hat einen Rastknopf', !!rastK)) {
           rastK.click();
@@ -1905,6 +1916,9 @@
             const ende2 = knopfMit('Rast beenden');
             if (ende2) { ende2.click(); await ruhe(120); const ok2 = document.querySelector('.confirm-ok'); if (ok2) { ok2.click(); await ruhe(300); } }
           }
+          const uhrNachher = await uhrLesen();
+          ja('Lange und kurze Rast rücken die Chronik um 8 + 1 Stunden vor',
+             uhrVorher !== null && uhrNachher === uhrVorher + 9, uhrVorher + ' → ' + uhrNachher);
         }
 
         // ── Die Seite des Spielers ─────────────────────────────────

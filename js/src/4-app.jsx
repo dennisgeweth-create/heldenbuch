@@ -2163,11 +2163,27 @@ function App() {
     return () => { lebt = false; clearTimeout(uhr); };
   }, [advId, svCode, konto]);
   const rastRegel = ((abenteuer || []).find(a => a.id === advId) || {}).rastRegel === 'grr' ? 'grr' : 'standard';
+  // Eine Rast braucht Zeit: die kurze eine Stunde, die lange acht. Die
+  // Chronik rückt beim Ansagen um so viel vor — auf demselben Weg wie
+  // „Zeit vergeht". Wird dabei ein Ereignis fällig, das ein Merkmal an- oder
+  // abschaltet, geht dieses Fenster vorbelegt auf: das entscheidet die
+  // Spielleitung dort, nicht die Rast.
+  const RAST_STUNDEN = {kurz: 1, lang: 8};
+  const rastUhr = (art) => {
+    const delta = RAST_STUNDEN[art] || 0;
+    if (!delta) return;
+    const jetzt = chronikJetzt(), nachher = jetzt + delta;
+    const feuert = (chronik.ereignisse || [])
+      .filter(e => !e.erledigt && e.faellig != null && e.faellig > jetzt && e.faellig <= nachher);
+    if (feuert.some(e => e.bindung)) { setZeitOffen({tage: 0, std: delta}); return; }
+    zeitAnwenden(delta, feuert, []);
+  };
   const rastSetzen = async (r) => {
     const creds = serverCreds();
     try {
       const d = await apiRastSetzen(creds.url, creds.code, advId, r);
       setRastAnsage(false);
+      if (r && r.uhr) rastUhr(r.art);
       if (d && d.rast) { rastRef.current = d.rast; setRast(d.rast); rastGesehen.current = d.rast.id; setRastOffen(true); }
       rastStandRef.current = -1;
       if (!r) { setRast(null); rastRef.current = null; setRastOffen(false); }
@@ -5305,7 +5321,7 @@ function App() {
       {rastAnsage && (
         <RastAnsage regel={rastRegel} vorlage={rastAnsage === true ? null : rastAnsage}
           onRegel={(r)=>advSpeichern(abenteuer.map(a => a.id === advId ? {...a, rastRegel: r} : a))}
-          onAbbrechen={()=>setRastAnsage(false)} onAnsagen={rastSetzen}
+          onAbbrechen={()=>setRastAnsage(false)} onAnsagen={rastSetzen} mitChronik={isDmMode}
           helden={advChars.filter(c => !c.archived && c.dmOnly !== true)} />
       )}
       {rast && (rastOffen || (rastGesehen.current !== rast.id

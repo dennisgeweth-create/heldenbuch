@@ -1,5 +1,17 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.2.3
+
+- **Die Rast lässt die Zeit vergehen.** Sagt die Spielleitung eine Rast
+  an, rückt die Chronik vor: die kurze Rast um **1 Stunde**, die lange um
+  **8 Stunden**. Bisher blieb die Uhr stehen — bei beiden.
+- Was in dieser Zeit fällig wird, rechnet sich ab wie bei „Zeit vergeht":
+  Fristen werden abgelegt, Wiederkehrendes rückt auf den nächsten Termin.
+  Schaltet ein fälliges Ereignis ein Merkmal an oder ab, geht „Zeit
+  vergeht" vorbelegt auf, damit du es dort entscheidest.
+- Im Fenster „Rast ansagen" steht dafür ein Häkchen „Chronik um … vorrücken"
+  — wer die Uhr lieber selbst stellt, nimmt es heraus.
+
 ## v6.2.2
 
 - **Gegenstände übergeben geht wieder — und verliert nichts mehr.**
