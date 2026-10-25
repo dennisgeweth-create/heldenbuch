@@ -169,6 +169,15 @@ const PostFenster = ({ post, dm, meine, partner, onSchreiben, onGelesen, onLoesc
             })}
           </div>
 
+          {/* Am breiten Schirm, solange nichts offen ist: ein Wink statt
+              einer leeren Fläche. */}
+          {!g && !waehlen && (
+            <div className="chat-verlauf chat-nichts">
+              <div className="chat-hinweis">Wähle links eine Unterhaltung — oder fang mit
+                „Neue Unterhaltung" eine an.</div>
+            </div>
+          )}
+
           {/* Neue Unterhaltung: an wen */}
           {waehlen && !g && (
             <div className="chat-verlauf">

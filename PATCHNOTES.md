@@ -1,5 +1,17 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.0.1
+
+- Die Knöpfe im Menü **glimmen golden**, wenn etwas da ist: Post mit
+  Ungelesenem, eine angesagte Rast, ein neuer Laden, Beute, die noch
+  niemand genommen hat, der Kampf (vor allem, wenn dein Held am Zug ist)
+  und bei der Spielleitung die Chronik, wenn etwas fällig ist. Ein Tipp
+  auf den Knopf, und es hört auf.
+- **Alles mittig:** der Planer-Knopf (er ist ein Link und stand deshalb
+  anders), dein Konto unten in der Leiste und die Knöpfe daneben.
+- Die Taverne zeigt beim Poker das Karten-Icon statt eines bunten Piks.
+- Im Postfenster steht ein Wink, solange keine Unterhaltung offen ist.
+
 ## v6.0.0
 
 ### Ein neues Gesicht

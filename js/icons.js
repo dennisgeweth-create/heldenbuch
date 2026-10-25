@@ -429,7 +429,15 @@
     var c = s.charCodeAt(0);
     return c >= 0xD800 && c <= 0xDBFF ? s.slice(0, 2) : s.charAt(0);
   };
-  var nameVon = function (zeichen) { return Z[ersterVon(zeichen)] || null; };
+  // Kartenfarben sind Schrift (♠ auf einer Spielkarte) — nur in der
+  // Emoji-Fassung (♠️, mit U+FE0F) stehen sie fuer ein Kartenspiel.
+  var FARBEN = '♠♣♥♦';
+  var nameVon = function (zeichen) {
+    var erst = ersterVon(zeichen);
+    if (Z[erst]) return Z[erst];
+    if (FARBEN.indexOf(erst) >= 0 && zeichen.indexOf('️') > 0) return 'spielkarte';
+    return null;
+  };
 
   // Ein Text in Stuecke: Text und Icons. Zeichen ohne Icon bleiben Text.
   var zerlegen = function (R, text, praefix) {

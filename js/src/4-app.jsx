@@ -2884,13 +2884,17 @@ function App() {
   // angekündigt. Gezählt wird erst, wenn der Server einmal geantwortet
   // hat (die Stand-Zähler stehen vorher auf −1).
   const ankStand = useRef({});
+  // Was angekündigt wurde und noch nicht angesehen ist: der Knopf im Menü
+  // glimmt golden, bis man ihn antippt.
+  const [neuDa, setNeuDa] = useState({});
+  const gesehen = (art) => setNeuDa(n => (n[art] ? {...n, [art]: false} : n));
   const ankMelden = (art, schluessel, text, unter) => {
     const k = art + '|' + advId + '|' + (isDmMode ? 'dm' : 'sp');
     const st = ankStand.current;
     if (!(k in st)) { st[k] = schluessel; return; }
     if (st[k] === schluessel) return;
     st[k] = schluessel;
-    if (schluessel) ankuendigen(art, text, unter);
+    if (schluessel) { ankuendigen(art, text, unter); setNeuDa(n => ({...n, [art]: true})); }
   };
   // Kampfbeginn: die Vorbereitung zählt noch nicht, erst die erste Runde.
   const ankKampf = isDmMode
@@ -3717,8 +3721,8 @@ function App() {
               {/* Die Rast: die Spielleitung sagt an, alle anderen sehen
                   sie, solange eine läuft. */}
               {svCode && advId && (isDmMode || rast) && (
-                <button className={'btn-tool' + (rast ? ' post-neu' : '')}
-                  onClick={()=> rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true)}
+                <button className={'btn-tool' + (rast ? ' post-neu' : '') + (rast && neuDa.rast ? ' blinkt' : '')}
+                  onClick={()=> { gesehen('rast'); rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true); }}
                   title={rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'}>
                   ☾ {rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast')
                            + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '')
@@ -3728,7 +3732,7 @@ function App() {
               {/* Post: jeder schreibt jedem, in Unterhaltungen wie in
                   einem Messenger (2l-post.jsx). */}
               {svCode && konto && advId && (
-                <button className={'btn-tool' + (postUngelesen ? ' post-neu' : '')}
+                <button className={'btn-tool' + (postUngelesen ? ' post-neu blinkt' : '')}
                   onClick={()=>{ setPostOffen(true); leiste.zeigen('post'); }}
                   title="Zettel an die Spielleitung oder an einzelne Helden — die anderen sehen sie nicht">
                   ✉ Post{postUngelesen ? ' · ' + postUngelesen : ''}
@@ -3737,13 +3741,15 @@ function App() {
               {/* Der Laden steht da, sobald die Spielleitung eine Auslage
                   hingelegt hat — vorher sieht ihn nur sie. */}
               {(laden || isDmMode) && (
-                <button className="btn-tool" onClick={()=>{ setLadenOffen(true); leiste.zeigen('laden'); }}
+                <button className={'btn-tool' + (laden && neuDa.laden ? ' blinkt' : '')}
+                  onClick={()=>{ gesehen('laden'); setLadenOffen(true); leiste.zeigen('laden'); }}
                   title="Kaufen und verkaufen">🏪 {(laden && laden.name) || 'Laden'}</button>
               )}
               {/* Liegt ein Fund, sieht ihn jeder — sonst legt nur die
                   Spielleitung einen hin. */}
               {beute ? (
-                <button className="btn-tool beute-knopf" onClick={()=>{ setBeuteOffen(true); leiste.zeigen('beute'); }}>
+                <button className={'btn-tool beute-knopf' + ((neuDa.beute || (!isDmMode && (beute.stuecke || []).some(s => !s.an))) ? ' blinkt' : '')}
+                  onClick={()=>{ gesehen('beute'); setBeuteOffen(true); leiste.zeigen('beute'); }}>
                   💰 Beute<span>{(beute.stuecke || []).filter(s => !s.an).length || ''}</span>
                 </button>
               ) : isDmMode ? (
@@ -3762,7 +3768,7 @@ function App() {
                 </button>
               )}
               {isDmMode && (
-                <button className={"btn-tool"+(showChronik?" an":"")} onClick={chronikUmschalten}>
+                <button className={"btn-tool"+(showChronik?" an":"")+(chronikFaellig > 0 && !showChronik ? " blinkt" : "")} onClick={chronikUmschalten}>
                   🕰 Chronik{chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''}
                 </button>
               )}
@@ -3770,7 +3776,8 @@ function App() {
                   steht nur da, wenn gerade einer laeuft und das Abenteuer
                   ihn zeigt. */}
               {!isDmMode && kampfSichtDaten && (
-                <button className="btn-tool" onClick={()=>{ setShowKampfSicht(true); leiste.zeigen('kampfsicht'); }}>
+                <button className={'btn-tool' + (ankDran || neuDa.kampf ? ' blinkt' : '')}
+                  onClick={()=>{ gesehen('kampf'); setShowKampfSicht(true); leiste.zeigen('kampfsicht'); }}>
                   ⚔ Kampf · Runde {kampfSichtDaten.runde || 1}
                 </button>
               )}

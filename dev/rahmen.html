@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Werkbank · Rahmen</title>
+  <!-- Eine Seite in einem Rahmen fester Breite — fuer Bildschirmfotos wie
+       am Telefon aus Chrome im Hintergrund, das selbst nicht schmaler als
+       500 px wird. ?u=../demo.html&b=390&h=844 -->
+  <style>
+    body { margin:0; padding:10px; background:#333; }
+    iframe { border:0; background:#000; display:block; }
+  </style>
+</head>
+<body>
+  <iframe id="r"></iframe>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const r = document.getElementById('r');
+    r.width = q.get('b') || 390; r.height = q.get('h') || 844;
+    r.src = q.get('u') || '../demo.html';
+    // ?klick=Aktionen|Inventar — nacheinander den ersten Knopf (oder Reiter)
+    // anklicken, dessen Text so lautet. Fuer Fotos tieferer Ansichten.
+    const klicks = (q.get('klick') || '').split('|').filter(Boolean);
+    r.onload = () => {
+      let i = 0;
+      const weiter = () => {
+        if (i >= klicks.length) return;
+        const d = r.contentDocument, wort = klicks[i++];
+        const el = [...d.querySelectorAll('button, a, [role=tab], .tab, .mobile-tab, .sheet-tab, .chat-eintrag, .inv-card')]
+          .find(e => e.offsetParent !== null && (e.textContent || '').trim().includes(wort));
+        if (el) el.click();
+        setTimeout(weiter, 900);
+      };
+      setTimeout(weiter, +(q.get('warte') || 3500));
+    };
+  </script>
+</body>
+</html>

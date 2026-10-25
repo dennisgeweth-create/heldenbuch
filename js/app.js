@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.0.0';
+const HB_VERSION = 'v6.0.1';
 const DM_MERKER = 'hb_dm_modus';
 const EinstBlock = ({
   titel,
@@ -17401,7 +17401,11 @@ const PostFenster = ({
     }, React.createElement("b", null, u.name), React.createElement("i", null, letzte ? (letzte.eigen ? 'Du: ' : '') + letzte.text : '')), React.createElement("span", {
       className: "chat-rechts"
     }, React.createElement("small", null, letzte ? postZeit(letzte.zeit).replace('heute ', '') : ''), u.ungelesen > 0 && React.createElement("em", null, u.ungelesen)));
-  })), waehlen && !g && React.createElement("div", {
+  })), !g && !waehlen && React.createElement("div", {
+    className: "chat-verlauf chat-nichts"
+  }, React.createElement("div", {
+    className: "chat-hinweis"
+  }, "W\xE4hle links eine Unterhaltung \u2014 oder fang mit \u201ENeue Unterhaltung\" eine an.")), waehlen && !g && React.createElement("div", {
     className: "chat-verlauf"
   }, React.createElement("div", {
     className: "chat-kopf"
@@ -27736,6 +27740,11 @@ function App() {
     return drin[0].charId;
   })();
   const ankStand = useRef({});
+  const [neuDa, setNeuDa] = useState({});
+  const gesehen = art => setNeuDa(n => n[art] ? {
+    ...n,
+    [art]: false
+  } : n);
   const ankMelden = (art, schluessel, text, unter) => {
     const k = art + '|' + advId + '|' + (isDmMode ? 'dm' : 'sp');
     const st = ankStand.current;
@@ -27745,7 +27754,13 @@ function App() {
     }
     if (st[k] === schluessel) return;
     st[k] = schluessel;
-    if (schluessel) ankuendigen(art, text, unter);
+    if (schluessel) {
+      ankuendigen(art, text, unter);
+      setNeuDa(n => ({
+        ...n,
+        [art]: true
+      }));
+    }
   };
   const ankKampf = isDmMode ? kampf && kampf.aktiv && kampf.phase !== 'vorbereitung' ? 'k:' + (kampf.name || '') : null : kampfSichtDaten && kampfSichtDaten.phase !== 'vorbereitung' ? 'k:' + (kampfSichtDaten.name || '') : null;
   useEffect(() => {
@@ -28872,26 +28887,31 @@ function App() {
     rel: "noopener",
     title: "Karten, Orte und Reisen dieses Abenteuers"
   }, "\uD83D\uDDFA Planer"), svCode && advId && (isDmMode || rast) && React.createElement("button", {
-    className: 'btn-tool' + (rast ? ' post-neu' : ''),
-    onClick: () => rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true),
+    className: 'btn-tool' + (rast ? ' post-neu' : '') + (rast && neuDa.rast ? ' blinkt' : ''),
+    onClick: () => {
+      gesehen('rast');
+      rast ? (setRastOffen(true), leiste.zeigen('rast')) : setRastAnsage(true);
+    },
     title: rast ? 'Die laufende Rast' : 'Kurze oder lange Rast ansagen'
   }, "\u263E ", rast ? (rast.art === 'kurz' ? 'Kurze Rast' : 'Lange Rast') + (isDmMode ? ' · ' + (rast.antworten || []).length + '/' + (rast.fuer || []).length : '') : 'Rast'), svCode && konto && advId && React.createElement("button", {
-    className: 'btn-tool' + (postUngelesen ? ' post-neu' : ''),
+    className: 'btn-tool' + (postUngelesen ? ' post-neu blinkt' : ''),
     onClick: () => {
       setPostOffen(true);
       leiste.zeigen('post');
     },
     title: "Zettel an die Spielleitung oder an einzelne Helden \u2014 die anderen sehen sie nicht"
   }, "\u2709 Post", postUngelesen ? ' · ' + postUngelesen : ''), (laden || isDmMode) && React.createElement("button", {
-    className: "btn-tool",
+    className: 'btn-tool' + (laden && neuDa.laden ? ' blinkt' : ''),
     onClick: () => {
+      gesehen('laden');
       setLadenOffen(true);
       leiste.zeigen('laden');
     },
     title: "Kaufen und verkaufen"
   }, "\uD83C\uDFEA ", laden && laden.name || 'Laden'), beute ? React.createElement("button", {
-    className: "btn-tool beute-knopf",
+    className: 'btn-tool beute-knopf' + (neuDa.beute || !isDmMode && (beute.stuecke || []).some(s => !s.an) ? ' blinkt' : ''),
     onClick: () => {
+      gesehen('beute');
       setBeuteOffen(true);
       leiste.zeigen('beute');
     }
@@ -28910,11 +28930,12 @@ function App() {
       leiste.zeigen('kampf');
     }
   }, "\u2694 Kampf", !kampf || !kampf.aktiv ? '' : kampf.phase === 'vorbereitung' ? ' · Vorbereitung' : ' · Runde ' + kampf.runde), isDmMode && React.createElement("button", {
-    className: "btn-tool" + (showChronik ? " an" : ""),
+    className: "btn-tool" + (showChronik ? " an" : "") + (chronikFaellig > 0 && !showChronik ? " blinkt" : ""),
     onClick: chronikUmschalten
   }, "\uD83D\uDD70 Chronik", chronikFaellig > 0 ? ' · ' + chronikFaellig + ' fällig' : ''), !isDmMode && kampfSichtDaten && React.createElement("button", {
-    className: "btn-tool",
+    className: 'btn-tool' + (ankDran || neuDa.kampf ? ' blinkt' : ''),
     onClick: () => {
+      gesehen('kampf');
       setShowKampfSicht(true);
       leiste.zeigen('kampfsicht');
     }
