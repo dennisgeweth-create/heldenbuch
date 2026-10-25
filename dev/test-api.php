@@ -634,6 +634,27 @@ pruefe('der Abgleich traegt keine Lebenszeichen verborgener Bögen',
        !in_array('n1', $vit, true) && !in_array('d1', $vit, true) && in_array('h1', $vit, true), json_encode($vit));
 ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
 
+abschnitt('Verwandelt im Kampf');
+$verw = $kampf;
+$verw['teilnehmer'][0]['gestalt'] = ['name' => 'Brauner Bär', 'hp' => 30, 'hpMax' => 34, 'ac' => 11];
+$verw['teilnehmer'][1]['gestalt'] = ['name' => 'Riesenspinne', 'hp' => 2, 'hpMax' => 26, 'ac' => 14];
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $verw]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+$hv = null; $gv = null;
+foreach ((array)(($r['body']['kampf'] ?? [])['teilnehmer'] ?? []) as $t) {
+    if (($t['id'] ?? '') === 'held-h1') $hv = $t;
+    if (($t['id'] ?? '') === 'g1') $gv = $t;
+}
+pruefe('die Runde sieht den Helden in seiner Gestalt, mit TP und RK',
+       ($hv['gestalt']['name'] ?? '') === 'Brauner Bär' && ($hv['gestalt']['hp'] ?? 0) === 30 && ($hv['gestalt']['ac'] ?? 0) === 11,
+       json_encode($hv, JSON_UNESCAPED_UNICODE));
+pruefe('  … beim Gegner nur den Namen der Gestalt',
+       ($gv['gestalt']['name'] ?? '') === 'Riesenspinne' && !array_key_exists('hp', (array)($gv['gestalt'] ?? [])),
+       json_encode($gv, JSON_UNESCAPED_UNICODE));
+pruefe('  … und sein grober Stand kommt aus der Gestalt', ($gv['zustand'] ?? '') !== ''
+       && (float)($gv['balken'] ?? 1) < 0.2, json_encode($gv, JSON_UNESCAPED_UNICODE));
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf]);
+
 abschnitt('Verdeckte Trefferpunkte gelten auch hier');
 $lib = ruf('load', ['code' => $code, 'token' => $tDm])['body']['library'] ?? [];
 $advs = $lib['_adventures'] ?? [];

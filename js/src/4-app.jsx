@@ -6592,6 +6592,8 @@ function App() {
           onSchliessen={()=>setShowKampf(false)}
           onGegnerBlatt={(id)=>{ const g = enemies.find(e=>e.id===id); if (g) setEnemyView(g); }}
           onHeldAendern={heldImKampfAendern}
+          tiere={[...(userLibrary.wildshape || []), ...((tplData && tplData.wildshapes) || [])]}
+          onTiereLaden={()=>{ if (!(tplData && tplData.wildshapes)) ladeVorlagen('wildshape'); }}
           heldNotizen={dmLibrary.heldNotizen}
           onHeldNotiz={heldNotizSetzen}
           onHeldNotizSichern={heldNotizSichern}

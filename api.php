@@ -753,14 +753,21 @@ function kampfFuerSpieler(array $k, bool $hpOffen, array $eigeneChars = []): arr
             'vorteil'      => !empty($t['vorteil']),
             'nachteil'     => !empty($t['nachteil']),
         ];
+        // Eine Gestalt (Tiergestalt, Verwandlung): beim Helden ganz, beim
+        // Gegner nur ihr Name — seine Zahlen bleiben ein grober Stand.
+        $g = is_array($t['gestalt'] ?? null) ? $t['gestalt'] : null;
         if ($held) {
             // Der Held wird ueber seinen Bogen gefunden; dort gelten die
             // Regeln, die es schon gibt.
             $e['charId'] = (string)($t['charId'] ?? '');
+            if ($g) $e['gestalt'] = ['name' => mb_substr((string)($g['name'] ?? ''), 0, 80),
+                                     'hp' => (int)($g['hp'] ?? 0), 'hpMax' => max(1, (int)($g['hpMax'] ?? 1)),
+                                     'ac' => (int)($g['ac'] ?? 10)];
         } else {
             $e['name'] = (string)($t['name'] ?? 'Gegner');
-            $hp  = (int)($t['hp'] ?? 0);
-            $max = max(1, (int)($t['hpMax'] ?? 1));
+            $hp  = (int)($g ? ($g['hp'] ?? 0) : ($t['hp'] ?? 0));
+            $max = max(1, (int)($g ? ($g['hpMax'] ?? 1) : ($t['hpMax'] ?? 1)));
+            if ($g) $e['gestalt'] = ['name' => mb_substr((string)($g['name'] ?? ''), 0, 80)];
             $e = array_merge($e, tpZustandServer($hp, $max));
             $e['tot'] = $hp <= 0;
             if ($lager === 'verbuendet') $e['lager'] = 'verbuendet';

@@ -196,6 +196,11 @@ const protokollZeile = (e, mitZahlen) => {
     case 'konz':     return '   ⚡ ' + e.wer + ' hält „' + e.was + '“ — '
                             + 'Konstitutions-Rettungswurf gegen SG ' + e.sg;
     case 'konzAus':  return '   ⚡ ' + e.wer + ': „' + e.was + '“ endet';
+    // Tiergestalt, Verwandlung: wer zu was wird, und wann es endet.
+    case 'gestalt':  return '   🐺 ' + e.wer + ' verwandelt sich: ' + e.was
+                            + (mitZahlen ? ' (TP ' + e.tp + ', RK ' + e.rk + ')' : '');
+    case 'gestaltEnde': return '   🐺 ' + e.wer + ': ' + e.was + ' endet — wieder in eigener Gestalt'
+                            + (e.ueber ? (mitZahlen ? ', ' + e.ueber + ' Schaden gehen weiter' : '') : '');
     case 'konzAn':   return '   ⚡ ' + e.wer + ' hält jetzt „' + e.was + '“';
     // Ein Trank ist nach dem Zug leer. Was noch da ist, steht dabei —
     // sonst muesste man dafuer in den Bogen schauen.
@@ -1808,11 +1813,88 @@ const ZustandWahl = ({ t, onZustand, onErschoepfung, onMarke, onSchliessen }) =>
 );
 
 // ── Eine Karte ───────────────────────────────────────────────────
+// ── Verwandeln ───────────────────────────────────────────────────
+// Tiergestalt, Verwandlung, Gestaltwandel: die Figur bekommt eigene
+// Trefferpunkte und eine eigene Rüstungsklasse. Schaden trifft zuerst
+// die Gestalt; fällt sie auf 0, endet sie, und was übrig ist, geht auf
+// die eigene Form (so steht es im Regelwerk). Die eigenen Trefferpunkte
+// im Bogen bleiben derweil, wie sie sind.
+//
+// Aus einer Vorlage — den Tieren (SRD und eigene) oder der Gegnersammlung
+// — oder von Hand.
+const tpDurchschnitt = (vorlage) => {
+  const m = String(vorlage.hpDice || '').match(/(\d+)\s*[dw]\s*(\d+)\s*(?:\+\s*(\d+))?/i);
+  if (!m) return Math.max(1, +vorlage.hpMax || +vorlage.hp || 1);
+  const [, anzahl, seiten, bonus] = m.map(Number);
+  return Math.max(1, Math.floor(anzahl * (seiten + 1) / 2) + (bonus || 0));
+};
+const GestaltDialog = ({ t, tiere, enemies, onLaden, onVerwandeln, onAbbrechen }) => {
+  const [art, setArt] = React.useState('vorlage');
+  const [suche, setSuche] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [tp, setTp] = React.useState(10);
+  const [rk, setRk] = React.useState(12);
+  React.useEffect(() => { if (onLaden) onLaden(); }, []);
+  const q = suche.trim();
+  const vorlagen = [
+    ...(tiere || []).map(w => ({key: 't:' + w.name, name: w.name, hp: Math.max(1, +w.hp || 1), ac: +w.ac || 10,
+      unter: ['Tier', w.cr != null && w.cr !== '' ? 'HG ' + w.cr : '', w.size].filter(Boolean).join(' · ')})),
+    ...(enemies || []).map(e => ({key: 'g:' + e.id, name: e.name || 'Gegner', hp: tpDurchschnitt(e), ac: +e.ac || 10,
+      unter: ['Gegner', e.type, e.cr != null && e.cr !== '' ? 'HG ' + e.cr : ''].filter(Boolean).join(' · ')})),
+  ].filter(x => !q || containsFold(x.name, q) || containsFold(x.unter, q))
+   .sort((a, b) => a.name.localeCompare(b.name, 'de')).slice(0, 120);
+  const handGeht = name.trim() && (+tp || 0) > 0 && (+rk || 0) > 0;
+  return (
+    <Fenster onClick={onAbbrechen}>
+      <div className="form-modal gestalt-fenster" onClick={e=>e.stopPropagation()}>
+        <div className="form-title">🐺 Verwandeln — {t.name}</div>
+        <div className="einst-wahl">
+          <button type="button" className={'einst-option' + (art === 'vorlage' ? ' aktiv' : '')} onClick={()=>setArt('vorlage')}>
+            <b>Aus Vorlage</b><i>Tiere und Gegnersammlung</i></button>
+          <button type="button" className={'einst-option' + (art === 'hand' ? ' aktiv' : '')} onClick={()=>setArt('hand')}>
+            <b>Von Hand</b><i>Name, TP und RK eintragen</i></button>
+        </div>
+        {art === 'vorlage' ? (
+          <>
+            <input className="form-input" style={{marginTop:10}} value={suche} placeholder="Suchen — Wolf, Bär, Adler …"
+              onChange={e=>setSuche(e.target.value)} autoFocus />
+            <div className="gestalt-liste">
+              {vorlagen.length === 0 && <div className="probe-leer">Nichts gefunden — oder die Tiere laden noch.</div>}
+              {vorlagen.map(v => (
+                <button type="button" key={v.key} className="gestalt-eintrag"
+                  onClick={()=>onVerwandeln({name: v.name, hp: v.hp, hpMax: v.hp, ac: v.ac})}>
+                  <b>{v.name}</b><i>{v.unter}</i><span>TP {v.hp} · RK {v.ac}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="gestalt-hand">
+            <label className="form-group"><span className="form-label">Gestalt</span>
+              <input className="form-input" value={name} placeholder="z. B. Brauner Bär" onChange={e=>setName(e.target.value)} autoFocus /></label>
+            <label className="form-group"><span className="form-label">Trefferpunkte</span>
+              <input className="form-input" type="number" min={1} value={tp} onChange={e=>setTp(e.target.value)} /></label>
+            <label className="form-group"><span className="form-label">Rüstungsklasse</span>
+              <input className="form-input" type="number" min={1} value={rk} onChange={e=>setRk(e.target.value)} /></label>
+          </div>
+        )}
+        <div className="form-actions" style={{marginTop:12}}>
+          <button className="btn-cancel" onClick={onAbbrechen}>Abbrechen</button>
+          {art === 'hand' && (
+            <button className="btn-save" disabled={!handGeht}
+              onClick={()=>onVerwandeln({name: name.trim(), hp: +tp, hpMax: +tp, ac: +rk})}>🐺 Verwandeln</button>
+          )}
+        </div>
+      </div>
+    </Fenster>
+  );
+};
+
 const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, onIni, onNotiz,
                       onNotizFertig, onZustand, onMarke,
                       onErschoepfung, onEntfernen, onBlatt, onTodes, auf, onAufklappen,
                       zustandOffen, setZustandOffen, detailOffen, setDetailOffen,
-                      wirkungen, onWirkungEnde }) => {
+                      wirkungen, onWirkungEnde, onGestalt, onGestaltEnde }) => {
   // Wer dran ist, rueckt ins Bild. Auf dem Telefon steht sonst nach
   // "Naechster Zug" jemand anderes auf dem Schirm als der, der handelt.
   const eigen = React.useRef(null);
@@ -1820,9 +1902,12 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
     if (dran && eigen.current) eigen.current.scrollIntoView({block: 'nearest', behavior: 'smooth'});
   }, [dran]);
 
-  const gesamtMax = Math.max(1, t.hpMax || 1);
-  const anteil = Math.max(0, Math.min(1, (t.hp || 0) / gesamtMax));
-  const tot = (t.hp || 0) <= 0;
+  // In einer Gestalt zeigt die Zeile deren Werte; die eigenen stehen klein darunter.
+  const g = t.gestalt || null;
+  const zeigHp = g ? g.hp : (t.hp || 0), zeigMax = g ? g.hpMax : t.hpMax;
+  const gesamtMax = Math.max(1, zeigMax || 1);
+  const anteil = Math.max(0, Math.min(1, zeigHp / gesamtMax));
+  const tot = !g && (t.hp || 0) <= 0;
   const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a';
   const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
 
@@ -1863,6 +1948,7 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
           {t.passive != null && <span className="kampf-passiv" title="Passive Wahrnehmung">👁 {t.passive}</span>}
           {t.vorteil  && <span className="kampf-marke gut">👍 Vorteil</span>}
           {t.nachteil && <span className="kampf-marke schlecht">👎 Nachteil</span>}
+          {g && <span className="kampf-marke gestalt" title="Verwandelt">🐺 {g.name}</span>}
           {(t.erschoepfung||0) > 0 && <span className="kampf-marke ersch">Erschöpfung {t.erschoepfung}</span>}
           {(t.zustaende||[]).map(z => (
             <button key={z} className="kampf-zustand" onClick={()=>onZustand(z)} title="Entfernen">{z} ✕</button>
@@ -1917,18 +2003,19 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
         title={auf ? 'Zuklappen' : 'Notiz und Tasten zeigen'}
         aria-label={(auf ? 'Zuklappen: ' : 'Aufklappen: ') + t.name}>{auf ? '▾' : '▸'}</button>
 
-      <div className="kampf-ac">AC {t.ac}</div>
+      <div className="kampf-ac">AC {g ? g.ac : t.ac}</div>
 
       <div className="kampf-hp">
         <div className="kampf-hp-zahl">
-          <b style={{color:farbe}}>{(t.hp||0) + (t.tempHp||0)}</b>
-          <span>/ {t.hpMax}</span>
-          {(t.tempHp||0) > 0 && <i className="kampf-temp">🛡+{t.tempHp}</i>}
+          <b style={{color:farbe}}>{g ? g.hp : (t.hp||0) + (t.tempHp||0)}</b>
+          <span>/ {zeigMax}</span>
+          {!g && (t.tempHp||0) > 0 && <i className="kampf-temp">🛡+{t.tempHp}</i>}
         </div>
         <div className="kampf-balken">
           <div className="kampf-balken-fuell" style={{width:(anteil*100)+'%', background:farbe}} />
         </div>
         <div className="kampf-hp-unter">
+          {g && <span className="kampf-eigen-tp">eigene {(t.hp||0)} / {t.hpMax} · RK {t.ac}</span>}
           {(t.tempHp||0) > 0 && <span className="kampf-temp">+{t.tempHp} Temp HP</span>}
           {(t.tempMaxHp||0) > 0 && <span className="kampf-maxtemp">+{t.tempMaxHp} Temp. Max</span>}
         </div>
@@ -1951,6 +2038,13 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
               title="Maximale Trefferpunkte setzen">Max TP</button>
           )}
         </div>
+        {g ? (
+          <button className="kt gestalt aus" onClick={onGestaltEnde}
+            title="Zurück in die eigene Gestalt">🐺 Gestalt beenden</button>
+        ) : onGestalt ? (
+          <button className="kt gestalt" onClick={onGestalt}
+            title="In ein Tier oder etwas anderes verwandeln — eigene TP und RK">🐺 Verwandeln…</button>
+        ) : null}
         <button className={'kt zust' + (zustandOffen === t.id ? ' offen' : '')}
           aria-expanded={zustandOffen === t.id}
           onClick={()=>setZustandOffen(zustandOffen === t.id ? null : t.id)}>Zustände</button>
@@ -2409,7 +2503,8 @@ const KampfSeite = ({ helden, nsc, setDefs, enemies, imKampf, ueberlagert, onZu,
 // ── Der Kampf ────────────────────────────────────────────────────
 const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh, nsc, setDefs,
                         abenteuer, advId, ansagen, onAnsageWeg, onSchliessen, onGegnerBlatt, onFrage,
-                        onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern, planerBegegnung }) => {
+                        onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern, planerBegegnung,
+                        tiere, onTiereLaden }) => {
   // Ueberall, wo ein Bogen zu einem Teilnehmer gesucht wird, zaehlen
   // Helden und NSC gleich: beide sind Boegen. Getrennt bleiben sie nur
   // dort, wo es um die Gruppe geht — beim Aufstellen und in der Spalte.
@@ -2581,6 +2676,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
   // Was zum Kampf gehoert, bleibt im Kampf.
   const aendernKampf = (id, fn) =>
     setKampf(k => ({...k, teilnehmer: k.teilnehmer.map(t => t.id===id ? fn(t) : t)}));
+  const [gestaltDlg, setGestaltDlg] = React.useState(null);   // Kennung dessen, der sich verwandelt
 
   // Vor einem Handgriff: den Stand ablegen. `ganz` heisst, die Reihe
   // selbst aendert sich (jemand kommt dazu oder geht, Initiativen), und
@@ -2706,7 +2802,51 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
   // Auf der Karte: die kleinen Schritte ohne Fenster.
   // "extra" traegt mit, was aus dem Zugfenster kommt und in die Zeile
   // gehoert — heute die Aufteilung des Schadens nach Arten.
+  const verwandeln = (id, g) => {
+    const t = liste.find(x => x.id === id);
+    merken('Verwandlung');
+    const hp = Math.max(1, Math.round(+g.hp || 1));
+    aendernKampf(id, x => ({...x, gestalt: {name: g.name, hp, hpMax: Math.max(hp, Math.round(+g.hpMax || hp)), ac: Math.max(1, Math.round(+g.ac || 10))}}));
+    protokollieren({art: 'gestalt', wer: t ? t.name : '?', was: g.name, tp: hp, rk: Math.round(+g.ac || 10)});
+    setGestaltDlg(null);
+  };
+  const gestaltEnde = (id, ueber) => {
+    const roh = kampf.teilnehmer.find(x => x.id === id);
+    if (!roh || !roh.gestalt) return;
+    const t = liste.find(x => x.id === id);
+    aendernKampf(id, x => { const {gestalt, ...rest} = x; return rest; });
+    protokollieren({art: 'gestaltEnde', wer: t ? t.name : '?', was: roh.gestalt.name, ueber: ueber || 0});
+  };
+  // In einer Gestalt trifft Schaden zuerst sie. Fällt sie auf 0, endet sie,
+  // und der Rest geht auf die eigene Form — über denselben Weg wie jeder
+  // andere Schaden (Konzentration, Bewusstlosigkeit, Bogen).
+  const gestaltWert = (id, g, modus, n, extra) => {
+    const t = liste.find(x => x.id === id);
+    const wer = (t ? t.name : '?') + ' (' + g.name + ')';
+    if (modus === 'heilung') {
+      const auf = Math.min(g.hpMax, g.hp + n);
+      aendernKampf(id, x => x.gestalt ? {...x, gestalt: {...x.gestalt, hp: auf}} : x);
+      protokollieren({art: 'heilung', wert: n, ...(extra || {}), wer, von: g.hp, auf});
+      return;
+    }
+    const rest = g.hp - n;
+    protokollieren({art: 'schaden', wert: n, ...(extra || {}), wer, von: g.hp, auf: Math.max(0, rest)});
+    if (t && t.art === 'held' && n > 0) {
+      const held = (helden || []).find(h => h.id === t.charId);
+      if (held && held.konzentration && held.konzentration.name) {
+        protokollieren({art: 'konz', wer: t.name, was: held.konzentration.name, sg: konzentrationSG(n)});
+      }
+    }
+    if (rest > 0) { aendernKampf(id, x => x.gestalt ? {...x, gestalt: {...x.gestalt, hp: rest}} : x); return; }
+    gestaltEnde(id, -rest);
+    if (rest < 0) aendernWerte(id, x => schaden(x, -rest), {art: 'schaden', wert: -rest});
+  };
   const wertDirekt = (id, modus, n, extra) => {
+    const roh = kampf.teilnehmer.find(x => x.id === id);
+    if (roh && roh.gestalt && (modus === 'schaden' || modus === 'heilung')) {
+      gestaltWert(id, roh.gestalt, modus, n, extra);
+      return;
+    }
     if (modus === 'schaden') aendernWerte(id, t => schaden(t, n), {art:'schaden', wert:n, ...(extra||{})});
     if (modus === 'heilung') aendernWerte(id, t => heilen(t, n),  {art:'heilung', wert:n, ...(extra||{})});
   };
@@ -3355,9 +3495,15 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
               onEntfernen={()=>entfernen(t.id)} onBlatt={onGegnerBlatt}
               wirkungen={laufendAn(kampf.laufend, t.id, kampf.runde)} onWirkungEnde={wirkungEnde}
               auf={(handelnd && handelnd.id === t.id) || zeileOffen === t.id}
-              onAufklappen={()=>setZeileOffen(o => o === t.id ? null : t.id)} />
+              onAufklappen={()=>setZeileOffen(o => o === t.id ? null : t.id)}
+              onGestalt={()=>setGestaltDlg(t.id)} onGestaltEnde={()=>{ merken('Verwandlung'); gestaltEnde(t.id); }} />
           ))}
         </div>
+        {gestaltDlg && liste.find(x => x.id === gestaltDlg) && (
+          <GestaltDialog t={liste.find(x => x.id === gestaltDlg)} tiere={tiere} enemies={enemies}
+            onLaden={onTiereLaden} onVerwandeln={(g)=>verwandeln(gestaltDlg, g)}
+            onAbbrechen={()=>setGestaltDlg(null)} />
+        )}
       </div>
 
       {/* Die Karte steht in einem eigenen Fenster, nicht mehr im Kasten:

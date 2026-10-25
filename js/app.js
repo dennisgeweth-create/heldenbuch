@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.2.3';
+const HB_VERSION = 'v6.3.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -2464,6 +2464,10 @@ const protokollZeile = (e, mitZahlen) => {
       return '   ⚡ ' + e.wer + ' hält „' + e.was + '“ — ' + 'Konstitutions-Rettungswurf gegen SG ' + e.sg;
     case 'konzAus':
       return '   ⚡ ' + e.wer + ': „' + e.was + '“ endet';
+    case 'gestalt':
+      return '   🐺 ' + e.wer + ' verwandelt sich: ' + e.was + (mitZahlen ? ' (TP ' + e.tp + ', RK ' + e.rk + ')' : '');
+    case 'gestaltEnde':
+      return '   🐺 ' + e.wer + ': ' + e.was + ' endet — wieder in eigener Gestalt' + (e.ueber ? mitZahlen ? ', ' + e.ueber + ' Schaden gehen weiter' : '' : '');
     case 'konzAn':
       return '   ⚡ ' + e.wer + ' hält jetzt „' + e.was + '“';
     case 'verbrauch':
@@ -4253,6 +4257,134 @@ const ZustandWahl = ({
   className: "kampf-zust-zu",
   onClick: onSchliessen
 }, "Schlie\xDFen \u2715"));
+const tpDurchschnitt = vorlage => {
+  const m = String(vorlage.hpDice || '').match(/(\d+)\s*[dw]\s*(\d+)\s*(?:\+\s*(\d+))?/i);
+  if (!m) return Math.max(1, +vorlage.hpMax || +vorlage.hp || 1);
+  const [, anzahl, seiten, bonus] = m.map(Number);
+  return Math.max(1, Math.floor(anzahl * (seiten + 1) / 2) + (bonus || 0));
+};
+const GestaltDialog = ({
+  t,
+  tiere,
+  enemies,
+  onLaden,
+  onVerwandeln,
+  onAbbrechen
+}) => {
+  const [art, setArt] = React.useState('vorlage');
+  const [suche, setSuche] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [tp, setTp] = React.useState(10);
+  const [rk, setRk] = React.useState(12);
+  React.useEffect(() => {
+    if (onLaden) onLaden();
+  }, []);
+  const q = suche.trim();
+  const vorlagen = [...(tiere || []).map(w => ({
+    key: 't:' + w.name,
+    name: w.name,
+    hp: Math.max(1, +w.hp || 1),
+    ac: +w.ac || 10,
+    unter: ['Tier', w.cr != null && w.cr !== '' ? 'HG ' + w.cr : '', w.size].filter(Boolean).join(' · ')
+  })), ...(enemies || []).map(e => ({
+    key: 'g:' + e.id,
+    name: e.name || 'Gegner',
+    hp: tpDurchschnitt(e),
+    ac: +e.ac || 10,
+    unter: ['Gegner', e.type, e.cr != null && e.cr !== '' ? 'HG ' + e.cr : ''].filter(Boolean).join(' · ')
+  }))].filter(x => !q || containsFold(x.name, q) || containsFold(x.unter, q)).sort((a, b) => a.name.localeCompare(b.name, 'de')).slice(0, 120);
+  const handGeht = name.trim() && (+tp || 0) > 0 && (+rk || 0) > 0;
+  return React.createElement(Fenster, {
+    onClick: onAbbrechen
+  }, React.createElement("div", {
+    className: "form-modal gestalt-fenster",
+    onClick: e => e.stopPropagation()
+  }, React.createElement("div", {
+    className: "form-title"
+  }, "\uD83D\uDC3A Verwandeln \u2014 ", t.name), React.createElement("div", {
+    className: "einst-wahl"
+  }, React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (art === 'vorlage' ? ' aktiv' : ''),
+    onClick: () => setArt('vorlage')
+  }, React.createElement("b", null, "Aus Vorlage"), React.createElement("i", null, "Tiere und Gegnersammlung")), React.createElement("button", {
+    type: "button",
+    className: 'einst-option' + (art === 'hand' ? ' aktiv' : ''),
+    onClick: () => setArt('hand')
+  }, React.createElement("b", null, "Von Hand"), React.createElement("i", null, "Name, TP und RK eintragen"))), art === 'vorlage' ? React.createElement(React.Fragment, null, React.createElement("input", {
+    className: "form-input",
+    style: {
+      marginTop: 10
+    },
+    value: suche,
+    placeholder: "Suchen \u2014 Wolf, B\xE4r, Adler \u2026",
+    onChange: e => setSuche(e.target.value),
+    autoFocus: true
+  }), React.createElement("div", {
+    className: "gestalt-liste"
+  }, vorlagen.length === 0 && React.createElement("div", {
+    className: "probe-leer"
+  }, "Nichts gefunden \u2014 oder die Tiere laden noch."), vorlagen.map(v => React.createElement("button", {
+    type: "button",
+    key: v.key,
+    className: "gestalt-eintrag",
+    onClick: () => onVerwandeln({
+      name: v.name,
+      hp: v.hp,
+      hpMax: v.hp,
+      ac: v.ac
+    })
+  }, React.createElement("b", null, v.name), React.createElement("i", null, v.unter), React.createElement("span", null, "TP ", v.hp, " \xB7 RK ", v.ac))))) : React.createElement("div", {
+    className: "gestalt-hand"
+  }, React.createElement("label", {
+    className: "form-group"
+  }, React.createElement("span", {
+    className: "form-label"
+  }, "Gestalt"), React.createElement("input", {
+    className: "form-input",
+    value: name,
+    placeholder: "z. B. Brauner B\xE4r",
+    onChange: e => setName(e.target.value),
+    autoFocus: true
+  })), React.createElement("label", {
+    className: "form-group"
+  }, React.createElement("span", {
+    className: "form-label"
+  }, "Trefferpunkte"), React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 1,
+    value: tp,
+    onChange: e => setTp(e.target.value)
+  })), React.createElement("label", {
+    className: "form-group"
+  }, React.createElement("span", {
+    className: "form-label"
+  }, "R\xFCstungsklasse"), React.createElement("input", {
+    className: "form-input",
+    type: "number",
+    min: 1,
+    value: rk,
+    onChange: e => setRk(e.target.value)
+  }))), React.createElement("div", {
+    className: "form-actions",
+    style: {
+      marginTop: 12
+    }
+  }, React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), art === 'hand' && React.createElement("button", {
+    className: "btn-save",
+    disabled: !handGeht,
+    onClick: () => onVerwandeln({
+      name: name.trim(),
+      hp: +tp,
+      hpMax: +tp,
+      ac: +rk
+    })
+  }, "\uD83D\uDC3A Verwandeln"))));
+};
 const KampfZeile = ({
   t,
   dran,
@@ -4277,7 +4409,9 @@ const KampfZeile = ({
   detailOffen,
   setDetailOffen,
   wirkungen,
-  onWirkungEnde
+  onWirkungEnde,
+  onGestalt,
+  onGestaltEnde
 }) => {
   const eigen = React.useRef(null);
   React.useEffect(() => {
@@ -4286,9 +4420,12 @@ const KampfZeile = ({
       behavior: 'smooth'
     });
   }, [dran]);
-  const gesamtMax = Math.max(1, t.hpMax || 1);
-  const anteil = Math.max(0, Math.min(1, (t.hp || 0) / gesamtMax));
-  const tot = (t.hp || 0) <= 0;
+  const g = t.gestalt || null;
+  const zeigHp = g ? g.hp : t.hp || 0,
+    zeigMax = g ? g.hpMax : t.hpMax;
+  const gesamtMax = Math.max(1, zeigMax || 1);
+  const anteil = Math.max(0, Math.min(1, zeigHp / gesamtMax));
+  const tot = !g && (t.hp || 0) <= 0;
   const farbe = anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a';
   const lage = t.art === 'held' ? todesStand(t.deathSaves) : 'offen';
   return React.createElement("div", {
@@ -4339,7 +4476,10 @@ const KampfZeile = ({
     className: "kampf-marke gut"
   }, "\uD83D\uDC4D Vorteil"), t.nachteil && React.createElement("span", {
     className: "kampf-marke schlecht"
-  }, "\uD83D\uDC4E Nachteil"), (t.erschoepfung || 0) > 0 && React.createElement("span", {
+  }, "\uD83D\uDC4E Nachteil"), g && React.createElement("span", {
+    className: "kampf-marke gestalt",
+    title: "Verwandelt"
+  }, "\uD83D\uDC3A ", g.name), (t.erschoepfung || 0) > 0 && React.createElement("span", {
     className: "kampf-marke ersch"
   }, "Ersch\xF6pfung ", t.erschoepfung), (t.zustaende || []).map(z => React.createElement("button", {
     key: z,
@@ -4378,7 +4518,7 @@ const KampfZeile = ({
     "aria-label": (auf ? 'Zuklappen: ' : 'Aufklappen: ') + t.name
   }, auf ? '▾' : '▸'), React.createElement("div", {
     className: "kampf-ac"
-  }, "AC ", t.ac), React.createElement("div", {
+  }, "AC ", g ? g.ac : t.ac), React.createElement("div", {
     className: "kampf-hp"
   }, React.createElement("div", {
     className: "kampf-hp-zahl"
@@ -4386,7 +4526,7 @@ const KampfZeile = ({
     style: {
       color: farbe
     }
-  }, (t.hp || 0) + (t.tempHp || 0)), React.createElement("span", null, "/ ", t.hpMax), (t.tempHp || 0) > 0 && React.createElement("i", {
+  }, g ? g.hp : (t.hp || 0) + (t.tempHp || 0)), React.createElement("span", null, "/ ", zeigMax), !g && (t.tempHp || 0) > 0 && React.createElement("i", {
     className: "kampf-temp"
   }, "\uD83D\uDEE1+", t.tempHp)), React.createElement("div", {
     className: "kampf-balken"
@@ -4398,7 +4538,9 @@ const KampfZeile = ({
     }
   })), React.createElement("div", {
     className: "kampf-hp-unter"
-  }, (t.tempHp || 0) > 0 && React.createElement("span", {
+  }, g && React.createElement("span", {
+    className: "kampf-eigen-tp"
+  }, "eigene ", t.hp || 0, " / ", t.hpMax, " \xB7 RK ", t.ac), (t.tempHp || 0) > 0 && React.createElement("span", {
     className: "kampf-temp"
   }, "+", t.tempHp, " Temp HP"), (t.tempMaxHp || 0) > 0 && React.createElement("span", {
     className: "kampf-maxtemp"
@@ -4439,7 +4581,15 @@ const KampfZeile = ({
     className: "kt max breit",
     onClick: () => onFenster('maxhp'),
     title: "Maximale Trefferpunkte setzen"
-  }, "Max TP")), React.createElement("button", {
+  }, "Max TP")), g ? React.createElement("button", {
+    className: "kt gestalt aus",
+    onClick: onGestaltEnde,
+    title: "Zur\xFCck in die eigene Gestalt"
+  }, "\uD83D\uDC3A Gestalt beenden") : onGestalt ? React.createElement("button", {
+    className: "kt gestalt",
+    onClick: onGestalt,
+    title: "In ein Tier oder etwas anderes verwandeln \u2014 eigene TP und RK"
+  }, "\uD83D\uDC3A Verwandeln\u2026") : null, React.createElement("button", {
     className: 'kt zust' + (zustandOffen === t.id ? ' offen' : ''),
     "aria-expanded": zustandOffen === t.id,
     onClick: () => setZustandOffen(zustandOffen === t.id ? null : t.id)
@@ -4948,7 +5098,9 @@ const KampfAnsicht = ({
   heldNotizen,
   onHeldNotiz,
   onHeldNotizSichern,
-  planerBegegnung
+  planerBegegnung,
+  tiere,
+  onTiereLaden
 }) => {
   const helden = React.useMemo(() => [...(heldenRoh || []), ...(nsc || [])], [heldenRoh, nsc]);
   const [zustandOffen, setZustandOffen] = React.useState(null);
@@ -5089,6 +5241,7 @@ const KampfAnsicht = ({
     ...k,
     teilnehmer: k.teilnehmer.map(t => t.id === id ? fn(t) : t)
   }));
+  const [gestaltDlg, setGestaltDlg] = React.useState(null);
   const merken = (was, ganz) => {
     const schritt = {
       was,
@@ -5230,7 +5383,110 @@ const KampfAnsicht = ({
     ...t,
     tempHp: Math.max(0, n < 0 ? (t.tempHp || 0) + n : Math.max(t.tempHp || 0, n))
   });
+  const verwandeln = (id, g) => {
+    const t = liste.find(x => x.id === id);
+    merken('Verwandlung');
+    const hp = Math.max(1, Math.round(+g.hp || 1));
+    aendernKampf(id, x => ({
+      ...x,
+      gestalt: {
+        name: g.name,
+        hp,
+        hpMax: Math.max(hp, Math.round(+g.hpMax || hp)),
+        ac: Math.max(1, Math.round(+g.ac || 10))
+      }
+    }));
+    protokollieren({
+      art: 'gestalt',
+      wer: t ? t.name : '?',
+      was: g.name,
+      tp: hp,
+      rk: Math.round(+g.ac || 10)
+    });
+    setGestaltDlg(null);
+  };
+  const gestaltEnde = (id, ueber) => {
+    const roh = kampf.teilnehmer.find(x => x.id === id);
+    if (!roh || !roh.gestalt) return;
+    const t = liste.find(x => x.id === id);
+    aendernKampf(id, x => {
+      const {
+        gestalt,
+        ...rest
+      } = x;
+      return rest;
+    });
+    protokollieren({
+      art: 'gestaltEnde',
+      wer: t ? t.name : '?',
+      was: roh.gestalt.name,
+      ueber: ueber || 0
+    });
+  };
+  const gestaltWert = (id, g, modus, n, extra) => {
+    const t = liste.find(x => x.id === id);
+    const wer = (t ? t.name : '?') + ' (' + g.name + ')';
+    if (modus === 'heilung') {
+      const auf = Math.min(g.hpMax, g.hp + n);
+      aendernKampf(id, x => x.gestalt ? {
+        ...x,
+        gestalt: {
+          ...x.gestalt,
+          hp: auf
+        }
+      } : x);
+      protokollieren({
+        art: 'heilung',
+        wert: n,
+        ...(extra || {}),
+        wer,
+        von: g.hp,
+        auf
+      });
+      return;
+    }
+    const rest = g.hp - n;
+    protokollieren({
+      art: 'schaden',
+      wert: n,
+      ...(extra || {}),
+      wer,
+      von: g.hp,
+      auf: Math.max(0, rest)
+    });
+    if (t && t.art === 'held' && n > 0) {
+      const held = (helden || []).find(h => h.id === t.charId);
+      if (held && held.konzentration && held.konzentration.name) {
+        protokollieren({
+          art: 'konz',
+          wer: t.name,
+          was: held.konzentration.name,
+          sg: konzentrationSG(n)
+        });
+      }
+    }
+    if (rest > 0) {
+      aendernKampf(id, x => x.gestalt ? {
+        ...x,
+        gestalt: {
+          ...x.gestalt,
+          hp: rest
+        }
+      } : x);
+      return;
+    }
+    gestaltEnde(id, -rest);
+    if (rest < 0) aendernWerte(id, x => schaden(x, -rest), {
+      art: 'schaden',
+      wert: -rest
+    });
+  };
   const wertDirekt = (id, modus, n, extra) => {
+    const roh = kampf.teilnehmer.find(x => x.id === id);
+    if (roh && roh.gestalt && (modus === 'schaden' || modus === 'heilung')) {
+      gestaltWert(id, roh.gestalt, modus, n, extra);
+      return;
+    }
     if (modus === 'schaden') aendernWerte(id, t => schaden(t, n), {
       art: 'schaden',
       wert: n,
@@ -6006,8 +6262,20 @@ const KampfAnsicht = ({
     wirkungen: laufendAn(kampf.laufend, t.id, kampf.runde),
     onWirkungEnde: wirkungEnde,
     auf: handelnd && handelnd.id === t.id || zeileOffen === t.id,
-    onAufklappen: () => setZeileOffen(o => o === t.id ? null : t.id)
-  })))), karteOffen && React.createElement(Schiebefenster, {
+    onAufklappen: () => setZeileOffen(o => o === t.id ? null : t.id),
+    onGestalt: () => setGestaltDlg(t.id),
+    onGestaltEnde: () => {
+      merken('Verwandlung');
+      gestaltEnde(t.id);
+    }
+  }))), gestaltDlg && liste.find(x => x.id === gestaltDlg) && React.createElement(GestaltDialog, {
+    t: liste.find(x => x.id === gestaltDlg),
+    tiere: tiere,
+    enemies: enemies,
+    onLaden: onTiereLaden,
+    onVerwandeln: g => verwandeln(gestaltDlg, g),
+    onAbbrechen: () => setGestaltDlg(null)
+  })), karteOffen && React.createElement(Schiebefenster, {
     schluessel: "hb_kampfkarte",
     groessbar: true,
     leiste: {
@@ -15503,12 +15771,13 @@ const KampfSichtZeile = ({
   const verbuendet = t.lager === 'verbuendet';
   const c = held ? (helden || []).find(h => h.id === t.charId) : null;
   const w = c ? charWerte(c, setDefs) : null;
-  const zustand = held ? w ? tpZustand(w.hp, w.maxHp) : null : {
+  const g = held && t.gestalt && t.gestalt.hpMax ? t.gestalt : null;
+  const zustand = held ? g ? tpZustand(g.hp, g.hpMax) : w ? tpZustand(w.hp, w.maxHp) : null : {
     label: t.zustand || '—',
     balken: +t.balken || 0,
     color: zustandFarbe(t.zustand)
   };
-  const anteil = held ? w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0 : +t.balken || 0;
+  const anteil = held ? g ? Math.max(0, Math.min(1, g.hp / Math.max(1, g.hpMax))) : w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0 : +t.balken || 0;
   const farbe = held && tpOffen && w ? anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a' : zustand ? zustand.color : 'var(--text-muted)';
   return React.createElement("div", {
     className: 'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (held ? ' held' : verbuendet ? ' verbuendet' : ' gegner') + (eigenerHeld ? ' eigen' : '')
@@ -15524,7 +15793,9 @@ const KampfSichtZeile = ({
     className: "ks-eigen"
   }, "dein Held"), verbuendet && React.createElement("span", {
     className: "ks-marke gut"
-  }, "\uD83E\uDD1D Verb\xFCndeter"), t.vorteil && React.createElement("span", {
+  }, "\uD83E\uDD1D Verb\xFCndeter"), t.gestalt && t.gestalt.name && React.createElement("span", {
+    className: "ks-marke gestalt"
+  }, "\uD83D\uDC3A ", t.gestalt.name), t.vorteil && React.createElement("span", {
     className: "ks-marke gut"
   }, "\uD83D\uDC4D Vorteil"), t.nachteil && React.createElement("span", {
     className: "ks-marke schlecht"
@@ -15542,7 +15813,12 @@ const KampfSichtZeile = ({
     title: w.rolle === 'auf' ? 'Von ' + w.von : 'Gewirkt'
   }, w.rolle === 'von' ? w.konz ? '◎ ' : '⏳ ' : '◉ ', w.name, w.rest != null ? ' · ' + wirkungRest(w.rest) : '')))), React.createElement("div", {
     className: "ks-tp"
-  }, held && tpOffen && w ? React.createElement("span", {
+  }, held && tpOffen && g ? React.createElement("span", {
+    className: "ks-zahl",
+    style: {
+      color: farbe
+    }
+  }, g.hp, " ", React.createElement("i", null, "/ ", g.hpMax)) : held && tpOffen && w ? React.createElement("span", {
     className: "ks-zahl",
     style: {
       color: farbe
@@ -34512,6 +34788,10 @@ function App() {
       if (g) setEnemyView(g);
     },
     onHeldAendern: heldImKampfAendern,
+    tiere: [...(userLibrary.wildshape || []), ...(tplData && tplData.wildshapes || [])],
+    onTiereLaden: () => {
+      if (!(tplData && tplData.wildshapes)) ladeVorlagen('wildshape');
+    },
     heldNotizen: dmLibrary.heldNotizen,
     onHeldNotiz: heldNotizSetzen,
     onHeldNotizSichern: heldNotizSichern,

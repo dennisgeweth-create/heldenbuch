@@ -1135,6 +1135,41 @@
             }
           }
 
+          // ── Verwandeln: eigene TP und RK, Schaden erst auf die Gestalt ──
+          melden('lauf', 'Verwandeln');
+          const bogenHp = () => +(JSON.parse(wbSpeicher.dnd_chars)[0].hp || 0);
+          const brunZeile = () => [...document.querySelectorAll('.kampf-liste > *')].find(z => /Brunhilde/.test(z.textContent));
+          const gestaltVon = () => ((kampfStand().teilnehmer || []).find(t => t.id === 'held-wb1') || {}).gestalt;
+          const verwK = brunZeile() && [...brunZeile().querySelectorAll('button')].find(b => /Verwandeln/.test(b.textContent));
+          if (ja('Brunhilde kann sich verwandeln', !!verwK)) {
+            verwK.click();
+            const dlg = await warten(() => document.querySelector('.gestalt-fenster'), 2000);
+            ja('  … der Dialog bietet Vorlagen an', !!dlg && !!dlg.querySelector('.gestalt-liste'));
+            [...dlg.querySelectorAll('.einst-option')].find(b => /Von Hand/.test(b.textContent)).click();
+            await ruhe(80);
+            const fe = [...document.querySelectorAll('.gestalt-hand input')];
+            const setzE = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            [['Brauner Bär'], ['34'], ['11']].forEach(([v], i) => { setzE.call(fe[i], v); fe[i].dispatchEvent(new Event('input', {bubbles: true})); });
+            await ruhe(80);
+            [...document.querySelectorAll('.gestalt-fenster button')].find(b => /Verwandeln/.test(b.textContent)).click();
+            await ruhe(200);
+            const g0 = gestaltVon();
+            ja('  … von Hand: Brauner Bär, TP 34, RK 11', !!g0 && g0.name === 'Brauner Bär' && g0.hp === 34 && g0.ac === 11, JSON.stringify(g0));
+            ja('  … die Zeile zeigt RK und Gestalt', /AC 11/.test(brunZeile().textContent) && /Brauner Bär/.test(brunZeile().textContent));
+            const hp0 = bogenHp();
+            const minus5 = () => [...brunZeile().querySelectorAll('button')].find(b => b.textContent.trim() === '-5');
+            minus5().click(); await ruhe(150);
+            ja('Schaden trifft die Gestalt, nicht den Bogen', (gestaltVon() || {}).hp === 29 && bogenHp() === hp0,
+               JSON.stringify({gestalt: gestaltVon(), bogen: bogenHp()}));
+            for (let i = 0; i < 6; i++) { minus5().click(); await ruhe(150); }
+            const zurueck = await warten(() => !gestaltVon() && bogenHp() === hp0 - 1 ? true : null, 3000);
+            ja('  … fällt sie auf 0, endet sie, und der Rest geht auf die eigene Form', !!zurueck,
+               JSON.stringify({gestalt: gestaltVon(), bogen: bogenHp(), vorher: hp0}));
+            ja('  … und das Protokoll sagt es', (kampfStand().log || []).some(e => e.art === 'gestaltEnde' && e.ueber === 1));
+            const plus1 = [...brunZeile().querySelectorAll('button')].find(b => b.textContent.trim() === '+1');
+            if (plus1) { plus1.click(); await warten(() => bogenHp() === hp0 ? true : null, 3000); }
+          }
+
           // ── Eine Wirkung läuft ab ──
           melden('lauf', 'Wirkungen mit Dauer');
           const weiterK = knopfMit('Nächster');

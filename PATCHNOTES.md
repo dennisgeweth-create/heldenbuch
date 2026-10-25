@@ -1,5 +1,25 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.3.0
+
+### Verwandeln im Kampftracker
+
+- Jede Zeile im Tracker hat jetzt **🐺 Verwandeln…** — für Tiergestalt,
+  Verwandlung, Gestaltwandel. Die Gestalt kommt
+  - **aus einer Vorlage**: die Tiere (SRD und eure eigenen) und die
+    Gegnersammlung, mit Suche — TP und RK werden übernommen;
+  - oder **von Hand**: Name, Trefferpunkte, Rüstungsklasse.
+- In der Gestalt zeigt die Zeile **ihre** TP und RK; die eigenen stehen
+  klein darunter und bleiben im Bogen unberührt.
+- **Schaden trifft zuerst die Gestalt.** Fällt sie auf 0, endet sie, und
+  was übrig ist, geht auf die eigene Form — so steht es im Regelwerk.
+  Hält der Held einen Zauber, erinnert das Protokoll wie gewohnt an den
+  Rettungswurf. Heilung füllt die Gestalt auf.
+- **🐺 Gestalt beenden** verwandelt jederzeit zurück; beides steht im
+  Protokoll und lässt sich zurücknehmen.
+- Die **Runde sieht es** in ihrer Kampfansicht: beim Helden mit Gestalt,
+  TP und RK, beim Gegner nur den Namen der Gestalt.
+
 ## v6.2.3
 
 - **Die Rast lässt die Zeit vergehen.** Sagt die Spielleitung eine Rast

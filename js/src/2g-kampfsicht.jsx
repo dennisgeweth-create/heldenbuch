@@ -26,11 +26,15 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
   // Beim Gegner kommt der Zustand fertig vom Server. Beim Helden steht er
   // im Bogen, und ob die Zahl dazu sichtbar ist, entscheidet das
   // Abenteuer — genau wie in der Heldenliste.
+  // In einer Gestalt gelten ihre Trefferpunkte (beim Gegner rechnet der
+  // Server sie in den groben Stand).
+  const g = held && t.gestalt && t.gestalt.hpMax ? t.gestalt : null;
   const zustand = held
-    ? (w ? tpZustand(w.hp, w.maxHp) : null)
+    ? (g ? tpZustand(g.hp, g.hpMax) : w ? tpZustand(w.hp, w.maxHp) : null)
     : {label: t.zustand || '—', balken: +t.balken || 0, color: zustandFarbe(t.zustand)};
   const anteil = held
-    ? (w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0)
+    ? (g ? Math.max(0, Math.min(1, g.hp / Math.max(1, g.hpMax)))
+         : w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0)
     : (+t.balken || 0);
   const farbe = held && tpOffen && w
     ? (anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a')
@@ -48,6 +52,7 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
           {dran && <span className="ks-dran">am Zug</span>}
           {eigenerHeld && <span className="ks-eigen">dein Held</span>}
           {verbuendet && <span className="ks-marke gut">🤝 Verbündeter</span>}
+          {t.gestalt && t.gestalt.name && <span className="ks-marke gestalt">🐺 {t.gestalt.name}</span>}
           {t.vorteil  && <span className="ks-marke gut">👍 Vorteil</span>}
           {t.nachteil && <span className="ks-marke schlecht">👎 Nachteil</span>}
           {/* Beim Helden aus dem Bogen, beim Gegner aus dem Kampf. */}
@@ -66,7 +71,9 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
         </div>
       </div>
       <div className="ks-tp">
-        {held && tpOffen && w ? (
+        {held && tpOffen && g ? (
+          <span className="ks-zahl" style={{color:farbe}}>{g.hp} <i>/ {g.hpMax}</i></span>
+        ) : held && tpOffen && w ? (
           <span className="ks-zahl" style={{color:farbe}}>{w.hp} <i>/ {w.maxHp}</i></span>
         ) : (
           <span className="ks-zustand" style={{color:farbe}}>{zustand ? zustand.label : '—'}</span>
