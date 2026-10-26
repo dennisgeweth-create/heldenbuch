@@ -145,6 +145,7 @@
       "ac": 10,
       "speed": 7.5,
       "initiative": 0,
+      "initMigrated": 1,
       "profBonus": 3,
       "inspiration": 1,
       "inspirationMax": 1,
@@ -174,7 +175,8 @@
           "source": "Kämpfer 1",
           "description": "Als Bonusaktion 1W10 + Stufe Trefferpunkte zurück. Einmal je Rast.",
           "effects": [],
-          "effectsActive": true
+          "effectsActive": true,
+          "ressource": "r-b1"
         },
         {
           "id": "f-b2",
@@ -183,7 +185,7 @@
           "description": "Solange sie eine Rüstung trägt: +1 auf die Rüstungsklasse.",
           "effects": [
             {
-              "id": "eocuxu",
+              "id": "e9we43",
               "target": "ac",
               "mode": "bonus",
               "value": 1
@@ -197,7 +199,8 @@
           "source": "Kämpfer 2",
           "description": "Eine zusätzliche Aktion in ihrem Zug. Einmal je Rast.",
           "effects": [],
-          "effectsActive": true
+          "effectsActive": true,
+          "ressource": "r-b2"
         },
         {
           "id": "f-b4",
@@ -349,11 +352,16 @@
           "source": "",
           "effects": [],
           "effectsActive": false,
-          "kampf": false,
+          "kampf": true,
           "gearKind": "",
           "armorType": "",
           "baseAC": 0,
-          "acBonus": 0
+          "acBonus": 0,
+          "nutzung": "stueck",
+          "wirkung": {
+            "art": "heilung",
+            "wuerfel": "2W4+2"
+          }
         },
         {
           "id": "i-seil",
@@ -399,6 +407,8 @@
       },
       "gearMigrated": 3,
       "adventure": "demo",
+      "npc": false,
+      "haltung": "freundlich",
       "spellSlots": {
         "1": {
           "max": 0,
@@ -465,6 +475,7 @@
       "ac": 10,
       "speed": 10.5,
       "initiative": 0,
+      "initMigrated": 1,
       "profBonus": 2,
       "inspiration": 0,
       "inspirationMax": 1,
@@ -646,7 +657,7 @@
           "source": "",
           "effects": [
             {
-              "id": "eldlea",
+              "id": "e1nfhf",
               "target": "adv_stealth",
               "mode": "bonus",
               "value": 0
@@ -693,7 +704,39 @@
           "gearKind": "",
           "armorType": "",
           "baseAC": 0,
-          "acBonus": 0
+          "acBonus": 0,
+          "nutzung": "stueck"
+        },
+        {
+          "id": "i-stab",
+          "name": "Zauberstab der Geschosse",
+          "qty": 1,
+          "weight": "0,5",
+          "wert": 0,
+          "rarity": "ungewöhnlich",
+          "description": "Sieben Ladungen. Jede schickt drei leuchtende Pfeile los. Im Morgengrauen kehren 1W6 + 1 zurück.",
+          "tags": [],
+          "source": "",
+          "effects": [],
+          "effectsActive": false,
+          "kampf": true,
+          "gearKind": "",
+          "armorType": "",
+          "baseAC": 0,
+          "acBonus": 0,
+          "icon": "ib:zauberstab",
+          "nutzung": "ladung",
+          "ladungen": {
+            "max": 7,
+            "used": 2,
+            "auffuellen": "lang",
+            "wurf": "1W6+1"
+          },
+          "wirkung": {
+            "art": "schaden",
+            "wuerfel": "3W4+3",
+            "schadensart": "Energie"
+          }
         }
       ],
       "currency": {
@@ -721,6 +764,8 @@
       },
       "gearMigrated": 3,
       "adventure": "demo",
+      "npc": false,
+      "haltung": "freundlich",
       "spellSlots": {
         "1": {
           "max": 3,
@@ -779,6 +824,7 @@
       "ac": 10,
       "speed": 9,
       "initiative": 0,
+      "initMigrated": 1,
       "profBonus": 2,
       "inspiration": 0,
       "inspirationMax": 1,
@@ -816,7 +862,8 @@
           "source": "Lebensdomäne 2",
           "description": "Sie verteilt Trefferpunkte in Höhe des Fünffachen ihrer Klassenstufe an Kreaturen im Umkreis von 9 m — höchstens bis zur Hälfte ihres Maximums.",
           "effects": [],
-          "effectsActive": true
+          "effectsActive": true,
+          "ressource": "r-a1"
         },
         {
           "id": "f-a3",
@@ -824,7 +871,8 @@
           "source": "Kleriker 2",
           "description": "Jeder Untote im Umkreis von 9 m muss einen Weisheitsrettungswurf bestehen oder eine Minute lang fliehen.",
           "effects": [],
-          "effectsActive": true
+          "effectsActive": true,
+          "ressource": "r-a1"
         },
         {
           "id": "f-a4",
@@ -1079,6 +1127,8 @@
       },
       "gearMigrated": 3,
       "adventure": "demo",
+      "npc": false,
+      "haltung": "freundlich",
       "spellSlots": {
         "1": {
           "max": 4,
@@ -1138,6 +1188,7 @@
       "ac": 10,
       "speed": 7.5,
       "initiative": 0,
+      "initMigrated": 1,
       "profBonus": 2,
       "inspiration": 0,
       "inspirationMax": 1,
@@ -1390,6 +1441,8 @@
       },
       "gearMigrated": 3,
       "adventure": "demo",
+      "npc": false,
+      "haltung": "freundlich",
       "spellSlots": {
         "1": {
           "max": 0,

@@ -87,6 +87,16 @@ function App() {
   const [noteTagFilter, setNoteTagFilter] = useState([]);
   const [exNote,     setExNote]     = useState(null);
   const [showIF, setShowIF]  = useState(false);
+  // Welches Register in den Bearbeiten-Fenstern offen ist. Jedes Fenster
+  // geht auf seiner ersten Seite auf — beim Öffnen und Schließen leer.
+  const [reiterWahl, setReiterWahl] = useState({});
+  // Benutzen am Bogen (2r-benutzen.jsx): der Zauber, dessen Grad gerade
+  // gewählt wird, und der Hinweis danach.
+  const [wirkenDlg, setWirkenDlg] = useState(null);         // id des Zaubers
+  const [benutztHinweis, setBenutztHinweis] = useState(null); // {text, t}
+  const reiterVon = (fenster, erste) => reiterWahl[fenster] || erste;
+  const reiterSetzen = (fenster) => (k) => setReiterWahl(r => ({...r, [fenster]: k}));
+  useEffect(() => { setReiterWahl({}); }, [showIF, showSF, showFF, showWF]);
   const [itfEditId, setItfEditId] = useState(null);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferSel,  setTransferSel]  = useState(new Set());
@@ -3649,6 +3659,38 @@ function App() {
     updResource(id, {used: i < avail ? r.max-i : r.max-(i+1) });
   };
 
+  // ── Benutzen ──
+  // Ein Knopf statt dreier Handgriffe: was der Zauber, der Trank, das
+  // Merkmal kostet, geht vom Bogen ab, und das Log hält fest, was
+  // benutzt wurde. Gerechnet wird am frischen Stand (charsRef), nicht an
+  // dem, der beim letzten Zeichnen galt.
+  const benutzt = (rechnung, tab) => {
+    const c = charsRef.current.find(x => x.id === selRef.current);
+    if (!c) return null;
+    const res = rechnung(c);
+    if (!res || res.fehler) { appAlert((res && res.fehler) || 'Das ging nicht.'); return null; }
+    patchCurrent(() => res.patch);
+    addLog(c.id, c.name, tab, res.text, res.details);
+    setBenutztHinweis({text: res.text, t: Date.now()});
+    return res;
+  };
+  const zauberBenutzen = (spellId) => {
+    const z = ((cur && cur.spells) || []).find(s => s.id === spellId);
+    if (!z) return;
+    if (!(+z.level)) benutzt(c => zauberWirken(c, z), 'zauber');
+    else setWirkenDlg(spellId);
+  };
+  const gegenstandEinsetzen = (itemId) => {
+    const res = benutzt(c => gegenstandBenutzen(c, itemId), 'inventar');
+    // Die Ansicht haelt eine Kopie — sie soll die neue Zahl zeigen.
+    if (res && itemViewer && itemViewer.id === itemId) {
+      const neu = (res.patch.inventory || []).find(i => i.id === itemId);
+      if (neu) setItemViewer(neu);
+    }
+  };
+  const merkmalNutzen   = (featId) => benutzt(c => merkmalEinsetzen(c, featId), 'attribute');
+  const ressourceNutzen = (resId)  => benutzt(c => ressourceEinsetzen(c, resId), 'attribute');
+
   // Die Vorlagen lagen bis hierher in einer data.json von 448 KB, die beim
   // Oeffnen jeder Vorlagenauswahl komplett geladen wurde — wer eine Waffe
   // suchte (3 KB), holte sich alle 484 Zauber (409 KB) mit. Jetzt liegt jede
@@ -3964,7 +4006,8 @@ function App() {
     toggleSkill, toggleSpellPrepared, toggleWsFav, togResourcePip,
     togSlot, togSP, toolProfs, tplData, transferMode, transferSel,
     unarchiveChar, updResource, updSP, weaponProfs, weaponStats,
-    wsExpand
+    wsExpand,
+    zauberBenutzen, gegenstandEinsetzen, merkmalNutzen, ressourceNutzen
   };
 
   return (
@@ -4310,79 +4353,96 @@ function App() {
       )}
       {showWF && (
         <Fenster>
-          <div className="form-modal breit" style={{maxWidth:820}}>
-            <div className="form-title">{wfEditId ? "Waffe bearbeiten" : "Neue Waffe"}</div>
-            <div className="form-grid">
-              <div className="form-group form-full">
-                <div className="form-label">Name</div>
-                <input className="form-input" placeholder="z.B. Langschwert +1" value={wf.name} onChange={e=>setWf({...wf,name:e.target.value})} autoFocus/>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Schaden</div>
-                <input className="form-input" placeholder="1W6" value={wf.damage} onChange={e=>setWf({...wf,damage:e.target.value})} />
-              </div>
-              <div className="form-group">
-                <div className="form-label">Schadensart</div>
-                <select className="form-select" value={wf.damageType} onChange={e=>setWf({...wf,damageType:e.target.value})}>
-                  {DTYPES.map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Attribut</div>
-                <select className="form-select" value={wf.attrKey||"str"} onChange={e=>setWf({...wf,attrKey:e.target.value})}>
-                  {WATTRS.map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Reichweite</div>
-                <input className="form-input" placeholder="1,5m" value={wf.range||""} onChange={e=>setWf({...wf,range:e.target.value})} />
-              </div>
-              <div className="form-group">
-                <div className="form-label">Angriffsbonus (+/−)</div>
-                <ZahlFeld className="form-input" placeholder="0" wert={wf.attackBonus||0} onWert={v =>setWf({...wf,attackBonus:v})} />
-              </div>
-              <div className="form-group" style={{justifyContent:"flex-end"}}>
-                <div className="form-label">Optionen</div>
-                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:"var(--text-secondary)",padding:"8px 0"}}>
-                  <input type="checkbox" style={{accentColor:"var(--gold)",width:15,height:15}}
-                    checked={wf.proficient!==false}
-                    onChange={e=>setWf({...wf,proficient:e.target.checked})} />
-                  Übung (Proficiency)
-                </label>
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">Eigenschaften</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:2}}>
-                  {WPROPS.map(p => {
-                    const on=(wf.properties||[]).includes(p);
-                    return <button key={p} onClick={()=>setWf({...wf,properties:on?(wf.properties||[]).filter(x=>x!==p):[...(wf.properties||[]),p]})}
-                      style={{padding:"4px 12px",borderRadius:12,border:"1px solid",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:"pointer",
-                        borderColor:on?"var(--gold)":"var(--border)",background:on?"var(--bg-panel)":"var(--bg-card)",color:on?"var(--gold)":"var(--text-muted)"}}>{p}</button>;
-                  })}
+          <div className="form-modal breit mit-reitern" style={{maxWidth:820}}>
+            <div className="form-title mit-reitern">
+              <span className="reiter-titel">{wfEditId ? "✎ Waffe bearbeiten" : "⚔ Neue Waffe"}</span>
+              <ReiterLeiste aktiv={reiterVon('waffe', 'allgemein')} onWahl={reiterSetzen('waffe')} reiter={[
+                {k:'allgemein', icon:'⚔', titel:'Werte'},
+                {k:'text', icon:'📜', titel:'Beschreibung & Bild', punkt: !!(wf.description || wf.imageData)},
+                {k:'effekte', icon:'✦', titel:'Effekte', zahl:(wf.effects||[]).length},
+              ]} />
+            </div>
+            <ReiterSeite k="allgemein" aktiv={reiterVon('waffe', 'allgemein')}>
+              <div className="form-grid">
+                <div className="form-group form-full">
+                  <div className="form-label">Name</div>
+                  <input className="form-input" placeholder="z.B. Langschwert +1" value={wf.name} onChange={e=>setWf({...wf,name:e.target.value})} autoFocus/>
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Schaden</div>
+                  <input className="form-input" placeholder="1W6" value={wf.damage} onChange={e=>setWf({...wf,damage:e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Schadensart</div>
+                  <select className="form-select" value={wf.damageType} onChange={e=>setWf({...wf,damageType:e.target.value})}>
+                    {DTYPES.map(t=><option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Attribut</div>
+                  <select className="form-select" value={wf.attrKey||"str"} onChange={e=>setWf({...wf,attrKey:e.target.value})}>
+                    {WATTRS.map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Reichweite</div>
+                  <input className="form-input" placeholder="1,5m" value={wf.range||""} onChange={e=>setWf({...wf,range:e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Angriffsbonus (+/−)</div>
+                  <ZahlFeld className="form-input" placeholder="0" wert={wf.attackBonus||0} onWert={v =>setWf({...wf,attackBonus:v})} />
+                </div>
+                <div className="form-group" style={{justifyContent:"flex-end"}}>
+                  <div className="form-label">Optionen</div>
+                  <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:"var(--text-secondary)",padding:"8px 0"}}>
+                    <input type="checkbox" style={{accentColor:"var(--gold)",width:15,height:15}}
+                      checked={wf.proficient!==false}
+                      onChange={e=>setWf({...wf,proficient:e.target.checked})} />
+                    Übung (Proficiency)
+                  </label>
+                </div>
+                <div className="form-group form-full">
+                  <div className="form-label">Eigenschaften</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:2}}>
+                    {WPROPS.map(p => {
+                      const on=(wf.properties||[]).includes(p);
+                      return <button key={p} onClick={()=>setWf({...wf,properties:on?(wf.properties||[]).filter(x=>x!==p):[...(wf.properties||[]),p]})}
+                        style={{padding:"4px 12px",borderRadius:12,border:"1px solid",fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:"pointer",
+                          borderColor:on?"var(--gold)":"var(--border)",background:on?"var(--bg-panel)":"var(--bg-card)",color:on?"var(--gold)":"var(--text-muted)"}}>{p}</button>;
+                    })}
+                  </div>
                 </div>
               </div>
-              <div className="form-group form-halb">
-                <div className="form-label">Beschreibung (optional)</div>
-                <RichEditor value={wf.description||''} onChange={v=>setWf({...wf,description:v})}
-                  placeholder="z.B. Reichweite geworfen: 9/36m, magisch..." rows={2} />
+            </ReiterSeite>
+            <ReiterSeite k="text" aktiv={reiterVon('waffe', 'allgemein')}>
+              <div className="form-grid">
+                <div className="form-group form-halb">
+                  <div className="form-label">Beschreibung (optional)</div>
+                  <RichEditor value={wf.description||''} onChange={v=>setWf({...wf,description:v})}
+                    placeholder="z.B. Reichweite geworfen: 9/36m, magisch..." rows={2} />
+                </div>
+                <div className="form-group form-halb">
+                  <div className="form-label">Bild (optional)</div>
+                  {/* 600 Punkte: das Bild fuellt die Karte formatfuellend aus und
+                      wird dabei beschnitten, dafuer braucht es mehr Reserve als
+                      die reine Anzeigebreite. Transparenz bleibt erhalten. */}
+                  <BildAblage bild={wf.imageData} maxPx={600} hoehe={110}
+                    aufschrift={wf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen'}
+                    onBild={(d)=>setWf(prev=>({...prev,imageData:d}))}
+                    onWeg={()=>setWf(prev=>({...prev,imageData:''}))} />
+                                  <div style={{fontSize:10,color:'var(--text-muted)',marginTop:5,fontStyle:'italic'}}>Füllt die Karte im Format 5:7 aus, hochkant wird also am wenigsten beschnitten. Transparente PNGs bleiben transparent.</div>
+                </div>
               </div>
-              <div className="form-group form-halb">
-                <div className="form-label">Bild (optional)</div>
-                {/* 600 Punkte: das Bild fuellt die Karte formatfuellend aus und
-                    wird dabei beschnitten, dafuer braucht es mehr Reserve als
-                    die reine Anzeigebreite. Transparenz bleibt erhalten. */}
-                <BildAblage bild={wf.imageData} maxPx={600} hoehe={110}
-                  aufschrift={wf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen'}
-                  onBild={(d)=>setWf(prev=>({...prev,imageData:d}))}
-                  onWeg={()=>setWf(prev=>({...prev,imageData:''}))} />
-                                <div style={{fontSize:10,color:'var(--text-muted)',marginTop:5,fontStyle:'italic'}}>Füllt die Karte im Format 5:7 aus, hochkant wird also am wenigsten beschnitten. Transparente PNGs bleiben transparent.</div>
+            </ReiterSeite>
+            <ReiterSeite k="effekte" aktiv={reiterVon('waffe', 'allgemein')}>
+              <div className="form-grid">
+                <div className="form-group form-full">
+                  <div className="form-label">✦ Effekte</div>
+                  <EffectEditor effects={wf.effects} onChange={v=>setWf({...wf,effects:v})}
+                    hint="Wirken, solange die Waffe angelegt ist." />
+                </div>
               </div>
-              <div className="form-group form-full">
-                <div className="form-label">✦ Effekte</div>
-                <EffectEditor effects={wf.effects} onChange={v=>setWf({...wf,effects:v})}
-                  hint="Wirken, solange die Waffe angelegt ist." />
-              </div>
-            </div>
+            </ReiterSeite>
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowWF(false);setWfEditId(null);}}>Abbrechen</button>
               <button className="btn-save" onClick={addWeapon}>{wfEditId ? "Speichern" : "+ Hinzufügen"}</button>
@@ -4394,93 +4454,111 @@ function App() {
 
       {showFF && (
         <Fenster>
-          <div className="form-modal breit" style={{maxWidth:700}}>
-            <div className="form-title">{ffEditId ? '✏️ Fähigkeit bearbeiten' : '⭐ Neue Fähigkeit'}</div>
-            <div className="form-grid">
-              <div className="form-group form-halb">
-                <div className="form-label">Name</div>
-                <input className="form-input" placeholder="z.B. Bardische Inspiration, Wildform..." value={ff.name} onChange={e=>setFf({...ff,name:e.target.value})} />
-              </div>
-              <div className="form-group form-halb">
-                <div className="form-label">Quelle (optional)</div>
-                <input className="form-input" placeholder="z.B. Barde Stufe 1, Kampfstil..." value={ff.source} onChange={e=>setFf({...ff,source:e.target.value})} />
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">Beschreibung</div>
-                <RichEditor value={ff.description} onChange={v=>setFf({...ff,description:v})}
-                  placeholder="Beschreibung der Fähigkeit, Nutzungsbedingungen..." rows={6} />
-              </div>
-              {/* Hier sind die RK-Boni aus Talenten gelandet. Ein Kampfstil
-                  gehoert zu den Merkmalen und kann jetzt mehr als nur die
-                  Ruestungsklasse anheben. */}
-              <div className="form-group form-full">
-                <div className="form-label">✦ Effekte</div>
-                <EffectEditor effects={ff.effects||[]} onChange={v=>setFf({...ff,effects:v})}
-                  hint="Wirken, solange das Merkmal eingeschaltet ist — z.B. Defensiver Kampfstil +1 RK." />
-                {(ff.effects||[]).length>0 && (
-                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginTop:8}}>
-                    <input type="checkbox" checked={ff.effectsActive!==false}
-                      onChange={e=>setFf({...ff,effectsActive:e.target.checked})}
-                      style={{width:16,height:16,cursor:'pointer',accentColor:'var(--arcane-bright)'}} />
-                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>Wirkt gerade</span>
-                  </label>
-                )}
-              </div>
-              {/* Was das Merkmal im Kampf tut. Alles freiwillig — ohne diese
-                  Angaben steht es im Zugfenster zur Wahl und kommt ins
-                  Protokoll, mehr nicht. */}
-              <div className="form-group form-full">
-                <div className="form-label">⚔ Im Kampf</div>
-                <div className="zauber-wirkung">
-                  <label className="zw-feld">
-                    <span>Verbraucht</span>
-                    <select className="form-select" value={ff.ressource || ''}
-                      onChange={e=>setFf({...ff, ressource: e.target.value})}>
-                      <option value="">— nichts —</option>
-                      {resources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.max - r.used}/{r.max})</option>)}
-                    </select>
-                  </label>
-                  {ff.ressource && (
-                    <label className="zw-feld">
-                      <span>Wie viel</span>
-                      <ZahlFeld className="form-input" min={1} wert={ff.ressourceKosten || 1} leerWert={1}
-                        onWert={v=>setFf({...ff, ressourceKosten: Math.max(1, v || 1)})} />
-                    </label>
-                  )}
-                  {!ff.zauber && (
-                    <label className="zw-feld">
-                      <span>Dauer</span>
-                      <input className="form-input" placeholder="1 Minute" value={ff.dauer || ''}
-                        title="Wie lange es im Kampf weiterwirkt — „1 Minute“ sind 10 Runden. Leer: sofort vorbei."
-                        onChange={e=>setFf({...ff, dauer: e.target.value})} />
-                    </label>
-                  )}
-                  <label className="zw-feld">
-                    <span>Löst einen Zauber aus</span>
-                    <select className="form-select" value={ff.zauber || ''}
-                      onChange={e=>setFf({...ff, zauber: e.target.value})}>
-                      <option value="">— keinen —</option>
-                      {(cur.spells || []).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                    </select>
-                  </label>
-                </div>
-                {resources.length === 0 && (
-                  <div className="zw-probe">Was sich verbraucht — Kanalisieren, Ki, Kampfrausch — steht unter
-                    Ressourcen im Reiter Attribute. Erst dort anlegen, dann hier verknüpfen.</div>
-                )}
-                {ff.zauber ? (
-                  <div className="zw-probe">Im Zugfenster wirkt das Merkmal wie <b>{ff.zauber}</b> —
-                    mit dessen Würfeln, Rettungswurf und Zuständen, aber ohne Zauberplatz.</div>
-                ) : (
-                  <details className="zug-beschreibung" open={hatWirkung(ff.wirkung)}>
-                    <summary>Eigene Wirkung — Würfel, Rettungswurf, Zustand</summary>
-                    <div style={{padding:'4px 10px 10px'}}>
-                      <WirkungFelder wirkung={ff.wirkung} onWirkung={w=>setFf(f=>({...f, wirkung: w}))} />
-                    </div>
-                  </details>
-                )}
-              </div>
+          <div className="form-modal breit mit-reitern" style={{maxWidth:700}}>
+            <div className="form-title mit-reitern">
+              <span className="reiter-titel">{ffEditId ? '✏️ Fähigkeit bearbeiten' : '⭐ Neue Fähigkeit'}</span>
+              <ReiterLeiste aktiv={reiterVon('merkmal', 'allgemein')} onWahl={reiterSetzen('merkmal')} reiter={[
+                {k:'allgemein', icon:'📜', titel:'Allgemein'},
+                {k:'benutzen', icon:'⚔', titel:'Benutzen & Kampf', punkt: !!(ff.ressource || ff.zauber || hatWirkung(ff.wirkung))},
+                {k:'effekte', icon:'✦', titel:'Effekte', zahl:(ff.effects||[]).length},
+              ]} />
             </div>
+            <ReiterSeite k="allgemein" aktiv={reiterVon('merkmal', 'allgemein')}>
+              <div className="form-grid">
+                <div className="form-group form-halb">
+                  <div className="form-label">Name</div>
+                  <input className="form-input" placeholder="z.B. Bardische Inspiration, Wildform..." value={ff.name} onChange={e=>setFf({...ff,name:e.target.value})} />
+                </div>
+                <div className="form-group form-halb">
+                  <div className="form-label">Quelle (optional)</div>
+                  <input className="form-input" placeholder="z.B. Barde Stufe 1, Kampfstil..." value={ff.source} onChange={e=>setFf({...ff,source:e.target.value})} />
+                </div>
+                <div className="form-group form-full">
+                  <div className="form-label">Beschreibung</div>
+                  <RichEditor value={ff.description} onChange={v=>setFf({...ff,description:v})}
+                    placeholder="Beschreibung der Fähigkeit, Nutzungsbedingungen..." rows={8} />
+                </div>
+              </div>
+            </ReiterSeite>
+            <ReiterSeite k="effekte" aktiv={reiterVon('merkmal', 'allgemein')}>
+              <div className="form-grid">
+                {/* Hier sind die RK-Boni aus Talenten gelandet. Ein Kampfstil
+                    gehoert zu den Merkmalen und kann jetzt mehr als nur die
+                    Ruestungsklasse anheben. */}
+                <div className="form-group form-full">
+                  <div className="form-label">✦ Effekte</div>
+                  <EffectEditor effects={ff.effects||[]} onChange={v=>setFf({...ff,effects:v})}
+                    hint="Wirken, solange das Merkmal eingeschaltet ist — z.B. Defensiver Kampfstil +1 RK." />
+                  {(ff.effects||[]).length>0 && (
+                    <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginTop:8}}>
+                      <input type="checkbox" checked={ff.effectsActive!==false}
+                        onChange={e=>setFf({...ff,effectsActive:e.target.checked})}
+                        style={{width:16,height:16,cursor:'pointer',accentColor:'var(--arcane-bright)'}} />
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>Wirkt gerade</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            </ReiterSeite>
+            <ReiterSeite k="benutzen" aktiv={reiterVon('merkmal', 'allgemein')}>
+              <div className="form-grid">
+                {/* Was das Merkmal im Kampf tut. Alles freiwillig — ohne diese
+                    Angaben steht es im Zugfenster zur Wahl und kommt ins
+                    Protokoll, mehr nicht. */}
+                <div className="form-group form-full">
+                  <div className="form-label">Benutzen — im Bogen und im Kampf</div>
+                  <div className="reiter-hinweis" style={{marginBottom:8}}>Mit einer Ressource steht am Merkmal ein Knopf „Einsetzen“: er zieht sie ab und schreibt es ins Log.</div>
+                  <div className="zauber-wirkung">
+                    <label className="zw-feld">
+                      <span>Verbraucht</span>
+                      <select className="form-select" value={ff.ressource || ''}
+                        onChange={e=>setFf({...ff, ressource: e.target.value})}>
+                        <option value="">— nichts —</option>
+                        {resources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.max - r.used}/{r.max})</option>)}
+                      </select>
+                    </label>
+                    {ff.ressource && (
+                      <label className="zw-feld">
+                        <span>Wie viel</span>
+                        <ZahlFeld className="form-input" min={1} wert={ff.ressourceKosten || 1} leerWert={1}
+                          onWert={v=>setFf({...ff, ressourceKosten: Math.max(1, v || 1)})} />
+                      </label>
+                    )}
+                    {!ff.zauber && (
+                      <label className="zw-feld">
+                        <span>Dauer</span>
+                        <input className="form-input" placeholder="1 Minute" value={ff.dauer || ''}
+                          title="Wie lange es im Kampf weiterwirkt — „1 Minute“ sind 10 Runden. Leer: sofort vorbei."
+                          onChange={e=>setFf({...ff, dauer: e.target.value})} />
+                      </label>
+                    )}
+                    <label className="zw-feld">
+                      <span>Löst einen Zauber aus</span>
+                      <select className="form-select" value={ff.zauber || ''}
+                        onChange={e=>setFf({...ff, zauber: e.target.value})}>
+                        <option value="">— keinen —</option>
+                        {(cur.spells || []).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  {resources.length === 0 && (
+                    <div className="zw-probe">Was sich verbraucht — Kanalisieren, Ki, Kampfrausch — steht unter
+                      Ressourcen im Reiter Attribute. Erst dort anlegen, dann hier verknüpfen.</div>
+                  )}
+                  {ff.zauber ? (
+                    <div className="zw-probe">Im Zugfenster wirkt das Merkmal wie <b>{ff.zauber}</b> —
+                      mit dessen Würfeln, Rettungswurf und Zuständen, aber ohne Zauberplatz.</div>
+                  ) : (
+                    <details className="zug-beschreibung" open={hatWirkung(ff.wirkung)}>
+                      <summary>Eigene Wirkung — Würfel, Rettungswurf, Zustand</summary>
+                      <div style={{padding:'4px 10px 10px'}}>
+                        <WirkungFelder wirkung={ff.wirkung} onWirkung={w=>setFf(f=>({...f, wirkung: w}))} />
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </div>
+            </ReiterSeite>
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowFF(false);setFfEditId(null);}}>Abbrechen</button>
               <button className="btn-save" onClick={saveFeature}>{ffEditId ? '✓ Speichern' : '+ Hinzufügen'}</button>
@@ -4491,147 +4569,173 @@ function App() {
 
       {showSF && (
         <Fenster>
-          <div className="form-modal breit" style={{maxWidth:880}}>
-            <div className="form-title">{sfEditId ? '✏️ Zauber bearbeiten' : '✨ Neuer Zauber'}</div>
-            <div className="form-grid">
-              <div className="form-group form-full">
-                <div className="form-label">Name</div>
-                <input className="form-input" placeholder="z.B. Feuerball" value={sf.name} onChange={e=>setSf({...sf,name:e.target.value})} autoFocus/>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Grad</div>
-                <select className="form-select" value={sf.level} onChange={e=>setSf({...sf,level:+e.target.value})}>
-                  <option value={0}>∞ Zaubertrick</option>
-                  {[1,2,3,4,5,6,7,8,9].map(l=><option key={l} value={l}>Grad {l}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Schule</div>
-                <select className="form-select" value={sf.school} onChange={e=>setSf({...sf,school:e.target.value})}>
-                  {SCHOOLS.map(s=><option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Wirkzeit</div>
-                <input className="form-input" placeholder="1 Aktion" value={sf.castingTime} onChange={e=>setSf({...sf,castingTime:e.target.value})} />
-              </div>
-              <div className="form-group">
-                <div className="form-label">Reichweite</div>
-                <input className="form-input" placeholder="9 m" value={sf.range} onChange={e=>setSf({...sf,range:e.target.value})} />
-              </div>
-              <div className="form-group">
-                <div className="form-label">Dauer</div>
-                <input className="form-input" placeholder="Sofort" value={sf.duration} onChange={e=>setSf({...sf,duration:e.target.value})} />
-              </div>
-              <div className="form-group">
-                <div className="form-label">Komponenten</div>
-                <input className="form-input" placeholder="V, S, M (...)" value={sf.components||''} onChange={e=>setSf({...sf,components:e.target.value})} />
-              </div>
-              <div className="form-group form-halb">
-                <div className="form-label">Beschreibung</div>
-                <RichEditor value={sf.description} onChange={v=>setSf({...sf,description:v})} placeholder="Wirkung des Zaubers..." rows={4} />
-              </div>
-              {/* Was der Zauber im Kampf tut. Alles freiwillig — ohne diese
-                  Angaben bleibt der Zauber, was er war, und im Zugfenster
-                  wird die Zahl getippt. Mit ihnen steht dort der Wurf, der
-                  Gradwähler rechnet ihn hoch und der Rettungswurf halbiert. */}
-              <div className="form-group form-halb">
-                <div className="form-label zauber-wirkung-kopf">
-                  Wirkung im Kampf
-                  <button type="button" className="btn-icon"
-                    title="Würfel, Rettungswurf und Steigerung aus der Beschreibung übernehmen"
-                    onClick={()=>setSf(f=>({...f, wirkung: {...(f.wirkung||{}),
-                      ...wirkungAusText(f.description, f.damageTags)}}))}>
-                    ↧ Aus der Beschreibung lesen
-                  </button>
-                </div>
-                <div className="zauber-wirkung">
-                  <label className="zw-feld">
-                    <span>Art</span>
-                    <select className="form-select" value={(sf.wirkung||{}).art || ''}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), art:e.target.value}}))}>
-                      <option value="">— keine —</option>
-                      <option value="schaden">Schaden</option>
-                      <option value="heilung">Heilung</option>
-                      <option value="temp">Temporäre TP</option>
-                    </select>
-                  </label>
-                  <label className="zw-feld">
-                    <span>Würfel</span>
-                    <input className="form-input" placeholder="8W6" value={(sf.wirkung||{}).wuerfel || ''}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), wuerfel:e.target.value}}))} />
-                  </label>
-                  <label className="zw-feld">
-                    <span>Je Grad darüber</span>
-                    <input className="form-input" placeholder="1W6" value={(sf.wirkung||{}).proGrad || ''}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), proGrad:e.target.value}}))} />
-                  </label>
-                  <label className="zw-feld">
-                    <span>Rettungswurf</span>
-                    <select className="form-select" value={(sf.wirkung||{}).rettung || ''}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), rettung:e.target.value}}))}>
-                      <option value="">— keiner, Angriffswurf —</option>
-                      {RETTUNGEN.map(r => <option key={r.k} value={r.k}>{r.l}</option>)}
-                    </select>
-                  </label>
-                  <label className="zw-schalter">
-                    <input type="checkbox" checked={!!(sf.wirkung||{}).halb}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), halb:e.target.checked}}))} />
-                    <span>Bestanden = halber Schaden</span>
-                  </label>
-                  <label className="zw-schalter">
-                    <input type="checkbox" checked={!!(sf.wirkung||{}).attribut}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), attribut:e.target.checked}}))} />
-                    <span>+ Zauberattribut</span>
-                  </label>
-                  <label className="zw-schalter">
-                    <input type="checkbox" checked={!!(sf.wirkung||{}).flaeche}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), flaeche:e.target.checked}}))} />
-                    <span>Fläche — eine Zahl für alle</span>
-                  </label>
-                  <label className="zw-schalter">
-                    <input type="checkbox" checked={((sf.wirkung||{}).zieleProGrad || 0) > 0}
-                      onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), zieleProGrad: e.target.checked ? 1 : 0}}))} />
-                    <span>Ein Ziel mehr je Grad</span>
-                  </label>
-                </div>
-                <WirkungZustaende wirkung={sf.wirkung}
-                  onWirkung={w=>setSf(f=>({...f, wirkung: w}))} />
-                {hatWirkung(sf.wirkung) && (
-                  <div className="zw-probe">
-                    Auf Grad {Math.max(1, sf.level || 1)}: <b>{wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'}</b>
-                    {(sf.wirkung||{}).proGrad && (sf.level || 0) < 9 && <>
-                      {' · '}auf Grad {Math.min(9, (sf.level||1) + 1)}:{' '}
-                      <b>{wuerfelAufGrad(sf.wirkung, sf.level, Math.min(9, (sf.level||1) + 1))}</b>
-                    </>}
-                    {(sf.wirkung||{}).rettung && <> · {RETTUNG_KURZ[(sf.wirkung||{}).rettung]}
-                      {(sf.wirkung||{}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'}</>}
-                    {(sf.wirkung||{}).flaeche && <> · <b>Fläche</b>: eine Zahl für alle Ziele</>}
-                  </div>
-                )}
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">Klassen</div>
-                <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
-                  {['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c=>{
-                    const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=(sf.classes||[]).includes(c);
-                    return <button key={c} type="button" onClick={()=>setSf(f=>({...f,classes:on?(f.classes||[]).filter(x=>x!==c):[...(f.classes||[]),c]}))}
-                      style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>{c}</button>;
-                  })}
-                </div>
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">Schadenstypen</div>
-                <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
-                  {['Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekrotisch', 'Gleißend', 'Psychisch', 'Energie', 'Schall', 'Hieb', 'Stich', 'Wucht'].map(d=>{
-                    const on=(sf.damageTags||[]).includes(d);
-                    const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'}[d]||'#aaa';
-                    return <button key={d} type="button" onClick={()=>setSf(f=>({...f,damageTags:on?(f.damageTags||[]).filter(x=>x!==d):[...(f.damageTags||[]),d]}))}
-                      style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>⚔️ {d}</button>;
-                  })}
-                </div>
-              </div>
+          <div className="form-modal breit mit-reitern" style={{maxWidth:880}}>
+            <div className="form-title mit-reitern">
+              <span className="reiter-titel">{sfEditId ? '✏️ Zauber bearbeiten' : '✨ Neuer Zauber'}</span>
+              <ReiterLeiste aktiv={reiterVon('zauber', 'allgemein')} onWahl={reiterSetzen('zauber')} reiter={[
+                {k:'allgemein', icon:'📜', titel:'Allgemein'},
+                {k:'text', icon:'📖', titel:'Beschreibung', punkt: !!sf.description},
+                {k:'wirkung', icon:'⚔', titel:'Wirkung im Kampf', punkt: hatWirkung(sf.wirkung)},
+              ]} />
             </div>
+            <ReiterSeite k="allgemein" aktiv={reiterVon('zauber', 'allgemein')}>
+              <div className="form-grid">
+                <div className="form-group form-full">
+                  <div className="form-label">Name</div>
+                  <input className="form-input" placeholder="z.B. Feuerball" value={sf.name} onChange={e=>setSf({...sf,name:e.target.value})} autoFocus/>
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Grad</div>
+                  <select className="form-select" value={sf.level} onChange={e=>setSf({...sf,level:+e.target.value})}>
+                    <option value={0}>∞ Zaubertrick</option>
+                    {[1,2,3,4,5,6,7,8,9].map(l=><option key={l} value={l}>Grad {l}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Schule</div>
+                  <select className="form-select" value={sf.school} onChange={e=>setSf({...sf,school:e.target.value})}>
+                    {SCHOOLS.map(s=><option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Wirkzeit</div>
+                  <input className="form-input" placeholder="1 Aktion" value={sf.castingTime} onChange={e=>setSf({...sf,castingTime:e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Reichweite</div>
+                  <input className="form-input" placeholder="9 m" value={sf.range} onChange={e=>setSf({...sf,range:e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Dauer</div>
+                  <input className="form-input" placeholder="Sofort" value={sf.duration} onChange={e=>setSf({...sf,duration:e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <div className="form-label">Komponenten</div>
+                  <input className="form-input" placeholder="V, S, M (...)" value={sf.components||''} onChange={e=>setSf({...sf,components:e.target.value})} />
+                </div>
+                {/* Ein Ritual laesst sich ohne Zauberplatz wirken — das
+                    Wirken-Fenster bietet es dann an (2r-benutzen.jsx). */}
+                <div className="form-group" style={{justifyContent:'flex-end'}}>
+                  <label className="zw-schalter" style={{padding:'8px 0'}}>
+                    <input type="checkbox" checked={!!sf.ritual}
+                      onChange={e=>setSf({...sf, ritual:e.target.checked})} />
+                    <span>Ritual</span>
+                  </label>
+                </div>
+                <div className="form-group form-full">
+                  <div className="form-label">Klassen</div>
+                  <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
+                    {['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c=>{
+                      const cc={'Artifizient':'#70b8c8','Barbar':'#c84040','Barde':'#4090c0','Druide':'#52b788','Hexenmeister':'#9060c0','Kämpfer':'#c08040','Kleriker':'#e0c040','Magier':'#6080d0','Mönch':'#d09040','Paladin':'#e0a030','Schurke':'#808080','Waldläufer':'#70a050','Zauberer':'#c060a0'};const col=cc[c]||'#c9a84c';const on=(sf.classes||[]).includes(c);
+                      return <button key={c} type="button" onClick={()=>setSf(f=>({...f,classes:on?(f.classes||[]).filter(x=>x!==c):[...(f.classes||[]),c]}))}
+                        style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:'1px solid '+(on?col:col+'40'),background:on?col+'22':'var(--bg-card)',color:on?col:'var(--text-muted)'}}>{c}</button>;
+                    })}
+                  </div>
+                </div>
+                <div className="form-group form-full">
+                  <div className="form-label">Schadenstypen</div>
+                  <div className="marken-reihe" style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>
+                    {['Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekrotisch', 'Gleißend', 'Psychisch', 'Energie', 'Schall', 'Hieb', 'Stich', 'Wucht'].map(d=>{
+                      const on=(sf.damageTags||[]).includes(d);
+                      const dc={Feuer:'#e07030',Kälte:'#70b8d8',Blitz:'#c0d850',Säure:'#90c040',Gift:'#80b030',Nekrose:'#9060c0',Strahlend:'#f0e060',Psychisch:'#c070d0',Kraft:'#80a0f0',Hieb:'#a07050',Stich:'#b08060',Wucht:'#c09070'}[d]||'#aaa';
+                      return <button key={d} type="button" onClick={()=>setSf(f=>({...f,damageTags:on?(f.damageTags||[]).filter(x=>x!==d):[...(f.damageTags||[]),d]}))}
+                        style={{padding:'2px 9px',borderRadius:10,fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,cursor:'pointer',border:`1px solid ${on?dc:dc+'40'}`,background:on?dc+'22':'var(--bg-card)',color:on?dc:'var(--text-muted)'}}>⚔️ {d}</button>;
+                    })}
+                  </div>
+                </div>
+              </div>
+            </ReiterSeite>
+            <ReiterSeite k="text" aktiv={reiterVon('zauber', 'allgemein')}>
+              <div className="form-grid">
+                <div className="form-group form-full">
+                  <div className="form-label">Beschreibung</div>
+                  <RichEditor value={sf.description} onChange={v=>setSf({...sf,description:v})} placeholder="Wirkung des Zaubers..." rows={12} />
+                </div>
+              </div>
+            </ReiterSeite>
+            <ReiterSeite k="wirkung" aktiv={reiterVon('zauber', 'allgemein')}>
+              <div className="form-grid">
+                {/* Was der Zauber im Kampf tut. Alles freiwillig — ohne diese
+                    Angaben bleibt der Zauber, was er war, und im Zugfenster
+                    wird die Zahl getippt. Mit ihnen steht dort der Wurf, der
+                    Gradwähler rechnet ihn hoch und der Rettungswurf halbiert. */}
+                <div className="form-group form-full">
+                  <div className="form-label zauber-wirkung-kopf">
+                    Wirkung im Kampf
+                    <button type="button" className="btn-icon"
+                      title="Würfel, Rettungswurf und Steigerung aus der Beschreibung übernehmen"
+                      onClick={()=>setSf(f=>({...f, wirkung: {...(f.wirkung||{}),
+                        ...wirkungAusText(f.description, f.damageTags)}}))}>
+                      ↧ Aus der Beschreibung lesen
+                    </button>
+                  </div>
+                  <div className="zauber-wirkung">
+                    <label className="zw-feld">
+                      <span>Art</span>
+                      <select className="form-select" value={(sf.wirkung||{}).art || ''}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), art:e.target.value}}))}>
+                        <option value="">— keine —</option>
+                        <option value="schaden">Schaden</option>
+                        <option value="heilung">Heilung</option>
+                        <option value="temp">Temporäre TP</option>
+                      </select>
+                    </label>
+                    <label className="zw-feld">
+                      <span>Würfel</span>
+                      <input className="form-input" placeholder="8W6" value={(sf.wirkung||{}).wuerfel || ''}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), wuerfel:e.target.value}}))} />
+                    </label>
+                    <label className="zw-feld">
+                      <span>Je Grad darüber</span>
+                      <input className="form-input" placeholder="1W6" value={(sf.wirkung||{}).proGrad || ''}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), proGrad:e.target.value}}))} />
+                    </label>
+                    <label className="zw-feld">
+                      <span>Rettungswurf</span>
+                      <select className="form-select" value={(sf.wirkung||{}).rettung || ''}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), rettung:e.target.value}}))}>
+                        <option value="">— keiner, Angriffswurf —</option>
+                        {RETTUNGEN.map(r => <option key={r.k} value={r.k}>{r.l}</option>)}
+                      </select>
+                    </label>
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={!!(sf.wirkung||{}).halb}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), halb:e.target.checked}}))} />
+                      <span>Bestanden = halber Schaden</span>
+                    </label>
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={!!(sf.wirkung||{}).attribut}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), attribut:e.target.checked}}))} />
+                      <span>+ Zauberattribut</span>
+                    </label>
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={!!(sf.wirkung||{}).flaeche}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), flaeche:e.target.checked}}))} />
+                      <span>Fläche — eine Zahl für alle</span>
+                    </label>
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={((sf.wirkung||{}).zieleProGrad || 0) > 0}
+                        onChange={e=>setSf(f=>({...f, wirkung:{...(f.wirkung||{}), zieleProGrad: e.target.checked ? 1 : 0}}))} />
+                      <span>Ein Ziel mehr je Grad</span>
+                    </label>
+                  </div>
+                  <WirkungZustaende wirkung={sf.wirkung}
+                    onWirkung={w=>setSf(f=>({...f, wirkung: w}))} />
+                  {hatWirkung(sf.wirkung) && (
+                    <div className="zw-probe">
+                      Auf Grad {Math.max(1, sf.level || 1)}: <b>{wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'}</b>
+                      {(sf.wirkung||{}).proGrad && (sf.level || 0) < 9 && <>
+                        {' · '}auf Grad {Math.min(9, (sf.level||1) + 1)}:{' '}
+                        <b>{wuerfelAufGrad(sf.wirkung, sf.level, Math.min(9, (sf.level||1) + 1))}</b>
+                      </>}
+                      {(sf.wirkung||{}).rettung && <> · {RETTUNG_KURZ[(sf.wirkung||{}).rettung]}
+                        {(sf.wirkung||{}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'}</>}
+                      {(sf.wirkung||{}).flaeche && <> · <b>Fläche</b>: eine Zahl für alle Ziele</>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ReiterSeite>
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowSF(false);setSfEditId(null);}}>Abbrechen</button>
               <button className="btn-save" onClick={addSpell}>{sfEditId ? '✓ Speichern' : '+ Hinzufügen'}</button>
@@ -4689,58 +4793,28 @@ function App() {
         </Fenster>
       )}
 
+      {wirkenDlg && cur && (() => {
+        const z = (cur.spells || []).find(s => s.id === wirkenDlg);
+        if (!z) return null;
+        return (
+          <WirkenFenster held={cur} zauber={z} onAbbrechen={() => setWirkenDlg(null)}
+            onWirken={(wie) => { if (benutzt(c => zauberWirken(c, z, wie), 'zauber')) setWirkenDlg(null); }} />
+        );
+      })()}
+      <BenutztHinweis hinweis={benutztHinweis} onWeg={() => setBenutztHinweis(null)} />
       {showIF && (
         <Fenster>
-          <div className="form-modal breit" style={{maxWidth:840}}>
-            <div className="form-title">{itfEditId ? '✏️ Gegenstand bearbeiten' : '🎒 Neuer Gegenstand'}</div>
-
-            {/* DB item templates — only shown when creating new */}
-            {!itfEditId && (() => {
-              const activeItems = isDmMode
-                ? [...(dmLibrary.item||[]), ...(userLibrary.item||[])]
-                : (userLibrary.item||[]);
-              if (activeItems.length === 0) return null;
-              return (
-                <div style={{marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                    <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:isDmMode?'#c060a0':'var(--gold)',letterSpacing:'0.15em',textTransform:'uppercase'}}>
-                      {isDmMode?'🔮 DM-Datenbank':'📚 Aus Datenbank'}
-                    </div>
-                    <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>{activeItems.length} Einträge</div>
-                  </div>
-                  <input className="form-input" style={{marginBottom:6,padding:'5px 10px',fontSize:12}} placeholder="Suchen..."
-                    onChange={e=>{
-                      const q=e.target.value.toLowerCase();
-                      const wrap=e.target.closest('.form-modal').querySelector('.db-item-list');
-                      if(wrap)[...wrap.children].forEach(c=>{c.style.display=c.dataset.name.includes(q)?'':'none';});
-                    }}
-                  />
-                  {/* Kopie statt Verweis: der uebernommene Gegenstand bleibt
-                      eigenstaendig, auch wenn ihn jemand im Spiel veraendert.
-                      libRef haelt fest, woraus er entstanden ist — damit
-                      bleibt spaeter ein "aus der Datenbank auffrischen"
-                      moeglich, ohne dass die Datenbank heute schon stabile
-                      Kennungen braeuchte. */}
-                  <div className="db-item-list" style={{display:'flex',flexWrap:'wrap',gap:5,maxHeight:110,overflowY:'auto'}}>
-                    {activeItems.map((item,i)=>{
-                      const r=RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
-                      const isDmItem = isDmMode && (dmLibrary.item||[]).some(d=>d.name===item.name);
-                      return (
-                        <button key={i} data-name={(item.name||'').toLowerCase()}
-                          onClick={()=>setItf({...newItem(),...item,id:Date.now().toString(),libRef:item.name})}
-                          title={item.description||item.source||''}
-                          style={{padding:'3px 10px',borderRadius:12,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:'pointer',
-                            border:'1px solid '+(isDmItem?'#c060a060':r.color+'60'),
-                            background:isDmItem?'rgba(192,96,160,0.12)':r.color+'15',
-                            color:isDmItem?'#c060a0':r.color,letterSpacing:'0.05em'}}>
-                          {item.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
+          <div className="form-modal breit mit-reitern" style={{maxWidth:840}}>
+            <div className="form-title mit-reitern">
+              <span className="reiter-titel">{itfEditId ? '✏️ Gegenstand bearbeiten' : '🎒 Neuer Gegenstand'}</span>
+              <ReiterLeiste aktiv={reiterVon('item', 'allgemein')} onWahl={reiterSetzen('item')} reiter={[
+                {k:'allgemein', icon:'📜', titel:'Allgemein'},
+                {k:'ausruestung', icon:'🛡', titel:'Ausrüstung', punkt: !!itf.gearKind},
+                {k:'benutzen', icon:'⚔', titel:'Benutzen', punkt: !!itf.kampf || !!gegenstandNutzung(itf)},
+                {k:'effekte', icon:'✦', titel:'Effekte', zahl:(itf.effects||[]).length},
+                {k:'bild', icon:'📎', titel:'Bild & PDF', zahl:(itf.anhaenge||[]).length + (itf.imageData ? 1 : 0)},
+              ]} />
+            </div>
 
             {/* Icon picker */}
             {showIconPicker && (() => {
@@ -4781,249 +4855,374 @@ function App() {
                 </div>
               );
             })()}
-            <div className="form-grid">
-              <div className="form-group form-full">
-                <div className="form-label">Name</div>
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <button onClick={()=>setShowIconPicker(true)}
-                    style={{fontSize:24,width:42,height:42,borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}
-                    title="Icon wählen">
-                    <GegenstandBild g={itf} />
-                  </button>
-                  <input className="form-input" style={{flex:1}} placeholder="z.B. Trank der Heilung" value={itf.name} onChange={e=>setItf({...itf,name:e.target.value})} autoFocus/>
-                </div>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Seltenheit</div>
-                <select className="form-select" value={itf.rarity} onChange={e=>setItf({...itf,rarity:e.target.value})}>
-                  {RARITIES.map(r=><option key={r.key} value={r.key}>{r.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <div className="form-label">Menge</div>
-                <ZahlFeld className="form-input" min="1" wert={itf.qty} onWert={v =>setItf({...itf,qty:v})} />
-              </div>
-              <div className="form-group">
-                <div className="form-label">Gewicht (kg, optional)</div>
-                <input className="form-input" type="number" min="0" step="0.1" placeholder="z.B. 1.5" value={itf.weight} onChange={e=>setItf({...itf,weight:e.target.value})} />
-              </div>
-              {/* Was ein Stück wert ist — daran rechnet der Laden, was er
-                  beim Verkaufen bietet. */}
-              <div className="form-group">
-                <div className="form-label">Wert je Stück (GM, optional)</div>
-                <GoldFeld className="form-input" placeholder="z.B. 50" kupfer={itf.wert}
-                  onKupfer={k=>setItf(f=>({...f, wert: k}))} />
-              </div>
-              {/* Nur was hier angehakt ist, steht im Kampftracker zur Wahl —
-                  Tränke, Schriftrollen, Öle. Sonst stünden dort auch das
-                  Seil und die Winterdecke. */}
-              <div className="form-group form-full">
-                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
-                  <input type="checkbox" checked={!!itf.kampf}
-                    onChange={e=>setItf({...itf,kampf:e.target.checked})}
-                    style={{width:16,height:16,cursor:'pointer',accentColor:'var(--gold)'}} />
-                  <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>
-                    ⚔ Im Kampf zu verwenden — steht im Zugfenster zur Wahl, Benutzen zieht die Menge ab
-                  </span>
-                </label>
-              </div>
-              {/* Was das Stück im Kampf tut — dieselben Felder wie am
-                  Zauber, ohne den Grad: ein Trank hat keinen. Alles
-                  freiwillig. Ohne diese Angaben bleibt der Gegenstand,
-                  was er war, und im Zugfenster wird die Zahl getippt wie
-                  bisher. Mit ihnen steht dort der Wurf, der Schalter
-                  steht schon auf Heilung, und ein Rettungswurf
-                  halbiert. */}
-              {itf.kampf && (
-                <div className="form-group form-full">
-                  <div className="form-label zauber-wirkung-kopf">
-                    Wirkung im Kampf
-                    <button type="button" className="btn-icon"
-                      title="Würfel und Rettungswurf aus der Beschreibung übernehmen"
-                      onClick={()=>setItf(f=>({...f, wirkung: {...(f.wirkung||{}),
-                        ...wirkungAusText(f.description, f.tags)}}))}>
-                      ↧ Aus der Beschreibung lesen
-                    </button>
-                  </div>
-                  {/* Die Liste des Zugfensters steht dort und nicht hier. */}
-                  <datalist id="hb-arten-item">
-                    {SCHADENSARTEN.map(a => <option key={a} value={a} />)}
-                  </datalist>
-                  <div className="zauber-wirkung">
-                    <label className="zw-feld">
-                      <span>Art</span>
-                      <select className="form-select" value={(itf.wirkung||{}).art || ''}
-                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), art:e.target.value}}))}>
-                        <option value="">— keine —</option>
-                        <option value="schaden">Schaden</option>
-                        <option value="heilung">Heilung</option>
-                        <option value="temp">Temporäre TP</option>
-                      </select>
-                    </label>
-                    <label className="zw-feld">
-                      <span>Würfel</span>
-                      <input className="form-input" placeholder="2W4+2" value={(itf.wirkung||{}).wuerfel || ''}
-                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), wuerfel:e.target.value}}))} />
-                    </label>
-                    <label className="zw-feld">
-                      <span>Schadensart</span>
-                      <input className="form-input" list="hb-arten-item" placeholder="Feuer"
-                        value={(itf.wirkung||{}).schadensart || ''}
-                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), schadensart:e.target.value}}))} />
-                    </label>
-                    <label className="zw-feld">
-                      <span>Rettungswurf</span>
-                      <select className="form-select" value={(itf.wirkung||{}).rettung || ''}
-                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), rettung:e.target.value}}))}>
-                        <option value="">— keiner —</option>
-                        {RETTUNGEN.map(r => <option key={r.k} value={r.k}>{r.l}</option>)}
-                      </select>
-                    </label>
-                    <label className="zw-schalter">
-                      <input type="checkbox" checked={!!(itf.wirkung||{}).halb}
-                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), halb:e.target.checked}}))} />
-                      <span>Bestanden = halber Schaden</span>
-                    </label>
-                    <label className="zw-schalter">
-                      <input type="checkbox" checked={!!(itf.wirkung||{}).flaeche}
-                        onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), flaeche:e.target.checked}}))} />
-                      <span>Fläche — eine Zahl für alle</span>
-                    </label>
-                  </div>
-                  <WirkungZustaende wirkung={itf.wirkung}
-                    onWirkung={w=>setItf(f=>({...f, wirkung: w}))} />
-                  {hatWirkung(itf.wirkung) && (
-                    <div className="zw-probe">
-                      Im Zugfenster steht dann: <b>{(itf.wirkung||{}).wuerfel || '—'}</b>
-                      {(itf.wirkung||{}).art === 'heilung' ? ' als Heilung'
-                        : (itf.wirkung||{}).art === 'temp' ? ' als temporäre TP' : ''}
-                      {(itf.wirkung||{}).rettung
-                        ? ' · Rettungswurf ' + (RETTUNG_KURZ[(itf.wirkung||{}).rettung] || '') : ''}
+            <ReiterSeite k="allgemein" aktiv={reiterVon('item', 'allgemein')}>
+              {/* DB item templates — only shown when creating new */}
+              {!itfEditId && (() => {
+                const activeItems = isDmMode
+                  ? [...(dmLibrary.item||[]), ...(userLibrary.item||[])]
+                  : (userLibrary.item||[]);
+                if (activeItems.length === 0) return null;
+                return (
+                  <div style={{marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                      <div style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:9,color:isDmMode?'#c060a0':'var(--gold)',letterSpacing:'0.15em',textTransform:'uppercase'}}>
+                        {isDmMode?'🔮 DM-Datenbank':'📚 Aus Datenbank'}
+                      </div>
+                      <div style={{fontSize:10,color:'var(--text-muted)',fontStyle:'italic'}}>{activeItems.length} Einträge</div>
                     </div>
-                  )}
+                    <input className="form-input" style={{marginBottom:6,padding:'5px 10px',fontSize:12}} placeholder="Suchen..."
+                      onChange={e=>{
+                        const q=e.target.value.toLowerCase();
+                        const wrap=e.target.closest('.form-modal').querySelector('.db-item-list');
+                        if(wrap)[...wrap.children].forEach(c=>{c.style.display=c.dataset.name.includes(q)?'':'none';});
+                      }}
+                    />
+                    {/* Kopie statt Verweis: der uebernommene Gegenstand bleibt
+                        eigenstaendig, auch wenn ihn jemand im Spiel veraendert.
+                        libRef haelt fest, woraus er entstanden ist — damit
+                        bleibt spaeter ein "aus der Datenbank auffrischen"
+                        moeglich, ohne dass die Datenbank heute schon stabile
+                        Kennungen braeuchte. */}
+                    <div className="db-item-list" style={{display:'flex',flexWrap:'wrap',gap:5,maxHeight:110,overflowY:'auto'}}>
+                      {activeItems.map((item,i)=>{
+                        const r=RARITIES.find(x=>x.key===item.rarity)||RARITIES[0];
+                        const isDmItem = isDmMode && (dmLibrary.item||[]).some(d=>d.name===item.name);
+                        return (
+                          <button key={i} data-name={(item.name||'').toLowerCase()}
+                            onClick={()=>setItf({...newItem(),...item,id:Date.now().toString(),libRef:item.name})}
+                            title={item.description||item.source||''}
+                            style={{padding:'3px 10px',borderRadius:12,fontFamily:"'Roboto Condensed',sans-serif",fontSize:10,cursor:'pointer',
+                              border:'1px solid '+(isDmItem?'#c060a060':r.color+'60'),
+                              background:isDmItem?'rgba(192,96,160,0.12)':r.color+'15',
+                              color:isDmItem?'#c060a0':r.color,letterSpacing:'0.05em'}}>
+                            {item.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="form-grid">
+                <div className="form-group form-full">
+                  <div className="form-label">Name</div>
+                  <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                    <button onClick={()=>setShowIconPicker(true)}
+                      style={{fontSize:24,width:42,height:42,borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-card)',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}
+                      title="Icon wählen">
+                      <GegenstandBild g={itf} />
+                    </button>
+                    <input className="form-input" style={{flex:1}} placeholder="z.B. Trank der Heilung" value={itf.name} onChange={e=>setItf({...itf,name:e.target.value})} autoFocus/>
+                  </div>
                 </div>
-              )}
-              {/* Ausruestungsplatz: erst damit taucht das Stueck in der
-                  Auswahl eines Platzes auf. Ohne Angabe bleibt es ein reiner
-                  Inventargegenstand, so wie bisher. */}
-              <div className="form-group">
-                <div className="form-label">Ausrüstungsplatz</div>
-                <select className="form-select" value={itf.gearKind||''} onChange={e=>{
-                  const k = e.target.value;
-                  const art = k==='ruestung' ? (itf.armorType && itf.armorType!=='shield' ? itf.armorType : 'light')
-                            : k==='schild'   ? 'shield' : '';
-                  const basis = (ARMOR_KINDS.find(a=>a.key===art)||{}).basis || 0;
-                  setItf({...itf, gearKind:k, armorType:art, baseAC: art ? (+itf.baseAC || basis) : 0});
-                }}>
-                  {GEAR_KINDS.map(g=><option key={g.key} value={g.key}>{g.label}</option>)}
-                </select>
-              </div>
-              {itf.gearKind==='ruestung' && (
                 <div className="form-group">
-                  <div className="form-label">Rüstungsart</div>
-                  <select className="form-select" value={itf.armorType||'light'} onChange={e=>{
-                    const art = e.target.value;
-                    setItf({...itf, armorType:art, baseAC:(ARMOR_KINDS.find(a=>a.key===art)||{}).basis||0});
-                  }}>
-                    {ARMOR_KINDS.filter(a=>a.key&&a.key!=='shield').map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
+                  <div className="form-label">Seltenheit</div>
+                  <select className="form-select" value={itf.rarity} onChange={e=>setItf({...itf,rarity:e.target.value})}>
+                    {RARITIES.map(r=><option key={r.key} value={r.key}>{r.label}</option>)}
                   </select>
                 </div>
-              )}
-              {(itf.gearKind==='ruestung'||itf.gearKind==='schild') && (
                 <div className="form-group">
-                  <div className="form-label">{itf.gearKind==='schild'?'Bonus zur RK':'Basis-RK'}</div>
-                  <ZahlFeld className="form-input" min="0" max="25" wert={itf.baseAC||0}
-                    onWert={v =>setItf({...itf,baseAC:v})} />
+                  <div className="form-label">Menge</div>
+                  <ZahlFeld className="form-input" min="1" wert={itf.qty} onWert={v =>setItf({...itf,qty:v})} />
                 </div>
-              )}
-              {itf.gearKind && (
                 <div className="form-group">
-                  <div className="form-label">Magischer RK-Bonus</div>
-                  <ZahlFeld className="form-input" min="-5" max="10" wert={itf.acBonus||0}
-                    placeholder="z.B. +1" onWert={v =>setItf({...itf,acBonus:v})} />
+                  <div className="form-label">Gewicht (kg, optional)</div>
+                  <input className="form-input" type="number" min="0" step="0.1" placeholder="z.B. 1.5" value={itf.weight} onChange={e=>setItf({...itf,weight:e.target.value})} />
                 </div>
-              )}
-              {itf.gearKind && (
-                <div className="form-group form-full">
-                  <div className="form-label">Gehört zu einem Set (optional)</div>
-                  <input className="form-input" list="hb-set-namen-inv" value={itf.setName||''}
-                    onChange={e=>setItf({...itf,setName:e.target.value})}
-                    placeholder="z.B. Hain des Ersten Lichts" />
-                  <datalist id="hb-set-namen-inv">
-                    {[...new Set([
-                      ...((userLibrary.item||[]).map(e=>e.setName)),
-                      ...((isDmMode ? (dmLibrary.item||[]) : []).map(e=>e.setName)),
-                      ...((cur && cur.inventory || []).map(i=>i.setName)),
-                    ].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de')).map(n=><option key={n} value={n}/>)}
-                  </datalist>
+                {/* Was ein Stück wert ist — daran rechnet der Laden, was er
+                    beim Verkaufen bietet. */}
+                <div className="form-group">
+                  <div className="form-label">Wert je Stück (GM, optional)</div>
+                  <GoldFeld className="form-input" placeholder="z.B. 50" kupfer={itf.wert}
+                    onKupfer={k=>setItf(f=>({...f, wert: k}))} />
                 </div>
-              )}
-              {itf.gearKind && (
+                <div className="form-group form-gross">
+                  <div className="form-label">Erhalten durch (optional)</div>
+                  <input className="form-input" placeholder="z.B. Gefunden in Dungeon, Kauf beim Händler..." value={itf.source||''} onChange={e=>setItf({...itf,source:e.target.value})} />
+                </div>
                 <div className="form-group form-full">
-                  <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',fontFamily:"'Roboto Condensed',sans-serif"}}>
-                    {itf.gearKind==='ruestung' && ((ARMOR_KINDS.find(a=>a.key===itf.armorType)||{}).hinweis||'')+' — RK '+(itf.baseAC||0)+(itf.acBonus?' + '+itf.acBonus+' (magisch)':'')}
-                    {itf.gearKind==='schild'   && 'Gibt +'+((+itf.baseAC||0)+(+itf.acBonus||0))+' auf die RK, wenn es in der Nebenhand steckt'}
-                    {itf.gearKind!=='ruestung' && itf.gearKind!=='schild' && (itf.acBonus?'+'+itf.acBonus+' zur RK, solange getragen':'Wirkt über seine Effekte, solange getragen')}
+                  <div className="form-label">Beschreibung (optional)</div>
+                  <RichEditor value={itf.description} onChange={v=>setItf({...itf,description:v})} placeholder="Wirkung, Eigenschaften..." rows={3} />
+                </div>
+                <div className="form-group form-full">
+                  <div className="form-label">Tags (Enter oder Komma zum Hinzufügen)</div>
+                  <div className="tag-input-wrap" onClick={e=>e.currentTarget.querySelector('input').focus()}>
+                    {(itf.tags||[]).map(t=>(
+                      <span key={t} className="tag-chip">{t}<button className="tag-chip-del" onClick={()=>setItf({...itf,tags:(itf.tags||[]).filter(x=>x!==t)})}>×</button></span>
+                    ))}
+                    <input className="tag-text-input" placeholder={(itf.tags||[]).length===0?"z.B. Waffe, Ruestung, Quest...":""}
+                      onKeyDown={e=>{
+                        const v=e.target.value.trim();
+                        if((e.key==="Enter"||e.key===",")&&v){e.preventDefault();const t=v.replace(/,/g,"").trim();if(t&&!(itf.tags||[]).includes(t))setItf({...itf,tags:[...(itf.tags||[]),t]});e.target.value="";}
+                        if(e.key==="Backspace"&&!e.target.value&&(itf.tags||[]).length>0)setItf({...itf,tags:(itf.tags||[]).slice(0,-1)});
+                      }}
+                      onBlur={e=>{
+                        const v=e.target.value.trim().replace(/,/g,"");
+                        if(v&&!(itf.tags||[]).includes(v)){setItf({...itf,tags:[...(itf.tags||[]),v]});e.target.value="";}
+                      }} />
+                  </div>
+                </div>
+              </div>
+            </ReiterSeite>
+            <ReiterSeite k="ausruestung" aktiv={reiterVon('item', 'allgemein')}>
+              <div className="form-grid">
+                {/* Ausruestungsplatz: erst damit taucht das Stueck in der
+                    Auswahl eines Platzes auf. Ohne Angabe bleibt es ein reiner
+                    Inventargegenstand, so wie bisher. */}
+                <div className="form-group">
+                  <div className="form-label">Ausrüstungsplatz</div>
+                  <select className="form-select" value={itf.gearKind||''} onChange={e=>{
+                    const k = e.target.value;
+                    const art = k==='ruestung' ? (itf.armorType && itf.armorType!=='shield' ? itf.armorType : 'light')
+                              : k==='schild'   ? 'shield' : '';
+                    const basis = (ARMOR_KINDS.find(a=>a.key===art)||{}).basis || 0;
+                    setItf({...itf, gearKind:k, armorType:art, baseAC: art ? (+itf.baseAC || basis) : 0});
+                  }}>
+                    {GEAR_KINDS.map(g=><option key={g.key} value={g.key}>{g.label}</option>)}
+                  </select>
+                </div>
+                {itf.gearKind==='ruestung' && (
+                  <div className="form-group">
+                    <div className="form-label">Rüstungsart</div>
+                    <select className="form-select" value={itf.armorType||'light'} onChange={e=>{
+                      const art = e.target.value;
+                      setItf({...itf, armorType:art, baseAC:(ARMOR_KINDS.find(a=>a.key===art)||{}).basis||0});
+                    }}>
+                      {ARMOR_KINDS.filter(a=>a.key&&a.key!=='shield').map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(itf.gearKind==='ruestung'||itf.gearKind==='schild') && (
+                  <div className="form-group">
+                    <div className="form-label">{itf.gearKind==='schild'?'Bonus zur RK':'Basis-RK'}</div>
+                    <ZahlFeld className="form-input" min="0" max="25" wert={itf.baseAC||0}
+                      onWert={v =>setItf({...itf,baseAC:v})} />
+                  </div>
+                )}
+                {itf.gearKind && (
+                  <div className="form-group">
+                    <div className="form-label">Magischer RK-Bonus</div>
+                    <ZahlFeld className="form-input" min="-5" max="10" wert={itf.acBonus||0}
+                      placeholder="z.B. +1" onWert={v =>setItf({...itf,acBonus:v})} />
+                  </div>
+                )}
+                {itf.gearKind && (
+                  <div className="form-group form-full">
+                    <div className="form-label">Gehört zu einem Set (optional)</div>
+                    <input className="form-input" list="hb-set-namen-inv" value={itf.setName||''}
+                      onChange={e=>setItf({...itf,setName:e.target.value})}
+                      placeholder="z.B. Hain des Ersten Lichts" />
+                    <datalist id="hb-set-namen-inv">
+                      {[...new Set([
+                        ...((userLibrary.item||[]).map(e=>e.setName)),
+                        ...((isDmMode ? (dmLibrary.item||[]) : []).map(e=>e.setName)),
+                        ...((cur && cur.inventory || []).map(i=>i.setName)),
+                      ].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de')).map(n=><option key={n} value={n}/>)}
+                    </datalist>
+                  </div>
+                )}
+                {itf.gearKind && (
+                  <div className="form-group form-full">
+                    <div style={{fontSize:11,color:'var(--text-muted)',fontStyle:'italic',fontFamily:"'Roboto Condensed',sans-serif"}}>
+                      {itf.gearKind==='ruestung' && ((ARMOR_KINDS.find(a=>a.key===itf.armorType)||{}).hinweis||'')+' — RK '+(itf.baseAC||0)+(itf.acBonus?' + '+itf.acBonus+' (magisch)':'')}
+                      {itf.gearKind==='schild'   && 'Gibt +'+((+itf.baseAC||0)+(+itf.acBonus||0))+' auf die RK, wenn es in der Nebenhand steckt'}
+                      {itf.gearKind!=='ruestung' && itf.gearKind!=='schild' && (itf.acBonus?'+'+itf.acBonus+' zur RK, solange getragen':'Wirkt über seine Effekte, solange getragen')}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ReiterSeite>
+            <ReiterSeite k="benutzen" aktiv={reiterVon('item', 'allgemein')}>
+              <div className="form-grid">
+              <div className="reiter-abschnitt">Verbrauch</div>
+              {/* Was „Benutzen“ am Bogen abzieht — ein Stück (Trank, Pfeil)
+                  oder eine Ladung (Zauberstab). Ohne Angabe gibt es den
+                  Knopf nicht. Alte Gegenstände mit dem Kampf-Haken galten
+                  schon immer als Verbrauchsgut (gegenstandNutzung). */}
+              <div className="form-group form-halb">
+                <div className="form-label">Beim Benutzen</div>
+                <select className="form-select" value={gegenstandNutzung(itf)}
+                  onChange={e=>{
+                    const n = e.target.value;
+                    setItf(f=>({...f, nutzung:n,
+                      ladungen: n==='ladung' ? {max:3, used:0, auffuellen:'lang', ...(f.ladungen||{})} : f.ladungen}));
+                  }}>
+                  <option value="">Nichts — kein Benutzen-Knopf</option>
+                  <option value="stueck">Ein Stück verbrauchen (Trank, Schriftrolle, Munition)</option>
+                  <option value="ladung">Eine Ladung verbrauchen (Zauberstab, Stecken)</option>
+                </select>
+              </div>
+              {gegenstandNutzung(itf)==='ladung' ? (() => {
+                const l = ladungenStand(itf);
+                const setL = (teil) => setItf(f=>({...f, ladungen:{...(f.ladungen||{}), ...teil}}));
+                return (<>
+                  <div className="form-group">
+                    <div className="form-label">Ladungen höchstens</div>
+                    <ZahlFeld className="form-input" min="1" max="99" wert={l.max||1}
+                      onWert={v=>setL({max:Math.max(1, v||1), used:Math.min(l.used, Math.max(1, v||1))})} />
+                  </div>
+                  <div className="form-group">
+                    <div className="form-label">Davon übrig</div>
+                    <ZahlFeld className="form-input" min="0" max={l.max} wert={l.frei}
+                      onWert={v=>setL({used:Math.max(0, l.max - Math.max(0, Math.min(l.max, v||0)))})} />
+                  </div>
+                  <div className="form-group">
+                    <div className="form-label">Lädt sich auf</div>
+                    <select className="form-select" value={(itf.ladungen||{}).auffuellen || ''}
+                      onChange={e=>setL({auffuellen:e.target.value})}>
+                      <option value="lang">bei langer Rast / Morgengrauen</option>
+                      <option value="kurz">bei kurzer und langer Rast</option>
+                      <option value="">nie — nur von Hand</option>
+                    </select>
+                  </div>
+                  {(itf.ladungen||{}).auffuellen ? (
+                    <div className="form-group">
+                      <div className="form-label">Um (Würfel, leer = alle)</div>
+                      <input className="form-input" placeholder="z.B. 1W6+1" value={(itf.ladungen||{}).wurf || ''}
+                        onChange={e=>setL({wurf:e.target.value})} />
+                    </div>
+                  ) : null}
+                </>);
+              })() : (
+                <div className="form-group form-halb" style={{justifyContent:'flex-end'}}>
+                  <div className="reiter-hinweis">
+                    {gegenstandNutzung(itf)==='stueck'
+                      ? 'Benutzen zieht ein Stück von der Menge ab und schreibt es ins Log.'
+                      : 'Für Dinge, die man nicht aufbraucht — Seil, Laterne, Rüstung.'}
                   </div>
                 </div>
               )}
-              <div className="form-group form-full">
-                <div className="form-label">Beschreibung (optional)</div>
-                <RichEditor value={itf.description} onChange={v=>setItf({...itf,description:v})} placeholder="Wirkung, Eigenschaften..." rows={3} />
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">Erhalten durch (optional)</div>
-                <input className="form-input" placeholder="z.B. Gefunden in Dungeon, Kauf beim Händler..." value={itf.source||''} onChange={e=>setItf({...itf,source:e.target.value})} />
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">Tags (Enter oder Komma zum Hinzufügen)</div>
-                <div className="tag-input-wrap" onClick={e=>e.currentTarget.querySelector('input').focus()}>
-                  {(itf.tags||[]).map(t=>(
-                    <span key={t} className="tag-chip">{t}<button className="tag-chip-del" onClick={()=>setItf({...itf,tags:(itf.tags||[]).filter(x=>x!==t)})}>×</button></span>
-                  ))}
-                  <input className="tag-text-input" placeholder={(itf.tags||[]).length===0?"z.B. Waffe, Ruestung, Quest...":""}
-                    onKeyDown={e=>{
-                      const v=e.target.value.trim();
-                      if((e.key==="Enter"||e.key===",")&&v){e.preventDefault();const t=v.replace(/,/g,"").trim();if(t&&!(itf.tags||[]).includes(t))setItf({...itf,tags:[...(itf.tags||[]),t]});e.target.value="";}
-                      if(e.key==="Backspace"&&!e.target.value&&(itf.tags||[]).length>0)setItf({...itf,tags:(itf.tags||[]).slice(0,-1)});
-                    }}
-                    onBlur={e=>{
-                      const v=e.target.value.trim().replace(/,/g,"");
-                      if(v&&!(itf.tags||[]).includes(v)){setItf({...itf,tags:[...(itf.tags||[]),v]});e.target.value="";}
-                    }} />
-                </div>
-              </div>
-              {/* Image upload */}
-              <div className="form-group form-full">
-                <div className="form-label">Bild (optional)</div>
-                {/* Verkleinert wird in der Ablage, und die haelt anders als
-                    der Handbau davor auch die Transparenz eines PNG. */}
-                <BildAblage bild={itf.imageData} maxPx={1000} hoehe={110}
-                  aufschrift={itf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen'}
-                  onBild={(d)=>setItf(prev=>({...prev,imageData:d}))}
-                  onWeg={()=>setItf(prev=>({...prev,imageData:''}))} />
-              </div>
-              {/* PDFs: ein Buch, ein Brief. Die Datei liegt auf dem Server,
-                  der Gegenstand traegt nur den Verweis (2p-anhang.jsx). */}
-              <div className="form-group form-full">
-                <div className="form-label">📎 Anhänge (PDF)</div>
-                <AnhangFeld anhaenge={itf.anhaenge} onLesen={setPdfLeser}
-                  onAendern={(l)=>setItf(prev=>({...prev,anhaenge:l}))} />
-              </div>
-              <div className="form-group form-full">
-                <div className="form-label">✦ Effekte</div>
-                <EffectEditor effects={itf.effects} onChange={v=>setItf({...itf,effects:v})}
-                  hint="Wirken, solange der Gegenstand eingeschaltet ist." />
-                {(itf.effects||[]).length>0 && (
-                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginTop:8}}>
-                    <input type="checkbox" checked={!!itf.effectsActive}
-                      onChange={e=>setItf({...itf,effectsActive:e.target.checked})}
-                      style={{width:16,height:16,cursor:'pointer',accentColor:'var(--arcane-bright)'}} />
-                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>Effekte wirken gerade (getragen / eingeschaltet)</span>
+              <div className="reiter-abschnitt">Im Kampf</div>
+                {/* Nur was hier angehakt ist, steht im Kampftracker zur Wahl —
+                    Tränke, Schriftrollen, Öle. Sonst stünden dort auch das
+                    Seil und die Winterdecke. */}
+                <div className="form-group form-full">
+                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                    <input type="checkbox" checked={!!itf.kampf}
+                      onChange={e=>setItf({...itf,kampf:e.target.checked})}
+                      style={{width:16,height:16,cursor:'pointer',accentColor:'var(--gold)'}} />
+                    <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>
+                      Steht im Zugfenster des Kampftrackers zur Wahl
+                    </span>
                   </label>
+                </div>
+                {/* Was das Stück im Kampf tut — dieselben Felder wie am
+                    Zauber, ohne den Grad: ein Trank hat keinen. Alles
+                    freiwillig. Ohne diese Angaben bleibt der Gegenstand,
+                    was er war, und im Zugfenster wird die Zahl getippt wie
+                    bisher. Mit ihnen steht dort der Wurf, der Schalter
+                    steht schon auf Heilung, und ein Rettungswurf
+                    halbiert. */}
+                {itf.kampf && (
+                  <div className="form-group form-full">
+                    <div className="form-label zauber-wirkung-kopf">
+                      Wirkung im Kampf
+                      <button type="button" className="btn-icon"
+                        title="Würfel und Rettungswurf aus der Beschreibung übernehmen"
+                        onClick={()=>setItf(f=>({...f, wirkung: {...(f.wirkung||{}),
+                          ...wirkungAusText(f.description, f.tags)}}))}>
+                        ↧ Aus der Beschreibung lesen
+                      </button>
+                    </div>
+                    {/* Die Liste des Zugfensters steht dort und nicht hier. */}
+                    <datalist id="hb-arten-item">
+                      {SCHADENSARTEN.map(a => <option key={a} value={a} />)}
+                    </datalist>
+                    <div className="zauber-wirkung">
+                      <label className="zw-feld">
+                        <span>Art</span>
+                        <select className="form-select" value={(itf.wirkung||{}).art || ''}
+                          onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), art:e.target.value}}))}>
+                          <option value="">— keine —</option>
+                          <option value="schaden">Schaden</option>
+                          <option value="heilung">Heilung</option>
+                          <option value="temp">Temporäre TP</option>
+                        </select>
+                      </label>
+                      <label className="zw-feld">
+                        <span>Würfel</span>
+                        <input className="form-input" placeholder="2W4+2" value={(itf.wirkung||{}).wuerfel || ''}
+                          onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), wuerfel:e.target.value}}))} />
+                      </label>
+                      <label className="zw-feld">
+                        <span>Schadensart</span>
+                        <input className="form-input" list="hb-arten-item" placeholder="Feuer"
+                          value={(itf.wirkung||{}).schadensart || ''}
+                          onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), schadensart:e.target.value}}))} />
+                      </label>
+                      <label className="zw-feld">
+                        <span>Rettungswurf</span>
+                        <select className="form-select" value={(itf.wirkung||{}).rettung || ''}
+                          onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), rettung:e.target.value}}))}>
+                          <option value="">— keiner —</option>
+                          {RETTUNGEN.map(r => <option key={r.k} value={r.k}>{r.l}</option>)}
+                        </select>
+                      </label>
+                      <label className="zw-schalter">
+                        <input type="checkbox" checked={!!(itf.wirkung||{}).halb}
+                          onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), halb:e.target.checked}}))} />
+                        <span>Bestanden = halber Schaden</span>
+                      </label>
+                      <label className="zw-schalter">
+                        <input type="checkbox" checked={!!(itf.wirkung||{}).flaeche}
+                          onChange={e=>setItf(f=>({...f, wirkung:{...(f.wirkung||{}), flaeche:e.target.checked}}))} />
+                        <span>Fläche — eine Zahl für alle</span>
+                      </label>
+                    </div>
+                    <WirkungZustaende wirkung={itf.wirkung}
+                      onWirkung={w=>setItf(f=>({...f, wirkung: w}))} />
+                    {hatWirkung(itf.wirkung) && (
+                      <div className="zw-probe">
+                        Im Zugfenster steht dann: <b>{(itf.wirkung||{}).wuerfel || '—'}</b>
+                        {(itf.wirkung||{}).art === 'heilung' ? ' als Heilung'
+                          : (itf.wirkung||{}).art === 'temp' ? ' als temporäre TP' : ''}
+                        {(itf.wirkung||{}).rettung
+                          ? ' · Rettungswurf ' + (RETTUNG_KURZ[(itf.wirkung||{}).rettung] || '') : ''}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
+            </ReiterSeite>
+            <ReiterSeite k="effekte" aktiv={reiterVon('item', 'allgemein')}>
+              <div className="form-grid">
+                <div className="form-group form-full">
+                  <div className="form-label">✦ Effekte</div>
+                  <EffectEditor effects={itf.effects} onChange={v=>setItf({...itf,effects:v})}
+                    hint="Wirken, solange der Gegenstand eingeschaltet ist." />
+                  {(itf.effects||[]).length>0 && (
+                    <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginTop:8}}>
+                      <input type="checkbox" checked={!!itf.effectsActive}
+                        onChange={e=>setItf({...itf,effectsActive:e.target.checked})}
+                        style={{width:16,height:16,cursor:'pointer',accentColor:'var(--arcane-bright)'}} />
+                      <span style={{fontFamily:"'Roboto Condensed',sans-serif",fontSize:12,color:'var(--text-secondary)'}}>Effekte wirken gerade (getragen / eingeschaltet)</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            </ReiterSeite>
+            <ReiterSeite k="bild" aktiv={reiterVon('item', 'allgemein')}>
+              <div className="form-grid">
+                {/* Image upload */}
+                <div className="form-group form-full">
+                  <div className="form-label">Bild (optional)</div>
+                  {/* Verkleinert wird in der Ablage, und die haelt anders als
+                      der Handbau davor auch die Transparenz eines PNG. */}
+                  <BildAblage bild={itf.imageData} maxPx={1000} hoehe={110}
+                    aufschrift={itf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen'}
+                    onBild={(d)=>setItf(prev=>({...prev,imageData:d}))}
+                    onWeg={()=>setItf(prev=>({...prev,imageData:''}))} />
+                </div>
+                {/* PDFs: ein Buch, ein Brief. Die Datei liegt auf dem Server,
+                    der Gegenstand traegt nur den Verweis (2p-anhang.jsx). */}
+                <div className="form-group form-full">
+                  <div className="form-label">📎 Anhänge (PDF)</div>
+                  <AnhangFeld anhaenge={itf.anhaenge} onLesen={setPdfLeser}
+                    onAendern={(l)=>setItf(prev=>({...prev,anhaenge:l}))} />
+                </div>
+              </div>
+            </ReiterSeite>
             <div className="form-actions">
               <button className="btn-cancel" onClick={()=>{setShowIF(false);setItfEditId(null);}}>Abbrechen</button>
               <button className="btn-save" onClick={addItem}>{itfEditId ? '✓ Speichern' : '+ Hinzufügen'}</button>
@@ -5118,6 +5317,7 @@ function App() {
                   <div style={{fontFamily:"'Roboto',sans-serif",fontSize:12,color:'var(--parchment-dim)',marginTop:4,fontStyle:'italic'}}>
                     {r.label}
                     {item.qty>1?` · ×${item.qty}`:''}
+                    {gegenstandNutzung(item)==='ladung' ? ` · ${ladungenStand(item).frei}/${ladungenStand(item).max} Ladungen` : ''}
                     {item.weight?` · ${item.weight} kg`:''}
                   </div>
                 </div>
@@ -5201,6 +5401,11 @@ function App() {
               </div>
               {/* Footer */}
               <div style={{display:'flex',gap:8,padding:'10px 18px',background:'var(--bg-deep)',borderTop:'1px solid var(--border)'}}>
+                {gegenstandNutzung(item) && darfBearbeiten && (
+                  <button className="btn-benutzen" disabled={gegenstandVorrat(item) <= 0}
+                    title={gegenstandVorrat(item) <= 0 ? 'Nichts mehr übrig' : 'Benutzen — zieht ' + (gegenstandNutzung(item)==='ladung' ? 'eine Ladung' : 'ein Stück') + ' ab und schreibt es ins Log'}
+                    onClick={()=>gegenstandEinsetzen(item.id)}>▶ Benutzen</button>
+                )}
                 <button className="btn-icon" style={{flex:1}} onClick={()=>{setItemViewer(null);setItf({...item});setItfEditId(item.id);setShowIF(true);}}>✎ Bearbeiten</button>
                 <button style={{padding:'8px 14px',background:'rgba(180,60,60,0.15)',border:'1px solid rgba(180,60,60,0.4)',borderRadius:3,color:'#e07070',cursor:'pointer',fontFamily:"'Roboto Condensed',sans-serif",fontSize:11}}
                   onClick={()=>{setItemViewer(null);delItem(item.id);}}>✕ Löschen</button>

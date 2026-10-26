@@ -204,7 +204,7 @@ const protokollZeile = (e, mitZahlen) => {
     case 'konzAn':   return '   ⚡ ' + e.wer + ' hält jetzt „' + e.was + '“';
     // Ein Trank ist nach dem Zug leer. Was noch da ist, steht dabei —
     // sonst muesste man dafuer in den Bogen schauen.
-    case 'verbrauch': return '   ' + e.was + ' verbraucht'
+    case 'verbrauch': return '   ' + e.was + (e.ladung ? ': eine Ladung verbraucht' : ' verbraucht')
                             + (e.rest === undefined || e.rest === null ? '' : ' · noch ' + e.rest);
     case 'wurf':     return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': '
                             + (e.treffer ? 'Treffer' : 'daneben')
@@ -596,7 +596,7 @@ const sortierteSprueche = (held) => [...((held && held.spells) || [])]
 // bei null steht nicht mehr zur Wahl; er bleibt aber im Bogen, denn
 // nachgefuellt wird ausserhalb des Kampfes.
 const kampfGegenstaende = (held) => ((held && held.inventory) || [])
-  .filter(i => i && i.kampf && (+i.qty || 0) > 0)
+  .filter(i => i && i.kampf && gegenstandVorrat(i) > 0)
   .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
 
 // Merkmale werden nicht gekennzeichnet: welches im Kampf taugt, weiss der
@@ -611,15 +611,7 @@ const kampfMerkmale = (held) => [...((held && held.features) || [])]
 // keinen mehr aus; das Merkmal bleibt trotzdem waehlbar.
 const merkmalZauber = (held, merkmal) => (merkmal && merkmal.zauber)
   ? (((held && held.spells) || []).find(z => z.name === merkmal.zauber) || null) : null;
-// Die Ressource, die ein Merkmal verbraucht, und was davon uebrig ist.
-const merkmalRessource = (held, merkmal) => {
-  if (!merkmal || !merkmal.ressource) return null;
-  const r = ((held && held.resources) || []).find(x => x.id === merkmal.ressource);
-  if (!r) return null;
-  const kosten = Math.max(1, +merkmal.ressourceKosten || 1);
-  const rest = Math.max(0, (+r.max || 0) - (+r.used || 0));
-  return {r, kosten, rest, reicht: rest >= kosten};
-};
+// Die Ressource, die ein Merkmal verbraucht: merkmalRessource in js/util.js.
 
 const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held)
   : art === 'angriff'    ? ((held && held.weapons) || [])
@@ -886,7 +878,8 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
     : wahl.art === 'angriff'    ? (g.damage || '')
     : wahl.art === 'gegenstand'
       ? ((hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '')
-         + (+g.qty || 0) + '×')
+         + (gegenstandNutzung(g) === 'ladung' ? ladungenStand(g).frei + ' Ldg.'
+            : gegenstandNutzung(g) === 'stueck' ? (+g.qty || 0) + '×' : ''))
       : (((merkmalZauber(held, g) || {}).wirkung || g.wirkung || {}).wuerfel || '');
 
   // Die Plaetze des Helden: nur Grade, fuer die er welche hat — und der
@@ -1272,11 +1265,15 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
         eintraege.push({art: 'platz', wer: t.name, grad});
       }
       // Und ebenso der Trank: benutzt ist benutzt, die Zahl im Inventar
-      // sinkt um eins. Damit muss niemand daneben mitzaehlen.
-      if (held && art === 'gegenstand' && (+gegenstand.qty || 0) > 0) {
-        const rest = Math.max(0, (+gegenstand.qty || 0) - 1);
+      // sinkt um eins — beim Zauberstab die Ladungen. Damit muss niemand
+      // daneben mitzaehlen. Was nichts verbraucht, bleibt, wie es ist.
+      if (held && art === 'gegenstand' && gegenstandNutzung(gegenstand)
+          && gegenstandVorrat(gegenstand) > 0) {
+        const ladung = gegenstandNutzung(gegenstand) === 'ladung';
+        const rest = gegenstandVorrat(gegenstand) - 1;
         verbrauch = {charId: held.id, itemId: gegenstand.id, name: gegenstand.name, rest};
-        eintraege.push({art: 'verbrauch', wer: t.name, was: gegenstand.name, rest});
+        eintraege.push({art: 'verbrauch', wer: t.name, was: gegenstand.name, rest,
+                        ...(ladung ? {ladung: true} : {})});
       }
     }
     Object.keys(ziele).forEach(id => {
@@ -2925,7 +2922,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
       const c = helden.find(h => h.id === verbrauch.charId);
       if (c) {
         heldAendern(verbrauch.charId, {inventory: (c.inventory || []).map(i =>
-          i.id === verbrauch.itemId ? {...i, qty: Math.max(0, (+i.qty || 0) - 1)} : i)}, c.name);
+          i.id === verbrauch.itemId ? gegenstandVerbraucht(i) : i)}, c.name);
       }
     }
   };

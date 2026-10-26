@@ -1,5 +1,48 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.4.0
+
+### Register in den Bearbeiten-Fenstern
+
+- **Gegenstand, Zauber, Fähigkeit und Waffe** haben jetzt Register statt
+  einer langen Spalte. Die Leiste sitzt im Kopf des Fensters und bleibt
+  beim Rollen stehen; darunter steht nur die gewählte Seite.
+  - Gegenstand: **Allgemein · Ausrüstung · Benutzen · Effekte · Bild & PDF**
+  - Zauber: **Allgemein · Beschreibung · Wirkung im Kampf**
+  - Fähigkeit: **Allgemein · Benutzen & Kampf · Effekte**
+  - Waffe: **Werte · Beschreibung & Bild · Effekte**
+- Ein Punkt am Register zeigt, dass dort etwas eingestellt ist, eine Zahl,
+  wie viel dort liegt (Effekte, Anhänge). Jedes Fenster geht auf seiner
+  ersten Seite auf; was man auf einer anderen Seite getippt hat, bleibt
+  beim Wechseln stehen.
+- Am Telefon trägt nur das gewählte Register sein Wort, die anderen ihr
+  Bild — so passen alle in eine Zeile.
+- Am Zauber gibt es einen Haken **Ritual**.
+
+### Benutzen — und es steht im Log
+
+- **✨ Wirken** an jeder Zauberkarte. Ein Zaubertrick wird gleich
+  gewirkt; ab Grad 1 fragt ein kleines Fenster nach dem Zauberplatz —
+  vorgewählt ist der kleinste freie Grad, höhere Grade gehen auch.
+  Daneben: **als Ritual** (wenn der Zauber eins ist) oder **ohne
+  Zauberplatz** (Volk, Talent, Gegenstand). Der Platz geht ab, ein Zauber
+  mit Konzentration wird gehalten und der vorige endet.
+- **▶ Benutzen** an Gegenständen — an der Karte im Inventar und in der
+  Ansicht. Was es verbraucht, steht im Register **Benutzen**: ein
+  **Stück** (Trank, Schriftrolle, Munition) oder eine **Ladung**
+  (Zauberstab). Ladungen haben ein Höchstmaß und laden sich bei der
+  langen oder bei jeder Rast wieder auf — alle oder so viele, wie ein
+  Würfel zeigt („1W6+1“). Was schon den Kampf-Haken hatte, gilt weiter
+  als Verbrauchsgut.
+- **▶ Einsetzen** an Fähigkeiten, die mit einer Ressource verknüpft sind
+  (Kanalisieren, Zweiter Wind, Ki …), und an jeder Ressource im Reiter
+  Aktionen (Aktionsschub).
+- Alles davon kommt **ins Abenteuerlog des Helden** — „Gewirkt: Segnen
+  (Grad 1, noch 2/4 Plätze) · Konzentration“, „Benutzt: Trank der Heilung
+  — 1 übrig“ — und unten erscheint kurz, was abging.
+- Im **Kampftracker** zieht ein Gegenstand mit Ladungen jetzt eine Ladung
+  ab statt eines Stücks; wer nichts verbraucht, bleibt unangetastet.
+
 ## v6.3.0
 
 ### Verwandeln im Kampftracker

@@ -1059,13 +1059,138 @@
      Feld nimmt zwei davon (drei je Zeile), ein halber Block drei, ein
      ganzer alle sechs. */
   .form-halb { grid-column:1 / -1; }
+  .form-gross { grid-column:1 / -1; }
   @media (min-width:900px) {
+    .form-modal.breit .form-grid > .form-gross { grid-column:span 4; }
     .form-modal.breit .form-grid { grid-template-columns:repeat(6, 1fr); gap:12px 14px; }
     .form-modal.breit .form-grid > .form-group { grid-column:span 2; }
     .form-modal.breit .form-grid > .form-halb  { grid-column:span 3; }
     .form-modal.breit .form-grid > .form-full  { grid-column:1 / -1; }
   }
 
+
+  /* ── Register in den Bearbeiten-Fenstern ─────────────────────
+     Die Leiste haengt unten am Kopf des Fensters und bleibt mit ihm
+     stehen. Die gewaehlte Seite traegt den Strich in der Farbe des
+     Hauses, die anderen nur ihr Wort. Am Telefon rollt die Leiste
+     seitwaerts statt umzubrechen. */
+  .form-title.mit-reitern { padding-bottom:0 !important; margin-bottom:16px; }
+  .form-title.mit-reitern > .reiter-titel { display:block; padding-bottom:10px; }
+  .reiter-leiste { display:flex; gap:2px; margin:0 -4px -1px; overflow-x:auto;
+    scrollbar-width:none; }
+  .reiter-leiste::-webkit-scrollbar { display:none; }
+  .reiter-knopf { display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
+    padding:8px 12px 9px; background:none; border:none; border-bottom:2px solid transparent;
+    color:var(--text-muted); font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; white-space:nowrap;
+    border-radius:4px 4px 0 0; transition:color .15s, background .15s, border-color .15s; }
+  .reiter-knopf:hover { color:var(--text-secondary); background:var(--bg-card); }
+  .reiter-knopf.an { color:var(--gold); border-bottom-color:var(--gold); background:var(--bg-card); }
+  .reiter-knopf:focus-visible { outline:1px solid var(--gold-dim); outline-offset:-1px; }
+  .reiter-icon { display:inline-flex; font-size:14px; opacity:.85; }
+  .reiter-knopf.an .reiter-icon { opacity:1; }
+  .reiter-zahl { min-width:16px; height:16px; padding:0 4px; border-radius:8px; box-sizing:border-box;
+    background:var(--bg-hover); color:var(--text-secondary); font-size:10px; line-height:16px;
+    text-align:center; letter-spacing:0; font-variant-numeric:tabular-nums; }
+  .reiter-knopf.an .reiter-zahl { background:var(--gold-dim); color:var(--text-primary); }
+  .reiter-punkt { width:6px; height:6px; border-radius:50%; background:var(--gold); opacity:.8; }
+  .reiter-seite[hidden] { display:none !important; }
+  /* Gleich hoch, egal welche Seite: sonst huepft der Fuss mit
+     Speichern bei jedem Wechsel auf und ab. */
+  .form-modal.mit-reitern .reiter-seite { min-height:min(380px, 52vh); }
+  .fenster.zu .reiter-leiste { display:none; }
+  /* Ein Abschnitt innerhalb einer Seite: eine leise Ueberschrift statt
+     eines weiteren Kastens. */
+  .reiter-abschnitt { grid-column:1 / -1; display:flex; align-items:center; gap:10px;
+    margin-top:6px; font-family:'Roboto Condensed',sans-serif; font-size:11px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--text-secondary); }
+  .reiter-abschnitt::after { content:''; flex:1; height:1px; background:var(--border); }
+  .reiter-hinweis { font-size:12px; color:var(--text-muted); font-style:italic;
+    font-family:'Roboto Condensed',sans-serif; line-height:1.45; }
+  /* Am Telefon passen fuenf Woerter nicht nebeneinander: dort traegt nur
+     das gewaehlte Register sein Wort, die anderen ihr Bild (und den
+     Namen als Tooltip). */
+  @media (max-width:640px) {
+    .reiter-knopf { padding:8px 10px 9px; font-size:11px; }
+    .reiter-knopf:not(.an) .reiter-wort { display:none; }
+    .reiter-knopf:not(.an) { padding:8px 12px 9px; }
+    .reiter-leiste { gap:0; }
+    .reiter-leiste { margin:0 -16px -1px; padding:0 12px; }
+    .form-modal.mit-reitern .reiter-seite { min-height:0; }
+  }
+
+  /* ── Benutzen am Bogen ─────────────────────────────────────────
+     Ein Knopf an der Karte zieht ab, was der Zauber, der Trank, das
+     Merkmal kostet (2r-benutzen.jsx). Er traegt die Farbe des Hauses,
+     damit er sich von Bearbeiten und Loeschen absetzt — das eine ist
+     Spiel, das andere Buchhaltung. */
+  .btn-benutzen { display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:8px 14px; border-radius:3px; cursor:pointer;
+    border:1px solid var(--gold-dim); background:color-mix(in srgb, var(--gold) 16%, var(--bg-card));
+    color:var(--gold-bright); font-family:'Roboto Condensed',sans-serif; font-size:12px;
+    letter-spacing:0.04em; transition:background .15s, border-color .15s; }
+  .btn-benutzen:hover:not(:disabled) { background:color-mix(in srgb, var(--gold) 28%, var(--bg-card)); border-color:var(--gold); }
+  .btn-benutzen:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-benutzen.klein { padding:4px 10px; font-size:11px; }
+  .spell-wirken-btn { cursor:pointer; font-size:11px; line-height:1; padding:3px 8px; border-radius:4px;
+    background:rgba(0,0,0,0.55); border:1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+    color:var(--gold-bright); font-family:'Roboto Condensed',sans-serif; letter-spacing:0.04em;
+    display:inline-flex; align-items:center; gap:4px;
+    transition:background .12s, border-color .12s; }
+  .spell-wirken-btn:hover { background:rgba(0,0,0,0.78); border-color:var(--gold-bright); }
+  /* Rechts neben dem Bild: oben rechts steht der Wert, unten der Name. */
+  .inv-benutzen { position:absolute; top:34px; right:6px; z-index:2;
+    display:inline-flex; align-items:center; gap:4px; height:24px; min-width:24px; padding:0 7px;
+    border-radius:12px; cursor:pointer; border:1px solid var(--gold-dim);
+    background:color-mix(in srgb, var(--bg-void) 80%, var(--gold)); color:var(--gold-bright);
+    font-family:'Roboto Condensed',sans-serif; font-size:10px; line-height:1; }
+  .inv-benutzen:hover:not(:disabled) { border-color:var(--gold); background:color-mix(in srgb, var(--bg-void) 62%, var(--gold)); }
+  .inv-benutzen:disabled { opacity:.35; cursor:not-allowed; }
+  .inv-benutzen-zahl { font-variant-numeric:tabular-nums; color:var(--text-primary); }
+  .feature-nutzen { display:flex; align-items:center; justify-content:space-between; gap:8px;
+    margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); }
+  .feature-nutzen-stand { font-family:'Roboto Condensed',sans-serif; font-size:11px; letter-spacing:0.03em; }
+  .feature-nutzen-stand b { font-variant-numeric:tabular-nums; }
+  .resource-einsetzen { font-size:10px; line-height:1; color:var(--gold-bright); background:none;
+    border:1px solid var(--gold-dim); border-radius:3px; padding:3px 7px; cursor:pointer;
+    font-family:'Roboto Condensed',sans-serif; letter-spacing:0.04em; margin-left:auto; }
+  .resource-einsetzen:hover:not(:disabled) { border-color:var(--gold); background:color-mix(in srgb, var(--gold) 14%, transparent); }
+  .resource-einsetzen:disabled { opacity:.35; cursor:not-allowed; }
+
+  /* Das Wirken-Fenster: die Grade als Kacheln mit ihren freien Plaetzen. */
+  .wirken-kopf { display:flex; flex-wrap:wrap; gap:6px 14px; font-family:'Roboto Condensed',sans-serif;
+    font-size:12px; color:var(--text-secondary); }
+  .wirken-kopf span + span::before { content:'·'; margin-right:14px; color:var(--text-muted); }
+  .wirken-grade { display:grid; grid-template-columns:repeat(auto-fill, minmax(74px, 1fr)); gap:8px; margin-top:6px; }
+  .wirken-grad { display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 6px 8px;
+    border-radius:6px; border:1px solid var(--border); background:var(--bg-card); cursor:pointer;
+    color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; transition:border-color .15s, background .15s; }
+  .wirken-grad:hover:not(:disabled) { border-color:var(--border-bright); }
+  .wirken-grad.an { border-color:var(--gold); background:color-mix(in srgb, var(--gold) 14%, var(--bg-card)); color:var(--gold-bright); }
+  .wirken-grad:disabled { opacity:.38; cursor:not-allowed; }
+  .wirken-grad-zahl { font-size:20px; line-height:1; font-weight:700; }
+  .wirken-grad-punkte { display:flex; gap:3px; }
+  .wirken-grad-punkte i { width:7px; height:7px; border-radius:50%; border:1px solid currentColor; opacity:.45; }
+  .wirken-grad-punkte i.frei { background:currentColor; opacity:.95; }
+  .wirken-grad-rest { font-size:10px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .wirken-sonst { display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+
+  /* Der Hinweis nach dem Benutzen — unten, mittig, und von selbst weg. */
+  /* Ueber der unteren Leiste und der Fensterleiste, nicht dahinter. */
+  .benutzt-hinweis { position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom, 0px)); z-index:9500;
+    transform:translateX(-50%); display:flex; align-items:center; gap:10px; max-width:min(560px, calc(100vw - 32px));
+    padding:10px 16px; border-radius:8px; border:1px solid var(--gold-dim);
+    background:var(--bg-deep); color:var(--text-primary); box-shadow:0 10px 30px rgba(0,0,0,.55);
+    font-family:'Roboto Condensed',sans-serif; font-size:13px; line-height:1.35; cursor:pointer;
+    animation:benutzt-rein .22s ease-out; }
+  .benutzt-haken { display:inline-flex; color:var(--gold-bright); font-size:15px; }
+  @keyframes benutzt-rein { from { opacity:0; transform:translate(-50%, 10px); } to { opacity:1; transform:translate(-50%, 0); } }
+  @media (max-width:640px) {
+    .spell-wirken-btn { padding:7px 10px; font-size:12px; }
+    .inv-benutzen { height:30px; min-width:30px; }
+    .resource-einsetzen { padding:6px 9px; font-size:11px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .benutzt-hinweis { animation:none; } }
 
   .mobile-topbar { display:none; }
   .mobile-list-screen { display:none; }

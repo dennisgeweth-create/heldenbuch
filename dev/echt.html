@@ -1387,6 +1387,110 @@
           }
         }
 
+        // ── Register und Benutzen (v6.4) ──
+        // Die Bearbeiten-Fenster haben Register; der Gegenstand bekommt
+        // Ladungen, und Benutzen zieht sie ab. Der Zauber wird gewirkt,
+        // die Ressource eingesetzt — und der Bogen merkt es sich.
+        melden('lauf', 'Register und Benutzen');
+        const heldNachBenutzen = () => JSON.parse(wbSpeicher.dnd_chars || '[]')[0] || {};
+        const reiterNach = (k) => document.querySelector('.reiter-knopf[data-reiter="' + k + '"]');
+        const seiteSichtbar = (k) => { const s = document.querySelector('.reiter-seite[data-seite="' + k + '"]'); return !!s && !s.hidden; };
+        const waehlen = (sel, wert) => {
+          const setze = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+          setze.call(sel, wert);
+          sel.dispatchEvent(new Event('change', {bubbles: true}));
+        };
+        const hemd2 = [...document.querySelectorAll('.inv-card')].find(c => /Kettenhemd/.test(c.textContent));
+        if (ja('Das Kettenhemd lässt sich wieder ansehen', !!hemd2)) {
+          hemd2.click();
+          const bearb = await warten(() => [...document.querySelectorAll('.form-modal button')]
+            .find(b => /Bearbeiten/.test(b.textContent) && /Kettenhemd/.test(b.closest('.form-modal').textContent)), 3000);
+          if (bearb) bearb.click();
+          const leiste = await warten(() => document.querySelector('.form-modal.mit-reitern .reiter-leiste'), 3000);
+          if (ja('Das Bearbeiten-Fenster hat Register', !!leiste)) {
+            const knoepfe = [...leiste.querySelectorAll('.reiter-knopf')].map(b => b.dataset.reiter);
+            ja('  … Allgemein, Ausrüstung, Benutzen, Effekte, Bild & PDF',
+               knoepfe.join(',') === 'allgemein,ausruestung,benutzen,effekte,bild', knoepfe.join(','));
+            ja('  … es geht auf der ersten Seite auf', seiteSichtbar('allgemein') && !seiteSichtbar('benutzen'));
+            ja('  … die Ausrüstung trägt ihren Punkt', !!reiterNach('ausruestung').querySelector('.reiter-punkt'));
+            ja('  … Bild & PDF zählt den Anhang',
+               (reiterNach('bild').querySelector('.reiter-zahl') || {}).textContent === '1');
+            reiterNach('benutzen').click(); await ruhe(120);
+            ja('  … ein Klick wechselt die Seite', seiteSichtbar('benutzen') && !seiteSichtbar('allgemein')
+               && reiterNach('benutzen').getAttribute('aria-selected') === 'true');
+            const nutz = [...document.querySelectorAll('.reiter-seite[data-seite="benutzen"] select')]
+              .find(s => [...s.options].some(o => o.value === 'ladung'));
+            if (ja('  … dort steht, was Benutzen verbraucht', !!nutz)) {
+              waehlen(nutz, 'ladung'); await ruhe(150);
+              ja('  … mit Ladungen kommen ihre Felder',
+                 /Ladungen höchstens/.test(document.querySelector('.reiter-seite[data-seite="benutzen"]').textContent));
+            }
+            const speichern = [...document.querySelectorAll('.form-modal.mit-reitern .form-actions button')]
+              .find(b => /Speichern/.test(b.textContent));
+            if (speichern) speichern.click();
+            await warten(() => !document.querySelector('.form-modal.mit-reitern'), 2000);
+            const gespeichert = (heldNachBenutzen().inventory || []).find(i => i.id === 'i1') || {};
+            ja('  … gespeichert trägt das Hemd drei Ladungen',
+               gespeichert.nutzung === 'ladung' && (gespeichert.ladungen || {}).max === 3,
+               JSON.stringify({n: gespeichert.nutzung, l: gespeichert.ladungen}));
+          }
+          // Die Ansicht ist noch offen — über die Leiste zumachen.
+          const xAns = [...document.querySelectorAll('.fl-x')].find(k => /Kettenhemd/.test(k.getAttribute('aria-label') || ''));
+          if (xAns) { xAns.click(); await ruhe(120); }
+        }
+        const knopfB = await warten(() => [...document.querySelectorAll('.inv-card')]
+          .find(c => /Kettenhemd/.test(c.textContent)) && document.querySelector('.inv-benutzen'), 2000);
+        if (ja('An der Karte steht jetzt der Benutzen-Knopf', !!knopfB)) {
+          ja('  … mit den freien Ladungen', /3\/3/.test(knopfB.textContent), knopfB.textContent);
+          knopfB.click();
+          await warten(() => ((heldNachBenutzen().inventory || [])[0] || {}).ladungen
+                              && heldNachBenutzen().inventory[0].ladungen.used === 1, 2000);
+          ja('  … ein Klick zieht eine Ladung ab', ((heldNachBenutzen().inventory[0] || {}).ladungen || {}).used === 1);
+          const hinweis = await warten(() => document.querySelector('.benutzt-hinweis'), 1500);
+          ja('  … und sagt, was abging', !!hinweis && /Benutzt: Kettenhemd — 2\/3 Ladungen/.test(hinweis.textContent),
+             hinweis ? hinweis.textContent : 'kein Hinweis');
+          if (hinweis) { hinweis.click(); await ruhe(60); }
+        }
+
+        // Ein Zauber wird gewirkt: der Platz geht ab, die Konzentration beginnt.
+        const reiterZauber = [...document.querySelectorAll('button')].find(b => /^\W*Zauber$/.test(b.textContent.trim()) || b.textContent.trim().endsWith('Zauber'));
+        if (reiterZauber) { reiterZauber.click(); await ruhe(250); }
+        [...document.querySelectorAll('.spell-level-header[aria-expanded="false"]')].forEach(h => h.click());
+        await ruhe(120);
+        const wirkB = await warten(() => [...document.querySelectorAll('.spell-wirken-btn')]
+          .find(b => /Person festhalten/.test(b.closest('.spell-card').textContent)), 2000);
+        if (ja('Die Zauberkarte trägt „Wirken“', !!wirkB)) {
+          const vorher = ((heldNachBenutzen().spellSlots || {})[2] || {}).used || 0;
+          wirkB.click();
+          const fen = await warten(() => document.querySelector('.wirken-fenster'), 2000);
+          if (ja('  … das Wirken-Fenster geht auf', !!fen)) {
+            const an = fen.querySelector('.wirken-grad.an');
+            ja('  … Grad 2 ist vorgewählt', !!an && /^2/.test(an.textContent.trim()), an ? an.textContent : 'nichts gewählt');
+            ja('  … es nennt die Konzentration', /Konzentration/.test(fen.textContent));
+            [...fen.querySelectorAll('.form-actions button')].find(b => /Wirken/.test(b.textContent)).click();
+            await warten(() => (((heldNachBenutzen().spellSlots || {})[2] || {}).used || 0) === vorher + 1, 2000);
+            ja('  … der Zauberplatz geht ab', (((heldNachBenutzen().spellSlots || {})[2] || {}).used || 0) === vorher + 1,
+               vorher + ' → ' + (((heldNachBenutzen().spellSlots || {})[2] || {}).used));
+            ja('  … der Held hält ihn', ((heldNachBenutzen().konzentration) || {}).name === 'Person festhalten');
+            ja('  … und das Fenster ist zu', !document.querySelector('.wirken-fenster'));
+          }
+        }
+
+        // Eine Ressource unmittelbar einsetzen.
+        const reiterAktionen = [...document.querySelectorAll('button')].find(b => /Aktionen/.test(b.textContent));
+        if (reiterAktionen) { reiterAktionen.click(); await ruhe(250); }
+        const einsB = await warten(() => document.querySelector('.resource-einsetzen'), 2000);
+        if (ja('Die Ressource trägt „Einsetzen“', !!einsB)) {
+          const vorR = (heldNachBenutzen().resources || [])[0].used;
+          einsB.click();
+          await warten(() => (heldNachBenutzen().resources || [])[0].used === vorR + 1, 2000);
+          ja('  … ein Klick zieht einen ab', (heldNachBenutzen().resources || [])[0].used === vorR + 1);
+          ja('  … und leer ist der Knopf gesperrt', document.querySelector('.resource-einsetzen').disabled);
+        }
+        const hinweisWeg = document.querySelector('.benutzt-hinweis');
+        if (hinweisWeg) hinweisWeg.click();
+        if (reiterI) { reiterI.click(); await ruhe(200); }
+
         // Der fremde Bogen ist hier nicht zu haben (die Werkbank leitet
         // alles). Geprüft wird deshalb die Darstellung: unter
         // sheet-nur-lesen dürfen die Ausrüstungsplätze nicht verschwinden —

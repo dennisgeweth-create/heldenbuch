@@ -1,6 +1,6 @@
 // ACHTUNG: erzeugt von build.js aus js/src/*.jsx — Aenderungen hier gehen
 // beim naechsten Bau verloren. Quelle bearbeiten, dann `node build.js`.
-// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2fb-hut.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 2o-tagebuch.jsx, 2p-anhang.jsx, 2q-ankuendigung.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
+// Zusammengesetzt aus: 0-basis.jsx, 1-editors.jsx, 2-logtab.jsx, 2b-gegner.jsx, 2c-kampf.jsx, 2c2-karte.jsx, 2d-chronik.jsx, 2e-abenteuer.jsx, 2f-automat.jsx, 2f2-blackjack.jsx, 2f3-roulette.jsx, 2f4-craps.jsx, 2f5-rennen.jsx, 2f6-poker.jsx, 2f7-walzen.jsx, 2f8-buch.jsx, 2f9-arena.jsx, 2fa-auge.jsx, 2fb-hut.jsx, 2g-kampfsicht.jsx, 2h-proben.jsx, 2i-beute.jsx, 2j-laden.jsx, 2k-heldtext.jsx, 2l-post.jsx, 2m-rast.jsx, 2n-bogentext.jsx, 2o-tagebuch.jsx, 2p-anhang.jsx, 2q-ankuendigung.jsx, 2r-benutzen.jsx, 3-sheet.jsx, 3a-ausruestung.jsx, 3b-aufstieg.jsx, 3c-assistent.jsx, 4-app.jsx
 function _extends() { _extends = Object.assign ? Object.assign.bind() : function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 // ==== js/src/0-basis.jsx ====
 const {
@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.3.0';
+const HB_VERSION = 'v6.4.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -184,6 +184,42 @@ const EinstBlock = ({
     className: "einst-inhalt"
   }, children));
 };
+const ReiterLeiste = ({
+  reiter,
+  aktiv,
+  onWahl
+}) => React.createElement("div", {
+  className: "reiter-leiste",
+  role: "tablist"
+}, reiter.filter(r => r && !r.weg).map(r => React.createElement("button", {
+  key: r.k,
+  type: "button",
+  role: "tab",
+  "data-reiter": r.k,
+  "aria-selected": aktiv === r.k,
+  title: r.titel,
+  className: 'reiter-knopf' + (aktiv === r.k ? ' an' : ''),
+  onClick: () => onWahl(r.k)
+}, r.icon ? React.createElement("span", {
+  className: "reiter-icon"
+}, r.icon) : null, React.createElement("span", {
+  className: "reiter-wort"
+}, r.titel), r.zahl ? React.createElement("span", {
+  className: "reiter-zahl"
+}, r.zahl) : r.punkt ? React.createElement("span", {
+  className: "reiter-punkt",
+  "aria-label": "eingestellt"
+}) : null)));
+const ReiterSeite = ({
+  k,
+  aktiv,
+  children
+}) => React.createElement("div", {
+  className: "reiter-seite",
+  role: "tabpanel",
+  "data-seite": k,
+  hidden: k !== aktiv
+}, children);
 const FENSTER_LUFT = 120;
 const FENSTER_RAND = 12;
 const FENSTER_KNOPF_RAND = 12;
@@ -2471,7 +2507,7 @@ const protokollZeile = (e, mitZahlen) => {
     case 'konzAn':
       return '   ⚡ ' + e.wer + ' hält jetzt „' + e.was + '“';
     case 'verbrauch':
-      return '   ' + e.was + ' verbraucht' + (e.rest === undefined || e.rest === null ? '' : ' · noch ' + e.rest);
+      return '   ' + e.was + (e.ladung ? ': eine Ladung verbraucht' : ' verbraucht') + (e.rest === undefined || e.rest === null ? '' : ' · noch ' + e.rest);
     case 'wurf':
       return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': ' + (e.treffer ? 'Treffer' : 'daneben') + (e.wurf !== '' && e.wurf != null ? ' (' + e.wurf + ' gegen RK ' + e.ac + ')' : '');
     case 'schaden':
@@ -2877,22 +2913,9 @@ const WertDialog = ({
   }, "Abbrechen"))));
 };
 const sortierteSprueche = held => [...(held && held.spells || [])].sort((a, b) => (a.level || 0) - (b.level || 0) || (a.name || '').localeCompare(b.name || '', 'de'));
-const kampfGegenstaende = held => (held && held.inventory || []).filter(i => i && i.kampf && (+i.qty || 0) > 0).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+const kampfGegenstaende = held => (held && held.inventory || []).filter(i => i && i.kampf && gegenstandVorrat(i) > 0).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
 const kampfMerkmale = held => [...(held && held.features || [])].sort((a, b) => (a.source || '').localeCompare(b.source || '', 'de') || (a.name || '').localeCompare(b.name || '', 'de'));
 const merkmalZauber = (held, merkmal) => merkmal && merkmal.zauber ? (held && held.spells || []).find(z => z.name === merkmal.zauber) || null : null;
-const merkmalRessource = (held, merkmal) => {
-  if (!merkmal || !merkmal.ressource) return null;
-  const r = (held && held.resources || []).find(x => x.id === merkmal.ressource);
-  if (!r) return null;
-  const kosten = Math.max(1, +merkmal.ressourceKosten || 1);
-  const rest = Math.max(0, (+r.max || 0) - (+r.used || 0));
-  return {
-    r,
-    kosten,
-    rest,
-    reicht: rest >= kosten
-  };
-};
 const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held) : art === 'angriff' ? held && held.weapons || [] : art === 'gegenstand' ? kampfGegenstaende(held) : art === 'merkmal' ? kampfMerkmale(held) : [];
 const ART_ANSICHT = {
   angriff: {
@@ -3123,7 +3146,7 @@ const AktionsWahl = ({
     const m = merkmalRessource(held, g);
     return m ? m.r.name + ' ' + m.rest + '/' + (+m.r.max || 0) : '';
   })()].filter(Boolean).join(' · ');
-  const rechts = g => wahl.art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : wahl.art === 'angriff' ? g.damage || '' : wahl.art === 'gegenstand' ? (hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '') + (+g.qty || 0) + '×' : ((merkmalZauber(held, g) || {}).wirkung || g.wirkung || {}).wuerfel || '';
+  const rechts = g => wahl.art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : wahl.art === 'angriff' ? g.damage || '' : wahl.art === 'gegenstand' ? (hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '') + (gegenstandNutzung(g) === 'ladung' ? ladungenStand(g).frei + ' Ldg.' : gegenstandNutzung(g) === 'stueck' ? (+g.qty || 0) + '×' : '') : ((merkmalZauber(held, g) || {}).wirkung || g.wirkung || {}).wuerfel || '';
   const plaetze = held && held.spellSlots || {};
   const grade = [];
   for (let l = Math.max(1, grundGrad); l <= 9; l++) {
@@ -3536,8 +3559,9 @@ const ZugFenster = ({
           grad
         });
       }
-      if (held && art === 'gegenstand' && (+gegenstand.qty || 0) > 0) {
-        const rest = Math.max(0, (+gegenstand.qty || 0) - 1);
+      if (held && art === 'gegenstand' && gegenstandNutzung(gegenstand) && gegenstandVorrat(gegenstand) > 0) {
+        const ladung = gegenstandNutzung(gegenstand) === 'ladung';
+        const rest = gegenstandVorrat(gegenstand) - 1;
         verbrauch = {
           charId: held.id,
           itemId: gegenstand.id,
@@ -3548,7 +3572,10 @@ const ZugFenster = ({
           art: 'verbrauch',
           wer: t.name,
           was: gegenstand.name,
-          rest
+          rest,
+          ...(ladung ? {
+            ladung: true
+          } : {})
         });
       }
     }
@@ -5598,10 +5625,7 @@ const KampfAnsicht = ({
       const c = helden.find(h => h.id === verbrauch.charId);
       if (c) {
         heldAendern(verbrauch.charId, {
-          inventory: (c.inventory || []).map(i => i.id === verbrauch.itemId ? {
-            ...i,
-            qty: Math.max(0, (+i.qty || 0) - 1)
-          } : i)
+          inventory: (c.inventory || []).map(i => i.id === verbrauch.itemId ? gegenstandVerbraucht(i) : i)
         }, c.name);
       }
     }
@@ -18135,6 +18159,7 @@ const RAST_KOMPLIKATIONEN = [{
   text: 'Mit Augenfäule angesteckt',
   krankheit: 'Augenfäule'
 }];
+const rastZufall = wahl => wahl.zufall || (wahl.saat != null ? saatZufall(wahl.saat) : Math.random);
 const rastAnwenden = (held, werte, rast, wahl = {}) => {
   const c = held || {};
   const w = werte || charWerte(c, {});
@@ -18192,6 +18217,11 @@ const rastAnwenden = (held, werte, rast, wahl = {}) => {
         patch.spellSlots = slots;
         saetze.push(n + ' Paktplatz' + (n === 1 ? '' : 'plätze') + ' zurück');
       }
+    }
+    const lk = ladungenAuffuellen(c.inventory, 'kurz', rastZufall(wahl));
+    if (lk.saetze.length) {
+      patch.inventory = lk.inventar;
+      saetze.push(...lk.saetze);
     }
     if (!saetze.length) saetze.push('Kurze Rast, nichts verbraucht');
     return {
@@ -18281,6 +18311,11 @@ const rastAnwenden = (held, werte, rast, wahl = {}) => {
     ...c.sorceryPoints,
     used: 0
   };
+  const ll = ladungenAuffuellen(c.inventory, 'lang', rastZufall(wahl));
+  if (ll.saetze.length) {
+    patch.inventory = ll.inventar;
+    saetze.push(...ll.saetze);
+  }
   patch.deathSaves = {
     erfolge: 0,
     fehler: 0
@@ -18538,6 +18573,7 @@ const RastHeld = ({
   const [rw, setRw] = React.useState('');
   const [w6, setW6] = React.useState(0);
   const [w4, setW4] = React.useState(0);
+  const [saat] = React.useState(() => Math.floor(Math.random() * 2147483647));
   const summe = zauberAuswahlSumme(plaetze);
   const slots = held.spellSlots || {};
   const grade = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(g => (+(slots[g] || {}).used || 0) > 0);
@@ -18550,7 +18586,8 @@ const RastHeld = ({
     wuerfe,
     rw: kompl ? rw : null,
     w6,
-    w4
+    w4,
+    saat
   });
   const offen = w => {
     const v = vorrat.find(x => x.w === w);
@@ -18671,7 +18708,8 @@ const RastHeld = ({
       wuerfe,
       rw: kompl ? rw : null,
       w6,
-      w4
+      w4,
+      saat
     })
   }, "\u2713 In den Bogen \xFCbernehmen"));
 };
@@ -20827,6 +20865,138 @@ const AnkuendigungsBuehne = () => {
 };
 const ANK_PROBEN = [['post', 'Neue Post', 'von Ilvara'], ['kampf', 'Kampf!', 'Würfelt Initiative'], ['zug', 'Du bist am Zug', 'Brunhilde'], ['probe', 'Probe', 'Wahrnehmung · SG 13'], ['rast', 'Lange Rast', 'Die Nacht im Schilf am Fluss'], ['beute', 'Beute liegt bereit', 'Truhe des Wirts'], ['laden', 'Der Laden hat geöffnet', 'Waffen und Rüstung']];
 
+// ==== js/src/2r-benutzen.jsx ====
+const WirkenFenster = ({
+  held,
+  zauber,
+  onWirken,
+  onAbbrechen
+}) => {
+  const wahl = zauberGradWahl(held, zauber);
+  const ritual = zauberIstRitual(zauber);
+  const [weg, setWeg] = useState(() => {
+    const g = zauberGradVorschlag(held, zauber);
+    return g ? {
+      grad: g
+    } : ritual ? {
+      ritual: true
+    } : {
+      frei: true
+    };
+  });
+  const grund = +zauber.level || 0;
+  const gradJetzt = weg.grad || grund;
+  const wurf = hatWirkung(zauber.wirkung) ? wuerfelAufGrad(zauber.wirkung, grund, gradJetzt) : '';
+  const alt = held.konzentration && held.konzentration.name;
+  const konz = brauchtKonzentration(zauber);
+  const gleich = w => JSON.stringify(w) === JSON.stringify(weg);
+  return React.createElement(Fenster, null, React.createElement("div", {
+    className: "form-modal wirken-fenster",
+    style: {
+      maxWidth: 460
+    }
+  }, React.createElement("div", {
+    className: "form-title"
+  }, "\u2728 ", zauber.name || 'Zauber', " wirken"), React.createElement("div", {
+    className: "wirken-kopf"
+  }, React.createElement("span", null, grund, ". Grad \xB7 ", zauber.school || '—'), React.createElement("span", null, zauber.castingTime || '—'), React.createElement("span", null, zauber.duration || '—')), React.createElement("div", {
+    className: "form-label",
+    style: {
+      marginTop: 14
+    }
+  }, "Zauberplatz"), wahl.length > 0 ? React.createElement("div", {
+    className: "wirken-grade",
+    role: "radiogroup",
+    "aria-label": "Zauberplatz"
+  }, wahl.map(x => React.createElement("button", {
+    key: x.grad,
+    type: "button",
+    role: "radio",
+    "aria-checked": gleich({
+      grad: x.grad
+    }),
+    className: 'wirken-grad' + (gleich({
+      grad: x.grad
+    }) ? ' an' : ''),
+    disabled: x.frei <= 0,
+    onClick: () => setWeg({
+      grad: x.grad
+    }),
+    title: x.frei <= 0 ? 'Kein Platz dieses Grades mehr frei' : 'Auf Grad ' + x.grad + ' wirken'
+  }, React.createElement("span", {
+    className: "wirken-grad-zahl"
+  }, x.grad), React.createElement("span", {
+    className: "wirken-grad-punkte",
+    "aria-hidden": "true"
+  }, Array.from({
+    length: Math.min(x.max, 6)
+  }).map((_, i) => React.createElement("i", {
+    key: i,
+    className: i < x.frei ? 'frei' : ''
+  }))), React.createElement("span", {
+    className: "wirken-grad-rest"
+  }, x.frei, "/", x.max)))) : React.createElement("div", {
+    className: "reiter-hinweis"
+  }, "Ab Grad ", grund, " sind keine Zauberpl\xE4tze eingetragen."), React.createElement("div", {
+    className: "wirken-sonst"
+  }, ritual && React.createElement("label", {
+    className: "zw-schalter"
+  }, React.createElement("input", {
+    type: "radio",
+    name: "wirken-weg",
+    checked: gleich({
+      ritual: true
+    }),
+    onChange: () => setWeg({
+      ritual: true
+    })
+  }), React.createElement("span", null, "Als Ritual \u2014 10 Minuten l\xE4nger, kein Platz")), React.createElement("label", {
+    className: "zw-schalter"
+  }, React.createElement("input", {
+    type: "radio",
+    name: "wirken-weg",
+    checked: gleich({
+      frei: true
+    }),
+    onChange: () => setWeg({
+      frei: true
+    })
+  }), React.createElement("span", null, "Ohne Zauberplatz (Volk, Talent, Gegenstand)"))), (wurf || konz) && React.createElement("div", {
+    className: "zw-probe",
+    style: {
+      marginTop: 12
+    }
+  }, wurf && React.createElement(React.Fragment, null, "Wurf auf Grad ", gradJetzt, ": ", React.createElement("b", null, wurf), zauber.wirkung.schadensart ? ' ' + zauber.wirkung.schadensart : ''), wurf && konz && ' · ', konz && (alt && alt !== zauber.name ? React.createElement(React.Fragment, null, "Konzentration \u2014 ", React.createElement("b", null, alt), " endet") : React.createElement(React.Fragment, null, "Konzentration"))), React.createElement("div", {
+    className: "form-actions"
+  }, React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), React.createElement("button", {
+    className: "btn-save",
+    onClick: () => onWirken(weg),
+    disabled: !!weg.grad && !(wahl.find(x => x.grad === weg.grad) || {}).frei
+  }, "\u2728 Wirken"))));
+};
+const BenutztHinweis = ({
+  hinweis,
+  onWeg
+}) => {
+  useEffect(() => {
+    if (!hinweis) return;
+    const t = setTimeout(onWeg, 4000);
+    return () => clearTimeout(t);
+  }, [hinweis && hinweis.t]);
+  if (!hinweis) return null;
+  return React.createElement("div", {
+    className: "benutzt-hinweis",
+    role: "status",
+    key: hinweis.t,
+    onClick: onWeg
+  }, React.createElement("span", {
+    className: "benutzt-haken"
+  }, "\u2713"), React.createElement("span", null, hinweis.text));
+};
+
 // ==== js/src/3-sheet.jsx ====
 const SheetCtx = React.createContext(null);
 const Sheet = () => {
@@ -20967,7 +21137,11 @@ const Sheet = () => {
     updSP,
     weaponProfs,
     weaponStats,
-    wsExpand
+    wsExpand,
+    zauberBenutzen,
+    gegenstandEinsetzen,
+    merkmalNutzen,
+    ressourceNutzen
   } = React.useContext(SheetCtx);
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
   const [tpDlg, setTpDlg] = useState(null);
@@ -22171,7 +22345,12 @@ const Sheet = () => {
     className: "resource-foot"
   }, React.createElement("span", {
     className: "resource-rest"
-  }, res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast"), res.used > 0 && React.createElement("button", {
+  }, res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast"), !resEdit && darfBearbeiten && React.createElement("button", {
+    className: "resource-einsetzen",
+    disabled: res.used >= res.max,
+    title: res.used >= res.max ? 'Nichts mehr übrig' : 'Einsetzen — einen abziehen und ins Log schreiben',
+    onClick: () => ressourceNutzen(res.id)
+  }, "\u25B6 Einsetzen"), res.used > 0 && React.createElement("button", {
     className: "resource-restore-btn",
     title: "Zurücksetzen (" + (res.restType === "kurz" ? "Kurze Rast" : res.restType === "tag" ? "Täglich" : "Lange Rast") + ")",
     onClick: () => updResource(res.id, {
@@ -22331,7 +22510,25 @@ const Sheet = () => {
     className: "feature-card-body"
   }, feat.source && React.createElement("div", {
     className: "feature-source"
-  }, feat.source), (feat.effects || []).length > 0 && React.createElement("div", {
+  }, feat.source), (() => {
+    const mr = merkmalRessource(cur, feat);
+    if (!mr) return null;
+    return React.createElement("div", {
+      className: "feature-nutzen",
+      onClick: e => e.stopPropagation()
+    }, React.createElement("span", {
+      className: "feature-nutzen-stand",
+      style: {
+        color: mr.r.color || 'var(--gold)'
+      }
+    }, mr.r.name, " ", React.createElement("b", null, mr.rest), "/", +mr.r.max || 0, mr.kosten > 1 ? ' · kostet ' + mr.kosten : ''), darfBearbeiten && React.createElement("button", {
+      type: "button",
+      className: "btn-benutzen klein",
+      disabled: !mr.reicht,
+      title: mr.reicht ? 'Einsetzen — ' + mr.r.name + ' −' + mr.kosten : 'Nicht genug ' + mr.r.name + ' übrig',
+      onClick: () => merkmalNutzen(feat.id)
+    }, "\u25B6 Einsetzen"));
+  })(), (feat.effects || []).length > 0 && React.createElement("div", {
     className: "feature-fx",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
@@ -22998,7 +23195,14 @@ const Sheet = () => {
             alignItems: 'center',
             gap: 4
           }
-        }, React.createElement("button", {
+        }, darfBearbeiten && React.createElement("button", {
+          className: "spell-wirken-btn",
+          title: +s.level ? 'Wirken — zieht einen Zauberplatz ab' : 'Wirken',
+          onClick: e => {
+            e.stopPropagation();
+            zauberBenutzen(s.id);
+          }
+        }, "\u2728 Wirken"), React.createElement("button", {
           title: s.prepared === false ? "Vorbereiten" : "Nicht vorbereitet markieren",
           onClick: e => {
             e.stopPropagation();
@@ -23542,7 +23746,18 @@ const Sheet = () => {
         g: item
       })), React.createElement("div", {
         className: "inv-card-name"
-      }, item.name)), React.createElement("div", {
+      }, item.name), gegenstandNutzung(item) && !transferMode && darfBearbeiten && React.createElement("button", {
+        type: "button",
+        className: "inv-benutzen",
+        disabled: gegenstandVorrat(item) <= 0,
+        title: gegenstandVorrat(item) <= 0 ? 'Nichts mehr übrig' : 'Benutzen — ' + gegenstandRestText(item),
+        onClick: e => {
+          e.stopPropagation();
+          gegenstandEinsetzen(item.id);
+        }
+      }, "\u25B6", gegenstandNutzung(item) === 'ladung' ? React.createElement("span", {
+        className: "inv-benutzen-zahl"
+      }, ladungenStand(item).frei, "/", ladungenStand(item).max) : null)), React.createElement("div", {
         className: "inv-card-body-wrap"
       }, React.createElement("div", null, React.createElement("div", {
         style: {
@@ -25137,6 +25352,17 @@ function App() {
   const [noteTagFilter, setNoteTagFilter] = useState([]);
   const [exNote, setExNote] = useState(null);
   const [showIF, setShowIF] = useState(false);
+  const [reiterWahl, setReiterWahl] = useState({});
+  const [wirkenDlg, setWirkenDlg] = useState(null);
+  const [benutztHinweis, setBenutztHinweis] = useState(null);
+  const reiterVon = (fenster, erste) => reiterWahl[fenster] || erste;
+  const reiterSetzen = fenster => k => setReiterWahl(r => ({
+    ...r,
+    [fenster]: k
+  }));
+  useEffect(() => {
+    setReiterWahl({});
+  }, [showIF, showSF, showFF, showWF]);
   const [itfEditId, setItfEditId] = useState(null);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferSel, setTransferSel] = useState(new Set());
@@ -29096,6 +29322,36 @@ function App() {
       used: i < avail ? r.max - i : r.max - (i + 1)
     });
   };
+  const benutzt = (rechnung, tab) => {
+    const c = charsRef.current.find(x => x.id === selRef.current);
+    if (!c) return null;
+    const res = rechnung(c);
+    if (!res || res.fehler) {
+      appAlert(res && res.fehler || 'Das ging nicht.');
+      return null;
+    }
+    patchCurrent(() => res.patch);
+    addLog(c.id, c.name, tab, res.text, res.details);
+    setBenutztHinweis({
+      text: res.text,
+      t: Date.now()
+    });
+    return res;
+  };
+  const zauberBenutzen = spellId => {
+    const z = (cur && cur.spells || []).find(s => s.id === spellId);
+    if (!z) return;
+    if (!+z.level) benutzt(c => zauberWirken(c, z), 'zauber');else setWirkenDlg(spellId);
+  };
+  const gegenstandEinsetzen = itemId => {
+    const res = benutzt(c => gegenstandBenutzen(c, itemId), 'inventar');
+    if (res && itemViewer && itemViewer.id === itemId) {
+      const neu = (res.patch.inventory || []).find(i => i.id === itemId);
+      if (neu) setItemViewer(neu);
+    }
+  };
+  const merkmalNutzen = featId => benutzt(c => merkmalEinsetzen(c, featId), 'attribute');
+  const ressourceNutzen = resId => benutzt(c => ressourceEinsetzen(c, resId), 'attribute');
   const TPL_QUELLEN = {
     spell: ['spells', 'data-spells.json'],
     weapon: ['weapons', 'data-weapons.json'],
@@ -29647,7 +29903,11 @@ function App() {
     updSP,
     weaponProfs,
     weaponStats,
-    wsExpand
+    wsExpand,
+    zauberBenutzen,
+    gegenstandEinsetzen,
+    merkmalNutzen,
+    ressourceNutzen
   };
   return React.createElement(FensterLeisteCtx.Provider, {
     value: leiste
@@ -30213,13 +30473,36 @@ function App() {
     className: "btn-save",
     onClick: saveChar
   }, "\u2736 Speichern")))), showWF && React.createElement(Fenster, null, React.createElement("div", {
-    className: "form-modal breit",
+    className: "form-modal breit mit-reitern",
     style: {
       maxWidth: 820
     }
   }, React.createElement("div", {
-    className: "form-title"
-  }, wfEditId ? "Waffe bearbeiten" : "Neue Waffe"), React.createElement("div", {
+    className: "form-title mit-reitern"
+  }, React.createElement("span", {
+    className: "reiter-titel"
+  }, wfEditId ? "✎ Waffe bearbeiten" : "⚔ Neue Waffe"), React.createElement(ReiterLeiste, {
+    aktiv: reiterVon('waffe', 'allgemein'),
+    onWahl: reiterSetzen('waffe'),
+    reiter: [{
+      k: 'allgemein',
+      icon: '⚔',
+      titel: 'Werte'
+    }, {
+      k: 'text',
+      icon: '📜',
+      titel: 'Beschreibung & Bild',
+      punkt: !!(wf.description || wf.imageData)
+    }, {
+      k: 'effekte',
+      icon: '✦',
+      titel: 'Effekte',
+      zahl: (wf.effects || []).length
+    }]
+  })), React.createElement(ReiterSeite, {
+    k: "allgemein",
+    aktiv: reiterVon('waffe', 'allgemein')
+  }, React.createElement("div", {
     className: "form-grid"
   }, React.createElement("div", {
     className: "form-group form-full"
@@ -30358,7 +30641,12 @@ function App() {
         color: on ? "var(--gold)" : "var(--text-muted)"
       }
     }, p);
-  }))), React.createElement("div", {
+  }))))), React.createElement(ReiterSeite, {
+    k: "text",
+    aktiv: reiterVon('waffe', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
     className: "form-group form-halb"
   }, React.createElement("div", {
     className: "form-label"
@@ -30394,7 +30682,12 @@ function App() {
       marginTop: 5,
       fontStyle: 'italic'
     }
-  }, "F\xFCllt die Karte im Format 5:7 aus, hochkant wird also am wenigsten beschnitten. Transparente PNGs bleiben transparent.")), React.createElement("div", {
+  }, "F\xFCllt die Karte im Format 5:7 aus, hochkant wird also am wenigsten beschnitten. Transparente PNGs bleiben transparent.")))), React.createElement(ReiterSeite, {
+    k: "effekte",
+    aktiv: reiterVon('waffe', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
     className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label"
@@ -30405,7 +30698,7 @@ function App() {
       effects: v
     }),
     hint: "Wirken, solange die Waffe angelegt ist."
-  }))), React.createElement("div", {
+  })))), React.createElement("div", {
     className: "form-actions"
   }, React.createElement("button", {
     className: "btn-cancel",
@@ -30417,13 +30710,36 @@ function App() {
     className: "btn-save",
     onClick: addWeapon
   }, wfEditId ? "Speichern" : "+ Hinzufügen")))), showFF && React.createElement(Fenster, null, React.createElement("div", {
-    className: "form-modal breit",
+    className: "form-modal breit mit-reitern",
     style: {
       maxWidth: 700
     }
   }, React.createElement("div", {
-    className: "form-title"
-  }, ffEditId ? '✏️ Fähigkeit bearbeiten' : '⭐ Neue Fähigkeit'), React.createElement("div", {
+    className: "form-title mit-reitern"
+  }, React.createElement("span", {
+    className: "reiter-titel"
+  }, ffEditId ? '✏️ Fähigkeit bearbeiten' : '⭐ Neue Fähigkeit'), React.createElement(ReiterLeiste, {
+    aktiv: reiterVon('merkmal', 'allgemein'),
+    onWahl: reiterSetzen('merkmal'),
+    reiter: [{
+      k: 'allgemein',
+      icon: '📜',
+      titel: 'Allgemein'
+    }, {
+      k: 'benutzen',
+      icon: '⚔',
+      titel: 'Benutzen & Kampf',
+      punkt: !!(ff.ressource || ff.zauber || hatWirkung(ff.wirkung))
+    }, {
+      k: 'effekte',
+      icon: '✦',
+      titel: 'Effekte',
+      zahl: (ff.effects || []).length
+    }]
+  })), React.createElement(ReiterSeite, {
+    k: "allgemein",
+    aktiv: reiterVon('merkmal', 'allgemein')
+  }, React.createElement("div", {
     className: "form-grid"
   }, React.createElement("div", {
     className: "form-group form-halb"
@@ -30460,8 +30776,13 @@ function App() {
       description: v
     }),
     placeholder: "Beschreibung der F\xE4higkeit, Nutzungsbedingungen...",
-    rows: 6
-  })), React.createElement("div", {
+    rows: 8
+  })))), React.createElement(ReiterSeite, {
+    k: "effekte",
+    aktiv: reiterVon('merkmal', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
     className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label"
@@ -30499,11 +30820,21 @@ function App() {
       fontSize: 12,
       color: 'var(--text-secondary)'
     }
-  }, "Wirkt gerade"))), React.createElement("div", {
+  }, "Wirkt gerade"))))), React.createElement(ReiterSeite, {
+    k: "benutzen",
+    aktiv: reiterVon('merkmal', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
     className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label"
-  }, "\u2694 Im Kampf"), React.createElement("div", {
+  }, "Benutzen \u2014 im Bogen und im Kampf"), React.createElement("div", {
+    className: "reiter-hinweis",
+    style: {
+      marginBottom: 8
+    }
+  }, "Mit einer Ressource steht am Merkmal ein Knopf \u201EEinsetzen\u201C: er zieht sie ab und schreibt es ins Log."), React.createElement("div", {
     className: "zauber-wirkung"
   }, React.createElement("label", {
     className: "zw-feld"
@@ -30572,7 +30903,7 @@ function App() {
       ...f,
       wirkung: w
     }))
-  }))))), React.createElement("div", {
+  })))))), React.createElement("div", {
     className: "form-actions"
   }, React.createElement("button", {
     className: "btn-cancel",
@@ -30584,13 +30915,36 @@ function App() {
     className: "btn-save",
     onClick: saveFeature
   }, ffEditId ? '✓ Speichern' : '+ Hinzufügen')))), showSF && React.createElement(Fenster, null, React.createElement("div", {
-    className: "form-modal breit",
+    className: "form-modal breit mit-reitern",
     style: {
       maxWidth: 880
     }
   }, React.createElement("div", {
-    className: "form-title"
-  }, sfEditId ? '✏️ Zauber bearbeiten' : '✨ Neuer Zauber'), React.createElement("div", {
+    className: "form-title mit-reitern"
+  }, React.createElement("span", {
+    className: "reiter-titel"
+  }, sfEditId ? '✏️ Zauber bearbeiten' : '✨ Neuer Zauber'), React.createElement(ReiterLeiste, {
+    aktiv: reiterVon('zauber', 'allgemein'),
+    onWahl: reiterSetzen('zauber'),
+    reiter: [{
+      k: 'allgemein',
+      icon: '📜',
+      titel: 'Allgemein'
+    }, {
+      k: 'text',
+      icon: '📖',
+      titel: 'Beschreibung',
+      punkt: !!sf.description
+    }, {
+      k: 'wirkung',
+      icon: '⚔',
+      titel: 'Wirkung im Kampf',
+      punkt: hatWirkung(sf.wirkung)
+    }]
+  })), React.createElement(ReiterSeite, {
+    k: "allgemein",
+    aktiv: reiterVon('zauber', 'allgemein')
+  }, React.createElement("div", {
     className: "form-grid"
   }, React.createElement("div", {
     className: "form-group form-full"
@@ -30683,7 +31037,123 @@ function App() {
       components: e.target.value
     })
   })), React.createElement("div", {
-    className: "form-group form-halb"
+    className: "form-group",
+    style: {
+      justifyContent: 'flex-end'
+    }
+  }, React.createElement("label", {
+    className: "zw-schalter",
+    style: {
+      padding: '8px 0'
+    }
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: !!sf.ritual,
+    onChange: e => setSf({
+      ...sf,
+      ritual: e.target.checked
+    })
+  }), React.createElement("span", null, "Ritual"))), React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Klassen"), React.createElement("div", {
+    className: "marken-reihe",
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 5,
+      marginTop: 4
+    }
+  }, ['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c => {
+    const cc = {
+      'Artifizient': '#70b8c8',
+      'Barbar': '#c84040',
+      'Barde': '#4090c0',
+      'Druide': '#52b788',
+      'Hexenmeister': '#9060c0',
+      'Kämpfer': '#c08040',
+      'Kleriker': '#e0c040',
+      'Magier': '#6080d0',
+      'Mönch': '#d09040',
+      'Paladin': '#e0a030',
+      'Schurke': '#808080',
+      'Waldläufer': '#70a050',
+      'Zauberer': '#c060a0'
+    };
+    const col = cc[c] || '#c9a84c';
+    const on = (sf.classes || []).includes(c);
+    return React.createElement("button", {
+      key: c,
+      type: "button",
+      onClick: () => setSf(f => ({
+        ...f,
+        classes: on ? (f.classes || []).filter(x => x !== c) : [...(f.classes || []), c]
+      })),
+      style: {
+        padding: '2px 9px',
+        borderRadius: 10,
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 9,
+        cursor: 'pointer',
+        border: '1px solid ' + (on ? col : col + '40'),
+        background: on ? col + '22' : 'var(--bg-card)',
+        color: on ? col : 'var(--text-muted)'
+      }
+    }, c);
+  }))), React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Schadenstypen"), React.createElement("div", {
+    className: "marken-reihe",
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 5,
+      marginTop: 4
+    }
+  }, ['Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekrotisch', 'Gleißend', 'Psychisch', 'Energie', 'Schall', 'Hieb', 'Stich', 'Wucht'].map(d => {
+    const on = (sf.damageTags || []).includes(d);
+    const dc = {
+      Feuer: '#e07030',
+      Kälte: '#70b8d8',
+      Blitz: '#c0d850',
+      Säure: '#90c040',
+      Gift: '#80b030',
+      Nekrose: '#9060c0',
+      Strahlend: '#f0e060',
+      Psychisch: '#c070d0',
+      Kraft: '#80a0f0',
+      Hieb: '#a07050',
+      Stich: '#b08060',
+      Wucht: '#c09070'
+    }[d] || '#aaa';
+    return React.createElement("button", {
+      key: d,
+      type: "button",
+      onClick: () => setSf(f => ({
+        ...f,
+        damageTags: on ? (f.damageTags || []).filter(x => x !== d) : [...(f.damageTags || []), d]
+      })),
+      style: {
+        padding: '2px 9px',
+        borderRadius: 10,
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 9,
+        cursor: 'pointer',
+        border: `1px solid ${on ? dc : dc + '40'}`,
+        background: on ? dc + '22' : 'var(--bg-card)',
+        color: on ? dc : 'var(--text-muted)'
+      }
+    }, "\u2694\uFE0F ", d);
+  }))))), React.createElement(ReiterSeite, {
+    k: "text",
+    aktiv: reiterVon('zauber', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
+    className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label"
   }, "Beschreibung"), React.createElement(RichEditor, {
@@ -30693,9 +31163,14 @@ function App() {
       description: v
     }),
     placeholder: "Wirkung des Zaubers...",
-    rows: 4
-  })), React.createElement("div", {
-    className: "form-group form-halb"
+    rows: 12
+  })))), React.createElement(ReiterSeite, {
+    k: "wirkung",
+    aktiv: reiterVon('zauber', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
+    className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label zauber-wirkung-kopf"
   }, "Wirkung im Kampf", React.createElement("button", {
@@ -30830,101 +31305,7 @@ function App() {
     }))
   }), hatWirkung(sf.wirkung) && React.createElement("div", {
     className: "zw-probe"
-  }, "Auf Grad ", Math.max(1, sf.level || 1), ": ", React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'), (sf.wirkung || {}).proGrad && (sf.level || 0) < 9 && React.createElement(React.Fragment, null, ' · ', "auf Grad ", Math.min(9, (sf.level || 1) + 1), ":", ' ', React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, Math.min(9, (sf.level || 1) + 1)))), (sf.wirkung || {}).rettung && React.createElement(React.Fragment, null, " \xB7 ", RETTUNG_KURZ[(sf.wirkung || {}).rettung], (sf.wirkung || {}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'), (sf.wirkung || {}).flaeche && React.createElement(React.Fragment, null, " \xB7 ", React.createElement("b", null, "Fl\xE4che"), ": eine Zahl f\xFCr alle Ziele"))), React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Klassen"), React.createElement("div", {
-    className: "marken-reihe",
-    style: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: 5,
-      marginTop: 4
-    }
-  }, ['Artifizient', 'Barbar', 'Barde', 'Druide', 'Hexenmeister', 'Kleriker', 'Kämpfer', 'Magier', 'Mönch', 'Paladin', 'Schurke', 'Waldläufer', 'Zauberer'].map(c => {
-    const cc = {
-      'Artifizient': '#70b8c8',
-      'Barbar': '#c84040',
-      'Barde': '#4090c0',
-      'Druide': '#52b788',
-      'Hexenmeister': '#9060c0',
-      'Kämpfer': '#c08040',
-      'Kleriker': '#e0c040',
-      'Magier': '#6080d0',
-      'Mönch': '#d09040',
-      'Paladin': '#e0a030',
-      'Schurke': '#808080',
-      'Waldläufer': '#70a050',
-      'Zauberer': '#c060a0'
-    };
-    const col = cc[c] || '#c9a84c';
-    const on = (sf.classes || []).includes(c);
-    return React.createElement("button", {
-      key: c,
-      type: "button",
-      onClick: () => setSf(f => ({
-        ...f,
-        classes: on ? (f.classes || []).filter(x => x !== c) : [...(f.classes || []), c]
-      })),
-      style: {
-        padding: '2px 9px',
-        borderRadius: 10,
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        cursor: 'pointer',
-        border: '1px solid ' + (on ? col : col + '40'),
-        background: on ? col + '22' : 'var(--bg-card)',
-        color: on ? col : 'var(--text-muted)'
-      }
-    }, c);
-  }))), React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Schadenstypen"), React.createElement("div", {
-    className: "marken-reihe",
-    style: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: 5,
-      marginTop: 4
-    }
-  }, ['Feuer', 'Kälte', 'Blitz', 'Säure', 'Gift', 'Nekrotisch', 'Gleißend', 'Psychisch', 'Energie', 'Schall', 'Hieb', 'Stich', 'Wucht'].map(d => {
-    const on = (sf.damageTags || []).includes(d);
-    const dc = {
-      Feuer: '#e07030',
-      Kälte: '#70b8d8',
-      Blitz: '#c0d850',
-      Säure: '#90c040',
-      Gift: '#80b030',
-      Nekrose: '#9060c0',
-      Strahlend: '#f0e060',
-      Psychisch: '#c070d0',
-      Kraft: '#80a0f0',
-      Hieb: '#a07050',
-      Stich: '#b08060',
-      Wucht: '#c09070'
-    }[d] || '#aaa';
-    return React.createElement("button", {
-      key: d,
-      type: "button",
-      onClick: () => setSf(f => ({
-        ...f,
-        damageTags: on ? (f.damageTags || []).filter(x => x !== d) : [...(f.damageTags || []), d]
-      })),
-      style: {
-        padding: '2px 9px',
-        borderRadius: 10,
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        cursor: 'pointer',
-        border: `1px solid ${on ? dc : dc + '40'}`,
-        background: on ? dc + '22' : 'var(--bg-card)',
-        color: on ? dc : 'var(--text-muted)'
-      }
-    }, "\u2694\uFE0F ", d);
-  })))), React.createElement("div", {
+  }, "Auf Grad ", Math.max(1, sf.level || 1), ": ", React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, sf.level) || '—'), (sf.wirkung || {}).proGrad && (sf.level || 0) < 9 && React.createElement(React.Fragment, null, ' · ', "auf Grad ", Math.min(9, (sf.level || 1) + 1), ":", ' ', React.createElement("b", null, wuerfelAufGrad(sf.wirkung, sf.level, Math.min(9, (sf.level || 1) + 1)))), (sf.wirkung || {}).rettung && React.createElement(React.Fragment, null, " \xB7 ", RETTUNG_KURZ[(sf.wirkung || {}).rettung], (sf.wirkung || {}).halb ? ', bestanden halbiert' : ', bestanden ohne Wirkung'), (sf.wirkung || {}).flaeche && React.createElement(React.Fragment, null, " \xB7 ", React.createElement("b", null, "Fl\xE4che"), ": eine Zahl f\xFCr alle Ziele"))))), React.createElement("div", {
     className: "form-actions"
   }, React.createElement("button", {
     className: "btn-cancel",
@@ -31066,94 +31447,58 @@ function App() {
   }, "Abbrechen"), React.createElement("button", {
     className: "btn-save",
     onClick: saveNote
-  }, nfEditId ? '✓ Speichern' : '+ Hinzufügen')))), showIF && React.createElement(Fenster, null, React.createElement("div", {
-    className: "form-modal breit",
+  }, nfEditId ? '✓ Speichern' : '+ Hinzufügen')))), wirkenDlg && cur && (() => {
+    const z = (cur.spells || []).find(s => s.id === wirkenDlg);
+    if (!z) return null;
+    return React.createElement(WirkenFenster, {
+      held: cur,
+      zauber: z,
+      onAbbrechen: () => setWirkenDlg(null),
+      onWirken: wie => {
+        if (benutzt(c => zauberWirken(c, z, wie), 'zauber')) setWirkenDlg(null);
+      }
+    });
+  })(), React.createElement(BenutztHinweis, {
+    hinweis: benutztHinweis,
+    onWeg: () => setBenutztHinweis(null)
+  }), showIF && React.createElement(Fenster, null, React.createElement("div", {
+    className: "form-modal breit mit-reitern",
     style: {
       maxWidth: 840
     }
   }, React.createElement("div", {
-    className: "form-title"
-  }, itfEditId ? '✏️ Gegenstand bearbeiten' : '🎒 Neuer Gegenstand'), !itfEditId && (() => {
-    const activeItems = isDmMode ? [...(dmLibrary.item || []), ...(userLibrary.item || [])] : userLibrary.item || [];
-    if (activeItems.length === 0) return null;
-    return React.createElement("div", {
-      style: {
-        marginBottom: 12,
-        paddingBottom: 12,
-        borderBottom: '1px solid var(--border)'
-      }
-    }, React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 6
-      }
-    }, React.createElement("div", {
-      style: {
-        fontFamily: "'Roboto Condensed',sans-serif",
-        fontSize: 9,
-        color: isDmMode ? '#c060a0' : 'var(--gold)',
-        letterSpacing: '0.15em',
-        textTransform: 'uppercase'
-      }
-    }, isDmMode ? '🔮 DM-Datenbank' : '📚 Aus Datenbank'), React.createElement("div", {
-      style: {
-        fontSize: 10,
-        color: 'var(--text-muted)',
-        fontStyle: 'italic'
-      }
-    }, activeItems.length, " Eintr\xE4ge")), React.createElement("input", {
-      className: "form-input",
-      style: {
-        marginBottom: 6,
-        padding: '5px 10px',
-        fontSize: 12
-      },
-      placeholder: "Suchen...",
-      onChange: e => {
-        const q = e.target.value.toLowerCase();
-        const wrap = e.target.closest('.form-modal').querySelector('.db-item-list');
-        if (wrap) [...wrap.children].forEach(c => {
-          c.style.display = c.dataset.name.includes(q) ? '' : 'none';
-        });
-      }
-    }), React.createElement("div", {
-      className: "db-item-list",
-      style: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 5,
-        maxHeight: 110,
-        overflowY: 'auto'
-      }
-    }, activeItems.map((item, i) => {
-      const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
-      const isDmItem = isDmMode && (dmLibrary.item || []).some(d => d.name === item.name);
-      return React.createElement("button", {
-        key: i,
-        "data-name": (item.name || '').toLowerCase(),
-        onClick: () => setItf({
-          ...newItem(),
-          ...item,
-          id: Date.now().toString(),
-          libRef: item.name
-        }),
-        title: item.description || item.source || '',
-        style: {
-          padding: '3px 10px',
-          borderRadius: 12,
-          fontFamily: "'Roboto Condensed',sans-serif",
-          fontSize: 10,
-          cursor: 'pointer',
-          border: '1px solid ' + (isDmItem ? '#c060a060' : r.color + '60'),
-          background: isDmItem ? 'rgba(192,96,160,0.12)' : r.color + '15',
-          color: isDmItem ? '#c060a0' : r.color,
-          letterSpacing: '0.05em'
-        }
-      }, item.name);
-    })));
-  })(), showIconPicker && (() => {
+    className: "form-title mit-reitern"
+  }, React.createElement("span", {
+    className: "reiter-titel"
+  }, itfEditId ? '✏️ Gegenstand bearbeiten' : '🎒 Neuer Gegenstand'), React.createElement(ReiterLeiste, {
+    aktiv: reiterVon('item', 'allgemein'),
+    onWahl: reiterSetzen('item'),
+    reiter: [{
+      k: 'allgemein',
+      icon: '📜',
+      titel: 'Allgemein'
+    }, {
+      k: 'ausruestung',
+      icon: '🛡',
+      titel: 'Ausrüstung',
+      punkt: !!itf.gearKind
+    }, {
+      k: 'benutzen',
+      icon: '⚔',
+      titel: 'Benutzen',
+      punkt: !!itf.kampf || !!gegenstandNutzung(itf)
+    }, {
+      k: 'effekte',
+      icon: '✦',
+      titel: 'Effekte',
+      zahl: (itf.effects || []).length
+    }, {
+      k: 'bild',
+      icon: '📎',
+      titel: 'Bild & PDF',
+      zahl: (itf.anhaenge || []).length + (itf.imageData ? 1 : 0)
+    }]
+  })), showIconPicker && (() => {
     const ICON_CATS = (window.HB_IKONEN || {}).bildWahl || (window.HB_IKONEN || {}).wahl || [];
     const gleich = (a, b) => a === b || !!window.HB_IKONEN && !!window.HB_IKONEN.gleichesBild && window.HB_IKONEN.gleichesBild(a, b);
     return React.createElement("div", {
@@ -31234,6 +31579,89 @@ function App() {
       className: "btn-cancel",
       onClick: () => setShowIconPicker(false)
     }, "Schlie\xDFen"))));
+  })(), React.createElement(ReiterSeite, {
+    k: "allgemein",
+    aktiv: reiterVon('item', 'allgemein')
+  }, !itfEditId && (() => {
+    const activeItems = isDmMode ? [...(dmLibrary.item || []), ...(userLibrary.item || [])] : userLibrary.item || [];
+    if (activeItems.length === 0) return null;
+    return React.createElement("div", {
+      style: {
+        marginBottom: 12,
+        paddingBottom: 12,
+        borderBottom: '1px solid var(--border)'
+      }
+    }, React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 6
+      }
+    }, React.createElement("div", {
+      style: {
+        fontFamily: "'Roboto Condensed',sans-serif",
+        fontSize: 9,
+        color: isDmMode ? '#c060a0' : 'var(--gold)',
+        letterSpacing: '0.15em',
+        textTransform: 'uppercase'
+      }
+    }, isDmMode ? '🔮 DM-Datenbank' : '📚 Aus Datenbank'), React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--text-muted)',
+        fontStyle: 'italic'
+      }
+    }, activeItems.length, " Eintr\xE4ge")), React.createElement("input", {
+      className: "form-input",
+      style: {
+        marginBottom: 6,
+        padding: '5px 10px',
+        fontSize: 12
+      },
+      placeholder: "Suchen...",
+      onChange: e => {
+        const q = e.target.value.toLowerCase();
+        const wrap = e.target.closest('.form-modal').querySelector('.db-item-list');
+        if (wrap) [...wrap.children].forEach(c => {
+          c.style.display = c.dataset.name.includes(q) ? '' : 'none';
+        });
+      }
+    }), React.createElement("div", {
+      className: "db-item-list",
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 5,
+        maxHeight: 110,
+        overflowY: 'auto'
+      }
+    }, activeItems.map((item, i) => {
+      const r = RARITIES.find(x => x.key === item.rarity) || RARITIES[0];
+      const isDmItem = isDmMode && (dmLibrary.item || []).some(d => d.name === item.name);
+      return React.createElement("button", {
+        key: i,
+        "data-name": (item.name || '').toLowerCase(),
+        onClick: () => setItf({
+          ...newItem(),
+          ...item,
+          id: Date.now().toString(),
+          libRef: item.name
+        }),
+        title: item.description || item.source || '',
+        style: {
+          padding: '3px 10px',
+          borderRadius: 12,
+          fontFamily: "'Roboto Condensed',sans-serif",
+          fontSize: 10,
+          cursor: 'pointer',
+          border: '1px solid ' + (isDmItem ? '#c060a060' : r.color + '60'),
+          background: isDmItem ? 'rgba(192,96,160,0.12)' : r.color + '15',
+          color: isDmItem ? '#c060a0' : r.color,
+          letterSpacing: '0.05em'
+        }
+      }, item.name);
+    })));
   })(), React.createElement("div", {
     className: "form-grid"
   }, React.createElement("div", {
@@ -31330,6 +31758,277 @@ function App() {
       wert: k
     }))
   })), React.createElement("div", {
+    className: "form-group form-gross"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Erhalten durch (optional)"), React.createElement("input", {
+    className: "form-input",
+    placeholder: "z.B. Gefunden in Dungeon, Kauf beim H\xE4ndler...",
+    value: itf.source || '',
+    onChange: e => setItf({
+      ...itf,
+      source: e.target.value
+    })
+  })), React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Beschreibung (optional)"), React.createElement(RichEditor, {
+    value: itf.description,
+    onChange: v => setItf({
+      ...itf,
+      description: v
+    }),
+    placeholder: "Wirkung, Eigenschaften...",
+    rows: 3
+  })), React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Tags (Enter oder Komma zum Hinzuf\xFCgen)"), React.createElement("div", {
+    className: "tag-input-wrap",
+    onClick: e => e.currentTarget.querySelector('input').focus()
+  }, (itf.tags || []).map(t => React.createElement("span", {
+    key: t,
+    className: "tag-chip"
+  }, t, React.createElement("button", {
+    className: "tag-chip-del",
+    onClick: () => setItf({
+      ...itf,
+      tags: (itf.tags || []).filter(x => x !== t)
+    })
+  }, "\xD7"))), React.createElement("input", {
+    className: "tag-text-input",
+    placeholder: (itf.tags || []).length === 0 ? "z.B. Waffe, Ruestung, Quest..." : "",
+    onKeyDown: e => {
+      const v = e.target.value.trim();
+      if ((e.key === "Enter" || e.key === ",") && v) {
+        e.preventDefault();
+        const t = v.replace(/,/g, "").trim();
+        if (t && !(itf.tags || []).includes(t)) setItf({
+          ...itf,
+          tags: [...(itf.tags || []), t]
+        });
+        e.target.value = "";
+      }
+      if (e.key === "Backspace" && !e.target.value && (itf.tags || []).length > 0) setItf({
+        ...itf,
+        tags: (itf.tags || []).slice(0, -1)
+      });
+    },
+    onBlur: e => {
+      const v = e.target.value.trim().replace(/,/g, "");
+      if (v && !(itf.tags || []).includes(v)) {
+        setItf({
+          ...itf,
+          tags: [...(itf.tags || []), v]
+        });
+        e.target.value = "";
+      }
+    }
+  }))))), React.createElement(ReiterSeite, {
+    k: "ausruestung",
+    aktiv: reiterVon('item', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Ausr\xFCstungsplatz"), React.createElement("select", {
+    className: "form-select",
+    value: itf.gearKind || '',
+    onChange: e => {
+      const k = e.target.value;
+      const art = k === 'ruestung' ? itf.armorType && itf.armorType !== 'shield' ? itf.armorType : 'light' : k === 'schild' ? 'shield' : '';
+      const basis = (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0;
+      setItf({
+        ...itf,
+        gearKind: k,
+        armorType: art,
+        baseAC: art ? +itf.baseAC || basis : 0
+      });
+    }
+  }, GEAR_KINDS.map(g => React.createElement("option", {
+    key: g.key,
+    value: g.key
+  }, g.label)))), itf.gearKind === 'ruestung' && React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "R\xFCstungsart"), React.createElement("select", {
+    className: "form-select",
+    value: itf.armorType || 'light',
+    onChange: e => {
+      const art = e.target.value;
+      setItf({
+        ...itf,
+        armorType: art,
+        baseAC: (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0
+      });
+    }
+  }, ARMOR_KINDS.filter(a => a.key && a.key !== 'shield').map(a => React.createElement("option", {
+    key: a.key,
+    value: a.key
+  }, a.label)))), (itf.gearKind === 'ruestung' || itf.gearKind === 'schild') && React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, itf.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: "0",
+    max: "25",
+    wert: itf.baseAC || 0,
+    onWert: v => setItf({
+      ...itf,
+      baseAC: v
+    })
+  })), itf.gearKind && React.createElement("div", {
+    className: "form-group"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Magischer RK-Bonus"), React.createElement(ZahlFeld, {
+    className: "form-input",
+    min: "-5",
+    max: "10",
+    wert: itf.acBonus || 0,
+    placeholder: "z.B. +1",
+    onWert: v => setItf({
+      ...itf,
+      acBonus: v
+    })
+  })), itf.gearKind && React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Geh\xF6rt zu einem Set (optional)"), React.createElement("input", {
+    className: "form-input",
+    list: "hb-set-namen-inv",
+    value: itf.setName || '',
+    onChange: e => setItf({
+      ...itf,
+      setName: e.target.value
+    }),
+    placeholder: "z.B. Hain des Ersten Lichts"
+  }), React.createElement("datalist", {
+    id: "hb-set-namen-inv"
+  }, [...new Set([...(userLibrary.item || []).map(e => e.setName), ...(isDmMode ? dmLibrary.item || [] : []).map(e => e.setName), ...(cur && cur.inventory || []).map(i => i.setName)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map(n => React.createElement("option", {
+    key: n,
+    value: n
+  })))), itf.gearKind && React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--text-muted)',
+      fontStyle: 'italic',
+      fontFamily: "'Roboto Condensed',sans-serif"
+    }
+  }, itf.gearKind === 'ruestung' && ((ARMOR_KINDS.find(a => a.key === itf.armorType) || {}).hinweis || '') + ' — RK ' + (itf.baseAC || 0) + (itf.acBonus ? ' + ' + itf.acBonus + ' (magisch)' : ''), itf.gearKind === 'schild' && 'Gibt +' + ((+itf.baseAC || 0) + (+itf.acBonus || 0)) + ' auf die RK, wenn es in der Nebenhand steckt', itf.gearKind !== 'ruestung' && itf.gearKind !== 'schild' && (itf.acBonus ? '+' + itf.acBonus + ' zur RK, solange getragen' : 'Wirkt über seine Effekte, solange getragen'))))), React.createElement(ReiterSeite, {
+    k: "benutzen",
+    aktiv: reiterVon('item', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
+    className: "reiter-abschnitt"
+  }, "Verbrauch"), React.createElement("div", {
+    className: "form-group form-halb"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Beim Benutzen"), React.createElement("select", {
+    className: "form-select",
+    value: gegenstandNutzung(itf),
+    onChange: e => {
+      const n = e.target.value;
+      setItf(f => ({
+        ...f,
+        nutzung: n,
+        ladungen: n === 'ladung' ? {
+          max: 3,
+          used: 0,
+          auffuellen: 'lang',
+          ...(f.ladungen || {})
+        } : f.ladungen
+      }));
+    }
+  }, React.createElement("option", {
+    value: ""
+  }, "Nichts \u2014 kein Benutzen-Knopf"), React.createElement("option", {
+    value: "stueck"
+  }, "Ein St\xFCck verbrauchen (Trank, Schriftrolle, Munition)"), React.createElement("option", {
+    value: "ladung"
+  }, "Eine Ladung verbrauchen (Zauberstab, Stecken)"))), gegenstandNutzung(itf) === 'ladung' ? (() => {
+    const l = ladungenStand(itf);
+    const setL = teil => setItf(f => ({
+      ...f,
+      ladungen: {
+        ...(f.ladungen || {}),
+        ...teil
+      }
+    }));
+    return React.createElement(React.Fragment, null, React.createElement("div", {
+      className: "form-group"
+    }, React.createElement("div", {
+      className: "form-label"
+    }, "Ladungen h\xF6chstens"), React.createElement(ZahlFeld, {
+      className: "form-input",
+      min: "1",
+      max: "99",
+      wert: l.max || 1,
+      onWert: v => setL({
+        max: Math.max(1, v || 1),
+        used: Math.min(l.used, Math.max(1, v || 1))
+      })
+    })), React.createElement("div", {
+      className: "form-group"
+    }, React.createElement("div", {
+      className: "form-label"
+    }, "Davon \xFCbrig"), React.createElement(ZahlFeld, {
+      className: "form-input",
+      min: "0",
+      max: l.max,
+      wert: l.frei,
+      onWert: v => setL({
+        used: Math.max(0, l.max - Math.max(0, Math.min(l.max, v || 0)))
+      })
+    })), React.createElement("div", {
+      className: "form-group"
+    }, React.createElement("div", {
+      className: "form-label"
+    }, "L\xE4dt sich auf"), React.createElement("select", {
+      className: "form-select",
+      value: (itf.ladungen || {}).auffuellen || '',
+      onChange: e => setL({
+        auffuellen: e.target.value
+      })
+    }, React.createElement("option", {
+      value: "lang"
+    }, "bei langer Rast / Morgengrauen"), React.createElement("option", {
+      value: "kurz"
+    }, "bei kurzer und langer Rast"), React.createElement("option", {
+      value: ""
+    }, "nie \u2014 nur von Hand"))), (itf.ladungen || {}).auffuellen ? React.createElement("div", {
+      className: "form-group"
+    }, React.createElement("div", {
+      className: "form-label"
+    }, "Um (W\xFCrfel, leer = alle)"), React.createElement("input", {
+      className: "form-input",
+      placeholder: "z.B. 1W6+1",
+      value: (itf.ladungen || {}).wurf || '',
+      onChange: e => setL({
+        wurf: e.target.value
+      })
+    })) : null);
+  })() : React.createElement("div", {
+    className: "form-group form-halb",
+    style: {
+      justifyContent: 'flex-end'
+    }
+  }, React.createElement("div", {
+    className: "reiter-hinweis"
+  }, gegenstandNutzung(itf) === 'stueck' ? 'Benutzen zieht ein Stück von der Menge ab und schreibt es ins Log.' : 'Für Dinge, die man nicht aufbraucht — Seil, Laterne, Rüstung.')), React.createElement("div", {
+    className: "reiter-abschnitt"
+  }, "Im Kampf"), React.createElement("div", {
     className: "form-group form-full"
   }, React.createElement("label", {
     style: {
@@ -31357,7 +32056,7 @@ function App() {
       fontSize: 12,
       color: 'var(--text-secondary)'
     }
-  }, "\u2694 Im Kampf zu verwenden \u2014 steht im Zugfenster zur Wahl, Benutzen zieht die Menge ab"))), itf.kampf && React.createElement("div", {
+  }, "Steht im Zugfenster des Kampftrackers zur Wahl"))), itf.kampf && React.createElement("div", {
     className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label zauber-wirkung-kopf"
@@ -31475,197 +32174,12 @@ function App() {
     }))
   }), hatWirkung(itf.wirkung) && React.createElement("div", {
     className: "zw-probe"
-  }, "Im Zugfenster steht dann: ", React.createElement("b", null, (itf.wirkung || {}).wuerfel || '—'), (itf.wirkung || {}).art === 'heilung' ? ' als Heilung' : (itf.wirkung || {}).art === 'temp' ? ' als temporäre TP' : '', (itf.wirkung || {}).rettung ? ' · Rettungswurf ' + (RETTUNG_KURZ[(itf.wirkung || {}).rettung] || '') : '')), React.createElement("div", {
-    className: "form-group"
+  }, "Im Zugfenster steht dann: ", React.createElement("b", null, (itf.wirkung || {}).wuerfel || '—'), (itf.wirkung || {}).art === 'heilung' ? ' als Heilung' : (itf.wirkung || {}).art === 'temp' ? ' als temporäre TP' : '', (itf.wirkung || {}).rettung ? ' · Rettungswurf ' + (RETTUNG_KURZ[(itf.wirkung || {}).rettung] || '') : '')))), React.createElement(ReiterSeite, {
+    k: "effekte",
+    aktiv: reiterVon('item', 'allgemein')
   }, React.createElement("div", {
-    className: "form-label"
-  }, "Ausr\xFCstungsplatz"), React.createElement("select", {
-    className: "form-select",
-    value: itf.gearKind || '',
-    onChange: e => {
-      const k = e.target.value;
-      const art = k === 'ruestung' ? itf.armorType && itf.armorType !== 'shield' ? itf.armorType : 'light' : k === 'schild' ? 'shield' : '';
-      const basis = (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0;
-      setItf({
-        ...itf,
-        gearKind: k,
-        armorType: art,
-        baseAC: art ? +itf.baseAC || basis : 0
-      });
-    }
-  }, GEAR_KINDS.map(g => React.createElement("option", {
-    key: g.key,
-    value: g.key
-  }, g.label)))), itf.gearKind === 'ruestung' && React.createElement("div", {
-    className: "form-group"
+    className: "form-grid"
   }, React.createElement("div", {
-    className: "form-label"
-  }, "R\xFCstungsart"), React.createElement("select", {
-    className: "form-select",
-    value: itf.armorType || 'light',
-    onChange: e => {
-      const art = e.target.value;
-      setItf({
-        ...itf,
-        armorType: art,
-        baseAC: (ARMOR_KINDS.find(a => a.key === art) || {}).basis || 0
-      });
-    }
-  }, ARMOR_KINDS.filter(a => a.key && a.key !== 'shield').map(a => React.createElement("option", {
-    key: a.key,
-    value: a.key
-  }, a.label)))), (itf.gearKind === 'ruestung' || itf.gearKind === 'schild') && React.createElement("div", {
-    className: "form-group"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, itf.gearKind === 'schild' ? 'Bonus zur RK' : 'Basis-RK'), React.createElement(ZahlFeld, {
-    className: "form-input",
-    min: "0",
-    max: "25",
-    wert: itf.baseAC || 0,
-    onWert: v => setItf({
-      ...itf,
-      baseAC: v
-    })
-  })), itf.gearKind && React.createElement("div", {
-    className: "form-group"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Magischer RK-Bonus"), React.createElement(ZahlFeld, {
-    className: "form-input",
-    min: "-5",
-    max: "10",
-    wert: itf.acBonus || 0,
-    placeholder: "z.B. +1",
-    onWert: v => setItf({
-      ...itf,
-      acBonus: v
-    })
-  })), itf.gearKind && React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Geh\xF6rt zu einem Set (optional)"), React.createElement("input", {
-    className: "form-input",
-    list: "hb-set-namen-inv",
-    value: itf.setName || '',
-    onChange: e => setItf({
-      ...itf,
-      setName: e.target.value
-    }),
-    placeholder: "z.B. Hain des Ersten Lichts"
-  }), React.createElement("datalist", {
-    id: "hb-set-namen-inv"
-  }, [...new Set([...(userLibrary.item || []).map(e => e.setName), ...(isDmMode ? dmLibrary.item || [] : []).map(e => e.setName), ...(cur && cur.inventory || []).map(i => i.setName)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map(n => React.createElement("option", {
-    key: n,
-    value: n
-  })))), itf.gearKind && React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: 'var(--text-muted)',
-      fontStyle: 'italic',
-      fontFamily: "'Roboto Condensed',sans-serif"
-    }
-  }, itf.gearKind === 'ruestung' && ((ARMOR_KINDS.find(a => a.key === itf.armorType) || {}).hinweis || '') + ' — RK ' + (itf.baseAC || 0) + (itf.acBonus ? ' + ' + itf.acBonus + ' (magisch)' : ''), itf.gearKind === 'schild' && 'Gibt +' + ((+itf.baseAC || 0) + (+itf.acBonus || 0)) + ' auf die RK, wenn es in der Nebenhand steckt', itf.gearKind !== 'ruestung' && itf.gearKind !== 'schild' && (itf.acBonus ? '+' + itf.acBonus + ' zur RK, solange getragen' : 'Wirkt über seine Effekte, solange getragen'))), React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Beschreibung (optional)"), React.createElement(RichEditor, {
-    value: itf.description,
-    onChange: v => setItf({
-      ...itf,
-      description: v
-    }),
-    placeholder: "Wirkung, Eigenschaften...",
-    rows: 3
-  })), React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Erhalten durch (optional)"), React.createElement("input", {
-    className: "form-input",
-    placeholder: "z.B. Gefunden in Dungeon, Kauf beim H\xE4ndler...",
-    value: itf.source || '',
-    onChange: e => setItf({
-      ...itf,
-      source: e.target.value
-    })
-  })), React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Tags (Enter oder Komma zum Hinzuf\xFCgen)"), React.createElement("div", {
-    className: "tag-input-wrap",
-    onClick: e => e.currentTarget.querySelector('input').focus()
-  }, (itf.tags || []).map(t => React.createElement("span", {
-    key: t,
-    className: "tag-chip"
-  }, t, React.createElement("button", {
-    className: "tag-chip-del",
-    onClick: () => setItf({
-      ...itf,
-      tags: (itf.tags || []).filter(x => x !== t)
-    })
-  }, "\xD7"))), React.createElement("input", {
-    className: "tag-text-input",
-    placeholder: (itf.tags || []).length === 0 ? "z.B. Waffe, Ruestung, Quest..." : "",
-    onKeyDown: e => {
-      const v = e.target.value.trim();
-      if ((e.key === "Enter" || e.key === ",") && v) {
-        e.preventDefault();
-        const t = v.replace(/,/g, "").trim();
-        if (t && !(itf.tags || []).includes(t)) setItf({
-          ...itf,
-          tags: [...(itf.tags || []), t]
-        });
-        e.target.value = "";
-      }
-      if (e.key === "Backspace" && !e.target.value && (itf.tags || []).length > 0) setItf({
-        ...itf,
-        tags: (itf.tags || []).slice(0, -1)
-      });
-    },
-    onBlur: e => {
-      const v = e.target.value.trim().replace(/,/g, "");
-      if (v && !(itf.tags || []).includes(v)) {
-        setItf({
-          ...itf,
-          tags: [...(itf.tags || []), v]
-        });
-        e.target.value = "";
-      }
-    }
-  }))), React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "Bild (optional)"), React.createElement(BildAblage, {
-    bild: itf.imageData,
-    maxPx: 1000,
-    hoehe: 110,
-    aufschrift: itf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen',
-    onBild: d => setItf(prev => ({
-      ...prev,
-      imageData: d
-    })),
-    onWeg: () => setItf(prev => ({
-      ...prev,
-      imageData: ''
-    }))
-  })), React.createElement("div", {
-    className: "form-group form-full"
-  }, React.createElement("div", {
-    className: "form-label"
-  }, "\uD83D\uDCCE Anh\xE4nge (PDF)"), React.createElement(AnhangFeld, {
-    anhaenge: itf.anhaenge,
-    onLesen: setPdfLeser,
-    onAendern: l => setItf(prev => ({
-      ...prev,
-      anhaenge: l
-    }))
-  })), React.createElement("div", {
     className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label"
@@ -31703,7 +32217,40 @@ function App() {
       fontSize: 12,
       color: 'var(--text-secondary)'
     }
-  }, "Effekte wirken gerade (getragen / eingeschaltet)")))), React.createElement("div", {
+  }, "Effekte wirken gerade (getragen / eingeschaltet)"))))), React.createElement(ReiterSeite, {
+    k: "bild",
+    aktiv: reiterVon('item', 'allgemein')
+  }, React.createElement("div", {
+    className: "form-grid"
+  }, React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "Bild (optional)"), React.createElement(BildAblage, {
+    bild: itf.imageData,
+    maxPx: 1000,
+    hoehe: 110,
+    aufschrift: itf.imageData ? '🖼 Bild ändern' : '📷 Bild auswählen',
+    onBild: d => setItf(prev => ({
+      ...prev,
+      imageData: d
+    })),
+    onWeg: () => setItf(prev => ({
+      ...prev,
+      imageData: ''
+    }))
+  })), React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("div", {
+    className: "form-label"
+  }, "\uD83D\uDCCE Anh\xE4nge (PDF)"), React.createElement(AnhangFeld, {
+    anhaenge: itf.anhaenge,
+    onLesen: setPdfLeser,
+    onAendern: l => setItf(prev => ({
+      ...prev,
+      anhaenge: l
+    }))
+  })))), React.createElement("div", {
     className: "form-actions"
   }, React.createElement("button", {
     className: "btn-cancel",
@@ -31934,7 +32481,7 @@ function App() {
         marginTop: 4,
         fontStyle: 'italic'
       }
-    }, r.label, item.qty > 1 ? ` · ×${item.qty}` : '', item.weight ? ` · ${item.weight} kg` : ''))), React.createElement("div", {
+    }, r.label, item.qty > 1 ? ` · ×${item.qty}` : '', gegenstandNutzung(item) === 'ladung' ? ` · ${ladungenStand(item).frei}/${ladungenStand(item).max} Ladungen` : '', item.weight ? ` · ${item.weight} kg` : ''))), React.createElement("div", {
       style: {
         padding: '14px 18px',
         background: 'var(--bg-panel)',
@@ -32099,7 +32646,12 @@ function App() {
         background: 'var(--bg-deep)',
         borderTop: '1px solid var(--border)'
       }
-    }, React.createElement("button", {
+    }, gegenstandNutzung(item) && darfBearbeiten && React.createElement("button", {
+      className: "btn-benutzen",
+      disabled: gegenstandVorrat(item) <= 0,
+      title: gegenstandVorrat(item) <= 0 ? 'Nichts mehr übrig' : 'Benutzen — zieht ' + (gegenstandNutzung(item) === 'ladung' ? 'eine Ladung' : 'ein Stück') + ' ab und schreibt es ins Log',
+      onClick: () => gegenstandEinsetzen(item.id)
+    }, "\u25B6 Benutzen"), React.createElement("button", {
       className: "btn-icon",
       style: {
         flex: 1

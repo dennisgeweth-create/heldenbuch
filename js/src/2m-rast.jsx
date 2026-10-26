@@ -219,6 +219,9 @@ const RAST_KOMPLIKATIONEN = [
 //
 //   rast   {art: 'kurz'|'lang', regel: 'standard'|'grr', stufe, essen}
 //   wahl   {plaetze: {grad: n}, wuerfe: [{w, wurf}], rw, w6, w4}
+// Die Würfel der Ladungen: aus der Saat der Vorschau, damit Vorschau und
+// Übernehmen dasselbe zeigen.
+const rastZufall = (wahl) => wahl.zufall || (wahl.saat != null ? saatZufall(wahl.saat) : Math.random);
 const rastAnwenden = (held, werte, rast, wahl = {}) => {
   const c = held || {};
   const w = werte || charWerte(c, {});
@@ -263,6 +266,9 @@ const rastAnwenden = (held, werte, rast, wahl = {}) => {
       Object.keys(p).forEach(g => { if (p[g] && slots[g] && +slots[g].used) { n += Math.min(p[g], +slots[g].used); slots[g] = {...slots[g], used: Math.max(0, +slots[g].used - p[g])}; } });
       if (n) { patch.spellSlots = slots; saetze.push(n + ' Paktplatz' + (n === 1 ? '' : 'plätze') + ' zurück'); }
     }
+    // Was sich bei jeder Rast auflädt (js/util.js, ladungenAuffuellen).
+    const lk = ladungenAuffuellen(c.inventory, 'kurz', rastZufall(wahl));
+    if (lk.saetze.length) { patch.inventory = lk.inventar; saetze.push(...lk.saetze); }
     if (!saetze.length) saetze.push('Kurze Rast, nichts verbraucht');
     return {patch, saetze};
   }
@@ -324,6 +330,10 @@ const rastAnwenden = (held, werte, rast, wahl = {}) => {
     patch.resources = resources.map(r => ['lang', 'kurz', 'tag'].includes(r.restType || 'lang') ? {...r, used: 0} : r);
   }
   if (c.sorceryPoints && +c.sorceryPoints.used) patch.sorceryPoints = {...c.sorceryPoints, used: 0};
+  // Zauberstäbe und was sonst Ladungen trägt — das Morgengrauen der
+  // Beschreibungen fällt auf die lange Rast.
+  const ll = ladungenAuffuellen(c.inventory, 'lang', rastZufall(wahl));
+  if (ll.saetze.length) { patch.inventory = ll.inventar; saetze.push(...ll.saetze); }
   patch.deathSaves = {erfolge: 0, fehler: 0};
 
   // Komplikationen — nur nach der Variante und nur, wenn es erbärmlich war.
@@ -500,13 +510,14 @@ const RastHeld = ({ held, setDefs, rast, onUebernehmen }) => {
   const [rw, setRw] = React.useState('');
   const [w6, setW6] = React.useState(0);
   const [w4, setW4] = React.useState(0);
+  const [saat] = React.useState(() => Math.floor(Math.random() * 2147483647));
 
   const summe = zauberAuswahlSumme(plaetze);
   const slots = held.spellSlots || {};
   const grade = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(g => (+((slots[g] || {}).used) || 0) > 0);
   const kompl = rast.art === 'lang' && grr && lage.kompl && rast.essen !== false;
   const komplFertig = !kompl || (rw !== '' && (+rw >= 10 || (w6 && (w6 !== 2 || w4))));
-  const {saetze} = rastAnwenden(held, werte, rast, {plaetze, wuerfe, rw: kompl ? rw : null, w6, w4});
+  const {saetze} = rastAnwenden(held, werte, rast, {plaetze, wuerfe, rw: kompl ? rw : null, w6, w4, saat});
   const offen = (w) => {
     const v = vorrat.find(x => x.w === w);
     return v ? v.gesamt - v.verbraucht - wuerfe.filter(x => x.w === w).length : 0;
@@ -589,7 +600,7 @@ const RastHeld = ({ held, setDefs, rast, onUebernehmen }) => {
         {saetze.map((s, i) => <div key={i}>• {s}</div>)}
       </div>
       <button className="btn-save" disabled={!komplFertig}
-        onClick={()=>onUebernehmen(held, {plaetze, wuerfe, rw: kompl ? rw : null, w6, w4})}>
+        onClick={()=>onUebernehmen(held, {plaetze, wuerfe, rw: kompl ? rw : null, w6, w4, saat})}>
         ✓ In den Bogen übernehmen</button>
     </div>
   );

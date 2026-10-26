@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v6.3.0';
+const HB_VERSION = 'v6.4.0';
 // Merkt je Tab, dass die Spielleitung ueber ihr Konto im DM-Modus war —
 // ein Neuladen bringt sie dorthin zurueck (4-app.jsx).
 const DM_MERKER = 'hb_dm_modus';
@@ -199,6 +199,38 @@ const EinstBlock = ({ titel, kurz, offenStart, children }) => {
     </div>
   );
 };
+
+// ── Register in einem Bearbeiten-Fenster ─────────────────────────
+// Gegenstand, Zauber, Merkmal und Waffe standen als eine lange Spalte
+// da: Name, Menge, Rüstung, Wirkung, Beschreibung, Bild, Effekte — und
+// man rollte, um das eine Feld zu finden. Jetzt sitzt die Leiste mit
+// den Registern im Kopf des Fensters (der beim Rollen stehen bleibt),
+// und darunter steht nur die gewählte Seite.
+//
+// Die anderen Seiten bleiben im Baum, nur verborgen: ein halb getippter
+// Tag, der Stand eines Editors und die Prüfungen in dev/echt.html
+// überleben so den Wechsel. `zahl` zeigt, wie viel auf einer Seite
+// liegt (Effekte, Anhänge), `punkt`, dass dort etwas eingestellt ist.
+const ReiterLeiste = ({ reiter, aktiv, onWahl }) => (
+  <div className="reiter-leiste" role="tablist">
+    {reiter.filter(r => r && !r.weg).map(r => (
+      <button key={r.k} type="button" role="tab" data-reiter={r.k}
+        aria-selected={aktiv === r.k} title={r.titel}
+        className={'reiter-knopf' + (aktiv === r.k ? ' an' : '')}
+        onClick={() => onWahl(r.k)}>
+        {r.icon ? <span className="reiter-icon">{r.icon}</span> : null}
+        <span className="reiter-wort">{r.titel}</span>
+        {r.zahl ? <span className="reiter-zahl">{r.zahl}</span>
+          : r.punkt ? <span className="reiter-punkt" aria-label="eingestellt" /> : null}
+      </button>
+    ))}
+  </div>
+);
+const ReiterSeite = ({ k, aktiv, children }) => (
+  <div className="reiter-seite" role="tabpanel" data-seite={k} hidden={k !== aktiv}>
+    {children}
+  </div>
+);
 
 // ── Ein Bearbeiten-Fenster ist ein Fenster ────────────────────
 // Bisher war jeder Dialog ein Vorhang: er lag in der Mitte, nahm den

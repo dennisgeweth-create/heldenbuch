@@ -37,7 +37,8 @@ const Sheet = () => {
     toggleJoAT, toggleSave, toggleSkill, toggleSpellPrepared,
     toggleWsFav, togResourcePip, togSlot, togSP, toolProfs, tplData,
     transferMode, transferSel, unarchiveChar, updResource, updSP,
-    weaponProfs, weaponStats, wsExpand
+    weaponProfs, weaponStats, wsExpand,
+    zauberBenutzen, gegenstandEinsetzen, merkmalNutzen, ressourceNutzen
   } = React.useContext(SheetCtx);
 
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
@@ -918,6 +919,11 @@ const Sheet = () => {
                         der Kachel eine eigene Zeile. */}
                     <div className="resource-foot">
                       <span className="resource-rest">{res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast"}</span>
+                      {!resEdit && darfBearbeiten && (
+                        <button className="resource-einsetzen" disabled={res.used >= res.max}
+                          title={res.used >= res.max ? 'Nichts mehr übrig' : 'Einsetzen — einen abziehen und ins Log schreiben'}
+                          onClick={()=>ressourceNutzen(res.id)}>▶ Einsetzen</button>
+                      )}
                       {res.used>0 && (
                         <button className="resource-restore-btn"
                           title={"Zurücksetzen ("+(res.restType==="kurz"?"Kurze Rast":res.restType==="tag"?"Täglich":"Lange Rast")+")"}
@@ -1019,6 +1025,23 @@ const Sheet = () => {
                       </div>
                       <div className="feature-card-body">
                         {feat.source && <div className="feature-source">{feat.source}</div>}
+                        {(() => {
+                          const mr = merkmalRessource(cur, feat);
+                          if (!mr) return null;
+                          return (
+                            <div className="feature-nutzen" onClick={e=>e.stopPropagation()}>
+                              <span className="feature-nutzen-stand" style={{color: mr.r.color || 'var(--gold)'}}>
+                                {mr.r.name} <b>{mr.rest}</b>/{+mr.r.max || 0}
+                                {mr.kosten > 1 ? ' · kostet ' + mr.kosten : ''}
+                              </span>
+                              {darfBearbeiten && (
+                                <button type="button" className="btn-benutzen klein" disabled={!mr.reicht}
+                                  title={mr.reicht ? 'Einsetzen — ' + mr.r.name + ' −' + mr.kosten : 'Nicht genug ' + mr.r.name + ' übrig'}
+                                  onClick={()=>merkmalNutzen(feat.id)}>▶ Einsetzen</button>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {(feat.effects||[]).length>0 && (
                           <div className="feature-fx" onClick={e=>e.stopPropagation()}>
                             <div className={"feature-fx-chips"+(feat.effectsActive===false?" ruht":"")}>
@@ -1323,6 +1346,12 @@ const Sheet = () => {
                             <div className="spell-card-footer" style={{background:`${sc.bg}cc`}}>
                               <div className="spell-card-school-footer" style={{color:sc.text}}>{s.school}</div>
                               <div className="spell-actions" onClick={e=>e.stopPropagation()} style={{alignItems:'center',gap:4}}>
+                                {/* Wirken: der Zauberplatz geht ab, das Log
+                                    vermerkt es (2r-benutzen.jsx). */}
+                                {darfBearbeiten && (
+                                  <button className="spell-wirken-btn" title={(+s.level ? 'Wirken — zieht einen Zauberplatz ab' : 'Wirken')}
+                                    onClick={e=>{e.stopPropagation();zauberBenutzen(s.id);}}>✨ Wirken</button>
+                                )}
                                 <button title={s.prepared===false?"Vorbereiten":"Nicht vorbereitet markieren"}
                                   onClick={e=>{e.stopPropagation();toggleSpellPrepared(s.id);}}
                                   style={{background:'none',border:'none',cursor:'pointer',padding:'1px 3px',lineHeight:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -1623,6 +1652,19 @@ const Sheet = () => {
                               )}
                               <div className="inv-card-icon"><GegenstandBild g={item} /></div>
                               <div className="inv-card-name">{item.name}</div>
+                              {/* Benutzen gleich an der Karte: ein Stück oder
+                                  eine Ladung weniger, und es steht im Log. */}
+                              {gegenstandNutzung(item) && !transferMode && darfBearbeiten && (
+                                <button type="button" className="inv-benutzen"
+                                  disabled={gegenstandVorrat(item) <= 0}
+                                  title={gegenstandVorrat(item) <= 0 ? 'Nichts mehr übrig'
+                                    : 'Benutzen — ' + gegenstandRestText(item)}
+                                  onClick={e=>{e.stopPropagation();gegenstandEinsetzen(item.id);}}>
+                                  ▶{gegenstandNutzung(item)==='ladung'
+                                    ? <span className="inv-benutzen-zahl">{ladungenStand(item).frei}/{ladungenStand(item).max}</span>
+                                    : null}
+                                </button>
+                              )}
                             </div>
                             {/* Expandable body */}
                             <div className="inv-card-body-wrap">

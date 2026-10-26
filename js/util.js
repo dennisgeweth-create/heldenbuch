@@ -1960,3 +1960,219 @@ const clickable = (onClick, label) => ({
     }
   },
 });
+
+// ── Benutzen: was ein Zauber, ein Gegenstand, ein Merkmal verbraucht ──
+// Am Bogen wurde bisher von Hand abgestrichen: den Zauberplatz antippen,
+// die Menge des Tranks herunterzählen, den Punkt der Ressource löschen —
+// und ins Log kam davon nichts. Jetzt gibt es einen Knopf, der das in
+// einem Zug tut. Die Rechnung steht hier, ohne React; die Knöpfe stehen
+// im Bogen, und eingetragen wird in der App (4-app.jsx, `benutzt`).
+//
+// Jede der Rechnungen gibt {patch, text, details} zurück — was am Bogen
+// zu ändern ist und was ins Log kommt — oder {fehler}.
+
+// Was „Benutzen" an einem Gegenstand abzieht: '' nichts, 'stueck' ein
+// Stück von der Menge, 'ladung' eine Ladung. Gegenstände von vor dieser
+// Wahl, die den Kampf-Haken tragen, galten schon immer als Verbrauchsgut.
+const gegenstandNutzung = (g) => {
+  if (!g) return '';
+  if (g.nutzung === '' || g.nutzung === 'stueck' || g.nutzung === 'ladung') return g.nutzung;
+  return g.kampf ? 'stueck' : '';
+};
+const ladungenStand = (g) => {
+  const l = (g && g.ladungen) || {};
+  const max = Math.max(0, Math.round(+l.max || 0));
+  const used = Math.max(0, Math.min(max, Math.round(+l.used || 0)));
+  return {max, used, frei: max - used, auffuellen: l.auffuellen || '', wurf: l.wurf || ''};
+};
+// Wie oft es sich noch benutzen lässt. Was nichts verbraucht, geht immer.
+const gegenstandVorrat = (g) => {
+  const n = gegenstandNutzung(g);
+  return n === 'stueck' ? Math.max(0, +g.qty || 0)
+       : n === 'ladung' ? ladungenStand(g).frei : Infinity;
+};
+// Der Gegenstand nach einem Gebrauch. Bei null bleibt er im Inventar —
+// leer, aber auffindbar, so wie im Kampftracker.
+const gegenstandVerbraucht = (g) => {
+  const n = gegenstandNutzung(g);
+  if (n === 'stueck') return {...g, qty: Math.max(0, (+g.qty || 0) - 1)};
+  if (n === 'ladung') {
+    const l = ladungenStand(g);
+    return {...g, ladungen: {...(g.ladungen || {}), used: Math.min(l.max, l.used + 1)}};
+  }
+  return g;
+};
+const gegenstandRestText = (g) => gegenstandNutzung(g) === 'ladung'
+  ? ladungenStand(g).frei + '/' + ladungenStand(g).max + ' Ladungen'
+  : (+g.qty || 0) + ' übrig';
+
+// "1W6+1" würfeln. Eine blosse Zahl gilt, wie sie dasteht; was sich
+// nicht lesen lässt, ergibt null.
+const formelWerfen = (text, zufall = Math.random) => {
+  const t = String(text == null ? '' : text).trim();
+  const m = /^(\d*)\s*[wWdD]\s*(\d+)\s*([+-]\s*\d+)?$/.exec(t);
+  if (!m) { const z = /^[+-]?\d+$/.test(t) ? parseInt(t, 10) : NaN; return isNaN(z) ? null : z; }
+  const anzahl = Math.min(100, +m[1] || 1), seiten = Math.max(1, +m[2]);
+  let s = m[3] ? parseInt(m[3].replace(/\s/g, ''), 10) : 0;
+  for (let i = 0; i < anzahl; i++) s += Math.floor(zufall() * seiten) + 1;
+  return s;
+};
+
+// Ein Zufall, der bei derselben Saat dieselben Zahlen gibt (mulberry32).
+// Die Rast zeigt vorher, was herauskommt, und rechnet beim Übernehmen
+// noch einmal — beide Male muss der Zauberstab dieselben Ladungen
+// zurückbekommen.
+const saatZufall = (saat) => {
+  let a = (+saat || 0) >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+// Die Rast lädt Zauberstäbe wieder auf: 'kurz' nach jeder Rast, 'lang'
+// nach der langen (das Morgengrauen der Beschreibungen). Mit Würfel
+// kommen so viele Ladungen zurück, wie er zeigt, sonst alle.
+const ladungenAuffuellen = (inventar, art, zufall = Math.random) => {
+  const saetze = [];
+  let geaendert = false;
+  const neu = (inventar || []).map(g => {
+    if (gegenstandNutzung(g) !== 'ladung') return g;
+    const l = ladungenStand(g);
+    if (!l.used || !l.auffuellen) return g;
+    if (l.auffuellen !== 'kurz' && art !== 'lang') return g;
+    const wurf = l.wurf ? formelWerfen(l.wurf, zufall) : null;
+    const zurueck = wurf == null ? l.used : Math.max(0, Math.min(l.used, wurf));
+    if (!zurueck) return g;
+    geaendert = true;
+    saetze.push((g.name || 'Gegenstand') + ' +' + zurueck + ' Ladung' + (zurueck === 1 ? '' : 'en'));
+    return {...g, ladungen: {...(g.ladungen || {}), used: l.used - zurueck}};
+  });
+  return {inventar: geaendert ? neu : inventar, saetze};
+};
+
+const gegenstandBenutzen = (held, itemId) => {
+  const inv = (held && held.inventory) || [];
+  const g = inv.find(i => i.id === itemId);
+  if (!g) return {fehler: 'Der Gegenstand ist nicht mehr im Inventar.'};
+  const n = gegenstandNutzung(g);
+  if (!n) return {fehler: (g.name || 'Der Gegenstand') + ' verbraucht beim Benutzen nichts.'};
+  if (gegenstandVorrat(g) <= 0) return {fehler: n === 'stueck'
+    ? 'Von ' + (g.name || 'dem Gegenstand') + ' ist nichts mehr da.'
+    : (g.name || 'Der Gegenstand') + ' hat keine Ladung mehr.'};
+  const neu = gegenstandVerbraucht(g);
+  return {
+    patch: {inventory: inv.map(i => i.id === itemId ? neu : i)},
+    text: 'Benutzt: ' + (g.name || 'Gegenstand') + ' — ' + gegenstandRestText(neu),
+    details: n === 'stueck' ? {verbraucht: '1 Stück', uebrig: +neu.qty || 0}
+                            : {verbraucht: '1 Ladung', uebrig: ladungenStand(neu).frei},
+  };
+};
+
+// ── Zauber wirken ──
+const zauberIstRitual = (z) => !!(z && (z.ritual || /ritual/i.test(String(z.castingTime || ''))));
+// Die Grade, auf denen sich ein Zauber wirken lässt — ab seinem eigenen,
+// soweit es dort überhaupt Plätze gibt.
+const zauberGradWahl = (held, zauber) => {
+  const grund = Math.max(0, +(zauber && zauber.level) || 0);
+  if (!grund) return [];
+  const s = (held && held.spellSlots) || {};
+  const raus = [];
+  for (let g = grund; g <= 9; g++) {
+    const x = s[g] || {};
+    const max = Math.max(0, +x.max || 0);
+    if (max > 0) raus.push({grad: g, max, frei: Math.max(0, max - (+x.used || 0))});
+  }
+  return raus;
+};
+// Der kleinste Grad mit freiem Platz — der, den man meistens meint.
+const zauberGradVorschlag = (held, zauber) => {
+  const frei = zauberGradWahl(held, zauber).find(x => x.frei > 0);
+  return frei ? frei.grad : null;
+};
+// wie: {grad} streicht einen Platz dieses Grades, {ritual: true} keinen,
+// {frei: true} auch keinen — für das, was ein Volk oder ein Talent einmal
+// am Tag umsonst wirken lässt. Ein Zaubertrick kostet nie etwas. Verlangt der Zauber Konzentration,
+// hält der Held ihn ab jetzt — und lässt den vorigen fallen, wie im
+// Kampftracker.
+const zauberWirken = (held, zauber, wie = {}) => {
+  if (!held || !zauber) return {fehler: 'Kein Zauber gewählt.'};
+  const grund = Math.max(0, +zauber.level || 0);
+  const patch = {}, details = {};
+  let art;
+  if (!grund) {
+    art = 'Zaubertrick';
+  } else if (wie.ritual) {
+    if (!zauberIstRitual(zauber)) return {fehler: (zauber.name || 'Der Zauber') + ' ist kein Ritual.'};
+    art = 'als Ritual, ohne Zauberplatz';
+    details.ritual = true;
+  } else if (wie.frei) {
+    art = 'ohne Zauberplatz';
+    details.ohnePlatz = true;
+  } else {
+    const g = Math.round(+wie.grad || grund);
+    if (g < grund || g > 9) return {fehler: 'Auf Grad ' + g + ' lässt sich ' + (zauber.name || 'der Zauber') + ' nicht wirken.'};
+    const s = (held.spellSlots || {})[g] || {};
+    const max = +s.max || 0, frei = max - (+s.used || 0);
+    if (frei <= 0) return {fehler: 'Kein Zauberplatz des ' + g + '. Grades mehr frei.'};
+    patch.spellSlots = {...(held.spellSlots || {}), [g]: {...s, max, used: (+s.used || 0) + 1}};
+    art = 'Grad ' + g + ', noch ' + (frei - 1) + '/' + max + ' Plätze';
+    details.grad = g;
+    details.platzUebrig = frei - 1;
+  }
+  let text = 'Gewirkt: ' + (zauber.name || 'Zauber') + ' (' + art + ')';
+  if (brauchtKonzentration(zauber)) {
+    const alt = held.konzentration;
+    patch.konzentration = {id: zauber.id, name: zauber.name};
+    text += alt && alt.name && alt.name !== zauber.name
+      ? ' · Konzentration, ' + alt.name + ' endet' : ' · Konzentration';
+    details.konzentration = zauber.name;
+  }
+  return {patch, text, details};
+};
+
+// ── Merkmale und Ressourcen ──
+// Die Ressource, die ein Merkmal verbraucht, und was davon uebrig ist.
+// Auch der Kampftracker fragt hier nach.
+const merkmalRessource = (held, merkmal) => {
+  if (!merkmal || !merkmal.ressource) return null;
+  const r = ((held && held.resources) || []).find(x => x.id === merkmal.ressource);
+  if (!r) return null;
+  const kosten = Math.max(1, +merkmal.ressourceKosten || 1);
+  const rest = Math.max(0, (+r.max || 0) - (+r.used || 0));
+  return {r, kosten, rest, reicht: rest >= kosten};
+};
+const ressourceAbziehen = (held, resId, kosten) => ((held && held.resources) || []).map(r =>
+  r.id === resId ? {...r, used: Math.min(+r.max || 0, (+r.used || 0) + kosten)} : r);
+
+const merkmalEinsetzen = (held, featId) => {
+  const f = ((held && held.features) || []).find(x => x.id === featId);
+  if (!f) return {fehler: 'Das Merkmal steht nicht mehr im Bogen.'};
+  const mr = merkmalRessource(held, f);
+  if (!mr) return {fehler: (f.name || 'Das Merkmal') + ' ist mit keiner Ressource verknüpft.'};
+  if (!mr.reicht) return {fehler: 'Von ' + (mr.r.name || 'der Ressource') + ' ist nicht genug übrig ('
+    + mr.rest + ', gebraucht ' + mr.kosten + ').'};
+  const rest = mr.rest - mr.kosten;
+  return {
+    patch: {resources: ressourceAbziehen(held, mr.r.id, mr.kosten)},
+    text: 'Eingesetzt: ' + (f.name || 'Merkmal') + ' — ' + (mr.r.name || 'Ressource') + ' −' + mr.kosten
+      + ', noch ' + rest + '/' + (+mr.r.max || 0) + (f.zauber ? ' · wirkt ' + f.zauber : ''),
+    details: {ressource: mr.r.name, verbraucht: mr.kosten, uebrig: rest},
+  };
+};
+// Eine Ressource unmittelbar — Aktionsschub, Kanalisieren, Kampfrausch.
+const ressourceEinsetzen = (held, resId, n = 1) => {
+  const r = ((held && held.resources) || []).find(x => x.id === resId);
+  if (!r) return {fehler: 'Die Ressource steht nicht mehr im Bogen.'};
+  const kosten = Math.max(1, Math.round(+n || 1));
+  const rest = Math.max(0, (+r.max || 0) - (+r.used || 0));
+  if (rest < kosten) return {fehler: 'Von ' + (r.name || 'der Ressource') + ' ist nichts mehr übrig.'};
+  return {
+    patch: {resources: ressourceAbziehen(held, resId, kosten)},
+    text: 'Eingesetzt: ' + (r.name || 'Ressource') + ' — noch ' + (rest - kosten) + '/' + (+r.max || 0),
+    details: {verbraucht: kosten, uebrig: rest - kosten},
+  };
+};

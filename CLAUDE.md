@@ -9,7 +9,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 |---|---|
 | `index.html` | Gerüst, Kopfdaten, API-Client, Ladebild |
 | `js/src/*.jsx` | **Anwendungscode — hier wird bearbeitet** |
-| ↳ `0-basis.jsx` | Hooks und Kürzel, gilt für alle folgenden Dateien |
+| ↳ `0-basis.jsx` | Hooks und Kürzel, gilt für alle folgenden Dateien — auch die Register der Bearbeiten-Fenster (`ReiterLeiste`, `ReiterSeite`; welches offen ist, hält die App in `reiterWahl`) |
 | ↳ `1-editors.jsx` | Rich-Text- und Effekt-Editor |
 | ↳ `2-logtab.jsx` | Abenteuerlog eines Helden |
 | ↳ `2b-gegner.jsx` | Gegnersammlung und Begegnungen der Spielleitung |
@@ -38,6 +38,7 @@ D&D-5e-Charakterverwaltung. Läuft ohne Framework-Toolchain: React aus
 | ↳ `2o-tagebuch.jsx` | **Sitzungstagebuch**: ein Abend, ein Eintrag je Person, Bilder und Videos gemeinsam; Anschauen ist die Vorgabe, Bearbeiten ein Knopf (Server: `hb_tagebuch`, `hb_tb_eintrag`, `hb_tb_bild`) |
 | ↳ `2p-anhang.jsx` | **PDF-Anhänge** an Gegenständen: stückweise hochladen (Server: `anhang_stueck`, `hb_anhang`, Datei unter `planer-dateien/`), das Feld im Gegenstandsdialog und der Leser: eine Seite oder aufgeschlagen als Buch (`pdfOffen`, `pdfBlaettern`), mit pdf.js 3.11 aus `vendor/pdfjs/` — **immer mit `isEvalSupported: false`** (CVE-2024-4367); scheitert pdf.js, liest der Browser selbst |
 | ↳ `2q-ankuendigung.jsx` | **Ankündigungen**: kurze Animation über dem Bildschirm bei Neuigkeiten (Post, Kampfbeginn, am Zug, Probe, Rast, Beute, Laden). `ankuendigen(art, text, unter)` von überall, `AnkuendigungsBuehne` einmal in der App; je Gerät abschaltbar (`hb_animationen`, Mein Konto). Vorschau: `dev/ankuendigung-schau.html` |
+| ↳ `2r-benutzen.jsx` | **Benutzen am Bogen** — das Fenster „Wirken“ (Grad, Ritual, ohne Platz) und der kurze Hinweis danach. Die Rechnung (`zauberWirken`, `gegenstandBenutzen`, `merkmalEinsetzen`, `ressourceEinsetzen`, Ladungen und `ladungenAuffuellen` für die Rast) steht in `js/util.js`; eingetragen wird in der App (`benutzt` → Bogen + `addLog`) |
 | ↳ `3-sheet.jsx` | Charakterbogen mit den sieben Reitern |
 | ↳ `3a-ausruestung.jsx` | Ausrüstungspuppe mit ihren Plätzen |
 | ↳ `3b-aufstieg.jsx` | Stufenaufstieg — Vorschau, dann übernehmen |
