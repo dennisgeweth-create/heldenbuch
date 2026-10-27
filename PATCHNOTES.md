@@ -1,5 +1,14 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.6.1
+
+- Das **Zugfenster der Spielleitung** zeigt die Auswahl wieder als die
+  schlichte Liste von vor v6.5: eine Zeile je Waffe, Zauber, Gegenstand
+  oder Merkmal, der Wurf rechts. Die Karten und die Schritte bleiben beim
+  Spieler, der ansagt.
+- Ein Zauber mit Waffenangriff zeigt dort die Waffen ebenfalls als Zeilen,
+  mit Angriff und Schaden.
+
 ## v6.6.0
 
 ### Ansagen vorbereiten

@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.6.0';
+const HB_VERSION = 'v6.6.1';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -3328,6 +3328,27 @@ const AktionsWahl = ({
   const passiv = wahl.art === 'merkmal' ? gezeigt.filter(g => !merkmalEinsetzbar(g)) : [];
   const aktivListe = wahl.art === 'merkmal' ? gezeigt.filter(g => merkmalEinsetzbar(g)) : gezeigt;
   const passivZeigen = passivAuf || !!suchWort || !aktivListe.length || gegenstand && passiv.includes(gegenstand);
+  const schlicht = teil === 'alles';
+  const unterZeile = g => wahl.art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : wahl.art === 'angriff' ? (g.damageType ? g.damageType + ' · ' : '') + (g.range || '') : wahl.art === 'gegenstand' ? ((RARITIES.find(r => r.key === g.rarity) || {}).label || '') + ((g.tags || []).length ? ' · ' + (g.tags || []).join(', ') : '') : [g.source || '', g.zauber ? '→ ' + g.zauber : '', (() => {
+    const m = merkmalRessource(held, g);
+    return m ? m.r.name + ' ' + m.rest + '/' + (+m.r.max || 0) : '';
+  })()].filter(Boolean).join(' · ');
+  const rechts = g => wahl.art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : wahl.art === 'angriff' ? g.damage || '' : wahl.art === 'gegenstand' ? (hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '') + (gegenstandNutzung(g) === 'ladung' ? ladungenStand(g).frei + ' Ldg.' : gegenstandNutzung(g) === 'stueck' ? (+g.qty || 0) + '×' : '') : ((merkmalZauber(held, g) || {}).wirkung || g.wirkung || {}).wuerfel || '';
+  const zeile = g => {
+    const i = quelle.indexOf(g);
+    return React.createElement("button", {
+      type: "button",
+      key: g.id || i,
+      className: 'zug-zeile' + (i === wahl.i ? ' an' : '') + (wahl.art === 'zauber' || wahl.art === 'merkmal' ? ' arkan' : ''),
+      onClick: () => waehlen(i)
+    }, React.createElement("span", {
+      className: "zug-sym"
+    }, ansicht.sym), React.createElement("span", {
+      className: "zug-text"
+    }, React.createElement("b", null, g.name || 'Ohne Namen'), React.createElement("i", null, unterZeile(g))), React.createElement("span", {
+      className: "zug-wirkt"
+    }, rechts(g)));
+  };
   const plaetze = held && held.spellSlots || {};
   const grade = [];
   for (let l = Math.max(1, grundGrad); l <= 9; l++) {
@@ -3421,7 +3442,9 @@ const AktionsWahl = ({
     className: "zug-leer"
   }, ansicht.leer) : gezeigt.length === 0 ? React.createElement("div", {
     className: "zug-leer"
-  }, "Nichts gefunden zu \u201E", (wahl.suche || '').trim(), "\u201C.") : React.createElement("div", {
+  }, "Nichts gefunden zu \u201E", (wahl.suche || '').trim(), "\u201C.") : schlicht ? React.createElement("div", {
+    className: "zug-liste"
+  }, gezeigt.map(zeile)) : React.createElement("div", {
     className: 'zug-karten' + (teil === 'liste' ? ' frei' : '')
   }, aktivListe.map(karte), passiv.length > 0 && React.createElement("button", {
     type: "button",
@@ -3441,7 +3464,26 @@ const AktionsWahl = ({
     className: "zug-label"
   }, "\u2694 Mit welcher Waffe \u2014 ", gegenstand.name, " geh\xF6rt zu einem Waffenangriff"), kampfWaffen(held).length === 0 ? React.createElement("div", {
     className: "zug-leer"
-  }, "Keine Waffen im Bogen.") : React.createElement("div", {
+  }, "Keine Waffen im Bogen.") : schlicht ? React.createElement("div", {
+    className: "zug-liste"
+  }, kampfWaffen(held).map((w, i) => {
+    const ww = waffeWerte(w, werte);
+    return React.createElement("button", {
+      type: "button",
+      key: w.id || i,
+      className: 'zug-zeile' + (w === waffe ? ' an' : ''),
+      onClick: () => setWahl({
+        ...wahl,
+        waffe: w === waffe ? '' : w.name || ''
+      })
+    }, React.createElement("span", {
+      className: "zug-sym"
+    }, "\u2694"), React.createElement("span", {
+      className: "zug-text"
+    }, React.createElement("b", null, w.name || 'Ohne Namen'), React.createElement("i", null, (w.damageType ? w.damageType + ' · ' : '') + (w.range || ''))), React.createElement("span", {
+      className: "zug-wirkt"
+    }, (ww.bonus >= 0 ? '+' + ww.bonus : ww.bonus) + ' · ' + (ww.dmgStr || '—')));
+  })) : React.createElement("div", {
     className: 'zug-karten' + (teil === 'liste' ? ' frei' : '')
   }, kampfWaffen(held).map((w, i) => React.createElement(ZugKarte, {
     key: w.id || i,

@@ -875,7 +875,7 @@
             const merkmal = await warten(() => knopfMit('⭐ Merkmal'));
             if (ja('Das Zugfenster bietet Merkmale an', !!merkmal && !merkmal.disabled)) {
               merkmal.click(); await ruhe(80);
-              const eintrag = await warten(() => [...document.querySelectorAll('.zug-karten .zk')]
+              const eintrag = await warten(() => [...document.querySelectorAll('.zug-zeile')]
                 .find(z => /Aktionsschub/.test(z.textContent)));
               if (ja('  … Aktionsschub steht zur Wahl', !!eintrag)) {
                 eintrag.click(); await ruhe(100);
@@ -1036,7 +1036,7 @@
             zug3.click();
             const zb = await warten(() => knopfMit('✨ Zauber'));
             if (zb) { zb.click(); await ruhe(80); }
-            const sp = await warten(() => [...document.querySelectorAll('.zug-karten .zk')]
+            const sp = await warten(() => [...document.querySelectorAll('.zug-zeile')]
               .find(z => /Person festhalten/.test(z.textContent)));
             if (ja('Person festhalten steht zur Wahl', !!sp)) {
               sp.click(); await ruhe(80);
@@ -1082,7 +1082,7 @@
             zug4.click();
             const mk = await warten(() => knopfMit('⭐ Merkmal'));
             if (mk) { mk.click(); await ruhe(80); }
-            const bann = await warten(() => [...document.querySelectorAll('.zug-karten .zk')]
+            const bann = await warten(() => [...document.querySelectorAll('.zug-zeile')]
               .find(z => /Bannstrahl/.test(z.textContent)));
             if (ja('Bannstrahl steht zur Wahl — mit Zauber und Vorrat',
                    !!bann && /→ Person festhalten/.test(bann.textContent) && /Kanalisieren\s*1\/1/.test(bann.textContent),
