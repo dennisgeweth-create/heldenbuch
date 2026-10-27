@@ -175,5 +175,25 @@ ist('lange Rast: Zauberstab lädt', b1.patch.inventory[0].ladungen.used < 6, tru
 ist('ohne Ladungen: kein Inventar im Patch',
   rastAnwenden({...rastHeld, inventory: [inv[3]]}, werte, {art: 'lang'}, {}).patch.inventory, undefined);
 
+// ── Was die Karten im Zugfenster zeigen ──────────────────────────
+const werteH = {eff: {str: 16, dex: 12, profBonus: 3}, effekte: []};
+ist('Langschwert: Angriff mit Übung', waffeWerte({attrKey: 'str', proficient: true, damage: '1W8'}, werteH).bonus, 6);
+ist('  … der Schaden mit Stärke', waffeWerte({attrKey: 'str', proficient: true, damage: '1W8'}, werteH).dmgStr, '1W8 + 3');
+ist('Finesse nimmt das Bessere', waffeWerte({attrKey: 'fin', damage: '1W6'}, {eff: {str: 8, dex: 16, profBonus: 2}}).aKey, 'dex');
+ist('angelegt über die Haupthand', waffeAngelegt({gear: {haupthand: {k: 'w', id: 'w1'}}}, {id: 'w1'}), true);
+ist('nicht angelegt', waffeAngelegt({gear: {haupthand: {k: 'w', id: 'w2'}}}, {id: 'w1'}), false);
+ist('Wirkzeit Bonusaktion', aktionsZeit({castingTime: '1 Bonusaktion'}, 'zauber'), 'bonus');
+ist('Wirkzeit Reaktion', aktionsZeit({castingTime: '1 Reaktion, wenn …'}, 'zauber'), 'reaktion');
+ist('Ritual von zehn Minuten', aktionsZeit({castingTime: '10 Minuten'}, 'zauber'), 'lang');
+ist('Merkmal mit Bonusaktion im Text', aktionsZeit({description: 'Als <b>Bonusaktion</b> heilst du …'}, 'merkmal'), 'bonus');
+ist('Merkmal mit Reaktion', aktionsZeit({description: 'Du kannst deine Reaktion nutzen, um …'}, 'merkmal'), 'reaktion');
+ist('Merkmal ohne Angabe', aktionsZeit({description: 'Dunkelsicht 18 m.'}, 'merkmal'), '');
+ist('bei Waffen wird nicht geraten', aktionsZeit({name: 'Dolch'}, 'angriff'), '');
+ist('einsetzbar: mit Ressource', merkmalEinsetzbar({ressource: 'r1'}), true);
+ist('einsetzbar: Aktionsschub nach dem Text', merkmalEinsetzbar({description: 'Einmal je Rast eine <b>zusätzliche Aktion</b>.'}), true);
+ist('einsetzbar: nicht der Kampfstil', merkmalEinsetzbar({name: 'Kampfstil', description: '+1 RK.'}), false);
+ist('Auszug ohne Auszeichnung', textAuszug('<p>Ein <b>kurzer</b> Satz.</p>'), 'Ein kurzer Satz.');
+ist('Auszug kürzt am Wort', textAuszug('eins zwei drei vier fünf sechs', 16), 'eins zwei drei …');
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

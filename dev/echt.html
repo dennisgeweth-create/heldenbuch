@@ -875,7 +875,7 @@
             const merkmal = await warten(() => knopfMit('⭐ Merkmal'));
             if (ja('Das Zugfenster bietet Merkmale an', !!merkmal && !merkmal.disabled)) {
               merkmal.click(); await ruhe(80);
-              const eintrag = await warten(() => [...document.querySelectorAll('.zug-zeile')]
+              const eintrag = await warten(() => [...document.querySelectorAll('.zug-karten .zk')]
                 .find(z => /Aktionsschub/.test(z.textContent)));
               if (ja('  … Aktionsschub steht zur Wahl', !!eintrag)) {
                 eintrag.click(); await ruhe(100);
@@ -1036,7 +1036,7 @@
             zug3.click();
             const zb = await warten(() => knopfMit('✨ Zauber'));
             if (zb) { zb.click(); await ruhe(80); }
-            const sp = await warten(() => [...document.querySelectorAll('.zug-zeile')]
+            const sp = await warten(() => [...document.querySelectorAll('.zug-karten .zk')]
               .find(z => /Person festhalten/.test(z.textContent)));
             if (ja('Person festhalten steht zur Wahl', !!sp)) {
               sp.click(); await ruhe(80);
@@ -1082,10 +1082,10 @@
             zug4.click();
             const mk = await warten(() => knopfMit('⭐ Merkmal'));
             if (mk) { mk.click(); await ruhe(80); }
-            const bann = await warten(() => [...document.querySelectorAll('.zug-zeile')]
+            const bann = await warten(() => [...document.querySelectorAll('.zug-karten .zk')]
               .find(z => /Bannstrahl/.test(z.textContent)));
             if (ja('Bannstrahl steht zur Wahl — mit Zauber und Vorrat',
-                   !!bann && /→ Person festhalten/.test(bann.textContent) && /Kanalisieren 1\/1/.test(bann.textContent),
+                   !!bann && /→ Person festhalten/.test(bann.textContent) && /Kanalisieren\s*1\/1/.test(bann.textContent),
                    bann ? bann.textContent : '')) {
               bann.click(); await ruhe(80);
               const ich = [...document.querySelectorAll('.zug-ziel')].find(z => /Brunhilde/.test(z.textContent));
@@ -2144,11 +2144,45 @@
           onSenden: (a) => { angesagt = a; return Promise.resolve({...a, id: 'x1'}); },
         }), buehne);
         await ruhe(100);
+        // Die Ansage geht in Schritten: Handlung, Was, Auswahl, Ziel, Abschicken.
+        const schritte = () => [...buehne.querySelectorAll('.schritt')].map(s => s.dataset.schritt);
+        const kachel = (wort) => [...buehne.querySelectorAll('.schritt-kachel')].find(b => b.textContent.includes(wort));
+        const knopfIn = (wort) => [...buehne.querySelectorAll('button')].find(b => b.textContent.toLowerCase().includes(wort.toLowerCase()));
+        ja('Die Ansage beginnt mit einem Schritt', schritte().join(',') === 'typ', schritte().join(','));
+        if (ja('  … Aktion, Bonusaktion oder Reaktion als Kacheln', !!kachel('Bonusaktion') && !!kachel('Reaktion'))) {
+          kachel('Bonusaktion').click(); await ruhe(80);
+          ja('  … ein Klick, und der zweite Schritt ploppt auf', schritte().join(',') === 'typ,art', schritte().join(','));
+          ja('  … der erste trägt, was gewählt ist', /Bonusaktion/.test(buehne.querySelector('.schritt[data-schritt="typ"]').textContent));
+          ja('  … der Zauber steht zur Wahl, weil einer im Buch steht', !!kachel('Zauber') && !kachel('Zauber').disabled);
+          kachel('Angriff').click(); await ruhe(80);
+          const waffeK = buehne.querySelector('.zk-angriff');
+          if (ja('  … dann die Waffe als Karte wie im Reiter', !!waffeK && /Kriegshammer/.test(waffeK.textContent))) {
+            ja('  … mit Angriff und Schaden', /Angriff\s*\+\d/.test(waffeK.textContent) && /Schaden\s*1W8/.test(waffeK.textContent),
+               waffeK.textContent);
+            ja('  … ohne Auswahl geht es nicht weiter', knopfIn('Weiter').disabled);
+            waffeK.click(); await ruhe(60);
+            knopfIn('Weiter').click(); await ruhe(80);
+            ja('  … dann die Ziele', schritte().join(',') === 'typ,art,wahl,ziel', schritte().join(','));
+            const ziel = buehne.querySelector('.zug-ziel');
+            if (ziel) { ziel.click(); await ruhe(40); }
+            knopfIn('Weiter').click(); await ruhe(80);
+            knopfIn('An die Spielleitung').click(); await ruhe(150);
+            ja('  … und abgeschickt geht der Angriff hinaus',
+               !!angesagt && angesagt.typ === 'bonus' && angesagt.art === 'angriff' && angesagt.was === 'Kriegshammer'
+               && (angesagt.zielIds || []).length === 1, JSON.stringify(angesagt));
+            ja('  … danach steht „Noch eine Ansage“', !!knopfIn('Noch eine Ansage'));
+            knopfIn('Noch eine Ansage').click(); await ruhe(80);
+            ja('  … und es geht von vorn los', schritte().join(',') === 'typ', schritte().join(','));
+          }
+        }
+        // Heimlich und nur beschrieben: der Auswahlschritt fällt weg.
+        kachel('Aktion').click(); await ruhe(60);
+        kachel('Nur beschreiben').click(); await ruhe(60);
+        ja('„Nur beschreiben“ überspringt die Auswahl', schritte().join(',') === 'typ,art,ziel', schritte().join(','));
+        knopfIn('Weiter').click(); await ruhe(80);
         const schloss = buehne.querySelector('.an-geheim input');
         if (ja('Die Ansage hat das Schloss', !!schloss)) {
           schloss.click();
-          [...buehne.querySelectorAll('button')].find(b => /Nur beschreiben/.test(b.textContent)).click();
-          await ruhe(60);
           const tx = buehne.querySelector('.zug-frei');
           setzA.call(tx, 'Ich schneide heimlich den Beutel ab.');
           tx.dispatchEvent(new Event('input', {bubbles: true}));

@@ -2176,3 +2176,67 @@ const ressourceEinsetzen = (held, resId, n = 1) => {
     details: {verbraucht: kosten, uebrig: rest - kosten},
   };
 };
+
+// ── Was die Karten im Zugfenster brauchen ────────────────────────
+// Angriff und Schaden einer Waffe — dieselbe Rechnung wie im Reiter
+// Aktionen (weaponStats in 4-app.jsx), aber aus charWerte, damit auch
+// das Zugfenster und die Ansage sie zeigen koennen.
+const waffeWerte = (w, werte) => {
+  const eff = (werte && werte.eff) || {};
+  const effs = (werte && werte.effekte) || [];
+  const aKey = w.attrKey === 'fin'
+    ? (mod(eff.str || 10) >= mod(eff.dex || 10) ? 'str' : 'dex')
+    : (w.attrKey || 'str');
+  const attrMod  = mod(eff[aKey] || 10);
+  const bonus    = applyEffect(effs, 'attack', (w.proficient ? (+eff.profBonus || 0) : 0) + attrMod + (+w.attackBonus || 0));
+  const dmgBonus = applyEffect(effs, 'damage', attrMod + (+w.attackBonus || 0));
+  const dmgStr   = (w.damage || '') + (dmgBonus !== 0 ? (dmgBonus > 0 ? ' + ' + dmgBonus : ' - ' + Math.abs(dmgBonus)) : '');
+  return {aKey, attrMod, bonus, dmgBonus, dmgStr};
+};
+
+// Ist die Waffe angelegt — von Hand markiert oder in einem Platz der
+// Ausrüstungspuppe (Haupthand, Nebenhand, Fernkampf).
+const waffeAngelegt = (held, w) => !!(w && (w.equipped
+  || Object.values((held && held.gear) || {}).some(s => s && s.k === 'w' && s.id === w.id)));
+
+// Die ersten Worte einer Beschreibung, ohne Auszeichnung — für eine Karte,
+// die nicht aufgeklappt werden muss, um zu sagen, was sie kann.
+const textAuszug = (html, n = 140) => {
+  const t = htmlZuText(html).replace(/\s+/g, ' ').trim();
+  if (t.length <= n) return t;
+  const schnitt = t.slice(0, n);
+  const wort = schnitt.lastIndexOf(' ');
+  return (wort > n * 0.6 ? schnitt.slice(0, wort) : schnitt).replace(/[,;:.\s]+$/, '') + ' …';
+};
+
+// Wann etwas im Zug drankommt: Aktion, Bonusaktion, Reaktion — oder
+// 'lang' (ein Ritual von zehn Minuten). Beim Zauber steht es in der
+// Wirkzeit, beim Merkmal in der Beschreibung („als Bonusaktion“). Was
+// nichts sagt, gibt ''. Bei Waffen und Gegenständen wird nicht geraten:
+// die Zweitwaffe ist eine Bonusaktion, und den Trank handhabt jeder Tisch
+// anders.
+const aktionsZeit = (g, art) => {
+  if (!g) return '';
+  if (art === 'angriff' || art === 'gegenstand') return '';
+  if (art === 'zauber') {
+    const t = String(g.castingTime || '').toLowerCase();
+    if (/reaktion/.test(t)) return 'reaktion';
+    if (/bonus/.test(t)) return 'bonus';
+    if (/aktion/.test(t)) return 'aktion';
+    return t.trim() ? 'lang' : '';
+  }
+  const t = htmlZuText(g.description).toLowerCase();
+  if (/bonusaktion/.test(t)) return 'bonus';
+  if (/(als|eine|deine|seine|ihre) reaktion/.test(t)) return 'reaktion';
+  if (/(als|eine|deine|seine|ihre) aktion\b/.test(t)) return 'aktion';
+  return '';
+};
+
+// Ein Merkmal, das man im Zug einsetzt — es verbraucht etwas, löst
+// einen Zauber aus, trägt eine Wirkung oder sagt es im Text („einmal je
+// Rast“, „eine zusätzliche Aktion“). Die übrigen (Kampfstil, Dunkelsicht)
+// wirken einfach und stehen in der Auswahl eingeklappt dahinter.
+const MERKMAL_EINSATZ = /einmal (je|pro)|(je|pro) (kurzer |langer )?rast|bis (du|er|sie) eine (kurze|lange) rast|zusätzliche aktion|anzahl gleich|verbrauch/;
+const merkmalEinsetzbar = (f) => !!(f && (f.ressource || f.zauber || f.dauer
+  || hatWirkung(f.wirkung) || aktionsZeit(f, 'merkmal')
+  || MERKMAL_EINSATZ.test(htmlZuText(f.description).toLowerCase())));

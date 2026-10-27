@@ -2,7 +2,7 @@
 // Tracker: welche Zustaende umgelegt werden, was ein Schritt vom Helden
 // behaelt, wann nachgefragt wird und wie der Kampf danach aussieht.
 // Das Stueck steht in 2c-kampf.jsx zwischen „Im Zugfenster steht je Ziel"
-// und der AktionsWahl — reines JavaScript ohne React.
+// und den Karten der Auswahl — reines JavaScript ohne React.
 const fs = require('fs');
 const kampf = fs.readFileSync('js/src/2c-kampf.jsx', 'utf8');
 const stueck = (von, bis) => {
@@ -16,7 +16,7 @@ const quelle = fs.readFileSync('js/data.js', 'utf8') + '\n'
                  .split('// ══ Ende der reinen Rechnung')[0] + '\n'
              + stueck('const inVorbereitung', 'const sortiereNachIni') + '\n'
              + stueck('const AKTION_WORT', '// Haengt eine Kartenaufnahme') + '\n'
-             + stueck('// Im Zugfenster steht je Ziel', 'const AktionsWahl');
+             + stueck('// Im Zugfenster steht je Ziel', '// ── Die Karten der Auswahl');
 const namen = [...quelle.matchAll(/^const ([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
 eval(quelle + ';globalThis.M = {' + namen.join(', ') + '};');
 Object.assign(globalThis, M);

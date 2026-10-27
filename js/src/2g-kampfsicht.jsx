@@ -94,7 +94,32 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
 // dabei nicht vorkommt, ist eine Zahl: wie viel ankommt, weiss er
 // nicht, und die Trefferpunkte der Gegner gehen ihn nichts an. Er sagt
 // an, die Spielleitung traegt ein.
-const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPlatz }) => {
+//
+// Seit v6.5 in Schritten statt auf einer langen Seite: erst die Art der
+// Handlung, dann was, dann welches, dann auf wen, dann abschicken. Jeder
+// Schritt erscheint oben in der Leiste, sobald man bei ihm ankommt, und
+// traegt dort, was gewaehlt ist — ein Klick darauf fuehrt zurueck.
+const ANSAGE_SCHRITTE = [
+  {k: 'typ',    titel: 'Handlung'},
+  {k: 'art',    titel: 'Was'},
+  {k: 'wahl',   titel: 'Auswahl'},
+  {k: 'ziel',   titel: 'Ziel'},
+  {k: 'senden', titel: 'Abschicken'},
+];
+const ANSAGE_TYP_TEXT = {
+  aktion:   'Das Hauptding deines Zuges — Angriff, Zauber, Trank, Spurt.',
+  bonus:    'Das Kleine nebenher — Zweitwaffe, Heilendes Wort, Gerissene Aktion.',
+  reaktion: 'Außerhalb deines Zuges — Gelegenheitsangriff, Schild, Gegenzauber.',
+};
+const ANSAGE_ARTEN = [
+  {k: 'angriff',    sym: '⚔',  l: 'Angriff',    wort: (n) => n + (n === 1 ? ' Waffe' : ' Waffen')},
+  {k: 'zauber',     sym: '✨', l: 'Zauber',     wort: (n) => n + ' Zauber'},
+  {k: 'gegenstand', sym: '🧪', l: 'Gegenstand', wort: (n) => n + ' zur Hand'},
+  {k: 'merkmal',    sym: '⭐', l: 'Merkmal',    wort: (n) => n + (n === 1 ? ' Merkmal' : ' Merkmale')},
+  {k: 'frei',       sym: '✍',  l: 'Nur beschreiben', wort: () => 'in eigenen Worten'},
+];
+
+const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSenden, onPlatz }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
   const [wahl, setWahl] = React.useState({
@@ -106,8 +131,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
   const [laeuft, setLaeuft] = React.useState(false);
   // Aktion, Bonusaktion oder Reaktion. Ein Zug ist selten eine Sache:
   // Angriff und Bonusaktion, Zauber und Trank, und dazwischen eine
-  // Reaktion. Wer alles in einen Satz schreibt, macht der Spielleitung
-  // Arbeit — also drei Knöpfe und so viele Ansagen, wie man will.
+  // Reaktion — also so viele Ansagen, wie man will.
   const [typ, setTyp] = React.useState('aktion');
   // Heimlich: nur die Spielleitung sieht die Ansage. Die Mitspieler
   // bekommen sie vom Server gar nicht erst.
@@ -116,10 +140,15 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
   // paar Sekunden; solange steht es hier, damit die Zusammenfassung
   // sofort stimmt.
   const [eigene, setEigene] = React.useState([]);
-  // Was der letzte abgeschickte Zauber den Vorrat gekostet hat. Steht
-  // einen Augenblick da, damit man es merkt — und damit man es merkt,
-  // wenn nichts mehr da war.
+  // Was der letzte abgeschickte Zauber den Vorrat gekostet hat.
   const [platz, setPlatz] = React.useState(null);
+  // Wo man steht und wie weit man schon war. Ein Schritt, der noch nicht
+  // erreicht ist, steht nicht in der Leiste — er ploppt auf, wenn man
+  // ankommt.
+  const [schritt, setSchritt] = React.useState(0);
+  const [weit, setWeit] = React.useState(0);
+  const [gesendet, setGesendet] = React.useState(false);
+  const gehe = (n) => { setSchritt(n); setWeit(w => Math.max(w, n)); };
 
   const {gegenstand, grundGrad, grad, wurf} = aktionsStand(held, wahl);
   const liste = (kampf && kampf.teilnehmer) || [];
@@ -140,7 +169,11 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
     return [...vomServer, ...eigene.filter(a => !drin.has(a.id))];
   })();
 
+  const anzahl = {angriff: waffen.length, zauber: sprueche.length,
+                  gegenstand: kampfGegenstaende(held).length, merkmal: kampfMerkmale(held).length, frei: 1};
   const etwasDa = !!gegenstand || !!text.trim() || Object.keys(ziele).length > 0;
+  const zielZahl = Object.keys(ziele).length;
+
   const senden = async () => {
     setLaeuft(true);
     const raus = await onSenden({
@@ -154,15 +187,10 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
       ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
       zielIds: Object.keys(ziele),
       text: text.trim(),
-      // Auf welchem Grad wirklich gezaubert wird. „grad" oben steht nur
-      // beim Hochzaubern da; hier steht er immer, denn daran haengt der
-      // Platz.
+      // Auf welchem Grad wirklich gezaubert wird — daran haengt der Platz.
       stufe: (wahl.art === 'zauber' && gegenstand) ? grad : 0,
       geheim,
     });
-    // Das Fenster bleibt offen: die nächste Ansage kommt meistens
-    // gleich hinterher. Was gewählt war, bleibt stehen — der zweite
-    // Hieb ist derselbe —, Ziele und Beschreibung werden frei.
     if (raus) setEigene(e => [...e, raus]);
     // Der Platz geht erst ab, wenn die Ansage durch ist. Wer sie nicht
     // losbekommt, soll nicht trotzdem bezahlt haben.
@@ -173,133 +201,243 @@ const AnsageFenster = ({ held, kampf, helden, runde, onAbbrechen, onSenden, onPl
     } else if (raus) {
       setPlatz(null);
     }
-    setZiele({}); setText('');
+    if (raus) setGesendet(true);
     setLaeuft(false);
   };
+  // Die naechste Ansage: von vorn, mit leerer Auswahl. Was gewaehlt war,
+  // bleibt als Art stehen — der zweite Hieb ist meistens derselbe.
+  const nochEine = () => {
+    setZiele({}); setText(''); setGeheim(false); setGesendet(false);
+    setWahl(w => ({...w, i: null, grad: 0, suche: ''}));
+    setSchritt(0); setWeit(0);
+  };
+
+  // Was jeder Schritt in der Leiste traegt.
+  const wertVon = (k) => k === 'typ' ? (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l
+    : k === 'art' ? (ANSAGE_ARTEN.find(x => x.k === wahl.art) || {}).l
+    : k === 'wahl' ? (gegenstand ? gegenstand.name + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '') : '—')
+    : k === 'ziel' ? (zielZahl ? Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ') : 'kein Ziel')
+    : (gesendet ? 'gesendet' : '');
+  // „Nur beschreiben“ braucht keine Auswahl — der Schritt faellt weg.
+  const ohneWahl = wahl.art === 'frei';
+  const sichtbar = ANSAGE_SCHRITTE.map((s, n) => ({...s, n}))
+    .filter(s => s.n <= weit && !(ohneWahl && s.k === 'wahl'));
+  const weiter = () => gehe(schritt === 1 && ohneWahl ? 3 : schritt + 1);
+  const zurueck = () => setSchritt(s => (s === 3 && ohneWahl) ? 1 : Math.max(0, s - 1));
 
   return (
     <Fenster onClick={onAbbrechen}>
-      <div className="zug-fenster" onClick={e=>e.stopPropagation()}>
+      <div className="zug-fenster ansage-schritte" onClick={e=>e.stopPropagation()}>
         <div className="zug-kopf">
           <span className="zug-titel">✍ {held ? held.name : 'Ansage'}</span>
           <span className="zug-wer">Runde {runde} · was hast du vor?</span>
         </div>
+        <div className="schritt-leiste" role="tablist" aria-label="Schritte der Ansage">
+          {sichtbar.map((s, idx) => (
+            <button type="button" key={s.k} role="tab" data-schritt={s.k}
+              aria-selected={s.n === schritt}
+              className={'schritt' + (s.n === schritt ? ' an' : '') + (s.n < schritt || gesendet ? ' fertig' : '')}
+              onClick={() => !gesendet && setSchritt(s.n)} disabled={gesendet && s.k !== 'senden'}>
+              <span className="schritt-zahl">{idx + 1}</span>
+              <span className="schritt-text">
+                <b>{s.titel}</b>
+                {s.n !== schritt || s.k === 'senden' ? <i>{wertVon(s.k)}</i> : null}
+              </span>
+            </button>
+          ))}
+        </div>
 
-        <div className="zug-leib">
-          {/* Oben steht, was schon draußen ist — sonst sagt man dieselbe
-              Sache zweimal an oder vergisst die Bonusaktion. */}
-          {angesagt.length > 0 && (
+        <div className="zug-leib" key={schritt}>
+          {/* 1 — welche Handlung. Oben, was schon draußen ist: sonst sagt
+              man dieselbe Sache zweimal an oder vergisst die Bonusaktion. */}
+          {schritt === 0 && (<>
+            {angesagt.length > 0 && (
+              <div className="zug-block">
+                <div className="zug-label">Schon angesagt</div>
+                <AnsageListe angesagt={angesagt} />
+              </div>
+            )}
             <div className="zug-block">
-              <div className="zug-label">Schon angesagt</div>
-              <div className="an-liste">
-                {angesagt.map(a => (
-                  <div className="an-zeile" key={a.id}>
-                    <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
-                    <span className="an-was">
-                      {a.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
-                      {a.was ? <b>{a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
-                      {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
-                      {a.text ? <i>„{a.text}“</i> : null}
-                    </span>
-                  </div>
+              <div className="zug-label">Welche Handlung</div>
+              <div className="schritt-kacheln drei">
+                {ANSAGE_TYPEN.map(x => (
+                  <button type="button" key={x.k}
+                    className={'schritt-kachel typ-' + x.k + (typ === x.k ? ' an' : '')}
+                    onClick={() => { setTyp(x.k); gehe(1); }}>
+                    <span className={'an-typ ' + x.k}>{x.kurz}</span>
+                    <b>{x.l}</b>
+                    <i>{ANSAGE_TYP_TEXT[x.k]}</i>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>)}
+
+          {/* 2 — was: Angriff, Zauber, Gegenstand, Merkmal, frei. */}
+          {schritt === 1 && (
+            <div className="zug-block">
+              <div className="zug-label">Was tust du — als {(ANSAGE_TYPEN.find(x => x.k === typ) || {}).l}</div>
+              <div className="schritt-kacheln">
+                {ANSAGE_ARTEN.map(x => (
+                  <button type="button" key={x.k} disabled={!anzahl[x.k]}
+                    className={'schritt-kachel' + (x.k === 'frei' ? ' schmal' : '') + (wahl.art === x.k ? ' an' : '')}
+                    onClick={() => {
+                      if (wahl.art !== x.k) setWahl({...wahl, art: x.k, i: null, grad: 0, suche: ''});
+                      gehe(x.k === 'frei' ? 3 : 2);
+                    }}>
+                    <span className="schritt-sym">{x.sym}</span>
+                    <b>{x.l}</b>
+                    <i>{anzahl[x.k] ? x.wort(anzahl[x.k])
+                        : x.k === 'gegenstand' ? 'nichts für den Kampf markiert' : 'nichts im Bogen'}</i>
+                  </button>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="zug-block">
-            <div className="zug-label">Was davon</div>
-            <div className="an-typen">
-              {ANSAGE_TYPEN.map(x => (
-                <button type="button" key={x.k}
-                  className={'bj-taste' + (typ === x.k ? ' haupt' : '')}
-                  onClick={()=>setTyp(x.k)}>{x.l}</button>
-              ))}
-            </div>
-          </div>
-
-          <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer="du" />
-
-          <div className="zug-block">
-            <div className="zug-label">Auf wen</div>
-            <div className="zug-ziele">
-              {liste.map(t => (
-                <button type="button" key={t.id}
-                  className={'zug-ziel' + (ziele[t.id] ? ' an' : '') + (t.art === 'held' ? ' held' : '')}
-                  onClick={()=>zielUm(t.id)}>
-                  <span className="zug-ziel-kopf"><b>{zielName(t)}</b></span>
-                  <span className="zug-ziel-tp">
-                    {t.art === 'held' ? (t.charId === (held || {}).id ? 'du' : 'Held') : (t.zustand || '')}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="zug-block">
-            <div className="zug-label">Beschreibung — was du tust</div>
-            <textarea className="zug-frei" value={text} onChange={e=>setText(e.target.value)}
-              maxLength={500} aria-label="Beschreibung deiner Aktion"
-              placeholder="Ich springe hinter den Karren und schleudere Feuer über die Lichtung." />
-          </div>
-
-          <label className="zug-lauf-an an-geheim">
-            <input type="checkbox" checked={geheim} onChange={e=>setGeheim(e.target.checked)} />
-            <span>🔒 Nur für die Spielleitung — die anderen sehen diese Ansage nicht</span>
-          </label>
-
-          <div className="zug-block">
-            <div className="zug-label">Das geht so an die Spielleitung</div>
-            <div className="zug-vorschau">
-              <div className="pr-zeile zug">▸ {held ? held.name : 'Du'} sagt an</div>
-              {gegenstand && (
-                <div className="pr-zeile">   {AKTION_WORT[wahl.art] || 'Angriff'}: {gegenstand.name}
-                  {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
-                  {wurf ? ' (' + wurf + ')' : ''}</div>
-              )}
-              {Object.keys(ziele).length > 0 && (
-                <div className="pr-zeile">   auf {Object.keys(ziele)
-                  .map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')}</div>
-              )}
-              {text.trim() && <div className="pr-zeile frei">   „{text.trim()}“</div>}
-              {!etwasDa && <i>Wähle etwas aus oder schreib einen Satz.</i>}
-            </div>
-          </div>
-
-          {/* Was der Vorrat dazu gesagt hat. */}
-          {platz && (
-            <div className={'zug-platz' + (platz.gestrichen ? '' : ' leer')}>
-              {platz.gestrichen
-                ? (platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom '
-                    + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.'
-                  : '◈ Zauberplatz gestrichen — noch ' + platz.frei
-                    + ' vom ' + platz.grad + '. Grad.')
-                : platz.hat
-                  ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.'
-                  : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.'}
-            </div>
+          {/* 3 — welches: die Karten wie im Bogen. */}
+          {schritt === 2 && (
+            <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer="du"
+              setDefs={setDefs} teil="liste" typ={typ} />
           )}
+
+          {/* 4 — auf wen. */}
+          {schritt === 3 && (() => {
+            const w = (aktionsStand(held, wahl).wirkung) || {};
+            const heilt = w.art === 'heilung' || w.art === 'temp'
+              || /heil|segn|schutz|schild/i.test((gegenstand && gegenstand.name) || '');
+            const gruppen = [
+              {k: 'feind', titel: 'Gegner', leute: liste.filter(t => t.art !== 'held')},
+              {k: 'freund', titel: 'Verbündete', leute: liste.filter(t => t.art === 'held')},
+            ].filter(g => g.leute.length);
+            if (heilt) gruppen.reverse();
+            return (
+              <div className="zug-block">
+                <div className="zug-label">Auf wen — antippen, mehrere gehen</div>
+                {gruppen.map(g => (
+                  <div className="ziel-gruppe" key={g.k}>
+                    <div className="ziel-gruppe-titel">{g.titel}</div>
+                    <div className="zug-ziele frei">
+                      {g.leute.map(t => (
+                        <button type="button" key={t.id}
+                          className={'zug-ziel' + (ziele[t.id] ? ' an' : '') + (t.art === 'held' ? ' held' : '')}
+                          onClick={()=>zielUm(t.id)}>
+                          <span className="zug-ziel-kopf"><b>{zielName(t)}</b></span>
+                          <span className="zug-ziel-tp">
+                            {t.art === 'held' ? (t.charId === (held || {}).id ? 'du' : 'Held') : (t.zustand || '')}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* 5 — abschicken. */}
+          {schritt === 4 && !gesendet && (<>
+            <div className="zug-block">
+              <div className="zug-label">Beschreibung — was du tust (freiwillig)</div>
+              <textarea className="zug-frei" value={text} onChange={e=>setText(e.target.value)}
+                maxLength={500} aria-label="Beschreibung deiner Aktion" autoFocus={ohneWahl}
+                placeholder="Ich springe hinter den Karren und schleudere Feuer über die Lichtung." />
+            </div>
+            <label className="zug-lauf-an an-geheim">
+              <input type="checkbox" checked={geheim} onChange={e=>setGeheim(e.target.checked)} />
+              <span>🔒 Nur für die Spielleitung — die anderen sehen diese Ansage nicht</span>
+            </label>
+            <div className="zug-block">
+              <div className="zug-label">Das geht so an die Spielleitung</div>
+              <div className="zug-vorschau">
+                <div className="pr-zeile zug">▸ {held ? held.name : 'Du'} sagt an · {(ANSAGE_TYPEN.find(x => x.k === typ) || {}).l}</div>
+                {gegenstand && (
+                  <div className="pr-zeile">   {AKTION_WORT[wahl.art] || 'Angriff'}: {gegenstand.name}
+                    {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
+                    {wurf ? ' (' + wurf + ')' : ''}</div>
+                )}
+                {zielZahl > 0 && (
+                  <div className="pr-zeile">   auf {Object.keys(ziele)
+                    .map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')}</div>
+                )}
+                {text.trim() && <div className="pr-zeile frei">   „{text.trim()}“</div>}
+                {!etwasDa && <i>Wähle etwas aus oder schreib einen Satz.</i>}
+              </div>
+            </div>
+          </>)}
+
+          {schritt === 4 && gesendet && (<>
+            <div className="ansage-gesendet">
+              <span className="ansage-haken">✓</span>
+              <span>An die Spielleitung gegangen. Noch eine — eine Bonusaktion, eine Reaktion?</span>
+            </div>
+            <div className="zug-block">
+              <div className="zug-label">Schon angesagt</div>
+              <AnsageListe angesagt={angesagt} />
+            </div>
+            {/* Was der Vorrat dazu gesagt hat. */}
+            {platz && (
+              <div className={'zug-platz' + (platz.gestrichen ? '' : ' leer')}>
+                {platz.gestrichen
+                  ? (platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom '
+                      + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.'
+                    : '◈ Zauberplatz gestrichen — noch ' + platz.frei
+                      + ' vom ' + platz.grad + '. Grad.')
+                  : platz.hat
+                    ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.'
+                    : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.'}
+              </div>
+            )}
+          </>)}
         </div>
 
         <div className="zug-fuss">
+          {schritt > 0 && !gesendet && (
+            <button className="btn-icon" onClick={zurueck}>← Zurück</button>
+          )}
           <span className="zug-hinweis">
-            {angesagt.length > 0
-              ? angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen')
-                + ' — noch eine geht.'
-              : 'Wie viel ankommt, trägt die Spielleitung ein.'}
+            {gesendet ? (angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen'))
+              : schritt === 2 && !gegenstand ? 'Tipp an, was du nimmst.'
+              : schritt === 3 ? (zielZahl ? zielZahl + (zielZahl === 1 ? ' Ziel' : ' Ziele') : 'Ohne Ziel geht auch.')
+              : schritt === 4 ? 'Wie viel ankommt, trägt die Spielleitung ein.'
+              : 'Schritt ' + (sichtbar.findIndex(s => s.n === schritt) + 1) + ' von ' + (ohneWahl ? 4 : 5)}
           </span>
           <button className="btn-cancel" onClick={onAbbrechen}>
             {angesagt.length > 0 ? 'Fertig' : 'Abbrechen'}
           </button>
-          <button className="btn-save" disabled={!etwasDa || laeuft} onClick={senden}>
-            {laeuft ? 'Wird gesendet…'
-              : angesagt.length > 0 ? '📣 Noch eine' : '📣 An die Spielleitung'}
-          </button>
+          {gesendet ? (
+            <button className="btn-save" onClick={nochEine}>📣 Noch eine Ansage</button>
+          ) : schritt === 4 ? (
+            <button className="btn-save" disabled={!etwasDa || laeuft} onClick={senden}>
+              {laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung'}
+            </button>
+          ) : (schritt === 2 || schritt === 3) ? (
+            <button className="btn-save" disabled={schritt === 2 && !gegenstand} onClick={weiter}>
+              {schritt === 3 && !zielZahl ? 'Ohne Ziel weiter →' : 'Weiter →'}
+            </button>
+          ) : null}
         </div>
       </div>
     </Fenster>
   );
 };
+
+// Was schon angesagt ist — oben im ersten Schritt und nach dem Senden.
+const AnsageListe = ({ angesagt }) => (
+  <div className="an-liste">
+    {angesagt.map(a => (
+      <div className="an-zeile" key={a.id}>
+        <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
+        <span className="an-was">
+          {a.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
+          {a.was ? <b>{a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+          {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
+          {a.text ? <i>„{a.text}“</i> : null}
+        </span>
+      </div>
+    ))}
+  </div>
+);
 
 // Wie die Taverne: ein Fenster, das ueber der Anwendung liegt, aber
 // keine Klicks wegnimmt. Wer waehrend des Kampfes in seinem Bogen

@@ -1024,16 +1024,27 @@ const Sheet = () => {
                         </div>
                       </div>
                       <div className="feature-card-body">
-                        {feat.source && <div className="feature-source">{feat.source}</div>}
+                        {/* Quelle, und daneben, wann es drankommt und was es
+                            ausloest — das stand bisher erst im aufgeklappten
+                            Text, wenn ueberhaupt. */}
+                        {(feat.source || aktionsZeit(feat, 'merkmal') || feat.zauber) && (
+                          <div className="feature-kopfzeile">
+                            {feat.source && <span className="feature-source">{feat.source}</span>}
+                            <ZeitMarke zeit={aktionsZeit(feat, 'merkmal')} />
+                            {feat.zauber && <span className="feature-zauber" title="Löst diesen Zauber aus">→ {feat.zauber}</span>}
+                          </div>
+                        )}
+                        {/* Zugeklappt der Anfang der Beschreibung: eine Karte
+                            mit nur einem Namen sagte nichts. */}
+                        {feat.description && exFeature !== feat.id && (
+                          <div className="feature-auszug">{textAuszug(feat.description, 150)}</div>
+                        )}
                         {(() => {
                           const mr = merkmalRessource(cur, feat);
                           if (!mr) return null;
                           return (
                             <div className="feature-nutzen" onClick={e=>e.stopPropagation()}>
-                              <span className="feature-nutzen-stand" style={{color: mr.r.color || 'var(--gold)'}}>
-                                {mr.r.name} <b>{mr.rest}</b>/{+mr.r.max || 0}
-                                {mr.kosten > 1 ? ' · kostet ' + mr.kosten : ''}
-                              </span>
+                              <RessourcePunkte r={mr.r} kosten={mr.kosten} />
                               {darfBearbeiten && (
                                 <button type="button" className="btn-benutzen klein" disabled={!mr.reicht}
                                   title={mr.reicht ? 'Einsetzen — ' + mr.r.name + ' −' + mr.kosten : 'Nicht genug ' + mr.r.name + ' übrig'}

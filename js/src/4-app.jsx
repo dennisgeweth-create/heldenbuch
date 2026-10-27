@@ -3055,16 +3055,8 @@ function App() {
   // einmal fuer die Waffenkarte, einmal fuer die Detailansicht; eine Regel
   // haette man dort kuenftig zweimal aendern muessen. "fin" waehlt das
   // guenstigere der beiden Attribute (Finesse).
-  const weaponStats = (w) => {
-    const aKey = w.attrKey === "fin"
-      ? (mod(effCur.str) >= mod(effCur.dex) ? "str" : "dex")
-      : (w.attrKey || "str");
-    const attrMod  = mod(effCur[aKey] || 10);
-    const bonus    = fx('attack', (w.proficient ? effCur.profBonus : 0) + attrMod + (w.attackBonus||0));
-    const dmgBonus = fx('damage', attrMod + (w.attackBonus||0));
-    const dmgStr   = w.damage + (dmgBonus!==0 ? (dmgBonus>0 ? " + "+dmgBonus : " - "+Math.abs(dmgBonus)) : "");
-    return { aKey, attrMod, bonus, dmgBonus, dmgStr };
-  };
+  // Die Rechnung steht in js/util.js — das Zugfenster zeigt dieselben Zahlen.
+  const weaponStats = (w) => waffeWerte(w, {eff: effCur || {}, effekte: itemFx});
 
   // Dieselbe Auswahl wie die Liste "Aktiv" in der Seitenleiste, damit der
   // Wechsel im Kopf keine Helden anbietet, die dort ausgeblendet sind.
@@ -6779,7 +6771,7 @@ function App() {
 
       {ansageFuer && kampfSichtDaten && (
         <AnsageFenster held={chars.find(c => c.id === ansageFuer)} kampf={kampfSichtDaten}
-          helden={advChars} runde={kampfSichtDaten.runde || 1}
+          helden={advChars} runde={kampfSichtDaten.runde || 1} setDefs={setDefs}
           onAbbrechen={()=>setAnsageFuer(null)} onSenden={ansageSenden}
           onPlatz={(grad, hoeher)=>zauberplatzStreichen(ansageFuer, grad, hoeher)} />
       )}

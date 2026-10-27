@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.4.0';
+const HB_VERSION = 'v6.5.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -2914,9 +2914,10 @@ const WertDialog = ({
 };
 const sortierteSprueche = held => [...(held && held.spells || [])].sort((a, b) => (a.level || 0) - (b.level || 0) || (a.name || '').localeCompare(b.name || '', 'de'));
 const kampfGegenstaende = held => (held && held.inventory || []).filter(i => i && i.kampf && gegenstandVorrat(i) > 0).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+const kampfWaffen = held => [...(held && held.weapons || [])].sort((a, b) => waffeAngelegt(held, b) - waffeAngelegt(held, a) || (a.name || '').localeCompare(b.name || '', 'de'));
 const kampfMerkmale = held => [...(held && held.features || [])].sort((a, b) => (a.source || '').localeCompare(b.source || '', 'de') || (a.name || '').localeCompare(b.name || '', 'de'));
 const merkmalZauber = (held, merkmal) => merkmal && merkmal.zauber ? (held && held.spells || []).find(z => z.name === merkmal.zauber) || null : null;
-const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held) : art === 'angriff' ? held && held.weapons || [] : art === 'gegenstand' ? kampfGegenstaende(held) : art === 'merkmal' ? kampfMerkmale(held) : [];
+const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held) : art === 'angriff' ? kampfWaffen(held) : art === 'gegenstand' ? kampfGegenstaende(held) : art === 'merkmal' ? kampfMerkmale(held) : [];
 const ART_ANSICHT = {
   angriff: {
     sym: '⚔',
@@ -3121,11 +3122,183 @@ const naechsterStand = k => {
     runde: k.runde + 1
   };
 };
+const ZEIT_WORT = {
+  aktion: 'Aktion',
+  bonus: 'Bonus',
+  reaktion: 'Reaktion'
+};
+const RessourcePunkte = ({
+  r,
+  kosten
+}) => {
+  const max = Math.max(0, +r.max || 0),
+    frei = Math.max(0, max - (+r.used || 0));
+  const farbe = r.color || 'var(--gold)';
+  return React.createElement("span", {
+    className: "rp",
+    style: {
+      '--rp-farbe': farbe
+    },
+    title: (r.name || 'Ressource') + ': ' + frei + ' von ' + max + ' übrig' + (kosten > 1 ? ', kostet ' + kosten : '')
+  }, React.createElement("span", {
+    className: "rp-name"
+  }, r.name || 'Ressource'), max <= 10 ? React.createElement("span", {
+    className: "rp-punkte",
+    "aria-hidden": "true"
+  }, Array.from({
+    length: max
+  }).map((_, i) => React.createElement("i", {
+    key: i,
+    className: i < frei ? 'voll' : ''
+  }))) : null, React.createElement("span", {
+    className: "rp-zahl"
+  }, frei, "/", max, kosten > 1 ? ' · −' + kosten : ''));
+};
+const ZeitMarke = ({
+  zeit
+}) => ZEIT_WORT[zeit] ? React.createElement("span", {
+  className: 'zk-zeit ' + zeit
+}, ZEIT_WORT[zeit]) : null;
+const ZugKarte = ({
+  art,
+  g,
+  held,
+  werte,
+  an,
+  abseits,
+  onWaehlen
+}) => {
+  const cls = 'zk zk-' + art + (an ? ' an' : '') + (abseits ? ' abseits' : '');
+  const zeit = aktionsZeit(g, art);
+  const name = g.name || 'Ohne Namen';
+  if (art === 'angriff') {
+    const {
+      bonus,
+      dmgStr
+    } = waffeWerte(g, werte);
+    return React.createElement("button", {
+      type: "button",
+      className: cls,
+      onClick: onWaehlen,
+      "aria-pressed": an
+    }, React.createElement("span", {
+      className: "zk-bild"
+    }, g.imageData ? React.createElement("img", {
+      src: g.imageData,
+      alt: ""
+    }) : React.createElement("span", {
+      className: "zk-glyphe"
+    }, "\u2694")), React.createElement("span", {
+      className: "zk-leib"
+    }, React.createElement("span", {
+      className: "zk-name"
+    }, name), React.createElement("span", {
+      className: "zk-meta"
+    }, [g.range, g.damageType].filter(Boolean).join(' · ') || '—'), React.createElement("span", {
+      className: "zk-werte"
+    }, React.createElement("span", null, React.createElement("i", null, "Angriff"), React.createElement("b", {
+      className: "atk"
+    }, bonus >= 0 ? '+' + bonus : bonus)), React.createElement("span", null, React.createElement("i", null, "Schaden"), React.createElement("b", null, dmgStr || '—')))), waffeAngelegt(held, g) ? React.createElement("span", {
+      className: "zk-marke"
+    }, "angelegt") : null);
+  }
+  if (art === 'zauber') {
+    const sc = SC[g.school] || SC['Hervorrufung'];
+    const w = hatWirkung(g.wirkung) ? g.wirkung : null;
+    return React.createElement("button", {
+      type: "button",
+      className: cls + (g.prepared === false ? ' ruht' : ''),
+      onClick: onWaehlen,
+      "aria-pressed": an,
+      style: {
+        '--zk-farbe': sc.border,
+        '--zk-tief': sc.bg,
+        '--zk-text': sc.text
+      }
+    }, React.createElement("span", {
+      className: "zk-band"
+    }, React.createElement("span", {
+      className: "zk-name"
+    }, name), React.createElement("span", {
+      className: "zk-grad"
+    }, (+g.level || 0) === 0 ? 'Zaubertrick' : g.level + '. Grad', g.school ? ' · ' + g.school : '')), React.createElement("span", {
+      className: "zk-zeilen"
+    }, React.createElement("span", null, React.createElement("i", null, "Wirkzeit"), g.castingTime || '—'), React.createElement("span", null, React.createElement("i", null, "Reichweite"), g.range || '—'), React.createElement("span", null, React.createElement("i", null, "Dauer"), g.duration || '—')), React.createElement("span", {
+      className: "zk-fuss"
+    }, React.createElement(ZeitMarke, {
+      zeit: zeit
+    }), brauchtKonzentration(g) ? React.createElement("em", {
+      title: "Konzentration"
+    }, "K") : null, zauberIstRitual(g) ? React.createElement("em", {
+      title: "Ritual"
+    }, "R") : null, w && w.rettung ? React.createElement("em", {
+      title: "Rettungswurf"
+    }, RETTUNG_KURZ[w.rettung]) : null, g.prepared === false ? React.createElement("em", null, "nicht vorbereitet") : null, w && w.wuerfel ? React.createElement("b", null, w.wuerfel) : null));
+  }
+  if (art === 'gegenstand') {
+    const r = RARITIES.find(x => x.key === g.rarity) || RARITIES[0];
+    const n = gegenstandNutzung(g);
+    const w = hatWirkung(g.wirkung) ? g.wirkung : null;
+    return React.createElement("button", {
+      type: "button",
+      className: cls,
+      onClick: onWaehlen,
+      "aria-pressed": an,
+      style: {
+        '--zk-farbe': r.color
+      }
+    }, React.createElement("span", {
+      className: "zk-ikon"
+    }, React.createElement(GegenstandBild, {
+      g: g
+    })), React.createElement("span", {
+      className: "zk-leib"
+    }, React.createElement("span", {
+      className: "zk-name"
+    }, name), React.createElement("span", {
+      className: "zk-meta"
+    }, r.label, w && w.wuerfel ? ' · ' : '', w && w.wuerfel ? React.createElement("b", null, w.wuerfel) : null)), React.createElement("span", {
+      className: "zk-zahl"
+    }, n === 'ladung' ? ladungenStand(g).frei + '/' + ladungenStand(g).max : n === 'stueck' ? '×' + (+g.qty || 0) : '', n === 'ladung' ? React.createElement("i", null, "Ladungen") : null));
+  }
+  const mr = merkmalRessource(held, g);
+  const z = merkmalZauber(held, g);
+  const w = z && hatWirkung(z.wirkung) ? z.wirkung : hatWirkung(g.wirkung) ? g.wirkung : null;
+  const auszug = textAuszug(g.description, 110);
+  return React.createElement("button", {
+    type: "button",
+    className: cls + (mr && !mr.reicht ? ' leer' : ''),
+    onClick: onWaehlen,
+    "aria-pressed": an
+  }, React.createElement("span", {
+    className: "zk-band"
+  }, React.createElement("span", {
+    className: "zk-stern"
+  }, "\u2B50"), React.createElement("span", {
+    className: "zk-name"
+  }, name), React.createElement(ZeitMarke, {
+    zeit: zeit
+  })), g.source ? React.createElement("span", {
+    className: "zk-quelle"
+  }, g.source) : null, auszug ? React.createElement("span", {
+    className: "zk-auszug"
+  }, auszug) : null, mr || z || w || g.dauer ? React.createElement("span", {
+    className: "zk-fuss"
+  }, mr ? React.createElement(RessourcePunkte, {
+    r: mr.r,
+    kosten: mr.kosten
+  }) : null, z ? React.createElement("em", {
+    className: "arkan"
+  }, "\u2192 ", z.name) : null, g.dauer && !z ? React.createElement("em", null, g.dauer) : null, w && w.wuerfel ? React.createElement("b", null, w.wuerfel) : null) : null);
+};
 const AktionsWahl = ({
   held,
   wahl,
   setWahl,
-  wer
+  wer,
+  setDefs,
+  teil = 'alles',
+  typ
 }) => {
   const waffen = held && held.weapons || [];
   const sprueche = sortierteSprueche(held);
@@ -3140,13 +3313,15 @@ const AktionsWahl = ({
     grad,
     wurf
   } = aktionsStand(held, wahl);
+  const werte = React.useMemo(() => held ? charWerte(held, setDefs) : null, [held, setDefs]);
+  const [passivAuf, setPassivAuf] = useState(false);
   const suchWort = (wahl.suche || '').trim().toLowerCase();
-  const gezeigt = !suchWort ? quelle : quelle.filter(g => (g.name || '').toLowerCase().includes(suchWort) || (g.school || '').toLowerCase().includes(suchWort) || (g.damageType || '').toLowerCase().includes(suchWort) || (g.source || '').toLowerCase().includes(suchWort) || (g.tags || []).some(t => (t || '').toLowerCase().includes(suchWort)) || wahl.art === 'zauber' && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort));
-  const unterZeile = g => wahl.art === 'zauber' ? (g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad') + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : '') : wahl.art === 'angriff' ? (g.damageType ? g.damageType + ' · ' : '') + (g.range || '') : wahl.art === 'gegenstand' ? ((RARITIES.find(r => r.key === g.rarity) || {}).label || '') + ((g.tags || []).length ? ' · ' + (g.tags || []).join(', ') : '') : [g.source || '', g.zauber ? '→ ' + g.zauber : '', (() => {
-    const m = merkmalRessource(held, g);
-    return m ? m.r.name + ' ' + m.rest + '/' + (+m.r.max || 0) : '';
-  })()].filter(Boolean).join(' · ');
-  const rechts = g => wahl.art === 'zauber' ? hatWirkung(g.wirkung) ? g.wirkung.wuerfel || '' : '' : wahl.art === 'angriff' ? g.damage || '' : wahl.art === 'gegenstand' ? (hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '') + (gegenstandNutzung(g) === 'ladung' ? ladungenStand(g).frei + ' Ldg.' : gegenstandNutzung(g) === 'stueck' ? (+g.qty || 0) + '×' : '') : ((merkmalZauber(held, g) || {}).wirkung || g.wirkung || {}).wuerfel || '';
+  const gefunden = !suchWort ? quelle : quelle.filter(g => (g.name || '').toLowerCase().includes(suchWort) || (g.school || '').toLowerCase().includes(suchWort) || (g.damageType || '').toLowerCase().includes(suchWort) || (g.source || '').toLowerCase().includes(suchWort) || (g.tags || []).some(t => (t || '').toLowerCase().includes(suchWort)) || wahl.art === 'zauber' && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort));
+  const abseits = g => !!typ && ['aktion', 'bonus', 'reaktion'].includes(aktionsZeit(g, wahl.art)) && aktionsZeit(g, wahl.art) !== typ;
+  const gezeigt = typ ? [...gefunden.filter(g => !abseits(g)), ...gefunden.filter(abseits)] : gefunden;
+  const passiv = wahl.art === 'merkmal' ? gezeigt.filter(g => !merkmalEinsetzbar(g)) : [];
+  const aktivListe = wahl.art === 'merkmal' ? gezeigt.filter(g => merkmalEinsetzbar(g)) : gezeigt;
+  const passivZeigen = passivAuf || !!suchWort || !aktivListe.length || gegenstand && passiv.includes(gegenstand);
   const plaetze = held && held.spellSlots || {};
   const grade = [];
   for (let l = Math.max(1, grundGrad); l <= 9; l++) {
@@ -3182,7 +3357,20 @@ const AktionsWahl = ({
       suche: ''
     })
   }, kind);
-  return React.createElement(React.Fragment, null, React.createElement("div", {
+  const karte = g => {
+    const i = quelle.indexOf(g);
+    return React.createElement(ZugKarte, {
+      key: g.id || i,
+      art: wahl.art,
+      g: g,
+      held: held,
+      werte: werte,
+      an: i === wahl.i,
+      abseits: abseits(g),
+      onWaehlen: () => waehlen(i)
+    });
+  };
+  return React.createElement(React.Fragment, null, teil === 'alles' && React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
@@ -3225,29 +3413,15 @@ const AktionsWahl = ({
   }, ansicht.leer) : gezeigt.length === 0 ? React.createElement("div", {
     className: "zug-leer"
   }, "Nichts gefunden zu \u201E", (wahl.suche || '').trim(), "\u201C.") : React.createElement("div", {
-    className: "zug-liste"
-  }, gezeigt.map(g => {
-    const i = quelle.indexOf(g);
-    return React.createElement("button", {
-      type: "button",
-      key: g.id || i,
-      className: 'zug-zeile' + (i === wahl.i ? ' an' : '') + (wahl.art === 'zauber' || wahl.art === 'merkmal' ? ' arkan' : ''),
-      onClick: () => waehlen(i)
-    }, React.createElement("span", {
-      className: "zug-sym"
-    }, ansicht.sym), React.createElement("span", {
-      className: "zug-text"
-    }, React.createElement("b", null, g.name || 'Ohne Namen'), React.createElement("i", null, unterZeile(g))), React.createElement("span", {
-      className: "zug-wirkt"
-    }, rechts(g)));
-  })), gegenstand && gegenstand.description && React.createElement("details", {
+    className: 'zug-karten' + (teil === 'liste' ? ' frei' : '')
+  }, aktivListe.map(karte), passiv.length > 0 && React.createElement("button", {
+    type: "button",
+    className: "zk-passiv-kopf",
+    "aria-expanded": passivZeigen,
+    onClick: () => setPassivAuf(a => !a)
+  }, passivZeigen ? '▾' : '▸', " ", passiv.length, " ", passiv.length === 1 ? 'Merkmal wirkt' : 'Merkmale wirken', " einfach \u2014 Kampfstil, Sinne, Widerst\xE4nde"), passivZeigen && passiv.map(karte)), gegenstand && gegenstand.description && React.createElement("details", {
     className: "zug-beschreibung"
-  }, React.createElement("summary", null, "Beschreibung \u2014 ", gegenstand.name || 'Ohne Namen'), wahl.art === 'merkmal' ? React.createElement("div", {
-    className: "zug-beschreibung-text",
-    dangerouslySetInnerHTML: {
-      __html: sanitizeHtml(gegenstand.description)
-    }
-  }) : React.createElement("div", {
+  }, React.createElement("summary", null, "Beschreibung \u2014 ", gegenstand.name || 'Ohne Namen'), React.createElement("div", {
     className: "zug-beschreibung-text",
     dangerouslySetInnerHTML: {
       __html: sanitizeHtml(gegenstand.description)
@@ -3876,7 +4050,8 @@ const ZugFenster = ({
     held: held,
     wahl: wahl,
     setWahl: setWahl,
-    wer: t.name
+    wer: t.name,
+    setDefs: setDefs
   }), React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
@@ -15861,11 +16036,59 @@ const KampfSichtZeile = ({
     }
   }))));
 };
+const ANSAGE_SCHRITTE = [{
+  k: 'typ',
+  titel: 'Handlung'
+}, {
+  k: 'art',
+  titel: 'Was'
+}, {
+  k: 'wahl',
+  titel: 'Auswahl'
+}, {
+  k: 'ziel',
+  titel: 'Ziel'
+}, {
+  k: 'senden',
+  titel: 'Abschicken'
+}];
+const ANSAGE_TYP_TEXT = {
+  aktion: 'Das Hauptding deines Zuges — Angriff, Zauber, Trank, Spurt.',
+  bonus: 'Das Kleine nebenher — Zweitwaffe, Heilendes Wort, Gerissene Aktion.',
+  reaktion: 'Außerhalb deines Zuges — Gelegenheitsangriff, Schild, Gegenzauber.'
+};
+const ANSAGE_ARTEN = [{
+  k: 'angriff',
+  sym: '⚔',
+  l: 'Angriff',
+  wort: n => n + (n === 1 ? ' Waffe' : ' Waffen')
+}, {
+  k: 'zauber',
+  sym: '✨',
+  l: 'Zauber',
+  wort: n => n + ' Zauber'
+}, {
+  k: 'gegenstand',
+  sym: '🧪',
+  l: 'Gegenstand',
+  wort: n => n + ' zur Hand'
+}, {
+  k: 'merkmal',
+  sym: '⭐',
+  l: 'Merkmal',
+  wort: n => n + (n === 1 ? ' Merkmal' : ' Merkmale')
+}, {
+  k: 'frei',
+  sym: '✍',
+  l: 'Nur beschreiben',
+  wort: () => 'in eigenen Worten'
+}];
 const AnsageFenster = ({
   held,
   kampf,
   helden,
   runde,
+  setDefs,
   onAbbrechen,
   onSenden,
   onPlatz
@@ -15885,6 +16108,13 @@ const AnsageFenster = ({
   const [geheim, setGeheim] = React.useState(false);
   const [eigene, setEigene] = React.useState([]);
   const [platz, setPlatz] = React.useState(null);
+  const [schritt, setSchritt] = React.useState(0);
+  const [weit, setWeit] = React.useState(0);
+  const [gesendet, setGesendet] = React.useState(false);
+  const gehe = n => {
+    setSchritt(n);
+    setWeit(w => Math.max(w, n));
+  };
   const {
     gegenstand,
     grundGrad,
@@ -15911,7 +16141,15 @@ const AnsageFenster = ({
     const drin = new Set(vomServer.map(a => a.id));
     return [...vomServer, ...eigene.filter(a => !drin.has(a.id))];
   })();
+  const anzahl = {
+    angriff: waffen.length,
+    zauber: sprueche.length,
+    gegenstand: kampfGegenstaende(held).length,
+    merkmal: kampfMerkmale(held).length,
+    frei: 1
+  };
   const etwasDa = !!gegenstand || !!text.trim() || Object.keys(ziele).length > 0;
+  const zielZahl = Object.keys(ziele).length;
   const senden = async () => {
     setLaeuft(true);
     const raus = await onSenden({
@@ -15931,14 +16169,35 @@ const AnsageFenster = ({
     } else if (raus) {
       setPlatz(null);
     }
-    setZiele({});
-    setText('');
+    if (raus) setGesendet(true);
     setLaeuft(false);
   };
+  const nochEine = () => {
+    setZiele({});
+    setText('');
+    setGeheim(false);
+    setGesendet(false);
+    setWahl(w => ({
+      ...w,
+      i: null,
+      grad: 0,
+      suche: ''
+    }));
+    setSchritt(0);
+    setWeit(0);
+  };
+  const wertVon = k => k === 'typ' ? (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l : k === 'art' ? (ANSAGE_ARTEN.find(x => x.k === wahl.art) || {}).l : k === 'wahl' ? gegenstand ? gegenstand.name + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '') : '—' : k === 'ziel' ? zielZahl ? Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ') : 'kein Ziel' : gesendet ? 'gesendet' : '';
+  const ohneWahl = wahl.art === 'frei';
+  const sichtbar = ANSAGE_SCHRITTE.map((s, n) => ({
+    ...s,
+    n
+  })).filter(s => s.n <= weit && !(ohneWahl && s.k === 'wahl'));
+  const weiter = () => gehe(schritt === 1 && ohneWahl ? 3 : schritt + 1);
+  const zurueck = () => setSchritt(s => s === 3 && ohneWahl ? 1 : Math.max(0, s - 1));
   return React.createElement(Fenster, {
     onClick: onAbbrechen
   }, React.createElement("div", {
-    className: "zug-fenster",
+    className: "zug-fenster ansage-schritte",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "zug-kopf"
@@ -15947,63 +16206,123 @@ const AnsageFenster = ({
   }, "\u270D ", held ? held.name : 'Ansage'), React.createElement("span", {
     className: "zug-wer"
   }, "Runde ", runde, " \xB7 was hast du vor?")), React.createElement("div", {
-    className: "zug-leib"
-  }, angesagt.length > 0 && React.createElement("div", {
-    className: "zug-block"
-  }, React.createElement("div", {
-    className: "zug-label"
-  }, "Schon angesagt"), React.createElement("div", {
-    className: "an-liste"
-  }, angesagt.map(a => React.createElement("div", {
-    className: "an-zeile",
-    key: a.id
+    className: "schritt-leiste",
+    role: "tablist",
+    "aria-label": "Schritte der Ansage"
+  }, sichtbar.map((s, idx) => React.createElement("button", {
+    type: "button",
+    key: s.k,
+    role: "tab",
+    "data-schritt": s.k,
+    "aria-selected": s.n === schritt,
+    className: 'schritt' + (s.n === schritt ? ' an' : '') + (s.n < schritt || gesendet ? ' fertig' : ''),
+    onClick: () => !gesendet && setSchritt(s.n),
+    disabled: gesendet && s.k !== 'senden'
   }, React.createElement("span", {
-    className: 'an-typ ' + (a.typ || 'aktion')
-  }, ansageTyp(a).kurz), React.createElement("span", {
-    className: "an-was"
-  }, a.geheim ? React.createElement("span", {
-    title: "Nur f\xFCr die Spielleitung"
-  }, "\uD83D\uDD12 ") : null, a.was ? React.createElement("b", null, a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null))))), React.createElement("div", {
+    className: "schritt-zahl"
+  }, idx + 1), React.createElement("span", {
+    className: "schritt-text"
+  }, React.createElement("b", null, s.titel), s.n !== schritt || s.k === 'senden' ? React.createElement("i", null, wertVon(s.k)) : null)))), React.createElement("div", {
+    className: "zug-leib",
+    key: schritt
+  }, schritt === 0 && React.createElement(React.Fragment, null, angesagt.length > 0 && React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
-  }, "Was davon"), React.createElement("div", {
-    className: "an-typen"
+  }, "Schon angesagt"), React.createElement(AnsageListe, {
+    angesagt: angesagt
+  })), React.createElement("div", {
+    className: "zug-block"
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "Welche Handlung"), React.createElement("div", {
+    className: "schritt-kacheln drei"
   }, ANSAGE_TYPEN.map(x => React.createElement("button", {
     type: "button",
     key: x.k,
-    className: 'bj-taste' + (typ === x.k ? ' haupt' : ''),
-    onClick: () => setTyp(x.k)
-  }, x.l)))), React.createElement(AktionsWahl, {
+    className: 'schritt-kachel typ-' + x.k + (typ === x.k ? ' an' : ''),
+    onClick: () => {
+      setTyp(x.k);
+      gehe(1);
+    }
+  }, React.createElement("span", {
+    className: 'an-typ ' + x.k
+  }, x.kurz), React.createElement("b", null, x.l), React.createElement("i", null, ANSAGE_TYP_TEXT[x.k])))))), schritt === 1 && React.createElement("div", {
+    className: "zug-block"
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "Was tust du \u2014 als ", (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l), React.createElement("div", {
+    className: "schritt-kacheln"
+  }, ANSAGE_ARTEN.map(x => React.createElement("button", {
+    type: "button",
+    key: x.k,
+    disabled: !anzahl[x.k],
+    className: 'schritt-kachel' + (x.k === 'frei' ? ' schmal' : '') + (wahl.art === x.k ? ' an' : ''),
+    onClick: () => {
+      if (wahl.art !== x.k) setWahl({
+        ...wahl,
+        art: x.k,
+        i: null,
+        grad: 0,
+        suche: ''
+      });
+      gehe(x.k === 'frei' ? 3 : 2);
+    }
+  }, React.createElement("span", {
+    className: "schritt-sym"
+  }, x.sym), React.createElement("b", null, x.l), React.createElement("i", null, anzahl[x.k] ? x.wort(anzahl[x.k]) : x.k === 'gegenstand' ? 'nichts für den Kampf markiert' : 'nichts im Bogen'))))), schritt === 2 && React.createElement(AktionsWahl, {
     held: held,
     wahl: wahl,
     setWahl: setWahl,
-    wer: "du"
-  }), React.createElement("div", {
+    wer: "du",
+    setDefs: setDefs,
+    teil: "liste",
+    typ: typ
+  }), schritt === 3 && (() => {
+    const w = aktionsStand(held, wahl).wirkung || {};
+    const heilt = w.art === 'heilung' || w.art === 'temp' || /heil|segn|schutz|schild/i.test(gegenstand && gegenstand.name || '');
+    const gruppen = [{
+      k: 'feind',
+      titel: 'Gegner',
+      leute: liste.filter(t => t.art !== 'held')
+    }, {
+      k: 'freund',
+      titel: 'Verbündete',
+      leute: liste.filter(t => t.art === 'held')
+    }].filter(g => g.leute.length);
+    if (heilt) gruppen.reverse();
+    return React.createElement("div", {
+      className: "zug-block"
+    }, React.createElement("div", {
+      className: "zug-label"
+    }, "Auf wen \u2014 antippen, mehrere gehen"), gruppen.map(g => React.createElement("div", {
+      className: "ziel-gruppe",
+      key: g.k
+    }, React.createElement("div", {
+      className: "ziel-gruppe-titel"
+    }, g.titel), React.createElement("div", {
+      className: "zug-ziele frei"
+    }, g.leute.map(t => React.createElement("button", {
+      type: "button",
+      key: t.id,
+      className: 'zug-ziel' + (ziele[t.id] ? ' an' : '') + (t.art === 'held' ? ' held' : ''),
+      onClick: () => zielUm(t.id)
+    }, React.createElement("span", {
+      className: "zug-ziel-kopf"
+    }, React.createElement("b", null, zielName(t))), React.createElement("span", {
+      className: "zug-ziel-tp"
+    }, t.art === 'held' ? t.charId === (held || {}).id ? 'du' : 'Held' : t.zustand || '')))))));
+  })(), schritt === 4 && !gesendet && React.createElement(React.Fragment, null, React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
-  }, "Auf wen"), React.createElement("div", {
-    className: "zug-ziele"
-  }, liste.map(t => React.createElement("button", {
-    type: "button",
-    key: t.id,
-    className: 'zug-ziel' + (ziele[t.id] ? ' an' : '') + (t.art === 'held' ? ' held' : ''),
-    onClick: () => zielUm(t.id)
-  }, React.createElement("span", {
-    className: "zug-ziel-kopf"
-  }, React.createElement("b", null, zielName(t))), React.createElement("span", {
-    className: "zug-ziel-tp"
-  }, t.art === 'held' ? t.charId === (held || {}).id ? 'du' : 'Held' : t.zustand || ''))))), React.createElement("div", {
-    className: "zug-block"
-  }, React.createElement("div", {
-    className: "zug-label"
-  }, "Beschreibung \u2014 was du tust"), React.createElement("textarea", {
+  }, "Beschreibung \u2014 was du tust (freiwillig)"), React.createElement("textarea", {
     className: "zug-frei",
     value: text,
     onChange: e => setText(e.target.value),
     maxLength: 500,
     "aria-label": "Beschreibung deiner Aktion",
+    autoFocus: ohneWahl,
     placeholder: "Ich springe hinter den Karren und schleudere Feuer \xFCber die Lichtung."
   })), React.createElement("label", {
     className: "zug-lauf-an an-geheim"
@@ -16019,27 +16338,61 @@ const AnsageFenster = ({
     className: "zug-vorschau"
   }, React.createElement("div", {
     className: "pr-zeile zug"
-  }, "\u25B8 ", held ? held.name : 'Du', " sagt an"), gegenstand && React.createElement("div", {
+  }, "\u25B8 ", held ? held.name : 'Du', " sagt an \xB7 ", (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l), gegenstand && React.createElement("div", {
     className: "pr-zeile"
-  }, "   ", AKTION_WORT[wahl.art] || 'Angriff', ": ", gegenstand.name, wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), Object.keys(ziele).length > 0 && React.createElement("div", {
+  }, "   ", AKTION_WORT[wahl.art] || 'Angriff', ": ", gegenstand.name, wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), zielZahl > 0 && React.createElement("div", {
     className: "pr-zeile"
   }, "   auf ", Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')), text.trim() && React.createElement("div", {
     className: "pr-zeile frei"
-  }, "   \u201E", text.trim(), "\u201C"), !etwasDa && React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz."))), platz && React.createElement("div", {
-    className: 'zug-platz' + (platz.gestrichen ? '' : ' leer')
-  }, platz.gestrichen ? platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom ' + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.' : '◈ Zauberplatz gestrichen — noch ' + platz.frei + ' vom ' + platz.grad + '. Grad.' : platz.hat ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.' : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.')), React.createElement("div", {
-    className: "zug-fuss"
+  }, "   \u201E", text.trim(), "\u201C"), !etwasDa && React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz.")))), schritt === 4 && gesendet && React.createElement(React.Fragment, null, React.createElement("div", {
+    className: "ansage-gesendet"
   }, React.createElement("span", {
+    className: "ansage-haken"
+  }, "\u2713"), React.createElement("span", null, "An die Spielleitung gegangen. Noch eine \u2014 eine Bonusaktion, eine Reaktion?")), React.createElement("div", {
+    className: "zug-block"
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "Schon angesagt"), React.createElement(AnsageListe, {
+    angesagt: angesagt
+  })), platz && React.createElement("div", {
+    className: 'zug-platz' + (platz.gestrichen ? '' : ' leer')
+  }, platz.gestrichen ? platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom ' + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.' : '◈ Zauberplatz gestrichen — noch ' + platz.frei + ' vom ' + platz.grad + '. Grad.' : platz.hat ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.' : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.'))), React.createElement("div", {
+    className: "zug-fuss"
+  }, schritt > 0 && !gesendet && React.createElement("button", {
+    className: "btn-icon",
+    onClick: zurueck
+  }, "\u2190 Zur\xFCck"), React.createElement("span", {
     className: "zug-hinweis"
-  }, angesagt.length > 0 ? angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen') + ' — noch eine geht.' : 'Wie viel ankommt, trägt die Spielleitung ein.'), React.createElement("button", {
+  }, gesendet ? angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen') : schritt === 2 && !gegenstand ? 'Tipp an, was du nimmst.' : schritt === 3 ? zielZahl ? zielZahl + (zielZahl === 1 ? ' Ziel' : ' Ziele') : 'Ohne Ziel geht auch.' : schritt === 4 ? 'Wie viel ankommt, trägt die Spielleitung ein.' : 'Schritt ' + (sichtbar.findIndex(s => s.n === schritt) + 1) + ' von ' + (ohneWahl ? 4 : 5)), React.createElement("button", {
     className: "btn-cancel",
     onClick: onAbbrechen
-  }, angesagt.length > 0 ? 'Fertig' : 'Abbrechen'), React.createElement("button", {
+  }, angesagt.length > 0 ? 'Fertig' : 'Abbrechen'), gesendet ? React.createElement("button", {
+    className: "btn-save",
+    onClick: nochEine
+  }, "\uD83D\uDCE3 Noch eine Ansage") : schritt === 4 ? React.createElement("button", {
     className: "btn-save",
     disabled: !etwasDa || laeuft,
     onClick: senden
-  }, laeuft ? 'Wird gesendet…' : angesagt.length > 0 ? '📣 Noch eine' : '📣 An die Spielleitung'))));
+  }, laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung') : schritt === 2 || schritt === 3 ? React.createElement("button", {
+    className: "btn-save",
+    disabled: schritt === 2 && !gegenstand,
+    onClick: weiter
+  }, schritt === 3 && !zielZahl ? 'Ohne Ziel weiter →' : 'Weiter →') : null)));
 };
+const AnsageListe = ({
+  angesagt
+}) => React.createElement("div", {
+  className: "an-liste"
+}, angesagt.map(a => React.createElement("div", {
+  className: "an-zeile",
+  key: a.id
+}, React.createElement("span", {
+  className: 'an-typ ' + (a.typ || 'aktion')
+}, ansageTyp(a).kurz), React.createElement("span", {
+  className: "an-was"
+}, a.geheim ? React.createElement("span", {
+  title: "Nur f\xFCr die Spielleitung"
+}, "\uD83D\uDD12 ") : null, a.was ? React.createElement("b", null, a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null))));
 const KS_SPEICHER = 'hb_kampfsicht_fenster';
 const KS_BREITE = 460;
 const IST_REAKTION = /reaktion/i;
@@ -22508,20 +22861,27 @@ const Sheet = () => {
     }
   }, "\u2715")))), React.createElement("div", {
     className: "feature-card-body"
-  }, feat.source && React.createElement("div", {
+  }, (feat.source || aktionsZeit(feat, 'merkmal') || feat.zauber) && React.createElement("div", {
+    className: "feature-kopfzeile"
+  }, feat.source && React.createElement("span", {
     className: "feature-source"
-  }, feat.source), (() => {
+  }, feat.source), React.createElement(ZeitMarke, {
+    zeit: aktionsZeit(feat, 'merkmal')
+  }), feat.zauber && React.createElement("span", {
+    className: "feature-zauber",
+    title: "L\xF6st diesen Zauber aus"
+  }, "\u2192 ", feat.zauber)), feat.description && exFeature !== feat.id && React.createElement("div", {
+    className: "feature-auszug"
+  }, textAuszug(feat.description, 150)), (() => {
     const mr = merkmalRessource(cur, feat);
     if (!mr) return null;
     return React.createElement("div", {
       className: "feature-nutzen",
       onClick: e => e.stopPropagation()
-    }, React.createElement("span", {
-      className: "feature-nutzen-stand",
-      style: {
-        color: mr.r.color || 'var(--gold)'
-      }
-    }, mr.r.name, " ", React.createElement("b", null, mr.rest), "/", +mr.r.max || 0, mr.kosten > 1 ? ' · kostet ' + mr.kosten : ''), darfBearbeiten && React.createElement("button", {
+    }, React.createElement(RessourcePunkte, {
+      r: mr.r,
+      kosten: mr.kosten
+    }), darfBearbeiten && React.createElement("button", {
       type: "button",
       className: "btn-benutzen klein",
       disabled: !mr.reicht,
@@ -28421,20 +28781,10 @@ function App() {
     profBonus: fx('profBonus', cur.profBonus)
   } : null;
   const initTotal = cur ? fx('initiative', mod(effCur.dex) + (+cur.initiative || 0)) : 0;
-  const weaponStats = w => {
-    const aKey = w.attrKey === "fin" ? mod(effCur.str) >= mod(effCur.dex) ? "str" : "dex" : w.attrKey || "str";
-    const attrMod = mod(effCur[aKey] || 10);
-    const bonus = fx('attack', (w.proficient ? effCur.profBonus : 0) + attrMod + (w.attackBonus || 0));
-    const dmgBonus = fx('damage', attrMod + (w.attackBonus || 0));
-    const dmgStr = w.damage + (dmgBonus !== 0 ? dmgBonus > 0 ? " + " + dmgBonus : " - " + Math.abs(dmgBonus) : "");
-    return {
-      aKey,
-      attrMod,
-      bonus,
-      dmgBonus,
-      dmgStr
-    };
-  };
+  const weaponStats = w => waffeWerte(w, {
+    eff: effCur || {},
+    effekte: itemFx
+  });
   const advWechseln = id => {
     setAdvAktiv(id);
     try {
@@ -35315,6 +35665,7 @@ function App() {
     kampf: kampfSichtDaten,
     helden: advChars,
     runde: kampfSichtDaten.runde || 1,
+    setDefs: setDefs,
     onAbbrechen: () => setAnsageFuer(null),
     onSenden: ansageSenden,
     onPlatz: (grad, hoeher) => zauberplatzStreichen(ansageFuer, grad, hoeher)

@@ -1,5 +1,50 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.5.0
+
+### Zug ansagen — Schritt für Schritt
+
+- Die Ansage ist keine lange Seite mehr, sondern geht in **fünf Schritten**,
+  die nacheinander aufploppen:
+  **Handlung** (Aktion, Bonusaktion, Reaktion) → **Was** (Angriff, Zauber,
+  Gegenstand, Merkmal, nur beschreiben) → **Auswahl** → **Ziel** →
+  **Abschicken**.
+- Oben steht die Leiste der Schritte; jeder trägt, was gewählt ist
+  („Bonusaktion · Zauber · Heilendes Wort · Brunhilde“). Ein Klick darauf
+  führt zurück, „← Zurück“ unten auch.
+- Bei „Nur beschreiben“ fällt die Auswahl weg. Die Ziele stehen getrennt
+  nach **Gegnern** und **Verbündeten** — wer heilt, sieht die Verbündeten
+  zuerst.
+- Nach dem Abschicken: „✓ An die Spielleitung gegangen“, was schon
+  angesagt ist, und **📣 Noch eine Ansage** — für die Bonusaktion
+  hinterher.
+
+### Die Auswahl sieht aus wie im Bogen
+
+- Im Zugfenster der Spielleitung und in der Ansage stehen die Dinge jetzt
+  als **Karten wie in ihren Reitern**:
+  - **Waffen** mit Bild, Reichweite, **Angriff** und **Schaden** — dieselben
+    Zahlen wie im Reiter Aktionen, die angelegte vorn.
+  - **Zauber** im Band ihrer Schule, mit Wirkzeit, Reichweite, Dauer, dazu
+    Konzentration, Ritual, Rettungswurf und Würfel.
+  - **Gegenstände** mit Bild, Seltenheitsrahmen und Menge oder Ladungen.
+  - **Merkmale** mit Quelle, dem Anfang der Beschreibung, den Punkten der
+    Ressource und dem Zauber, den sie auslösen.
+- Was zur gewählten Handlung passt, steht vorn: bei „Bonusaktion“ zuerst
+  Heilendes Wort und Zweiter Wind, der Rest blasser dahinter.
+- Beim Zauber bleibt der **Gradwähler** unten stehen, während man die
+  Liste durchsieht.
+
+### Merkmale
+
+- In der Auswahl stehen die **einsetzbaren** Merkmale (mit Ressource,
+  Zauber, Wirkung oder „als Bonusaktion“ im Text) vorn; die, die einfach
+  wirken — Kampfstil, Dunkelsicht —, sind eingeklappt.
+- Eine Ressource, die leer ist, sieht man der Karte an.
+- Im **Reiter Merkmale** zeigt jede Karte jetzt den Anfang ihrer
+  Beschreibung (statt nur des Namens), ob sie eine Aktion, Bonusaktion oder
+  Reaktion ist, welchen Zauber sie auslöst und die Ressource als Punkte.
+
 ## v6.4.0
 
 ### Register in den Bearbeiten-Fenstern

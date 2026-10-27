@@ -599,6 +599,11 @@ const kampfGegenstaende = (held) => ((held && held.inventory) || [])
   .filter(i => i && i.kampf && gegenstandVorrat(i) > 0)
   .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
 
+// Die Waffen wie im Reiter Aktionen: was angelegt ist, vorn.
+const kampfWaffen = (held) => [...((held && held.weapons) || [])]
+  .sort((a, b) => (waffeAngelegt(held, b) - waffeAngelegt(held, a))
+                  || (a.name || '').localeCompare(b.name || '', 'de'));
+
 // Merkmale werden nicht gekennzeichnet: welches im Kampf taugt, weiss der
 // Spieler besser als der Bogen. Sortiert wie im Charakterbogen, und ab
 // sechs Eintraegen steht ohnehin ein Suchfeld darueber.
@@ -614,7 +619,7 @@ const merkmalZauber = (held, merkmal) => (merkmal && merkmal.zauber)
 // Die Ressource, die ein Merkmal verbraucht: merkmalRessource in js/util.js.
 
 const aktionsQuelle = (held, art) => art === 'zauber' ? sortierteSprueche(held)
-  : art === 'angriff'    ? ((held && held.weapons) || [])
+  : art === 'angriff'    ? kampfWaffen(held)
   : art === 'gegenstand' ? kampfGegenstaende(held)
   : art === 'merkmal'    ? kampfMerkmale(held) : [];
 
@@ -837,19 +842,149 @@ const naechsterStand = (k) => {
   return (k.zug + 1 < n) ? {zug: k.zug + 1, runde: k.runde} : {zug: 0, runde: k.runde + 1};
 };
 
-const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
+// ── Die Karten der Auswahl ──────────────────────────────────────
+// Bisher stand jede Art als dieselbe schmale Zeile da: Name, eine graue
+// Unterzeile, rechts ein Würfel. Jetzt sieht eine Waffe aus wie im
+// Reiter Aktionen (Bild, Angriff, Schaden), ein Zauber wie im Reiter
+// Zauber (Band in der Farbe seiner Schule, Wirkzeit, Reichweite, Dauer),
+// ein Gegenstand wie im Inventar (Bild, Rahmen in der Farbe der
+// Seltenheit) und ein Merkmal wie im Reiter Merkmale — mit dem, was man
+// dort aufklappen müsste: was es kostet und was es tut.
+const ZEIT_WORT = {aktion: 'Aktion', bonus: 'Bonus', reaktion: 'Reaktion'};
+
+// Die Punkte einer Ressource, wie im Reiter Aktionen. Ab zehn wird es
+// eine Zahl — Ki auf Stufe 18 waeren sonst achtzehn Punkte.
+const RessourcePunkte = ({ r, kosten }) => {
+  const max = Math.max(0, +r.max || 0), frei = Math.max(0, max - (+r.used || 0));
+  const farbe = r.color || 'var(--gold)';
+  return (
+    <span className="rp" style={{'--rp-farbe': farbe}}
+      title={(r.name || 'Ressource') + ': ' + frei + ' von ' + max + ' übrig' + (kosten > 1 ? ', kostet ' + kosten : '')}>
+      <span className="rp-name">{r.name || 'Ressource'}</span>
+      {max <= 10
+        ? <span className="rp-punkte" aria-hidden="true">
+            {Array.from({length: max}).map((_, i) => <i key={i} className={i < frei ? 'voll' : ''} />)}
+          </span>
+        : null}
+      <span className="rp-zahl">{frei}/{max}{kosten > 1 ? ' · −' + kosten : ''}</span>
+    </span>
+  );
+};
+
+const ZeitMarke = ({ zeit }) => ZEIT_WORT[zeit]
+  ? <span className={'zk-zeit ' + zeit}>{ZEIT_WORT[zeit]}</span> : null;
+
+const ZugKarte = ({ art, g, held, werte, an, abseits, onWaehlen }) => {
+  const cls = 'zk zk-' + art + (an ? ' an' : '') + (abseits ? ' abseits' : '');
+  const zeit = aktionsZeit(g, art);
+  const name = g.name || 'Ohne Namen';
+  if (art === 'angriff') {
+    const {bonus, dmgStr} = waffeWerte(g, werte);
+    return (
+      <button type="button" className={cls} onClick={onWaehlen} aria-pressed={an}>
+        <span className="zk-bild">{g.imageData ? <img src={g.imageData} alt="" /> : <span className="zk-glyphe">⚔</span>}</span>
+        <span className="zk-leib">
+          <span className="zk-name">{name}</span>
+          <span className="zk-meta">{[g.range, g.damageType].filter(Boolean).join(' · ') || '—'}</span>
+          <span className="zk-werte">
+            <span><i>Angriff</i><b className="atk">{bonus >= 0 ? '+' + bonus : bonus}</b></span>
+            <span><i>Schaden</i><b>{dmgStr || '—'}</b></span>
+          </span>
+        </span>
+        {waffeAngelegt(held, g) ? <span className="zk-marke">angelegt</span> : null}
+      </button>
+    );
+  }
+  if (art === 'zauber') {
+    const sc = SC[g.school] || SC['Hervorrufung'];
+    const w = hatWirkung(g.wirkung) ? g.wirkung : null;
+    return (
+      <button type="button" className={cls + (g.prepared === false ? ' ruht' : '')} onClick={onWaehlen} aria-pressed={an}
+        style={{'--zk-farbe': sc.border, '--zk-tief': sc.bg, '--zk-text': sc.text}}>
+        <span className="zk-band">
+          <span className="zk-name">{name}</span>
+          <span className="zk-grad">{(+g.level || 0) === 0 ? 'Zaubertrick' : g.level + '. Grad'}{g.school ? ' · ' + g.school : ''}</span>
+        </span>
+        <span className="zk-zeilen">
+          <span><i>Wirkzeit</i>{g.castingTime || '—'}</span>
+          <span><i>Reichweite</i>{g.range || '—'}</span>
+          <span><i>Dauer</i>{g.duration || '—'}</span>
+        </span>
+        <span className="zk-fuss">
+          <ZeitMarke zeit={zeit} />
+          {brauchtKonzentration(g) ? <em title="Konzentration">K</em> : null}
+          {zauberIstRitual(g) ? <em title="Ritual">R</em> : null}
+          {w && w.rettung ? <em title="Rettungswurf">{RETTUNG_KURZ[w.rettung]}</em> : null}
+          {g.prepared === false ? <em>nicht vorbereitet</em> : null}
+          {w && w.wuerfel ? <b>{w.wuerfel}</b> : null}
+        </span>
+      </button>
+    );
+  }
+  if (art === 'gegenstand') {
+    const r = RARITIES.find(x => x.key === g.rarity) || RARITIES[0];
+    const n = gegenstandNutzung(g);
+    const w = hatWirkung(g.wirkung) ? g.wirkung : null;
+    return (
+      <button type="button" className={cls} onClick={onWaehlen} aria-pressed={an} style={{'--zk-farbe': r.color}}>
+        <span className="zk-ikon"><GegenstandBild g={g} /></span>
+        <span className="zk-leib">
+          <span className="zk-name">{name}</span>
+          <span className="zk-meta">{r.label}{w && w.wuerfel ? ' · ' : ''}{w && w.wuerfel ? <b>{w.wuerfel}</b> : null}</span>
+        </span>
+        <span className="zk-zahl">
+          {n === 'ladung' ? ladungenStand(g).frei + '/' + ladungenStand(g).max
+            : n === 'stueck' ? '×' + (+g.qty || 0) : ''}
+          {n === 'ladung' ? <i>Ladungen</i> : null}
+        </span>
+      </button>
+    );
+  }
+  // Merkmal
+  const mr = merkmalRessource(held, g);
+  const z = merkmalZauber(held, g);
+  const w = (z && hatWirkung(z.wirkung)) ? z.wirkung : (hatWirkung(g.wirkung) ? g.wirkung : null);
+  const auszug = textAuszug(g.description, 110);
+  return (
+    <button type="button" className={cls + (mr && !mr.reicht ? ' leer' : '')} onClick={onWaehlen} aria-pressed={an}>
+      <span className="zk-band">
+        <span className="zk-stern">⭐</span>
+        <span className="zk-name">{name}</span>
+        <ZeitMarke zeit={zeit} />
+      </span>
+      {g.source ? <span className="zk-quelle">{g.source}</span> : null}
+      {auszug ? <span className="zk-auszug">{auszug}</span> : null}
+      {(mr || z || w || g.dauer) ? (
+        <span className="zk-fuss">
+          {mr ? <RessourcePunkte r={mr.r} kosten={mr.kosten} /> : null}
+          {z ? <em className="arkan">→ {z.name}</em> : null}
+          {g.dauer && !z ? <em>{g.dauer}</em> : null}
+          {w && w.wuerfel ? <b>{w.wuerfel}</b> : null}
+        </span>
+      ) : null}
+    </button>
+  );
+};
+
+// teil: 'alles' — Art, Auswahl, Grad (das Zugfenster der Spielleitung);
+// 'liste' — nur Auswahl und Grad (der dritte Schritt der Ansage).
+// typ: Aktion, Bonusaktion oder Reaktion — was dazu passt, steht vorn,
+// was ausdrücklich etwas anderes ist, steht blasser dahinter.
+const AktionsWahl = ({ held, wahl, setWahl, wer, setDefs, teil = 'alles', typ }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
   const sachen   = kampfGegenstaende(held);
   const merkmale = kampfMerkmale(held);
   const ansicht  = ART_ANSICHT[wahl.art] || ART_ANSICHT.angriff;
   const {quelle, gegenstand, grundGrad, wirkung, grad, wurf} = aktionsStand(held, wahl);
+  const werte = React.useMemo(() => held ? charWerte(held, setDefs) : null, [held, setDefs]);
+  const [passivAuf, setPassivAuf] = useState(false);
 
   // Ein Magier auf Stufe 9 hat drei Dutzend Zauber. Gesucht wird ueber
   // Namen, Schule, Schadensart und Grad; die Auswahl haengt am Eintrag
   // und bleibt beim Filtern stehen.
   const suchWort = (wahl.suche || '').trim().toLowerCase();
-  const gezeigt = !suchWort ? quelle : quelle.filter(g =>
+  const gefunden = !suchWort ? quelle : quelle.filter(g =>
     (g.name || '').toLowerCase().includes(suchWort)
     || (g.school || '').toLowerCase().includes(suchWort)
     || (g.damageType || '').toLowerCase().includes(suchWort)
@@ -857,30 +992,16 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
     || (g.tags || []).some(t => (t || '').toLowerCase().includes(suchWort))
     || (wahl.art === 'zauber'
         && String(g.level === 0 ? 'zaubertrick' : g.level + '. grad').includes(suchWort)));
-
-  // Die zweite Zeile eines Eintrags und das, was rechts steht — je Art
-  // etwas anderes, aber immer dieselben zwei Plaetze.
-  const unterZeile = (g) => wahl.art === 'zauber'
-    ? ((g.level === 0 ? 'Zaubertrick' : (g.level || 1) + '. Grad')
-       + (g.school ? ' · ' + g.school : '') + (g.range ? ' · ' + g.range : ''))
-    : wahl.art === 'angriff'
-      ? ((g.damageType ? g.damageType + ' · ' : '') + (g.range || ''))
-      : wahl.art === 'gegenstand'
-        ? (((RARITIES.find(r => r.key === g.rarity) || {}).label || '')
-           + ((g.tags || []).length ? ' · ' + (g.tags || []).join(', ') : ''))
-        : [g.source || '',
-           g.zauber ? '→ ' + g.zauber : '',
-           (() => { const m = merkmalRessource(held, g);
-                    return m ? m.r.name + ' ' + m.rest + '/' + (+m.r.max || 0) : ''; })()]
-          .filter(Boolean).join(' · ');
-  const rechts = (g) => wahl.art === 'zauber'
-    ? (hatWirkung(g.wirkung) ? (g.wirkung.wuerfel || '') : '')
-    : wahl.art === 'angriff'    ? (g.damage || '')
-    : wahl.art === 'gegenstand'
-      ? ((hatWirkung(g.wirkung) && g.wirkung.wuerfel ? g.wirkung.wuerfel + ' · ' : '')
-         + (gegenstandNutzung(g) === 'ladung' ? ladungenStand(g).frei + ' Ldg.'
-            : gegenstandNutzung(g) === 'stueck' ? (+g.qty || 0) + '×' : ''))
-      : (((merkmalZauber(held, g) || {}).wirkung || g.wirkung || {}).wuerfel || '');
+  // Was nicht zur gewählten Aktionsart passt, rückt nach hinten. Nur die
+  // Reihenfolge der Anzeige — gewählt wird weiter über die Quelle.
+  const abseits = (g) => !!typ && ['aktion', 'bonus', 'reaktion'].includes(aktionsZeit(g, wahl.art))
+    && aktionsZeit(g, wahl.art) !== typ;
+  const gezeigt = typ ? [...gefunden.filter(g => !abseits(g)), ...gefunden.filter(abseits)] : gefunden;
+  // Merkmale: die einsetzbaren vorn, die einfach nur wirken eingeklappt.
+  const passiv = wahl.art === 'merkmal' ? gezeigt.filter(g => !merkmalEinsetzbar(g)) : [];
+  const aktivListe = wahl.art === 'merkmal' ? gezeigt.filter(g => merkmalEinsetzbar(g)) : gezeigt;
+  const passivZeigen = passivAuf || !!suchWort || !aktivListe.length
+    || (gegenstand && passiv.includes(gegenstand));
 
   // Die Plaetze des Helden: nur Grade, fuer die er welche hat — und der
   // eigene Grad des Zaubers, damit immer etwas dasteht.
@@ -904,19 +1025,28 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
     <button type="button" className={'zug-taste' + (wahl.art === k ? ' an' : '')} disabled={aus}
       onClick={()=>setWahl({...wahl, art: k, i: null, grad: 0, suche: ''})}>{kind}</button>
   );
+  const karte = (g) => {
+    const i = quelle.indexOf(g);
+    return (
+      <ZugKarte key={g.id || i} art={wahl.art} g={g} held={held} werte={werte}
+        an={i === wahl.i} abseits={abseits(g)} onWaehlen={() => waehlen(i)} />
+    );
+  };
 
   return (
     <>
-      <div className="zug-block">
-        <div className="zug-label">Was tut {wer}</div>
-        <div className="zug-reihe">
-          <ArtTaste k="angriff"    kind="⚔ Angriff" aus={!waffen.length} />
-          <ArtTaste k="zauber"     kind="✨ Zauber" aus={!sprueche.length} />
-          <ArtTaste k="gegenstand" kind="🧪 Gegenstand" aus={!sachen.length} />
-          <ArtTaste k="merkmal"    kind="⭐ Merkmal" aus={!merkmale.length} />
-          <ArtTaste k="frei"       kind="✍ Nur beschreiben" />
+      {teil === 'alles' && (
+        <div className="zug-block">
+          <div className="zug-label">Was tut {wer}</div>
+          <div className="zug-reihe">
+            <ArtTaste k="angriff"    kind="⚔ Angriff" aus={!waffen.length} />
+            <ArtTaste k="zauber"     kind="✨ Zauber" aus={!sprueche.length} />
+            <ArtTaste k="gegenstand" kind="🧪 Gegenstand" aus={!sachen.length} />
+            <ArtTaste k="merkmal"    kind="⭐ Merkmal" aus={!merkmale.length} />
+            <ArtTaste k="frei"       kind="✍ Nur beschreiben" />
+          </div>
         </div>
-      </div>
+      )}
 
       {wahl.art !== 'frei' && (
         <div className="zug-block">
@@ -931,36 +1061,25 @@ const AktionsWahl = ({ held, wahl, setWahl, wer }) => {
           ) : gezeigt.length === 0 ? (
             <div className="zug-leer">Nichts gefunden zu „{(wahl.suche || '').trim()}“.</div>
           ) : (
-            <div className="zug-liste">
-              {gezeigt.map((g) => {
-                const i = quelle.indexOf(g);
-                return (
-                  <button type="button" key={g.id || i}
-                    className={'zug-zeile' + (i === wahl.i ? ' an' : '')
-                               + (wahl.art === 'zauber' || wahl.art === 'merkmal' ? ' arkan' : '')}
-                    onClick={()=>waehlen(i)}>
-                    <span className="zug-sym">{ansicht.sym}</span>
-                    <span className="zug-text">
-                      <b>{g.name || 'Ohne Namen'}</b>
-                      <i>{unterZeile(g)}</i>
-                    </span>
-                    <span className="zug-wirkt">{rechts(g)}</span>
-                  </button>
-                );
-              })}
+            <div className={'zug-karten' + (teil === 'liste' ? ' frei' : '')}>
+              {aktivListe.map(karte)}
+              {passiv.length > 0 && (
+                <button type="button" className="zk-passiv-kopf" aria-expanded={passivZeigen}
+                  onClick={() => setPassivAuf(a => !a)}>
+                  {passivZeigen ? '▾' : '▸'} {passiv.length} {passiv.length === 1 ? 'Merkmal wirkt' : 'Merkmale wirken'} einfach — Kampfstil, Sinne, Widerstände
+                </button>
+              )}
+              {passivZeigen && passiv.map(karte)}
             </div>
           )}
           {/* Was das Gewaehlte eigentlich kann. Am Tisch schlug man dafuer
               den Bogen auf — bei einem Merkmal oft das Einzige, was es gibt,
-              denn Wuerfel oder Wirkung traegt es selten. Merkmale sind
-              schlichter Text, alles andere kommt als HTML. */}
+              denn Wuerfel oder Wirkung traegt es selten. */}
           {gegenstand && gegenstand.description && (
             <details className="zug-beschreibung">
               <summary>Beschreibung — {gegenstand.name || 'Ohne Namen'}</summary>
-              {wahl.art === 'merkmal'
-                ? <div className="zug-beschreibung-text" dangerouslySetInnerHTML={{__html: sanitizeHtml(gegenstand.description)}} />
-                : <div className="zug-beschreibung-text"
-                    dangerouslySetInnerHTML={{__html: sanitizeHtml(gegenstand.description)}} />}
+              <div className="zug-beschreibung-text"
+                dangerouslySetInnerHTML={{__html: sanitizeHtml(gegenstand.description)}} />
             </details>
           )}
         </div>
@@ -1494,7 +1613,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
           )}
 
           {!nurWerte && (
-            <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer={t.name} />
+            <AktionsWahl held={held} wahl={wahl} setWahl={setWahl} wer={t.name} setDefs={setDefs} />
           )}
 
           <div className="zug-block">
