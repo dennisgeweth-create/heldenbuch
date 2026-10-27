@@ -2259,7 +2259,7 @@
         const heldKlinge = {...WB_HELD, spells: [...WB_HELD.spells,
           {id: 's9', name: 'Dröhnende Klinge', level: 0, school: 'Hervorrufung', castingTime: '1 Aktion',
            range: 'Selbst (1,5 m)', duration: '1 Runde', prepared: true, waffenangriff: true,
-           wirkung: {art: 'schaden', wuerfel: '1W8', rettung: '', halb: false, zustaende: []}}]};
+           wirkung: {art: 'schaden', wuerfel: '1W8', schadensart: 'Schall', rettung: '', halb: false, zustaende: []}}]};
         ansageMit({held: heldKlinge, helden: [heldKlinge]}); await ruhe(80);
         kachel('Aktion').click(); await ruhe(60);
         kachel('Zauber').click(); await ruhe(60);
@@ -2281,6 +2281,94 @@
           knopfIn('An die Spielleitung').click(); await ruhe(150);
           ja('  … und die Ansage trägt sie', !!angesagt && angesagt.art === 'zauber'
              && angesagt.was === 'Dröhnende Klinge' && angesagt.waffe === 'Kriegshammer', JSON.stringify(angesagt));
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+
+        // ── Der Paladin: Dröhnende Klinge, und bei Treffer Niederstrecken ──
+        const heldPala = {...heldKlinge,
+          spellSlots: {1: {max: 4, used: 0}, 2: {max: 3, used: 0}, 3: {max: 3, used: 0}, 4: {max: 1, used: 0}},
+          features: [...heldKlinge.features,
+            {id: 'f9', name: 'Göttliches Niederstrecken', source: 'Paladin 2', description: 'Bei einem Treffer.',
+             effects: [], effectsActive: true, beiTreffer: true, platz: true,
+             wirkung: {art: 'schaden', wuerfel: '2W8', schadensart: 'Gleißend', proGrad: '1W8', hoechstens: '5W8'}}]};
+        ansageMit({held: heldPala, helden: [heldPala]}); await ruhe(80);
+        kachel('Aktion').click(); await ruhe(60);
+        kachel('Zauber').click(); await ruhe(60);
+        [...buehne.querySelectorAll('.zk-zauber')].find(k => /Dröhnende Klinge/.test(k.textContent)).click();
+        await ruhe(60);
+        const smiteK = [...buehne.querySelectorAll('.zug-dazu .dazu-knopf')].find(b => /Niederstrecken/.test(b.textContent));
+        if (ja('Bei Treffer steht Göttliches Niederstrecken zur Wahl', !!smiteK)) {
+          smiteK.click(); await ruhe(60);
+          const g4 = [...buehne.querySelectorAll('.dazu-grade .zug-grad-taste')].find(b => b.textContent.trim().startsWith('4'));
+          ja('  … mit den Graden, für die es Plätze gibt', !!g4
+             && buehne.querySelectorAll('.dazu-grade .zug-grad-taste').length === 4);
+          g4.click(); await ruhe(60);
+          ja('  … und der Würfel steigt auf 5W8', /5W8/.test(buehne.querySelector('.dazu-zeile.an').textContent),
+             buehne.querySelector('.dazu-zeile.an').textContent);
+          knopfIn('Weiter').click(); await ruhe(60);
+          const zielP = buehne.querySelector('.zug-ziel');
+          if (zielP) { zielP.click(); await ruhe(40); }
+          knopfIn('Weiter').click(); await ruhe(60);
+          ja('  … die Vorschau nennt es', /Göttliches Niederstrecken · 4\. Grad \(5W8\) — bei Treffer/
+             .test(buehne.querySelector('.zug-vorschau').textContent), buehne.querySelector('.zug-vorschau').textContent);
+          knopfIn('An die Spielleitung').click(); await ruhe(150);
+          ja('  … und die Ansage trägt es samt Grad',
+             !!angesagt && JSON.stringify(angesagt.dazu) === JSON.stringify([{was: 'Göttliches Niederstrecken', grad: 4}]),
+             JSON.stringify(angesagt));
+          ja('  … ein Zaubertrick kostet keinen Platz', !!angesagt && angesagt.bezahlt === 0);
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+
+        // Bei der Spielleitung: der Schaden in drei Teilen, je Art gemindert.
+        const paladinAnsage = {...angesagt, id: 'an-pala', charId: heldPala.id};
+        const zugListe = [{id: 'held-wb1', art: 'held', charId: 'wb1', name: heldPala.name, hp: 31, hpMax: 44, ac: 18},
+                          {id: 'g-ork', art: 'gegner', name: 'Ork', hp: 40, hpMax: 40, ac: 13, flags: ['Resistenz: Schall']}];
+        let zugGebaut = null;
+        ReactDOM.render(React.createElement(ZugFenster, {
+          t: zugListe[0], liste: zugListe, helden: [heldPala], setDefs: [], klassen: [], runde: 2, bisher: [],
+          ansage: {...paladinAnsage, zielIds: ['g-ork'], ziele: ['Ork']}, ansagen: [],
+          onAbbrechen: () => {}, onAnwenden: (g) => { zugGebaut = g; },
+        }), buehne);
+        await ruhe(120);
+        const teilZeilen = () => [...buehne.querySelectorAll('.zug-teile .zug-teil')];
+        if (ja('Das Zugfenster zeigt den Schaden in Teilen', teilZeilen().length === 3, String(teilZeilen().length))) {
+          const arten = teilZeilen().map(z => z.querySelector('.zug-art').value);
+          ja('  … Wucht von der Waffe, Schall vom Zauber, Gleißend vom Niederstrecken',
+             JSON.stringify(arten) === JSON.stringify(['Wucht', 'Schall', 'Gleißend']), JSON.stringify(arten));
+          ja('  … mit den Würfeln dazu', /5W8/.test(teilZeilen()[2].textContent) && /1W8/.test(teilZeilen()[1].textContent));
+          ja('  … die Resistenz des Orks gegen Schall ist vorgewählt',
+             teilZeilen()[1].querySelector('.zug-teil-mind').value === 'res'
+             && teilZeilen()[0].querySelector('.zug-teil-mind').value === '');
+          const setzI = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          const tippe = (feld, wert) => { setzI.call(feld, String(wert)); feld.dispatchEvent(new Event('input', {bubbles: true})); };
+          tippe(teilZeilen()[0].querySelector('.zug-zahl'), 7);
+          tippe(teilZeilen()[1].querySelector('.zug-zahl'), 5);
+          tippe(teilZeilen()[2].querySelector('.zug-zahl'), 22);
+          await ruhe(80);
+          ja('  … und rechnet: 7 + 5 ½ + 22 = 31',
+             (buehne.querySelector('.zug-teil-summe .zug-ergebnis') || {}).textContent === '31',
+             (buehne.querySelector('.zug-teil-summe') || {}).textContent);
+          ja('  … im Protokoll stehen die Teile',
+             /Ork nimmt 31 Schaden \(7 Wucht \+ 2 Schall ½ \+ 22 Gleißend\)/.test(buehne.querySelector('.zug-vorschau').textContent),
+             buehne.querySelector('.zug-vorschau').textContent);
+          ja('  … und das Niederstrecken mit seinem Platz',
+             /\+ Göttliches Niederstrecken · 4\. Grad \(5W8\) — bei Treffer/.test(buehne.querySelector('.zug-vorschau').textContent)
+             && /Zauberplatz 4\. Grad abgehakt/.test(buehne.querySelector('.zug-vorschau').textContent));
+          [...buehne.querySelectorAll('.zug-fuss button, .zug-fenster button')].find(b => /Übernehmen/.test(b.textContent)).click();
+          await ruhe(80);
+          ja('  … übernommen kostet es den Platz vom 4. Grad',
+             !!zugGebaut && JSON.stringify(zugGebaut.plaetze) === JSON.stringify([{charId: 'wb1', grad: 4}])
+             && !zugGebaut.platz, JSON.stringify(zugGebaut && {platz: zugGebaut.platz, plaetze: zugGebaut.plaetze}));
+          ja('  … und der Ork verliert 31', !!zugGebaut && (zugGebaut.treffer[0] || {}).n === 31);
+        }
+        // Daneben: dann zählt das Niederstrecken nicht und kostet nichts.
+        const daneben = [...buehne.querySelectorAll('.zug-schalter button')].find(b => /daneben/.test(b.textContent));
+        if (daneben) {
+          daneben.click(); await ruhe(80);
+          ja('Daneben: kein Niederstrecken, kein Platz',
+             !/Niederstrecken/.test(buehne.querySelector('.zug-vorschau').textContent)
+             && !/Zauberplatz 4/.test(buehne.querySelector('.zug-vorschau').textContent),
+             buehne.querySelector('.zug-vorschau').textContent);
         }
         ReactDOM.unmountComponentAtNode(buehne);
 

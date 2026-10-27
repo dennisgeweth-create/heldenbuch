@@ -1,5 +1,40 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.7.0
+
+### Bei Treffer dazu — Göttliches Niederstrecken und Co.
+
+- Ein Merkmal kann jetzt **„bei einem Treffer dazukommen“** (Reiter
+  Benutzen im Merkmal) und **einen Zauberplatz verbrauchen**, dessen Grad
+  man beim Ansagen wählt. Der Würfel steigt mit dem Grad: „2W8, je Grad
+  über 1 +1W8, höchstens 5W8“ — vom 4. Grad also 5W8.
+- Wer mit einer Waffe angreift — oder einen Zauber wie Dröhnende Klinge
+  mit seiner Waffe wirkt —, sieht in der Ansage **💥 Bei Treffer dazu**:
+  Niederstrecken antippen, Grad wählen, fertig. Die Spielleitung liest
+  „Zauber: Dröhnende Klinge mit Langschwert + Göttliches Niederstrecken
+  (4. Grad) bei Treffer“.
+- Bezahlt wird erst, **wenn es trifft**: Platz oder Ressource gehen ab,
+  sobald die Spielleitung „Treffer“ einträgt. Daneben kostet es nichts.
+
+### Schaden in Teilen
+
+- Im Zugfenster der Spielleitung steht der Schaden je Ziel jetzt **in
+  Teilen** — vorausgefüllt aus der Ansage: Langschwert *Hieb* 1W8+3,
+  Dröhnende Klinge *Schall* 1W8, Niederstrecken *Gleißend* 5W8. Je Teil
+  wird der gewürfelte Wert eingetragen.
+- Jedes Teil hat seine eigene **Minderung**: voll, ½ Resistenz,
+  ×2 verwundbar, immun. Steht beim Gegner „Resistenz: Schall“, ist das
+  schon vorgewählt. Halbiert wird also nur, was halbiert gehört.
+- Daneben steht die Summe, die ankommt, und im Protokoll:
+  „Ork nimmt 31 Schaden (7 Hieb + 2 Schall ½ + 22 Gleißend)“.
+- **＋ Teil** hängt eine weitere Art von Hand an.
+
+### Behoben
+
+- Ein angesagter Zauber kostete seinen Platz zweimal: einmal beim
+  Ansagen und noch einmal, wenn die Spielleitung die Ansage eintrug. Die
+  Ansage sagt jetzt, dass der Platz schon bezahlt ist.
+
 ## v6.6.1
 
 - Das **Zugfenster der Spielleitung** zeigt die Auswahl wieder als die

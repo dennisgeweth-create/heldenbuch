@@ -2240,3 +2240,60 @@ const MERKMAL_EINSATZ = /einmal (je|pro)|(je|pro) (kurzer |langer )?rast|bis (du
 const merkmalEinsetzbar = (f) => !!(f && (f.ressource || f.zauber || f.dauer
   || hatWirkung(f.wirkung) || aktionsZeit(f, 'merkmal')
   || MERKMAL_EINSATZ.test(htmlZuText(f.description).toLowerCase())));
+
+// ── Bei Treffer dazu ──────────────────────────────────────────────
+// Göttliches Niederstrecken, Hinterhältiger Angriff, ein Manöver: ein
+// Merkmal, das nicht für sich steht, sondern an einen Angriff gehängt
+// wird und erst bei einem Treffer zählt. Ob es das tut, steht am Merkmal
+// (beiTreffer). Verbraucht es einen Zauberplatz (platz), wählt man den
+// Grad; der Würfel steht für den 1. Grad da und steigt um proGrad je Grad
+// darüber, höchstens bis hoechstens — „2W8, +1W8, höchstens 5W8“.
+const merkmalBeiTreffer = (f) => !!(f && f.beiTreffer);
+const merkmalWurf = (f, grad) => {
+  const w = (f && f.wirkung) || {};
+  if (!w.wuerfel) return '';
+  if (!f.platz) return w.wuerfel;
+  const r = wuerfelAufGrad(w, 1, Math.max(1, Math.round(+grad || 1)));
+  const max = /^\s*(\d+)\s*[wWdD]\s*(\d+)/.exec(w.hoechstens || '');
+  const m = /^\s*(\d+)\s*W\s*(\d+)(.*)$/.exec(r);
+  if (max && m && +m[2] === +max[2] && +m[1] > +max[1]) return max[1] + 'W' + m[2] + m[3];
+  return r;
+};
+
+// ── Schaden in Teilen ─────────────────────────────────────────────
+// Ein Hieb mit Dröhnender Klinge und Niederstrecken trifft dreifach:
+// Wucht von der Waffe, Schall vom Zauber, gleißend vom Merkmal. Jede Art
+// für sich, weil Resistenz, Immunität und Verwundbarkeit an der Art
+// hängen und nicht an der Summe. Erst halbiert der Rettungswurf, dann
+// wirkt, was das Ziel gegen diese Art hat.
+const MINDERUNGEN = [
+  {k: '',      l: 'voll'},
+  {k: 'res',   l: '½ Resistenz'},
+  {k: 'verw',  l: '×2 verwundbar'},
+  {k: 'immun', l: 'immun'},
+];
+const schadenRechnen = (teile, wie) => {
+  const {halb = false, nichts = false} = wie || {};
+  const raus = (teile || []).map(t => {
+    let n = Math.max(0, Math.round(+t.wert || 0));
+    if (nichts) n = 0;
+    else if (halb) n = Math.floor(n / 2);
+    if (t.mind === 'immun') n = 0;
+    else if (t.mind === 'res') n = Math.floor(n / 2);
+    else if (t.mind === 'verw') n = n * 2;
+    return {...t, n};
+  });
+  return {teile: raus, summe: raus.reduce((s, t) => s + t.n, 0),
+          roh: (teile || []).reduce((s, t) => s + Math.max(0, Math.round(+t.wert || 0)), 0)};
+};
+// Was das Ziel selbst gegen eine Art mitbringt — aus seinen Merkzeilen
+// („Resistenz: Feuer“). Ein Vorschlag; die Spielleitung stellt um.
+const minderungFuer = (ziel, art) => {
+  const a = String(art || '').trim().toLowerCase();
+  if (!a || !ziel) return '';
+  const f = (ziel.flags || []).map(x => String(x || '').trim().toLowerCase());
+  if (f.includes('immunität: ' + a)) return 'immun';
+  if (f.includes('resistenz: ' + a)) return 'res';
+  if (f.includes('verwundbar: ' + a) || f.includes('verwundbarkeit: ' + a)) return 'verw';
+  return '';
+};

@@ -125,8 +125,11 @@ Eingerückte Zeilen gehören zum Zug darüber.
 | `Angriff:` / `Zauber:` / `Gegenstand:` / `Merkmal:` | was angesagt bzw. eingetragen wurde, ggf. mit Rang und Würfel |
 | `… → Ziel: Treffer (18 gegen RK 15)` | Angriffswurf gegen ein Ziel |
 | `… → Ziel: Rettungswurf GES misslungen (9 gegen SG 15)` | Rettungswurf |
-| `… nimmt N Schaden · 12 → 3` | Schaden, davor und danach. Mehrere Arten stehen aufgeschlüsselt |
-| `— Resistenz` am Ende | der Schaden war schon halbiert |
+| `Angriff:` / `Zauber: … mit Langschwert` | ein Zauber, der mit einem Waffenangriff gewirkt wird (Dröhnende Klinge) |
+| `+ Göttliches Niederstrecken · 4. Grad (5W8) — bei Treffer` | was bei einem Treffer dazukam; der Zauberplatz steht darunter |
+| `… nimmt N Schaden · 12 → 3` | Schaden, davor und danach. Mehrere Arten stehen aufgeschlüsselt: `(7 Wucht + 2 Schall ½ + 22 Gleißend)` |
+| `½` / `×2` / `immun` hinter einer Art | Resistenz, Verwundbarkeit, Immunität gegen genau diese Art — die Zahl davor ist schon gemindert |
+| `— Resistenz` am Ende | ältere Verläufe: der ganze Schaden war schon halbiert |
 | `… ist immun gegen …` | nichts angekommen |
 | `… wird um N geheilt · 3 → 14` | Heilung |
 | `+N temporäre Trefferpunkte` | temporäre TP |

@@ -154,6 +154,11 @@ const ansageTyp = (a) => ANSAGE_TYPEN.find(x => x.k === ((a || {}).typ || 'aktio
 
 const AKTION_WORT = {zauber: 'Zauber', angriff: 'Angriff',
                      gegenstand: 'Gegenstand', merkmal: 'Merkmal'};
+// „+ Göttliches Niederstrecken (4. Grad) bei Treffer“ — fuer jede Liste,
+// in der eine Ansage steht.
+const ansageDazuText = (a) => ((a && a.dazu) || []).length
+  ? '+ ' + a.dazu.map(d => d.was + (d.grad ? ' (' + d.grad + '. Grad)' : '')).join(', ') + ' bei Treffer'
+  : '';
 
 const protokollZeile = (e, mitZahlen) => {
   const stand = (mitZahlen && e.von !== undefined && e.auf !== undefined)
@@ -189,6 +194,9 @@ const protokollZeile = (e, mitZahlen) => {
                             + (e.wurf !== '' && e.wurf != null && e.sg
                                ? ' (' + e.wurf + ' gegen SG ' + e.sg + ')' : '');
     case 'platz':    return '   Zauberplatz ' + e.grad + '. Grad abgehakt';
+    // Was bei einem Treffer dazukam — Niederstrecken, Hinterhältiger Angriff.
+    case 'dazu':     return '   + ' + e.was + (e.grad ? ' · ' + e.grad + '. Grad' : '')
+                            + (e.wurf ? ' (' + e.wurf + ')' : '') + ' — bei Treffer';
     // Was ein Merkmal kostet: Kanalisieren, Ki, Kampfrausch.
     case 'ressource': return '   ' + e.was + (e.leer ? ': nichts mehr übrig'
                             : ' −' + (e.kosten || 1) + ' · noch ' + e.rest);
@@ -210,9 +218,13 @@ const protokollZeile = (e, mitZahlen) => {
     case 'wurf':     return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': '
                             + (e.treffer ? 'Treffer' : 'daneben')
                             + (e.wurf !== '' && e.wurf != null ? ' (' + e.wurf + ' gegen RK ' + e.ac + ')' : '');
+    // Die Teile stehen da, sobald es mehr als einen gibt oder einer
+    // gemindert ist: „31 Schaden (7 Wucht + 2 Schall ½ + 22 Gleißend)“.
     case 'schaden':  return '   ' + e.wer + ' nimmt ' + e.wert + ' Schaden'
-                            + (e.teile && e.teile.length > 1
-                               ? ' (' + e.teile.map(x => x.wert + (x.art ? ' ' + x.art : '')).join(' + ') + ')'
+                            + (e.teile && (e.teile.length > 1 || e.teile.some(x => x.mind))
+                               ? ' (' + e.teile.map(x => x.wert + (x.art ? ' ' + x.art : '')
+                                   + (x.mind === 'res' ? ' ½' : x.mind === 'verw' ? ' ×2'
+                                      : x.mind === 'immun' ? ' immun' : '')).join(' + ') + ')'
                                : '') + stand
                             + (e.minderung === 'res' ? ' — Resistenz' : '');
     case 'immun':    return '   ' + e.wer + ' ist immun' + (e.was ? ' gegen ' + e.was : '');
@@ -666,10 +678,41 @@ const aktionsStand = (held, wahl) => {
   const mitWaffe = wahl.art === 'zauber' && !!(gegenstand && gegenstand.waffenangriff);
   const waffe = mitWaffe
     ? (kampfWaffen(held).find(w => (w.name || '') === (wahl.waffe || '')) || null) : null;
+  // Was bei einem Treffer dazukommt — nur an einem Angriff mit der Waffe,
+  // auch dem, der zu einem Zauber gehoert. Gefunden ueber den Namen, wie
+  // alles in der Wahl.
+  const mitTreffer = (wahl.art === 'angriff' && !!gegenstand) || (mitWaffe && !!waffe);
+  const dazu = !mitTreffer ? [] : (wahl.dazu || []).map(d => {
+    const f = ((held && held.features) || []).find(x => (x.name || '') === (d && d.was) && merkmalBeiTreffer(x));
+    if (!f) return null;
+    const g = f.platz ? Math.max(1, Math.min(9, Math.round(+d.grad || 1))) : 0;
+    return {f, was: f.name, grad: g, wurf: merkmalWurf(f, g), art: (f.wirkung || {}).schadensart || ''};
+  }).filter(Boolean);
   return {quelle, gegenstand, grundGrad: ohneGrad ? 0 : grundGrad, wirkung,
-          grad: ohneGrad ? 0 : grad, verknuepft, mitWaffe, waffe,
+          grad: ohneGrad ? 0 : grad, verknuepft, mitWaffe, waffe, mitTreffer, dazu,
           wurf: !wirkung ? '' : ohneGrad ? (wirkung.wuerfel || '')
                                          : wuerfelAufGrad(wirkung, grundGrad, grad)};
+};
+
+// Die Teile, aus denen der Schaden besteht — vorgefuellt aus dem, was
+// gewaehlt ist: die Waffe, der Wurf des Zaubers oder Merkmals, und was bei
+// Treffer dazukommt. Die Art steht schon da, den Wert traegt die
+// Spielleitung ein. Ohne alles bleibt ein Teil ohne Namen.
+const schadensVorlage = (stand, art, werte) => {
+  const {gegenstand, wirkung, wurf, waffe, mitWaffe, dazu, verknuepft} = stand || {};
+  const teile = [];
+  const w = art === 'angriff' ? gegenstand : (mitWaffe ? waffe : null);
+  if (w) teile.push({k: 'waffe', quelle: w.name || 'Waffe', art: w.damageType || '',
+    wurf: (werte ? waffeWerte(w, werte).dmgStr : '') || w.damage || ''});
+  if (art !== 'angriff' && wirkung && wirkung.wuerfel && wirkung.art !== 'heilung' && wirkung.art !== 'temp') {
+    teile.push({k: 'wirkung', quelle: (verknuepft || gegenstand || {}).name || '',
+      art: wirkung.schadensart || '', wurf: wurf || wirkung.wuerfel});
+  }
+  (dazu || []).forEach(d => teile.push({k: 'dazu:' + d.was,
+    quelle: d.was + (d.grad ? ' · ' + d.grad + '. Grad' : ''), art: d.art, wurf: d.wurf}));
+  if (!teile.length) teile.push({k: 'grund', quelle: gegenstand ? (gegenstand.name || '') : '',
+    art: (wirkung && wirkung.schadensart) || (gegenstand && gegenstand.damageType) || '', wurf: wurf || ''});
+  return teile;
 };
 
 // Im Zugfenster steht je Ziel nicht der Zustand danach, sondern was
@@ -987,7 +1030,7 @@ const AktionsWahl = ({ held, wahl, setWahl, wer, setDefs, teil = 'alles', typ })
   const sachen   = kampfGegenstaende(held);
   const merkmale = kampfMerkmale(held);
   const ansicht  = ART_ANSICHT[wahl.art] || ART_ANSICHT.angriff;
-  const {quelle, gegenstand, grundGrad, wirkung, grad, wurf, mitWaffe, waffe} = aktionsStand(held, wahl);
+  const {quelle, gegenstand, grundGrad, wirkung, grad, wurf, mitWaffe, waffe, mitTreffer} = aktionsStand(held, wahl);
   const werte = React.useMemo(() => held ? charWerte(held, setDefs) : null, [held, setDefs]);
   const [passivAuf, setPassivAuf] = useState(false);
 
@@ -1068,6 +1111,21 @@ const AktionsWahl = ({ held, wahl, setWahl, wer, setDefs, teil = 'alles', typ })
     const p = plaetze[l] || plaetze[String(l)];
     return p ? Math.max(0, (+p.max || 0) - (+p.used || 0)) : 0;
   };
+  // Bei Treffer dazu: die Merkmale, die das koennen, und der Grad, wenn
+  // sie einen Zauberplatz nehmen — vorgewaehlt der kleinste mit Platz.
+  const trefferMerkmale = ((held && held.features) || []).filter(merkmalBeiTreffer);
+  const platzGrade = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(l => {
+    const p = plaetze[l] || plaetze[String(l)];
+    return p && (+p.max || 0) > 0;
+  });
+  const dazuUm = (f) => {
+    const hat = (wahl.dazu || []).some(d => d.was === f.name);
+    setWahl({...wahl, dazu: hat ? (wahl.dazu || []).filter(d => d.was !== f.name)
+      : [...(wahl.dazu || []), {was: f.name,
+          grad: f.platz ? (platzGrade.find(l => platzRest(l) > 0) || platzGrade[0] || 1) : 0}]});
+  };
+  const dazuGrad = (f, l) => setWahl({...wahl,
+    dazu: (wahl.dazu || []).map(d => d.was === f.name ? {...d, grad: l} : d)});
 
   const waehlen = (i) => {
     const neu = i === wahl.i ? null : i;
@@ -1186,6 +1244,47 @@ const AktionsWahl = ({ held, wahl, setWahl, wer, setDefs, teil = 'alles', typ })
               und <b>{wurf}</b> vom Zauber
             </div>
           )}
+        </div>
+      )}
+
+      {/* Bei Treffer dazu: Niederstrecken, Hinterhältiger Angriff. Angesagt
+          wird es mit dem Angriff; zaehlen und kosten tut es erst, wenn die
+          Spielleitung einen Treffer eintraegt. */}
+      {mitTreffer && trefferMerkmale.length > 0 && (
+        <div className="zug-block zug-dazu">
+          <div className="zug-label">💥 Bei Treffer dazu</div>
+          {trefferMerkmale.map(f => {
+            const d = (wahl.dazu || []).find(x => x.was === f.name);
+            const mr = merkmalRessource(held, f);
+            return (
+              <div className={'dazu-zeile' + (d ? ' an' : '')} key={f.id || f.name}>
+                <button type="button" className="zug-zeile arkan dazu-knopf" aria-pressed={!!d}
+                  onClick={() => dazuUm(f)}>
+                  <span className="zug-sym">{d ? '✓' : '＋'}</span>
+                  <span className="zug-text">
+                    <b>{f.name}</b>
+                    <i>{[(f.wirkung || {}).schadensart, f.platz ? 'nimmt einen Zauberplatz' : '',
+                         mr ? mr.r.name + ' ' + mr.rest + '/' + (+mr.r.max || 0) : ''].filter(Boolean).join(' · ')
+                        || 'bei einem Treffer'}</i>
+                  </span>
+                  <span className="zug-wirkt">{merkmalWurf(f, d ? d.grad : 1)}</span>
+                </button>
+                {d && f.platz && (
+                  <span className="zug-reihe dazu-grade">
+                    <span className="zug-grad-label">Platz</span>
+                    {(platzGrade.length ? platzGrade : [1]).map(l => (
+                      <button type="button" key={l}
+                        className={'zug-grad-taste' + (l === d.grad ? ' an' : '')}
+                        title={platzRest(l) + ' frei — ' + merkmalWurf(f, l)}
+                        onClick={() => dazuGrad(f, l)}>
+                        {l}<i>{platzRest(l)}</i>
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1334,7 +1433,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
       const q = aktionsQuelle(held, ansage.art);
       const i = q.findIndex(g => (g.name || '') === (ansage.was || ''));
       return {art: ansage.art || 'frei', i: i >= 0 ? i : null,
-              grad: +ansage.grad || 0, suche: '', waffe: ansage.waffe || ''};
+              grad: +ansage.grad || 0, suche: '', waffe: ansage.waffe || '', dazu: ansage.dazu || []};
     }
     return {art: waffen.length ? 'angriff' : (sprueche.length ? 'zauber' : 'frei'),
             i: null, grad: 0, suche: ''};
@@ -1370,7 +1469,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   const ansageNehmen = (a) => {
     const q = aktionsQuelle(held, a.art);
     const i = q.findIndex(g => (g.name || '') === (a.was || ''));
-    setWahl({art: a.art || 'frei', i: i >= 0 ? i : null, grad: +a.grad || 0, suche: '', waffe: a.waffe || ''});
+    setWahl({art: a.art || 'frei', i: i >= 0 ? i : null, grad: +a.grad || 0, suche: '',
+             waffe: a.waffe || '', dazu: a.dazu || []});
     const z = {};
     ((a.zielIds) || []).forEach(id => {
       if ((liste || []).some(x => x.id === id)) z[id] = {treffer: true, bestanden: false, wurf: '', wert: 0};
@@ -1385,9 +1485,15 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
   const art = nurWerte ? 'frei' : wahl.art;
-  const {gegenstand, grundGrad, wirkung, grad, wurf: wurfJetzt, verknuepft, waffe: mitWaffeW} =
-    nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:'', verknuepft:null, waffe:null}
-             : aktionsStand(held, wahl);
+  const stand = nurWerte
+    ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:'', verknuepft:null, waffe:null, dazu:[]}
+    : aktionsStand(held, wahl);
+  const {gegenstand, grundGrad, wirkung, grad, wurf: wurfJetzt, verknuepft, waffe: mitWaffeW,
+         dazu: dazuJetzt} = stand;
+  // Die Teile des Schadens, wie sie das Gewaehlte vorgibt (siehe
+  // schadensVorlage). Je Ziel stehen darin nur die Werte, eine geaenderte
+  // Art und die Minderung — wechselt die Waffe, wandern die Teile mit.
+  const vorlage = schadensVorlage(stand, nurWerte ? 'frei' : wahl.art, werte);
   const mitRettung = !!(wirkung && wirkung.rettung);
   // Ein Heiltrank heilt. Wer ihn wählt, soll den Schalter nicht erst
   // umlegen müssen — umlegen darf er ihn trotzdem, deshalb hängt das
@@ -1437,15 +1543,41 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
 
   const zielSetzen = (id, p) => setZiele(z => ({...z, [id]: {...z[id], ...p}}));
   const autoZustaende = (id) => zustaendeVonWirkung(wirkung, ziele[id], mitRettung, mitSchalter);
-  // Eine brennende Klinge macht zweierlei Schaden. Der Grundschaden
-  // steht im Feld, alles Weitere kommt als eigene Zeile mit eigener Art
-  // dazu — im Protokoll steht dann "10 Schaden (7 Hieb + 3 Feuer)".
-  const zusatzDazu = (id) => setZiele(z => ({...z,
-    [id]: {...z[id], zusatz: [...((z[id] || {}).zusatz || []), {art: '', wert: 0}]}}));
-  const zusatzSetzen = (id, i, p) => setZiele(z => ({...z,
-    [id]: {...z[id], zusatz: ((z[id] || {}).zusatz || []).map((x, j) => j === i ? {...x, ...p} : x)}}));
-  const zusatzWeg = (id, i) => setZiele(z => ({...z,
-    [id]: {...z[id], zusatz: ((z[id] || {}).zusatz || []).filter((_, j) => j !== i)}}));
+  // Der Schaden in Teilen: je Teil eine Art, ein Wert und was das Ziel
+  // gegen diese Art hat. Die Teile kommen aus der Vorlage; dazu, was die
+  // Spielleitung von Hand anhaengt — eine brennende Klinge, geweihtes Öl.
+  // Im Protokoll steht dann „31 Schaden (7 Wucht + 2 Schall ½ + 22 Gleißend)“.
+  const teileVon = (id) => {
+    const z = ziele[id] || {};
+    const ziel = liste.find(x => x.id === id);
+    const aus = (feld, k) => (z[feld] || {})[k];
+    return [
+      ...vorlage.map(p => {
+        const a = aus('teilArt', p.k) !== undefined ? aus('teilArt', p.k) : p.art;
+        return {...p, art: a, wert: aus('teilWert', p.k) || 0,
+                mind: aus('teilMind', p.k) !== undefined ? aus('teilMind', p.k) : minderungFuer(ziel, a)};
+      }),
+      ...(z.eigene || []).map((x, i) => ({k: 'eigen:' + i, i, eigen: true, quelle: '', wurf: '',
+        art: x.art || '', wert: x.wert || 0,
+        mind: x.mind !== undefined ? x.mind : minderungFuer(ziel, x.art)})),
+    ];
+  };
+  const teilSetzen = (id, p, feld, wert) => setZiele(zs => {
+    const z = zs[id] || {};
+    if (p.eigen) return {...zs, [id]: {...z, eigene: (z.eigene || []).map((x, j) =>
+      j === p.i ? {...x, [feld]: wert} : x)}};
+    const f = feld === 'wert' ? 'teilWert' : feld === 'art' ? 'teilArt' : 'teilMind';
+    return {...zs, [id]: {...z, [f]: {...(z[f] || {}), [p.k]: wert}}};
+  });
+  const eigenesDazu = (id) => setZiele(z => ({...z,
+    [id]: {...z[id], eigene: [...((z[id] || {}).eigene || []), {art: '', wert: 0}]}}));
+  const eigenesWeg = (id, i) => setZiele(z => ({...z,
+    [id]: {...z[id], eigene: ((z[id] || {}).eigene || []).filter((_, j) => j !== i)}}));
+  // Was die Ansage schon bezahlt hat: der Spieler streicht den Platz beim
+  // Ansagen. Hier noch einmal abzuhaken hiesse, ihn zweimal zu bezahlen.
+  const genommenA = [ansage, ...(ansagen || [])].find(a => a && a.id === genommen) || null;
+  const schonBezahlt = !!(genommenA && +genommenA.bezahlt > 0 && art === 'zauber'
+    && gegenstand && (gegenstand.name || '') === (genommenA.was || ''));
 
   const zielUm = (id) => setZiele(z => {
     if (z[id]) { const k = {...z}; delete k[id]; return k; }
@@ -1484,8 +1616,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
       }
       // Der Zauberplatz gehoert zum Wirken und steht deshalb gleich
       // darunter, nicht hinter den Rettungswuerfen.
-      if (held && art === 'zauber' && grundGrad > 0 && platzRest(grad) > 0) {
-        platz = {charId: held.id, grad};
+      if (held && art === 'zauber' && grundGrad > 0 && (schonBezahlt || platzRest(grad) > 0)) {
+        if (!schonBezahlt) platz = {charId: held.id, grad};
         eintraege.push({art: 'platz', wer: t.name, grad});
       }
       // Und ebenso der Trank: benutzt ist benutzt, die Zahl im Inventar
@@ -1500,10 +1632,58 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                         ...(ladung ? {ladung: true} : {})});
       }
     }
+    // Was bei Treffer dazukam, zaehlt nur, wenn auch einer traf. Dann geht
+    // der Platz oder die Ressource ab — daneben kostet es nichts.
+    const plaetze = [], ressourcen = [];
+    const getroffen = Object.keys(ziele).some(id => liste.some(x => x.id === id)
+      && (!mitSchalter || (ziele[id] || {}).treffer));
+    if (held && gegenstand && getroffen) {
+      const genutzt = {};
+      if (platz) genutzt[platz.grad] = 1;
+      (dazuJetzt || []).forEach(d => {
+        eintraege.push({art: 'dazu', wer: t.name, was: d.was, grad: d.grad, wurf: d.wurf});
+        if (d.f.platz && d.grad > 0 && platzRest(d.grad) - (genutzt[d.grad] || 0) > 0) {
+          genutzt[d.grad] = (genutzt[d.grad] || 0) + 1;
+          plaetze.push({charId: held.id, grad: d.grad});
+          eintraege.push({art: 'platz', wer: t.name, grad: d.grad});
+        }
+        const kr = merkmalRessource(held, d.f);
+        if (kr) {
+          if (kr.reicht) ressourcen.push({charId: held.id, resId: kr.r.id, kosten: kr.kosten});
+          eintraege.push({art: 'ressource', wer: t.name, was: kr.r.name, kosten: kr.kosten,
+            rest: kr.reicht ? kr.rest - kr.kosten : kr.rest, leer: !kr.reicht});
+        }
+      });
+    }
     Object.keys(ziele).forEach(id => {
       const ziel = liste.find(x => x.id === id);
       if (!ziel) return;
       const z = ziele[id];
+      // Schaden an einem Ziel: in Teilen, jede Art fuer sich gemindert.
+      if (!flaeche && richtung === 'schaden') {
+        const tl = teileVon(id).filter(p => Math.round(+p.wert || 0) > 0);
+        let halb = false, nichts = false;
+        if (mitRettung) {
+          eintraege.push({art: 'rettung', was: gegenstand ? gegenstand.name : '', ziel: ziel.name,
+            rw: RETTUNG_KURZ[wirkung.rettung] || '', wurf: z.wurf, sg: zauberSG,
+            bestanden: !!z.bestanden});
+          if (z.bestanden) { if (wirkung.halb) halb = true; else nichts = true; }
+        } else if (mitSchalter) {
+          eintraege.push({art: 'wurf', was: gegenstand ? gegenstand.name : '',
+            ziel: ziel.name, wurf: z.wurf, ac: ziel.ac, treffer: !!z.treffer});
+          if (!z.treffer) nichts = true;
+        }
+        const r = schadenRechnen(tl, {halb, nichts});
+        if (!nichts && tl.length && tl.every(p => p.mind === 'immun')) {
+          eintraege.push({art: 'immun', wer: ziel.name,
+            was: [...new Set(tl.map(p => (p.art || '').trim()).filter(Boolean))].join(', ')});
+        }
+        const teile = (tl.length > 1 || tl.some(p => p.mind))
+          ? r.teile.map(p => ({wert: p.n, art: (p.art || '').trim(), ...(p.mind ? {mind: p.mind} : {})}))
+          : null;
+        if (r.summe > 0) treffer.push({id, modus: 'schaden', n: r.summe, ziel, minderung: '', teile});
+        return;
+      }
       const basis = flaeche ? Math.max(0, Math.round(+gemeinsam || 0))
                             : Math.max(0, Math.round(+z.wert || 0));
       const extra = ((flaeche ? gemeinsamZusatz : (z.zusatz || []))
@@ -1574,7 +1754,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     // Schaden — erst trifft der Hieb, dann liegt der Ork am Boden —,
     // deshalb nicht in eintraege, sondern eigens.
     const zustaende = zustandsWechsel(ziele, liste, autoZustaende);
-    return {eintraege, treffer, platz, verbrauch, konz, zustaende, ressource, laufend};
+    return {eintraege, treffer, platz, plaetze, verbrauch, konz, zustaende, ressource, ressourcen, laufend};
   };
 
   const {eintraege, treffer, zustaende} = bauen();
@@ -1600,10 +1780,18 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
     || !!(gegenstand && gegenstand.damage);
   const kostet = held && art === 'merkmal' && gegenstand ? merkmalRessource(held, gegenstand) : null;
   const gehaltenJetzt = art === 'zauber' ? gegenstand : (art === 'merkmal' ? verknuepft : null);
+  // Die Pruefung kennt Wert und Zusatz; die Teile werden ihr so gereicht.
+  const zielePruef = Object.fromEntries(Object.keys(ziele).map(id => {
+    if (flaeche || richtung !== 'schaden') return [id, ziele[id]];
+    const tl = teileVon(id);
+    return [id, {...ziele[id],
+      wert: tl.filter(p => !p.eigen).reduce((s, p) => s + Math.max(0, Math.round(+p.wert || 0)), 0),
+      zusatz: tl.filter(p => p.eigen)}];
+  }));
   const maengel = zugMaengel({
-    art, nurWerte, gegenstand, liste, ziele, richtung, mitSchalter, mitRettung,
+    art, nurWerte, gegenstand, liste, ziele: zielePruef, richtung, mitSchalter, mitRettung,
     flaeche, gemeinsam, gemeinsamZusatz, erwartetWert, autoZustaende,
-    grad, grundGrad, platzFrei: platzRest(grad),
+    grad, grundGrad, platzFrei: schonBezahlt ? 1 : platzRest(grad),
     ressourceLeer: !!(kostet && !kostet.reicht), ressourceName: kostet ? kostet.r.name : '',
     laufend: !!(lauf.an && String(lauf.name || '').trim()),
     konzGehalten: (held && held.konzentration && held.konzentration.name) || '',
@@ -1675,6 +1863,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                     {a.was ? <b>{(AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
                       {a.waffe ? ' mit ' + a.waffe : ''}
                       {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+                    {ansageDazuText(a) ? <span className="za-dazu"> {ansageDazuText(a)}</span> : null}
                     {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                     {a.text ? <i>„{a.text}“</i> : null}
                   </span>
@@ -1839,24 +2028,28 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                         </span>
                       ) : (
                         <>
-                          {(mitRettung || !mitSchalter || z.treffer) && (
+                          {richtung === 'heilung' && (
                             <span className="zug-feld">
-                              <span>{richtung === 'heilung' ? 'Heilt' : 'Schaden'}</span>
+                              <span>Heilt</span>
                               <ZahlFeld className="zug-zahl" sofort min={0} wert={z.wert} leerWert={0}
-                                aria-label={(richtung === 'heilung' ? 'Heilung' : 'Schaden') + ' an ' + ziel.name}
+                                aria-label={'Heilung an ' + ziel.name}
                                 onWert={v=>zielSetzen(id, {wert: v})} />
-                              {halbiert && <i className="zug-halb">→ {Math.floor(gesamt/2)}</i>}
-                              {mitRettung && z.bestanden && !wirkung.halb && <i className="zug-halb">→ 0</i>}
                             </span>
                           )}
-                          {richtung === 'schaden' && (mitRettung || !mitSchalter || z.treffer) && (
-                            <button type="button" className="zug-plus"
-                              title="Zusätzlicher Schaden anderer Art — eine brennende Klinge, geweihtes Öl"
-                              onClick={()=>zusatzDazu(id)}>＋ Art</button>
-                          )}
+                          {richtung === 'schaden' && (mitRettung || !mitSchalter || z.treffer) && (() => {
+                            const r = schadenRechnen(teileVon(id), {
+                              halb: mitRettung && z.bestanden && wirkung.halb,
+                              nichts: mitRettung && z.bestanden && !wirkung.halb});
+                            return (
+                              <span className="zug-feld zug-teil-summe" title="Was ankommt — nach Rettungswurf und Minderung">
+                                <span>Schaden</span><b className="zug-ergebnis">{r.summe}</b>
+                                {r.summe !== r.roh && <i className="zug-halb">von {r.roh}</i>}
+                              </span>
+                            );
+                          })()}
                         </>
                       )}
-                      {richtung === 'schaden' && (
+                      {richtung === 'schaden' && flaeche && (
                         <span className="zug-mind" title="Resistenz halbiert, Immunität nimmt alles">
                           <button type="button" className={(z.minderung ? '' : 'an')}
                             onClick={()=>zielSetzen(id, {minderung: ''})}>voll</button>
@@ -1899,19 +2092,39 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                         </span>
                       )}
 
-                      {richtung === 'schaden' && (z.zusatz || []).map((x, i) => (
-                        <span className="zug-zusatz" key={i}>
-                          <span>zusätzlich</span>
-                          <input className="zug-art" list="hb-schadensarten" value={x.art || ''}
-                            placeholder="Feuer" aria-label={'Schadensart ' + (i+1) + ' an ' + ziel.name}
-                            onChange={e=>zusatzSetzen(id, i, {art: e.target.value})} />
-                          <ZahlFeld className="zug-zahl" sofort min={0} wert={x.wert} leerWert={0}
-                            aria-label={'Zusatzschaden ' + (i+1) + ' an ' + ziel.name}
-                            onWert={v=>zusatzSetzen(id, i, {wert: v})} />
-                          <button type="button" className="fx-del" title="Weg"
-                            onClick={()=>zusatzWeg(id, i)}>✕</button>
-                        </span>
-                      ))}
+                      {/* Die Teile des Schadens: woher, welche Art, wie viel,
+                          und was das Ziel gegen diese Art hat. */}
+                      {!flaeche && richtung === 'schaden' && (mitRettung || !mitSchalter || z.treffer) && (
+                        <div className="zug-teile">
+                          {teileVon(id).map(p => (
+                            <div className={'zug-teil' + (p.mind ? ' mind-' + p.mind : '')} key={p.k}>
+                              <span className="zug-teil-quelle">
+                                <b>{p.quelle || (p.eigen ? 'Zusätzlich' : 'Schaden')}</b>
+                                {p.wurf ? <i>{p.wurf}</i> : null}
+                              </span>
+                              <input className="zug-art" list="hb-schadensarten" value={p.art || ''}
+                                placeholder="Art" aria-label={'Schadensart ' + (p.quelle || 'zusätzlich') + ' an ' + ziel.name}
+                                onChange={e=>teilSetzen(id, p, 'art', e.target.value)} />
+                              <ZahlFeld className="zug-zahl" sofort min={0} wert={p.wert} leerWert={0}
+                                aria-label={'Schaden ' + (p.quelle || 'zusätzlich') + ' an ' + ziel.name}
+                                onWert={v=>teilSetzen(id, p, 'wert', v)} />
+                              <select className="zug-teil-mind" value={p.mind || ''}
+                                aria-label={'Minderung ' + (p.quelle || 'zusätzlich') + ' an ' + ziel.name}
+                                title="Resistenz halbiert, Verwundbarkeit verdoppelt, Immunität nimmt alles — je Schadensart"
+                                onChange={e=>teilSetzen(id, p, 'mind', e.target.value)}>
+                                {MINDERUNGEN.map(m => <option key={m.k} value={m.k}>{m.l}</option>)}
+                              </select>
+                              {p.eigen ? (
+                                <button type="button" className="fx-del" title="Weg"
+                                  onClick={()=>eigenesWeg(id, p.i)}>✕</button>
+                              ) : <span className="zug-teil-platz" />}
+                            </div>
+                          ))}
+                          <button type="button" className="zug-plus zug-teil-dazu"
+                            title="Noch ein Teil — eine brennende Klinge, geweihtes Öl"
+                            onClick={()=>eigenesDazu(id)}>＋ Teil</button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -3076,7 +3289,8 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
   // Was im Zugfenster steht, geht denselben Weg wie alles andere: erst die
   // Zeilen ins Protokoll, dann die Werte durch wertDirekt in die Boegen.
   // Kein zweiter Rechenweg, der auseinanderlaufen kann.
-  const zugAnwenden = ({eintraege, treffer, platz, verbrauch, konz, zustaende, ressource, laufend}, weiter, ansageId) => {
+  const zugAnwenden = ({eintraege, treffer, platz, plaetze, verbrauch, konz, zustaende, ressource,
+                        ressourcen, laufend}, weiter, ansageId) => {
     merken('Zug');
     // Was eingetragen ist, muss nicht mehr angesagt bleiben.
     if (ansageId && onAnsageWeg) onAnsageWeg(ansageId);
@@ -3108,15 +3322,20 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
       const c = helden.find(h => h.id === konz.charId);
       if (c) heldAendern(konz.charId, {konzentration: konz.wert}, c.name);
     }
-    // Der Zauberplatz gehoert in den Bogen, nicht in den Kampf.
-    if (platz) {
-      const c = helden.find(h => h.id === platz.charId);
-      if (c) {
-        const alt = (c.spellSlots || {})[platz.grad] || {max:0, used:0};
-        heldAendern(platz.charId, {spellSlots: {...(c.spellSlots || {}),
-          [platz.grad]: {...alt, used: Math.min(+alt.max || 0, (+alt.used || 0) + 1)}}}, c.name);
-      }
-    }
+    // Der Zauberplatz gehoert in den Bogen, nicht in den Kampf. Es koennen
+    // mehrere sein — der Zauber und das Niederstrecken dazu —, und sie
+    // gehen in einem Zug ab, damit keiner den anderen ueberschreibt.
+    const allePlaetze = [...(platz ? [platz] : []), ...(plaetze || [])];
+    [...new Set(allePlaetze.map(p => p.charId))].forEach(cid => {
+      const c = helden.find(h => h.id === cid);
+      if (!c) return;
+      const slots = {...(c.spellSlots || {})};
+      allePlaetze.filter(p => p.charId === cid).forEach(p => {
+        const alt = slots[p.grad] || {max:0, used:0};
+        slots[p.grad] = {...alt, used: Math.min(+alt.max || 0, (+alt.used || 0) + 1)};
+      });
+      heldAendern(cid, {spellSlots: slots}, c.name);
+    });
     // Wer eine neue Konzentration beginnt, laesst die alte fallen — auch
     // in der Liste dessen, was laeuft. Dann kommt das Neue hinzu.
     if (konz || laufend) {
@@ -3135,12 +3354,16 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
       });
     }
     // Was das Merkmal gekostet hat, geht vom Zaehler im Bogen ab.
-    if (ressource) {
-      const c = helden.find(h => h.id === ressource.charId);
-      if (c) heldAendern(ressource.charId, {resources: (c.resources || []).map(r =>
-        r.id === ressource.resId
-          ? {...r, used: Math.min(+r.max || 0, (+r.used || 0) + ressource.kosten)} : r)}, c.name);
-    }
+    const alleRes = [...(ressource ? [ressource] : []), ...(ressourcen || [])];
+    [...new Set(alleRes.map(r => r.charId))].forEach(cid => {
+      const c = helden.find(h => h.id === cid);
+      if (!c) return;
+      const meine = alleRes.filter(r => r.charId === cid);
+      heldAendern(cid, {resources: (c.resources || []).map(r => {
+        const k = meine.filter(x => x.resId === r.id).reduce((s, x) => s + x.kosten, 0);
+        return k ? {...r, used: Math.min(+r.max || 0, (+r.used || 0) + k)} : r;
+      })}, c.name);
+    });
     // Ebenso der verbrauchte Gegenstand. Bei null bleibt er im Inventar
     // stehen — leer, aber auffindbar; nachgefuellt wird im Bogen.
     if (verbrauch) {
@@ -3552,6 +3775,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
                     {a.was ? <b>{(AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
                       {a.waffe ? ' mit ' + a.waffe : ''}
                       {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+                    {ansageDazuText(a) ? <span> {ansageDazuText(a)}</span> : null}
                     {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                     {a.text ? <i>„{a.text}“</i> : null}
                   </span>

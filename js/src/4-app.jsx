@@ -2899,6 +2899,7 @@ function App() {
     const raus = await ansageSenden({
       typ: 'reaktion', art: 'zauber', was: spruch.name || '',
       grad: nimmt > grad ? nimmt : 0, stufe: grad, ziele: [], zielIds: [], text: '',
+      bezahlt: nimmt || 0,
     }, ansageHeldId);
     if (raus && nimmt > 0) zauberplatzStreichen(ansageHeldId, nimmt);
   };
@@ -4557,6 +4558,32 @@ function App() {
                           title="Wie lange es im Kampf weiterwirkt — „1 Minute“ sind 10 Runden. Leer: sofort vorbei."
                           onChange={e=>setFf({...ff, dauer: e.target.value})} />
                       </label>
+                    )}
+                    {/* Göttliches Niederstrecken, Hinterhältiger Angriff:
+                        es haengt an einem Angriff und zaehlt bei Treffer. */}
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={!!ff.beiTreffer}
+                        onChange={e=>setFf({...ff, beiTreffer: e.target.checked})} />
+                      <span>💥 Kommt bei einem Treffer dazu — wie Göttliches Niederstrecken</span>
+                    </label>
+                    <label className="zw-schalter">
+                      <input type="checkbox" checked={!!ff.platz}
+                        onChange={e=>setFf({...ff, platz: e.target.checked})} />
+                      <span>◈ Verbraucht einen Zauberplatz — der Grad wird beim Ansagen gewählt</span>
+                    </label>
+                    {ff.platz && (
+                      <>
+                        <label className="zw-feld">
+                          <span>+ je Grad über 1</span>
+                          <input className="form-input" placeholder="1W8" value={(ff.wirkung||{}).proGrad || ''}
+                            onChange={e=>setFf(f=>({...f, wirkung:{...(f.wirkung||{}), proGrad:e.target.value}}))} />
+                        </label>
+                        <label className="zw-feld">
+                          <span>Höchstens</span>
+                          <input className="form-input" placeholder="5W8" value={(ff.wirkung||{}).hoechstens || ''}
+                            onChange={e=>setFf(f=>({...f, wirkung:{...(f.wirkung||{}), hoechstens:e.target.value}}))} />
+                        </label>
+                      </>
                     )}
                     <label className="zw-feld">
                       <span>Löst einen Zauber aus</span>

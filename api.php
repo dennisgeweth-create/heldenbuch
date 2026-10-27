@@ -2627,6 +2627,10 @@ switch ($action) {
             'waffe'  => ((string)($a['art'] ?? '')) === 'zauber'
                         ? mb_substr(trim((string)($a['waffe'] ?? '')), 0, 80) : '',
             'text'   => mb_substr(trim((string)($a['text'] ?? '')), 0, 500),
+            // Was bei Treffer dazukommt (Göttliches Niederstrecken) — und
+            // welcher Zauberplatz beim Ansagen schon abging.
+            'dazu'    => [],
+            'bezahlt' => max(0, min(9, (int)($a['bezahlt'] ?? 0))),
             'ziele'   => [],
             'zielIds' => [],
             'zeit'    => time(),
@@ -2634,6 +2638,12 @@ switch ($action) {
             // nicht erst zu sehen — kampfFuerSpieler laesst sie weg.
             'geheim'  => !empty($a['geheim']),
         ];
+        foreach ((array)($a['dazu'] ?? []) as $d) {
+            if (count($sauber['dazu']) >= 4 || !is_array($d)) break;
+            $was = mb_substr(trim((string)($d['was'] ?? '')), 0, 80);
+            if ($was === '') continue;
+            $sauber['dazu'][] = ['was' => $was, 'grad' => max(0, min(9, (int)($d['grad'] ?? 0)))];
+        }
         foreach ((array)($a['ziele'] ?? []) as $zid) {
             if (count($sauber['ziele']) >= 12) break;
             $sauber['ziele'][] = mb_substr((string)$zid, 0, 60);

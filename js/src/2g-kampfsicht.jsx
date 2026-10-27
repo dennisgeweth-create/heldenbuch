@@ -147,20 +147,28 @@ const entwurfWahl = (held, e) => {
   const q = aktionsQuelle(held, e.art);
   const i = e.was ? q.findIndex(g => (g.name || '') === e.was) : -1;
   return {art: e.art || 'frei', i: i >= 0 ? i : null, grad: +e.grad || 0, suche: '',
-          waffe: e.waffe || ''};
+          waffe: e.waffe || '', dazu: e.dazu || []};
 };
 
 // Was hinausgeht. Aus dem Fenster und aus dem Vorrat dieselbe Rechnung;
 // Ziele, die nicht mehr im Kampf stehen, fallen weg.
 const ansageBauen = (held, {typ, wahl, zielIds, text, geheim}, liste, helden) => {
-  const {gegenstand, grundGrad, grad, waffe} = aktionsStand(held, wahl);
+  const {gegenstand, grundGrad, grad, waffe, dazu} = aktionsStand(held, wahl);
   const ids = (zielIds || []).filter(id => (liste || []).some(t => t.id === id));
+  const zauberGrad = (wahl.art === 'zauber' && gegenstand) ? grad : 0;
   return {
     typ: typ || 'aktion',
     art: wahl.art,
     was: gegenstand ? (gegenstand.name || '') : '',
     grad: (wahl.art === 'zauber' && grad > grundGrad) ? grad : 0,
     waffe: waffe ? (waffe.name || '') : '',
+    // Was bei Treffer dazukommt — Niederstrecken mit seinem Grad. Bezahlt
+    // wird es erst, wenn die Spielleitung den Treffer eintraegt.
+    dazu: (dazu || []).map(d => ({was: d.was, grad: d.grad})),
+    // Der Platz des Zaubers geht beim Ansagen ab (onPlatz). Damit das
+    // Zugfenster ihn nicht noch einmal abhakt, steht hier, welcher es war.
+    bezahlt: zauberGrad > 0
+      ? (zauberplatzWahl((held || {}).spellSlots, zauberGrad, typ === 'reaktion') || 0) : 0,
     // Beides: die Namen zum Lesen und die Kennungen zum Weitergeben —
     // damit im Zugfenster der Spielleitung schon angekreuzt ist, worauf
     // der Spieler zielt.
@@ -168,7 +176,7 @@ const ansageBauen = (held, {typ, wahl, zielIds, text, geheim}, liste, helden) =>
     zielIds: ids,
     text: (text || '').trim(),
     // Auf welchem Grad wirklich gezaubert wird — daran haengt der Platz.
-    stufe: (wahl.art === 'zauber' && gegenstand) ? grad : 0,
+    stufe: zauberGrad,
     geheim: !!geheim,
   };
 };
@@ -205,6 +213,7 @@ const AnsageVorrat = ({ held, vorrat, liste, onSenden, onWeiter, onWeg }) => (
                 {e.waffe ? ' mit ' + e.waffe : ''}
                 {(e.art === 'zauber' && +e.grad > 0) ? ' · ' + e.grad + '. Grad' : ''}</b>
               : <b>{artL || 'Ansage'}</b>}
+            {ansageDazuText(e) ? <span> {ansageDazuText(e)}</span> : null}
             {(e.zielNamen || []).length ? <span> → {e.zielNamen.join(', ')}</span> : null}
             {e.text ? <i>„{e.text}“</i> : null}
             <em className="av-stand">{stand}</em>
@@ -280,7 +289,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
   const [gesendet, setGesendet] = React.useState(false);
   const gehe = (n) => { setSchritt(n); setWeit(w => Math.max(w, n)); };
 
-  const {gegenstand, grundGrad, grad, wurf, mitWaffe, waffe} = aktionsStand(held, wahl);
+  const {gegenstand, grundGrad, grad, wurf, mitWaffe, waffe, dazu} = aktionsStand(held, wahl);
   const zielUm = (id) => setZiele(z => {
     if (z[id]) { const k = {...z}; delete k[id]; return k; }
     return {...z, [id]: true};
@@ -324,7 +333,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
   // bleibt als Art stehen — der zweite Hieb ist meistens derselbe.
   const nochEine = () => {
     setZiele({}); setText(''); setGeheim(false); setGesendet(false);
-    setWahl(w => ({...w, i: null, grad: 0, suche: '', waffe: ''}));
+    setWahl(w => ({...w, i: null, grad: 0, suche: '', waffe: '', dazu: []}));
     setSchritt(0); setWeit(0);
   };
   // Fuer spaeter: so, wie es gerade steht, in den Vorrat — und zu. Im
@@ -337,6 +346,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
       typ, art: wahl.art, was: gegenstand ? (gegenstand.name || '') : '',
       grad: (wahl.art === 'zauber' && gegenstand) ? (wahl.grad || 0) : 0,
       waffe: waffe ? (waffe.name || '') : '',
+      dazu: (dazu || []).map(d => ({was: d.was, grad: d.grad})),
       zielIds: ids, zielNamen: ids.map(id => zielName(liste.find(x => x.id === id))),
       text, geheim, schritt, weit, runde, zeit: Date.now(),
     });
@@ -348,7 +358,8 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
   const wertVon = (k) => k === 'typ' ? (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l
     : k === 'art' ? (ANSAGE_ARTEN.find(x => x.k === wahl.art) || {}).l
     : k === 'wahl' ? (gegenstand ? gegenstand.name + (waffe ? ' mit ' + waffe.name : '')
-                       + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '') : '—')
+                       + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '')
+                       + ((dazu || []).length ? ' + ' + dazu.map(d => d.was).join(', ') : '') : '—')
     : k === 'ziel' ? (zielZahl ? Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ') : 'kein Ziel')
     : (gesendet ? 'gesendet' : '');
   // „Nur beschreiben“ braucht keine Auswahl — der Schritt faellt weg.
@@ -497,6 +508,10 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
                     {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
                     {wurf ? ' (' + wurf + ')' : ''}</div>
                 )}
+                {(dazu || []).map(d => (
+                  <div className="pr-zeile" key={d.was}>   + {d.was}{d.grad ? ' · ' + d.grad + '. Grad' : ''}
+                    {d.wurf ? ' (' + d.wurf + ')' : ''} — bei Treffer</div>
+                ))}
                 {zielZahl > 0 && (
                   <div className="pr-zeile">   auf {Object.keys(ziele)
                     .map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')}</div>
@@ -578,6 +593,7 @@ const AnsageListe = ({ angesagt }) => (
         <span className="an-was">
           {a.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
           {a.was ? <b>{a.was}{a.waffe ? ' mit ' + a.waffe : ''}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+          {ansageDazuText(a) ? <span> {ansageDazuText(a)}</span> : null}
           {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
           {a.text ? <i>„{a.text}“</i> : null}
         </span>
@@ -705,6 +721,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                 {a.was ? <span>{' · ' + (AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
                   {a.waffe ? ' mit ' + a.waffe : ''}
                   {a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
+                {ansageDazuText(a) ? <span> {ansageDazuText(a)}</span> : null}
                 {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                 {a.text ? <i>„{a.text}“</i> : null}
               </div>

@@ -195,5 +195,35 @@ ist('einsetzbar: nicht der Kampfstil', merkmalEinsetzbar({name: 'Kampfstil', des
 ist('Auszug ohne Auszeichnung', textAuszug('<p>Ein <b>kurzer</b> Satz.</p>'), 'Ein kurzer Satz.');
 ist('Auszug kürzt am Wort', textAuszug('eins zwei drei vier fünf sechs', 16), 'eins zwei drei …');
 
+// ── Bei Treffer dazu: Göttliches Niederstrecken ──────────────────
+const smite = {name: 'Göttliches Niederstrecken', beiTreffer: true, platz: true,
+  wirkung: {art: 'schaden', wuerfel: '2W8', schadensart: 'Gleißend', proGrad: '1W8', hoechstens: '5W8'}};
+ist('Niederstrecken hängt an einem Treffer', merkmalBeiTreffer(smite), true);
+ist('ein gewöhnliches Merkmal nicht', merkmalBeiTreffer({name: 'Aktionsschub'}), false);
+ist('Niederstrecken mit einem Platz vom 1. Grad', merkmalWurf(smite, 1), '2W8');
+ist('… vom 4. Grad: 5W8', merkmalWurf(smite, 4), '5W8');
+ist('… vom 5. Grad bleibt es bei 5W8', merkmalWurf(smite, 5), '5W8');
+ist('… ohne Deckel steigt es weiter', merkmalWurf({...smite, wirkung: {...smite.wirkung, hoechstens: ''}}, 6), '7W8');
+ist('ohne Zauberplatz steht der Würfel, wie er ist',
+  merkmalWurf({beiTreffer: true, wirkung: {wuerfel: '3W6'}}, 4), '3W6');
+ist('ohne Würfel nichts', merkmalWurf({platz: true, wirkung: {}}, 3), '');
+
+// ── Schaden in Teilen ────────────────────────────────────────────
+const hieb = [{art: 'Wucht', wert: 7}, {art: 'Schall', wert: 5, mind: 'res'}, {art: 'Gleißend', wert: 22}];
+ist('Resistenz halbiert nur ihre Art', schadenRechnen(hieb).summe, 7 + 2 + 22);
+ist('… und die Summe vorher steht daneben', schadenRechnen(hieb).roh, 34);
+ist('Verwundbar verdoppelt', schadenRechnen([{art: 'Gleißend', wert: 9, mind: 'verw'}]).summe, 18);
+ist('Immun nimmt alles', schadenRechnen([{art: 'Gift', wert: 9, mind: 'immun'}, {art: 'Stich', wert: 4}]).summe, 4);
+ist('Rettungswurf bestanden, halber Schaden — dann die Resistenz',
+  schadenRechnen([{art: 'Feuer', wert: 21, mind: 'res'}], {halb: true}).summe, 5);
+ist('daneben ist nichts', schadenRechnen(hieb, {nichts: true}).summe, 0);
+ist('Unsinn zählt als null', schadenRechnen([{art: 'Feuer', wert: 'x'}, {wert: -3}]).summe, 0);
+ist('die Teile tragen, was ankommt', schadenRechnen(hieb).teile.map(t => t.n), [7, 2, 22]);
+ist('Resistenz aus den Merkzeilen des Ziels', minderungFuer({flags: ['Resistenz: Feuer']}, 'Feuer'), 'res');
+ist('… gleich wie geschrieben', minderungFuer({flags: ['immunität: gift']}, 'Gift'), 'immun');
+ist('… Verwundbar', minderungFuer({flags: ['Verwundbar: Gleißend']}, 'Gleißend'), 'verw');
+ist('… sonst voll', minderungFuer({flags: ['Resistenz: Feuer']}, 'Kälte'), '');
+ist('… ohne Art nichts', minderungFuer({flags: ['Resistenz: Feuer']}, ''), '');
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);
