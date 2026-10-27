@@ -2194,6 +2194,96 @@
         }
         ReactDOM.unmountComponentAtNode(buehne);
 
+        // ── Der Vorrat: vorbereiten, liegen lassen, weitermachen ──
+        let geparkt = null, zuGemacht = 0;
+        const ansageMit = (extra) => ReactDOM.render(React.createElement(AnsageFenster, Object.assign({
+          held: WB_HELD, helden: [WB_HELD], runde: 1,
+          kampf: JSON.parse(wbSpeicher.hb_kampf || '{}'),
+          onAbbrechen: () => { zuGemacht++; }, onPlatz: () => null,
+          onSenden: (a) => { angesagt = a; return Promise.resolve({...a, id: 'x2'}); },
+          onParken: (e) => { geparkt = e; }, onLaden: () => {}, onEntwurfWeg: () => {},
+        }, extra)), buehne);
+        ansageMit({}); await ruhe(80);
+        ja('Vor der ersten Wahl gibt es nichts zu parken', !knopfIn('Für später'));
+        kachel('Aktion').click(); await ruhe(60);
+        kachel('Angriff').click(); await ruhe(60);
+        buehne.querySelector('.zk-angriff').click(); await ruhe(40);
+        knopfIn('Weiter').click(); await ruhe(60);
+        ja('„Für später“ steht im Fuß', !!knopfIn('Für später'));
+        const zielV = buehne.querySelector('.zug-ziel');
+        if (zielV) { zielV.click(); await ruhe(40); }
+        knopfIn('Für später').click(); await ruhe(60);
+        ja('  … und legt die Ansage mit ihrem Schritt in den Vorrat',
+           !!geparkt && geparkt.was === 'Kriegshammer' && geparkt.schritt === 3
+           && (geparkt.zielIds || []).length === 1 && zuGemacht === 1, JSON.stringify(geparkt));
+        ReactDOM.unmountComponentAtNode(buehne);
+        ansageMit({entwurf: geparkt}); await ruhe(80);
+        ja('Aus dem Vorrat geht es beim Ziel weiter',
+           schritte().join(',') === 'typ,art,wahl,ziel' && !!buehne.querySelector('.schritt.an[data-schritt="ziel"]'),
+           schritte().join(','));
+        ja('  … das Ziel ist noch angetippt', !!buehne.querySelector('.zug-ziel.an'));
+        knopfIn('Weiter').click(); await ruhe(60);
+        knopfIn('An die Spielleitung').click(); await ruhe(150);
+        ja('  … und von dort abgeschickt', !!angesagt && angesagt.was === 'Kriegshammer' && angesagt.zielIds.length === 1,
+           JSON.stringify(angesagt));
+        ReactDOM.unmountComponentAtNode(buehne);
+
+        // Im Kampffenster: fertige Entwürfe mit „Abschicken“, verwaiste ohne.
+        let ausVorrat = null, weiterVorrat = null;
+        const kampfDran = JSON.parse(wbSpeicher.hb_kampf || '{}');
+        kampfDran.zwischen = null;
+        kampfDran.zug = Math.max(0, (kampfDran.teilnehmer || []).findIndex(t => t.charId === 'wb1'));
+        ReactDOM.render(React.createElement(KampfSicht, {
+          kampf: kampfDran, helden: [WB_HELD], eigeneIds: ['wb1'],
+          tpOffen: true, eigenerHeld: WB_HELD, onAnsage: () => {}, onSchliessen: () => {},
+          vorrat: [{...geparkt, schritt: 4, weit: 4},
+                   {id: 'e2', typ: 'bonus', art: 'gegenstand', was: 'Gibt es nicht', schritt: 4, weit: 4}],
+          onVorratSenden: (e) => { ausVorrat = e; }, onVorratWeiter: (e) => { weiterVorrat = e; },
+          onVorratWeg: () => {},
+        }), buehne);
+        await ruhe(100);
+        const vz = [...buehne.querySelectorAll('.ks-vorrat .av-zeile')];
+        if (ja('Das Kampffenster zeigt den Vorrat', vz.length === 2, String(vz.length))) {
+          ja('  … wer dran ist, sieht es', /du bist dran/.test(buehne.querySelector('.ks-vorrat').textContent));
+          ja('  … der fertige Entwurf lässt sich abschicken', !!vz[0].querySelector('.av-senden'));
+          ja('  … der verwaiste nicht, und er sagt warum',
+             !vz[1].querySelector('.av-senden') && /nicht mehr im Bogen/.test(vz[1].textContent), vz[1].textContent);
+          vz[0].querySelector('.av-senden').click(); await ruhe(40);
+          ja('  … „Abschicken“ gibt den Entwurf weiter', !!ausVorrat && ausVorrat.id === geparkt.id);
+          [...vz[1].querySelectorAll('button')].find(b => /Weiter/.test(b.textContent)).click(); await ruhe(40);
+          ja('  … „Weiter“ öffnet ihn', !!weiterVorrat && weiterVorrat.id === 'e2');
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+
+        // ── Ein Zauber mit Waffenangriff: Dröhnende Klinge ─────────
+        const heldKlinge = {...WB_HELD, spells: [...WB_HELD.spells,
+          {id: 's9', name: 'Dröhnende Klinge', level: 0, school: 'Hervorrufung', castingTime: '1 Aktion',
+           range: 'Selbst (1,5 m)', duration: '1 Runde', prepared: true, waffenangriff: true,
+           wirkung: {art: 'schaden', wuerfel: '1W8', rettung: '', halb: false, zustaende: []}}]};
+        ansageMit({held: heldKlinge, helden: [heldKlinge]}); await ruhe(80);
+        kachel('Aktion').click(); await ruhe(60);
+        kachel('Zauber').click(); await ruhe(60);
+        const klinge = [...buehne.querySelectorAll('.zk-zauber')].find(k => /Dröhnende Klinge/.test(k.textContent));
+        if (ja('Die Dröhnende Klinge steht im Zauberbuch', !!klinge)) {
+          klinge.click(); await ruhe(60);
+          const mw = buehne.querySelector('.zug-mitwaffe');
+          ja('  … und fragt nach der Waffe dazu', !!mw);
+          ja('  … die Waffe ist schon gewählt', !!(mw && mw.querySelector('.zk.an')));
+          ja('  … mit dem Schaden von Waffe und Zauber', !!mw && /1W8\s*\+\s*3/.test(mw.textContent) && /1W8\b/.test(mw.textContent),
+             mw && mw.textContent);
+          mw.querySelector('.zk.an').click(); await ruhe(40);
+          ja('  … ohne Waffe geht es nicht weiter', knopfIn('Weiter').disabled);
+          buehne.querySelector('.zug-mitwaffe .zk').click(); await ruhe(40);
+          knopfIn('Weiter').click(); await ruhe(60);
+          knopfIn('Weiter').click(); await ruhe(60);
+          ja('  … die Vorschau nennt die Waffe', /Dröhnende Klinge\s*mit Kriegshammer/.test(buehne.querySelector('.zug-vorschau').textContent),
+             buehne.querySelector('.zug-vorschau').textContent);
+          knopfIn('An die Spielleitung').click(); await ruhe(150);
+          ja('  … und die Ansage trägt sie', !!angesagt && angesagt.art === 'zauber'
+             && angesagt.was === 'Dröhnende Klinge' && angesagt.waffe === 'Kriegshammer', JSON.stringify(angesagt));
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+
         // ── Die Auszahlungen der Walzen in den Einstellungen ──────
         melden('lauf', 'Einstellungen: Walzenautomaten');
         let wbAutomat = {};

@@ -2622,6 +2622,10 @@ switch ($action) {
                         ? (string)$a['typ'] : 'aktion',
             'was'    => mb_substr(trim((string)($a['was'] ?? '')), 0, 80),
             'grad'   => max(0, min(9, (int)($a['grad'] ?? 0))),
+            // Die Waffe zu einem Zauber, der mit einem Waffenangriff
+            // gewirkt wird (Dröhnende Klinge).
+            'waffe'  => ((string)($a['art'] ?? '')) === 'zauber'
+                        ? mb_substr(trim((string)($a['waffe'] ?? '')), 0, 80) : '',
             'text'   => mb_substr(trim((string)($a['text'] ?? '')), 0, 500),
             'ziele'   => [],
             'zielIds' => [],

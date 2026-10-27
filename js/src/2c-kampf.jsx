@@ -180,6 +180,7 @@ const protokollZeile = (e, mitZahlen) => {
     // Folgen: erst was jemand tut, dann was daraus wird.
     case 'frei':     return '   „' + e.text + '“';
     case 'aktion':   return '   ' + (AKTION_WORT[e.modus] || 'Angriff') + ': ' + e.was
+                            + (e.waffe ? ' mit ' + e.waffe : '')
                             + (e.zauber ? ' → ' + e.zauber : '')
                             + (e.grad ? ' · ' + e.grad + '. Grad' : '')
                             + (e.wurf ? ' (' + e.wurf + ')' : '');
@@ -658,8 +659,15 @@ const aktionsStand = (held, wahl) => {
     ? quelleWirkung : null;
   const grad = wahl.grad || grundGrad;
   const ohneGrad = wahl.art === 'merkmal';
+  // Ein Zauber, der mit einem Waffenangriff gewirkt wird — Dröhnende
+  // Klinge, Grünflammenklinge. Ob er das tut, steht im Zauber
+  // (waffenangriff) und wird nicht aus dem Text geraten; welche Waffe,
+  // steht in der Wahl, ueber den Namen wie das Gewaehlte selbst.
+  const mitWaffe = wahl.art === 'zauber' && !!(gegenstand && gegenstand.waffenangriff);
+  const waffe = mitWaffe
+    ? (kampfWaffen(held).find(w => (w.name || '') === (wahl.waffe || '')) || null) : null;
   return {quelle, gegenstand, grundGrad: ohneGrad ? 0 : grundGrad, wirkung,
-          grad: ohneGrad ? 0 : grad, verknuepft,
+          grad: ohneGrad ? 0 : grad, verknuepft, mitWaffe, waffe,
           wurf: !wirkung ? '' : ohneGrad ? (wirkung.wuerfel || '')
                                          : wuerfelAufGrad(wirkung, grundGrad, grad)};
 };
@@ -976,7 +984,7 @@ const AktionsWahl = ({ held, wahl, setWahl, wer, setDefs, teil = 'alles', typ })
   const sachen   = kampfGegenstaende(held);
   const merkmale = kampfMerkmale(held);
   const ansicht  = ART_ANSICHT[wahl.art] || ART_ANSICHT.angriff;
-  const {quelle, gegenstand, grundGrad, wirkung, grad, wurf} = aktionsStand(held, wahl);
+  const {quelle, gegenstand, grundGrad, wirkung, grad, wurf, mitWaffe, waffe} = aktionsStand(held, wahl);
   const werte = React.useMemo(() => held ? charWerte(held, setDefs) : null, [held, setDefs]);
   const [passivAuf, setPassivAuf] = useState(false);
 
@@ -1019,7 +1027,12 @@ const AktionsWahl = ({ held, wahl, setWahl, wer, setDefs, teil = 'alles', typ })
   const waehlen = (i) => {
     const neu = i === wahl.i ? null : i;
     const g = neu === null ? null : quelle[neu];
-    setWahl({...wahl, i: neu, grad: (g && wahl.art === 'zauber') ? (+g.level || 0) : 0});
+    // Haengt am Zauber ein Waffenangriff, steht die angelegte Waffe schon
+    // da — oder die, die vorher gewaehlt war.
+    const wl = kampfWaffen(held);
+    const waffeVor = (g && wahl.art === 'zauber' && g.waffenangriff)
+      ? ((wl.find(w => (w.name || '') === (wahl.waffe || '')) || wl[0] || {}).name || '') : '';
+    setWahl({...wahl, i: neu, grad: (g && wahl.art === 'zauber') ? (+g.level || 0) : 0, waffe: waffeVor});
   };
   const ArtTaste = ({k, kind, aus}) => (
     <button type="button" className={'zug-taste' + (wahl.art === k ? ' an' : '')} disabled={aus}
@@ -1081,6 +1094,32 @@ const AktionsWahl = ({ held, wahl, setWahl, wer, setDefs, teil = 'alles', typ })
               <div className="zug-beschreibung-text"
                 dangerouslySetInnerHTML={{__html: sanitizeHtml(gegenstand.description)}} />
             </details>
+          )}
+        </div>
+      )}
+
+      {/* Der Zauber mit Waffenangriff: dazu die Waffe, als Karte wie im
+          Reiter Aktionen — Angriff und Schaden der Waffe, der Wurf des
+          Zaubers kommt obendrauf. */}
+      {mitWaffe && (
+        <div className="zug-block zug-mitwaffe">
+          <div className="zug-label">⚔ Mit welcher Waffe — {gegenstand.name} gehört zu einem Waffenangriff</div>
+          {kampfWaffen(held).length === 0 ? (
+            <div className="zug-leer">Keine Waffen im Bogen.</div>
+          ) : (
+            <div className={'zug-karten' + (teil === 'liste' ? ' frei' : '')}>
+              {kampfWaffen(held).map((w, i) => (
+                <ZugKarte key={w.id || i} art="angriff" g={w} held={held} werte={werte}
+                  an={w === waffe}
+                  onWaehlen={() => setWahl({...wahl, waffe: w === waffe ? '' : (w.name || '')})} />
+              ))}
+            </div>
+          )}
+          {waffe && wurf && (
+            <div className="zug-mitwaffe-summe">
+              Bei Treffer: <b>{waffeWerte(waffe, werte).dmgStr || '—'}</b> von der Waffe
+              und <b>{wurf}</b> vom Zauber
+            </div>
           )}
         </div>
       )}
@@ -1230,7 +1269,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
       const q = aktionsQuelle(held, ansage.art);
       const i = q.findIndex(g => (g.name || '') === (ansage.was || ''));
       return {art: ansage.art || 'frei', i: i >= 0 ? i : null,
-              grad: +ansage.grad || 0, suche: ''};
+              grad: +ansage.grad || 0, suche: '', waffe: ansage.waffe || ''};
     }
     return {art: waffen.length ? 'angriff' : (sprueche.length ? 'zauber' : 'frei'),
             i: null, grad: 0, suche: ''};
@@ -1266,7 +1305,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   const ansageNehmen = (a) => {
     const q = aktionsQuelle(held, a.art);
     const i = q.findIndex(g => (g.name || '') === (a.was || ''));
-    setWahl({art: a.art || 'frei', i: i >= 0 ? i : null, grad: +a.grad || 0, suche: ''});
+    setWahl({art: a.art || 'frei', i: i >= 0 ? i : null, grad: +a.grad || 0, suche: '', waffe: a.waffe || ''});
     const z = {};
     ((a.zielIds) || []).forEach(id => {
       if ((liste || []).some(x => x.id === id)) z[id] = {treffer: true, bestanden: false, wurf: '', wert: 0};
@@ -1281,8 +1320,8 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
   // Beim Gegner gibt es nichts zu waehlen — nur wem wie viel.
   const nurWerte = t.art !== 'held';
   const art = nurWerte ? 'frei' : wahl.art;
-  const {gegenstand, grundGrad, wirkung, grad, wurf: wurfJetzt, verknuepft} =
-    nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:'', verknuepft:null}
+  const {gegenstand, grundGrad, wirkung, grad, wurf: wurfJetzt, verknuepft, waffe: mitWaffeW} =
+    nurWerte ? {gegenstand:null, grundGrad:0, wirkung:null, grad:0, wurf:'', verknuepft:null, waffe:null}
              : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
   // Ein Heiltrank heilt. Wer ihn wählt, soll den Schalter nicht erst
@@ -1368,6 +1407,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
       eintraege.push({art: 'aktion', wer: t.name, was: gegenstand.name, modus: art,
         grad: (art === 'zauber' && grad > grundGrad) ? grad : 0,
         zauber: verknuepft ? verknuepft.name : undefined,
+        waffe: mitWaffeW ? (mitWaffeW.name || '') : undefined,
         wurf: wurfJetzt || ''});
       // Was das Merkmal kostet. Reicht es nicht, steht das im Protokoll —
       // am Tisch entscheidet die Spielleitung, ob es trotzdem geht.
@@ -1568,6 +1608,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                   <span className="za-was" onClick={()=>waehlenUm(a.id)}>
                     {a.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
                     {a.was ? <b>{(AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
+                      {a.waffe ? ' mit ' + a.waffe : ''}
                       {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
                     {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                     {a.text ? <i>„{a.text}“</i> : null}
@@ -1602,7 +1643,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                     <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
                     <span className="za-was">
                       <b>{wer ? wer.name : 'Jemand'}</b>
-                      {a.was ? <span> · {a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
+                      {a.was ? <span> · {a.was}{a.waffe ? ' mit ' + a.waffe : ''}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
                       {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                       {a.text ? <i>„{a.text}“</i> : null}
                     </span>
@@ -3444,6 +3485,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
                   <span className="ka-wer">{a.geheim ? '🔒 ' : ''}{held ? held.name : 'Jemand'}</span>
                   <span className="ka-was">
                     {a.was ? <b>{(AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
+                      {a.waffe ? ' mit ' + a.waffe : ''}
                       {a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
                     {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                     {a.text ? <i>„{a.text}“</i> : null}

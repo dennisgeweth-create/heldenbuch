@@ -1,5 +1,36 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.6.0
+
+### Ansagen vorbereiten
+
+- Im Ansagefenster steht ab dem zweiten Schritt **📥 Für später**: die
+  Ansage wandert so, wie sie gerade ist, in den **Vorrat** — auch halb
+  fertig.
+- Der Vorrat steht im **Kampffenster** über dem Ansageknopf. Was bis zum
+  Abschicken vorbereitet ist, geht mit **📣 Abschicken** in einem Griff
+  an die Spielleitung — samt Zauberplatz, wie aus dem Fenster.
+- **✎ Weiter** öffnet einen Entwurf genau dort, wo man aufgehört hat:
+  derselbe Schritt, dieselbe Auswahl, dieselben Ziele.
+- Bist du am Zug, leuchtet der Vorrat auf („du bist dran“).
+- Passt ein Entwurf nicht mehr — der Trank ist leer, das Ziel aus dem
+  Kampf —, sagt die Zeile das; ausgefallene Ziele fallen beim Abschicken
+  weg.
+- Auch im ersten Schritt einer neuen Ansage stehen die vorbereiteten zum
+  Weitermachen.
+- Der Vorrat liegt auf deinem Gerät, je Held, und niemand sieht ihn, bis
+  er abgeschickt ist.
+
+### Zauber mit Waffenangriff
+
+- Im Zauber, Reiter **Wirkung**: „⚔ Wird mit einem Waffenangriff gewirkt —
+  wie Dröhnende Klinge“.
+- Ist das angehakt, fragt die Ansage nach dem Zauber noch nach der
+  **Waffe** (die angelegte ist vorgewählt) und zeigt, was bei einem
+  Treffer zusammenkommt: Schaden der Waffe und Würfel des Zaubers.
+- Die Ansage, das Zugfenster der Spielleitung und das Kampfprotokoll
+  tragen die Waffe mit: „Zauber: Dröhnende Klinge mit Kriegshammer“.
+
 ## v6.5.0
 
 ### Zug ansagen — Schritt für Schritt

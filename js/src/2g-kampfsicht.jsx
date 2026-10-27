@@ -119,23 +119,143 @@ const ANSAGE_ARTEN = [
   {k: 'frei',       sym: '✍',  l: 'Nur beschreiben', wort: () => 'in eigenen Worten'},
 ];
 
-const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSenden, onPlatz }) => {
+// ── Der Vorrat ───────────────────────────────────────────────
+// Ansagen, die man vorbereitet, solange die anderen dran sind — und mit
+// einem Griff abschickt, wenn man selbst dran ist. Oder angefangen und
+// liegen gelassen: dann geht es dort weiter, wo man aufgehoert hat.
+// Sie liegen auf diesem Geraet, je Held, und gehen niemanden etwas an,
+// bis sie abgeschickt sind.
+// Gemerkt wird das Gewaehlte ueber den Namen und nicht die Stelle in der
+// Liste: ein Trank weniger, und die Stelle zeigt auf etwas anderes.
+const ANSAGE_VORRAT = 'hb_ansage_vorrat';
+const ansageVorratLesen = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(ANSAGE_VORRAT) || '{}');
+    return (d && typeof d === 'object' && !Array.isArray(d)) ? d : {};
+  } catch { return {}; }
+};
+const ansageVorratSchreiben = (v) => {
+  try { localStorage.setItem(ANSAGE_VORRAT, JSON.stringify(v)); } catch {}
+};
+
+const ansageZielName = (t, helden) => !t ? '' : t.art === 'held'
+  ? (((helden || []).find(h => h.id === t.charId) || {}).name || 'Held')
+  : (t.name || 'Gegner');
+
+// Aus dem Entwurf wieder eine Wahl — auf dem Bogen, wie er jetzt ist.
+const entwurfWahl = (held, e) => {
+  const q = aktionsQuelle(held, e.art);
+  const i = e.was ? q.findIndex(g => (g.name || '') === e.was) : -1;
+  return {art: e.art || 'frei', i: i >= 0 ? i : null, grad: +e.grad || 0, suche: '',
+          waffe: e.waffe || ''};
+};
+
+// Was hinausgeht. Aus dem Fenster und aus dem Vorrat dieselbe Rechnung;
+// Ziele, die nicht mehr im Kampf stehen, fallen weg.
+const ansageBauen = (held, {typ, wahl, zielIds, text, geheim}, liste, helden) => {
+  const {gegenstand, grundGrad, grad, waffe} = aktionsStand(held, wahl);
+  const ids = (zielIds || []).filter(id => (liste || []).some(t => t.id === id));
+  return {
+    typ: typ || 'aktion',
+    art: wahl.art,
+    was: gegenstand ? (gegenstand.name || '') : '',
+    grad: (wahl.art === 'zauber' && grad > grundGrad) ? grad : 0,
+    waffe: waffe ? (waffe.name || '') : '',
+    // Beides: die Namen zum Lesen und die Kennungen zum Weitergeben —
+    // damit im Zugfenster der Spielleitung schon angekreuzt ist, worauf
+    // der Spieler zielt.
+    ziele: ids.map(id => ansageZielName(liste.find(t => t.id === id), helden)),
+    zielIds: ids,
+    text: (text || '').trim(),
+    // Auf welchem Grad wirklich gezaubert wird — daran haengt der Platz.
+    stufe: (wahl.art === 'zauber' && gegenstand) ? grad : 0,
+    geheim: !!geheim,
+  };
+};
+
+// Ob ein Entwurf so abgehen kann: bis zum Abschicken gekommen, und was
+// gewaehlt war, steht noch im Bogen.
+const entwurfStand = (held, e, liste) => {
+  const wahl = entwurfWahl(held, e);
+  const {gegenstand, mitWaffe, waffe} = aktionsStand(held, wahl);
+  const fehlt = (e.art !== 'frei' && e.was && !gegenstand) ? e.was + ' steht nicht mehr im Bogen'
+    : (mitWaffe && !waffe) ? 'die Waffe dazu fehlt' : '';
+  const ids = e.zielIds || [];
+  const weg = ids.filter(id => !(liste || []).some(t => t.id === id)).length;
+  const etwas = !!gegenstand || !!(e.text || '').trim() || ids.length - weg > 0;
+  return {wahl, fehlt, weg, fertig: (+e.weit || 0) >= 4 && !fehlt && etwas};
+};
+
+// Die Liste des Vorrats: im Kampffenster mit „Abschicken“, oben im
+// ersten Schritt der Ansage nur zum Weitermachen.
+const AnsageVorrat = ({ held, vorrat, liste, onSenden, onWeiter, onWeg }) => (
+  <div className="an-liste av-liste">
+    {(vorrat || []).map(e => {
+      const st = entwurfStand(held, e, liste);
+      const artL = (ANSAGE_ARTEN.find(x => x.k === e.art) || {}).l || '';
+      const stand = st.fehlt ? '⚠ ' + st.fehlt
+        : st.fertig ? 'bereit' + (st.weg ? ' · ' + st.weg + (st.weg === 1 ? ' Ziel ist' : ' Ziele sind') + ' nicht mehr im Kampf' : '')
+        : 'angefangen — weiter bei „' + ((ANSAGE_SCHRITTE[+e.schritt || 0] || {}).titel || 'Handlung') + '“';
+      return (
+        <div className={'an-zeile av-zeile' + (st.fertig ? ' bereit' : '') + (st.fehlt ? ' fehlt' : '')} key={e.id}>
+          <span className={'an-typ ' + (e.typ || 'aktion')}>{ansageTyp(e).kurz}</span>
+          <span className="an-was">
+            {e.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
+            {e.was ? <b>{(AKTION_WORT[e.art] || artL) + ': '}{e.was}
+                {e.waffe ? ' mit ' + e.waffe : ''}
+                {(e.art === 'zauber' && +e.grad > 0) ? ' · ' + e.grad + '. Grad' : ''}</b>
+              : <b>{artL || 'Ansage'}</b>}
+            {(e.zielNamen || []).length ? <span> → {e.zielNamen.join(', ')}</span> : null}
+            {e.text ? <i>„{e.text}“</i> : null}
+            <em className="av-stand">{stand}</em>
+          </span>
+          <span className="av-knoepfe">
+            {onSenden && st.fertig && (
+              <button type="button" className="av-senden" onClick={() => onSenden(e)}
+                title="So, wie es vorbereitet ist, an die Spielleitung">📣 Abschicken</button>
+            )}
+            <button type="button" className="btn-icon" onClick={() => onWeiter(e)}
+              title="Im Ansagefenster öffnen — dort, wo du aufgehört hast">
+              {st.fertig && onSenden ? '✎' : '✎ Weiter'}</button>
+            {onWeg && (
+              <button type="button" className="fx-del" title="Wegwerfen"
+                onClick={() => onWeg(e.id)}>✕</button>
+            )}
+          </span>
+        </div>
+      );
+    })}
+  </div>
+);
+
+const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSenden, onPlatz,
+                         entwurf, vorrat, onParken, onLaden, onEntwurfWeg }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
-  const [wahl, setWahl] = React.useState({
+  const liste = (kampf && kampf.teilnehmer) || [];
+  // Kommt das Fenster aus dem Vorrat, steht alles wieder so da, wie es
+  // liegen gelassen wurde — auch der Schritt.
+  const [wahl, setWahl] = React.useState(() => entwurf ? entwurfWahl(held, entwurf) : {
     art: waffen.length ? 'angriff' : (sprueche.length ? 'zauber' : 'frei'),
     i: null, grad: 0, suche: '',
   });
-  const [ziele, setZiele] = React.useState({});
-  const [text, setText]   = React.useState('');
+  const [ziele, setZiele] = React.useState(() => {
+    const z = {};
+    ((entwurf && entwurf.zielIds) || []).forEach(id => { if (liste.some(t => t.id === id)) z[id] = true; });
+    return z;
+  });
+  const [text, setText]   = React.useState(entwurf ? (entwurf.text || '') : '');
   const [laeuft, setLaeuft] = React.useState(false);
   // Aktion, Bonusaktion oder Reaktion. Ein Zug ist selten eine Sache:
   // Angriff und Bonusaktion, Zauber und Trank, und dazwischen eine
   // Reaktion — also so viele Ansagen, wie man will.
-  const [typ, setTyp] = React.useState('aktion');
+  const [typ, setTyp] = React.useState(entwurf ? (entwurf.typ || 'aktion') : 'aktion');
   // Heimlich: nur die Spielleitung sieht die Ansage. Die Mitspieler
   // bekommen sie vom Server gar nicht erst.
-  const [geheim, setGeheim] = React.useState(false);
+  const [geheim, setGeheim] = React.useState(!!(entwurf && entwurf.geheim));
+  // Welcher Entwurf hier gerade steht — er ist erledigt, sobald er
+  // abgeschickt ist, und wird ersetzt, wenn er wieder geparkt wird.
+  const [entwurfId, setEntwurfId] = React.useState(entwurf ? entwurf.id : null);
   // Was dieses Fenster schon abgeschickt hat. Der Abgleich braucht ein
   // paar Sekunden; solange steht es hier, damit die Zusammenfassung
   // sofort stimmt.
@@ -145,21 +265,28 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
   // Wo man steht und wie weit man schon war. Ein Schritt, der noch nicht
   // erreicht ist, steht nicht in der Leiste — er ploppt auf, wenn man
   // ankommt.
-  const [schritt, setSchritt] = React.useState(0);
-  const [weit, setWeit] = React.useState(0);
+  // Ein Entwurf, dessen Auswahl es nicht mehr gibt, faengt bei der
+  // Auswahl wieder an und nicht hinter ihr.
+  const startSchritt = (() => {
+    if (!entwurf) return 0;
+    let s = Math.max(0, Math.min(4, +entwurf.schritt || 0));
+    const st = aktionsStand(held, entwurfWahl(held, entwurf));
+    if (entwurf.art !== 'frei' && s > 2 && (!st.gegenstand || (st.mitWaffe && !st.waffe))) s = 2;
+    if (entwurf.art === 'frei' && s === 2) s = 3;
+    return s;
+  })();
+  const [schritt, setSchritt] = React.useState(startSchritt);
+  const [weit, setWeit] = React.useState(entwurf ? Math.max(startSchritt, Math.min(4, +entwurf.weit || 0)) : 0);
   const [gesendet, setGesendet] = React.useState(false);
   const gehe = (n) => { setSchritt(n); setWeit(w => Math.max(w, n)); };
 
-  const {gegenstand, grundGrad, grad, wurf} = aktionsStand(held, wahl);
-  const liste = (kampf && kampf.teilnehmer) || [];
+  const {gegenstand, grundGrad, grad, wurf, mitWaffe, waffe} = aktionsStand(held, wahl);
   const zielUm = (id) => setZiele(z => {
     if (z[id]) { const k = {...z}; delete k[id]; return k; }
     return {...z, [id]: true};
   });
 
-  const zielName = (t) => t.art === 'held'
-    ? (((helden || []).find(h => h.id === t.charId) || {}).name || 'Held')
-    : (t.name || 'Gegner');
+  const zielName = (t) => ansageZielName(t, helden);
 
   // Angesagt ist, was der Server schon hat, plus was gerade hinausging.
   const angesagt = (() => {
@@ -176,22 +303,11 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
 
   const senden = async () => {
     setLaeuft(true);
-    const raus = await onSenden({
-      typ,
-      art: wahl.art,
-      was: gegenstand ? (gegenstand.name || '') : '',
-      grad: (wahl.art === 'zauber' && grad > grundGrad) ? grad : 0,
-      // Beides: die Namen zum Lesen und die Kennungen zum Weitergeben —
-      // damit im Zugfenster der Spielleitung schon angekreuzt ist, worauf
-      // der Spieler zielt.
-      ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
-      zielIds: Object.keys(ziele),
-      text: text.trim(),
-      // Auf welchem Grad wirklich gezaubert wird — daran haengt der Platz.
-      stufe: (wahl.art === 'zauber' && gegenstand) ? grad : 0,
-      geheim,
-    });
+    const raus = await onSenden(ansageBauen(held,
+      {typ, wahl, zielIds: Object.keys(ziele), text, geheim}, liste, helden));
     if (raus) setEigene(e => [...e, raus]);
+    // Abgeschickt ist abgeschickt: aus dem Vorrat damit.
+    if (raus && entwurfId) { if (onEntwurfWeg) onEntwurfWeg(entwurfId); setEntwurfId(null); }
     // Der Platz geht erst ab, wenn die Ansage durch ist. Wer sie nicht
     // losbekommt, soll nicht trotzdem bezahlt haben.
     if (raus && onPlatz && wahl.art === 'zauber' && gegenstand && grad > 0) {
@@ -208,14 +324,31 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
   // bleibt als Art stehen — der zweite Hieb ist meistens derselbe.
   const nochEine = () => {
     setZiele({}); setText(''); setGeheim(false); setGesendet(false);
-    setWahl(w => ({...w, i: null, grad: 0, suche: ''}));
+    setWahl(w => ({...w, i: null, grad: 0, suche: '', waffe: ''}));
     setSchritt(0); setWeit(0);
   };
+  // Fuer spaeter: so, wie es gerade steht, in den Vorrat — und zu. Im
+  // Kampffenster steht es dann zum Abschicken oder Weitermachen.
+  const parken = () => {
+    if (!onParken) return;
+    const ids = Object.keys(ziele);
+    onParken({
+      id: entwurfId || ('e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+      typ, art: wahl.art, was: gegenstand ? (gegenstand.name || '') : '',
+      grad: (wahl.art === 'zauber' && gegenstand) ? (wahl.grad || 0) : 0,
+      waffe: waffe ? (waffe.name || '') : '',
+      zielIds: ids, zielNamen: ids.map(id => zielName(liste.find(x => x.id === id))),
+      text, geheim, schritt, weit, runde, zeit: Date.now(),
+    });
+    onAbbrechen();
+  };
+  const andereEntwuerfe = (vorrat || []).filter(e => e.id !== entwurfId);
 
   // Was jeder Schritt in der Leiste traegt.
   const wertVon = (k) => k === 'typ' ? (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l
     : k === 'art' ? (ANSAGE_ARTEN.find(x => x.k === wahl.art) || {}).l
-    : k === 'wahl' ? (gegenstand ? gegenstand.name + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '') : '—')
+    : k === 'wahl' ? (gegenstand ? gegenstand.name + (waffe ? ' mit ' + waffe.name : '')
+                       + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '') : '—')
     : k === 'ziel' ? (zielZahl ? Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ') : 'kein Ziel')
     : (gesendet ? 'gesendet' : '');
   // „Nur beschreiben“ braucht keine Auswahl — der Schritt faellt weg.
@@ -251,6 +384,13 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
           {/* 1 — welche Handlung. Oben, was schon draußen ist: sonst sagt
               man dieselbe Sache zweimal an oder vergisst die Bonusaktion. */}
           {schritt === 0 && (<>
+            {andereEntwuerfe.length > 0 && onLaden && (
+              <div className="zug-block">
+                <div className="zug-label">📥 Vorbereitet — antippen, um weiterzumachen</div>
+                <AnsageVorrat held={held} vorrat={andereEntwuerfe} liste={liste}
+                  onWeiter={onLaden} onWeg={onEntwurfWeg} />
+              </div>
+            )}
             {angesagt.length > 0 && (
               <div className="zug-block">
                 <div className="zug-label">Schon angesagt</div>
@@ -353,6 +493,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
                 <div className="pr-zeile zug">▸ {held ? held.name : 'Du'} sagt an · {(ANSAGE_TYPEN.find(x => x.k === typ) || {}).l}</div>
                 {gegenstand && (
                   <div className="pr-zeile">   {AKTION_WORT[wahl.art] || 'Angriff'}: {gegenstand.name}
+                    {waffe ? ' mit ' + waffe.name : ''}
                     {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
                     {wurf ? ' (' + wurf + ')' : ''}</div>
                 )}
@@ -398,10 +539,16 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
           <span className="zug-hinweis">
             {gesendet ? (angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen'))
               : schritt === 2 && !gegenstand ? 'Tipp an, was du nimmst.'
+              : schritt === 2 && mitWaffe && !waffe ? 'Wähle die Waffe dazu.'
               : schritt === 3 ? (zielZahl ? zielZahl + (zielZahl === 1 ? ' Ziel' : ' Ziele') : 'Ohne Ziel geht auch.')
               : schritt === 4 ? 'Wie viel ankommt, trägt die Spielleitung ein.'
               : 'Schritt ' + (sichtbar.findIndex(s => s.n === schritt) + 1) + ' von ' + (ohneWahl ? 4 : 5)}
           </span>
+          {onParken && !gesendet && weit > 0 && (
+            <button className="btn-icon an-parken" onClick={parken}
+              title="In den Vorrat legen — im Kampffenster abschicken, wenn du dran bist, oder hier weitermachen">
+              📥 Für später</button>
+          )}
           <button className="btn-cancel" onClick={onAbbrechen}>
             {angesagt.length > 0 ? 'Fertig' : 'Abbrechen'}
           </button>
@@ -412,7 +559,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
               {laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung'}
             </button>
           ) : (schritt === 2 || schritt === 3) ? (
-            <button className="btn-save" disabled={schritt === 2 && !gegenstand} onClick={weiter}>
+            <button className="btn-save" disabled={schritt === 2 && (!gegenstand || (mitWaffe && !waffe))} onClick={weiter}>
               {schritt === 3 && !zielZahl ? 'Ohne Ziel weiter →' : 'Weiter →'}
             </button>
           ) : null}
@@ -430,7 +577,7 @@ const AnsageListe = ({ angesagt }) => (
         <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
         <span className="an-was">
           {a.geheim ? <span title="Nur für die Spielleitung">🔒 </span> : null}
-          {a.was ? <b>{a.was}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
+          {a.was ? <b>{a.was}{a.waffe ? ' mit ' + a.waffe : ''}{a.grad ? ' · ' + a.grad + '. Grad' : ''}</b> : null}
           {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
           {a.text ? <i>„{a.text}“</i> : null}
         </span>
@@ -462,7 +609,8 @@ const reaktionsSprueche = (held) => ((held && held.spells) || [])
   .filter(s => IST_REAKTION.test(s.castingTime || '') && s.prepared !== false);
 
 const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
-                      eigenerHeld, onReaktion, onSchliessen }) => {
+                      eigenerHeld, onReaktion, onSchliessen,
+                      vorrat, onVorratSenden, onVorratWeiter, onVorratWeg }) => {
   const {pos, griff, masz} = useSchiebefenster(KS_SPEICHER,
     {x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32), y: 76}, KS_BREITE);
   // Die Karte steht in einem eigenen Fenster daneben. Sie ist beim
@@ -555,6 +703,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                 <span className={'an-typ ' + ((a.typ) || 'aktion')}>{ansageTyp(a).kurz}</span>
                 <b>{a.geheim ? '🔒 ' : ''}{((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'}</b>
                 {a.was ? <span>{' · ' + (AKTION_WORT[a.art] || 'Angriff') + ': '}{a.was}
+                  {a.waffe ? ' mit ' + a.waffe : ''}
                   {a.grad ? ' · ' + a.grad + '. Grad' : ''}</span> : null}
                 {(a.ziele || []).length ? <span> → {(a.ziele || []).join(', ')}</span> : null}
                 {a.text ? <i>„{a.text}“</i> : null}
@@ -575,7 +724,21 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
 
         {onAnsage ? (
           <div className="ks-fuss">
-            <button className="ks-ansage-knopf" onClick={onAnsage}>✍ Ansagen, was du tust</button>
+            {/* Der Vorrat steht im Fuss, nicht im rollenden Teil: wer dran
+                ist, soll nicht erst suchen muessen, was er vorbereitet hat. */}
+            {(vorrat || []).length > 0 && (() => {
+              const a = liste[aktivIdx];
+              const duDran = !!(a && a.art === 'held' && eigenerHeld && a.charId === eigenerHeld.id);
+              return (
+                <div className={'ks-vorrat' + (duDran ? ' dran' : '')}>
+                  <div className="ks-ansagen-titel">📥 Vorbereitet{duDran ? ' — du bist dran' : ''}</div>
+                  <AnsageVorrat held={eigenerHeld} vorrat={vorrat} liste={liste}
+                    onSenden={onVorratSenden} onWeiter={onVorratWeiter} onWeg={onVorratWeg} />
+                </div>
+              );
+            })()}
+            <button className="ks-ansage-knopf" onClick={onAnsage}>
+              {(vorrat || []).length ? '✍ Neue Ansage' : '✍ Ansagen, was du tust'}</button>
           </div>
         ) : null}
 

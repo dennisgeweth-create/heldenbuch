@@ -2720,6 +2720,16 @@ function App() {
   // was die Spieler hineingerufen haben.
   const [ansagen, setAnsagen] = useState([]);
   const [ansageFuer, setAnsageFuer] = useState(null);   // charId, waehrend das Fenster offen ist
+  // Vorbereitete Ansagen, je Held, auf diesem Geraet (2g-kampfsicht.jsx).
+  // Und welcher Entwurf gerade im Fenster steht.
+  const [ansageVorrat, setAnsageVorrat] = useState(() => ansageVorratLesen());
+  const [ansageEntwurf, setAnsageEntwurf] = useState(null);
+  const vorratAendern = (charId, f) => setAnsageVorrat(v => {
+    const neu = {...v, [charId]: f(v[charId] || [])};
+    if (!neu[charId].length) delete neu[charId];
+    ansageVorratSchreiben(neu);
+    return neu;
+  });
 
   useEffect(() => {
     const creds = serverCreds();
@@ -2891,6 +2901,30 @@ function App() {
       grad: nimmt > grad ? nimmt : 0, stufe: grad, ziele: [], zielIds: [], text: '',
     }, ansageHeldId);
     if (raus && nimmt > 0) zauberplatzStreichen(ansageHeldId, nimmt);
+  };
+
+  // Aus dem Vorrat abschicken: dieselbe Ansage, die das Fenster gebaut
+  // haette, mit demselben Zauberplatz. Ist der Entwurf nicht fertig oder
+  // passt nicht mehr zum Bogen, geht stattdessen das Fenster auf.
+  const vorratSenden = async (e) => {
+    const charId = ansageHeldId;
+    const held = charsRef.current.find(c => c.id === charId);
+    const k = kampfSichtRef.current || kampfSichtDaten;
+    if (!held || !k) return;
+    const liste = k.teilnehmer || [];
+    const st = entwurfStand(held, e, liste);
+    if (!st.fertig) { setAnsageEntwurf(e); setAnsageFuer(charId); return; }
+    const a = ansageBauen(held, {typ: e.typ, wahl: st.wahl, zielIds: e.zielIds,
+                                 text: e.text, geheim: e.geheim}, liste, advChars);
+    const raus = await ansageSenden(a, charId);
+    if (!raus) return;
+    vorratAendern(charId, l => l.filter(x => x.id !== e.id));
+    const platz = (a.art === 'zauber' && a.stufe > 0)
+      ? zauberplatzStreichen(charId, a.stufe, a.typ === 'reaktion') : null;
+    setBenutztHinweis({t: Date.now(), text: '📣 Angesagt' + (a.was ? ': ' + a.was : '')
+      + (a.waffe ? ' mit ' + a.waffe : '')
+      + (platz && platz.gestrichen ? ' · Platz ' + platz.grad + '. Grad gestrichen'
+         : platz ? ' · kein Platz vom ' + platz.grad + '. Grad mehr frei' : '')});
   };
 
   // Welcher eigene Held steht im Kampf? Wer dran ist, hat Vorrang.
@@ -4647,6 +4681,17 @@ function App() {
             </ReiterSeite>
             <ReiterSeite k="wirkung" aktiv={reiterVon('zauber', 'allgemein')}>
               <div className="form-grid">
+                {/* Dröhnende Klinge, Grünflammenklinge: der Zauber gehoert zu
+                    einem Angriff mit der Waffe. Dann fragt die Ansage (und
+                    das Zugfenster) nach der Waffe dazu. */}
+                <div className="form-group form-full">
+                  <label className="zw-schalter">
+                    <input type="checkbox" checked={!!sf.waffenangriff}
+                      onChange={e=>setSf({...sf, waffenangriff:e.target.checked})} />
+                    <span>⚔ Wird mit einem Waffenangriff gewirkt — wie Dröhnende Klinge</span>
+                  </label>
+                  <div className="reiter-hinweis">Beim Ansagen wählt man dann zum Zauber die Waffe; Angriff und Schaden der Waffe stehen daneben, der Würfel des Zaubers kommt dazu.</div>
+                </div>
                 {/* Was der Zauber im Kampf tut. Alles freiwillig — ohne diese
                     Angaben bleibt der Zauber, was er war, und im Zugfenster
                     wird die Zahl getippt. Mit ihnen steht dort der Wurf, der
@@ -6762,17 +6807,26 @@ function App() {
           onSchliessen={()=>setShowKampfSicht(false)}>
         <KampfSicht kampf={kampfSichtDaten} helden={advChars} eigeneIds={eigeneHeldenIds}
           setDefs={setDefs} tpOffen={tpOffen}
-          onAnsage={ansageHeldId ? ()=>setAnsageFuer(ansageHeldId) : null}
+          onAnsage={ansageHeldId ? ()=>{ setAnsageEntwurf(null); setAnsageFuer(ansageHeldId); } : null}
           eigenerHeld={chars.find(c => c.id === ansageHeldId) || null}
+          vorrat={ansageHeldId ? (ansageVorrat[ansageHeldId] || []) : []}
+          onVorratSenden={vorratSenden}
+          onVorratWeiter={(e)=>{ setAnsageEntwurf(e); setAnsageFuer(ansageHeldId); }}
+          onVorratWeg={(id)=>vorratAendern(ansageHeldId, l => l.filter(x => x.id !== id))}
           onReaktion={ansageHeldId ? reaktionSenden : null}
           onSchliessen={()=>setShowKampfSicht(false)} />
         </LeistenFenster>
       )}
 
       {ansageFuer && kampfSichtDaten && (
-        <AnsageFenster held={chars.find(c => c.id === ansageFuer)} kampf={kampfSichtDaten}
+        <AnsageFenster key={(ansageEntwurf && ansageEntwurf.id) || 'neu'}
+          held={chars.find(c => c.id === ansageFuer)} kampf={kampfSichtDaten}
           helden={advChars} runde={kampfSichtDaten.runde || 1} setDefs={setDefs}
-          onAbbrechen={()=>setAnsageFuer(null)} onSenden={ansageSenden}
+          entwurf={ansageEntwurf} vorrat={ansageVorrat[ansageFuer] || []}
+          onParken={(e)=>vorratAendern(ansageFuer, l => [...l.filter(x => x.id !== e.id), e])}
+          onLaden={(e)=>setAnsageEntwurf(e)}
+          onEntwurfWeg={(id)=>vorratAendern(ansageFuer, l => l.filter(x => x.id !== id))}
+          onAbbrechen={()=>{ setAnsageFuer(null); setAnsageEntwurf(null); }} onSenden={ansageSenden}
           onPlatz={(grad, hoeher)=>zauberplatzStreichen(ansageFuer, grad, hoeher)} />
       )}
 

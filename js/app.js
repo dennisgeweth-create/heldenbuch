@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.5.0';
+const HB_VERSION = 'v6.6.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -2489,7 +2489,7 @@ const protokollZeile = (e, mitZahlen) => {
     case 'frei':
       return '   „' + e.text + '“';
     case 'aktion':
-      return '   ' + (AKTION_WORT[e.modus] || 'Angriff') + ': ' + e.was + (e.zauber ? ' → ' + e.zauber : '') + (e.grad ? ' · ' + e.grad + '. Grad' : '') + (e.wurf ? ' (' + e.wurf + ')' : '');
+      return '   ' + (AKTION_WORT[e.modus] || 'Angriff') + ': ' + e.was + (e.waffe ? ' mit ' + e.waffe : '') + (e.zauber ? ' → ' + e.zauber : '') + (e.grad ? ' · ' + e.grad + '. Grad' : '') + (e.wurf ? ' (' + e.wurf + ')' : '');
     case 'rettung':
       return '   ' + (e.was ? e.was + ' → ' : '') + e.ziel + ': Rettungswurf ' + (e.rw ? e.rw + ' ' : '') + (e.bestanden ? 'bestanden' : 'misslungen') + (e.wurf !== '' && e.wurf != null && e.sg ? ' (' + e.wurf + ' gegen SG ' + e.sg + ')' : '');
     case 'platz':
@@ -2954,6 +2954,8 @@ const aktionsStand = (held, wahl) => {
   const wirkung = mitWirkung && gegenstand && hatWirkung(quelleWirkung) ? quelleWirkung : null;
   const grad = wahl.grad || grundGrad;
   const ohneGrad = wahl.art === 'merkmal';
+  const mitWaffe = wahl.art === 'zauber' && !!(gegenstand && gegenstand.waffenangriff);
+  const waffe = mitWaffe ? kampfWaffen(held).find(w => (w.name || '') === (wahl.waffe || '')) || null : null;
   return {
     quelle,
     gegenstand,
@@ -2961,6 +2963,8 @@ const aktionsStand = (held, wahl) => {
     wirkung,
     grad: ohneGrad ? 0 : grad,
     verknuepft,
+    mitWaffe,
+    waffe,
     wurf: !wirkung ? '' : ohneGrad ? wirkung.wuerfel || '' : wuerfelAufGrad(wirkung, grundGrad, grad)
   };
 };
@@ -3311,7 +3315,9 @@ const AktionsWahl = ({
     grundGrad,
     wirkung,
     grad,
-    wurf
+    wurf,
+    mitWaffe,
+    waffe
   } = aktionsStand(held, wahl);
   const werte = React.useMemo(() => held ? charWerte(held, setDefs) : null, [held, setDefs]);
   const [passivAuf, setPassivAuf] = useState(false);
@@ -3335,10 +3341,13 @@ const AktionsWahl = ({
   const waehlen = i => {
     const neu = i === wahl.i ? null : i;
     const g = neu === null ? null : quelle[neu];
+    const wl = kampfWaffen(held);
+    const waffeVor = g && wahl.art === 'zauber' && g.waffenangriff ? (wl.find(w => (w.name || '') === (wahl.waffe || '')) || wl[0] || {}).name || '' : '';
     setWahl({
       ...wahl,
       i: neu,
-      grad: g && wahl.art === 'zauber' ? +g.level || 0 : 0
+      grad: g && wahl.art === 'zauber' ? +g.level || 0 : 0,
+      waffe: waffeVor
     });
   };
   const ArtTaste = ({
@@ -3426,7 +3435,28 @@ const AktionsWahl = ({
     dangerouslySetInnerHTML: {
       __html: sanitizeHtml(gegenstand.description)
     }
-  }))), wahl.art === 'zauber' && gegenstand && grundGrad > 0 && React.createElement("div", {
+  }))), mitWaffe && React.createElement("div", {
+    className: "zug-block zug-mitwaffe"
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "\u2694 Mit welcher Waffe \u2014 ", gegenstand.name, " geh\xF6rt zu einem Waffenangriff"), kampfWaffen(held).length === 0 ? React.createElement("div", {
+    className: "zug-leer"
+  }, "Keine Waffen im Bogen.") : React.createElement("div", {
+    className: 'zug-karten' + (teil === 'liste' ? ' frei' : '')
+  }, kampfWaffen(held).map((w, i) => React.createElement(ZugKarte, {
+    key: w.id || i,
+    art: "angriff",
+    g: w,
+    held: held,
+    werte: werte,
+    an: w === waffe,
+    onWaehlen: () => setWahl({
+      ...wahl,
+      waffe: w === waffe ? '' : w.name || ''
+    })
+  }))), waffe && wurf && React.createElement("div", {
+    className: "zug-mitwaffe-summe"
+  }, "Bei Treffer: ", React.createElement("b", null, waffeWerte(waffe, werte).dmgStr || '—'), " von der Waffe und ", React.createElement("b", null, wurf), " vom Zauber")), wahl.art === 'zauber' && gegenstand && grundGrad > 0 && React.createElement("div", {
     className: "zug-grad"
   }, React.createElement("span", {
     className: "zug-grad-label"
@@ -3524,7 +3554,8 @@ const ZugFenster = ({
         art: ansage.art || 'frei',
         i: i >= 0 ? i : null,
         grad: +ansage.grad || 0,
-        suche: ''
+        suche: '',
+        waffe: ansage.waffe || ''
       };
     }
     return {
@@ -3564,7 +3595,8 @@ const ZugFenster = ({
       art: a.art || 'frei',
       i: i >= 0 ? i : null,
       grad: +a.grad || 0,
-      suche: ''
+      suche: '',
+      waffe: a.waffe || ''
     });
     const z = {};
     (a.zielIds || []).forEach(id => {
@@ -3589,14 +3621,16 @@ const ZugFenster = ({
     wirkung,
     grad,
     wurf: wurfJetzt,
-    verknuepft
+    verknuepft,
+    waffe: mitWaffeW
   } = nurWerte ? {
     gegenstand: null,
     grundGrad: 0,
     wirkung: null,
     grad: 0,
     wurf: '',
-    verknuepft: null
+    verknuepft: null,
+    waffe: null
   } : aktionsStand(held, wahl);
   const mitRettung = !!(wirkung && wirkung.rettung);
   React.useEffect(() => {
@@ -3704,6 +3738,7 @@ const ZugFenster = ({
         modus: art,
         grad: art === 'zauber' && grad > grundGrad ? grad : 0,
         zauber: verknuepft ? verknuepft.name : undefined,
+        waffe: mitWaffeW ? mitWaffeW.name || '' : undefined,
         wurf: wurfJetzt || ''
       });
       const kostet = held && art === 'merkmal' ? merkmalRessource(held, gegenstand) : null;
@@ -4012,7 +4047,7 @@ const ZugFenster = ({
     onClick: () => waehlenUm(a.id)
   }, a.geheim ? React.createElement("span", {
     title: "Nur f\xFCr die Spielleitung"
-  }, "\uD83D\uDD12 ") : null, a.was ? React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null), React.createElement("button", {
+  }, "\uD83D\uDD12 ") : null, a.was ? React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.waffe ? ' mit ' + a.waffe : '', a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null), React.createElement("button", {
     type: "button",
     className: "btn-icon",
     onClick: () => ansageNehmen(a),
@@ -4045,7 +4080,7 @@ const ZugFenster = ({
       className: 'an-typ ' + (a.typ || 'aktion')
     }, ansageTyp(a).kurz), React.createElement("span", {
       className: "za-was"
-    }, React.createElement("b", null, wer ? wer.name : 'Jemand'), a.was ? React.createElement("span", null, " \xB7 ", a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null));
+    }, React.createElement("b", null, wer ? wer.name : 'Jemand'), a.was ? React.createElement("span", null, " \xB7 ", a.was, a.waffe ? ' mit ' + a.waffe : '', a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null));
   })), !nurWerte && React.createElement(AktionsWahl, {
     held: held,
     wahl: wahl,
@@ -6288,7 +6323,7 @@ const KampfAnsicht = ({
       className: "ka-wer"
     }, a.geheim ? '🔒 ' : '', held ? held.name : 'Jemand'), React.createElement("span", {
       className: "ka-was"
-    }, a.was ? React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null), zeile && React.createElement("button", {
+    }, a.was ? React.createElement("b", null, (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.waffe ? ' mit ' + a.waffe : '', a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null), zeile && React.createElement("button", {
       className: "btn-icon",
       title: "Ins Zugfenster \xFCbernehmen",
       onClick: () => setZugFenster({
@@ -16083,6 +16118,120 @@ const ANSAGE_ARTEN = [{
   l: 'Nur beschreiben',
   wort: () => 'in eigenen Worten'
 }];
+const ANSAGE_VORRAT = 'hb_ansage_vorrat';
+const ansageVorratLesen = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(ANSAGE_VORRAT) || '{}');
+    return d && typeof d === 'object' && !Array.isArray(d) ? d : {};
+  } catch {
+    return {};
+  }
+};
+const ansageVorratSchreiben = v => {
+  try {
+    localStorage.setItem(ANSAGE_VORRAT, JSON.stringify(v));
+  } catch {}
+};
+const ansageZielName = (t, helden) => !t ? '' : t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
+const entwurfWahl = (held, e) => {
+  const q = aktionsQuelle(held, e.art);
+  const i = e.was ? q.findIndex(g => (g.name || '') === e.was) : -1;
+  return {
+    art: e.art || 'frei',
+    i: i >= 0 ? i : null,
+    grad: +e.grad || 0,
+    suche: '',
+    waffe: e.waffe || ''
+  };
+};
+const ansageBauen = (held, {
+  typ,
+  wahl,
+  zielIds,
+  text,
+  geheim
+}, liste, helden) => {
+  const {
+    gegenstand,
+    grundGrad,
+    grad,
+    waffe
+  } = aktionsStand(held, wahl);
+  const ids = (zielIds || []).filter(id => (liste || []).some(t => t.id === id));
+  return {
+    typ: typ || 'aktion',
+    art: wahl.art,
+    was: gegenstand ? gegenstand.name || '' : '',
+    grad: wahl.art === 'zauber' && grad > grundGrad ? grad : 0,
+    waffe: waffe ? waffe.name || '' : '',
+    ziele: ids.map(id => ansageZielName(liste.find(t => t.id === id), helden)),
+    zielIds: ids,
+    text: (text || '').trim(),
+    stufe: wahl.art === 'zauber' && gegenstand ? grad : 0,
+    geheim: !!geheim
+  };
+};
+const entwurfStand = (held, e, liste) => {
+  const wahl = entwurfWahl(held, e);
+  const {
+    gegenstand,
+    mitWaffe,
+    waffe
+  } = aktionsStand(held, wahl);
+  const fehlt = e.art !== 'frei' && e.was && !gegenstand ? e.was + ' steht nicht mehr im Bogen' : mitWaffe && !waffe ? 'die Waffe dazu fehlt' : '';
+  const ids = e.zielIds || [];
+  const weg = ids.filter(id => !(liste || []).some(t => t.id === id)).length;
+  const etwas = !!gegenstand || !!(e.text || '').trim() || ids.length - weg > 0;
+  return {
+    wahl,
+    fehlt,
+    weg,
+    fertig: (+e.weit || 0) >= 4 && !fehlt && etwas
+  };
+};
+const AnsageVorrat = ({
+  held,
+  vorrat,
+  liste,
+  onSenden,
+  onWeiter,
+  onWeg
+}) => React.createElement("div", {
+  className: "an-liste av-liste"
+}, (vorrat || []).map(e => {
+  const st = entwurfStand(held, e, liste);
+  const artL = (ANSAGE_ARTEN.find(x => x.k === e.art) || {}).l || '';
+  const stand = st.fehlt ? '⚠ ' + st.fehlt : st.fertig ? 'bereit' + (st.weg ? ' · ' + st.weg + (st.weg === 1 ? ' Ziel ist' : ' Ziele sind') + ' nicht mehr im Kampf' : '') : 'angefangen — weiter bei „' + ((ANSAGE_SCHRITTE[+e.schritt || 0] || {}).titel || 'Handlung') + '“';
+  return React.createElement("div", {
+    className: 'an-zeile av-zeile' + (st.fertig ? ' bereit' : '') + (st.fehlt ? ' fehlt' : ''),
+    key: e.id
+  }, React.createElement("span", {
+    className: 'an-typ ' + (e.typ || 'aktion')
+  }, ansageTyp(e).kurz), React.createElement("span", {
+    className: "an-was"
+  }, e.geheim ? React.createElement("span", {
+    title: "Nur f\xFCr die Spielleitung"
+  }, "\uD83D\uDD12 ") : null, e.was ? React.createElement("b", null, (AKTION_WORT[e.art] || artL) + ': ', e.was, e.waffe ? ' mit ' + e.waffe : '', e.art === 'zauber' && +e.grad > 0 ? ' · ' + e.grad + '. Grad' : '') : React.createElement("b", null, artL || 'Ansage'), (e.zielNamen || []).length ? React.createElement("span", null, " \u2192 ", e.zielNamen.join(', ')) : null, e.text ? React.createElement("i", null, "\u201E", e.text, "\u201C") : null, React.createElement("em", {
+    className: "av-stand"
+  }, stand)), React.createElement("span", {
+    className: "av-knoepfe"
+  }, onSenden && st.fertig && React.createElement("button", {
+    type: "button",
+    className: "av-senden",
+    onClick: () => onSenden(e),
+    title: "So, wie es vorbereitet ist, an die Spielleitung"
+  }, "\uD83D\uDCE3 Abschicken"), React.createElement("button", {
+    type: "button",
+    className: "btn-icon",
+    onClick: () => onWeiter(e),
+    title: "Im Ansagefenster \xF6ffnen \u2014 dort, wo du aufgeh\xF6rt hast"
+  }, st.fertig && onSenden ? '✎' : '✎ Weiter'), onWeg && React.createElement("button", {
+    type: "button",
+    className: "fx-del",
+    title: "Wegwerfen",
+    onClick: () => onWeg(e.id)
+  }, "\u2715")));
+}));
 const AnsageFenster = ({
   held,
   kampf,
@@ -16091,25 +16240,46 @@ const AnsageFenster = ({
   setDefs,
   onAbbrechen,
   onSenden,
-  onPlatz
+  onPlatz,
+  entwurf,
+  vorrat,
+  onParken,
+  onLaden,
+  onEntwurfWeg
 }) => {
   const waffen = held && held.weapons || [];
   const sprueche = sortierteSprueche(held);
-  const [wahl, setWahl] = React.useState({
+  const liste = kampf && kampf.teilnehmer || [];
+  const [wahl, setWahl] = React.useState(() => entwurf ? entwurfWahl(held, entwurf) : {
     art: waffen.length ? 'angriff' : sprueche.length ? 'zauber' : 'frei',
     i: null,
     grad: 0,
     suche: ''
   });
-  const [ziele, setZiele] = React.useState({});
-  const [text, setText] = React.useState('');
+  const [ziele, setZiele] = React.useState(() => {
+    const z = {};
+    (entwurf && entwurf.zielIds || []).forEach(id => {
+      if (liste.some(t => t.id === id)) z[id] = true;
+    });
+    return z;
+  });
+  const [text, setText] = React.useState(entwurf ? entwurf.text || '' : '');
   const [laeuft, setLaeuft] = React.useState(false);
-  const [typ, setTyp] = React.useState('aktion');
-  const [geheim, setGeheim] = React.useState(false);
+  const [typ, setTyp] = React.useState(entwurf ? entwurf.typ || 'aktion' : 'aktion');
+  const [geheim, setGeheim] = React.useState(!!(entwurf && entwurf.geheim));
+  const [entwurfId, setEntwurfId] = React.useState(entwurf ? entwurf.id : null);
   const [eigene, setEigene] = React.useState([]);
   const [platz, setPlatz] = React.useState(null);
-  const [schritt, setSchritt] = React.useState(0);
-  const [weit, setWeit] = React.useState(0);
+  const startSchritt = (() => {
+    if (!entwurf) return 0;
+    let s = Math.max(0, Math.min(4, +entwurf.schritt || 0));
+    const st = aktionsStand(held, entwurfWahl(held, entwurf));
+    if (entwurf.art !== 'frei' && s > 2 && (!st.gegenstand || st.mitWaffe && !st.waffe)) s = 2;
+    if (entwurf.art === 'frei' && s === 2) s = 3;
+    return s;
+  })();
+  const [schritt, setSchritt] = React.useState(startSchritt);
+  const [weit, setWeit] = React.useState(entwurf ? Math.max(startSchritt, Math.min(4, +entwurf.weit || 0)) : 0);
   const [gesendet, setGesendet] = React.useState(false);
   const gehe = n => {
     setSchritt(n);
@@ -16119,9 +16289,10 @@ const AnsageFenster = ({
     gegenstand,
     grundGrad,
     grad,
-    wurf
+    wurf,
+    mitWaffe,
+    waffe
   } = aktionsStand(held, wahl);
-  const liste = kampf && kampf.teilnehmer || [];
   const zielUm = id => setZiele(z => {
     if (z[id]) {
       const k = {
@@ -16135,7 +16306,7 @@ const AnsageFenster = ({
       [id]: true
     };
   });
-  const zielName = t => t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
+  const zielName = t => ansageZielName(t, helden);
   const angesagt = (() => {
     const vomServer = (kampf && kampf.ansagen || []).filter(a => held && a.charId === held.id);
     const drin = new Set(vomServer.map(a => a.id));
@@ -16152,18 +16323,18 @@ const AnsageFenster = ({
   const zielZahl = Object.keys(ziele).length;
   const senden = async () => {
     setLaeuft(true);
-    const raus = await onSenden({
+    const raus = await onSenden(ansageBauen(held, {
       typ,
-      art: wahl.art,
-      was: gegenstand ? gegenstand.name || '' : '',
-      grad: wahl.art === 'zauber' && grad > grundGrad ? grad : 0,
-      ziele: Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})),
+      wahl,
       zielIds: Object.keys(ziele),
-      text: text.trim(),
-      stufe: wahl.art === 'zauber' && gegenstand ? grad : 0,
+      text,
       geheim
-    });
+    }, liste, helden));
     if (raus) setEigene(e => [...e, raus]);
+    if (raus && entwurfId) {
+      if (onEntwurfWeg) onEntwurfWeg(entwurfId);
+      setEntwurfId(null);
+    }
     if (raus && onPlatz && wahl.art === 'zauber' && gegenstand && grad > 0) {
       setPlatz(onPlatz(grad, typ === 'reaktion'));
     } else if (raus) {
@@ -16181,12 +16352,35 @@ const AnsageFenster = ({
       ...w,
       i: null,
       grad: 0,
-      suche: ''
+      suche: '',
+      waffe: ''
     }));
     setSchritt(0);
     setWeit(0);
   };
-  const wertVon = k => k === 'typ' ? (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l : k === 'art' ? (ANSAGE_ARTEN.find(x => x.k === wahl.art) || {}).l : k === 'wahl' ? gegenstand ? gegenstand.name + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '') : '—' : k === 'ziel' ? zielZahl ? Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ') : 'kein Ziel' : gesendet ? 'gesendet' : '';
+  const parken = () => {
+    if (!onParken) return;
+    const ids = Object.keys(ziele);
+    onParken({
+      id: entwurfId || 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      typ,
+      art: wahl.art,
+      was: gegenstand ? gegenstand.name || '' : '',
+      grad: wahl.art === 'zauber' && gegenstand ? wahl.grad || 0 : 0,
+      waffe: waffe ? waffe.name || '' : '',
+      zielIds: ids,
+      zielNamen: ids.map(id => zielName(liste.find(x => x.id === id))),
+      text,
+      geheim,
+      schritt,
+      weit,
+      runde,
+      zeit: Date.now()
+    });
+    onAbbrechen();
+  };
+  const andereEntwuerfe = (vorrat || []).filter(e => e.id !== entwurfId);
+  const wertVon = k => k === 'typ' ? (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l : k === 'art' ? (ANSAGE_ARTEN.find(x => x.k === wahl.art) || {}).l : k === 'wahl' ? gegenstand ? gegenstand.name + (waffe ? ' mit ' + waffe.name : '') + (wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '') : '—' : k === 'ziel' ? zielZahl ? Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ') : 'kein Ziel' : gesendet ? 'gesendet' : '';
   const ohneWahl = wahl.art === 'frei';
   const sichtbar = ANSAGE_SCHRITTE.map((s, n) => ({
     ...s,
@@ -16225,7 +16419,17 @@ const AnsageFenster = ({
   }, React.createElement("b", null, s.titel), s.n !== schritt || s.k === 'senden' ? React.createElement("i", null, wertVon(s.k)) : null)))), React.createElement("div", {
     className: "zug-leib",
     key: schritt
-  }, schritt === 0 && React.createElement(React.Fragment, null, angesagt.length > 0 && React.createElement("div", {
+  }, schritt === 0 && React.createElement(React.Fragment, null, andereEntwuerfe.length > 0 && onLaden && React.createElement("div", {
+    className: "zug-block"
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "\uD83D\uDCE5 Vorbereitet \u2014 antippen, um weiterzumachen"), React.createElement(AnsageVorrat, {
+    held: held,
+    vorrat: andereEntwuerfe,
+    liste: liste,
+    onWeiter: onLaden,
+    onWeg: onEntwurfWeg
+  })), angesagt.length > 0 && React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
@@ -16340,7 +16544,7 @@ const AnsageFenster = ({
     className: "pr-zeile zug"
   }, "\u25B8 ", held ? held.name : 'Du', " sagt an \xB7 ", (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l), gegenstand && React.createElement("div", {
     className: "pr-zeile"
-  }, "   ", AKTION_WORT[wahl.art] || 'Angriff', ": ", gegenstand.name, wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), zielZahl > 0 && React.createElement("div", {
+  }, "   ", AKTION_WORT[wahl.art] || 'Angriff', ": ", gegenstand.name, waffe ? ' mit ' + waffe.name : '', wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), zielZahl > 0 && React.createElement("div", {
     className: "pr-zeile"
   }, "   auf ", Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')), text.trim() && React.createElement("div", {
     className: "pr-zeile frei"
@@ -16363,7 +16567,11 @@ const AnsageFenster = ({
     onClick: zurueck
   }, "\u2190 Zur\xFCck"), React.createElement("span", {
     className: "zug-hinweis"
-  }, gesendet ? angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen') : schritt === 2 && !gegenstand ? 'Tipp an, was du nimmst.' : schritt === 3 ? zielZahl ? zielZahl + (zielZahl === 1 ? ' Ziel' : ' Ziele') : 'Ohne Ziel geht auch.' : schritt === 4 ? 'Wie viel ankommt, trägt die Spielleitung ein.' : 'Schritt ' + (sichtbar.findIndex(s => s.n === schritt) + 1) + ' von ' + (ohneWahl ? 4 : 5)), React.createElement("button", {
+  }, gesendet ? angesagt.length + (angesagt.length === 1 ? ' Ansage steht' : ' Ansagen stehen') : schritt === 2 && !gegenstand ? 'Tipp an, was du nimmst.' : schritt === 2 && mitWaffe && !waffe ? 'Wähle die Waffe dazu.' : schritt === 3 ? zielZahl ? zielZahl + (zielZahl === 1 ? ' Ziel' : ' Ziele') : 'Ohne Ziel geht auch.' : schritt === 4 ? 'Wie viel ankommt, trägt die Spielleitung ein.' : 'Schritt ' + (sichtbar.findIndex(s => s.n === schritt) + 1) + ' von ' + (ohneWahl ? 4 : 5)), onParken && !gesendet && weit > 0 && React.createElement("button", {
+    className: "btn-icon an-parken",
+    onClick: parken,
+    title: "In den Vorrat legen \u2014 im Kampffenster abschicken, wenn du dran bist, oder hier weitermachen"
+  }, "\uD83D\uDCE5 F\xFCr sp\xE4ter"), React.createElement("button", {
     className: "btn-cancel",
     onClick: onAbbrechen
   }, angesagt.length > 0 ? 'Fertig' : 'Abbrechen'), gesendet ? React.createElement("button", {
@@ -16375,7 +16583,7 @@ const AnsageFenster = ({
     onClick: senden
   }, laeuft ? 'Wird gesendet…' : '📣 An die Spielleitung') : schritt === 2 || schritt === 3 ? React.createElement("button", {
     className: "btn-save",
-    disabled: schritt === 2 && !gegenstand,
+    disabled: schritt === 2 && (!gegenstand || mitWaffe && !waffe),
     onClick: weiter
   }, schritt === 3 && !zielZahl ? 'Ohne Ziel weiter →' : 'Weiter →') : null)));
 };
@@ -16392,7 +16600,7 @@ const AnsageListe = ({
   className: "an-was"
 }, a.geheim ? React.createElement("span", {
   title: "Nur f\xFCr die Spielleitung"
-}, "\uD83D\uDD12 ") : null, a.was ? React.createElement("b", null, a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null))));
+}, "\uD83D\uDD12 ") : null, a.was ? React.createElement("b", null, a.was, a.waffe ? ' mit ' + a.waffe : '', a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null))));
 const KS_SPEICHER = 'hb_kampfsicht_fenster';
 const KS_BREITE = 460;
 const IST_REAKTION = /reaktion/i;
@@ -16406,7 +16614,11 @@ const KampfSicht = ({
   onAnsage,
   eigenerHeld,
   onReaktion,
-  onSchliessen
+  onSchliessen,
+  vorrat,
+  onVorratSenden,
+  onVorratWeiter,
+  onVorratWeg
 }) => {
   const {
     pos,
@@ -16489,14 +16701,29 @@ const KampfSicht = ({
     key: a.id
   }, React.createElement("span", {
     className: 'an-typ ' + (a.typ || 'aktion')
-  }, ansageTyp(a).kurz), React.createElement("b", null, a.geheim ? '🔒 ' : '', ((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'), a.was ? React.createElement("span", null, ' · ' + (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null))), React.createElement("div", {
+  }, ansageTyp(a).kurz), React.createElement("b", null, a.geheim ? '🔒 ' : '', ((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'), a.was ? React.createElement("span", null, ' · ' + (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.waffe ? ' mit ' + a.waffe : '', a.grad ? ' · ' + a.grad + '. Grad' : '') : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null))), React.createElement("div", {
     className: "ks-erklaerung"
   }, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")), onAnsage ? React.createElement("div", {
     className: "ks-fuss"
-  }, React.createElement("button", {
+  }, (vorrat || []).length > 0 && (() => {
+    const a = liste[aktivIdx];
+    const duDran = !!(a && a.art === 'held' && eigenerHeld && a.charId === eigenerHeld.id);
+    return React.createElement("div", {
+      className: 'ks-vorrat' + (duDran ? ' dran' : '')
+    }, React.createElement("div", {
+      className: "ks-ansagen-titel"
+    }, "\uD83D\uDCE5 Vorbereitet", duDran ? ' — du bist dran' : ''), React.createElement(AnsageVorrat, {
+      held: eigenerHeld,
+      vorrat: vorrat,
+      liste: liste,
+      onSenden: onVorratSenden,
+      onWeiter: onVorratWeiter,
+      onWeg: onVorratWeg
+    }));
+  })(), React.createElement("button", {
     className: "ks-ansage-knopf",
     onClick: onAnsage
-  }, "\u270D Ansagen, was du tust")) : null), karteAuf && kampf.karte && React.createElement(Schiebefenster, {
+  }, (vorrat || []).length ? '✍ Neue Ansage' : '✍ Ansagen, was du tust')) : null), karteAuf && kampf.karte && React.createElement(Schiebefenster, {
     schluessel: "hb_kampfsicht_karte",
     standard: {
       x: 24,
@@ -28466,6 +28693,17 @@ function App() {
   })();
   const [ansagen, setAnsagen] = useState([]);
   const [ansageFuer, setAnsageFuer] = useState(null);
+  const [ansageVorrat, setAnsageVorrat] = useState(() => ansageVorratLesen());
+  const [ansageEntwurf, setAnsageEntwurf] = useState(null);
+  const vorratAendern = (charId, f) => setAnsageVorrat(v => {
+    const neu = {
+      ...v,
+      [charId]: f(v[charId] || [])
+    };
+    if (!neu[charId].length) delete neu[charId];
+    ansageVorratSchreiben(neu);
+    return neu;
+  });
   useEffect(() => {
     const creds = serverCreds();
     if (!isDmMode || !advId || !verbunden(creds)) {
@@ -28661,6 +28899,34 @@ function App() {
       text: ''
     }, ansageHeldId);
     if (raus && nimmt > 0) zauberplatzStreichen(ansageHeldId, nimmt);
+  };
+  const vorratSenden = async e => {
+    const charId = ansageHeldId;
+    const held = charsRef.current.find(c => c.id === charId);
+    const k = kampfSichtRef.current || kampfSichtDaten;
+    if (!held || !k) return;
+    const liste = k.teilnehmer || [];
+    const st = entwurfStand(held, e, liste);
+    if (!st.fertig) {
+      setAnsageEntwurf(e);
+      setAnsageFuer(charId);
+      return;
+    }
+    const a = ansageBauen(held, {
+      typ: e.typ,
+      wahl: st.wahl,
+      zielIds: e.zielIds,
+      text: e.text,
+      geheim: e.geheim
+    }, liste, advChars);
+    const raus = await ansageSenden(a, charId);
+    if (!raus) return;
+    vorratAendern(charId, l => l.filter(x => x.id !== e.id));
+    const platz = a.art === 'zauber' && a.stufe > 0 ? zauberplatzStreichen(charId, a.stufe, a.typ === 'reaktion') : null;
+    setBenutztHinweis({
+      t: Date.now(),
+      text: '📣 Angesagt' + (a.was ? ': ' + a.was : '') + (a.waffe ? ' mit ' + a.waffe : '') + (platz && platz.gestrichen ? ' · Platz ' + platz.grad + '. Grad gestrichen' : platz ? ' · kein Platz vom ' + platz.grad + '. Grad mehr frei' : '')
+    });
   };
   const ansageHeldId = (() => {
     if (!kampfSichtDaten) return null;
@@ -31520,6 +31786,19 @@ function App() {
   }, React.createElement("div", {
     className: "form-grid"
   }, React.createElement("div", {
+    className: "form-group form-full"
+  }, React.createElement("label", {
+    className: "zw-schalter"
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: !!sf.waffenangriff,
+    onChange: e => setSf({
+      ...sf,
+      waffenangriff: e.target.checked
+    })
+  }), React.createElement("span", null, "\u2694 Wird mit einem Waffenangriff gewirkt \u2014 wie Dr\xF6hnende Klinge")), React.createElement("div", {
+    className: "reiter-hinweis"
+  }, "Beim Ansagen w\xE4hlt man dann zum Zauber die Waffe; Angriff und Schaden der Waffe stehen daneben, der W\xFCrfel des Zaubers kommt dazu.")), React.createElement("div", {
     className: "form-group form-full"
   }, React.createElement("div", {
     className: "form-label zauber-wirkung-kopf"
@@ -35656,17 +35935,36 @@ function App() {
     eigeneIds: eigeneHeldenIds,
     setDefs: setDefs,
     tpOffen: tpOffen,
-    onAnsage: ansageHeldId ? () => setAnsageFuer(ansageHeldId) : null,
+    onAnsage: ansageHeldId ? () => {
+      setAnsageEntwurf(null);
+      setAnsageFuer(ansageHeldId);
+    } : null,
     eigenerHeld: chars.find(c => c.id === ansageHeldId) || null,
+    vorrat: ansageHeldId ? ansageVorrat[ansageHeldId] || [] : [],
+    onVorratSenden: vorratSenden,
+    onVorratWeiter: e => {
+      setAnsageEntwurf(e);
+      setAnsageFuer(ansageHeldId);
+    },
+    onVorratWeg: id => vorratAendern(ansageHeldId, l => l.filter(x => x.id !== id)),
     onReaktion: ansageHeldId ? reaktionSenden : null,
     onSchliessen: () => setShowKampfSicht(false)
   })), ansageFuer && kampfSichtDaten && React.createElement(AnsageFenster, {
+    key: ansageEntwurf && ansageEntwurf.id || 'neu',
     held: chars.find(c => c.id === ansageFuer),
     kampf: kampfSichtDaten,
     helden: advChars,
     runde: kampfSichtDaten.runde || 1,
     setDefs: setDefs,
-    onAbbrechen: () => setAnsageFuer(null),
+    entwurf: ansageEntwurf,
+    vorrat: ansageVorrat[ansageFuer] || [],
+    onParken: e => vorratAendern(ansageFuer, l => [...l.filter(x => x.id !== e.id), e]),
+    onLaden: e => setAnsageEntwurf(e),
+    onEntwurfWeg: id => vorratAendern(ansageFuer, l => l.filter(x => x.id !== id)),
+    onAbbrechen: () => {
+      setAnsageFuer(null);
+      setAnsageEntwurf(null);
+    },
     onSenden: ansageSenden,
     onPlatz: (grad, hoeher) => zauberplatzStreichen(ansageFuer, grad, hoeher)
   }), showKampf && isDmMode && React.createElement(LeistenFenster, {
