@@ -215,6 +215,15 @@ auf einmal; dort wartet der Puls deshalb hoechstens eine Sekunde.
   wird nur der des offenen Abenteuers. Die Chronik wird mit `adv_id`
   gespeichert und je Abenteuer zusammengefuehrt. Jede Abfrageschleife,
   die einen Stand (`…StandRef`) mitschickt, setzt ihn zu Beginn auf −1.
+- **Bilder** stehen nicht mehr als Data-URL im JSON. Der Server legt sie
+  beim Speichern (Bogen, Gegenstand, Bibliothek, Gegner, DM-Bibliothek,
+  Nachricht zur Probe) als Datei ab — `planer-dateien/<Ablage der
+  Gruppe>/bild-<sha256>.<endung>`, die Ablage steht in `hb_meta`
+  (`bilder:<code>`) — und schreibt den Pfad hinein (`bilderAuslagern`).
+  Der Pfad ist relativ zu `api.php`, also auch zur `index.html`. Die
+  Antwort meldet, was ersetzt wurde (`bilder`), der Browser uebernimmt es
+  (`bilderEinsetzen`). Was noch eingebettet ist, zieht beim Laden um.
+  Nur PNG, JPEG, WebP und GIF; ein SVG bleibt eingebettet.
 
 ## Serverseite lokal testen
 

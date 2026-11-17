@@ -630,10 +630,12 @@ function App() {
       };
       const auftraege = [
         ...Object.values(toSave).map(e =>
-          ({zurueck: () => { pendingChars.current[e.c.id] = e; },
+          ({art: 'char', id: e.c.id,
+            zurueck: () => { pendingChars.current[e.c.id] = e; },
             tun: () => apiSaveChar(url, code, pass, e.c.id, frisch(e))})),
         ...Object.values(toSaveI).map(o =>
-          ({zurueck: () => { pendingItems.current[o.charId+'__'+o.itemId] = o; },
+          ({art: 'item', charId: o.charId, itemId: o.itemId,
+            zurueck: () => { pendingItems.current[o.charId+'__'+o.itemId] = o; },
             tun: () => apiSaveItem(url, code, pass, o.charId, o.itemId, o.item)})),
         ...[...toDelete].map(id =>
           ({zurueck: () => pendingDeletes.current.add(id),
@@ -661,6 +663,27 @@ function App() {
         letzterFehler = grund;
         auftraege[i].zurueck();
       });
+      // Was der Server als Datei abgelegt hat, steht ab jetzt auch hier
+      // als Pfad — sonst ginge das Portraet mit jedem Speichern wieder
+      // hoch. Ohne Eintrag in die Warteschlange: der Server hat es schon.
+      const tausch = ergebnisse.map((e, i) => ({a: auftraege[i],
+        bilder: e.status === 'fulfilled' && e.value && Array.isArray(e.value.bilder) ? e.value.bilder : []}))
+        .filter(t => t.bilder.length && (t.a.art === 'char' || t.a.art === 'item'));
+      if (tausch.length) {
+        const vorher = charsRef.current;
+        let next = vorher;
+        tausch.forEach(({a, bilder}) => {
+          next = next.map(c => {
+            if (a.art === 'char' && c.id === a.id) return bilderEinsetzen(c, bilder);
+            if (a.art === 'item' && c.id === a.charId) {
+              const inv = (c.inventory || []).map(it => it.id === a.itemId ? bilderEinsetzen(it, bilder) : it);
+              return inv.some((x, j) => x !== c.inventory[j]) ? {...c, inventory: inv} : c;
+            }
+            return c;
+          });
+        });
+        if (next.some((c, j) => c !== vorher[j])) { applyChars(next); spiegleChars(JSON.stringify(next)); }
+      }
       // Jede Antwort traegt den Stand nach dem Schreiben. Ihn hier zu
       // uebernehmen heisst: der naechste Abgleich erkennt die eigene
       // Aenderung und laedt sie nicht noch einmal herunter.
@@ -1005,6 +1028,20 @@ function App() {
   // gerade geltenden eine neue macht. Die Funktion ist der sichere Weg:
   // wer {...userLibrary, x} schreibt, schreibt den Stand, den sein Bild
   // gerade kannte — und der kann aelter sein als der auf dem Server.
+  // Die Bilder, die der Server beim Speichern der Bibliothek ausgelagert
+  // hat, stehen danach auch hier als Pfad.
+  const libBilder = (d) => {
+    if (!d || !Array.isArray(d.bilder) || !d.bilder.length) return;
+    setUserLibrary(prev => {
+      const n = bilderEinsetzen(prev, d.bilder);
+      if (n !== prev) safeSetItem('hb_library', JSON.stringify(n));
+      return n;
+    });
+  };
+  const dmLibBilder = (d) => {
+    if (d && Array.isArray(d.bilder) && d.bilder.length) setDmLibrary(prev => bilderEinsetzen(prev, d.bilder));
+  };
+
   const saveLibrary = (libOderFn) => {
     // Setzt bewusst nicht libGeladen: hier kommt auch die
     // Abenteuer-Umstellung durch, die ein Abenteuer ohne Einstellungen
@@ -1025,6 +1062,7 @@ function App() {
       const zug = serverCreds();
       if (verbunden(zug)) {
         apiSaveLibrary(zug.url, zug.code, zug.pass, null, libPatch(prev, lib))
+          .then(libBilder)
           // Frueher verschwand ein Fehler hier lautlos — die Bibliothek
           // stand dann oertlich anders da als auf dem Server. Gesagt wird
           // deshalb auch, was das bedeutet: oertlich ist es geschrieben,
@@ -1185,14 +1223,14 @@ function App() {
     if (isDmMode) {
       setDmLibrary(prev => {
         const lib = updater(prev);
-        apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).catch(()=>{});
+        apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).then(dmLibBilder).catch(()=>{});
         return lib;
       });
     } else {
       setUserLibrary(prev => {
         const lib = updater(prev);
         safeSetItem('hb_library', JSON.stringify(lib));
-        apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).catch(()=>{});
+        apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).then(libBilder).catch(()=>{});
         return lib;
       });
     }
@@ -1385,7 +1423,10 @@ function App() {
     setEnemies(list => list.some(x=>x.id===e.id) ? list.map(x=>x.id===e.id?e:x) : [...list, e]);
     const {url, code, pass} = serverCreds();
     try {
-      await apiDmSaveEnemy(url, code, pass, dmPassRef.current, e.id, e);
+      const d = await apiDmSaveEnemy(url, code, pass, dmPassRef.current, e.id, e);
+      // Das Gegnerbild liegt jetzt als Datei; hier steht ab jetzt der Pfad.
+      if (d && Array.isArray(d.bilder) && d.bilder.length)
+        setEnemies(list => list.map(x => x.id === e.id ? bilderEinsetzen(x, d.bilder) : x));
       return true;
     } catch (err) {
       appAlert('Gegner konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler'));
@@ -1591,7 +1632,7 @@ function App() {
     setDmLibrary(lib);
     const {url, code, pass} = serverCreds();
     if (!verbunden(serverCreds()) || !dmBereit()) return;
-    apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).catch(()=>{});
+    apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).then(dmLibBilder).catch(()=>{});
   };
 
   // vomNutzer sagt, ob dahinter ein Klick steht. Nur dann wird ein

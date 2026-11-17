@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.8.0';
+const HB_VERSION = 'v6.9.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -26739,11 +26739,16 @@ function App() {
         return bogen;
       };
       const auftraege = [...Object.values(toSave).map(e => ({
+        art: 'char',
+        id: e.c.id,
         zurueck: () => {
           pendingChars.current[e.c.id] = e;
         },
         tun: () => apiSaveChar(url, code, pass, e.c.id, frisch(e))
       })), ...Object.values(toSaveI).map(o => ({
+        art: 'item',
+        charId: o.charId,
+        itemId: o.itemId,
         zurueck: () => {
           pendingItems.current[o.charId + '__' + o.itemId] = o;
         },
@@ -26776,6 +26781,34 @@ function App() {
         letzterFehler = grund;
         auftraege[i].zurueck();
       });
+      const tausch = ergebnisse.map((e, i) => ({
+        a: auftraege[i],
+        bilder: e.status === 'fulfilled' && e.value && Array.isArray(e.value.bilder) ? e.value.bilder : []
+      })).filter(t => t.bilder.length && (t.a.art === 'char' || t.a.art === 'item'));
+      if (tausch.length) {
+        const vorher = charsRef.current;
+        let next = vorher;
+        tausch.forEach(({
+          a,
+          bilder
+        }) => {
+          next = next.map(c => {
+            if (a.art === 'char' && c.id === a.id) return bilderEinsetzen(c, bilder);
+            if (a.art === 'item' && c.id === a.charId) {
+              const inv = (c.inventory || []).map(it => it.id === a.itemId ? bilderEinsetzen(it, bilder) : it);
+              return inv.some((x, j) => x !== c.inventory[j]) ? {
+                ...c,
+                inventory: inv
+              } : c;
+            }
+            return c;
+          });
+        });
+        if (next.some((c, j) => c !== vorher[j])) {
+          applyChars(next);
+          spiegleChars(JSON.stringify(next));
+        }
+      }
       if (staende.length) revRef.current = Math.max(revRef.current || 0, ...staende);
       if (letzterFehler) pendingRef.current = true;
       merkeWarteschlange();
@@ -27065,6 +27098,17 @@ function App() {
   };
   const libWort = (k, n) => (LIB_WORT[k] || [k, k])[n === 1 ? 0 : 1];
   const libZaehlen = l => LIB_INHALT.reduce((s, k) => s + ((l || {})[k] || []).length, 0);
+  const libBilder = d => {
+    if (!d || !Array.isArray(d.bilder) || !d.bilder.length) return;
+    setUserLibrary(prev => {
+      const n = bilderEinsetzen(prev, d.bilder);
+      if (n !== prev) safeSetItem('hb_library', JSON.stringify(n));
+      return n;
+    });
+  };
+  const dmLibBilder = d => {
+    if (d && Array.isArray(d.bilder) && d.bilder.length) setDmLibrary(prev => bilderEinsetzen(prev, d.bilder));
+  };
   const saveLibrary = libOderFn => {
     setUserLibrary(prev => {
       const lib = typeof libOderFn === 'function' ? libOderFn(prev) : libOderFn;
@@ -27075,7 +27119,7 @@ function App() {
       safeSetItem('hb_library', JSON.stringify(lib));
       const zug = serverCreds();
       if (verbunden(zug)) {
-        apiSaveLibrary(zug.url, zug.code, zug.pass, null, libPatch(prev, lib)).catch(e => appAlert('Die Datenbank konnte nicht gespeichert werden: ' + (e.message || 'unbekannter Fehler') + ' — auf diesem Gerät steht sie damit anders da als auf dem Server. ' + 'Mach eine Sicherung (⬇ unten im Datenbankfenster), bevor du neu lädst.'));
+        apiSaveLibrary(zug.url, zug.code, zug.pass, null, libPatch(prev, lib)).then(libBilder).catch(e => appAlert('Die Datenbank konnte nicht gespeichert werden: ' + (e.message || 'unbekannter Fehler') + ' — auf diesem Gerät steht sie damit anders da als auf dem Server. ' + 'Mach eine Sicherung (⬇ unten im Datenbankfenster), bevor du neu lädst.'));
       }
       return lib;
     });
@@ -27313,14 +27357,14 @@ function App() {
     if (isDmMode) {
       setDmLibrary(prev => {
         const lib = updater(prev);
-        apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).catch(() => {});
+        apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).then(dmLibBilder).catch(() => {});
         return lib;
       });
     } else {
       setUserLibrary(prev => {
         const lib = updater(prev);
         safeSetItem('hb_library', JSON.stringify(lib));
-        apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).catch(() => {});
+        apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).then(libBilder).catch(() => {});
         return lib;
       });
     }
@@ -27540,7 +27584,8 @@ function App() {
       pass
     } = serverCreds();
     try {
-      await apiDmSaveEnemy(url, code, pass, dmPassRef.current, e.id, e);
+      const d = await apiDmSaveEnemy(url, code, pass, dmPassRef.current, e.id, e);
+      if (d && Array.isArray(d.bilder) && d.bilder.length) setEnemies(list => list.map(x => x.id === e.id ? bilderEinsetzen(x, d.bilder) : x));
       return true;
     } catch (err) {
       appAlert('Gegner konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler'));
@@ -27812,7 +27857,7 @@ function App() {
       pass
     } = serverCreds();
     if (!verbunden(serverCreds()) || !dmBereit()) return;
-    apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).catch(() => {});
+    apiDmSaveLibrary(url, code, pass, dmPassRef.current, lib).then(dmLibBilder).catch(() => {});
   };
   const save = (u, vomNutzer) => {
     const prev = charsRef.current;

@@ -2338,3 +2338,32 @@ const libPatch = (alt, neu) => {
 };
 const libPatchLeer = (p) => !p || (!Object.keys(p.setzen || {}).length && !Object.keys(p.teil || {}).length
   && !Object.keys(p.liste || {}).length && !(p.weg || []).length);
+
+// ── Bilder als Dateien ────────────────────────────────────────────
+// Der Server legt ein eingebettetes Bild beim Speichern als Datei ab und
+// sagt, wo er was ersetzt hat: [{pfad, url, laenge, ende}] (api.php,
+// bilderAuslagern). Hier wird dasselbe im eigenen Stand getan — aber nur,
+// wo noch genau dieses Bild steht (gleiche Laenge, gleiches Ende). Wer es
+// inzwischen gegen ein anderes getauscht hat, behaelt seins; das geht mit
+// dem naechsten Speichern hinaus und wird dann ausgelagert.
+// Unveraenderte Teile bleiben dieselben Objekte.
+const bilderEinsetzen = (obj, liste) => {
+  let raus = obj;
+  (liste || []).forEach(b => {
+    const pfad = (b && b.pfad) || [];
+    if (!pfad.length || typeof b.url !== 'string') return;
+    const setzen = (o, i) => {
+      if (o === null || typeof o !== 'object') return o;
+      const k = pfad[i];
+      if (!(k in o)) return o;
+      const neu = i === pfad.length - 1
+        ? ((typeof o[k] === 'string' && o[k].indexOf('data:image/') === 0
+            && o[k].length === b.laenge && o[k].slice(-32) === b.ende) ? b.url : o[k])
+        : setzen(o[k], i + 1);
+      if (neu === o[k]) return o;
+      return Array.isArray(o) ? o.map((x, j) => (j === +k ? neu : x)) : {...o, [k]: neu};
+    };
+    raus = setzen(raus, 0);
+  });
+  return raus;
+};

@@ -1861,6 +1861,65 @@ pruefe('in Eberron laeuft davon nichts', ($r['body']['kampf'] ?? null) === null 
        kurz($r));
 ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => null]);
 
+abschnitt('Bilder als Dateien');
+// Ein PNG: die acht Bytes am Anfang reichen der Pruefung, der Rest macht
+// die Data-URL lang genug, um als Bild zu gelten.
+$pngRoh = "\x89PNG\r\n\x1a\n" . str_repeat("\0", 400);
+$png    = 'data:image/png;base64,' . base64_encode($pngRoh);
+$png2   = 'data:image/png;base64,' . base64_encode("\x89PNG\r\n\x1a\n" . str_repeat("\1", 400));
+$pfadMuster = '#^planer-dateien/[0-9a-f]{32}/bild-[0-9a-f]{40}\.png$#';
+$heldVon = function (string $id) use ($code, $tAdmin): array {
+    $r = ruf('load', ['code' => $code, 'token' => $tAdmin]);
+    foreach ($r['body']['chars'] ?? [] as $c) if (($c['id'] ?? '') === $id) return $c;
+    return [];
+};
+$h1 = $heldVon('h1');
+unset($h1['inventory']);
+$r = ruf('save_char', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'char' => ['portrait' => $png] + $h1]);
+$b = $r['body']['bilder'] ?? [];
+pruefe('ein Portraet wird beim Speichern ausgelagert (200)', $r['status'] === 200 && count($b) === 1, kurz($r));
+pruefe('  … die Antwort sagt, wo und was', ($b[0]['pfad'] ?? null) === ['portrait']
+       && preg_match($pfadMuster, (string)($b[0]['url'] ?? '')) === 1
+       && ($b[0]['laenge'] ?? 0) === strlen($png) && ($b[0]['ende'] ?? '') === substr($png, -32), json_encode($b));
+$datei = __DIR__ . '/../' . ($b[0]['url'] ?? 'gibtsnicht');
+pruefe('  … die Datei liegt in der Ablage, Byte fuer Byte', is_file($datei) && file_get_contents($datei) === $pngRoh);
+pruefe('  … und im Bogen steht nur noch der Pfad', ($heldVon('h1')['portrait'] ?? '') === ($b[0]['url'] ?? '-'));
+$r = ruf('save_char', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'char' => ['portrait' => $png] + $h1]);
+pruefe('dasselbe Bild noch einmal: dieselbe Datei', ($r['body']['bilder'][0]['url'] ?? '') === ($b[0]['url'] ?? '-'));
+
+$r = ruf('save_item', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'item_id' => 'bildstueck',
+                       'item' => ['id' => 'bildstueck', 'name' => 'Amulett', 'imageData' => $png2]]);
+pruefe('ein Gegenstandsbild ebenso', ($r['body']['bilder'][0]['pfad'] ?? null) === ['imageData']
+       && preg_match($pfadMuster, (string)($r['body']['bilder'][0]['url'] ?? '')) === 1, kurz($r));
+
+$r = ruf('save_library', ['code' => $code, 'token' => $tAdmin, 'patch' => [
+    'setzen' => ['item' => [['name' => 'Krone'], ['name' => 'Spiegel', 'imageData' => $png2]]]]]);
+pruefe('ein Bild in der Bibliothek ebenso, mit Pfad in der Bibliothek',
+       ($r['body']['bilder'][0]['pfad'] ?? null) === ['item', 1, 'imageData'], kurz($r));
+
+$svg = 'data:image/svg+xml;base64,' . base64_encode(str_repeat('<svg/>', 60));
+$r = ruf('save_item', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'item_id' => 'svgstueck',
+                       'item' => ['id' => 'svgstueck', 'name' => 'Karte', 'imageData' => $svg]]);
+pruefe('ein SVG bleibt, wie es ist (keine Datei, die Skript tragen kann)', ($r['body']['bilder'] ?? null) === [], kurz($r));
+ruf('delete_item', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'item_id' => 'svgstueck']);
+
+// Was vor dem Umbau gespeichert war, zieht beim Laden einmal um.
+require_once __DIR__ . '/config.dev.php';
+if (substr(DB_NAME, -4) === '_dev') {
+    $db = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS,
+                  [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $alt = json_encode(['portrait' => $png2] + $h1, JSON_UNESCAPED_UNICODE);
+    $db->prepare("UPDATE hb_chars SET char_json=? WHERE session_code=? AND char_id='h1'")->execute([$alt, $code]);
+    $p = $heldVon('h1')['portrait'] ?? '';
+    pruefe('ein Bild von frueher kommt beim Laden schon als Pfad', preg_match($pfadMuster, $p) === 1, substr($p, 0, 40));
+    $st = $db->prepare("SELECT char_json FROM hb_chars WHERE session_code=? AND char_id='h1'");
+    $st->execute([$code]);
+    pruefe('  … und steht so auch in der Datenbank', strpos((string)$st->fetchColumn(), 'data:image/') === false);
+    $st = $db->prepare("SELECT COUNT(*) FROM hb_meta WHERE schluessel='schema'");
+    $st->execute();
+    pruefe('der Stand des Schemas steht in hb_meta', (int)$st->fetchColumn() === 1);
+}
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));

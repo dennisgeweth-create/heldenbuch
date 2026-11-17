@@ -1090,6 +1090,9 @@ function respond(int $status, string $message, array $extra=[]): never {
 
 // Lädt alle Chars + Items, migriert Legacy-Daten einmalig
 function loadAll(PDO $pdo, string $code, array $sessionRow, ?callable $dmSicht = null): array {
+    // Beim ersten Laden nach dem Umbau ziehen alle alten Bilder auf einmal
+    // in die Ablage; das darf dauern.
+    @set_time_limit(120);
     // 1. Check ob hb_chars leer — dann von chars_json migrieren
     $stmt = $pdo->prepare("SELECT COUNT(*) as n FROM hb_chars WHERE session_code=?");
     $stmt->execute([$code]);
@@ -1122,11 +1125,20 @@ function loadAll(PDO $pdo, string $code, array $sessionRow, ?callable $dmSicht =
     $charRows = $stmt->fetchAll();
 
     // 3. Lade alle Items für diese Session
-    $stmt = $pdo->prepare("SELECT char_id, item_json FROM hb_items WHERE session_code=? ORDER BY id ASC");
+    $stmt = $pdo->prepare("SELECT char_id, item_id, item_json FROM hb_items WHERE session_code=? ORDER BY id ASC");
     $stmt->execute([$code]);
     $itemsByChar = [];
+    // Bilder von frueher ziehen hier einmal in die Ablage. Zurueck-
+    // geschrieben wird nur, wenn die Zeile noch so dasteht wie gelesen —
+    // ein Speichern dazwischen ist neuer und gewinnt.
+    $umzugI = []; $umzugC = [];
     foreach ($stmt->fetchAll() as $r) {
         $item = json_decode($r['item_json'], true);
+        if ($item && hatEingebetteteBilder($r['item_json'])) {
+            $l = [];
+            $item = bilderAuslagern($pdo, $code, $item, $l);
+            if ($l) $umzugI[] = [json_encode($item, JSON_UNESCAPED_UNICODE), $code, $r['char_id'], $r['item_id'], $r['item_json']];
+        }
         if ($item) $itemsByChar[$r['char_id']][] = $item;
     }
 
@@ -1138,6 +1150,11 @@ function loadAll(PDO $pdo, string $code, array $sessionRow, ?callable $dmSicht =
     foreach ($charRows as $r) {
         $c = json_decode($r['char_json'], true);
         if (!$c) continue;
+        if (hatEingebetteteBilder($r['char_json'])) {
+            $l = [];
+            $c = bilderAuslagern($pdo, $code, $c, $l);
+            if ($l) $umzugC[] = [json_encode($c, JSON_UNESCAPED_UNICODE), $code, $r['char_id'], $r['char_json']];
+        }
         // Der Bogen eines NSC oder DM-Helden verlaesst den Server nur in
         // Richtung Spielleitung. Der Stand (updated_at) zaehlt trotzdem
         // weiter — sonst haengt der Abgleich des Spielers an einer
@@ -1168,6 +1185,14 @@ function loadAll(PDO $pdo, string $code, array $sessionRow, ?callable $dmSicht =
     if ($nach) {
         $up = $pdo->prepare("UPDATE hb_chars SET adv_id=?, dm_only=? WHERE session_code=? AND char_id=?");
         foreach ($nach as $z2) $up->execute($z2);
+    }
+    if ($umzugC) {
+        $up = $pdo->prepare("UPDATE hb_chars SET char_json=? WHERE session_code=? AND char_id=? AND char_json=?");
+        foreach ($umzugC as $u) $up->execute($u);
+    }
+    if ($umzugI) {
+        $up = $pdo->prepare("UPDATE hb_items SET item_json=? WHERE session_code=? AND char_id=? AND item_id=? AND item_json=?");
+        foreach ($umzugI as $u) $up->execute($u);
     }
     return ['chars' => $chars, 'owners' => $besitz, 'updated_at' => $latestTs];
 }
@@ -1395,6 +1420,115 @@ function planJson(array $o, array $ohne): string {
     return $j;
 }
 
+// ── Bilder als Dateien ──────────────────────────────────────────
+// Bis v6.8 stand jedes Bild als Data-URL im JSON: das Portraet im Bogen,
+// das Bild an jeder Waffe, jedem Gegenstand, jedem Gegner, jedem Eintrag
+// der Bibliothek. Jedes volle Laden schickte sie alle mit, und jedes
+// Speichern eines Bogens schickte sein Portraet wieder hoch.
+//
+// Jetzt legt der Server ein Bild beim Speichern als Datei ab und schreibt
+// an seine Stelle den Pfad: planer-dateien/<Ablage der Gruppe>/bild-….
+// Der Name kommt aus dem Inhalt (SHA-256) — dasselbe Bild liegt nur
+// einmal da, und es zweimal zu schicken legt nichts doppelt an. Die
+// Ablage ist ein zufaelliger Ordner je Gruppe (hb_meta 'bilder:<code>');
+// ohne den Namen findet niemand die Dateien, und Verzeichnislisten
+// verbietet die .htaccess der Ablage.
+//
+// Der Pfad ist relativ zu api.php — dort, wo auch die Anwendung liegt;
+// ein <img src> findet ihn ohne Umweg.
+const BILD_MAX_BYTES = 8000000;
+function bildAblageGruppe(PDO $pdo, string $code): string {
+    static $merk = [];
+    if (isset($merk[$code])) return $merk[$code];
+    $k = 'bilder:' . $code;
+    $st = $pdo->prepare("SELECT wert FROM hb_meta WHERE schluessel=?");
+    $st->execute([$k]);
+    $w = (string)$st->fetchColumn();
+    if (!preg_match('/^[0-9a-f]{32}$/', $w)) {
+        $pdo->prepare("INSERT IGNORE INTO hb_meta (schluessel, wert) VALUES (?, ?)")
+            ->execute([$k, bin2hex(random_bytes(16))]);
+        $st->execute([$k]);
+        $w = (string)$st->fetchColumn();
+    }
+    return $merk[$code] = $w;
+}
+// Eine Data-URL als Datei ablegen. Was keine erkennbare Bilddatei ist
+// (SVG, Unsinn, zu gross), bleibt, wie es war — null heisst: nicht
+// ausgelagert.
+function bildDatei(PDO $pdo, string $code, string $daten): ?string {
+    if (!preg_match('#^data:image/(png|jpe?g|webp|gif);base64,#', $daten, $m)) return null;
+    $roh = base64_decode(substr($daten, strlen($m[0])), true);
+    if ($roh === false || $roh === '' || strlen($roh) > BILD_MAX_BYTES) return null;
+    $endung = ($m[1] === 'jpeg') ? 'jpg' : $m[1];
+    $passt = $endung === 'gif' ? strncmp($roh, 'GIF8', 4) === 0 : planInhaltPasst($endung, $roh);
+    if (!$passt) return null;
+    $ablage = bildAblageGruppe($pdo, $code);
+    $ordner = planOrdner($ablage, true);
+    $datei  = 'bild-' . substr(hash('sha256', $roh), 0, 40) . '.' . $endung;
+    $ziel   = $ordner . '/' . $datei;
+    if (!is_file($ziel)) {
+        $tmp = $ziel . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        if (@file_put_contents($tmp, $roh) === false || !@rename($tmp, $ziel)) {
+            @unlink($tmp);
+            return is_file($ziel) ? 'planer-dateien/' . $ablage . '/' . $datei : null;
+        }
+    }
+    return 'planer-dateien/' . $ablage . '/' . $datei;
+}
+// Durch einen Bogen, Gegenstand, Gegner oder die Bibliothek gehen und
+// jedes eingebettete Bild auslagern. In $liste steht danach, was wo
+// ersetzt wurde — der Browser tauscht damit sein eigenes Bild gegen den
+// Pfad (bilderEinsetzen in js/util.js) und schickt es nicht noch einmal.
+// laenge und ende sagen ihm, ob dort noch dasselbe Bild steht.
+function bilderAuslagern(PDO $pdo, string $code, $wert, array &$liste, array $pfad = []) {
+    if (is_string($wert)) {
+        if (strlen($wert) > 200 && strncmp($wert, 'data:image/', 11) === 0) {
+            $url = bildDatei($pdo, $code, $wert);
+            if ($url !== null) {
+                $liste[] = ['pfad' => $pfad, 'url' => $url, 'laenge' => strlen($wert), 'ende' => substr($wert, -32)];
+                return $url;
+            }
+        }
+        return $wert;
+    }
+    if (!is_array($wert) || count($pfad) > 14) return $wert;
+    foreach ($wert as $k => $v) {
+        if (is_string($v) && strlen($v) <= 200) continue;
+        $wert[$k] = bilderAuslagern($pdo, $code, $v, $liste, array_merge($pfad, [$k]));
+    }
+    return $wert;
+}
+// Steht in diesem JSON ueberhaupt ein eingebettetes Bild? Ein Blick in
+// den Text, bevor er entpackt wird. json_encode schreibt den Schraegstrich
+// als \/ — so steht es in der Datenbank; ein Browser schreibt ihn ohne.
+function hatEingebetteteBilder(?string $json): bool {
+    return $json !== null && (strpos($json, '"data:image\/') !== false || strpos($json, '"data:image/') !== false);
+}
+
+// Die Bibliothek beim Laden: stehen noch Bilder darin, ziehen sie einmal
+// in die Ablage — unter Sperre, weil die Bibliothek allen gehoert.
+function bibliothekUmziehen(PDO $pdo, string $code): ?string {
+    $json = sitzungsSpalte($pdo, $code, 'library_json');
+    if (!hatEingebetteteBilder($json)) return $json;
+    @set_time_limit(120);
+    $pdo->beginTransaction();
+    $st = $pdo->prepare("SELECT library_json FROM hb_sessions WHERE code=? FOR UPDATE");
+    $st->execute([$code]);
+    $json = $st->fetchColumn();
+    $json = ($json === false || $json === null) ? null : (string)$json;
+    $lib = json_decode((string)$json, true);
+    if (is_array($lib)) {
+        $l = [];
+        $lib = bilderAuslagern($pdo, $code, $lib, $l);
+        if ($l) {
+            $json = json_encode($lib, JSON_UNESCAPED_UNICODE);
+            $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$json, $code]);
+        }
+    }
+    $pdo->commit();
+    return $json;
+}
+
 // ── Die Bibliothek zusammenfuehren ──────────────────────────────
 // Drei Arten von Schluesseln, drei Arten zu mischen:
 //   setzen  — ein Schluessel als Ganzes (die Zauber, die Waffen …)
@@ -1504,7 +1638,7 @@ switch ($action) {
             // weiss ohnehin, wer am Schirm sitzt.
             'adv_dms'    => (object)advDmKarte($pdo, $code),
             'log_tage'   => logFrist($row),
-            'library'    => json_decode(sitzungsSpalte($pdo, $code, 'library_json') ?? '{}', true) ?? [],
+            'library'    => json_decode(bibliothekUmziehen($pdo, $code) ?? '{}', true) ?? [],
             'has_dm'     => !empty($row['dm_pass_hash']),
             'updated_at' => $result['updated_at'],
             // Fuer den Hintergrundabgleich: die billige Kennung und der
@@ -1596,10 +1730,14 @@ switch ($action) {
         if (!$char || !$charId) respond(400, 'Fehlende Daten.');
         if (!is_array($char)) respond(400, 'Charakter hat das falsche Format.');
         unset($char['inventory']); // Items kommen über save_item
-        $json = json_encode($char, JSON_UNESCAPED_UNICODE);
-        if (strlen($json) > MAX_CHAR_BYTES) respond(413, 'Charakter zu groß.');
         $z = zugang($pdo, $code, $pass, $body);
         besitzPruefen($pdo, $z, $code, (string)$charId);
+        // Erst die Bilder hinaus, dann messen: das Portraet zaehlt nicht
+        // mehr gegen die Grenze des Bogens.
+        $bilder = [];
+        $char = bilderAuslagern($pdo, $code, $char, $bilder);
+        $json = json_encode($char, JSON_UNESCAPED_UNICODE);
+        if (strlen($json) > MAX_CHAR_BYTES) respond(413, 'Charakter zu groß.');
 
         // Vorher lesen, um zu wissen, ob sich mehr geaendert hat als die
         // Trefferpunkte. Das kostet einen Lesevorgang je Speichern —
@@ -1647,7 +1785,7 @@ switch ($action) {
                 ->execute([$code, $charId, $vitals]);
         }
         if ($inhaltNeu !== $inhaltAlt) revHoch($pdo, $code);
-        respond(200, 'Charakter gespeichert.', ['rev' => revStand($pdo, $code)]);
+        respond(200, 'Charakter gespeichert.', ['rev' => revStand($pdo, $code), 'bilder' => $bilder]);
 
     // Charakter löschen (kaskadiert nicht — Items manuell löschen)
     case 'delete_char':
@@ -1669,16 +1807,19 @@ switch ($action) {
         $itemId = $body['item_id'] ?? null;
         $item   = $body['item']   ?? null;
         if (!$charId || !$itemId || !$item) respond(400, 'Fehlende Daten.');
+        // Das Inventar gehoert zum Bogen. Ohne diese Zeile waere der
+        // Besitz mit einem Gegenstand zu umgehen. Und erst danach wird
+        // etwas in die Ablage geschrieben.
+        besitzPruefen($pdo, zugang($pdo, $code, $pass, $body), $code, (string)$charId);
+        $bilder = [];
+        if (is_array($item)) $item = bilderAuslagern($pdo, $code, $item, $bilder);
         $json = json_encode($item, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_ITEM_BYTES) respond(413, 'Item zu groß (max 2 MB).');
-        // Das Inventar gehoert zum Bogen. Ohne diese Zeile waere der
-        // Besitz mit einem Gegenstand zu umgehen.
-        besitzPruefen($pdo, zugang($pdo, $code, $pass, $body), $code, (string)$charId);
         $pdo->prepare("INSERT INTO hb_items (session_code,char_id,item_id,item_json) VALUES(?,?,?,?)
                        ON DUPLICATE KEY UPDATE item_json=VALUES(item_json), updated_at=NOW()")
             ->execute([$code, $charId, $itemId, $json]);
         revHoch($pdo, $code);
-        respond(200, 'Item gespeichert.', ['rev' => revStand($pdo, $code)]);
+        respond(200, 'Item gespeichert.', ['rev' => revStand($pdo, $code), 'bilder' => $bilder]);
 
     // Gegenstände übergeben: aus einem Bogen in einen anderen, in einem
     // Schritt. Prüfen muss der Server nur den abgebenden Bogen — wer
@@ -1766,28 +1907,50 @@ switch ($action) {
             $lib = json_decode((string)($st->fetchColumn() ?: '{}'), true);
             $library = bibliothekMischen(is_array($lib) ? $lib : [], $patch);
         }
+        // Ausgelagert wird im fertigen Stand: so stehen die Pfade dort, wo
+        // die Bibliothek sie hat, und was noch von frueher eingebettet
+        // war, zieht gleich mit um.
+        $bilder = [];
+        if (is_array($library)) $library = bilderAuslagern($pdo, $code, $library, $bilder);
         $libJson = json_encode($library ?: new stdClass(), JSON_UNESCAPED_UNICODE);
         if (strlen($libJson) > libGrenze($pdo)) zuGross('Bibliothek', strlen($libJson), libGrenze($pdo));
         $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$libJson, $code]);
         if ($pdo->inTransaction()) $pdo->commit();
         revHoch($pdo, $code);
-        respond(200, 'Bibliothek gespeichert.', ['rev' => revStand($pdo, $code)]);
+        respond(200, 'Bibliothek gespeichert.', ['rev' => revStand($pdo, $code), 'bilder' => $bilder]);
 
     case 'dm_load':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         zugangDm($pdo, $code, $pass, $dmPass, $body);
-        respond(200, 'OK', ['dm_library' => json_decode(sitzungsSpalte($pdo, $code, 'dm_library_json') ?? '{}', true) ?? []]);
+        $dmJson = sitzungsSpalte($pdo, $code, 'dm_library_json');
+        // Was noch eingebettet ist, zieht beim Laden einmal um.
+        if (hatEingebetteteBilder($dmJson)) {
+            $dmLib = json_decode($dmJson, true);
+            $l = [];
+            if (is_array($dmLib)) {
+                $dmLib = bilderAuslagern($pdo, $code, $dmLib, $l);
+                if ($l) {
+                    $neuJson = json_encode($dmLib, JSON_UNESCAPED_UNICODE);
+                    $pdo->prepare("UPDATE hb_sessions SET dm_library_json=? WHERE code=? AND dm_library_json=?")
+                        ->execute([$neuJson, $code, $dmJson]);
+                    $dmJson = $neuJson;
+                }
+            }
+        }
+        respond(200, 'OK', ['dm_library' => json_decode($dmJson ?? '{}', true) ?? []]);
 
     case 'dm_save_library':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $dmLibrary = $body['dm_library'] ?? null;
         if ($dmLibrary === null) respond(400, 'Fehlende Daten.');
-        $json = json_encode($dmLibrary, JSON_UNESCAPED_UNICODE);
         zugangDm($pdo, $code, $pass, $dmPass, $body);
+        $bilder = [];
+        if (is_array($dmLibrary)) $dmLibrary = bilderAuslagern($pdo, $code, $dmLibrary, $bilder);
+        $json = json_encode($dmLibrary, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > libGrenze($pdo)) zuGross('DM-Bibliothek', strlen($json), libGrenze($pdo));
         $pdo->prepare("UPDATE hb_sessions SET dm_library_json=? WHERE code=?")->execute([$json, $code]);
-        respond(200, 'DM-Bibliothek gespeichert.');
+        respond(200, 'DM-Bibliothek gespeichert.', ['bilder' => $bilder]);
 
     // ── Gegner ──────────────────────────────────────────────────
     // Zeilenweise gespeichert, damit das Aendern eines Gegners nicht die
@@ -1797,12 +1960,24 @@ switch ($action) {
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         zugangDm($pdo, $code, $pass, $dmPass, $body);
-        $stmt = $pdo->prepare("SELECT enemy_json FROM hb_enemies WHERE session_code=? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT enemy_id, enemy_json FROM hb_enemies WHERE session_code=? ORDER BY id ASC");
         $stmt->execute([$code]);
         $enemies = [];
-        foreach ($stmt as $r) {
+        $umzug = [];
+        foreach ($stmt->fetchAll() as $r) {
             $e = json_decode($r['enemy_json'], true);
-            if (is_array($e)) $enemies[] = $e;
+            if (!is_array($e)) continue;
+            // Ein Gegnerbild von frueher zieht hier einmal in die Ablage.
+            if (hatEingebetteteBilder($r['enemy_json'])) {
+                $l = [];
+                $e = bilderAuslagern($pdo, $code, $e, $l);
+                if ($l) $umzug[] = [json_encode($e, JSON_UNESCAPED_UNICODE), $code, $r['enemy_id'], $r['enemy_json']];
+            }
+            $enemies[] = $e;
+        }
+        if ($umzug) {
+            $up = $pdo->prepare("UPDATE hb_enemies SET enemy_json=? WHERE session_code=? AND enemy_id=? AND enemy_json=?");
+            foreach ($umzug as $u) $up->execute($u);
         }
         respond(200, 'OK', ['enemies' => $enemies]);
 
@@ -1812,13 +1987,15 @@ switch ($action) {
         $enemy   = $body['enemy'] ?? null;
         if ($enemyId === '' || $enemy === null) respond(400, 'Fehlende Daten.');
         if (strlen($enemyId) > 50) respond(400, 'Gegner-Kennung zu lang.');
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
+        $bilder = [];
+        if (is_array($enemy)) $enemy = bilderAuslagern($pdo, $code, $enemy, $bilder);
         $json = json_encode($enemy, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_ENEMY_BYTES) respond(413, 'Gegner zu groß (max 2 MB).');
-        zugangDm($pdo, $code, $pass, $dmPass, $body);
         $pdo->prepare("INSERT INTO hb_enemies (session_code,enemy_id,enemy_json) VALUES(?,?,?)
                        ON DUPLICATE KEY UPDATE enemy_json=VALUES(enemy_json)")
             ->execute([$code, $enemyId, $json]);
-        respond(200, 'Gegner gespeichert.');
+        respond(200, 'Gegner gespeichert.', ['bilder' => $bilder]);
 
     case 'dm_delete_enemy':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
@@ -1848,6 +2025,7 @@ switch ($action) {
             foreach ($liste as $e) {
                 $eid = (string)($e['id'] ?? '');
                 if ($eid === '' || strlen($eid) > 50) { $uebersprungen++; continue; }
+                if (is_array($e)) { $l = []; $e = bilderAuslagern($pdo, $code, $e, $l); }
                 $json = json_encode($e, JSON_UNESCAPED_UNICODE);
                 if (strlen($json) > MAX_ENEMY_BYTES) { $uebersprungen++; continue; }
                 $stmt->execute([$code, $eid, $json]);
@@ -2303,6 +2481,9 @@ switch ($action) {
         if ($bild !== '' && (strlen($bild) > 400000 || strpos($bild, 'data:image/') !== 0)) {
             respond(413, 'Das Bild ist zu groß.');
         }
+        // probe_json ist TEXT (64 KB) — ein Bild darin sprengte die Spalte.
+        // Als Datei bleibt nur der Pfad, und den bekommen nur die Genannten.
+        if ($bild !== '') { $alsDatei = bildDatei($pdo, $code, $bild); if ($alsDatei !== null) $bild = $alsDatei; }
         if ($text === '' && $bild === '') respond(400, 'Nichts zu senden.');
         if (!$an) respond(400, 'An niemanden.');
 

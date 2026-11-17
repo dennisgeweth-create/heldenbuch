@@ -1,5 +1,26 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.9.0
+
+### Bilder als Dateien
+
+- Porträts, die Bilder an Waffen, Gegenständen und Gegnern und die
+  Bilder in der Bibliothek stehen nicht mehr **im** Bogen, sondern als
+  **eigene Datei** auf dem Server. Im Bogen steht nur noch, wo sie liegt.
+- Was das bringt:
+  - **Laden** schickt nicht mehr jedes Bild jedes Helden mit — ein
+    Bild holt der Browser einmal und behält es.
+  - **Speichern** eines Bogens (jeder Treffer, jeder Zauberplatz)
+    schickte bisher das Porträt jedes Mal mit hoch. Jetzt nicht mehr.
+  - Der **Speicher im Browser** läuft nicht mehr voll — die örtliche
+    Kopie der Bögen ist um die Bilder leichter.
+  - Dasselbe Bild an zwei Stellen liegt nur einmal da.
+- Bilder von früher ziehen **beim nächsten Laden von selbst** um; dafür
+  muss niemand etwas tun.
+- Ein Bild, das die Spielleitung einer **Nachricht zur Probe** mitgibt,
+  kam bisher nicht an, wenn es größer als 64 KB war — es passte nicht in
+  die Datenbank. Jetzt schon.
+
 ## v6.8.0
 
 ### Zwei Abenteuer gleichzeitig — nichts vermischt sich mehr
