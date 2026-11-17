@@ -210,6 +210,19 @@ auf einmal; dort wartet der Puls deshalb hoechstens eine Sekunde.
 - **Die Bibliothek** schickt der Browser als Patch (`libPatch` in
   `js/util.js`), der Server mischt ihn (`bibliothekMischen`). Die ganze
   Bibliothek (`library`) nur noch zum Zurueckspielen.
+- **Die Bibliothek liegt zeilenweise** in `hb_lib` (seit v6.11): je
+  Eintrag einer Sammlung eine Zeile (`art` = spell, item …, `k` = Name,
+  ein doppelter Name bekommt eine Nummer; im Primaerschluessel steht
+  `kh` = MD5 des Namens, damit er auch auf aelteren Datenbanken unter
+  767 Bytes bleibt), jede Einstellung (`_adventures`,
+  `_laeden` …) eine Zeile mit `art` `_`. `bibSchreiben` vergleicht ueber
+  `hash` und schreibt nur Geaendertes; `hb_lib_art` merkt sich je
+  Schluessel, wann er sich bewegt hat, und ein Laden mit `seit` bringt
+  nur diese Teile (`bib_teile`, im Browser `bibTeileAnwenden`). Umgezogen
+  wird beim ersten Zugriff (`bibStellen`, Merker `bib_zeilen:<code>` in
+  `hb_meta`); `hb_sessions.library_json` bleibt als Stand vom Umzug
+  stehen und wird nicht mehr geschrieben. Grenze: 2 MB je Eintrag, keine
+  fuer das Ganze.
 - **Mehrere Abenteuer:** Der Kampf der Spielleitung liegt im Geraet je
   Abenteuer (`hb_kampf:<advId>`, der Kampf traegt `advId`); gespiegelt
   wird nur der des offenen Abenteuers. Die Chronik wird mit `adv_id`

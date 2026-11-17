@@ -1,5 +1,25 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.11.0
+
+### Die Bibliothek liegt Eintrag für Eintrag
+
+- Die Bibliothek (Zauber, Waffen, Gegenstände, Sätze, Tierverwandlungen,
+  Talente, Merkmale und die Einstellungen der Abenteuer) stand bisher als
+  **ein einziges großes Stück** in der Datenbank. Jetzt ist jeder Eintrag
+  eine eigene Zeile.
+- Was das bringt:
+  - **Ändert jemand einen Zauber**, laden die anderen Geräte nicht mehr
+    die ganze Bibliothek neu, sondern nur den Teil, der sich bewegt hat —
+    etwa nur die Zauber oder nur die Abenteuer-Einstellungen.
+  - Gespeichert wird nur, was sich wirklich geändert hat.
+  - **Die Grenze von 6 MB für die ganze Bibliothek ist weg.** Sie war bei
+    gut 2 MB schon einmal erreicht; jetzt gilt nur noch: ein einzelner
+    Eintrag höchstens 2 MB.
+- Die Bibliothek zieht beim ersten Laden **von selbst** um. Der alte
+  Stand bleibt als Sicherung in der Datenbank stehen.
+- Zwei Einträge mit demselben Namen bleiben beide erhalten.
+
 ## v6.10.0
 
 ### Alte Bilddateien räumen sich weg

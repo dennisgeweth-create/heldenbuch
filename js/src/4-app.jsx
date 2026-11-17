@@ -805,6 +805,16 @@ function App() {
             spiegleChars(JSON.stringify(eigene));
             if (data.library) { setUserLibrary(data.library); setLibGeladen(true); safeSetItem('hb_library', JSON.stringify(data.library)); }
           }
+          // Die Bibliothek in Teilen — auch dann, wenn Boegen noch
+          // unterwegs sind: die Teile kommen nur dieses eine Mal, und die
+          // Warteschlange betrifft die Boegen, nicht die Bibliothek.
+          if (data.bib_teile) {
+            setUserLibrary(prev => {
+              const n = bibTeileAnwenden(prev, data.bib_teile);
+              if (n !== prev) safeSetItem('hb_library', JSON.stringify(n));
+              return n;
+            });
+          }
           if (data.rev != null) revRef.current = data.rev;
         } else if (revRef.current == null && d.rev != null) {
           revRef.current = d.rev;

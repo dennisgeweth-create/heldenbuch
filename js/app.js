@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.10.0';
+const HB_VERSION = 'v6.11.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -26914,6 +26914,13 @@ function App() {
               setLibGeladen(true);
               safeSetItem('hb_library', JSON.stringify(data.library));
             }
+          }
+          if (data.bib_teile) {
+            setUserLibrary(prev => {
+              const n = bibTeileAnwenden(prev, data.bib_teile);
+              if (n !== prev) safeSetItem('hb_library', JSON.stringify(n));
+              return n;
+            });
           }
           if (data.rev != null) revRef.current = data.rev;
         } else if (revRef.current == null && d.rev != null) {

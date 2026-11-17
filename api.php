@@ -106,7 +106,7 @@ try {
 //
 // WER UNTEN EINE TABELLE ODER SPALTE ERGAENZT, ZAEHLT SCHEMA_STAND HOCH.
 // Sonst laeuft die Aenderung auf dem Server nie.
-const SCHEMA_STAND = 3;
+const SCHEMA_STAND = 4;
 $schemaAktuell = false;
 try {
     $schemaAktuell = (string)$pdo->query("SELECT wert FROM hb_meta WHERE schluessel='schema'")->fetchColumn()
@@ -499,6 +499,37 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hb_meta (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 // Stand 3: die Liste der verwaisten Bilder steht hier (bilder_waisen:<code>).
 try { $pdo->exec("ALTER TABLE hb_meta MODIFY wert MEDIUMTEXT NOT NULL"); } catch (PDOException $e) {}
+
+// Stand 4: die Bibliothek zeilenweise. Ein Eintrag einer Sammlung (ein
+// Zauber, ein Gegenstand …) ist eine Zeile: art = die Sammlung, k = sein
+// Name. Was keine Sammlung ist (_adventures, _laeden …), steht als eine
+// Zeile mit art '_' und dem Schluessel als k. hash sagt, ob sich eine
+// Zeile geaendert hat, ohne sie zu lesen. hb_lib_art merkt sich je
+// Schluessel der Bibliothek, wann er sich zuletzt bewegt hat — daran
+// sieht ein Geraet, welchen Teil es neu braucht (auch, wenn darin nur
+// etwas geloescht wurde).
+// Im Schluessel steht nicht der Name, sondern seine Pruefsumme (kh): ein
+// Name in utf8mb4 machte den Schluessel ueber 767 Bytes lang, und aeltere
+// Datenbanken lehnen das ab — dann stuende hier die ganze Schnittstelle.
+$pdo->exec("CREATE TABLE IF NOT EXISTS hb_lib (
+    session_code VARCHAR(20)  NOT NULL,
+    art          VARCHAR(40)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    kh           CHAR(32)     CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    k            VARCHAR(191) COLLATE utf8mb4_bin NOT NULL,
+    pos          INT          NOT NULL DEFAULT 0,
+    wert         LONGTEXT     NOT NULL,
+    hash         CHAR(32)     NOT NULL,
+    updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (session_code, art, kh),
+    CONSTRAINT fk_hblib_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+$pdo->exec("CREATE TABLE IF NOT EXISTS hb_lib_art (
+    session_code VARCHAR(20)  NOT NULL,
+    schluessel   VARCHAR(40)  COLLATE utf8mb4_bin NOT NULL,
+    zeit         INT          NOT NULL,
+    PRIMARY KEY (session_code, schluessel),
+    CONSTRAINT fk_hblibart_session FOREIGN KEY (session_code) REFERENCES hb_sessions(code) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 $pdo->prepare("INSERT INTO hb_meta (schluessel, wert) VALUES ('schema', ?)
                ON DUPLICATE KEY UPDATE wert=VALUES(wert)")->execute([(string)SCHEMA_STAND]);
 }
@@ -723,6 +754,14 @@ function abenteuerListe(PDO $pdo, string $code): array {
     static $merk = [];
     if (isset($merk[$code])) return $merk[$code];
     $advs = null;
+    // Seit v6.11 steht die Liste als eigene Zeile da — eine kleine Abfrage.
+    if (bibInZeilen($pdo, $code)) {
+        $st = $pdo->prepare("SELECT wert FROM hb_lib WHERE session_code=? AND art='_' AND kh=?");
+        $st->execute([$code, md5('_adventures')]);
+        $j = $st->fetchColumn();
+        $advs = ($j === false || $j === null) ? [] : json_decode((string)$j, true);
+        return $merk[$code] = array_values(array_filter(is_array($advs) ? $advs : [], 'is_array'));
+    }
     try {
         $st = $pdo->prepare('SELECT JSON_EXTRACT(library_json, \'$._adventures\') FROM hb_sessions WHERE code=?');
         $st->execute([$code]);
@@ -1532,6 +1571,7 @@ function bilderInGebrauch(PDO $pdo, string $code): array {
         ['hb_rast', 'rast_json', 'session_code'], ['hb_post', 'text', 'session_code'],
         ['hb_logs', 'details', 'session_code'], ['hb_tb_eintrag', 'text', 'session_code'],
         ['hb_plan_obj', 'obj_json', 'session_code'], ['hb_plan_karte', 'karte_json', 'session_code'],
+        ['hb_lib', 'wert', 'session_code'],
     ];
     $da = [];
     foreach ($orte as [$tabelle, $spalte, $schluessel]) {
@@ -1614,28 +1654,165 @@ function hatEingebetteteBilder(?string $json): bool {
     return $json !== null && (strpos($json, '"data:image\/') !== false || strpos($json, '"data:image/') !== false);
 }
 
-// Die Bibliothek beim Laden: stehen noch Bilder darin, ziehen sie einmal
-// in die Ablage — unter Sperre, weil die Bibliothek allen gehoert.
-function bibliothekUmziehen(PDO $pdo, string $code): ?string {
-    $json = sitzungsSpalte($pdo, $code, 'library_json');
-    if (!hatEingebetteteBilder($json)) return $json;
+// ── Die Bibliothek zeilenweise ──────────────────────────────────
+// Bis v6.10 stand die ganze Bibliothek als ein Stueck JSON in
+// hb_sessions.library_json: jede Aenderung schrieb alles, jedes Geraet
+// lud danach alles, und ab sechs Megabyte ging gar nichts mehr. Jetzt ist
+// jeder Eintrag eine Zeile in hb_lib (Aufbau siehe Schema), geschrieben
+// wird nur, was sich geaendert hat, und ein Geraet holt nur den Teil, der
+// sich bewegt hat (bib_teile beim Laden mit seit).
+//
+// Nach aussen bleibt die Bibliothek, was sie war: ein Objekt mit den
+// Sammlungen als Listen und den Einstellungen als Schluessel. Der Browser
+// merkt vom Umbau nur, dass beim Laden Teile statt des Ganzen kommen.
+//
+// Umgezogen wird beim ersten Zugriff (bibStellen); library_json bleibt
+// als Stand vom Umzug stehen und wird danach nicht mehr geschrieben.
+function bibInZeilen(PDO $pdo, string $code): bool {
+    static $merk = [];
+    if (isset($merk[$code])) return $merk[$code];
+    $st = $pdo->prepare("SELECT wert FROM hb_meta WHERE schluessel=?");
+    $st->execute(['bib_zeilen:' . $code]);
+    return $merk[$code] = ((string)$st->fetchColumn() === '1');
+}
+// Eine Sammlung: eine Liste, in der jeder Eintrag ein Objekt mit Namen
+// ist. Alles andere ist eine Einstellung und steht als Ganzes in einer Zeile.
+function bibIstSammlung(string $schluessel, $wert): bool {
+    if ($schluessel === '' || $schluessel[0] === '_' || !preg_match('/^[A-Za-z0-9]{1,40}$/', $schluessel)
+        || !is_array($wert) || !$wert || !array_is_list($wert)) return false;
+    foreach ($wert as $e) if (!is_array($e) || !isset($e['name']) || !is_string($e['name'])) return false;
+    return true;
+}
+// Die Zeilen, die eine Bibliothek ergibt: [art, k, pos, json, hash].
+// Ein Name, der zweimal vorkommt, bekommt beim zweiten Mal eine Nummer —
+// so geht keiner verloren.
+function bibZeilenAus(array $lib): array {
+    $raus = [];
+    foreach ($lib as $schluessel => $wert) {
+        $schluessel = (string)$schluessel;
+        if (bibIstSammlung($schluessel, $wert)) {
+            $gesehen = [];
+            foreach ($wert as $i => $e) {
+                $k = mb_substr($e['name'], 0, 150);
+                $n = $gesehen[mb_strtolower($k)] = ($gesehen[mb_strtolower($k)] ?? 0) + 1;
+                if ($n > 1) $k .= "\x1F" . $n;
+                $j = json_encode($e, JSON_UNESCAPED_UNICODE);
+                $raus[] = [$schluessel, $k, $i, $j, md5($j)];
+            }
+        } else {
+            if (strlen($schluessel) > 150) continue;
+            $j = json_encode($wert, JSON_UNESCAPED_UNICODE);
+            $raus[] = ['_', $schluessel, 0, $j, md5($j)];
+        }
+    }
+    return $raus;
+}
+// Die Bibliothek aus den Zeilen. Mit $nur nur diese Schluessel.
+function bibLesen(PDO $pdo, string $code, ?array $nur = null): array {
+    $lib = [];
+    if ($nur !== null) {
+        if (!$nur) return [];
+        $platz = implode(',', array_fill(0, count($nur), '?'));
+        $st = $pdo->prepare("SELECT art, k, wert FROM hb_lib WHERE session_code=?
+                             AND (art IN ($platz) OR (art='_' AND k IN ($platz))) ORDER BY art, pos, k");
+        $st->execute(array_merge([$code], $nur, $nur));
+    } else {
+        $st = $pdo->prepare("SELECT art, k, wert FROM hb_lib WHERE session_code=? ORDER BY art, pos, k");
+        $st->execute([$code]);
+    }
+    while ($r = $st->fetch()) {
+        $w = json_decode((string)$r['wert'], true);
+        if ($r['art'] === '_') $lib[(string)$r['k']] = $w;
+        else $lib[(string)$r['art']][] = $w;
+    }
+    return $lib;
+}
+// Die Bibliothek schreiben — nur, was sich geaendert hat. Gibt die
+// Schluessel zurueck, die sich bewegt haben.
+function bibSchreiben(PDO $pdo, string $code, array $lib): array {
+    $soll = [];
+    foreach (bibZeilenAus($lib) as $z) {
+        if (strlen($z[3]) > MAX_ITEM_BYTES) {
+            respond(413, 'Ein Eintrag der Bibliothek ist zu groß (' . ($z[0] === '_' ? $z[1] : $z[0] . ': ' . $z[1])
+                . ', höchstens 2 MB).');
+        }
+        $soll[$z[0] . "\x00" . $z[1]] = $z;
+    }
+    $ist = [];
+    $st = $pdo->prepare("SELECT art, k, kh, pos, hash FROM hb_lib WHERE session_code=?");
+    $st->execute([$code]);
+    while ($r = $st->fetch()) $ist[$r['art'] . "\x00" . $r['k']] = $r;
+    $bewegt = [];
+    $schl = fn(string $art, string $k) => $art === '_' ? $k : $art;
+    $rein = $pdo->prepare("INSERT INTO hb_lib (session_code, art, kh, k, pos, wert, hash) VALUES (?,?,?,?,?,?,?)
+                           ON DUPLICATE KEY UPDATE k=VALUES(k), pos=VALUES(pos), wert=VALUES(wert), hash=VALUES(hash)");
+    $nurPos = $pdo->prepare("UPDATE hb_lib SET pos=? WHERE session_code=? AND art=? AND kh=?");
+    foreach ($soll as $id => [$art, $k, $pos, $j, $h]) {
+        $alt = $ist[$id] ?? null;
+        if ($alt && $alt['hash'] === $h) {
+            if ((int)$alt['pos'] !== $pos) { $nurPos->execute([$pos, $code, $art, md5($k)]); $bewegt[$schl($art, $k)] = true; }
+            continue;
+        }
+        $rein->execute([$code, $art, md5($k), $k, $pos, $j, $h]);
+        $bewegt[$schl($art, $k)] = true;
+    }
+    $weg = $pdo->prepare("DELETE FROM hb_lib WHERE session_code=? AND art=? AND kh=?");
+    foreach ($ist as $id => $r) {
+        if (isset($soll[$id])) continue;
+        $weg->execute([$code, $r['art'], $r['kh']]);
+        $bewegt[$schl((string)$r['art'], (string)$r['k'])] = true;
+    }
+    if ($bewegt) {
+        $zeit = $pdo->prepare("INSERT INTO hb_lib_art (session_code, schluessel, zeit) VALUES (?,?,UNIX_TIMESTAMP())
+                               ON DUPLICATE KEY UPDATE zeit=VALUES(zeit)");
+        foreach (array_keys($bewegt) as $b) if (strlen((string)$b) <= 40) $zeit->execute([$code, (string)$b]);
+    }
+    return array_keys($bewegt);
+}
+// Beim ersten Zugriff zieht die Bibliothek aus library_json in die Zeilen
+// — samt ihren Bildern in die Ablage. Unter Sperre der Gruppe: zwei
+// Geraete, die gleichzeitig zum ersten Mal kommen, ziehen nicht zweimal um.
+function bibStellen(PDO $pdo, string $code): void {
+    if (bibInZeilen($pdo, $code)) return;
     @set_time_limit(120);
-    $pdo->beginTransaction();
+    $eigene = !$pdo->inTransaction();
+    if ($eigene) $pdo->beginTransaction();
     $st = $pdo->prepare("SELECT library_json FROM hb_sessions WHERE code=? FOR UPDATE");
     $st->execute([$code]);
     $json = $st->fetchColumn();
-    $json = ($json === false || $json === null) ? null : (string)$json;
-    $lib = json_decode((string)$json, true);
-    if (is_array($lib)) {
-        $l = [];
-        $lib = bilderAuslagern($pdo, $code, $lib, $l);
-        if ($l) {
-            $json = json_encode($lib, JSON_UNESCAPED_UNICODE);
-            $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$json, $code]);
+    $st2 = $pdo->prepare("SELECT wert FROM hb_meta WHERE schluessel=?");
+    $st2->execute(['bib_zeilen:' . $code]);
+    if ((string)$st2->fetchColumn() !== '1') {
+        $lib = json_decode((string)($json ?: '{}'), true);
+        if (is_array($lib)) {
+            $l = [];
+            $lib = bilderAuslagern($pdo, $code, $lib, $l);
+            bibSchreiben($pdo, $code, $lib);
         }
+        $pdo->prepare("INSERT INTO hb_meta (schluessel, wert) VALUES (?, '1') ON DUPLICATE KEY UPDATE wert='1'")
+            ->execute(['bib_zeilen:' . $code]);
     }
-    $pdo->commit();
-    return $json;
+    if ($eigene) $pdo->commit();
+    // Der Merker in bibInZeilen kennt jetzt den neuen Stand nicht — fuer
+    // diese Anfrage reicht es, dass die Zeilen da sind.
+}
+// Die ganze Bibliothek, wie der Browser sie kennt.
+function bibGanz(PDO $pdo, string $code): array {
+    bibStellen($pdo, $code);
+    return bibLesen($pdo, $code);
+}
+// Was sich seit $seit bewegt hat: je Schluessel der neue Wert, oder null,
+// wenn es ihn nicht mehr gibt.
+function bibTeileSeit(PDO $pdo, string $code, int $seit): array {
+    bibStellen($pdo, $code);
+    $st = $pdo->prepare("SELECT schluessel FROM hb_lib_art WHERE session_code=? AND zeit >= ?");
+    $st->execute([$code, $seit]);
+    $schl = array_map('strval', $st->fetchAll(PDO::FETCH_COLUMN));
+    if (!$schl) return [];
+    $lib = bibLesen($pdo, $code, $schl);
+    $raus = [];
+    foreach ($schl as $k) $raus[$k] = array_key_exists($k, $lib) ? $lib[$k] : null;
+    return $raus;
 }
 
 // ── Die Bibliothek zusammenfuehren ──────────────────────────────
@@ -1711,11 +1888,9 @@ switch ($action) {
         if (isset($body['seit']) && (int)$body['seit'] > 0) {
             $seit = (int)$body['seit'];
             $d = ladeSeit($pdo, $code, $seit, dmSichtPruefer($pdo, $z, $code));
-            // Die Bibliothek nur, wenn die Zeile der Gruppe sich bewegt hat —
-            // in Sekunden der Datenbank, nicht in der Zeitzone von PHP.
-            $stL = $pdo->prepare("SELECT UNIX_TIMESTAMP(updated_at) FROM hb_sessions WHERE code=?");
-            $stL->execute([$code]);
-            $libNeu = (int)$stL->fetchColumn() >= $seit;
+            // Von der Bibliothek nur die Teile, die sich bewegt haben — je
+            // Schluessel der neue Wert, null fuer einen, den es nicht mehr gibt.
+            $bibTeile = bibTeileSeit($pdo, $code, $seit);
             respond(200, 'OK', array_merge([
                 'delta'   => true,
                 'chars'   => $d['chars'],
@@ -1724,7 +1899,7 @@ switch ($action) {
                 'adv_dms' => (object)advDmKarte($pdo, $code),
                 'rev'     => revStand($pdo, $code),
                 'zeit'    => $zeit,
-            ], $libNeu ? ['library' => json_decode(sitzungsSpalte($pdo, $code, 'library_json') ?? '{}', true) ?? []] : []));
+            ], $bibTeile ? ['bib_teile' => (object)$bibTeile] : []));
         }
         $result = loadAll($pdo, $code, $row, dmSichtPruefer($pdo, $z, $code));
 
@@ -1756,7 +1931,7 @@ switch ($action) {
             // weiss ohnehin, wer am Schirm sitzt.
             'adv_dms'    => (object)advDmKarte($pdo, $code),
             'log_tage'   => logFrist($row),
-            'library'    => json_decode(bibliothekUmziehen($pdo, $code) ?? '{}', true) ?? [],
+            'library'    => (object)bibGanz($pdo, $code),
             'has_dm'     => !empty($row['dm_pass_hash']),
             'updated_at' => $result['updated_at'],
             // Fuer den Hintergrundabgleich: die billige Kennung und der
@@ -2018,23 +2193,20 @@ switch ($action) {
         $patch   = $body['patch'] ?? null;
         if ($library === null && !is_array($patch)) respond(400, 'Fehlende Daten.');
         zugang($pdo, $code, $pass, $body);
-        if (is_array($patch)) {
-            $pdo->beginTransaction();
-            $st = $pdo->prepare("SELECT library_json FROM hb_sessions WHERE code=? FOR UPDATE");
-            $st->execute([$code]);
-            $lib = json_decode((string)($st->fetchColumn() ?: '{}'), true);
-            $library = bibliothekMischen(is_array($lib) ? $lib : [], $patch);
-        }
+        // Unter Sperre der Gruppe: wer gleichzeitig schreibt, wartet.
+        $pdo->beginTransaction();
+        $pdo->prepare("SELECT code FROM hb_sessions WHERE code=? FOR UPDATE")->execute([$code]);
+        bibStellen($pdo, $code);
+        if (is_array($patch)) $library = bibliothekMischen(bibLesen($pdo, $code), $patch);
+        if (!is_array($library)) respond(400, 'Die Bibliothek hat das falsche Format.');
         // Ausgelagert wird im fertigen Stand: so stehen die Pfade dort, wo
         // die Bibliothek sie hat, und was noch von frueher eingebettet
         // war, zieht gleich mit um.
         $bilder = [];
-        if (is_array($library)) $library = bilderAuslagern($pdo, $code, $library, $bilder);
-        $libJson = json_encode($library ?: new stdClass(), JSON_UNESCAPED_UNICODE);
-        if (strlen($libJson) > libGrenze($pdo)) zuGross('Bibliothek', strlen($libJson), libGrenze($pdo));
-        $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$libJson, $code]);
-        if ($pdo->inTransaction()) $pdo->commit();
-        revHoch($pdo, $code);
+        $library = bilderAuslagern($pdo, $code, $library, $bilder);
+        $bewegt = bibSchreiben($pdo, $code, $library);
+        $pdo->commit();
+        if ($bewegt) revHoch($pdo, $code);
         respond(200, 'Bibliothek gespeichert.', ['rev' => revStand($pdo, $code), 'bilder' => $bilder]);
 
     case 'dm_load':

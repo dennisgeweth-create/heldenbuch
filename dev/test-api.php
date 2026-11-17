@@ -248,32 +248,27 @@ function fuellung(int $stueck): array {
     }
     return $raus;
 }
-$riesig = fuellung(2000);                       // gut 7 MB, mehr als jede Grenze
+// Seit v6.11 liegt die Bibliothek zeilenweise: die alte Grenze fuer das
+// Ganze (6 MB, oder max_allowed_packet) gibt es nicht mehr. Begrenzt ist
+// nur noch der einzelne Eintrag.
+$riesig = fuellung(2000);                       // gut 7 MB — frueher zu viel
 $r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $riesig]);
-pruefe('eine masslose Bibliothek wird abgelehnt (413)', $r['status'] === 413, kurz($r));
-pruefe('die Meldung nennt beide Zahlen',
-       strpos((string)($r['body']['message'] ?? ''), 'erlaubt sind') !== false,
-       (string)($r['body']['message'] ?? ''));
-$grenze = (int)($r['body']['grenze'] ?? 0);
-pruefe('und die Antwort sagt, wo die Grenze liegt', $grenze > 100000, kurz($r));
-
-// Knapp darunter muss durchgehen — und vollstaendig zurueckkommen. Ein
-// Stueck wiegt rund 3,6 KB.
-$dick = fuellung(max(1, (int)($grenze * 0.8 / 3600)));
-$zahl = count($dick['item']);
-$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $dick]);
-pruefe('knapp unter der Grenze geht durch (200)', $r['status'] === 200, kurz($r));
+pruefe('eine Bibliothek ueber der alten Grenze geht jetzt durch (200)', $r['status'] === 200, kurz($r));
 $r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
-pruefe('und kommt vollstaendig zurueck',
-       count($r['body']['library']['item'] ?? []) === $zahl,
-       'erwartet ' . $zahl . ', bekommen ' . count($r['body']['library']['item'] ?? []));
+$zahl = count($r['body']['library']['item'] ?? []);
+pruefe('und kommt vollstaendig zurueck', $zahl === 2000, 'bekommen ' . $zahl);
 
-// Was abgelehnt wurde, darf nichts angefasst haben.
-$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $riesig]);
-pruefe('die Ablehnung kommt auch beim zweiten Mal (413)', $r['status'] === 413, kurz($r));
+// Ein einzelner Eintrag ueber 2 MB wird abgelehnt — mit seinem Namen.
+$fett = $riesig;
+$fett['item'][5]['description'] = str_repeat('x', 2100000);
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => $fett]);
+pruefe('ein einzelner Eintrag ueber 2 MB wird abgelehnt (413)', $r['status'] === 413, kurz($r));
+pruefe('die Meldung nennt den Eintrag', strpos((string)($r['body']['message'] ?? ''), 'Gegenstand 5') !== false,
+       (string)($r['body']['message'] ?? ''));
 $r = ruf('load', ['code' => $code, 'token' => $tSpieler]);
 pruefe('der abgelehnte Stand hat nichts angefasst',
-       count($r['body']['library']['item'] ?? []) === $zahl);
+       count($r['body']['library']['item'] ?? []) === 2000
+       && strlen((string)($r['body']['library']['item'][5]['description'] ?? '')) < 10000);
 
 // Wieder aufraeumen, damit die folgenden Pruefungen ihre eigene Lage
 // vorfinden und nicht die Gegenstaende von hier.
@@ -1962,6 +1957,87 @@ if (substr(DB_NAME, -4) === '_dev') {
                            'item' => ['id' => 'waise', 'name' => 'Zerbrochener Spiegel', 'imageData' => $png3]]);
     clearstatcache();
     pruefe('wird dasselbe Bild wieder benutzt, ist die Datei wieder da', is_file($waisePfad));
+}
+
+abschnitt('Die Bibliothek zeilenweise');
+if (isset($db)) {
+    $zeilen = function (?string $art = null) use ($db, $code): int {
+        $st = $db->prepare("SELECT COUNT(*) FROM hb_lib WHERE session_code=?" . ($art !== null ? " AND art=?" : ''));
+        $st->execute($art !== null ? [$code, $art] : [$code]);
+        return (int)$st->fetchColumn();
+    };
+    $lib = ruf('load', ['code' => $code, 'token' => $tAdmin])['body']['library'] ?? [];
+    pruefe('jeder Gegenstand ist eine Zeile', $zeilen('item') === count($lib['item'] ?? []) && $zeilen('item') > 0,
+           $zeilen('item') . ' / ' . count($lib['item'] ?? []));
+    pruefe('die Abenteuer stehen als eine Zeile', $zeilen('_') >= 1);
+
+    // Ein anderes Geraet holt nur, was sich bewegt hat. Vorher eine
+    // Sekunde Ruhe: die Zeit ist sekundengenau, und was eben noch
+    // geschrieben wurde, gehoert sonst mit dazu.
+    sleep(1);
+    $zeitVor = (int)(ruf('load', ['code' => $code, 'token' => $tAdmin])['body']['zeit'] ?? 0);
+    sleep(1);
+    ruf('save_library', ['code' => $code, 'token' => $tAdmin, 'patch' => [
+        'setzen' => ['talent' => [['name' => 'Wachsam'], ['name' => 'Zäh']]]]]);
+    $r = ruf('load', ['code' => $code, 'token' => $tAdmin, 'seit' => $zeitVor]);
+    $teile = $r['body']['bib_teile'] ?? [];
+    pruefe('beim Laden seit: nur der geaenderte Teil', array_keys($teile) === ['talent']
+           && count($teile['talent']) === 2 && !isset($r['body']['library']), json_encode(array_keys($teile)));
+    $zeitVor = (int)($r['body']['zeit'] ?? 0);
+    sleep(1);
+    ruf('save_library', ['code' => $code, 'token' => $tAdmin, 'patch' => ['weg' => ['talent']]]);
+    $teile = ruf('load', ['code' => $code, 'token' => $tAdmin, 'seit' => $zeitVor])['body']['bib_teile'] ?? [];
+    pruefe('ein geloeschter Teil kommt als null', array_key_exists('talent', $teile) && $teile['talent'] === null,
+           json_encode($teile));
+    $r = ruf('load', ['code' => $code, 'token' => $tAdmin, 'seit' => time() + 5]);
+    pruefe('ohne Aenderung kommt keine Bibliothek mit', !isset($r['body']['bib_teile']) && !isset($r['body']['library']));
+
+    // Nur die geaenderte Zeile wird geschrieben.
+    $st = $db->prepare("SELECT k, hash FROM hb_lib WHERE session_code=? AND art='item' ORDER BY pos");
+    $st->execute([$code]);
+    $vorher = $st->fetchAll(PDO::FETCH_KEY_PAIR);
+    $lib = ruf('load', ['code' => $code, 'token' => $tAdmin])['body']['library'] ?? [];
+    $items = $lib['item'];
+    $items[0]['description'] = 'Geändert';
+    ruf('save_library', ['code' => $code, 'token' => $tAdmin, 'patch' => ['setzen' => ['item' => $items]]]);
+    $st->execute([$code]);
+    $nachher = $st->fetchAll(PDO::FETCH_KEY_PAIR);
+    $anders = array_keys(array_filter($nachher, fn($h, $k) => ($vorher[$k] ?? '') !== $h, ARRAY_FILTER_USE_BOTH));
+    pruefe('ein geaenderter Eintrag aendert eine Zeile', $anders === [$items[0]['name']], json_encode($anders));
+
+    // Zwei Eintraege mit demselben Namen gehen nicht verloren.
+    ruf('save_library', ['code' => $code, 'token' => $tAdmin, 'patch' => [
+        'setzen' => ['wildshape' => [['name' => 'Wolf', 'cr' => '1/4'], ['name' => 'Wolf', 'cr' => '1'], ['name' => 'Bär']]]]]);
+    $lib = ruf('load', ['code' => $code, 'token' => $tAdmin])['body']['library'] ?? [];
+    pruefe('ein doppelter Name bleibt doppelt, in der Reihenfolge',
+           array_map(fn($e) => ($e['name'] ?? '') . ':' . ($e['cr'] ?? '-'), $lib['wildshape'] ?? []) === ['Wolf:1/4', 'Wolf:1', 'Bär:-']
+           && $zeilen('wildshape') === 3,
+           json_encode($lib['wildshape'] ?? null));
+    ruf('save_library', ['code' => $code, 'token' => $tAdmin, 'patch' => [
+        'setzen' => ['wildshape' => [['name' => 'Bär'], ['name' => 'Wolf', 'cr' => '1/4']]]]]);
+    $lib = ruf('load', ['code' => $code, 'token' => $tAdmin])['body']['library'] ?? [];
+    pruefe('umsortiert und gekuerzt steht es so da', array_column($lib['wildshape'] ?? [], 'name') === ['Bär', 'Wolf']
+           && $zeilen('wildshape') === 2, json_encode($lib['wildshape'] ?? null));
+
+    // Der Umzug: eine Gruppe, deren Bibliothek noch als ein Stueck dasteht.
+    $altLib = ['spell' => [['name' => 'Magisches Geschoss', 'level' => 1], ['name' => 'Säure', 'level' => 0],
+                           ['name' => 'Saure', 'level' => 0]],
+               'item' => [['name' => 'Spiegel', 'imageData' => $png2]],
+               '_adventures' => [['id' => 'strahd', 'name' => 'Strahd']], '_laeden' => ['strahd' => ['name' => 'L']]];
+    $db->prepare("DELETE FROM hb_lib WHERE session_code=?")->execute([$code]);
+    $db->prepare("DELETE FROM hb_meta WHERE schluessel=?")->execute(['bib_zeilen:' . $code]);
+    $db->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")
+       ->execute([json_encode($altLib, JSON_UNESCAPED_UNICODE), $code]);
+    $lib = ruf('load', ['code' => $code, 'token' => $tAdmin])['body']['library'] ?? [];
+    pruefe('beim ersten Laden zieht die Bibliothek in die Zeilen', $zeilen() === 6, (string)$zeilen());
+    pruefe('  … und kommt heraus, wie sie war',
+           array_column($lib['spell'] ?? [], 'name') === ['Magisches Geschoss', 'Säure', 'Saure']
+           && ($lib['_laeden']['strahd']['name'] ?? '') === 'L' && ($lib['_adventures'][0]['id'] ?? '') === 'strahd',
+           json_encode($lib));
+    pruefe('  … das Bild darin zieht gleich mit um',
+           preg_match($pfadMuster, (string)($lib['item'][0]['imageData'] ?? '')) === 1);
+    $r = ruf('kampf_stand', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd']);
+    pruefe('die Abenteuer-Einstellungen liest der Kampf aus der Zeile (200)', $r['status'] === 200, kurz($r));
 }
 
 abschnitt('Abmelden und Abwehr');

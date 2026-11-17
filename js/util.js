@@ -2367,3 +2367,16 @@ const bilderEinsetzen = (obj, liste) => {
   });
   return raus;
 };
+
+// ── Die Bibliothek in Teilen ──────────────────────────────────────
+// Seit v6.11 liegt die Bibliothek auf dem Server zeilenweise, und ein
+// Laden mit seit bringt nur die Teile, die sich bewegt haben: je
+// Schluessel (spell, item, _adventures …) der neue Wert, oder null, wenn
+// es ihn nicht mehr gibt. Was nicht genannt ist, bleibt, wie es ist.
+const bibTeileAnwenden = (lib, teile) => {
+  const namen = Object.keys(teile || {});
+  if (!namen.length) return lib;
+  const neu = {...(lib || {})};
+  namen.forEach(k => { if (teile[k] === null) delete neu[k]; else neu[k] = teile[k]; });
+  return neu;
+};

@@ -51,5 +51,16 @@ wahr('  … die Laeden bleiben dasselbe Objekt', lib2._laeden === lib._laeden);
 ist('mehrere auf einmal', bilderEinsetzen(held, [melde(['portrait'], pfad), melde(['weapons', 0, 'imageData'], pfad)])
   .weapons[0].imageData, pfad);
 
+// ── Die Bibliothek in Teilen (bibTeileAnwenden) ─────────────────
+// Steht hier, weil es dieselbe Art Uebernahme ist: der Server sagt, was
+// sich geaendert hat, und der Rest bleibt dasselbe Objekt.
+const bib = {spell: [{name: 'Feuerball'}], item: [{name: 'Seil'}], _adventures: [{id: 'a'}]};
+const bib2 = bibTeileAnwenden(bib, {item: [{name: 'Seil'}, {name: 'Fackel'}]});
+ist('ein Teil kommt neu', bib2.item.length, 2);
+wahr('  … die anderen bleiben dieselben Objekte', bib2.spell === bib.spell && bib2._adventures === bib._adventures);
+ist('null nimmt einen Schluessel heraus', Object.keys(bibTeileAnwenden(bib, {spell: null})), ['item', '_adventures']);
+wahr('nichts geaendert: dasselbe Objekt', bibTeileAnwenden(bib, {}) === bib && bibTeileAnwenden(bib, null) === bib);
+ist('ein neuer Schluessel kommt dazu', bibTeileAnwenden(bib, {talent: [{name: 'Wachsam'}]}).talent, [{name: 'Wachsam'}]);
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);
