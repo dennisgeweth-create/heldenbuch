@@ -99,6 +99,20 @@ try {
 // Sammlung erneut hoch, und mit Bildern waere ihre 2-MB-Grenze nach rund
 // dreissig Monsterportraets erreicht. Zeilenweise gilt das Limit je
 // Gegner statt je Sammlung.
+// Der Aufbau unten sind rund vierzig Anweisungen an die Datenbank. Bis
+// v6.7 liefen sie bei JEDER Anfrage — auch bei jedem Puls, jedem Blick auf
+// den Kampf, jeder Ansage. Jetzt merkt sich die Datenbank in hb_meta, auf
+// welchem Stand ihr Schema ist, und gebaut wird nur, wenn der nicht passt.
+//
+// WER UNTEN EINE TABELLE ODER SPALTE ERGAENZT, ZAEHLT SCHEMA_STAND HOCH.
+// Sonst laeuft die Aenderung auf dem Server nie.
+const SCHEMA_STAND = 2;
+$schemaAktuell = false;
+try {
+    $schemaAktuell = (string)$pdo->query("SELECT wert FROM hb_meta WHERE schluessel='schema'")->fetchColumn()
+                     === (string)SCHEMA_STAND;
+} catch (PDOException $e) { /* hb_meta fehlt noch: dann bauen */ }
+if (!$schemaAktuell) {
 try {
 $pdo->exec("
     CREATE TABLE IF NOT EXISTS hb_sessions (
@@ -478,6 +492,15 @@ try { $pdo->exec("ALTER TABLE hb_logs ADD CONSTRAINT fk_hbl_user
 // Wie lange das Log stehen bleibt, in Tagen. NULL heisst: die Vorgabe.
 try { $pdo->exec("ALTER TABLE hb_sessions ADD COLUMN log_tage INT NULL"); } catch (PDOException $e) {}
 
+// Der Stand ist gebaut — ab jetzt reicht der eine Blick oben.
+$pdo->exec("CREATE TABLE IF NOT EXISTS hb_meta (
+    schluessel VARCHAR(40)  NOT NULL PRIMARY KEY,
+    wert       VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+$pdo->prepare("INSERT INTO hb_meta (schluessel, wert) VALUES ('schema', ?)
+               ON DUPLICATE KEY UPDATE wert=VALUES(wert)")->execute([(string)SCHEMA_STAND]);
+}
+
 // ── Hilfsfunktionen ─────────────────────────────────────────────
 function checkRateLimit(PDO $pdo): void {
     // Die Adresse selbst wird nicht gespeichert. Die Bremse muss sie nie
@@ -585,13 +608,23 @@ function mitgliedsRolle(PDO $pdo, int $userId, string $code): string {
     $st->execute([$userId, $code]);
     return (string)($st->fetch()['rolle'] ?? '');
 }
+// Die Zeile der Gruppe — ohne die grossen Spalten. Die Bibliothek
+// allein kann sechs Megabyte haben; bis v6.7 kam sie bei jeder Anfrage
+// mit, die durch zugang() ging, auch beim Puls. Wer sie braucht, holt sie
+// mit sitzungsSpalte().
 function sitzungsZeile(PDO $pdo, string $code): array {
-    $st = $pdo->prepare("SELECT password_hash, library_json, dm_pass_hash, dm_library_json, chars_json, log_tage
-                         FROM hb_sessions WHERE code=?");
+    $st = $pdo->prepare("SELECT password_hash, dm_pass_hash, log_tage FROM hb_sessions WHERE code=?");
     $st->execute([$code]);
     $row = $st->fetch();
     if (!$row) respond(404, 'Gruppe nicht gefunden.');
     return $row;
+}
+function sitzungsSpalte(PDO $pdo, string $code, string $spalte): ?string {
+    if (!in_array($spalte, ['library_json', 'dm_library_json', 'chars_json'], true)) return null;
+    $st = $pdo->prepare("SELECT $spalte FROM hb_sessions WHERE code=?");
+    $st->execute([$code]);
+    $w = $st->fetchColumn();
+    return ($w === false || $w === null) ? null : (string)$w;
 }
 function nutzerAntwort(PDO $pdo, array $u): array {
     $st = $pdo->prepare("SELECT session_code, rolle FROM hb_mitglied WHERE user_id=? ORDER BY seit ASC");
@@ -680,12 +713,29 @@ function tpZustandServer(int $hp, int $max): array {
 // _adventures, dort wo auch die Abenteuerliste steht. Der Server liest
 // sie mit, weil zwei Regeln daran haengen, die er selbst durchsetzen
 // muss: ob die Trefferpunkte offen sind und wer den Kampf sehen darf.
+// Die Liste der Abenteuer aus der Bibliothek. Die Datenbank schneidet sie
+// heraus (JSON_EXTRACT), statt dass die ganze Bibliothek nach PHP reist —
+// der Blick auf den Kampf fragt das bei jedem Spieler im Sekundentakt.
+// Kann die Datenbank das nicht, wird wie frueher ganz gelesen.
+function abenteuerListe(PDO $pdo, string $code): array {
+    static $merk = [];
+    if (isset($merk[$code])) return $merk[$code];
+    $advs = null;
+    try {
+        $st = $pdo->prepare('SELECT JSON_EXTRACT(library_json, \'$._adventures\') FROM hb_sessions WHERE code=?');
+        $st->execute([$code]);
+        $j = $st->fetchColumn();
+        $advs = ($j === false || $j === null) ? [] : json_decode((string)$j, true);
+    } catch (PDOException $e) { $advs = null; }
+    if (!is_array($advs)) {
+        $lib = json_decode((string)(sitzungsSpalte($pdo, $code, 'library_json') ?? '{}'), true);
+        $advs = (is_array($lib) && isset($lib['_adventures']) && is_array($lib['_adventures']))
+            ? $lib['_adventures'] : [];
+    }
+    return $merk[$code] = array_values(array_filter($advs, 'is_array'));
+}
 function abenteuerAusBibliothek(PDO $pdo, string $code, string $advId): array {
-    $st = $pdo->prepare("SELECT library_json FROM hb_sessions WHERE code=?");
-    $st->execute([$code]);
-    $lib = json_decode((string)($st->fetchColumn() ?: '{}'), true);
-    $advs = (is_array($lib) && isset($lib['_adventures']) && is_array($lib['_adventures']))
-        ? $lib['_adventures'] : [];
+    $advs = abenteuerListe($pdo, $code);
     foreach ($advs as $a) {
         if (is_array($a) && (string)($a['id'] ?? '') === $advId) return $a;
     }
@@ -1025,6 +1075,10 @@ function zuGross(string $was, int $ist, int $grenze): never {
         ['grenze' => $grenze, 'groesse' => $ist]);
 }
 function respond(int $status, string $message, array $extra=[]): never {
+    // Wer mitten im Lesen-Aendern-Schreiben abbricht (404, 409 …), gibt
+    // die Sperre sofort frei, statt auf das Ende der Verbindung zu warten.
+    global $pdo;
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) $pdo->rollBack();
     http_response_code($status);
     echo json_encode(array_merge(['ok'=>$status<400,'message'=>$message],$extra), JSON_UNESCAPED_UNICODE);
     exit;
@@ -1037,13 +1091,13 @@ function respond(int $status, string $message, array $extra=[]): never {
 // Lädt alle Chars + Items, migriert Legacy-Daten einmalig
 function loadAll(PDO $pdo, string $code, array $sessionRow, ?callable $dmSicht = null): array {
     // 1. Check ob hb_chars leer — dann von chars_json migrieren
-    $cnt = (int)$pdo->prepare("SELECT COUNT(*) FROM hb_chars WHERE session_code=?")->execute([$code]) && 1;
     $stmt = $pdo->prepare("SELECT COUNT(*) as n FROM hb_chars WHERE session_code=?");
     $stmt->execute([$code]);
     $n = (int)($stmt->fetch()['n'] ?? 0);
 
-    if ($n === 0 && !empty($sessionRow['chars_json'])) {
-        $oldChars = json_decode($sessionRow['chars_json'], true) ?? [];
+    $altJson = $n === 0 ? sitzungsSpalte($pdo, $code, 'chars_json') : null;
+    if ($n === 0 && !empty($altJson)) {
+        $oldChars = json_decode($altJson, true) ?? [];
         if (!empty($oldChars)) {
             $insC = $pdo->prepare("INSERT IGNORE INTO hb_chars (session_code,char_id,char_json) VALUES(?,?,?)");
             $insI = $pdo->prepare("INSERT IGNORE INTO hb_items (session_code,char_id,item_id,item_json) VALUES(?,?,?,?)");
@@ -1341,6 +1395,45 @@ function planJson(array $o, array $ohne): string {
     return $j;
 }
 
+// ── Die Bibliothek zusammenfuehren ──────────────────────────────
+// Drei Arten von Schluesseln, drei Arten zu mischen:
+//   setzen  — ein Schluessel als Ganzes (die Zauber, die Waffen …)
+//   teil    — ein Objekt je Abenteuer (_laeden): nur die genannten Faecher
+//   liste   — eine Liste mit Kennungen (_adventures): Eintrag fuer Eintrag,
+//             in der Reihenfolge des Schreibenden; was ein anderer
+//             inzwischen angelegt hat, bleibt hinten stehen.
+//   weg     — Schluessel, die es nicht mehr gibt
+function bibliothekMischen(array $lib, array $p): array {
+    foreach ((array)($p['setzen'] ?? []) as $k => $v) $lib[(string)$k] = $v;
+    foreach ((array)($p['teil'] ?? []) as $k => $t) {
+        $k = (string)$k;
+        $ziel = (isset($lib[$k]) && is_array($lib[$k]) && !array_is_list($lib[$k])) ? $lib[$k] : [];
+        foreach ((array)($t['setzen'] ?? []) as $s => $v) $ziel[(string)$s] = $v;
+        foreach ((array)($t['weg'] ?? []) as $s) unset($ziel[(string)$s]);
+        $lib[$k] = $ziel ?: new stdClass();
+    }
+    foreach ((array)($p['liste'] ?? []) as $k => $l) {
+        $k = (string)$k;
+        $nachId = [];
+        foreach ((isset($lib[$k]) && is_array($lib[$k])) ? $lib[$k] : [] as $e) {
+            if (is_array($e) && isset($e['id'])) $nachId[(string)$e['id']] = $e;
+        }
+        foreach ((array)($l['setzen'] ?? []) as $e) {
+            if (is_array($e) && isset($e['id'])) $nachId[(string)$e['id']] = $e;
+        }
+        foreach ((array)($l['weg'] ?? []) as $id) unset($nachId[(string)$id]);
+        $neu = [];
+        foreach ((array)($l['reihe'] ?? []) as $id) {
+            $id = (string)$id;
+            if (isset($nachId[$id])) { $neu[] = $nachId[$id]; unset($nachId[$id]); }
+        }
+        foreach ($nachId as $e) $neu[] = $e;
+        $lib[$k] = $neu;
+    }
+    foreach ((array)($p['weg'] ?? []) as $k) unset($lib[(string)$k]);
+    return $lib;
+}
+
 // ── Actions ─────────────────────────────────────────────────────
 switch ($action) {
 
@@ -1388,7 +1481,7 @@ switch ($action) {
                 'adv_dms' => (object)advDmKarte($pdo, $code),
                 'rev'     => revStand($pdo, $code),
                 'zeit'    => $zeit,
-            ], $libNeu ? ['library' => json_decode($row['library_json'] ?? '{}', true) ?? []] : []));
+            ], $libNeu ? ['library' => json_decode(sitzungsSpalte($pdo, $code, 'library_json') ?? '{}', true) ?? []] : []));
         }
         $result = loadAll($pdo, $code, $row, dmSichtPruefer($pdo, $z, $code));
 
@@ -1411,7 +1504,7 @@ switch ($action) {
             // weiss ohnehin, wer am Schirm sitzt.
             'adv_dms'    => (object)advDmKarte($pdo, $code),
             'log_tage'   => logFrist($row),
-            'library'    => json_decode($row['library_json']??'{}', true) ?? [],
+            'library'    => json_decode(sitzungsSpalte($pdo, $code, 'library_json') ?? '{}', true) ?? [],
             'has_dm'     => !empty($row['dm_pass_hash']),
             'updated_at' => $result['updated_at'],
             // Fuer den Hintergrundabgleich: die billige Kennung und der
@@ -1653,22 +1746,38 @@ switch ($action) {
         revHoch($pdo, $code);
         respond(200, 'Item gelöscht.', ['rev' => revStand($pdo, $code)]);
 
+    // Die Bibliothek gehoert der ganzen Gruppe — und damit jedem
+    // Abenteuer darin. Wer sie ganz schickt, schreibt den Stand, den sein
+    // Geraet kannte: die Einstellung, die die andere Spielleitung eben im
+    // Nachbarabenteuer gesetzt hat, war damit wieder weg. Seit v6.8 kommt
+    // nur, was sich geaendert hat (patch), und wird hier unter Sperre in
+    // den Stand des Servers gemischt. Der ganze Weg (library) bleibt fuer
+    // das Zurueckspielen einer Sicherung.
     case 'save_library':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $library = $body['library'] ?? null;
-        if ($library === null) respond(400, 'Fehlende Daten.');
-        $libJson = json_encode($library, JSON_UNESCAPED_UNICODE);
+        $patch   = $body['patch'] ?? null;
+        if ($library === null && !is_array($patch)) respond(400, 'Fehlende Daten.');
         zugang($pdo, $code, $pass, $body);
+        if (is_array($patch)) {
+            $pdo->beginTransaction();
+            $st = $pdo->prepare("SELECT library_json FROM hb_sessions WHERE code=? FOR UPDATE");
+            $st->execute([$code]);
+            $lib = json_decode((string)($st->fetchColumn() ?: '{}'), true);
+            $library = bibliothekMischen(is_array($lib) ? $lib : [], $patch);
+        }
+        $libJson = json_encode($library ?: new stdClass(), JSON_UNESCAPED_UNICODE);
         if (strlen($libJson) > libGrenze($pdo)) zuGross('Bibliothek', strlen($libJson), libGrenze($pdo));
         $pdo->prepare("UPDATE hb_sessions SET library_json=? WHERE code=?")->execute([$libJson, $code]);
+        if ($pdo->inTransaction()) $pdo->commit();
         revHoch($pdo, $code);
         respond(200, 'Bibliothek gespeichert.', ['rev' => revStand($pdo, $code)]);
 
     case 'dm_load':
         checkRateLimit($pdo);
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
-        $row = zugangDm($pdo, $code, $pass, $dmPass, $body)['row'];
-        respond(200, 'OK', ['dm_library' => json_decode($row['dm_library_json']??'{}', true) ?? []]);
+        zugangDm($pdo, $code, $pass, $dmPass, $body);
+        respond(200, 'OK', ['dm_library' => json_decode(sitzungsSpalte($pdo, $code, 'dm_library_json') ?? '{}', true) ?? []]);
 
     case 'dm_save_library':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
@@ -1813,9 +1922,35 @@ switch ($action) {
         $json = json_encode($ch, JSON_UNESCAPED_UNICODE);
         if (strlen($json) > MAX_LIB_BYTES) respond(413, 'Chronik zu groß.');
         zugangDm($pdo, $code, $pass, $dmPass, $body);
+        // Die Chronik ist ein Stueck fuer die ganze Gruppe, die Uhr aber
+        // laeuft je Abenteuer. Schreibt eine Spielleitung mit Abenteuer,
+        // zaehlt von ihr nur dessen Uhr und dessen Ereignisse (und die
+        // ohne Abenteuer) — was die andere Spielleitung inzwischen im
+        // Nachbarabenteuer eingetragen hat, bleibt stehen.
+        $advCh = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        if ($advCh !== '') {
+            $pdo->beginTransaction();
+            $stCh = $pdo->prepare("SELECT chronik_json FROM hb_chronik WHERE session_code=? FOR UPDATE");
+            $stCh->execute([$code]);
+            $alt = json_decode((string)($stCh->fetchColumn() ?: ''), true);
+            if (is_array($alt)) {
+                $zeit = (isset($alt['zeit']) && is_array($alt['zeit'])) ? $alt['zeit'] : [];
+                if (isset($ch['zeit']) && is_array($ch['zeit']) && array_key_exists($advCh, $ch['zeit'])) {
+                    $zeit[$advCh] = $ch['zeit'][$advCh];
+                }
+                $meins = fn($e) => is_array($e) && in_array((string)($e['adventure'] ?? ''), ['', $advCh], true);
+                $ereignisse = array_merge(
+                    array_values(array_filter((array)($alt['ereignisse'] ?? []), fn($e) => is_array($e) && !$meins($e))),
+                    array_values(array_filter((array)($ch['ereignisse'] ?? []), $meins)));
+                $ch = array_merge($alt, $ch, ['zeit' => $zeit ?: new stdClass(), 'ereignisse' => $ereignisse]);
+                $json = json_encode($ch, JSON_UNESCAPED_UNICODE);
+                if (strlen($json) > MAX_LIB_BYTES) respond(413, 'Chronik zu groß.');
+            }
+        }
         $pdo->prepare("INSERT INTO hb_chronik (session_code,chronik_json) VALUES(?,?)
                        ON DUPLICATE KEY UPDATE chronik_json=VALUES(chronik_json)")
             ->execute([$code, $json]);
+        if ($pdo->inTransaction()) $pdo->commit();
         respond(200, 'Chronik gespeichert.');
 
     case 'set_dm_password':
@@ -2002,7 +2137,10 @@ switch ($action) {
         // Nehmen darf nur, wer in diesen Bogen schreiben darf. Zurueck-
         // legen (char_id leer) darf jeder in der Runde.
         if ($charId !== '') besitzPruefen($pdo, $z, $code, $charId);
-        $st = $pdo->prepare("SELECT beute_json FROM hb_beute WHERE session_code=? AND adv_id=?");
+        // Unter Sperre: wer gleichzeitig schreibt, wartet hier, statt die
+        // Antwort des anderen zu ueberschreiben.
+        $pdo->beginTransaction();
+        $st = $pdo->prepare("SELECT beute_json FROM hb_beute WHERE session_code=? AND adv_id=? FOR UPDATE");
         $st->execute([$code, $advId]);
         $row = $st->fetch();
         if (!$row) respond(404, 'Es liegt nichts.');
@@ -2020,6 +2158,7 @@ switch ($action) {
         $pdo->prepare("UPDATE hb_beute SET beute_json=?, stand=stand+1
                        WHERE session_code=? AND adv_id=?")
             ->execute([json_encode($beute, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        $pdo->commit();
         respond(200, 'Genommen.', ['beute' => $beute]);
 
     case 'beute_stand':
@@ -2099,7 +2238,10 @@ switch ($action) {
         // Antworten darf nur, wem der Bogen gehoert — sonst wuerfelte
         // einer fuer alle.
         besitzPruefen($pdo, $z, $code, $charId);
-        $st = $pdo->prepare("SELECT probe_json FROM hb_proben WHERE session_code=? AND adv_id=?");
+        // Unter Sperre: wer gleichzeitig schreibt, wartet hier, statt die
+        // Antwort des anderen zu ueberschreiben.
+        $pdo->beginTransaction();
+        $st = $pdo->prepare("SELECT probe_json FROM hb_proben WHERE session_code=? AND adv_id=? FOR UPDATE");
         $st->execute([$code, $advId]);
         $row = $st->fetch();
         if (!$row) respond(404, 'Es steht keine Probe an.');
@@ -2126,6 +2268,7 @@ switch ($action) {
         $pdo->prepare("UPDATE hb_proben SET probe_json=?, stand=stand+1
                        WHERE session_code=? AND adv_id=?")
             ->execute([json_encode($probe, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        $pdo->commit();
         respond(200, 'Notiert.', ['antwort' => $antwort]);
 
     // Die Spielleitung schickt hinterher etwas an einzelne: „Du siehst
@@ -2137,7 +2280,10 @@ switch ($action) {
         $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
         if ($advId === '') respond(400, 'Kein Abenteuer genannt.');
         if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
-        $st = $pdo->prepare("SELECT probe_json FROM hb_proben WHERE session_code=? AND adv_id=?");
+        // Unter Sperre: wer gleichzeitig schreibt, wartet hier, statt die
+        // Antwort des anderen zu ueberschreiben.
+        $pdo->beginTransaction();
+        $st = $pdo->prepare("SELECT probe_json FROM hb_proben WHERE session_code=? AND adv_id=? FOR UPDATE");
         $st->execute([$code, $advId]);
         $row = $st->fetch();
         if (!$row) respond(404, 'Es steht keine Probe an.');
@@ -2168,6 +2314,7 @@ switch ($action) {
         $pdo->prepare("UPDATE hb_proben SET probe_json=?, stand=stand+1
                        WHERE session_code=? AND adv_id=?")
             ->execute([json_encode($probe, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        $pdo->commit();
         respond(200, 'Gesendet.');
     }
 
@@ -2540,14 +2687,23 @@ switch ($action) {
         }
         if (!is_array($k)) respond(400, 'Kampf hat das falsche Format.');
         // Zwei schreiben an demselben Kampf: die Spielleitung den ganzen,
-        // der Spieler nur seine Ansage. Wer die Ansagen nicht mitschickt,
-        // will sie auch nicht loeschen — dieselbe Regel wie bei den
-        // Trefferpunkten, und aus demselben Grund.
-        if (!array_key_exists('ansagen', $k)) {
-            $alt = $pdo->prepare("SELECT kampf_json FROM hb_kampf WHERE session_code=? AND adv_id=?");
-            $alt->execute([$code, $advId]);
-            $vorher = json_decode((string)($alt->fetchColumn() ?: ''), true);
-            if (is_array($vorher) && !empty($vorher['ansagen'])) $k['ansagen'] = $vorher['ansagen'];
+        // der Spieler nur seine Ansage. Die Ansagen gehoeren deshalb dem
+        // Server: wer sie nicht mitschickt, laesst sie stehen, und die
+        // Spielleitung nimmt einzelne heraus (ansagen_weg) statt die Liste
+        // zu schicken, die sie zuletzt kannte. Die schickte bis v6.7 eine
+        // Ansage, die in der Sekunde dazwischen kam, ins Leere. Alles unter
+        // Sperre, damit nicht zwischen Lesen und Schreiben eine ankommt.
+        $pdo->beginTransaction();
+        $alt = $pdo->prepare("SELECT kampf_json FROM hb_kampf WHERE session_code=? AND adv_id=? FOR UPDATE");
+        $alt->execute([$code, $advId]);
+        $vorher = json_decode((string)($alt->fetchColumn() ?: ''), true);
+        $bisher = (is_array($vorher) && is_array($vorher['ansagen'] ?? null)) ? $vorher['ansagen'] : [];
+        $weg = array_map('strval', (array)($body['ansagen_weg'] ?? []));
+        if ($weg) {
+            $k['ansagen'] = array_values(array_filter($bisher,
+                fn($a) => is_array($a) && !in_array((string)($a['id'] ?? ''), $weg, true)));
+        } elseif (!array_key_exists('ansagen', $k)) {
+            $k['ansagen'] = $bisher;
         }
         $json = json_encode($k, JSON_UNESCAPED_UNICODE);
         // Bilder gehoeren nicht in den Kampf: er wird waehrend eines
@@ -2561,7 +2717,9 @@ switch ($action) {
             ->execute([$code, $advId, $json]);
         $st = $pdo->prepare("SELECT stand FROM hb_kampf WHERE session_code=? AND adv_id=?");
         $st->execute([$code, $advId]);
-        respond(200, 'Kampf gespeichert.', ['stand' => (int)($st->fetchColumn() ?: 1)]);
+        $standNeu = (int)($st->fetchColumn() ?: 1);
+        $pdo->commit();
+        respond(200, 'Kampf gespeichert.', ['stand' => $standNeu]);
     }
 
     // Der Spieler sagt an, was er tut. Die Zahlen bleiben bei der
@@ -2590,7 +2748,10 @@ switch ($action) {
             respond(403, 'Das ist nicht dein Bogen.');
         }
 
-        $st = $pdo->prepare("SELECT kampf_json, stand FROM hb_kampf WHERE session_code=? AND adv_id=?");
+        // Unter Sperre: wer gleichzeitig schreibt, wartet hier, statt die
+        // Antwort des anderen zu ueberschreiben.
+        $pdo->beginTransaction();
+        $st = $pdo->prepare("SELECT kampf_json, stand FROM hb_kampf WHERE session_code=? AND adv_id=? FOR UPDATE");
         $st->execute([$code, $advId]);
         $row = $st->fetch();
         if (!$row) respond(404, 'Hier läuft gerade kein Kampf.');
@@ -2670,6 +2831,7 @@ switch ($action) {
         $pdo->prepare("UPDATE hb_kampf SET kampf_json=?, stand=stand+1
                        WHERE session_code=? AND adv_id=?")
             ->execute([$json, $code, $advId]);
+        $pdo->commit();
         respond(200, 'Angesagt.', ['ansage' => $sauber]);
     }
 
@@ -2791,7 +2953,10 @@ switch ($action) {
         $charId = mb_substr((string)($body['char_id'] ?? ''), 0, 50);
         if ($advId === '' || $charId === '') respond(400, 'Fehlende Daten.');
         besitzPruefen($pdo, $z, $code, $charId);
-        $st = $pdo->prepare("SELECT rast_json FROM hb_rast WHERE session_code=? AND adv_id=?");
+        // Unter Sperre: wer gleichzeitig schreibt, wartet hier, statt die
+        // Antwort des anderen zu ueberschreiben.
+        $pdo->beginTransaction();
+        $st = $pdo->prepare("SELECT rast_json FROM hb_rast WHERE session_code=? AND adv_id=? FOR UPDATE");
         $st->execute([$code, $advId]);
         $row = $st->fetch();
         if (!$row) respond(404, 'Es ist keine Rast angesagt.');
@@ -2810,6 +2975,7 @@ switch ($action) {
         $rast['antworten'] = $liste;
         $pdo->prepare("UPDATE hb_rast SET rast_json=?, stand=stand+1 WHERE session_code=? AND adv_id=?")
             ->execute([json_encode($rast, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        $pdo->commit();
         respond(200, 'Übernommen.');
     }
 
@@ -3304,8 +3470,7 @@ switch ($action) {
     case 'planer_start': {
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');
         $z = zugang($pdo, $code, $pass, $body);
-        $lib = json_decode((string)($z['row']['library_json'] ?? '{}'), true);
-        $advs = (is_array($lib) && isset($lib['_adventures']) && is_array($lib['_adventures'])) ? $lib['_adventures'] : [];
+        $advs = abenteuerListe($pdo, $code);
         $liste = [];
         foreach ($advs as $a) {
             if (!is_array($a) || empty($a['id'])) continue;
@@ -3326,8 +3491,7 @@ switch ($action) {
         $advId = (string)($body['adv_id'] ?? '');
         if (!planId($advId)) respond(400, 'Kein Abenteuer genannt.');
         if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
-        $lib = json_decode((string)($z['row']['library_json'] ?? '{}'), true);
-        $advs = (is_array($lib) && is_array($lib['_adventures'] ?? null)) ? $lib['_adventures'] : [];
+        $advs = abenteuerListe($pdo, $code);
         $erstes = (string)(($advs[0] ?? [])['id'] ?? '');
         $st = $pdo->prepare("SELECT char_id, adv_id, char_json FROM hb_chars WHERE session_code=? AND (adv_id=? OR (adv_id IS NULL AND ?=?))");
         $st->execute([$code, $advId, $advId, $erstes]);

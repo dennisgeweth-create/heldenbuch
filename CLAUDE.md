@@ -197,6 +197,25 @@ und schlagen langsam (`nebenPuls`), solange der Puls lebt.
 Der eingebaute PHP-Server von `dev/start.ps1` bedient nur eine Anfrage
 auf einmal; dort wartet der Puls deshalb hoechstens eine Sekunde.
 
+## Schema, Sperren, mehrere Abenteuer
+
+- **Schema:** Der Tabellenaufbau oben in `api.php` laeuft nur, wenn
+  `hb_meta.schema` nicht `SCHEMA_STAND` ist. Wer eine Tabelle oder Spalte
+  ergaenzt, **zaehlt `SCHEMA_STAND` hoch** — sonst laeuft die Aenderung
+  auf dem Server nie.
+- **Lesen-Aendern-Schreiben** an einem JSON-Feld, das mehrere zugleich
+  beschreiben (Ansagen, Probe-Antworten, Beute, Rast, Bibliothek,
+  Chronik), geht unter `beginTransaction()` und `SELECT … FOR UPDATE`.
+  `respond()` rollt eine offene Transaktion zurueck.
+- **Die Bibliothek** schickt der Browser als Patch (`libPatch` in
+  `js/util.js`), der Server mischt ihn (`bibliothekMischen`). Die ganze
+  Bibliothek (`library`) nur noch zum Zurueckspielen.
+- **Mehrere Abenteuer:** Der Kampf der Spielleitung liegt im Geraet je
+  Abenteuer (`hb_kampf:<advId>`, der Kampf traegt `advId`); gespiegelt
+  wird nur der des offenen Abenteuers. Die Chronik wird mit `adv_id`
+  gespeichert und je Abenteuer zusammengefuehrt. Jede Abfrageschleife,
+  die einen Stand (`…StandRef`) mitschickt, setzt ihn zu Beginn auf −1.
+
 ## Serverseite lokal testen
 
 `api.php` lief frueher erst auf dem Server zum ersten Mal. Seit XAMPP

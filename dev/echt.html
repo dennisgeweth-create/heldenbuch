@@ -60,6 +60,11 @@
       }
       window.wbSpeicher = fach;
     })();
+    // Der Kampf liegt seit v6.8 im Fach seines Abenteuers (hb_kampf:<id>).
+    const wbKampfRoh = () => {
+      const k = Object.keys(window.wbSpeicher).find(x => x === 'hb_kampf' || x.indexOf('hb_kampf:') === 0);
+      return k ? window.wbSpeicher[k] : null;
+    };
 
     // ── Der Held, an dem geprueft wird ─────────────────────────────
     // Ein voller Bogen: Attribute, Uebungen, eine Waffe, getragene
@@ -864,7 +869,7 @@
         // Zugfenster setzen. Geprüft wird am Speicher, denn dorthin
         // schreibt der Tracker — und am Schirm.
         melden('lauf', 'Der Kampf');
-        const kampfStand = () => JSON.parse(wbSpeicher.hb_kampf || 'null') || {};
+        const kampfStand = () => JSON.parse(wbKampfRoh() || 'null') || {};
         const logText = () => (kampfStand().log || []).map(e => protokollZeile(e, true)).join('\n');
         const kampfKnopf = await warten(() => knopfMit('⚔ Kampf'));
         if (ja('Der Tracker steht der Spielleitung offen', !!kampfKnopf)) {
@@ -1687,7 +1692,7 @@
               ja('Er steht als Verbündeter in der Reihe',
                  !!karteN && karteN.classList.contains('verbuendet') && karteN.classList.contains('held'),
                  karteN ? karteN.className : 'keine Zeile');
-              const teil = (JSON.parse(wbSpeicher.hb_kampf || 'null') || {}).teilnehmer || [];
+              const teil = (JSON.parse(wbKampfRoh() || 'null') || {}).teilnehmer || [];
               const eintrag = teil.find(t => t.lager);
               ja('  … im Kampf steht sein Lager', !!eintrag && eintrag.lager === 'verbuendet' && eintrag.art === 'held',
                  JSON.stringify(eintrag || null));
@@ -2139,7 +2144,7 @@
         let angesagt = null;
         ReactDOM.render(React.createElement(AnsageFenster, {
           held: WB_HELD, helden: [WB_HELD], runde: 1,
-          kampf: JSON.parse(wbSpeicher.hb_kampf || '{}'),
+          kampf: JSON.parse(wbKampfRoh() || '{}'),
           onAbbrechen: () => {}, onPlatz: () => null,
           onSenden: (a) => { angesagt = a; return Promise.resolve({...a, id: 'x1'}); },
         }), buehne);
@@ -2198,7 +2203,7 @@
         let geparkt = null, zuGemacht = 0;
         const ansageMit = (extra) => ReactDOM.render(React.createElement(AnsageFenster, Object.assign({
           held: WB_HELD, helden: [WB_HELD], runde: 1,
-          kampf: JSON.parse(wbSpeicher.hb_kampf || '{}'),
+          kampf: JSON.parse(wbKampfRoh() || '{}'),
           onAbbrechen: () => { zuGemacht++; }, onPlatz: () => null,
           onSenden: (a) => { angesagt = a; return Promise.resolve({...a, id: 'x2'}); },
           onParken: (e) => { geparkt = e; }, onLaden: () => {}, onEntwurfWeg: () => {},
@@ -2230,7 +2235,7 @@
 
         // Im Kampffenster: fertige Entwürfe mit „Abschicken“, verwaiste ohne.
         let ausVorrat = null, weiterVorrat = null;
-        const kampfDran = JSON.parse(wbSpeicher.hb_kampf || '{}');
+        const kampfDran = JSON.parse(wbKampfRoh() || '{}');
         kampfDran.zwischen = null;
         kampfDran.zug = Math.max(0, (kampfDran.teilnehmer || []).findIndex(t => t.charId === 'wb1'));
         ReactDOM.render(React.createElement(KampfSicht, {

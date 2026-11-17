@@ -2297,3 +2297,44 @@ const minderungFuer = (ziel, art) => {
   if (f.includes('verwundbar: ' + a) || f.includes('verwundbarkeit: ' + a)) return 'verw';
   return '';
 };
+
+// ── Die Bibliothek als Patch ──────────────────────────────────────
+// Was sich zwischen zwei Staenden der Bibliothek geaendert hat — fuer
+// save_library. Der Server mischt es in seinen Stand (api.php,
+// bibliothekMischen), statt die ganze Bibliothek zu ersetzen: so
+// ueberschreibt die Spielleitung des einen Abenteuers nicht, was die des
+// anderen eben eingestellt hat, und es reisen Kilobyte statt Megabyte.
+// Verglichen wird nach Verweis — die Bibliothek wird nie an Ort und Stelle
+// geaendert, ein neuer Inhalt ist immer ein neues Objekt.
+//   setzen: ganze Schluessel (spell, item …)
+//   teil:   Objekte je Abenteuer (_laeden): nur die geaenderten Faecher
+//   liste:  Listen mit Kennung (_adventures): nur die geaenderten Eintraege
+//   weg:    Schluessel, die es nicht mehr gibt
+const libPatch = (alt, neu) => {
+  const a = alt || {}, n = neu || {};
+  const objekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+  const mitIds = (x) => Array.isArray(x) && x.every(e => objekt(e) && typeof e.id === 'string' && e.id);
+  const p = {setzen: {}, teil: {}, liste: {}, weg: []};
+  Object.keys(n).forEach(k => {
+    if (a[k] === n[k]) return;
+    const av = a[k], nv = n[k];
+    if (k.charAt(0) === '_' && objekt(av) && objekt(nv)) {
+      const t = {setzen: {}, weg: []};
+      Object.keys(nv).forEach(s => { if (av[s] !== nv[s]) t.setzen[s] = nv[s]; });
+      Object.keys(av).forEach(s => { if (!(s in nv)) t.weg.push(s); });
+      p.teil[k] = t;
+    } else if (k.charAt(0) === '_' && mitIds(av) && mitIds(nv)) {
+      const vorher = new Map(av.map(e => [e.id, e]));
+      const jetzt = new Set(nv.map(e => e.id));
+      p.liste[k] = {setzen: nv.filter(e => vorher.get(e.id) !== e),
+                    weg: av.filter(e => !jetzt.has(e.id)).map(e => e.id),
+                    reihe: nv.map(e => e.id)};
+    } else {
+      p.setzen[k] = nv;
+    }
+  });
+  Object.keys(a).forEach(k => { if (!(k in n)) p.weg.push(k); });
+  return p;
+};
+const libPatchLeer = (p) => !p || (!Object.keys(p.setzen || {}).length && !Object.keys(p.teil || {}).length
+  && !Object.keys(p.liste || {}).length && !(p.weg || []).length);

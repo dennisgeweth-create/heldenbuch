@@ -7,31 +7,55 @@
 // Speicher voll ist, soll das Bild ausfallen und nicht die
 // Initiativreihenfolge. Deshalb wird er beim Schreiben abgetrennt und
 // beim Lesen wieder angehaengt.
+//
+// Seit v6.8 je Abenteuer ein Fach. Bis dahin gab es eines fuer das ganze
+// Geraet: wer mitten im Kampf auf ein anderes Abenteuer umschaltete,
+// spiegelte diesen Kampf auf den Server des anderen — dessen Runde sah
+// dann einen fremden Kampf. Jetzt traegt der Kampf sein Abenteuer
+// (advId), und jedes Abenteuer hat seinen eigenen.
 const KAMPF_FACH = 'hb_kampf';
 const KAMPF_BILD_FACH = 'hb_kampf_bild';
+const kampfFach = (advId) => KAMPF_FACH + ':' + (advId || '');
+const kampfBildFach = (advId) => KAMPF_BILD_FACH + ':' + (advId || '');
 
-const kampfLesen = () => {
+const kampfLesen = (advId) => {
   try {
-    const k = JSON.parse(localStorage.getItem(KAMPF_FACH) || 'null');
-    if (!k || !k.karte) return k;
-    const bild = localStorage.getItem(KAMPF_BILD_FACH) || null;
-    return bild ? {...k, karte: {...k.karte, bild}} : k;
+    let roh = localStorage.getItem(kampfFach(advId));
+    // Der Kampf aus der Zeit vor den Faechern gehoert dem Abenteuer, das
+    // zuerst danach fragt — das ist das, in dem das Geraet zuletzt war.
+    if (roh === null && advId) {
+      const alt = localStorage.getItem(KAMPF_FACH);
+      if (alt !== null) {
+        roh = alt;
+        localStorage.setItem(kampfFach(advId), alt);
+        const altBild = localStorage.getItem(KAMPF_BILD_FACH);
+        if (altBild !== null) localStorage.setItem(kampfBildFach(advId), altBild);
+        localStorage.removeItem(KAMPF_FACH);
+        localStorage.removeItem(KAMPF_BILD_FACH);
+      }
+    }
+    const k = JSON.parse(roh || 'null');
+    if (!k) return null;
+    const mit = {...k, advId: advId || ''};
+    if (!k.karte) return mit;
+    const bild = localStorage.getItem(kampfBildFach(advId)) || null;
+    return bild ? {...mit, karte: {...k.karte, bild}} : mit;
   } catch { return null; }
 };
 
-const kampfSchreiben = (neu) => {
+const kampfSchreiben = (advId, neu) => {
   if (!neu) {
-    try { localStorage.removeItem(KAMPF_FACH); } catch {}
-    try { localStorage.removeItem(KAMPF_BILD_FACH); } catch {}
+    try { localStorage.removeItem(kampfFach(advId)); } catch {}
+    try { localStorage.removeItem(kampfBildFach(advId)); } catch {}
     return;
   }
   const bild = ((neu.karte || {}).bild) || null;
   const ohne = neu.karte ? {...neu, karte: {...neu.karte, bild: null}} : neu;
-  try { localStorage.setItem(KAMPF_FACH, JSON.stringify(ohne)); } catch {}
+  try { localStorage.setItem(kampfFach(advId), JSON.stringify(ohne)); } catch {}
   // Das Bild danach und fuer sich: schlaegt es fehl, steht der Kampf schon.
   try {
-    if (bild) localStorage.setItem(KAMPF_BILD_FACH, bild);
-    else localStorage.removeItem(KAMPF_BILD_FACH);
+    if (bild) localStorage.setItem(kampfBildFach(advId), bild);
+    else localStorage.removeItem(kampfBildFach(advId));
   } catch {}
 };
 
@@ -269,14 +293,19 @@ function App() {
   // ganze Initiativreihenfolge. Er gehoert der Spielleitung an diesem
   // Geraet, deshalb reicht der lokale Speicher — auf dem Server waere er
   // ein Fremdkoerper zwischen den Charakterboegen.
-  const [kampf, setKampfRoh] = useState(() => kampfLesen());
+  const [kampf, setKampfRoh] = useState(() => kampfLesen(advAktiv));
+  // Wem der Kampf gehoert, der gerade im Tracker steht — gesetzt, sobald
+  // feststeht, welches Abenteuer offen ist (siehe unter advId).
+  const kampfAdv = useRef(advAktiv);
   const [showKampf, setShowKampf] = useState(false);
   // Eine Begegnung, die der Abenteuerplaner in den Kampftracker schickt:
   // {begegnungId, name, n}. Der Tracker fragt, bevor er sie lädt.
   const [planerBegegnung, setPlanerBegegnung] = useState(null);
   const setKampf = (wertOderFn) => setKampfRoh(vorher => {
-    const neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
-    kampfSchreiben(neu);
+    let neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
+    const adv = kampfAdv.current || '';
+    if (neu && neu.advId !== adv) neu = {...neu, advId: adv};
+    kampfSchreiben(adv, neu);
     return neu;
   });
   const [encForm, setEncForm] = useState(null);
@@ -995,7 +1024,7 @@ function App() {
       safeSetItem('hb_library', JSON.stringify(lib));
       const zug = serverCreds();
       if (verbunden(zug)) {
-        apiSaveLibrary(zug.url, zug.code, zug.pass, lib)
+        apiSaveLibrary(zug.url, zug.code, zug.pass, null, libPatch(prev, lib))
           // Frueher verschwand ein Fehler hier lautlos — die Bibliothek
           // stand dann oertlich anders da als auf dem Server. Gesagt wird
           // deshalb auch, was das bedeutet: oertlich ist es geschrieben,
@@ -1163,7 +1192,7 @@ function App() {
       setUserLibrary(prev => {
         const lib = updater(prev);
         safeSetItem('hb_library', JSON.stringify(lib));
-        apiSaveLibrary(url, code, pass, lib).catch(()=>{});
+        apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).catch(()=>{});
         return lib;
       });
     }
@@ -1183,7 +1212,7 @@ function App() {
         setUserLibrary(prev => {
           const lib = {...prev, [type]: (prev[type]||[]).filter(e=>e.name!==name)};
           safeSetItem('hb_library', JSON.stringify(lib));
-          apiSaveLibrary(url, code, pass, lib).catch(()=>{});
+          apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).catch(()=>{});
           return lib;
         });
       }
@@ -1426,7 +1455,7 @@ function App() {
     chronikMerkmaleAbgleichen(ch);
     const {url, code, pass} = serverCreds();
     if (!verbunden(serverCreds()) || !dmBereit()) return;
-    apiDmSaveChronik(url, code, pass, dmPassRef.current, ch).catch(err =>
+    apiDmSaveChronik(url, code, pass, dmPassRef.current, ch, advId).catch(err =>
       appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
   };
 
@@ -1935,6 +1964,30 @@ function App() {
   // Einstellungen des offenen Abenteuers gehen in beides ein.
   const abenteuer = advListe(userLibrary);
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : (abenteuer[0] ? abenteuer[0].id : '');
+  // Jedes Abenteuer hat seinen eigenen Kampf im Geraet. Wechselt das
+  // Abenteuer, steht im Tracker dessen Kampf — oder keiner.
+  useEffect(() => {
+    if (kampfAdv.current === advId && kampf && kampf.advId === advId) return;
+    kampfAdv.current = advId;
+    setKampfRoh(kampfLesen(advId));
+  }, [advId]);
+
+  // Die Chronik gehoert der ganzen Gruppe, und eine andere Spielleitung
+  // schreibt darin ihr Abenteuer fort. Wer hierher wechselt, holt sie
+  // deshalb frisch — sonst stuende von diesem Abenteuer der Stand vom
+  // Hereinkommen da, und das naechste Speichern schriebe ihn zurueck.
+  const chronikAdv = useRef(null);
+  useEffect(() => {
+    if (!isDmMode || !advId) return;
+    if (chronikAdv.current === null || chronikAdv.current === advId) { chronikAdv.current = advId; return; }
+    chronikAdv.current = advId;
+    const {url, code, pass} = serverCreds();
+    if (!verbunden(serverCreds()) || !dmBereit()) return;
+    apiDmLoadChronik(url, code, pass, dmPassRef.current).then(d => {
+      if (d && d.chronik && typeof d.chronik === 'object')
+        setChronik({zeit: d.chronik.zeit || {}, ereignisse: d.chronik.ereignisse || []});
+    }).catch(() => {});
+  }, [isDmMode, advId]);
   // Nach dem Neuladen wieder hinein, wenn dieser Tab im DM-Modus war und
   // das Konto das Abenteuer leitet. Einmal je Laden; geht es nicht, ist
   // der Merker weg und die Seite bleibt still im Spielermodus.
@@ -1969,6 +2022,9 @@ function App() {
   useEffect(() => {
     const creds = serverCreds();
     if (!verbunden(creds)) return;
+    // Ein Kampf aus einem anderen Abenteuer wird nirgends hingespiegelt —
+    // auch nicht als „vorbei“. Er steht nur noch nicht ausgetauscht da.
+    if (kampf && (kampf.advId || '') !== (advId || '')) return;
     const darf = isDmMode && konto && leitetAbenteuer(konto, advDms, svCode, advId);
     const laeuft = !!kampf && kampf.aktiv !== false && kampf.phase !== 'vorbereitung';
     const schlank = (darf && laeuft) ? {
@@ -2068,6 +2124,13 @@ function App() {
 
   useEffect(() => {
     const creds = serverCreds();
+    // Neu anfangen, bevor zum ersten Mal gefragt wird. Das Zuruecksetzen
+    // beim Wechsel des Abenteuers (weiter unten) kam fuer diese Schleife
+    // zu spaet: sie fragte mit dem Stand des vorigen Abenteuers — und
+    // hatte der neue Kampf zufaellig dieselbe Nummer, blieb der alte
+    // stehen.
+    kampfStandRef.current = -1;
+    kampfSichtRef.current = null;
     // Die Spielleitung hat den Tracker; sie braucht die Zuschauerbank nicht.
     if (isDmMode || !advId || !verbunden(creds)) { setKampfSichtDaten(null); return; }
     let lebt = true, uhr = null;
@@ -2371,6 +2434,8 @@ function App() {
 
   useEffect(() => {
     const creds = serverCreds();
+    // Wie beim Kampf: der Stand des vorigen Abenteuers gilt hier nicht.
+    beuteStandRef.current = -1;
     if (!advId || !verbunden(creds)) { setBeute(null); return; }
     let lebt = true, uhr = null;
     const frage = async () => {
@@ -2487,6 +2552,7 @@ function App() {
 
   useEffect(() => {
     const creds = serverCreds();
+    probeStandRef.current = -1;
     if (!advId || !verbunden(creds)) { setProbe(null); return; }
     let lebt = true, uhr = null;
     const frage = async () => {
@@ -2809,21 +2875,20 @@ function App() {
   }, [isDmMode, advId, svCode, konto]);
 
   // Abgearbeitet ist abgearbeitet: die Spielleitung nimmt die Ansage aus
-  // der Liste, und weil sie dabei das Feld mitschickt, nimmt der Server
-  // sie auch aus dem Kampf.
+  // der Liste — beim Server einzeln (ansagen_weg). Bis v6.7 schickte sie
+  // die Liste, die sie zuletzt kannte, und eine Ansage, die in der Sekunde
+  // dazwischen kam, war damit weg.
   const ansageWeg = (id) => {
     setAnsagen(a => a.filter(x => x.id !== id));
     const creds = serverCreds();
-    if (!verbunden(creds) || !kampf) return;
-    const rest = ansagen.filter(x => x.id !== id);
+    if (!verbunden(creds) || !kampf || (kampf.advId || '') !== (advId || '')) return;
     apiKampfSetzen(creds.url, creds.code, advId, {
       name: kampf.name, phase: kampf.phase || 'kampf', aktiv: true,
       runde: kampf.runde, zug: kampf.zug, gezeigt: !!kampf.gezeigt,
       karte: karteFuerSpieler(kampf.karte),
       teilnehmer: (kampf.teilnehmer || []).map(t => { const {bild, ...r} = t; return r; }),
       log: kampf.log || [],
-      ansagen: rest,
-    }).catch(() => {});
+    }, {ansagen_weg: [id]}).catch(() => {});
   };
 
   // Und die andere Seite: der Spieler schickt seine Ansage ab.

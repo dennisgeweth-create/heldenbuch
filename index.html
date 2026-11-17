@@ -112,7 +112,11 @@
     const apiDeleteItem    = (url, code, pass, charId, itemId)       => apiRequest(url, 'delete_item', { code, password: pass, char_id: charId, item_id: itemId });
     // Gegenstaende von einem Bogen in einen anderen, in einem Schritt auf dem Server.
     const apiItemUebergeben = (url, code, von, an, itemIds) => apiRequest(url, 'item_uebergeben', { code, von, an, item_ids: itemIds });
-    const apiSaveLibrary   = (url, code, pass, library)  => apiRequest(url, 'save_library',   { code, password: pass, library });
+    // Mit patch nur, was sich geaendert hat (libPatch in js/util.js); ein
+    // leerer Patch geht gar nicht erst hinaus.
+    const apiSaveLibrary   = (url, code, pass, library, patch) => patch
+      ? (libPatchLeer(patch) ? Promise.resolve({ok: true}) : apiRequest(url, 'save_library', { code, password: pass, patch }))
+      : apiRequest(url, 'save_library', { code, password: pass, library });
     // Traegt kein Passwort, sondern die abgeleitete Kennung: der Abgleich
     // laeuft im Sekundenbereich, und bcrypt bei jeder Anfrage waere die
     // teuerste Zeile der ganzen Anwendung.
@@ -138,12 +142,12 @@
     const apiDmSaveEncounter   = (url, code, pass, dmPass, id, e) => apiRequest(url, 'dm_save_encounter',   { code, password: pass, dm_password: dmPass, enc_id: id, encounter: e });
     const apiDmDeleteEncounter = (url, code, pass, dmPass, id)    => apiRequest(url, 'dm_delete_encounter', { code, password: pass, dm_password: dmPass, enc_id: id });
     const apiDmLoadChronik     = (url, code, pass, dmPass)       => apiRequest(url, 'dm_load_chronik',     { code, password: pass, dm_password: dmPass });
-    const apiDmSaveChronik     = (url, code, pass, dmPass, ch)   => apiRequest(url, 'dm_save_chronik',     { code, password: pass, dm_password: dmPass, chronik: ch });
+    const apiDmSaveChronik     = (url, code, pass, dmPass, ch, advId) => apiRequest(url, 'dm_save_chronik', { code, password: pass, dm_password: dmPass, chronik: ch, adv_id: advId || '' });
     // Der laufende Kampf liegt je Abenteuer auf dem Server: die
     // Spielleitung schreibt ihn, alle anderen lesen die Fassung, aus der
     // die Zahlen der Gegner heraus sind. "seit" spart die Antwort, wenn
     // sich seit dem letzten Blick nichts getan hat.
-    const apiKampfSetzen = (url, code, advId, kampf)      => apiRequest(url, 'kampf_setzen', { code, adv_id: advId, kampf });
+    const apiKampfSetzen = (url, code, advId, kampf, dazu) => apiRequest(url, 'kampf_setzen', { code, adv_id: advId, kampf, ...(dazu || {}) });
     const apiKampfStand  = (url, code, advId, seit)       => apiRequest(url, 'kampf_stand',  { code, adv_id: advId, seit });
     const apiKampfAnsage  = (url, code, advId, charId, ansage) => apiRequest(url, 'kampf_eintrag', { code, adv_id: advId, char_id: charId, ansage });
     const apiKampfAnsagen = (url, code, advId)                 => apiRequest(url, 'kampf_stand',   { code, adv_id: advId, nur: 'ansagen' });

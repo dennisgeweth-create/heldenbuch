@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.7.0';
+const HB_VERSION = 'v6.8.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -26201,29 +26201,48 @@ const CharakterAssistent = ({
 // ==== js/src/4-app.jsx ====
 const KAMPF_FACH = 'hb_kampf';
 const KAMPF_BILD_FACH = 'hb_kampf_bild';
-const kampfLesen = () => {
+const kampfFach = advId => KAMPF_FACH + ':' + (advId || '');
+const kampfBildFach = advId => KAMPF_BILD_FACH + ':' + (advId || '');
+const kampfLesen = advId => {
   try {
-    const k = JSON.parse(localStorage.getItem(KAMPF_FACH) || 'null');
-    if (!k || !k.karte) return k;
-    const bild = localStorage.getItem(KAMPF_BILD_FACH) || null;
-    return bild ? {
+    let roh = localStorage.getItem(kampfFach(advId));
+    if (roh === null && advId) {
+      const alt = localStorage.getItem(KAMPF_FACH);
+      if (alt !== null) {
+        roh = alt;
+        localStorage.setItem(kampfFach(advId), alt);
+        const altBild = localStorage.getItem(KAMPF_BILD_FACH);
+        if (altBild !== null) localStorage.setItem(kampfBildFach(advId), altBild);
+        localStorage.removeItem(KAMPF_FACH);
+        localStorage.removeItem(KAMPF_BILD_FACH);
+      }
+    }
+    const k = JSON.parse(roh || 'null');
+    if (!k) return null;
+    const mit = {
       ...k,
+      advId: advId || ''
+    };
+    if (!k.karte) return mit;
+    const bild = localStorage.getItem(kampfBildFach(advId)) || null;
+    return bild ? {
+      ...mit,
       karte: {
         ...k.karte,
         bild
       }
-    } : k;
+    } : mit;
   } catch {
     return null;
   }
 };
-const kampfSchreiben = neu => {
+const kampfSchreiben = (advId, neu) => {
   if (!neu) {
     try {
-      localStorage.removeItem(KAMPF_FACH);
+      localStorage.removeItem(kampfFach(advId));
     } catch {}
     try {
-      localStorage.removeItem(KAMPF_BILD_FACH);
+      localStorage.removeItem(kampfBildFach(advId));
     } catch {}
     return;
   }
@@ -26236,10 +26255,10 @@ const kampfSchreiben = neu => {
     }
   } : neu;
   try {
-    localStorage.setItem(KAMPF_FACH, JSON.stringify(ohne));
+    localStorage.setItem(kampfFach(advId), JSON.stringify(ohne));
   } catch {}
   try {
-    if (bild) localStorage.setItem(KAMPF_BILD_FACH, bild);else localStorage.removeItem(KAMPF_BILD_FACH);
+    if (bild) localStorage.setItem(kampfBildFach(advId), bild);else localStorage.removeItem(kampfBildFach(advId));
   } catch {}
 };
 function App() {
@@ -26470,12 +26489,18 @@ function App() {
   const [enemyView, setEnemyView] = useState(null);
   const [enemyImportBusy, setEnemyImportBusy] = useState(false);
   const [encounters, setEncounters] = useState([]);
-  const [kampf, setKampfRoh] = useState(() => kampfLesen());
+  const [kampf, setKampfRoh] = useState(() => kampfLesen(advAktiv));
+  const kampfAdv = useRef(advAktiv);
   const [showKampf, setShowKampf] = useState(false);
   const [planerBegegnung, setPlanerBegegnung] = useState(null);
   const setKampf = wertOderFn => setKampfRoh(vorher => {
-    const neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
-    kampfSchreiben(neu);
+    let neu = typeof wertOderFn === 'function' ? wertOderFn(vorher) : wertOderFn;
+    const adv = kampfAdv.current || '';
+    if (neu && neu.advId !== adv) neu = {
+      ...neu,
+      advId: adv
+    };
+    kampfSchreiben(adv, neu);
     return neu;
   });
   const [encForm, setEncForm] = useState(null);
@@ -27050,7 +27075,7 @@ function App() {
       safeSetItem('hb_library', JSON.stringify(lib));
       const zug = serverCreds();
       if (verbunden(zug)) {
-        apiSaveLibrary(zug.url, zug.code, zug.pass, lib).catch(e => appAlert('Die Datenbank konnte nicht gespeichert werden: ' + (e.message || 'unbekannter Fehler') + ' — auf diesem Gerät steht sie damit anders da als auf dem Server. ' + 'Mach eine Sicherung (⬇ unten im Datenbankfenster), bevor du neu lädst.'));
+        apiSaveLibrary(zug.url, zug.code, zug.pass, null, libPatch(prev, lib)).catch(e => appAlert('Die Datenbank konnte nicht gespeichert werden: ' + (e.message || 'unbekannter Fehler') + ' — auf diesem Gerät steht sie damit anders da als auf dem Server. ' + 'Mach eine Sicherung (⬇ unten im Datenbankfenster), bevor du neu lädst.'));
       }
       return lib;
     });
@@ -27295,7 +27320,7 @@ function App() {
       setUserLibrary(prev => {
         const lib = updater(prev);
         safeSetItem('hb_library', JSON.stringify(lib));
-        apiSaveLibrary(url, code, pass, lib).catch(() => {});
+        apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).catch(() => {});
         return lib;
       });
     }
@@ -27325,7 +27350,7 @@ function App() {
             [type]: (prev[type] || []).filter(e => e.name !== name)
           };
           safeSetItem('hb_library', JSON.stringify(lib));
-          apiSaveLibrary(url, code, pass, lib).catch(() => {});
+          apiSaveLibrary(url, code, pass, null, libPatch(prev, lib)).catch(() => {});
           return lib;
         });
       }
@@ -27596,7 +27621,7 @@ function App() {
       pass
     } = serverCreds();
     if (!verbunden(serverCreds()) || !dmBereit()) return;
-    apiDmSaveChronik(url, code, pass, dmPassRef.current, ch).catch(err => appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
+    apiDmSaveChronik(url, code, pass, dmPassRef.current, ch, advId).catch(err => appAlert('Chronik konnte nicht gespeichert werden: ' + (err.message || 'unbekannter Fehler')));
   };
   const chronikMerkmaleAbgleichen = ch => {
     const soll = chronikMerkmale(ch, advId);
@@ -28253,6 +28278,32 @@ function App() {
   const cur = chars.find(c => c.id === sel);
   const abenteuer = advListe(userLibrary);
   const advId = abenteuer.some(a => a.id === advAktiv) ? advAktiv : abenteuer[0] ? abenteuer[0].id : '';
+  useEffect(() => {
+    if (kampfAdv.current === advId && kampf && kampf.advId === advId) return;
+    kampfAdv.current = advId;
+    setKampfRoh(kampfLesen(advId));
+  }, [advId]);
+  const chronikAdv = useRef(null);
+  useEffect(() => {
+    if (!isDmMode || !advId) return;
+    if (chronikAdv.current === null || chronikAdv.current === advId) {
+      chronikAdv.current = advId;
+      return;
+    }
+    chronikAdv.current = advId;
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    if (!verbunden(serverCreds()) || !dmBereit()) return;
+    apiDmLoadChronik(url, code, pass, dmPassRef.current).then(d => {
+      if (d && d.chronik && typeof d.chronik === 'object') setChronik({
+        zeit: d.chronik.zeit || {},
+        ereignisse: d.chronik.ereignisse || []
+      });
+    }).catch(() => {});
+  }, [isDmMode, advId]);
   const dmZurueck = useRef(false);
   useEffect(() => {
     if (dmZurueck.current || isDmMode || !konto || !svCode || !advId) return;
@@ -28279,6 +28330,7 @@ function App() {
   useEffect(() => {
     const creds = serverCreds();
     if (!verbunden(creds)) return;
+    if (kampf && (kampf.advId || '') !== (advId || '')) return;
     const darf = isDmMode && konto && leitetAbenteuer(konto, advDms, svCode, advId);
     const laeuft = !!kampf && kampf.aktiv !== false && kampf.phase !== 'vorbereitung';
     const schlank = darf && laeuft ? {
@@ -28339,6 +28391,8 @@ function App() {
   const kampfSichtRef = useRef(null);
   useEffect(() => {
     const creds = serverCreds();
+    kampfStandRef.current = -1;
+    kampfSichtRef.current = null;
     if (isDmMode || !advId || !verbunden(creds)) {
       setKampfSichtDaten(null);
       return;
@@ -28676,6 +28730,7 @@ function App() {
   }, [isDmMode, kampf && kampf.aktiv, laden, beute, advId, konto]);
   useEffect(() => {
     const creds = serverCreds();
+    beuteStandRef.current = -1;
     if (!advId || !verbunden(creds)) {
       setBeute(null);
       return;
@@ -28819,6 +28874,7 @@ function App() {
   }, [probe]);
   useEffect(() => {
     const creds = serverCreds();
+    probeStandRef.current = -1;
     if (!advId || !verbunden(creds)) {
       setProbe(null);
       return;
@@ -29157,8 +29213,7 @@ function App() {
   const ansageWeg = id => {
     setAnsagen(a => a.filter(x => x.id !== id));
     const creds = serverCreds();
-    if (!verbunden(creds) || !kampf) return;
-    const rest = ansagen.filter(x => x.id !== id);
+    if (!verbunden(creds) || !kampf || (kampf.advId || '') !== (advId || '')) return;
     apiKampfSetzen(creds.url, creds.code, advId, {
       name: kampf.name,
       phase: kampf.phase || 'kampf',
@@ -29174,8 +29229,9 @@ function App() {
         } = t;
         return r;
       }),
-      log: kampf.log || [],
-      ansagen: rest
+      log: kampf.log || []
+    }, {
+      ansagen_weg: [id]
     }).catch(() => {});
   };
   const ansageSenden = async (ansage, fuer) => {

@@ -1,5 +1,45 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.8.0
+
+### Zwei Abenteuer gleichzeitig — nichts vermischt sich mehr
+
+- **Der Kampf liegt je Abenteuer.** Bisher hatte das Gerät der
+  Spielleitung genau einen Kampf: wer mitten im Gefecht auf ein anderes
+  Abenteuer umschaltete, schrieb diesen Kampf auf den Server des anderen —
+  und dessen Runde sah einen fremden Kampf. Jetzt hat jedes Abenteuer
+  seinen eigenen; umschalten zeigt dessen Kampf, zurückschalten den alten.
+- **Beim Spieler** konnte nach dem Wechsel des Abenteuers der alte Kampf
+  (oder die alte Probe, die alte Beute) stehen bleiben, wenn der neue
+  zufällig dieselbe Standnummer hatte. Behoben.
+- **Die Bibliothek** (Abenteuer-Einstellungen, Läden, Sammlungen) wird
+  nicht mehr als Ganzes überschrieben, sondern zusammengeführt: stellt die
+  Spielleitung von Strahd etwas um, während die von Eberron ihren Laden
+  bestückt, bleibt beides stehen.
+- **Die Chronik** ebenso: jede Spielleitung schreibt nur die Uhr und die
+  Ereignisse ihres Abenteuers. Wer wechselt, holt sie frisch.
+
+### Nichts geht mehr verloren, wenn alle gleichzeitig klicken
+
+- Würfeln vier Spieler dieselbe Probe in derselben Sekunde, kam bisher
+  nicht jede Antwort an — jeder schrieb die Liste ohne die der anderen
+  zurück. Dasselbe bei **Ansagen**, beim **Nehmen aus der Beute** (zwei
+  konnten denselben Gegenstand bekommen) und bei der **Rast**. Jetzt
+  wartet der zweite einen Augenblick auf den ersten.
+- Nimmt die Spielleitung eine Ansage als erledigt heraus, nimmt der
+  Server genau diese heraus — eine Ansage, die in derselben Sekunde
+  hereinkam, bleibt stehen.
+
+### Schneller
+
+- Der Server baute bei **jeder** Anfrage seine Tabellen neu auf (rund
+  vierzig Anweisungen) — jetzt nur noch, wenn sich etwas daran ändert.
+- Jede Anfrage las die ganze Bibliothek mit (bis zu 6 MB), auch der
+  Puls und jeder Blick auf den Kampf. Jetzt nur noch, wer sie braucht;
+  der Kampfblick der Spieler liest nur die Abenteuer-Einstellungen.
+- Eine Änderung an der Bibliothek schickt nur noch, was sich geändert hat
+  — Kilobyte statt Megabyte.
+
 ## v6.7.0
 
 ### Bei Treffer dazu — Göttliches Niederstrecken und Co.

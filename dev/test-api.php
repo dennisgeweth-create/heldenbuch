@@ -1777,6 +1777,90 @@ ruf('delete_char', ['code' => $code, 'token' => $tDm, 'char_id' => 'pulsheld']);
 $r = ruf('load', ['code' => $code, 'token' => $tDm, 'seit' => $zeit - 2]);
 pruefe('ein geloeschter Bogen fehlt in den Kennungen', !in_array('pulsheld', $r['body']['ids'] ?? [], true));
 
+abschnitt('Zwei Abenteuer, zwei Spielleitungen, ein Server');
+// Das Schema steht nach der ersten Anfrage in hb_meta.
+$r = ruf('me', ['token' => $tDm]);
+pruefe('nach dem Aufbau antwortet der Server weiter (200)', $r['status'] === 200, kurz($r));
+
+// Die Bibliothek: zwei Geraete aendern verschiedene Teile, keiner verliert.
+ruf('save_library', ['code' => $code, 'token' => $tDm, 'library' => [
+    'spell' => [['name' => 'Feuerball']],
+    '_adventures' => [['id' => 'strahd', 'name' => 'Strahd'], ['id' => 'eberron', 'name' => 'Eberron']],
+    '_laeden' => ['strahd' => ['name' => 'Bildrats Laden']],
+]]);
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'patch' => [
+    'liste' => ['_adventures' => ['setzen' => [['id' => 'strahd', 'name' => 'Strahd', 'hpVerdeckt' => true]],
+                                  'weg' => [], 'reihe' => ['strahd', 'eberron']]],
+    'teil'  => ['_laeden' => ['setzen' => ['strahd' => ['name' => 'Bildrats Laden', 'offen' => true]], 'weg' => []]],
+]]);
+pruefe('ein Patch der Bibliothek geht durch (200)', $r['status'] === 200, kurz($r));
+// Das zweite Geraet kannte Strahds Einstellung nicht und aendert Eberron.
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm2, 'patch' => [
+    'liste' => ['_adventures' => ['setzen' => [['id' => 'eberron', 'name' => 'Eberron', 'kampfSicht' => 'ansage']],
+                                  'weg' => [], 'reihe' => ['strahd', 'eberron']]],
+    'teil'  => ['_laeden' => ['setzen' => ['eberron' => ['name' => 'Sharn-Basar']], 'weg' => []]],
+    'setzen' => ['weapon' => [['name' => 'Langschwert']]],
+]]);
+$r = ruf('load', ['code' => $code, 'token' => $tDm]);
+$lib = $r['body']['library'] ?? [];
+$advs = array_column($lib['_adventures'] ?? [], null, 'id');
+pruefe('Strahds Einstellung ueberlebt den Patch fuer Eberron',
+       !empty($advs['strahd']['hpVerdeckt']) && ($advs['eberron']['kampfSicht'] ?? '') === 'ansage',
+       json_encode($lib['_adventures'] ?? null));
+pruefe('beide Laeden stehen da',
+       !empty($lib['_laeden']['strahd']['offen']) && ($lib['_laeden']['eberron']['name'] ?? '') === 'Sharn-Basar',
+       json_encode($lib['_laeden'] ?? null));
+pruefe('und was keiner anfasste, bleibt', ($lib['spell'][0]['name'] ?? '') === 'Feuerball'
+       && ($lib['weapon'][0]['name'] ?? '') === 'Langschwert');
+$r = ruf('save_library', ['code' => $code, 'token' => $tDm, 'patch' => [
+    'liste' => ['_adventures' => ['setzen' => [], 'weg' => ['eberron'], 'reihe' => ['strahd']]],
+    'teil'  => ['_laeden' => ['setzen' => [], 'weg' => ['eberron']]],
+]]);
+$lib = ruf('load', ['code' => $code, 'token' => $tDm])['body']['library'] ?? [];
+pruefe('herausnehmen geht auch', count($lib['_adventures'] ?? []) === 1 && !isset($lib['_laeden']['eberron']),
+       json_encode($lib));
+ruf('save_library', ['code' => $code, 'token' => $tDm, 'patch' => [
+    'liste' => ['_adventures' => ['setzen' => [['id' => 'eberron', 'name' => 'Eberron']], 'weg' => [], 'reihe' => ['strahd', 'eberron']]],
+]]);
+
+// Die Chronik: jede Spielleitung schreibt nur ihr Abenteuer.
+ruf('dm_save_chronik', ['code' => $code, 'token' => $tDm, 'chronik' => [
+    'zeit' => ['strahd' => 100, 'eberron' => 50],
+    'ereignisse' => [['id' => 'e1', 'adventure' => 'strahd'], ['id' => 'e2', 'adventure' => 'eberron']]]]);
+$r = ruf('dm_save_chronik', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'chronik' => [
+    'zeit' => ['strahd' => 160, 'eberron' => 0],
+    'ereignisse' => [['id' => 'e1', 'adventure' => 'strahd'], ['id' => 'e3', 'adventure' => 'strahd']]]]);
+pruefe('die Chronik je Abenteuer speichert (200)', $r['status'] === 200, kurz($r));
+$ch = ruf('dm_load_chronik', ['code' => $code, 'token' => $tDm])['body']['chronik'] ?? [];
+pruefe('die Uhr von Strahd laeuft weiter, die von Eberron bleibt stehen',
+       ($ch['zeit']['strahd'] ?? 0) === 160 && ($ch['zeit']['eberron'] ?? 0) === 50, json_encode($ch['zeit'] ?? null));
+$ids2 = array_column($ch['ereignisse'] ?? [], 'id');
+sort($ids2);
+pruefe('Eberrons Ereignis ueberlebt, Strahds neues steht da', $ids2 === ['e1', 'e2', 'e3'], json_encode($ids2));
+
+// Ansagen: die Spielleitung nimmt eine heraus, ohne die anderen zu verlieren.
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => $kampf2]);
+$a1 = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                            'char_id' => 'h1', 'ansage' => ['art' => 'frei', 'text' => 'Erste']])['body']['ansage']['id'] ?? '';
+$a2 = ruf('kampf_eintrag', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                            'char_id' => 'h1', 'ansage' => ['art' => 'frei', 'text' => 'Zweite']])['body']['ansage']['id'] ?? '';
+// Die Spielleitung kannte nur die erste und nimmt sie heraus.
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'kampf' => $kampf2 + ['ansagen' => []], 'ansagen_weg' => [$a1]]);
+pruefe('ansagen_weg geht durch (200)', $r['status'] === 200, kurz($r));
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'nur' => 'ansagen']);
+$rest = array_column($r['body']['ansagen'] ?? [], 'id');
+pruefe('die erste ist weg, die zweite steht noch', $rest === [$a2], json_encode($rest));
+$r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'kampf' => array_diff_key($kampf2, ['ansagen' => 1])]);
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'nur' => 'ansagen']);
+pruefe('der Spiegel ohne Ansagen laesst sie stehen', array_column($r['body']['ansagen'] ?? [], 'id') === [$a2]);
+// Der Kampf in Strahd beruehrt Eberron nicht.
+$r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'eberron']);
+pruefe('in Eberron laeuft davon nichts', ($r['body']['kampf'] ?? null) === null && (int)($r['body']['stand'] ?? 0) === 0,
+       kurz($r));
+ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'kampf' => null]);
+
 abschnitt('Abmelden und Abwehr');
 $r = ruf('logout', ['token' => $tZweiter]);
 pruefe('logout antwortet (200)', $r['status'] === 200, kurz($r));
