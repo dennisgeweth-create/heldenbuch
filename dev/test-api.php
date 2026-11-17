@@ -1918,6 +1918,50 @@ if (substr(DB_NAME, -4) === '_dev') {
     $st = $db->prepare("SELECT COUNT(*) FROM hb_meta WHERE schluessel='schema'");
     $st->execute();
     pruefe('der Stand des Schemas steht in hb_meta', (int)$st->fetchColumn() === 1);
+
+    abschnitt('Alte Bilddateien aufraeumen');
+    $png3 = 'data:image/png;base64,' . base64_encode("\x89PNG\r\n\x1a\n" . str_repeat("\3", 400));
+    $r = ruf('save_item', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'item_id' => 'waise',
+                           'item' => ['id' => 'waise', 'name' => 'Zerbrochener Spiegel', 'imageData' => $png3]]);
+    $waisePfad = __DIR__ . '/../' . ($r['body']['bilder'][0]['url'] ?? 'gibtsnicht');
+    $waiseName = basename($waisePfad);
+    // Das Bild wird ersetzt — die Datei bleibt liegen und ist verwaist.
+    ruf('save_item', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'item_id' => 'waise',
+                      'item' => ['id' => 'waise', 'name' => 'Zerbrochener Spiegel', 'imageData' => '']]);
+    $portraitPfad = __DIR__ . '/../' . ($heldVon('h1')['portrait'] ?? 'gibtsnicht');
+    // Eine Datei aus derselben Sekunde gilt als gerade benutzt — der Lauf
+    // schuetzt sie. Die Waise ist hier also ein paar Minuten alt.
+    @touch($waisePfad, time() - 300);
+
+    $r = ruf('bilder_aufraeumen', ['code' => $code, 'token' => $tSpieler]);
+    pruefe('nur die Verwaltung raeumt auf (403)', $r['status'] === 403, kurz($r));
+    $r = ruf('bilder_aufraeumen', ['code' => $code, 'token' => $tAdmin]);
+    $s = $r['body']['bilder'] ?? [];
+    pruefe('Pruefen zaehlt die Dateien und findet die Waise (200)',
+           $r['status'] === 200 && ($s['waisen'] ?? 0) >= 1 && ($s['in_gebrauch'] ?? 0) >= 1
+           && ($s['geloescht'] ?? -1) === 0, json_encode($s));
+    pruefe('  … und loescht dabei nichts', is_file($waisePfad));
+    $r = ruf('bilder_aufraeumen', ['code' => $code, 'token' => $tAdmin, 'loeschen' => true]);
+    pruefe('eine frische Waise bleibt eine Woche stehen',
+           is_file($waisePfad) && ($r['body']['bilder']['geloescht'] ?? -1) === 0, json_encode($r['body']['bilder'] ?? null));
+    pruefe('  … und die Antwort sagt, wann sie frei wird', (int)($r['body']['bilder']['naechste'] ?? 0) > time());
+
+    // Eine Woche spaeter.
+    $st = $db->prepare("SELECT wert FROM hb_meta WHERE schluessel=?");
+    $st->execute(['bilder_waisen:' . $code]);
+    $waisen = json_decode((string)$st->fetchColumn(), true) ?: [];
+    pruefe('die Waise steht in der Liste', isset($waisen[$waiseName]), json_encode($waisen));
+    foreach ($waisen as $n => $seit) $waisen[$n] = time() - 8 * 86400;
+    $db->prepare("UPDATE hb_meta SET wert=? WHERE schluessel=?")->execute([json_encode($waisen), 'bilder_waisen:' . $code]);
+    $r = ruf('bilder_aufraeumen', ['code' => $code, 'token' => $tAdmin, 'loeschen' => true]);
+    clearstatcache();
+    pruefe('nach einer Woche ist sie weg', !is_file($waisePfad) && ($r['body']['bilder']['geloescht'] ?? 0) >= 1,
+           json_encode($r['body']['bilder'] ?? null));
+    pruefe('  … das Portraet, das noch in Gebrauch ist, nicht', is_file($portraitPfad));
+    $r = ruf('save_item', ['code' => $code, 'token' => $tAdmin, 'char_id' => 'h1', 'item_id' => 'waise',
+                           'item' => ['id' => 'waise', 'name' => 'Zerbrochener Spiegel', 'imageData' => $png3]]);
+    clearstatcache();
+    pruefe('wird dasselbe Bild wieder benutzt, ist die Datei wieder da', is_file($waisePfad));
 }
 
 abschnitt('Abmelden und Abwehr');

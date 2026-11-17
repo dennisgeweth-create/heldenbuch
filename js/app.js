@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.9.0';
+const HB_VERSION = 'v6.10.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -28099,6 +28099,27 @@ function App() {
       appAlert('Das Speichern ging nicht: ' + (e.message || ''));
     }
   };
+  const [bilderStand, setBilderStand] = useState(null);
+  const bilderPruefen = async loeschen => {
+    const {
+      url,
+      code
+    } = serverCreds();
+    setBilderStand(s => ({
+      ...(s || {}),
+      laeuft: true
+    }));
+    try {
+      const a = await apiBilderAufraeumen(url, code, loeschen);
+      setBilderStand({
+        ...(a.bilder || {}),
+        gerade: loeschen ? 'aufgeraeumt' : 'geprueft'
+      });
+    } catch (e) {
+      setBilderStand(null);
+      appAlert('Das ging nicht: ' + (e.message || ''));
+    }
+  };
   const logFristSetzen = async tage => {
     const {
       url,
@@ -36296,7 +36317,52 @@ function App() {
     }, [30, 90, 180, 365, 3650].map(t => React.createElement("option", {
       key: t,
       value: t
-    }, t === 365 ? '1 Jahr' : t > 365 ? t / 365 + ' Jahre' : t + ' Tage'))))));
+    }, t === 365 ? '1 Jahr' : t > 365 ? t / 365 + ' Jahre' : t + ' Tage'))))), konto && konto.ist_admin && React.createElement("div", {
+      className: "einst-block"
+    }, React.createElement("div", {
+      className: "einst-titel"
+    }, "\uD83D\uDDBC Bilddateien"), React.createElement("div", {
+      className: "einst-hinweis",
+      style: {
+        marginTop: 0,
+        marginBottom: 10
+      }
+    }, "Portr\xE4ts und Bilder liegen als Dateien auf dem Server. Wird ein Bild ersetzt oder gel\xF6scht, bleibt seine Datei liegen. Was eine Woche lang nirgends mehr vorkommt, wird gel\xF6scht \u2014 einmal am Tag von selbst, oder hier."), bilderStand && !bilderStand.laeuft && (() => {
+      const b = bilderStand;
+      const mb = n => (+n || 0) >= 1048576 ? (+n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.round((+n || 0) / 1024) + ' kB';
+      const tage = b.naechste ? Math.max(1, Math.ceil((b.naechste * 1000 - Date.now()) / 86400000)) : 0;
+      return React.createElement("div", {
+        className: "bilder-stand"
+      }, b.fehler && React.createElement("div", {
+        className: "konto-zeile"
+      }, React.createElement("span", null, "\u26A0 ", b.fehler)), React.createElement("div", {
+        className: "konto-zeile"
+      }, React.createElement("span", null, "Bilddateien"), React.createElement("b", null, b.dateien, " \xB7 ", mb(b.bytes))), React.createElement("div", {
+        className: "konto-zeile"
+      }, React.createElement("span", null, "In Gebrauch"), React.createElement("b", null, b.in_gebrauch)), React.createElement("div", {
+        className: "konto-zeile"
+      }, React.createElement("span", null, "Nirgends mehr benutzt"), React.createElement("b", null, b.waisen, b.waisen ? ' · ' + mb(b.waisen_bytes) : '')), b.gerade === 'aufgeraeumt' && React.createElement("div", {
+        className: "konto-zeile"
+      }, React.createElement("span", null, "Gerade gel\xF6scht"), React.createElement("b", null, b.geloescht, b.geloescht ? ' · ' + mb(b.geloescht_bytes) : '')), b.waisen > 0 && React.createElement("div", {
+        className: "einst-hinweis",
+        style: {
+          marginTop: 6
+        }
+      }, tage ? 'Die erste davon wird in ' + tage + (tage === 1 ? ' Tag' : ' Tagen') + ' gelöscht, ' + 'wenn sie bis dahin keiner wieder benutzt.' : ''));
+    })(), React.createElement("div", {
+      className: "einst-klassen-fuss"
+    }, React.createElement("button", {
+      className: "btn-icon",
+      disabled: !!(bilderStand && bilderStand.laeuft),
+      onClick: () => bilderPruefen(false)
+    }, "\uD83D\uDD0D Pr\xFCfen"), React.createElement("button", {
+      className: "btn-icon",
+      disabled: !!(bilderStand && bilderStand.laeuft),
+      title: "L\xF6scht, was seit einer Woche nirgends mehr vorkommt",
+      onClick: () => bilderPruefen(true)
+    }, "\uD83E\uDDF9 Aufr\xE4umen"), bilderStand && bilderStand.laeuft && React.createElement("span", {
+      className: "einst-hinweis"
+    }, "Sucht \u2026"))));
   })(), React.createElement("div", {
     className: "form-actions"
   }, React.createElement("button", {

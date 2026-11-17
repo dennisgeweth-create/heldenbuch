@@ -226,6 +226,7 @@
     const apiKontoLoeschen = (url, userId)  => apiRequest(url, 'user_delete', { user_id: userId });
     const apiMeineDaten = (url)             => apiRequest(url, 'my_data', {});
     const apiLogFrist   = (url, code, tage) => apiRequest(url, 'log_frist_set', { code, tage });
+    const apiBilderAufraeumen = (url, code, loeschen) => apiRequest(url, 'bilder_aufraeumen', { code, loeschen: !!loeschen });
 
     // Die drei Zugangsdaten der Gruppe an einer Stelle. Vorher wurden sie an
     // elf Stellen einzeln aus dem Speicher gelesen, teils ein-, teils

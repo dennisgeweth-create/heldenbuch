@@ -224,6 +224,13 @@ auf einmal; dort wartet der Puls deshalb hoechstens eine Sekunde.
   Antwort meldet, was ersetzt wurde (`bilder`), der Browser uebernimmt es
   (`bilderEinsetzen`). Was noch eingebettet ist, zieht beim Laden um.
   Nur PNG, JPEG, WebP und GIF; ein SVG bleibt eingebettet.
+- **Alte Bilddateien** raeumt `bilderAufraeumen` weg: einmal am Tag nach
+  einem vollen Laden von selbst, von Hand im Kontofenster der Verwaltung
+  (`bilder_aufraeumen`). Gesucht wird in allen Textspalten der Gruppe
+  (`bilderInGebrauch`) — **wer eine neue Spalte anlegt, in der ein
+  Bildpfad stehen kann, traegt sie dort ein**, sonst gelten ihre Bilder
+  als verwaist. Geloescht wird erst nach einer Woche als Waise
+  (`hb_meta` `bilder_waisen:<code>`); scheitert die Suche, nichts.
 
 ## Serverseite lokal testen
 

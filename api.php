@@ -106,7 +106,7 @@ try {
 //
 // WER UNTEN EINE TABELLE ODER SPALTE ERGAENZT, ZAEHLT SCHEMA_STAND HOCH.
 // Sonst laeuft die Aenderung auf dem Server nie.
-const SCHEMA_STAND = 2;
+const SCHEMA_STAND = 3;
 $schemaAktuell = false;
 try {
     $schemaAktuell = (string)$pdo->query("SELECT wert FROM hb_meta WHERE schluessel='schema'")->fetchColumn()
@@ -495,8 +495,10 @@ try { $pdo->exec("ALTER TABLE hb_sessions ADD COLUMN log_tage INT NULL"); } catc
 // Der Stand ist gebaut — ab jetzt reicht der eine Blick oben.
 $pdo->exec("CREATE TABLE IF NOT EXISTS hb_meta (
     schluessel VARCHAR(40)  NOT NULL PRIMARY KEY,
-    wert       VARCHAR(255) NOT NULL
+    wert       MEDIUMTEXT   NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+// Stand 3: die Liste der verwaisten Bilder steht hier (bilder_waisen:<code>).
+try { $pdo->exec("ALTER TABLE hb_meta MODIFY wert MEDIUMTEXT NOT NULL"); } catch (PDOException $e) {}
 $pdo->prepare("INSERT INTO hb_meta (schluessel, wert) VALUES ('schema', ?)
                ON DUPLICATE KEY UPDATE wert=VALUES(wert)")->execute([(string)SCHEMA_STAND]);
 }
@@ -1466,6 +1468,10 @@ function bildDatei(PDO $pdo, string $code, string $daten): ?string {
     $ordner = planOrdner($ablage, true);
     $datei  = 'bild-' . substr(hash('sha256', $roh), 0, 40) . '.' . $endung;
     $ziel   = $ordner . '/' . $datei;
+    // Gibt es die Datei schon, wird sie nur aufgefrischt: der Aufraeumlauf
+    // laesst eine Datei stehen, die nach seinem Blick in die Datenbank
+    // angefasst wurde (bilderAufraeumen).
+    if (is_file($ziel)) @touch($ziel);
     if (!is_file($ziel)) {
         $tmp = $ziel . '.' . bin2hex(random_bytes(4)) . '.tmp';
         if (@file_put_contents($tmp, $roh) === false || !@rename($tmp, $ziel)) {
@@ -1498,6 +1504,109 @@ function bilderAuslagern(PDO $pdo, string $code, $wert, array &$liste, array $pf
     }
     return $wert;
 }
+// ── Alte Bilddateien aufraeumen ─────────────────────────────────
+// Ein ersetztes Portraet, ein geloeschter Gegenstand, ein Gegner, der aus
+// der Sammlung flog: seine Datei bleibt liegen. Der Lauf sucht in allem,
+// was die Gruppe gespeichert hat, nach den Namen der Bilddateien; was
+// nirgends mehr vorkommt, ist eine Waise.
+//
+// Geloescht wird eine Waise erst, wenn sie seit BILD_WAISE_FRIST keiner
+// mehr benutzt — gezaehlt ab dem Lauf, der sie zuerst verwaist fand, nicht
+// ab dem Datum der Datei. Ein Geraet, das noch einen alten Stand zeigt
+// (ein Kampf im Tracker, eine Aenderung, die noch nicht hochging), hat so
+// eine Woche Zeit, bevor sein Bild verschwindet. Wird sie in der Zeit
+// wieder benutzt, ist sie keine Waise mehr.
+//
+// Geht beim Suchen irgendetwas schief, wird nichts geloescht: lieber eine
+// Datei zu viel als ein Bild zu wenig.
+const BILD_WAISE_FRIST = 7 * 86400;
+const BILD_NAME = '/bild-[0-9a-f]{40}\.(?:png|jpg|webp|gif)/';
+function bilderInGebrauch(PDO $pdo, string $code): array {
+    $orte = [
+        ['hb_sessions', 'library_json', 'code'], ['hb_sessions', 'dm_library_json', 'code'],
+        ['hb_sessions', 'chars_json', 'code'],
+        ['hb_chars', 'char_json', 'session_code'], ['hb_items', 'item_json', 'session_code'],
+        ['hb_enemies', 'enemy_json', 'session_code'], ['hb_encounters', 'enc_json', 'session_code'],
+        ['hb_chronik', 'chronik_json', 'session_code'], ['hb_kampf', 'kampf_json', 'session_code'],
+        ['hb_proben', 'probe_json', 'session_code'], ['hb_beute', 'beute_json', 'session_code'],
+        ['hb_rast', 'rast_json', 'session_code'], ['hb_post', 'text', 'session_code'],
+        ['hb_logs', 'details', 'session_code'], ['hb_tb_eintrag', 'text', 'session_code'],
+        ['hb_plan_obj', 'obj_json', 'session_code'], ['hb_plan_karte', 'karte_json', 'session_code'],
+    ];
+    $da = [];
+    foreach ($orte as [$tabelle, $spalte, $schluessel]) {
+        $st = $pdo->prepare("SELECT $spalte FROM $tabelle WHERE $schluessel=? AND $spalte LIKE '%bild-%'");
+        $st->execute([$code]);
+        while (($w = $st->fetchColumn()) !== false) {
+            if ($w !== null && preg_match_all(BILD_NAME, (string)$w, $m)) {
+                foreach ($m[0] as $name) $da[$name] = true;
+            }
+        }
+    }
+    return $da;
+}
+// $loeschen: false zaehlt nur (und merkt sich, seit wann etwas verwaist
+// ist), true loescht, was lange genug verwaist ist.
+function bilderAufraeumen(PDO $pdo, string $code, bool $loeschen): array {
+    $leer = ['dateien' => 0, 'bytes' => 0, 'in_gebrauch' => 0, 'waisen' => 0, 'waisen_bytes' => 0,
+             'geloescht' => 0, 'geloescht_bytes' => 0, 'naechste' => null];
+    $st = $pdo->prepare("SELECT wert FROM hb_meta WHERE schluessel=?");
+    $st->execute(['bilder:' . $code]);
+    $ablage = (string)$st->fetchColumn();
+    if (!preg_match('/^[0-9a-f]{32}$/', $ablage)) return $leer;
+    $ordner = planOrdner($ablage, false);
+    if (!is_dir($ordner)) return $leer;
+    $start = time();
+    // Erst die Datenbank, dann der Ordner: was danach noch dazukommt, ist
+    // neuer als $start und wird unten nicht angefasst.
+    try { $da = bilderInGebrauch($pdo, $code); }
+    catch (Throwable $e) { return $leer + ['fehler' => 'Die Suche ging nicht durch — es wurde nichts gelöscht.']; }
+
+    $schl = 'bilder_waisen:' . $code;
+    $st->execute([$schl]);
+    $vorher = json_decode((string)($st->fetchColumn() ?: '{}'), true);
+    if (!is_array($vorher)) $vorher = [];
+    $raus = $leer;
+    $waisen = [];
+    foreach (scandir($ordner) ?: [] as $datei) {
+        if (!preg_match('/^bild-[0-9a-f]{40}\.(?:png|jpg|webp|gif)$/', $datei)) continue;
+        $pfad = $ordner . '/' . $datei;
+        $groesse = (int)@filesize($pfad);
+        $raus['dateien']++;
+        $raus['bytes'] += $groesse;
+        if (isset($da[$datei])) { $raus['in_gebrauch']++; continue; }
+        $seit = (int)($vorher[$datei] ?? $start);
+        // Nach dem Blick in die Datenbank angefasst: gerade wieder benutzt.
+        if ((int)@filemtime($pfad) >= $start) { $raus['in_gebrauch']++; continue; }
+        if ($loeschen && $start - $seit >= BILD_WAISE_FRIST && @unlink($pfad)) {
+            $raus['geloescht']++;
+            $raus['geloescht_bytes'] += $groesse;
+            $raus['dateien']--;
+            $raus['bytes'] -= $groesse;
+            continue;
+        }
+        $waisen[$datei] = $seit;
+        $raus['waisen']++;
+        $raus['waisen_bytes'] += $groesse;
+        $frei = $seit + BILD_WAISE_FRIST;
+        if ($raus['naechste'] === null || $frei < $raus['naechste']) $raus['naechste'] = $frei;
+    }
+    $pdo->prepare("INSERT INTO hb_meta (schluessel, wert) VALUES (?, ?) ON DUPLICATE KEY UPDATE wert=VALUES(wert)")
+        ->execute([$schl, json_encode((object)$waisen)]);
+    if ($loeschen) {
+        $pdo->prepare("INSERT INTO hb_meta (schluessel, wert) VALUES (?, ?) ON DUPLICATE KEY UPDATE wert=VALUES(wert)")
+            ->execute(['bilder_lauf:' . $code, (string)$start]);
+    }
+    return $raus;
+}
+// Einmal am Tag von selbst, nach einem vollen Laden — nachdem die Antwort
+// schon unterwegs ist, wo der Server das kann.
+function bilderAufraeumenFaellig(PDO $pdo, string $code): bool {
+    $st = $pdo->prepare("SELECT wert FROM hb_meta WHERE schluessel=?");
+    $st->execute(['bilder_lauf:' . $code]);
+    return time() - (int)$st->fetchColumn() >= 86400;
+}
+
 // Steht in diesem JSON ueberhaupt ein eingebettetes Bild? Ein Blick in
 // den Text, bevor er entpackt wird. json_encode schreibt den Schraegstrich
 // als \/ — so steht es in der Datenbank; ein Browser schreibt ihn ohne.
@@ -1631,6 +1740,15 @@ switch ($action) {
             if (strlen($vj) <= 255) $vs->execute([$code, (string)$c['id'], $vj]);
         }
 
+        // Der taegliche Aufraeumlauf, nach der Antwort.
+        if (bilderAufraeumenFaellig($pdo, $code)) {
+            register_shutdown_function(function () use ($pdo, $code) {
+                if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+                @ignore_user_abort(true);
+                @set_time_limit(120);
+                try { bilderAufraeumen($pdo, $code, true); } catch (Throwable $e) {}
+            });
+        }
         respond(200, 'OK', [
             'chars'      => $result['chars'],
             'owners'     => (object)$result['owners'],
@@ -2798,6 +2916,18 @@ switch ($action) {
                 ->execute([$code, $tage]);
         }
         respond(200, 'Aufbewahrung gesetzt.', ['tage' => $tage ?: LOG_TAGE_STANDARD]);
+    }
+
+    // Die Bilddateien der Gruppe: zaehlen oder aufraeumen. Nur die
+    // Verwaltung — es loescht Dateien, und es betrifft die ganze Gruppe.
+    case 'bilder_aufraeumen': {
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $u = nutzerAusToken($pdo, (string)($body['token'] ?? ''));
+        if (!istAdmin($u)) respond(403, 'Das darf nur die Verwaltung.');
+        sitzungsZeile($pdo, $code);
+        @set_time_limit(120);
+        $r = bilderAufraeumen($pdo, $code, !empty($body['loeschen']));
+        respond(200, 'OK', ['bilder' => $r + ['frist_tage' => (int)(BILD_WAISE_FRIST / 86400)]]);
     }
 
     // Wer ein Abenteuer leitet, bestimmt die Verwaltung. Eine leere Liste

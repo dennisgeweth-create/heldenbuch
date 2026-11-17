@@ -1865,6 +1865,21 @@ function App() {
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     } catch(e) { appAlert('Das Speichern ging nicht: ' + (e.message || '')); }
   };
+  // Die Bilddateien der Gruppe — zaehlen oder aufraeumen (api.php,
+  // bilderAufraeumen). Einmal am Tag laeuft das ohnehin von selbst.
+  const [bilderStand, setBilderStand] = useState(null);   // {laeuft} | Antwort des Servers
+  const bilderPruefen = async (loeschen) => {
+    const {url, code} = serverCreds();
+    setBilderStand(s => ({...(s || {}), laeuft: true}));
+    try {
+      const a = await apiBilderAufraeumen(url, code, loeschen);
+      setBilderStand({...(a.bilder || {}), gerade: loeschen ? 'aufgeraeumt' : 'geprueft'});
+    } catch (e) {
+      setBilderStand(null);
+      appAlert('Das ging nicht: ' + (e.message || ''));
+    }
+  };
+
   const logFristSetzen = async (tage) => {
     const {url, code} = serverCreds();
     try {
@@ -6828,6 +6843,53 @@ function App() {
                           ))}
                         </select>
                       </label>
+                    </div>
+                  )}
+
+                  {konto && konto.ist_admin && (
+                    <div className="einst-block">
+                      <div className="einst-titel">🖼 Bilddateien</div>
+                      <div className="einst-hinweis" style={{marginTop:0,marginBottom:10}}>
+                        Porträts und Bilder liegen als Dateien auf dem Server. Wird ein Bild
+                        ersetzt oder gelöscht, bleibt seine Datei liegen. Was eine Woche lang
+                        nirgends mehr vorkommt, wird gelöscht — einmal am Tag von selbst,
+                        oder hier.
+                      </div>
+                      {bilderStand && !bilderStand.laeuft && (() => {
+                        const b = bilderStand;
+                        const mb = (n) => ((+n || 0) >= 1048576
+                          ? ((+n) / 1048576).toFixed(1).replace('.', ',') + ' MB'
+                          : Math.round((+n || 0) / 1024) + ' kB');
+                        const tage = b.naechste ? Math.max(1, Math.ceil((b.naechste * 1000 - Date.now()) / 86400000)) : 0;
+                        return (
+                          <div className="bilder-stand">
+                            {b.fehler && <div className="konto-zeile"><span>⚠ {b.fehler}</span></div>}
+                            <div className="konto-zeile"><span>Bilddateien</span>
+                              <b>{b.dateien} · {mb(b.bytes)}</b></div>
+                            <div className="konto-zeile"><span>In Gebrauch</span><b>{b.in_gebrauch}</b></div>
+                            <div className="konto-zeile"><span>Nirgends mehr benutzt</span>
+                              <b>{b.waisen}{b.waisen ? ' · ' + mb(b.waisen_bytes) : ''}</b></div>
+                            {b.gerade === 'aufgeraeumt' && (
+                              <div className="konto-zeile"><span>Gerade gelöscht</span>
+                                <b>{b.geloescht}{b.geloescht ? ' · ' + mb(b.geloescht_bytes) : ''}</b></div>
+                            )}
+                            {b.waisen > 0 && (
+                              <div className="einst-hinweis" style={{marginTop:6}}>
+                                {tage ? 'Die erste davon wird in ' + tage + (tage === 1 ? ' Tag' : ' Tagen') + ' gelöscht, '
+                                        + 'wenn sie bis dahin keiner wieder benutzt.' : ''}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <div className="einst-klassen-fuss">
+                        <button className="btn-icon" disabled={!!(bilderStand && bilderStand.laeuft)}
+                          onClick={()=>bilderPruefen(false)}>🔍 Prüfen</button>
+                        <button className="btn-icon" disabled={!!(bilderStand && bilderStand.laeuft)}
+                          title="Löscht, was seit einer Woche nirgends mehr vorkommt"
+                          onClick={()=>bilderPruefen(true)}>🧹 Aufräumen</button>
+                        {bilderStand && bilderStand.laeuft && <span className="einst-hinweis">Sucht …</span>}
+                      </div>
                     </div>
                   )}
                 </div>

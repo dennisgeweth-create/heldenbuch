@@ -1,5 +1,22 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.10.0
+
+### Alte Bilddateien räumen sich weg
+
+- Wird ein Bild ersetzt oder gelöscht — ein neues Porträt, ein
+  verkaufter Gegenstand, ein Gegner aus der Sammlung —, blieb seine Datei
+  auf dem Server liegen. Jetzt sucht der Server **einmal am Tag** in allem,
+  was die Gruppe gespeichert hat, und löscht, was **seit einer Woche**
+  nirgends mehr vorkommt.
+- Die Woche ist Absicht: ein Gerät, das noch einen alten Stand zeigt
+  (ein Kampf im Tracker, eine Änderung, die noch nicht hochging), verliert
+  sein Bild nicht. Wer ein Bild in der Zeit wieder benutzt, behält es.
+- Im **Kontofenster** sieht die Verwaltung unter „🖼 Bilddateien“, wie
+  viele Bilder es gibt, wie viele in Gebrauch sind und wie viele bald
+  gehen — und kann den Lauf von Hand anstoßen.
+- Geht beim Suchen etwas schief, wird nichts gelöscht.
+
 ## v6.9.0
 
 ### Bilder als Dateien
