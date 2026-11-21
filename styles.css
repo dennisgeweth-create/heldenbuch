@@ -3651,6 +3651,13 @@
     .zug-teil .zug-art, .zug-teil .zug-zahl, .zug-teil-mind { min-height:38px; }
   }
 
+  /* Ein Kampf beim Server, den das Geraet der Spielleitung nicht hat. */
+  .kampf-server-hinweis { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 10px;
+    padding:10px 14px; border-radius:6px; background:rgba(201,168,76,0.10); border:1px solid var(--inspiration);
+    font-size:13px; color:var(--text-primary); }
+  .kampf-server-hinweis > span:first-child { flex:1 1 260px; }
+  .kampf-server-knoepfe { display:flex; flex-wrap:wrap; gap:8px; }
+
   /* Die schlichte Liste im Zugfenster der Spielleitung. */
   .zug-liste { display:flex; flex-direction:column; gap:5px; max-height:190px; overflow-y:auto; }
   .zug-zeile { display:grid; grid-template-columns:22px 1fr auto; gap:11px; align-items:center;

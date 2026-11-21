@@ -3338,7 +3338,13 @@ switch ($action) {
         // Die Spielleitung schreibt den Kampf selbst; sie braucht ihn
         // nicht zurueck. Was sie braucht, sind die Ansagen der Runde.
         if ($dm && ($body['nur'] ?? '') === 'ansagen') {
-            respond(200, 'OK', ['stand' => $stand, 'dm' => true,
+            // Dazu in drei Zahlen, was hier laeuft: so merkt das Geraet der
+            // Spielleitung, wenn bei den Spielern ein Kampf steht, den es
+            // selbst nicht hat (ein anderes Geraet, ein geleerter Speicher).
+            $kurz = is_array($k) ? ['name' => (string)($k['name'] ?? ''), 'runde' => (int)($k['runde'] ?? 1),
+                                    'phase' => (string)($k['phase'] ?? 'kampf'),
+                                    'zahl' => count((array)($k['teilnehmer'] ?? []))] : null;
+            respond(200, 'OK', ['stand' => $stand, 'dm' => true, 'kampf_kurz' => $kurz,
                                 'ansagen' => array_values((array)(is_array($k) ? ($k['ansagen'] ?? []) : []))]);
         }
         if (!is_array($k)) respond(200, 'OK', ['stand' => $stand, 'kampf' => null, 'dm' => $dm]);

@@ -1,5 +1,27 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.11.1
+
+### Der Tracker findet den laufenden Kampf
+
+- Lief bei den Spielern ein Kampf, im Tracker der Spielleitung stand aber
+  nur eine leere **Vorbereitung** — etwa auf einem anderen Gerät, oder weil
+  dieses Gerät den Kampf verloren hatte —, gab es keinen Weg zurück. Der
+  Kampf lag nur noch beim Server, und der Tracker fragte dort nie nach.
+- Jetzt holt der Tracker den laufenden Kampf **von selbst**, wenn er leer
+  aufgeht.
+- Steht schon eine angefangene Vorbereitung da, sagt er Bescheid:
+  „Bei den Spielern läuft … — hier im Tracker steht er nicht“, mit
+  **Übernehmen** (fragt erst, die Vorbereitung wird ersetzt) und **Bei den
+  Spielern beenden**.
+- Übernommen wird, was beim Server steht: Teilnehmer, Runde, Zug,
+  Protokoll, Wirkungen. Gegnerbilder kommen aus der Sammlung zurück, NSC
+  über ihren Namen. Von der Karte kommt, was die Spieler sehen — Verborgenes
+  hat der Server nie bekommen.
+- Behoben: Der Kampf aus der Zeit vor v6.8 konnte beim Umzug in die Fächer
+  je Abenteuer im falschen Abenteuer landen, wenn die Bibliothek beim Start
+  noch nicht geladen war. Jetzt zieht er erst um, wenn sie da ist.
+
 ## v6.11.0
 
 ### Die Bibliothek liegt Eintrag für Eintrag

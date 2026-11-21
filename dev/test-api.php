@@ -1846,6 +1846,9 @@ pruefe('ansagen_weg geht durch (200)', $r['status'] === 200, kurz($r));
 $r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'nur' => 'ansagen']);
 $rest = array_column($r['body']['ansagen'] ?? [], 'id');
 pruefe('die erste ist weg, die zweite steht noch', $rest === [$a2], json_encode($rest));
+pruefe('die Spielleitung erfaehrt dazu, was beim Server laeuft',
+       ($r['body']['kampf_kurz']['name'] ?? '') === ($kampf2['name'] ?? '-')
+       && ($r['body']['kampf_kurz']['zahl'] ?? 0) === count($kampf2['teilnehmer']), json_encode($r['body']['kampf_kurz'] ?? null));
 $r = ruf('kampf_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
                           'kampf' => array_diff_key($kampf2, ['ansagen' => 1])]);
 $r = ruf('kampf_stand', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'nur' => 'ansagen']);

@@ -2380,3 +2380,34 @@ const bibTeileAnwenden = (lib, teile) => {
   namen.forEach(k => { if (teile[k] === null) delete neu[k]; else neu[k] = teile[k]; });
   return neu;
 };
+
+// ── Den Kampf vom Server uebernehmen ──────────────────────────────
+// Der Kampf der Spielleitung liegt im Geraet; der Server hat nur den
+// Spiegel davon (4-app.jsx). Fehlt er im Geraet — ein anderes Geraet,
+// ein geleerter Speicher —, ist der Spiegel das Beste, was es gibt. Was
+// der Spiegel weglaesst, kommt so gut es geht zurueck: das Bild des
+// Gegners aus der Sammlung, die Kennung des NSC ueber seinen Namen.
+// Die Karte bleibt, wie die Spieler sie sehen (Verborgenes ist fort).
+const kampfVomServer = (k, advId, enemies, nsc) => {
+  if (!k || typeof k !== 'object') return null;
+  const {ansagen, ...rest} = k;
+  const teilnehmer = (k.teilnehmer || []).map(t => {
+    if (!t || typeof t !== 'object') return t;
+    if (t.vorlageId && !t.bild) {
+      const v = (enemies || []).find(e => e && e.id === t.vorlageId);
+      if (v && v.image) return {...t, bild: v.image};
+    }
+    if (t.art === 'held' && !t.charId && t.lager) {
+      const n = (nsc || []).find(c => c && c.name === t.name);
+      if (n) return {...t, charId: n.id};
+    }
+    return t;
+  });
+  return {...rest, teilnehmer, aktiv: true, phase: k.phase || 'kampf', zwischen: k.zwischen || null,
+          advId: advId || ''};
+};
+// Eine Vorbereitung, in der noch nichts getan ist: nur die Helden, keine
+// Initiative. Die legt der Tracker von selbst an, wenn er leer aufgeht —
+// sie zu ersetzen kostet nichts.
+const leereVorbereitung = (k) => !!k && k.phase === 'vorbereitung'
+  && !(k.teilnehmer || []).some(t => t && (t.art !== 'held' || (t.ini !== null && t.ini !== undefined)));

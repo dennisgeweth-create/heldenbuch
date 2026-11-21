@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.11.0';
+const HB_VERSION = 'v6.11.1';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -5670,7 +5670,10 @@ const KampfAnsicht = ({
   onHeldNotizSichern,
   planerBegegnung,
   tiere,
-  onTiereLaden
+  onTiereLaden,
+  serverKampf,
+  onServerUebernehmen,
+  onServerBeenden
 }) => {
   const helden = React.useMemo(() => [...(heldenRoh || []), ...(nsc || [])], [heldenRoh, nsc]);
   const [zustandOffen, setZustandOffen] = React.useState(null);
@@ -6568,7 +6571,18 @@ const KampfAnsicht = ({
     }
   }), React.createElement("div", {
     className: "kampf-haupt"
-  }, React.createElement("div", {
+  }, serverKampf && React.createElement("div", {
+    className: "kampf-server-hinweis",
+    role: "status"
+  }, React.createElement("span", null, "\u2694 Bei den Spielern l\xE4uft ", React.createElement("b", null, serverKampf.name || 'ein Kampf'), ' ', "\xB7 Runde ", serverKampf.runde, " \xB7 ", serverKampf.zahl, " ", serverKampf.zahl === 1 ? 'Teilnehmer' : 'Teilnehmer', ' ', "\u2014 hier im Tracker steht er nicht."), React.createElement("span", {
+    className: "kampf-server-knoepfe"
+  }, onServerUebernehmen && React.createElement("button", {
+    className: "btn-save",
+    onClick: onServerUebernehmen
+  }, "\u21A7 \xDCbernehmen"), onServerBeenden && React.createElement("button", {
+    className: "btn-icon",
+    onClick: onServerBeenden
+  }, "Bei den Spielern beenden"))), React.createElement("div", {
     className: "kampf-kopf"
   }, React.createElement("button", {
     className: "kampf-seite-knopf",
@@ -26203,10 +26217,10 @@ const KAMPF_FACH = 'hb_kampf';
 const KAMPF_BILD_FACH = 'hb_kampf_bild';
 const kampfFach = advId => KAMPF_FACH + ':' + (advId || '');
 const kampfBildFach = advId => KAMPF_BILD_FACH + ':' + (advId || '');
-const kampfLesen = advId => {
+const kampfLesen = (advId, umziehen) => {
   try {
     let roh = localStorage.getItem(kampfFach(advId));
-    if (roh === null && advId) {
+    if (roh === null && advId && umziehen) {
       const alt = localStorage.getItem(KAMPF_FACH);
       if (alt !== null) {
         roh = alt;
@@ -28354,8 +28368,8 @@ function App() {
   useEffect(() => {
     if (kampfAdv.current === advId && kampf && kampf.advId === advId) return;
     kampfAdv.current = advId;
-    setKampfRoh(kampfLesen(advId));
-  }, [advId]);
+    setKampfRoh(kampfLesen(advId, libGeladen));
+  }, [advId, libGeladen]);
   const chronikAdv = useRef(null);
   useEffect(() => {
     if (!isDmMode || !advId) return;
@@ -28400,6 +28414,7 @@ function App() {
   const advObj = abenteuer.find(a => a.id === advId) || null;
   advIdRef.current = advId;
   const kampfGespiegelt = useRef(null);
+  const gespiegeltKurz = useRef(null);
   useEffect(() => {
     const creds = serverCreds();
     if (!verbunden(creds)) return;
@@ -28441,7 +28456,19 @@ function App() {
     if (!darf) return;
     const uhr = setTimeout(() => {
       kampfGespiegelt.current = text;
-      apiKampfSetzen(creds.url, creds.code, advId, schlank).catch(() => {
+      apiKampfSetzen(creds.url, creds.code, advId, schlank).then(() => {
+        gespiegeltKurz.current = schlank ? {
+          adv: advId,
+          name: schlank.name || '',
+          zahl: (schlank.teilnehmer || []).length
+        } : null;
+        setServerKampf(schlank ? {
+          name: schlank.name || '',
+          runde: schlank.runde || 1,
+          phase: schlank.phase || 'kampf',
+          zahl: (schlank.teilnehmer || []).length
+        } : null);
+      }).catch(() => {
         kampfGespiegelt.current = null;
       });
     }, 1200);
@@ -29182,6 +29209,7 @@ function App() {
     }));
   })();
   const [ansagen, setAnsagen] = useState([]);
+  const [serverKampf, setServerKampf] = useState(null);
   const [ansageFuer, setAnsageFuer] = useState(null);
   const [ansageVorrat, setAnsageVorrat] = useState(() => ansageVorratLesen());
   const [ansageEntwurf, setAnsageEntwurf] = useState(null);
@@ -29196,6 +29224,7 @@ function App() {
   });
   useEffect(() => {
     const creds = serverCreds();
+    setServerKampf(null);
     if (!isDmMode || !advId || !verbunden(creds)) {
       setAnsagen([]);
       return;
@@ -29207,6 +29236,7 @@ function App() {
         try {
           const d = await apiKampfAnsagen(creds.url, creds.code, advId);
           if (lebt) setAnsagen(Array.isArray(d.ansagen) ? d.ansagen : []);
+          if (lebt) setServerKampf(d.kampf_kurz && d.kampf_kurz.zahl > 0 ? d.kampf_kurz : null);
         } catch {}
       }
       if (lebt) uhr = setTimeout(frage, nebenPuls(5000));
@@ -29283,6 +29313,54 @@ function App() {
       document.removeEventListener('visibilitychange', wach);
     };
   }, [isDmMode, advId, svCode, konto]);
+  const eigenerSpiegel = !!(serverKampf && gespiegeltKurz.current && gespiegeltKurz.current.adv === advId && gespiegeltKurz.current.name === (serverKampf.name || '') && gespiegeltKurz.current.zahl === serverKampf.zahl);
+  const serverKampfLaeuft = !!(isDmMode && serverKampf && serverKampf.phase !== 'vorbereitung' && !eigenerSpiegel && (!kampf || (kampf.advId || '') !== (advId || '') || kampf.phase === 'vorbereitung'));
+  const serverKampfHolen = async () => {
+    const creds = serverCreds();
+    if (!verbunden(creds) || !advId) return false;
+    try {
+      const d = await apiKampfStand(creds.url, creds.code, advId, -1);
+      const k = kampfVomServer(d && d.kampf, advId, enemies, nscListe);
+      if (!k) return false;
+      kampfGespiegelt.current = null;
+      gespiegeltKurz.current = {
+        adv: advId,
+        name: k.name || '',
+        zahl: (k.teilnehmer || []).length
+      };
+      setKampf(k);
+      return true;
+    } catch (e) {
+      appAlert('Der Kampf ließ sich nicht holen: ' + (e.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
+  const serverKampfUebernehmen = () => {
+    if (kampf && kampf.phase === 'vorbereitung' && !leereVorbereitung(kampf)) {
+      appConfirm('Die Vorbereitung hier wird durch den laufenden Kampf ersetzt. Weiter?', serverKampfHolen);
+    } else serverKampfHolen();
+  };
+  const serverKampfBeenden = () => {
+    appConfirm('Den Kampf „' + (serverKampf && serverKampf.name || 'Kampf') + '“ bei den Spielern beenden? ' + 'Im Tracker hier ändert sich nichts.', async () => {
+      const creds = serverCreds();
+      try {
+        await apiKampfSetzen(creds.url, creds.code, advId, null);
+        setServerKampf(null);
+        kampfGespiegelt.current = null;
+      } catch (e) {
+        appAlert('Das ging nicht: ' + (e.message || ''));
+      }
+    });
+  };
+  const holtSchon = useRef(false);
+  useEffect(() => {
+    if (!showKampf || !serverKampfLaeuft || holtSchon.current) return;
+    if (kampf && (kampf.advId || '') === (advId || '') && !leereVorbereitung(kampf)) return;
+    holtSchon.current = true;
+    serverKampfHolen().finally(() => {
+      holtSchon.current = false;
+    });
+  }, [showKampf, serverKampfLaeuft, kampf, advId]);
   const ansageWeg = id => {
     setAnsagen(a => a.filter(x => x.id !== id));
     const creds = serverCreds();
@@ -36578,6 +36656,9 @@ function App() {
     onHeldNotizSichern: heldNotizSichern,
     ansagen: ansagen,
     onAnsageWeg: ansageWeg,
+    serverKampf: serverKampfLaeuft ? serverKampf : null,
+    onServerUebernehmen: serverKampfUebernehmen,
+    onServerBeenden: serverKampfBeenden,
     onFrage: appConfirm,
     planerBegegnung: planerBegegnung
   })), encForm && React.createElement(BegegnungFormular, {

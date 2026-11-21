@@ -2939,7 +2939,7 @@ const KampfSeite = ({ helden, nsc, setDefs, enemies, imKampf, ueberlagert, onZu,
 const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh, nsc, setDefs,
                         abenteuer, advId, ansagen, onAnsageWeg, onSchliessen, onGegnerBlatt, onFrage,
                         onHeldAendern, heldNotizen, onHeldNotiz, onHeldNotizSichern, planerBegegnung,
-                        tiere, onTiereLaden }) => {
+                        tiere, onTiereLaden, serverKampf, onServerUebernehmen, onServerBeenden }) => {
   // Ueberall, wo ein Bogen zu einem Teilnehmer gesucht wird, zaehlen
   // Helden und NSC gleich: beide sind Boegen. Getrennt bleiben sie nur
   // dort, wo es um die Gruppe geht — beim Aufstellen und in der Spalte.
@@ -3671,6 +3671,18 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
                            setSeiteOffen(false); }} />
 
       <div className="kampf-haupt">
+        {/* Bei den Spielern laeuft ein Kampf, den dieses Geraet nicht hat. */}
+        {serverKampf && (
+          <div className="kampf-server-hinweis" role="status">
+            <span>⚔ Bei den Spielern läuft <b>{serverKampf.name || 'ein Kampf'}</b>
+              {' '}· Runde {serverKampf.runde} · {serverKampf.zahl} {serverKampf.zahl === 1 ? 'Teilnehmer' : 'Teilnehmer'}
+              {' '}— hier im Tracker steht er nicht.</span>
+            <span className="kampf-server-knoepfe">
+              {onServerUebernehmen && <button className="btn-save" onClick={onServerUebernehmen}>↧ Übernehmen</button>}
+              {onServerBeenden && <button className="btn-icon" onClick={onServerBeenden}>Bei den Spielern beenden</button>}
+            </span>
+          </div>
+        )}
         <div className="kampf-kopf">
           <button className="kampf-seite-knopf" onClick={()=>setSeiteOffen(true)}
             title="Helden und Gegner" aria-label="Helden und Gegner">☰</button>

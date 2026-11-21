@@ -172,9 +172,13 @@
     const apiDmSaveLibrary = wbStumm;
     const apiGruppeNeu = wbStumm;
     const apiKampfAnsage = wbStumm;
-    const apiKampfAnsagen = wbStumm;
-    const apiKampfSetzen = wbStumm;
-    const apiKampfStand = wbStumm;
+    // Einstellbar: die Pruefung „Ein Kampf beim Server“ legt hier fest,
+    // was der Server zum Kampf sagt.
+    const apiKampfAnsagen = (...a) => window.wbKampfAnsagen ? window.wbKampfAnsagen(...a) : wbStumm();
+    // Das Spiegeln gelingt, wie auf dem echten Server — daran haengt,
+    // dass ein beendeter Kampf nicht als fremder zurueckkommt.
+    const apiKampfSetzen = () => Promise.resolve({stand: 1});
+    const apiKampfStand = (...a) => window.wbKampfStand ? window.wbKampfStand(...a) : wbStumm();
     const apiKontoListe = wbStumm;
     const apiKontoLoeschen = wbStumm;
     const apiKontoNeu = wbStumm;
@@ -1323,6 +1327,54 @@
           }
           ja('Ohne offene Fenster ist die Leiste weg', !document.querySelector('.fl-leiste'));
           knopfMit('⚔ Kampf').click(); await ruhe(200);
+
+          // ── Ein Kampf beim Server, den das Geraet nicht hat ──
+          // Ein anderes Geraet hat ihn gefuehrt, oder dieses hat ihn
+          // verloren: der Tracker holt ihn, statt leer dazustehen.
+          melden('lauf', 'Ein Kampf beim Server');
+          const titelK = () => ((document.querySelector('.kampf-schirm .kampf-titel') || {}).textContent || '');
+          const serverKampfSetzen = (name, runde) => {
+            window.wbKampfAnsagen = () => Promise.resolve({stand: 9, dm: true, ansagen: [],
+              kampf_kurz: {name, runde, phase: 'kampf', zahl: 2}});
+            window.wbKampfStand = () => Promise.resolve({stand: 9, dm: true, kampf: {
+              name, phase: 'kampf', aktiv: true, runde, zug: 0,
+              teilnehmer: [{id: 'held-wb1', art: 'held', charId: 'wb1', ini: 15, zustaende: [], erschoepfung: 0},
+                           {id: 'g7', art: 'gegner', name: 'Ork', vorlageId: 'ork', ini: 9, hp: 15, hpMax: 15,
+                            ac: 13, zustaende: [], erschoepfung: 0}],
+              log: [{art: 'start', wer: name, r: 1}], ansagen: []}});
+          };
+          const beendenK = () => {
+            const b = knopfMit('⏹ Kampf beenden'); if (b) b.click();
+            return ruhe(80).then(() => { const ok = document.querySelector('.confirm-ok'); if (ok) ok.click(); return ruhe(250); });
+          };
+          if (ja('Der Tracker kann den Kampf beenden', !!knopfMit('⏹ Kampf beenden'))) {
+            await beendenK();
+            ja('  … danach steht die leere Vorbereitung', !!document.querySelector('.kampf-schirm .kampf-phase'));
+            serverKampfSetzen('Am Tor', 4);
+            // Bei lebendem Puls fragt die Schleife nur alle 15 Sekunden.
+            const geholtK = await warten(() => /Am Tor/.test(titelK()) ? true : null, 20000);
+            ja('Läuft beim Server ein Kampf, holt der leere Tracker ihn', !!geholtK, titelK());
+            ja('  … mit seiner Runde', /4/.test((document.querySelector('.kampf-schirm .kampf-runde') || {}).textContent || ''));
+            ja('  … und ohne Hinweis, denn jetzt steht er ja hier', !document.querySelector('.kampf-server-hinweis'));
+            // Eine angefangene Vorbereitung wird nicht ungefragt ersetzt.
+            await beendenK();
+            serverKampfSetzen('Im Hof', 2);
+            const ini = knopfMit('Alle Init.'); if (ini) { ini.click(); await ruhe(150); }
+            const hinweisK = await warten(() => document.querySelector('.kampf-server-hinweis'), 20000);
+            if (ja('Steht hier schon eine angefangene Vorbereitung, sagt der Tracker Bescheid', !!hinweisK
+                   && /Im Hof/.test(hinweisK.textContent) && /Runde 2/.test(hinweisK.textContent),
+                   hinweisK ? hinweisK.textContent : 'kein Hinweis')) {
+              ja('  … und bleibt in der Vorbereitung', !!document.querySelector('.kampf-schirm .kampf-phase'));
+              [...hinweisK.querySelectorAll('button')].find(b => /Übernehmen/.test(b.textContent)).click();
+              await ruhe(100);
+              const okU = document.querySelector('.confirm-ok');
+              ja('  … übernehmen fragt erst', !!okU && /ersetzt/.test((document.querySelector('.confirm-msg') || {}).textContent || ''));
+              if (okU) okU.click();
+              const imHof = await warten(() => /Im Hof/.test(titelK()) ? true : null, 3000);
+              ja('  … und holt dann den Kampf', !!imHof, titelK());
+            }
+            window.wbKampfAnsagen = null; window.wbKampfStand = null;
+          }
 
           const x = document.querySelector('.kampf-kopf-x');
           if (x) { x.click(); await ruhe(150); }

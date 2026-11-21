@@ -128,10 +128,31 @@ ist('das Ende in Eberron laesst Strahd stehen',
 globalThis.localStorage = bauSpeicher(0);
 localStorage.setItem('hb_kampf', JSON.stringify({name: 'Alt', runde: 5, karte: {...karte(), bild: null}}));
 localStorage.setItem('hb_kampf_bild', BILD);
-const umgezogen = kampfLesen('strahd');
+ist('bevor die Bibliothek da ist, zieht nichts um', kampfLesen('eberron'), null);
+ist('  … das alte Fach steht noch', localStorage.getItem('hb_kampf') !== null, true);
+const umgezogen = kampfLesen('strahd', true);
 ist('der alte Kampf zieht um', [umgezogen.name, umgezogen.advId, umgezogen.karte.bild], ['Alt', 'strahd', BILD]);
 ist('  … und das alte Fach ist leer', [localStorage.getItem('hb_kampf'), localStorage.getItem('hb_kampf_bild')], [null, null]);
-ist('  … ein anderes Abenteuer bekommt ihn nicht noch einmal', kampfLesen('eberron'), null);
+ist('  … ein anderes Abenteuer bekommt ihn nicht noch einmal', kampfLesen('eberron', true), null);
+
+// ── Den Kampf vom Server uebernehmen ─────────────────────────────
+const spiegel = {name: 'Am Tor', phase: 'kampf', runde: 3, zug: 1, aktiv: true,
+  teilnehmer: [{id: 'held-h1', art: 'held', charId: 'h1'},
+               {id: 'g1', art: 'gegner', name: 'Ork', vorlageId: 'ork'},
+               {id: 'n1', art: 'held', lager: 'feind', name: 'Strahd', hp: 90, hpMax: 90}],
+  log: [{art: 'start'}], ansagen: [{id: 'a1'}]};
+const geholt = kampfVomServer(spiegel, 'strahd', [{id: 'ork', image: 'planer-dateien/x/bild-ork.png'}],
+  [{id: 'c-strahd', name: 'Strahd'}]);
+ist('der geholte Kampf gehoert dem Abenteuer', [geholt.advId, geholt.phase, geholt.runde], ['strahd', 'kampf', 3]);
+ist('  … der Gegner hat sein Bild wieder', geholt.teilnehmer[1].bild, 'planer-dateien/x/bild-ork.png');
+ist('  … der NSC seine Kennung', geholt.teilnehmer[2].charId, 'c-strahd');
+ist('  … die Ansagen bleiben beim Server', geholt.ansagen, undefined);
+ist('nichts geholt, nichts uebernommen', kampfVomServer(null, 'strahd', [], []), null);
+ist('die leere Vorbereitung', leereVorbereitung({phase: 'vorbereitung', teilnehmer: [{art: 'held', ini: null}]}), true);
+ist('  … mit Gegner ist sie es nicht mehr',
+  leereVorbereitung({phase: 'vorbereitung', teilnehmer: [{art: 'held', ini: null}, {art: 'gegner', ini: null}]}), false);
+ist('  … mit Initiative auch nicht', leereVorbereitung({phase: 'vorbereitung', teilnehmer: [{art: 'held', ini: 12}]}), false);
+ist('  … und ein laufender Kampf schon gar nicht', leereVorbereitung(spiegel), false);
 
 // ── Die Bibliothek als Patch ─────────────────────────────────────
 const lib0 = {spell: [{name: 'Feuerball'}], _adventures: [{id: 'a', name: 'A'}, {id: 'b', name: 'B'}],
