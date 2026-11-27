@@ -1,5 +1,23 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.13.0
+
+### Das Kampffenster als Vollbild
+
+- Das Kampffenster der Spieler geht jetzt **über den ganzen Schirm**.
+  Links steht die Reihe wie bisher — so breit wie das kleine Fenster,
+  nicht breiter —, rechts ist Platz für das, was du selbst tust.
+- Rechts wechselst du zwischen **Ansage**, **Aktionen**, **Zauber** und
+  **Merkmale**. Die drei letzten sind die Reiter deines Bogens, mit
+  allem, was dort geht: Zauber wirken, Plätze und Ladungen, Merkmale
+  einsetzen.
+- Die **Ansage** steht nicht mehr als Dialog über allem, sondern rechts —
+  die Reihe bleibt dabei im Blick. Ohne laufende Ansage liegen dort der
+  Vorrat und der Knopf für eine neue.
+- Auf dem Telefon ist die Reihe ein eigener Reiter.
+- **Klein** im Kopf holt das alte, schiebbare Fenster zurück; das Gerät
+  merkt sich, was du zuletzt hattest.
+
 ## v6.12.0
 
 ### Die Fensterleiste ist eine Taskleiste

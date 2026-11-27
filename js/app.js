@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.12.0';
+const HB_VERSION = 'v6.13.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -16651,7 +16651,8 @@ const AnsageFenster = ({
   vorrat,
   onParken,
   onLaden,
-  onEntwurfWeg
+  onEntwurfWeg,
+  eingebettet
 }) => {
   const waffen = held && held.weapons || [];
   const sprueche = sortierteSprueche(held);
@@ -16800,10 +16801,8 @@ const AnsageFenster = ({
   })).filter(s => s.n <= weit && !(ohneWahl && s.k === 'wahl'));
   const weiter = () => gehe(schritt === 1 && ohneWahl ? 3 : schritt + 1);
   const zurueck = () => setSchritt(s => s === 3 && ohneWahl ? 1 : Math.max(0, s - 1));
-  return React.createElement(Fenster, {
-    onClick: onAbbrechen
-  }, React.createElement("div", {
-    className: "zug-fenster ansage-schritte",
+  const leib = React.createElement("div", {
+    className: 'zug-fenster ansage-schritte' + (eingebettet ? ' eingebettet' : ''),
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "zug-kopf"
@@ -17000,7 +16999,10 @@ const AnsageFenster = ({
     className: "btn-save",
     disabled: schritt === 2 && (!gegenstand || mitWaffe && !waffe),
     onClick: weiter
-  }, schritt === 3 && !zielZahl ? 'Ohne Ziel weiter →' : 'Weiter →') : null)));
+  }, schritt === 3 && !zielZahl ? 'Ohne Ziel weiter →' : 'Weiter →') : null));
+  return eingebettet ? leib : React.createElement(Fenster, {
+    onClick: onAbbrechen
+  }, leib);
 };
 const AnsageListe = ({
   angesagt
@@ -17020,6 +17022,65 @@ const KS_SPEICHER = 'hb_kampfsicht_fenster';
 const KS_BREITE = 460;
 const IST_REAKTION = /reaktion/i;
 const reaktionsSprueche = held => (held && held.spells || []).filter(s => IST_REAKTION.test(s.castingTime || '') && s.prepared !== false);
+const useBreiterAls = px => {
+  const q = '(min-width: ' + (px + 1) + 'px)';
+  const mm = typeof window !== 'undefined' && window.matchMedia;
+  const [b, setB] = React.useState(() => !mm || window.matchMedia(q).matches);
+  React.useEffect(() => {
+    if (!mm) return;
+    const m = window.matchMedia(q);
+    const f = () => setB(m.matches);
+    f();
+    if (m.addEventListener) {
+      m.addEventListener('change', f);
+      return () => m.removeEventListener('change', f);
+    }
+    m.addListener(f);
+    return () => m.removeListener(f);
+  }, [q]);
+  return b;
+};
+const KampfBogen = ({
+  held,
+  reiter
+}) => {
+  const ctx = React.useContext(SheetCtx);
+  if (!held) return React.createElement("div", {
+    className: "ks-leer"
+  }, "Du f\xFChrst in diesem Kampf keinen Helden.");
+  if (!ctx) return null;
+  if (ctx.sel !== held.id) {
+    const offen = (ctx.chars || []).find(c => c.id === ctx.sel);
+    return React.createElement("div", {
+      className: "ks-bogen-wechsel"
+    }, React.createElement("span", null, "Im Bogen ist gerade ", offen ? React.createElement("b", null, offen.name) : 'kein Held', " offen."), React.createElement("button", {
+      className: "btn-save",
+      onClick: () => ctx.selectChar(held.id)
+    }, "Zu ", held.name, " wechseln"));
+  }
+  return React.createElement("div", {
+    className: "ks-bogen"
+  }, React.createElement(Sheet, {
+    reiter: reiter
+  }));
+};
+const KS_REITER = [{
+  k: 'reihe',
+  l: '⚔ Reihe',
+  nurSchmal: true
+}, {
+  k: 'ansage',
+  l: '📣 Ansage'
+}, {
+  k: 'aktionen',
+  l: '⚔️ Aktionen'
+}, {
+  k: 'zauber',
+  l: '✨ Zauber'
+}, {
+  k: 'merkmale',
+  l: '⭐ Merkmale'
+}];
 const KampfSicht = ({
   kampf,
   helden,
@@ -17033,7 +17094,10 @@ const KampfSicht = ({
   vorrat,
   onVorratSenden,
   onVorratWeiter,
-  onVorratWeg
+  onVorratWeg,
+  voll,
+  onVoll,
+  ansageInhalt
 }) => {
   const {
     pos,
@@ -17043,6 +17107,24 @@ const KampfSicht = ({
     x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32),
     y: 76
   }, KS_BREITE);
+  const breit = useBreiterAls(800);
+  const [rechts, setRechtsRoh] = React.useState(() => {
+    try {
+      return localStorage.getItem('hb_kampfsicht_rechts') || 'ansage';
+    } catch {
+      return 'ansage';
+    }
+  });
+  const setRechts = k => {
+    setRechtsRoh(k);
+    try {
+      localStorage.setItem('hb_kampfsicht_rechts', k);
+    } catch {}
+  };
+  const mitAnsage = !!ansageInhalt;
+  React.useEffect(() => {
+    if (mitAnsage) setRechts('ansage');
+  }, [mitAnsage]);
   const [karteAuf, setKarteAuf] = useEingeklappt('hb_kampfsicht_karte_auf', false);
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
@@ -17053,34 +17135,7 @@ const KampfSicht = ({
   const namensZug = t => !t ? '' : t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
   const dranName = namensZug(liste[dranIdx]);
   const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
-  return React.createElement(React.Fragment, null, React.createElement("div", _extends({
-    className: "ks-fenster",
-    style: {
-      left: pos.x,
-      top: pos.y
-    }
-  }, masz), React.createElement("div", _extends({
-    className: "ks-kopf"
-  }, griff, {
-    title: "Zum Verschieben ziehen"
-  }), React.createElement("span", {
-    className: "ks-titel"
-  }, "\u2694 ", kampf.name || 'Kampf'), React.createElement("span", {
-    className: "ks-runde"
-  }, React.createElement("span", null, "Runde"), React.createElement("b", null, kampf.runde || 1)), React.createElement("span", {
-    className: "ks-dran-kopf"
-  }, zwName ? React.createElement(React.Fragment, null, "\u26A1 Dazwischen: ", React.createElement("b", null, zwName)) : dranName ? React.createElement(React.Fragment, null, "Am Zug: ", React.createElement("b", null, dranName)) : 'Niemand am Zug'), kampf.karte && React.createElement("button", {
-    className: 'ks-kartenknopf' + (karteAuf ? ' an' : ''),
-    onClick: () => setKarteAuf(a => !a),
-    title: karteAuf ? 'Die Karte zuklappen' : 'Wer wo steht — in einem eigenen Fenster'
-  }, "\uD83D\uDDFA Karte"), React.createElement(MiniKnopf, {
-    className: "kampf-kopf-mini"
-  }), React.createElement("button", {
-    className: "kampf-kopf-x",
-    onClick: onSchliessen,
-    title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
-    "aria-label": "Schlie\xDFen"
-  }, "\u2715")), React.createElement("div", {
+  const mitte = React.createElement("div", {
     className: "ks-mitte"
   }, React.createElement("div", {
     className: "ks-liste"
@@ -17119,7 +17174,8 @@ const KampfSicht = ({
     className: 'an-typ ' + (a.typ || 'aktion')
   }, ansageTyp(a).kurz), React.createElement("b", null, a.geheim ? '🔒 ' : '', ((helden || []).find(h => h.id === a.charId) || {}).name || 'Jemand'), a.was ? React.createElement("span", null, ' · ' + (AKTION_WORT[a.art] || 'Angriff') + ': ', a.was, a.waffe ? ' mit ' + a.waffe : '', a.grad ? ' · ' + a.grad + '. Grad' : '') : null, ansageDazuText(a) ? React.createElement("span", null, " ", ansageDazuText(a)) : null, (a.ziele || []).length ? React.createElement("span", null, " \u2192 ", (a.ziele || []).join(', ')) : null, a.text ? React.createElement("i", null, "\u201E", a.text, "\u201C") : null))), React.createElement("div", {
     className: "ks-erklaerung"
-  }, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.")), onAnsage ? React.createElement("div", {
+  }, "Was die Spielleitung notiert, steht hier nicht \u2014 und die Trefferpunkte der Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch."));
+  const fuss = onAnsage ? React.createElement("div", {
     className: "ks-fuss"
   }, (vorrat || []).length > 0 && (() => {
     const a = liste[aktivIdx];
@@ -17139,7 +17195,65 @@ const KampfSicht = ({
   })(), React.createElement("button", {
     className: "ks-ansage-knopf",
     onClick: onAnsage
-  }, (vorrat || []).length ? '✍ Neue Ansage' : '✍ Ansagen, was du tust')) : null), karteAuf && kampf.karte && React.createElement(Schiebefenster, {
+  }, (vorrat || []).length ? '✍ Neue Ansage' : '✍ Ansagen, was du tust')) : null;
+  const mitRechts = !!(onAnsage || eigenerHeld);
+  const zeige = breit && rechts === 'reihe' ? 'ansage' : rechts;
+  return React.createElement(React.Fragment, null, React.createElement("div", _extends({
+    className: 'ks-fenster' + (voll ? ' ks-voll zeigt-' + zeige + (mitRechts ? '' : ' ohne-rechts') : ''),
+    style: voll ? undefined : {
+      left: pos.x,
+      top: pos.y
+    }
+  }, voll ? {} : masz), React.createElement("div", _extends({
+    className: "ks-kopf"
+  }, voll ? {} : griff, {
+    title: voll ? undefined : 'Zum Verschieben ziehen'
+  }), React.createElement("span", {
+    className: "ks-titel"
+  }, "\u2694 ", kampf.name || 'Kampf'), React.createElement("span", {
+    className: "ks-runde"
+  }, React.createElement("span", null, "Runde"), React.createElement("b", null, kampf.runde || 1)), React.createElement("span", {
+    className: "ks-dran-kopf"
+  }, zwName ? React.createElement(React.Fragment, null, "\u26A1 Dazwischen: ", React.createElement("b", null, zwName)) : dranName ? React.createElement(React.Fragment, null, "Am Zug: ", React.createElement("b", null, dranName)) : 'Niemand am Zug'), kampf.karte && React.createElement("button", {
+    className: 'ks-kartenknopf' + (karteAuf ? ' an' : ''),
+    onClick: () => setKarteAuf(a => !a),
+    title: karteAuf ? 'Die Karte zuklappen' : 'Wer wo steht — in einem eigenen Fenster'
+  }, "\uD83D\uDDFA Karte"), onVoll && React.createElement("button", {
+    className: 'ks-kartenknopf ks-vollknopf' + (voll ? ' an' : ''),
+    onClick: onVoll,
+    title: voll ? 'Wieder das kleine, schiebbare Fenster' : 'Über den ganzen Schirm — rechts Ansage und Bogen'
+  }, voll ? 'Klein' : 'Vollbild'), React.createElement(MiniKnopf, {
+    className: "kampf-kopf-mini"
+  }), React.createElement("button", {
+    className: "kampf-kopf-x",
+    onClick: onSchliessen,
+    title: "Schlie\xDFen \u2014 der Kampf l\xE4uft weiter",
+    "aria-label": "Schlie\xDFen"
+  }, "\u2715")), voll ? React.createElement("div", {
+    className: "ks-voll-leib"
+  }, mitte, mitRechts && React.createElement("div", {
+    className: "ks-rechts"
+  }, React.createElement("div", {
+    className: "ks-reiter",
+    role: "tablist",
+    "aria-label": "Was du tust"
+  }, KS_REITER.filter(r => !r.nurSchmal || !breit).map(r => React.createElement("button", {
+    type: "button",
+    key: r.k,
+    role: "tab",
+    "aria-selected": zeige === r.k,
+    className: 'ks-reiter-knopf' + (zeige === r.k ? ' an' : ''),
+    onClick: () => setRechts(r.k)
+  }, r.l))), React.createElement("div", {
+    className: "ks-rechts-inhalt"
+  }, zeige === 'ansage' && (ansageInhalt || React.createElement("div", {
+    className: "ks-ansage-ruhe"
+  }, fuss, React.createElement("p", {
+    className: "ks-erklaerung"
+  }, "Was du vorbereitest, liegt hier, bis du dran bist. Die Ansage selbst steht dann an dieser Stelle \u2014 links bleibt die Reihe im Blick."))), (zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && React.createElement(KampfBogen, {
+    held: eigenerHeld,
+    reiter: zeige
+  })))) : React.createElement(React.Fragment, null, mitte, fuss)), karteAuf && kampf.karte && React.createElement(Schiebefenster, {
     schluessel: "hb_kampfsicht_karte",
     standard: {
       x: 24,
@@ -21995,7 +22109,9 @@ const BenutztHinweis = ({
 
 // ==== js/src/3-sheet.jsx ====
 const SheetCtx = React.createContext(null);
-const Sheet = () => {
+const Sheet = ({
+  reiter
+} = {}) => {
   const {
     addArmorProf,
     addLanguage,
@@ -22112,7 +22228,7 @@ const Sheet = () => {
     spellTagFilter,
     statsEdit,
     switchList,
-    tab,
+    tab: bogenReiter,
     tpOffen,
     toggleEquipped,
     toggleFeatureFx,
@@ -22139,6 +22255,7 @@ const Sheet = () => {
     merkmalNutzen,
     ressourceNutzen
   } = React.useContext(SheetCtx);
+  const tab = reiter || bogenReiter;
   const [leisteWahlOffen, setLeisteWahlOffen] = useState(false);
   const [tpDlg, setTpDlg] = useState(null);
   const [nachgetragen, setNachgetragen] = useState(null);
@@ -22340,8 +22457,8 @@ const Sheet = () => {
     });
   };
   return React.createElement("div", {
-    className: "sheet" + (darfBearbeiten ? bogenModus ? " sheet-bearbeiten" : " sheet-lesen" : " sheet-nur-lesen")
-  }, !darfBearbeiten && React.createElement("div", {
+    className: "sheet" + (darfBearbeiten ? bogenModus ? " sheet-bearbeiten" : " sheet-lesen" : " sheet-nur-lesen") + (reiter ? " sheet-im-kampf" : "")
+  }, !reiter && React.createElement(React.Fragment, null, !darfBearbeiten && React.createElement("div", {
     className: "nur-lesen-band"
   }, "\uD83D\uDD12 Fremder Bogen \u2014 nur zum Ansehen.", React.createElement("i", null, "\xC4ndern darf ihn sein Konto und die Spielleitung des Abenteuers.")), React.createElement("div", {
     className: "sheet-header"
@@ -22882,7 +22999,7 @@ const Sheet = () => {
       setTransferMode(false);
       setTransferSel(new Set());
     }
-  }, l)), l))), tab === "stats" && React.createElement(React.Fragment, null, cur.konzentration && cur.konzentration.name && React.createElement("div", {
+  }, l)), l)))), tab === "stats" && React.createElement(React.Fragment, null, cur.konzentration && cur.konzentration.name && React.createElement("div", {
     className: "konz-zeile"
   }, React.createElement("span", {
     className: "konz-zeichen"
@@ -25108,7 +25225,7 @@ const Sheet = () => {
   }, "Zur\xFCcksetzen"), React.createElement("button", {
     className: "btn-save",
     onClick: () => setLeisteWahlOffen(false)
-  }, "Fertig")))), textOffen && React.createElement(HeldTextFenster, {
+  }, "Fertig")))), textOffen && !reiter && React.createElement(HeldTextFenster, {
     char: cur,
     klassen: klassen,
     setDefs: setDefs,
@@ -29250,6 +29367,7 @@ function App() {
     }));
   })();
   const [ansagen, setAnsagen] = useState([]);
+  const [ksVoll, setKsVoll] = useEingeklappt('hb_kampfsicht_voll', true);
   const [serverKampf, setServerKampf] = useState(null);
   const [ansageFuer, setAnsageFuer] = useState(null);
   const [ansageVorrat, setAnsageVorrat] = useState(() => ansageVorratLesen());
@@ -31135,6 +31253,27 @@ function App() {
     merkmalNutzen,
     ressourceNutzen
   };
+  const ansageImVollbild = ksVoll && showKampfSicht && !isDmMode;
+  const ansageFensterBau = eingebettet => React.createElement(AnsageFenster, {
+    key: ansageEntwurf && ansageEntwurf.id || 'neu',
+    eingebettet: eingebettet,
+    held: chars.find(c => c.id === ansageFuer),
+    kampf: kampfSichtDaten,
+    helden: advChars,
+    runde: kampfSichtDaten.runde || 1,
+    setDefs: setDefs,
+    entwurf: ansageEntwurf,
+    vorrat: ansageVorrat[ansageFuer] || [],
+    onParken: e => vorratAendern(ansageFuer, l => [...l.filter(x => x.id !== e.id), e]),
+    onLaden: e => setAnsageEntwurf(e),
+    onEntwurfWeg: id => vorratAendern(ansageFuer, l => l.filter(x => x.id !== id)),
+    onAbbrechen: () => {
+      setAnsageFuer(null);
+      setAnsageEntwurf(null);
+    },
+    onSenden: ansageSenden,
+    onPlatz: (grad, hoeher) => zauberplatzStreichen(ansageFuer, grad, hoeher)
+  });
   return React.createElement(FensterLeisteCtx.Provider, {
     value: leiste
   }, React.createElement(SheetCtx.Provider, {
@@ -36647,26 +36786,11 @@ function App() {
     },
     onVorratWeg: id => vorratAendern(ansageHeldId, l => l.filter(x => x.id !== id)),
     onReaktion: ansageHeldId ? reaktionSenden : null,
+    voll: ksVoll,
+    onVoll: () => setKsVoll(v => !v),
+    ansageInhalt: ksVoll && ansageFuer && kampfSichtDaten ? ansageFensterBau(true) : null,
     onSchliessen: () => setShowKampfSicht(false)
-  })), ansageFuer && kampfSichtDaten && React.createElement(AnsageFenster, {
-    key: ansageEntwurf && ansageEntwurf.id || 'neu',
-    held: chars.find(c => c.id === ansageFuer),
-    kampf: kampfSichtDaten,
-    helden: advChars,
-    runde: kampfSichtDaten.runde || 1,
-    setDefs: setDefs,
-    entwurf: ansageEntwurf,
-    vorrat: ansageVorrat[ansageFuer] || [],
-    onParken: e => vorratAendern(ansageFuer, l => [...l.filter(x => x.id !== e.id), e]),
-    onLaden: e => setAnsageEntwurf(e),
-    onEntwurfWeg: id => vorratAendern(ansageFuer, l => l.filter(x => x.id !== id)),
-    onAbbrechen: () => {
-      setAnsageFuer(null);
-      setAnsageEntwurf(null);
-    },
-    onSenden: ansageSenden,
-    onPlatz: (grad, hoeher) => zauberplatzStreichen(ansageFuer, grad, hoeher)
-  }), showKampf && isDmMode && React.createElement(LeistenFenster, {
+  })), ansageFuer && kampfSichtDaten && !ansageImVollbild && ansageFensterBau(false), showKampf && isDmMode && React.createElement(LeistenFenster, {
     id: "kampf",
     titel: "Kampftracker",
     symbol: "\u2694",

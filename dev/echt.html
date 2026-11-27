@@ -2330,6 +2330,33 @@
         }
         ReactDOM.unmountComponentAtNode(buehne);
 
+        // Im Vollbild: links die Reihe in alter Breite, rechts die Reiter.
+        try { localStorage.removeItem('hb_kampfsicht_rechts'); } catch {}
+        const vollMit = (extra) => ReactDOM.render(React.createElement(KampfSicht, Object.assign({
+          kampf: kampfDran, helden: [WB_HELD], eigeneIds: ['wb1'],
+          tpOffen: true, eigenerHeld: WB_HELD, onAnsage: () => {}, onSchliessen: () => {},
+          vorrat: [{...geparkt, schritt: 4, weit: 4}], onVorratSenden: () => {}, onVorratWeiter: () => {},
+          onVorratWeg: () => {}, voll: true, onVoll: () => {},
+        }, extra || {})), buehne);
+        vollMit(); await ruhe(100);
+        const vollF = buehne.querySelector('.ks-fenster.ks-voll');
+        if (ja('Das Kampffenster geht ins Vollbild', !!vollF)) {
+          const reiterT = [...vollF.querySelectorAll('.ks-reiter-knopf')].map(b => b.textContent.replace(/[^A-Za-zäöüÄÖÜ]/g, ''));
+          ja('  … rechts die Reiter Ansage, Aktionen, Zauber, Merkmale',
+             ['Ansage', 'Aktionen', 'Zauber', 'Merkmale'].every(w => reiterT.includes(w)), reiterT.join(','));
+          ja('  … unter „Ansage“ liegt der Vorrat', !!vollF.querySelector('.ks-rechts .ks-vorrat .av-zeile'));
+          const breitL = vollF.querySelector('.ks-mitte').getBoundingClientRect().width;
+          if (window.innerWidth > 800) {
+            ja('  … die Reihe links wird nicht breiter als das kleine Fenster', breitL > 0 && breitL <= 462, String(breitL));
+          } else {
+            ja('  … schmal ist die Reihe ein eigener Reiter', reiterT.includes('Reihe'), reiterT.join(','));
+          }
+          vollMit({ansageInhalt: React.createElement('div', {className: 'wb-ansage-drin'}, 'Ansage hier')});
+          await ruhe(80);
+          ja('  … eine laufende Ansage steht rechts im Fenster', !!buehne.querySelector('.ks-rechts-inhalt .wb-ansage-drin'));
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+
         // ── Ein Zauber mit Waffenangriff: Dröhnende Klinge ─────────
         const heldKlinge = {...WB_HELD, spells: [...WB_HELD.spells,
           {id: 's9', name: 'Dröhnende Klinge', level: 0, school: 'Hervorrufung', castingTime: '1 Aktion',

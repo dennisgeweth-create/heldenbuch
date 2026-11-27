@@ -2249,8 +2249,48 @@
   /* Am schmalen Schirm ist ein schwebendes Fenster keine gute Idee — dort
      fuellt der Kampf den Schirm, wie die Taverne auch. !important, weil
      die Stelle im Code die Position setzt. */
+  /* ── Das Kampffenster im Vollbild ──
+     Links die Reihe, so breit wie das kleine Fenster — sie wird nicht
+     breiter, damit rechts Platz bleibt. Rechts Ansage und Bogen. */
+  .ks-fenster.ks-voll { left:0 !important; top:0 !important; right:0; bottom:var(--fl-h, 0px);
+    width:auto !important; height:auto !important; min-width:0; min-height:0;
+    max-width:none; max-height:none; resize:none; border-radius:0; border:none; box-shadow:none; }
+  .ks-voll .ks-kopf { cursor:default; }
+  .ks-voll-leib { flex:1; min-height:0; display:grid; grid-template-columns:460px minmax(0, 1fr);
+    grid-template-rows:minmax(0, 1fr); }
+  .ks-voll.ohne-rechts .ks-voll-leib { grid-template-columns:minmax(0, 460px); }
+  .ks-voll .ks-mitte { border-right:1px solid var(--border); background:var(--bg-card); }
+  .ks-rechts { min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--bg-void); }
+  .ks-reiter { display:flex; gap:2px; flex-shrink:0; padding:8px 12px 0; overflow-x:auto;
+    border-bottom:1px solid var(--border); background:var(--bg-panel); scrollbar-width:none; }
+  .ks-reiter::-webkit-scrollbar { display:none; }
+  .ks-reiter-knopf { flex:none; padding:8px 14px; cursor:pointer; background:none; border:none;
+    border-bottom:2px solid transparent; color:var(--text-muted); white-space:nowrap;
+    font-family:'Roboto Condensed',sans-serif; font-size:12.5px; letter-spacing:0.04em; }
+  .ks-reiter-knopf:hover { color:var(--text-primary); }
+  .ks-reiter-knopf.an { color:var(--gold-bright); border-bottom-color:var(--gold); }
+  .ks-rechts-inhalt { flex:1; min-height:0; overflow-y:auto; }
+  .ks-rechts-inhalt .zug-fenster.eingebettet { max-width:none; max-height:none; width:auto; height:100%;
+    border:none; border-radius:0; box-shadow:none; }
+  .ks-ansage-ruhe { padding:16px; display:flex; flex-direction:column; gap:12px; max-width:760px; }
+  .ks-ansage-ruhe .ks-fuss { background:none; border:none; padding:0; }
+  .ks-ansage-ruhe .ks-erklaerung { padding:0; margin:0; }
+  .ks-bogen .sheet { padding:16px 20px 40px; }
+  .ks-bogen-wechsel { padding:18px; display:flex; flex-wrap:wrap; align-items:center; gap:12px;
+    font-size:13px; color:var(--text-secondary); }
+  @media (max-width:800px) {
+    .ks-voll-leib { display:flex; flex-direction:column; }
+    .ks-voll .ks-mitte { border-right:none; }
+    .ks-voll .ks-rechts { order:-1; flex:1; }
+    .ks-voll.zeigt-reihe .ks-rechts { flex:none; }
+    .ks-voll.zeigt-reihe .ks-rechts-inhalt { display:none; }
+    .ks-voll:not(.zeigt-reihe):not(.ohne-rechts) .ks-mitte { display:none; }
+    .ks-bogen .sheet { padding:12px 12px 32px; }
+    .ks-reiter { padding:6px 6px 0; }
+    .ks-reiter-knopf { padding:8px 9px; font-size:12px; }
+  }
   @media (max-width:700px) {
-    .ks-fenster { left:0 !important; top:0 !important; right:0; bottom:0;
+    .ks-fenster { left:0 !important; top:0 !important; right:0; bottom:var(--fl-h, 0px);
       width:auto !important; max-width:none; max-height:none;
       border-radius:0; border:none; }
     .ks-kopf { cursor:default; }

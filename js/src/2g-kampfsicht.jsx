@@ -238,7 +238,7 @@ const AnsageVorrat = ({ held, vorrat, liste, onSenden, onWeiter, onWeg }) => (
 );
 
 const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSenden, onPlatz,
-                         entwurf, vorrat, onParken, onLaden, onEntwurfWeg }) => {
+                         entwurf, vorrat, onParken, onLaden, onEntwurfWeg, eingebettet }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
   const liste = (kampf && kampf.teilnehmer) || [];
@@ -369,9 +369,11 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
   const weiter = () => gehe(schritt === 1 && ohneWahl ? 3 : schritt + 1);
   const zurueck = () => setSchritt(s => (s === 3 && ohneWahl) ? 1 : Math.max(0, s - 1));
 
-  return (
-    <Fenster onClick={onAbbrechen}>
-      <div className="zug-fenster ansage-schritte" onClick={e=>e.stopPropagation()}>
+  // Im Vollbild des Kampfes steht die Ansage rechts im Fenster und nicht
+  // als Dialog darueber — sonst verdeckte sie die Reihe, um die es geht.
+  const leib = (
+      <div className={'zug-fenster ansage-schritte' + (eingebettet ? ' eingebettet' : '')}
+        onClick={e=>e.stopPropagation()}>
         <div className="zug-kopf">
           <span className="zug-titel">✍ {held ? held.name : 'Ansage'}</span>
           <span className="zug-wer">Runde {runde} · was hast du vor?</span>
@@ -580,8 +582,8 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
           ) : null}
         </div>
       </div>
-    </Fenster>
   );
+  return eingebettet ? leib : <Fenster onClick={onAbbrechen}>{leib}</Fenster>;
 };
 
 // Was schon angesagt ist — oben im ersten Schritt und nach dem Senden.
@@ -624,11 +626,69 @@ const IST_REAKTION = /reaktion/i;
 const reaktionsSprueche = (held) => ((held && held.spells) || [])
   .filter(s => IST_REAKTION.test(s.castingTime || '') && s.prepared !== false);
 
+// Ob der Schirm breiter ist als px — und es bleibt, wenn man das Fenster
+// zieht oder das Telefon dreht.
+const useBreiterAls = (px) => {
+  const q = '(min-width: ' + (px + 1) + 'px)';
+  const mm = typeof window !== 'undefined' && window.matchMedia;
+  const [b, setB] = React.useState(() => !mm || window.matchMedia(q).matches);
+  React.useEffect(() => {
+    if (!mm) return;
+    const m = window.matchMedia(q);
+    const f = () => setB(m.matches);
+    f();
+    if (m.addEventListener) { m.addEventListener('change', f); return () => m.removeEventListener('change', f); }
+    m.addListener(f); return () => m.removeListener(f);
+  }, [q]);
+  return b;
+};
+
+// ── Der eigene Bogen im Vollbild ─────────────────────────────────
+// Rechts neben der Reihe: Aktionen, Zauber, Merkmale — der echte Bogen,
+// nur dieser eine Reiter (Sheet mit `reiter`). Der Bogen zeigt den
+// gewaehlten Helden; ist das nicht der eigene im Kampf, ein Knopf dazu.
+const KampfBogen = ({ held, reiter }) => {
+  const ctx = React.useContext(SheetCtx);
+  if (!held) return <div className="ks-leer">Du führst in diesem Kampf keinen Helden.</div>;
+  if (!ctx) return null;
+  if (ctx.sel !== held.id) {
+    const offen = (ctx.chars || []).find(c => c.id === ctx.sel);
+    return (
+      <div className="ks-bogen-wechsel">
+        <span>Im Bogen ist gerade {offen ? <b>{offen.name}</b> : 'kein Held'} offen.</span>
+        <button className="btn-save" onClick={()=>ctx.selectChar(held.id)}>Zu {held.name} wechseln</button>
+      </div>
+    );
+  }
+  return <div className="ks-bogen"><Sheet reiter={reiter} /></div>;
+};
+
+const KS_REITER = [
+  {k: 'reihe',    l: '⚔ Reihe',      nurSchmal: true},
+  {k: 'ansage',   l: '📣 Ansage'},
+  {k: 'aktionen', l: '⚔️ Aktionen'},
+  {k: 'zauber',   l: '✨ Zauber'},
+  {k: 'merkmale', l: '⭐ Merkmale'},
+];
+
 const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                       eigenerHeld, onReaktion, onSchliessen,
-                      vorrat, onVorratSenden, onVorratWeiter, onVorratWeg }) => {
+                      vorrat, onVorratSenden, onVorratWeiter, onVorratWeg,
+                      voll, onVoll, ansageInhalt }) => {
   const {pos, griff, masz} = useSchiebefenster(KS_SPEICHER,
     {x: Math.max(16, (window.innerWidth || 1200) - KS_BREITE - 32), y: 76}, KS_BREITE);
+  // Im Vollbild: links die Reihe in der Breite des kleinen Fensters,
+  // rechts, was man selbst tut — die Ansage oder ein Reiter des Bogens.
+  // Am schmalen Schirm ist die Reihe selbst ein Reiter.
+  const breit = useBreiterAls(800);
+  const [rechts, setRechtsRoh] = React.useState(() => {
+    try { return localStorage.getItem('hb_kampfsicht_rechts') || 'ansage'; } catch { return 'ansage'; }
+  });
+  const setRechts = (k) => { setRechtsRoh(k); try { localStorage.setItem('hb_kampfsicht_rechts', k); } catch {} };
+  // Wer eine Ansage beginnt, sieht sie — auch wenn rechts gerade die
+  // Zauber standen.
+  const mitAnsage = !!ansageInhalt;
+  React.useEffect(() => { if (mitAnsage) setRechts('ansage'); }, [mitAnsage]);
   // Die Karte steht in einem eigenen Fenster daneben. Sie ist beim
   // Ansagen die erste Frage, aber nicht immer — und ein Raster, das die
   // Reihe aus dem Fenster schiebt, hilft niemandem.
@@ -651,35 +711,10 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
   const dranName = namensZug(liste[dranIdx]);
   const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
 
-  return (
-   <>
-    {/* Die Breite steht nicht mehr fest: der Leib laesst sich ziehen,
-        und das Fenster folgt ihm. */}
-    <div className="ks-fenster" style={{left: pos.x, top: pos.y}} {...masz}>
-        <div className="ks-kopf" {...griff} title="Zum Verschieben ziehen">
-          <span className="ks-titel">⚔ {kampf.name || 'Kampf'}</span>
-          <span className="ks-runde"><span>Runde</span><b>{kampf.runde || 1}</b></span>
-          <span className="ks-dran-kopf">
-            {zwName ? <>⚡ Dazwischen: <b>{zwName}</b></>
-              : dranName ? <>Am Zug: <b>{dranName}</b></> : 'Niemand am Zug'}
-          </span>
-          {kampf.karte && (
-            <button className={'ks-kartenknopf' + (karteAuf ? ' an' : '')}
-              onClick={()=>setKarteAuf(a => !a)}
-              title={karteAuf ? 'Die Karte zuklappen'
-                              : 'Wer wo steht — in einem eigenen Fenster'}>
-              🗺 Karte
-            </button>
-          )}
-          <MiniKnopf className="kampf-kopf-mini" />
-          <button className="kampf-kopf-x" onClick={onSchliessen}
-            title="Schließen — der Kampf läuft weiter" aria-label="Schließen">✕</button>
-        </div>
-
-        {/* Reihe, Reaktionen und Ansagen rollen zusammen. Kopf und Fuss
-            bleiben stehen: am Kopf wird geschoben, und im Fuss steht der
-            Knopf zum Ansagen. Wer das Fenster klein zieht, soll rollen
-            muessen — nicht raten, ob unten noch etwas steht. */}
+  // Reihe, Reaktionen und Ansagen — im kleinen Fenster wie links im
+  // Vollbild dieselben. Der Fuss (Vorrat und Knopf zum Ansagen) steht im
+  // kleinen Fenster unten, im Vollbild rechts unter „Ansage".
+  const mitte = (
         <div className="ks-mitte">
         <div className="ks-liste">
           {liste.length === 0
@@ -738,8 +773,8 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
             Gegner bleiben ihre Sache. Was du hier siehst, siehst du auch am Tisch.
           </div>
         </div>
-
-        {onAnsage ? (
+  );
+  const fuss =onAnsage ? (
           <div className="ks-fuss">
             {/* Der Vorrat steht im Fuss, nicht im rollenden Teil: wer dran
                 ist, soll nicht erst suchen muessen, was er vorbereitet hat. */}
@@ -757,7 +792,80 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
             <button className="ks-ansage-knopf" onClick={onAnsage}>
               {(vorrat || []).length ? '✍ Neue Ansage' : '✍ Ansagen, was du tust'}</button>
           </div>
-        ) : null}
+        ) : null;
+  const mitRechts = !!(onAnsage || eigenerHeld);
+  const zeige = (breit && rechts === 'reihe') ? 'ansage' : rechts;
+
+  return (
+   <>
+    {/* Die Breite steht nicht mehr fest: der Leib laesst sich ziehen,
+        und das Fenster folgt ihm. */}
+    <div className={'ks-fenster' + (voll ? ' ks-voll zeigt-' + zeige + (mitRechts ? '' : ' ohne-rechts') : '')}
+      style={voll ? undefined : {left: pos.x, top: pos.y}} {...(voll ? {} : masz)}>
+        <div className="ks-kopf" {...(voll ? {} : griff)} title={voll ? undefined : 'Zum Verschieben ziehen'}>
+          <span className="ks-titel">⚔ {kampf.name || 'Kampf'}</span>
+          <span className="ks-runde"><span>Runde</span><b>{kampf.runde || 1}</b></span>
+          <span className="ks-dran-kopf">
+            {zwName ? <>⚡ Dazwischen: <b>{zwName}</b></>
+              : dranName ? <>Am Zug: <b>{dranName}</b></> : 'Niemand am Zug'}
+          </span>
+          {kampf.karte && (
+            <button className={'ks-kartenknopf' + (karteAuf ? ' an' : '')}
+              onClick={()=>setKarteAuf(a => !a)}
+              title={karteAuf ? 'Die Karte zuklappen'
+                              : 'Wer wo steht — in einem eigenen Fenster'}>
+              🗺 Karte
+            </button>
+          )}
+          {onVoll && (
+            <button className={'ks-kartenknopf ks-vollknopf' + (voll ? ' an' : '')} onClick={onVoll}
+              title={voll ? 'Wieder das kleine, schiebbare Fenster' : 'Über den ganzen Schirm — rechts Ansage und Bogen'}>
+              {voll ? 'Klein' : 'Vollbild'}
+            </button>
+          )}
+          <MiniKnopf className="kampf-kopf-mini" />
+          <button className="kampf-kopf-x" onClick={onSchliessen}
+            title="Schließen — der Kampf läuft weiter" aria-label="Schließen">✕</button>
+        </div>
+
+        {/* Reihe, Reaktionen und Ansagen rollen zusammen. Kopf und Fuss
+            bleiben stehen: am Kopf wird geschoben, und im Fuss steht der
+            Knopf zum Ansagen. Wer das Fenster klein zieht, soll rollen
+            muessen — nicht raten, ob unten noch etwas steht. */}
+
+        {voll ? (
+          <div className="ks-voll-leib">
+            {mitte}
+            {mitRechts && (
+              <div className="ks-rechts">
+                <div className="ks-reiter" role="tablist" aria-label="Was du tust">
+                  {KS_REITER.filter(r => !r.nurSchmal || !breit).map(r => (
+                    <button type="button" key={r.k} role="tab" aria-selected={zeige === r.k}
+                      className={'ks-reiter-knopf' + (zeige === r.k ? ' an' : '')}
+                      onClick={()=>setRechts(r.k)}>{r.l}</button>
+                  ))}
+                </div>
+                <div className="ks-rechts-inhalt">
+                  {zeige === 'ansage' && (ansageInhalt || (
+                    <div className="ks-ansage-ruhe">
+                      {fuss}
+                      <p className="ks-erklaerung">
+                        Was du vorbereitest, liegt hier, bis du dran bist. Die Ansage
+                        selbst steht dann an dieser Stelle — links bleibt die Reihe im Blick.
+                      </p>
+                    </div>
+                  ))}
+                  {(zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && (
+                    <KampfBogen held={eigenerHeld} reiter={zeige} />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (<>
+          {mitte}
+          {fuss}
+        </>)}
 
     </div>
 

@@ -12,7 +12,11 @@
 // koennen deshalb nicht auseinanderlaufen.
 const SheetCtx = React.createContext(null);
 
-const Sheet = () => {
+// Mit `reiter` zeigt der Bogen nur den Inhalt dieses Reiters — ohne Kopf,
+// Leiste und Reiterzeile. So steht er rechts im Vollbild des Kampfes
+// (2g-kampfsicht.jsx): dieselben Zauber, Plaetze und Merkmale, dieselben
+// Knoepfe zum Wirken, nichts nachgebaut.
+const Sheet = ({ reiter } = {}) => {
   const {
     addArmorProf, addLanguage, addLog, addResource, addToolProf,
     addWeaponProf, appAlert, appConfirm, archiveChar, armorProfs, cc,
@@ -33,13 +37,14 @@ const Sheet = () => {
     setSpellTagFilter, setStatsEdit, setTab, setTransferMode,
     setTransferSel, setWeaponViewer, setWf, setWfEditId, setWsExpand,
     slots, slotsEdit, sp, spChgMax, spEdit, spellTagFilter, statsEdit,
-    switchList, tab, tpOffen, toggleEquipped, toggleFeatureFx,
+    switchList, tab: bogenReiter, tpOffen, toggleEquipped, toggleFeatureFx,
     toggleJoAT, toggleSave, toggleSkill, toggleSpellPrepared,
     toggleWsFav, togResourcePip, togSlot, togSP, toolProfs, tplData,
     transferMode, transferSel, unarchiveChar, updResource, updSP,
     weaponProfs, weaponStats, wsExpand,
     zauberBenutzen, gegenstandEinsetzen, merkmalNutzen, ressourceNutzen
   } = React.useContext(SheetCtx);
+  const tab = reiter || bogenReiter;
 
   // Eigener Zustand in Sheet — moeglich, seit Sheet eine eigenstaendige
   // Komponente ist. Vorher haette ihn jedes Rendern zurueckgesetzt.
@@ -189,7 +194,9 @@ const Sheet = () => {
     // ohnehin ab; hier steht es, damit niemand etwas anklickt, das nichts
     // tun kann.
     return (
-      <div className={"sheet" + (darfBearbeiten ? (bogenModus ? " sheet-bearbeiten" : " sheet-lesen") : " sheet-nur-lesen")}>
+      <div className={"sheet" + (darfBearbeiten ? (bogenModus ? " sheet-bearbeiten" : " sheet-lesen") : " sheet-nur-lesen")
+                      + (reiter ? " sheet-im-kampf" : "")}>
+        {!reiter && (<>
         {!darfBearbeiten && (
           <div className="nur-lesen-band">
             🔒 Fremder Bogen — nur zum Ansehen.
@@ -534,6 +541,7 @@ const Sheet = () => {
               {...clickable(()=>{setTab(k);if(k!=="inventar"){setTransferMode(false);setTransferSel(new Set());}}, l)}>{l}</div>
           ))}
         </div>
+        </>)}
 
         {tab==="stats" && (
           <>
@@ -1871,7 +1879,7 @@ const Sheet = () => {
           </div>
         )}
 
-        {textOffen && (
+        {textOffen && !reiter && (
           <HeldTextFenster char={cur} klassen={klassen} setDefs={setDefs}
             onZu={()=>setTextOffen(false)} />
         )}
