@@ -717,6 +717,8 @@ const KampfBogen = ({ held, reiter }) => {
 const KS_REITER = [
   {k: 'reihe',    l: '⚔ Reihe',      nurSchmal: true},
   {k: 'ansage',   l: '📣 Ansage'},
+  // Rettungswuerfe, Fertigkeiten, Attribute — im Kampf oft gefragt.
+  {k: 'stats',    l: '🎯 Attribute'},
   {k: 'aktionen', l: '⚔️ Aktionen'},
   {k: 'zauber',   l: '✨ Zauber'},
   {k: 'merkmale', l: '⭐ Merkmale'},
@@ -911,7 +913,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                       </p>
                     </div>
                   ))}
-                  {(zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && (
+                  {(zeige === 'stats' || zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && (
                     <KampfBogen held={eigenerHeld} reiter={zeige} />
                   )}
                 </div>

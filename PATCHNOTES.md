@@ -1,5 +1,10 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.13.2
+
+- Im Vollbild des Kampfes gibt es rechts auch den Reiter **Attribute** —
+  Rettungswürfe, Fertigkeiten und Werte, ohne den Kampf zu verlassen.
+
 ## v6.13.1
 
 ### Die Ansage im Vollbild steht offen

@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.13.1';
+const HB_VERSION = 'v6.13.2';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -17111,6 +17111,9 @@ const KS_REITER = [{
   k: 'ansage',
   l: '📣 Ansage'
 }, {
+  k: 'stats',
+  l: '🎯 Attribute'
+}, {
   k: 'aktionen',
   l: '⚔️ Aktionen'
 }, {
@@ -17295,7 +17298,7 @@ const KampfSicht = ({
     className: "ks-ansage-ruhe"
   }, fuss, React.createElement("p", {
     className: "ks-erklaerung"
-  }, "Ansagen kann, wer in diesem Kampf einen Helden f\xFChrt."))), (zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && React.createElement(KampfBogen, {
+  }, "Ansagen kann, wer in diesem Kampf einen Helden f\xFChrt."))), (zeige === 'stats' || zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && React.createElement(KampfBogen, {
     held: eigenerHeld,
     reiter: zeige
   })))) : React.createElement(React.Fragment, null, mitte, fuss)), karteAuf && kampf.karte && React.createElement(Schiebefenster, {

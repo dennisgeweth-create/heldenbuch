@@ -2342,8 +2342,8 @@
         const vollF = buehne.querySelector('.ks-fenster.ks-voll');
         if (ja('Das Kampffenster geht ins Vollbild', !!vollF)) {
           const reiterT = [...vollF.querySelectorAll('.ks-reiter-knopf')].map(b => b.textContent.replace(/[^A-Za-zäöüÄÖÜ]/g, ''));
-          ja('  … rechts die Reiter Ansage, Aktionen, Zauber, Merkmale',
-             ['Ansage', 'Aktionen', 'Zauber', 'Merkmale'].every(w => reiterT.includes(w)), reiterT.join(','));
+          ja('  … rechts die Reiter Ansage, Attribute, Aktionen, Zauber, Merkmale',
+             ['Ansage', 'Attribute', 'Aktionen', 'Zauber', 'Merkmale'].every(w => reiterT.includes(w)), reiterT.join(','));
           ja('  … unter „Ansage“ liegt der Vorrat', !!vollF.querySelector('.ks-rechts .ks-vorrat .av-zeile'));
           const breitL = vollF.querySelector('.ks-mitte').getBoundingClientRect().width;
           if (window.innerWidth > 800) {
