@@ -1,5 +1,22 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.12.0
+
+### Die Fensterleiste ist eine Taskleiste
+
+- Die offenen Fenster — Tracker, Kampfansicht, Karte, Taverne, Proben —
+  stehen jetzt in **einer schmalen Leiste am unteren Rand**, eine Zeile
+  hoch, über die ganze Breite. Vorher schwebten sie als große Knöpfe über
+  dem Bogen und brachen bei vielen Fenstern in mehrere Reihen um.
+- Die Anwendung rückt über die Leiste: nichts liegt mehr darunter, die
+  Reiterleiste sitzt direkt darauf, und Fenster werden nicht länger als
+  der Platz darüber.
+- Das Fenster **vorn** ist golden unterstrichen, offene Fenster schwach,
+  minimierte stehen kursiv. Lange Titel werden gekürzt; passen nicht alle
+  hinein, lässt sich die Leiste seitlich schieben.
+- Das Kreuz zum Schließen erscheint deutlich erst, wenn man über den
+  Eintrag fährt.
+
 ## v6.11.2
 
 ### Das Kürzel von der Karte am Namen

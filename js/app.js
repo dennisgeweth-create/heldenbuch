@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.11.2';
+const HB_VERSION = 'v6.12.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -955,12 +955,17 @@ const MiniKnopf = ({
 };
 const FensterLeiste = () => {
   const ctx = React.useContext(FensterLeisteCtx);
-  if (!ctx) return null;
-  const liste = Object.keys(ctx.fenster).map(id => ({
+  const liste = ctx ? Object.keys(ctx.fenster).map(id => ({
     id,
     ...ctx.fenster[id]
-  })).sort((a, b) => a.reihe - b.reihe);
-  if (!liste.length) return null;
+  })).sort((a, b) => a.reihe - b.reihe) : [];
+  const da = liste.length > 0;
+  React.useEffect(() => {
+    document.body.classList.toggle('mit-fl', da);
+    return () => document.body.classList.remove('mit-fl');
+  }, [da]);
+  if (!da) return null;
+  const vorn = ctx.vorne[ctx.vorne.length - 1];
   return React.createElement("div", {
     className: "fl-leiste",
     role: "toolbar",
@@ -968,7 +973,7 @@ const FensterLeiste = () => {
   }, liste.map(f => {
     const sichtbar = leisteSichtbar(ctx, f.id);
     return React.createElement("div", {
-      className: 'fl-eintrag' + (sichtbar ? ' offen' : ' zu'),
+      className: 'fl-eintrag' + (sichtbar ? ' offen' : ' zu') + (sichtbar && f.id === vorn ? ' vorn' : ''),
       key: f.id
     }, React.createElement("button", {
       type: "button",

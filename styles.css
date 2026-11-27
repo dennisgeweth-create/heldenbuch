@@ -2147,7 +2147,7 @@
   .ks-fenster { position:fixed; z-index:61;
     width:460px; height:min(70vh, 620px); resize:both;
     min-width:400px; min-height:280px;
-    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px);
+    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px - var(--fl-h, 0px)); max-height:calc(100dvh - 24px - var(--fl-h, 0px));
     display:flex; flex-direction:column; border-radius:9px; overflow:hidden;
     background:var(--bg-card); border:1px solid var(--gold-dim);
     box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5); }
@@ -3026,7 +3026,7 @@
   .automat-schirm { position:fixed; z-index:62; display:flex; flex-direction:column;
     width:var(--aut-breit, 430px); min-width:var(--aut-breit, 430px);
     height:min(86vh, 760px); min-height:320px; resize:both;
-    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px);
+    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px - var(--fl-h, 0px)); max-height:calc(100dvh - 24px - var(--fl-h, 0px));
     border-radius:10px; overflow:hidden;
     background:var(--bg-void); border:1px solid var(--border-bright);
     box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5); }
@@ -4033,7 +4033,7 @@
   .aut-mitte { align-items:center; }
 
   @media (min-width:768px) {
-    .automat-schirm { max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); }
+    .automat-schirm { max-height:calc(100vh - 24px - var(--fl-h, 0px)); max-height:calc(100dvh - 24px - var(--fl-h, 0px)); }
     /* Ab hier ist Platz da, aber nicht endlos: 40 Punkte Polster
        unter dem letzten Knopf sind auf dem Telefon Rollraum und auf
        dem Schreibtisch nur ein leerer Streifen. */
@@ -5029,7 +5029,7 @@
     box-shadow:0 26px 70px rgba(0,0,0,0.72), 0 0 0 1px rgba(0,0,0,0.5);
     width:max-content; overflow:hidden; resize:both;
     min-width:300px; min-height:120px;
-    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); }
+    max-width:calc(100vw - 24px); max-height:calc(100vh - 24px - var(--fl-h, 0px)); max-height:calc(100dvh - 24px - var(--fl-h, 0px)); }
   /* Das Feld der Spielleitung traegt Werkzeugleiste, Raster und Ablage
      nebeneinander — es faengt groesser an und darf nicht so weit
      herunter. */
@@ -5070,7 +5070,7 @@
       max-width:none; }
     .sf-kopf { cursor:default; }
     .sf-fenster, .sf-fenster.weit { resize:none; min-width:0; width:auto;
-      height:auto; max-height:calc(100vh - 16px); max-height:calc(100dvh - 16px); }
+      height:auto; max-height:calc(100vh - 16px - var(--fl-h, 0px)); max-height:calc(100dvh - 16px - var(--fl-h, 0px)); }
   }
 
   /* Im Fenster der Runde traegt der Kasten seine eigene Breite: die
@@ -5338,26 +5338,47 @@
   /* ── Die Fensterleiste ── */
   .fl-huelle { display:contents; }
   .fl-huelle[hidden] { display:none !important; }
-  .fl-leiste { position:fixed; right:12px; bottom:62px; z-index:90; display:flex; gap:6px;
-    flex-wrap:wrap-reverse; justify-content:flex-end; max-width:calc(100vw - 24px); pointer-events:none; }
-  .fl-eintrag { pointer-events:auto; display:flex; align-items:stretch; border-radius:6px; overflow:hidden;
-    background:var(--bg-deep); border:1px solid var(--border-bright);
-    box-shadow:0 4px 14px rgba(0,0,0,0.45); }
-  .fl-eintrag.offen { border-color:var(--gold-dim); }
-  .fl-knopf { display:flex; align-items:center; gap:7px; padding:6px 10px; min-height:34px; cursor:pointer;
-    background:none; border:none; color:var(--text-secondary); font-family:'Roboto Condensed',sans-serif; font-size:12px; }
-  .fl-eintrag.offen .fl-knopf { color:var(--text-primary); background:rgba(201,168,76,0.10); }
+  /* Eine Taskleiste: eine Zeile am unteren Rand, so breit wie der
+     Schirm. Solange sie steht, ist die Anwendung um ihre Hoehe kuerzer
+     (--fl-h), und was unten festsitzt, rueckt mit nach oben. */
+  body.mit-fl { --fl-h: calc(30px + env(safe-area-inset-bottom, 0px)); }
+  body.mit-fl .app { height:calc(100vh - var(--fl-h)); }
+  body.mit-fl .mobile-bottom-nav { bottom:var(--fl-h); }
+  body.mit-fl .probe-balken, body.mit-fl .probe-knopf { bottom:calc(14px + var(--fl-h)); }
+  .fl-leiste { position:fixed; left:0; right:0; bottom:0; z-index:90; height:var(--fl-h, 30px);
+    box-sizing:border-box; padding:0 6px env(safe-area-inset-bottom, 0px);
+    display:flex; align-items:stretch; gap:2px;
+    background:var(--bg-deep); border-top:1px solid var(--border-bright);
+    box-shadow:0 -4px 14px rgba(0,0,0,0.35);
+    overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+  .fl-leiste::-webkit-scrollbar { display:none; }
+  .fl-eintrag { flex:0 1 auto; min-width:72px; max-width:200px; display:flex; align-items:stretch; }
+  .fl-knopf { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:6px; padding:0 9px;
+    cursor:pointer; background:none; border:none; color:var(--text-muted);
+    font-family:'Roboto Condensed',sans-serif; font-size:12px; line-height:1;
+    box-shadow:inset 0 2px 0 transparent; }
+  .fl-titel { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fl-eintrag.offen .fl-knopf { color:var(--text-secondary); box-shadow:inset 0 2px 0 var(--gold-dim); }
+  .fl-eintrag.vorn .fl-knopf { color:var(--text-primary); background:rgba(201,168,76,0.10);
+    box-shadow:inset 0 2px 0 var(--gold); }
+  .fl-eintrag.zu .fl-knopf { font-style:italic; }
   .fl-knopf:hover { background:var(--bg-hover); color:var(--text-primary); }
-  .fl-symbol { font-size:14px; line-height:1; }
-  .fl-zaehler { font-size:10.5px; padding:1px 6px; border-radius:8px; background:var(--bg-card);
-    border:1px solid var(--border); color:var(--text-muted); }
-  .fl-x { width:28px; cursor:pointer; background:none; border:none; border-left:1px solid var(--border);
-    color:var(--text-muted); font-size:11px; }
+  .fl-symbol { font-size:13px; line-height:1; flex:none; }
+  .fl-zaehler { flex:none; font-size:10px; padding:1px 5px; border-radius:7px; background:var(--bg-card);
+    border:1px solid var(--border); color:var(--text-muted); font-style:normal; }
+  .fl-x { flex:none; width:20px; cursor:pointer; background:none; border:none;
+    color:var(--text-muted); font-size:10px; opacity:0.55; }
+  .fl-eintrag:hover .fl-x, .fl-x:focus-visible { opacity:1; }
   .fl-x:hover { color:#f0a0a0; background:rgba(224,90,90,0.12); }
   .fl-mini { font-weight:700; }
+  @media (max-width:1024px) {
+    body.mit-fl .app { height:calc(100svh - var(--fl-h)); }
+    body.mit-fl .mobile-fab { bottom:calc(76px + var(--fl-h)); }
+  }
   @media (max-width:640px) {
-    .fl-leiste { left:8px; right:8px; justify-content:flex-start; flex-wrap:nowrap; overflow-x:auto; }
-    .fl-titel { display:none; }
+    .fl-zaehler { padding:1px 4px; }
+    .fl-knopf { padding:0 7px; }
+    .fl-x { opacity:0.8; }
   }
 
   /* Schwebende Fenster: kein Vorhang, und wer zuletzt angetippt wurde,

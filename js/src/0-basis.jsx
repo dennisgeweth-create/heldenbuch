@@ -156,7 +156,7 @@ const ListeEinfuegen = ({ anweisung, platzhalter, aufschrift, onText }) => {
 // ── Die Ausgabe ─────────────────────────────────────────────────
 // Steht an einer Stelle und wird an zweien gezeigt: im Logo der
 // Heldenleiste und in der schmalen Ansicht.
-const HB_VERSION = 'v6.11.2';
+const HB_VERSION = 'v6.12.0';
 // Merkt je Tab, dass die Spielleitung ueber ihr Konto im DM-Modus war —
 // ein Neuladen bringt sie dorthin zurueck (4-app.jsx).
 const DM_MERKER = 'hb_dm_modus';
@@ -921,20 +921,29 @@ const MiniKnopf = ({ className }) => {
   );
 };
 
-// Die Leiste selbst. Ein Knopf je Fenster: antippen legt ein offenes Fenster
-// hinein und holt ein verstecktes heraus, das Kreuz schließt es.
+// Die Leiste selbst — eine Taskleiste am unteren Rand, eine Zeile hoch.
+// Ein Knopf je Fenster: antippen legt ein offenes Fenster hinein und holt
+// ein verstecktes heraus, das Kreuz schließt es. Steht sie da, rückt die
+// Anwendung über sie (body.mit-fl setzt --fl-h, styles.css): nichts liegt
+// darunter, und die Reiterleiste sitzt obendrauf.
 const FensterLeiste = () => {
   const ctx = React.useContext(FensterLeisteCtx);
-  if (!ctx) return null;
-  const liste = Object.keys(ctx.fenster).map(id => ({id, ...ctx.fenster[id]}))
-    .sort((a, b) => a.reihe - b.reihe);
-  if (!liste.length) return null;
+  const liste = ctx ? Object.keys(ctx.fenster).map(id => ({id, ...ctx.fenster[id]}))
+    .sort((a, b) => a.reihe - b.reihe) : [];
+  const da = liste.length > 0;
+  React.useEffect(() => {
+    document.body.classList.toggle('mit-fl', da);
+    return () => document.body.classList.remove('mit-fl');
+  }, [da]);
+  if (!da) return null;
+  const vorn = ctx.vorne[ctx.vorne.length - 1];
   return (
     <div className="fl-leiste" role="toolbar" aria-label="Fensterleiste">
       {liste.map(f => {
         const sichtbar = leisteSichtbar(ctx, f.id);
         return (
-          <div className={'fl-eintrag' + (sichtbar ? ' offen' : ' zu')} key={f.id}>
+          <div className={'fl-eintrag' + (sichtbar ? ' offen' : ' zu') + (sichtbar && f.id === vorn ? ' vorn' : '')}
+            key={f.id}>
             <button type="button" className="fl-knopf" aria-pressed={sichtbar}
               title={sichtbar ? f.titel + ' — in die Leiste' : f.titel + ' — zurückholen'}
               onClick={()=> sichtbar ? ctx.minimieren(f.id) : ctx.zeigen(f.id)}>
