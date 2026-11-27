@@ -2357,6 +2357,29 @@
         }
         ReactDOM.unmountComponentAtNode(buehne);
 
+        // Eingebettet: kein Dialog, kein Kopf, und die Seitenspalte.
+        let vonVorrat = null;
+        ReactDOM.render(React.createElement(AnsageFenster, {
+          held: WB_HELD, kampf: kampfDran, helden: [WB_HELD], runde: 2, setDefs: {},
+          eingebettet: true, vorrat: [{...geparkt, schritt: 4, weit: 4}],
+          onAbbrechen: () => {}, onSenden: async () => null, onPlatz: () => null,
+          onParken: () => {}, onLaden: () => {}, onEntwurfWeg: () => {},
+          onVorratSenden: (e) => { vonVorrat = e; },
+        }), buehne);
+        await ruhe(80);
+        ja('Die Ansage im Vollbild ist kein Dialog', !buehne.querySelector('.form-overlay')
+           && !!buehne.querySelector('.zug-fenster.eingebettet') && !buehne.querySelector('.zug-kopf'));
+        const seite = buehne.querySelector('.ansage-seite');
+        if (ja('  … daneben die Spalte mit dem Überblick', !!seite)) {
+          ja('  … mit der Vorschau', !!seite.querySelector('.zug-vorschau'));
+          ja('  … mit dem Vorrat, der sich abschicken lässt', !!seite.querySelector('.av-zeile .av-senden'));
+          seite.querySelector('.av-zeile .av-senden').click(); await ruhe(40);
+          ja('  … und abschickt', !!vonVorrat && vonVorrat.id === geparkt.id);
+          ja('  … „Abbrechen“ gibt es dort nicht', ![...buehne.querySelectorAll('.zug-fuss button')]
+             .some(b => /Abbrechen|Fertig/.test(b.textContent)));
+        }
+        ReactDOM.unmountComponentAtNode(buehne);
+
         // ── Ein Zauber mit Waffenangriff: Dröhnende Klinge ─────────
         const heldKlinge = {...WB_HELD, spells: [...WB_HELD.spells,
           {id: 's9', name: 'Dröhnende Klinge', level: 0, school: 'Hervorrufung', castingTime: '1 Aktion',

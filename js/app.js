@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.13.0';
+const HB_VERSION = 'v6.13.1';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -16652,7 +16652,8 @@ const AnsageFenster = ({
   onParken,
   onLaden,
   onEntwurfWeg,
-  eingebettet
+  eingebettet,
+  onVorratSenden
 }) => {
   const waffen = held && held.weapons || [];
   const sprueche = sortierteSprueche(held);
@@ -16801,10 +16802,30 @@ const AnsageFenster = ({
   })).filter(s => s.n <= weit && !(ohneWahl && s.k === 'wahl'));
   const weiter = () => gehe(schritt === 1 && ohneWahl ? 3 : schritt + 1);
   const zurueck = () => setSchritt(s => s === 3 && ohneWahl ? 1 : Math.max(0, s - 1));
+  const duDran = (() => {
+    if (!kampf || kampf.phase === 'vorbereitung' || !held) return false;
+    const i = kampf.zwischen ? liste.findIndex(t => t.id === kampf.zwischen) : +kampf.zug || 0;
+    const a = liste[i];
+    return !!(a && a.art === 'held' && a.charId === held.id);
+  })();
+  const vorschau = React.createElement("div", {
+    className: "zug-vorschau"
+  }, React.createElement("div", {
+    className: "pr-zeile zug"
+  }, "\u25B8 ", held ? held.name : 'Du', " sagt an \xB7 ", (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l), gegenstand && React.createElement("div", {
+    className: "pr-zeile"
+  }, "   ", AKTION_WORT[wahl.art] || 'Angriff', ": ", gegenstand.name, waffe ? ' mit ' + waffe.name : '', wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), (dazu || []).map(d => React.createElement("div", {
+    className: "pr-zeile",
+    key: d.was
+  }, "   + ", d.was, d.grad ? ' · ' + d.grad + '. Grad' : '', d.wurf ? ' (' + d.wurf + ')' : '', " \u2014 bei Treffer")), zielZahl > 0 && React.createElement("div", {
+    className: "pr-zeile"
+  }, "   auf ", Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')), text.trim() && React.createElement("div", {
+    className: "pr-zeile frei"
+  }, "   \u201E", text.trim(), "\u201C"), !etwasDa && React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz."));
   const leib = React.createElement("div", {
     className: 'zug-fenster ansage-schritte' + (eingebettet ? ' eingebettet' : ''),
     onClick: e => e.stopPropagation()
-  }, React.createElement("div", {
+  }, !eingebettet && React.createElement("div", {
     className: "zug-kopf"
   }, React.createElement("span", {
     className: "zug-titel"
@@ -16828,9 +16849,11 @@ const AnsageFenster = ({
   }, idx + 1), React.createElement("span", {
     className: "schritt-text"
   }, React.createElement("b", null, s.titel), s.n !== schritt || s.k === 'senden' ? React.createElement("i", null, wertVon(s.k)) : null)))), React.createElement("div", {
+    className: eingebettet ? 'ansage-drin' : 'ansage-drin-aus'
+  }, React.createElement("div", {
     className: "zug-leib",
     key: schritt
-  }, schritt === 0 && React.createElement(React.Fragment, null, andereEntwuerfe.length > 0 && onLaden && React.createElement("div", {
+  }, schritt === 0 && React.createElement(React.Fragment, null, !eingebettet && andereEntwuerfe.length > 0 && onLaden && React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
@@ -16840,7 +16863,7 @@ const AnsageFenster = ({
     liste: liste,
     onWeiter: onLaden,
     onWeg: onEntwurfWeg
-  })), angesagt.length > 0 && React.createElement("div", {
+  })), !eingebettet && angesagt.length > 0 && React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
@@ -16945,28 +16968,15 @@ const AnsageFenster = ({
     type: "checkbox",
     checked: geheim,
     onChange: e => setGeheim(e.target.checked)
-  }), React.createElement("span", null, "\uD83D\uDD12 Nur f\xFCr die Spielleitung \u2014 die anderen sehen diese Ansage nicht")), React.createElement("div", {
+  }), React.createElement("span", null, "\uD83D\uDD12 Nur f\xFCr die Spielleitung \u2014 die anderen sehen diese Ansage nicht")), !eingebettet && React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
-  }, "Das geht so an die Spielleitung"), React.createElement("div", {
-    className: "zug-vorschau"
-  }, React.createElement("div", {
-    className: "pr-zeile zug"
-  }, "\u25B8 ", held ? held.name : 'Du', " sagt an \xB7 ", (ANSAGE_TYPEN.find(x => x.k === typ) || {}).l), gegenstand && React.createElement("div", {
-    className: "pr-zeile"
-  }, "   ", AKTION_WORT[wahl.art] || 'Angriff', ": ", gegenstand.name, waffe ? ' mit ' + waffe.name : '', wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : '', wurf ? ' (' + wurf + ')' : ''), (dazu || []).map(d => React.createElement("div", {
-    className: "pr-zeile",
-    key: d.was
-  }, "   + ", d.was, d.grad ? ' · ' + d.grad + '. Grad' : '', d.wurf ? ' (' + d.wurf + ')' : '', " \u2014 bei Treffer")), zielZahl > 0 && React.createElement("div", {
-    className: "pr-zeile"
-  }, "   auf ", Object.keys(ziele).map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')), text.trim() && React.createElement("div", {
-    className: "pr-zeile frei"
-  }, "   \u201E", text.trim(), "\u201C"), !etwasDa && React.createElement("i", null, "W\xE4hle etwas aus oder schreib einen Satz.")))), schritt === 4 && gesendet && React.createElement(React.Fragment, null, React.createElement("div", {
+  }, "Das geht so an die Spielleitung"), vorschau)), schritt === 4 && gesendet && React.createElement(React.Fragment, null, React.createElement("div", {
     className: "ansage-gesendet"
   }, React.createElement("span", {
     className: "ansage-haken"
-  }, "\u2713"), React.createElement("span", null, "An die Spielleitung gegangen. Noch eine \u2014 eine Bonusaktion, eine Reaktion?")), React.createElement("div", {
+  }, "\u2713"), React.createElement("span", null, "An die Spielleitung gegangen. Noch eine \u2014 eine Bonusaktion, eine Reaktion?")), !eingebettet && React.createElement("div", {
     className: "zug-block"
   }, React.createElement("div", {
     className: "zug-label"
@@ -16974,7 +16984,33 @@ const AnsageFenster = ({
     angesagt: angesagt
   })), platz && React.createElement("div", {
     className: 'zug-platz' + (platz.gestrichen ? '' : ' leer')
-  }, platz.gestrichen ? platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom ' + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.' : '◈ Zauberplatz gestrichen — noch ' + platz.frei + ' vom ' + platz.grad + '. Grad.' : platz.hat ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.' : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.'))), React.createElement("div", {
+  }, platz.gestrichen ? platz.statt ? '◈ Der ' + platz.statt + '. Grad war leer — Platz vom ' + platz.grad + '. Grad gestrichen, noch ' + platz.frei + '.' : '◈ Zauberplatz gestrichen — noch ' + platz.frei + ' vom ' + platz.grad + '. Grad.' : platz.hat ? '◈ Kein Platz vom ' + platz.grad + '. Grad mehr frei — nichts gestrichen.' : '◈ Für den ' + platz.grad + '. Grad steht im Bogen kein Platz.'))), eingebettet && React.createElement("aside", {
+    className: "ansage-seite",
+    "aria-label": "\xDCberblick zur Ansage"
+  }, andereEntwuerfe.length > 0 && React.createElement("div", {
+    className: 'zug-block ks-vorrat' + (duDran ? ' dran' : '')
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "\uD83D\uDCE5 Vorbereitet", duDran ? ' — du bist dran' : ''), React.createElement(AnsageVorrat, {
+    held: held,
+    vorrat: andereEntwuerfe,
+    liste: liste,
+    onSenden: onVorratSenden,
+    onWeiter: onLaden,
+    onWeg: onEntwurfWeg
+  })), !gesendet && React.createElement("div", {
+    className: "zug-block"
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "So geht es hinaus"), vorschau), React.createElement("div", {
+    className: "zug-block"
+  }, React.createElement("div", {
+    className: "zug-label"
+  }, "Schon angesagt"), angesagt.length > 0 ? React.createElement(AnsageListe, {
+    angesagt: angesagt
+  }) : React.createElement("div", {
+    className: "ansage-seite-leer"
+  }, "Noch nichts in dieser Runde.")))), React.createElement("div", {
     className: "zug-fuss"
   }, schritt > 0 && !gesendet && React.createElement("button", {
     className: "btn-icon",
@@ -16985,7 +17021,10 @@ const AnsageFenster = ({
     className: "btn-icon an-parken",
     onClick: parken,
     title: "In den Vorrat legen \u2014 im Kampffenster abschicken, wenn du dran bist, oder hier weitermachen"
-  }, "\uD83D\uDCE5 F\xFCr sp\xE4ter"), React.createElement("button", {
+  }, "\uD83D\uDCE5 F\xFCr sp\xE4ter"), eingebettet ? weit > 0 && !gesendet && React.createElement("button", {
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Verwerfen") : React.createElement("button", {
     className: "btn-cancel",
     onClick: onAbbrechen
   }, angesagt.length > 0 ? 'Fertig' : 'Abbrechen'), gesendet ? React.createElement("button", {
@@ -17121,10 +17160,16 @@ const KampfSicht = ({
       localStorage.setItem('hb_kampfsicht_rechts', k);
     } catch {}
   };
-  const mitAnsage = !!ansageInhalt;
+  const meinZug = (() => {
+    if (!kampf || kampf.phase === 'vorbereitung' || !eigenerHeld) return false;
+    const l = kampf.teilnehmer || [];
+    const i = kampf.zwischen ? l.findIndex(t => t.id === kampf.zwischen) : +kampf.zug || 0;
+    const a = l[i];
+    return !!(a && a.art === 'held' && a.charId === eigenerHeld.id);
+  })();
   React.useEffect(() => {
-    if (mitAnsage) setRechts('ansage');
-  }, [mitAnsage]);
+    if (meinZug && voll) setRechts('ansage');
+  }, [meinZug]);
   const [karteAuf, setKarteAuf] = useEingeklappt('hb_kampfsicht_karte_auf', false);
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
@@ -17250,7 +17295,7 @@ const KampfSicht = ({
     className: "ks-ansage-ruhe"
   }, fuss, React.createElement("p", {
     className: "ks-erklaerung"
-  }, "Was du vorbereitest, liegt hier, bis du dran bist. Die Ansage selbst steht dann an dieser Stelle \u2014 links bleibt die Reihe im Blick."))), (zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && React.createElement(KampfBogen, {
+  }, "Ansagen kann, wer in diesem Kampf einen Helden f\xFChrt."))), (zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && React.createElement(KampfBogen, {
     held: eigenerHeld,
     reiter: zeige
   })))) : React.createElement(React.Fragment, null, mitte, fuss)), karteAuf && kampf.karte && React.createElement(Schiebefenster, {
@@ -29368,6 +29413,7 @@ function App() {
   })();
   const [ansagen, setAnsagen] = useState([]);
   const [ksVoll, setKsVoll] = useEingeklappt('hb_kampfsicht_voll', true);
+  const [ansageNeu, setAnsageNeu] = useState(0);
   const [serverKampf, setServerKampf] = useState(null);
   const [ansageFuer, setAnsageFuer] = useState(null);
   const [ansageVorrat, setAnsageVorrat] = useState(() => ansageVorratLesen());
@@ -31254,25 +31300,27 @@ function App() {
     ressourceNutzen
   };
   const ansageImVollbild = ksVoll && showKampfSicht && !isDmMode;
-  const ansageFensterBau = eingebettet => React.createElement(AnsageFenster, {
-    key: ansageEntwurf && ansageEntwurf.id || 'neu',
+  const ansageFensterBau = (eingebettet, fuer) => React.createElement(AnsageFenster, {
+    key: fuer + ':' + (ansageEntwurf && ansageEntwurf.id || 'neu' + ansageNeu),
     eingebettet: eingebettet,
-    held: chars.find(c => c.id === ansageFuer),
+    held: chars.find(c => c.id === fuer),
     kampf: kampfSichtDaten,
     helden: advChars,
     runde: kampfSichtDaten.runde || 1,
     setDefs: setDefs,
     entwurf: ansageEntwurf,
-    vorrat: ansageVorrat[ansageFuer] || [],
-    onParken: e => vorratAendern(ansageFuer, l => [...l.filter(x => x.id !== e.id), e]),
+    vorrat: ansageVorrat[fuer] || [],
+    onParken: e => vorratAendern(fuer, l => [...l.filter(x => x.id !== e.id), e]),
     onLaden: e => setAnsageEntwurf(e),
-    onEntwurfWeg: id => vorratAendern(ansageFuer, l => l.filter(x => x.id !== id)),
+    onEntwurfWeg: id => vorratAendern(fuer, l => l.filter(x => x.id !== id)),
+    onVorratSenden: eingebettet ? vorratSenden : undefined,
     onAbbrechen: () => {
       setAnsageFuer(null);
       setAnsageEntwurf(null);
+      setAnsageNeu(n => n + 1);
     },
     onSenden: ansageSenden,
-    onPlatz: (grad, hoeher) => zauberplatzStreichen(ansageFuer, grad, hoeher)
+    onPlatz: (grad, hoeher) => zauberplatzStreichen(fuer, grad, hoeher)
   });
   return React.createElement(FensterLeisteCtx.Provider, {
     value: leiste
@@ -36788,9 +36836,9 @@ function App() {
     onReaktion: ansageHeldId ? reaktionSenden : null,
     voll: ksVoll,
     onVoll: () => setKsVoll(v => !v),
-    ansageInhalt: ksVoll && ansageFuer && kampfSichtDaten ? ansageFensterBau(true) : null,
+    ansageInhalt: ksVoll && kampfSichtDaten && (ansageFuer || ansageHeldId) ? ansageFensterBau(true, ansageFuer || ansageHeldId) : null,
     onSchliessen: () => setShowKampfSicht(false)
-  })), ansageFuer && kampfSichtDaten && !ansageImVollbild && ansageFensterBau(false), showKampf && isDmMode && React.createElement(LeistenFenster, {
+  })), ansageFuer && kampfSichtDaten && !ansageImVollbild && ansageFensterBau(false, ansageFuer), showKampf && isDmMode && React.createElement(LeistenFenster, {
     id: "kampf",
     titel: "Kampftracker",
     symbol: "\u2694",

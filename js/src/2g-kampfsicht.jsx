@@ -238,7 +238,7 @@ const AnsageVorrat = ({ held, vorrat, liste, onSenden, onWeiter, onWeg }) => (
 );
 
 const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSenden, onPlatz,
-                         entwurf, vorrat, onParken, onLaden, onEntwurfWeg, eingebettet }) => {
+                         entwurf, vorrat, onParken, onLaden, onEntwurfWeg, eingebettet, onVorratSenden }) => {
   const waffen   = (held && held.weapons) || [];
   const sprueche = sortierteSprueche(held);
   const liste = (kampf && kampf.teilnehmer) || [];
@@ -369,15 +369,50 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
   const weiter = () => gehe(schritt === 1 && ohneWahl ? 3 : schritt + 1);
   const zurueck = () => setSchritt(s => (s === 3 && ohneWahl) ? 1 : Math.max(0, s - 1));
 
+  // Ob du gerade dran bist — dann leuchtet der Vorrat.
+  const duDran = (() => {
+    if (!kampf || kampf.phase === 'vorbereitung' || !held) return false;
+    const i = kampf.zwischen ? liste.findIndex(t => t.id === kampf.zwischen) : (+kampf.zug || 0);
+    const a = liste[i];
+    return !!(a && a.art === 'held' && a.charId === held.id);
+  })();
+  // Was hinausgeht, so wie es gerade steht.
+  const vorschau = (
+              <div className="zug-vorschau">
+                <div className="pr-zeile zug">▸ {held ? held.name : 'Du'} sagt an · {(ANSAGE_TYPEN.find(x => x.k === typ) || {}).l}</div>
+                {gegenstand && (
+                  <div className="pr-zeile">   {AKTION_WORT[wahl.art] || 'Angriff'}: {gegenstand.name}
+                    {waffe ? ' mit ' + waffe.name : ''}
+                    {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
+                    {wurf ? ' (' + wurf + ')' : ''}</div>
+                )}
+                {(dazu || []).map(d => (
+                  <div className="pr-zeile" key={d.was}>   + {d.was}{d.grad ? ' · ' + d.grad + '. Grad' : ''}
+                    {d.wurf ? ' (' + d.wurf + ')' : ''} — bei Treffer</div>
+                ))}
+                {zielZahl > 0 && (
+                  <div className="pr-zeile">   auf {Object.keys(ziele)
+                    .map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')}</div>
+                )}
+                {text.trim() && <div className="pr-zeile frei">   „{text.trim()}“</div>}
+                {!etwasDa && <i>Wähle etwas aus oder schreib einen Satz.</i>}
+              </div>
+  );
+
   // Im Vollbild des Kampfes steht die Ansage rechts im Fenster und nicht
   // als Dialog darueber — sonst verdeckte sie die Reihe, um die es geht.
+  // Dort ist Platz fuer eine Seitenspalte: was hinausgeht, was im Vorrat
+  // liegt, was schon angesagt ist — immer im Blick statt nur am Anfang
+  // und am Ende. Der Kopf faellt weg, Name und Runde stehen schon oben.
   const leib = (
       <div className={'zug-fenster ansage-schritte' + (eingebettet ? ' eingebettet' : '')}
         onClick={e=>e.stopPropagation()}>
-        <div className="zug-kopf">
-          <span className="zug-titel">✍ {held ? held.name : 'Ansage'}</span>
-          <span className="zug-wer">Runde {runde} · was hast du vor?</span>
-        </div>
+        {!eingebettet && (
+          <div className="zug-kopf">
+            <span className="zug-titel">✍ {held ? held.name : 'Ansage'}</span>
+            <span className="zug-wer">Runde {runde} · was hast du vor?</span>
+          </div>
+        )}
         <div className="schritt-leiste" role="tablist" aria-label="Schritte der Ansage">
           {sichtbar.map((s, idx) => (
             <button type="button" key={s.k} role="tab" data-schritt={s.k}
@@ -393,18 +428,19 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
           ))}
         </div>
 
+        <div className={eingebettet ? 'ansage-drin' : 'ansage-drin-aus'}>
         <div className="zug-leib" key={schritt}>
           {/* 1 — welche Handlung. Oben, was schon draußen ist: sonst sagt
               man dieselbe Sache zweimal an oder vergisst die Bonusaktion. */}
           {schritt === 0 && (<>
-            {andereEntwuerfe.length > 0 && onLaden && (
+            {!eingebettet && andereEntwuerfe.length > 0 && onLaden && (
               <div className="zug-block">
                 <div className="zug-label">📥 Vorbereitet — antippen, um weiterzumachen</div>
                 <AnsageVorrat held={held} vorrat={andereEntwuerfe} liste={liste}
                   onWeiter={onLaden} onWeg={onEntwurfWeg} />
               </div>
             )}
-            {angesagt.length > 0 && (
+            {!eingebettet && angesagt.length > 0 && (
               <div className="zug-block">
                 <div className="zug-label">Schon angesagt</div>
                 <AnsageListe angesagt={angesagt} />
@@ -500,28 +536,12 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
               <input type="checkbox" checked={geheim} onChange={e=>setGeheim(e.target.checked)} />
               <span>🔒 Nur für die Spielleitung — die anderen sehen diese Ansage nicht</span>
             </label>
-            <div className="zug-block">
-              <div className="zug-label">Das geht so an die Spielleitung</div>
-              <div className="zug-vorschau">
-                <div className="pr-zeile zug">▸ {held ? held.name : 'Du'} sagt an · {(ANSAGE_TYPEN.find(x => x.k === typ) || {}).l}</div>
-                {gegenstand && (
-                  <div className="pr-zeile">   {AKTION_WORT[wahl.art] || 'Angriff'}: {gegenstand.name}
-                    {waffe ? ' mit ' + waffe.name : ''}
-                    {wahl.art === 'zauber' && grad > grundGrad ? ' · ' + grad + '. Grad' : ''}
-                    {wurf ? ' (' + wurf + ')' : ''}</div>
-                )}
-                {(dazu || []).map(d => (
-                  <div className="pr-zeile" key={d.was}>   + {d.was}{d.grad ? ' · ' + d.grad + '. Grad' : ''}
-                    {d.wurf ? ' (' + d.wurf + ')' : ''} — bei Treffer</div>
-                ))}
-                {zielZahl > 0 && (
-                  <div className="pr-zeile">   auf {Object.keys(ziele)
-                    .map(id => zielName(liste.find(x => x.id === id) || {})).join(', ')}</div>
-                )}
-                {text.trim() && <div className="pr-zeile frei">   „{text.trim()}“</div>}
-                {!etwasDa && <i>Wähle etwas aus oder schreib einen Satz.</i>}
+            {!eingebettet && (
+              <div className="zug-block">
+                <div className="zug-label">Das geht so an die Spielleitung</div>
+                {vorschau}
               </div>
-            </div>
+            )}
           </>)}
 
           {schritt === 4 && gesendet && (<>
@@ -529,10 +549,12 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
               <span className="ansage-haken">✓</span>
               <span>An die Spielleitung gegangen. Noch eine — eine Bonusaktion, eine Reaktion?</span>
             </div>
-            <div className="zug-block">
-              <div className="zug-label">Schon angesagt</div>
-              <AnsageListe angesagt={angesagt} />
-            </div>
+            {!eingebettet && (
+              <div className="zug-block">
+                <div className="zug-label">Schon angesagt</div>
+                <AnsageListe angesagt={angesagt} />
+              </div>
+            )}
             {/* Was der Vorrat dazu gesagt hat. */}
             {platz && (
               <div className={'zug-platz' + (platz.gestrichen ? '' : ' leer')}>
@@ -547,6 +569,29 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
               </div>
             )}
           </>)}
+        </div>
+        {eingebettet && (
+          <aside className="ansage-seite" aria-label="Überblick zur Ansage">
+            {andereEntwuerfe.length > 0 && (
+              <div className={'zug-block ks-vorrat' + (duDran ? ' dran' : '')}>
+                <div className="zug-label">📥 Vorbereitet{duDran ? ' — du bist dran' : ''}</div>
+                <AnsageVorrat held={held} vorrat={andereEntwuerfe} liste={liste}
+                  onSenden={onVorratSenden} onWeiter={onLaden} onWeg={onEntwurfWeg} />
+              </div>
+            )}
+            {!gesendet && (
+              <div className="zug-block">
+                <div className="zug-label">So geht es hinaus</div>
+                {vorschau}
+              </div>
+            )}
+            <div className="zug-block">
+              <div className="zug-label">Schon angesagt</div>
+              {angesagt.length > 0 ? <AnsageListe angesagt={angesagt} />
+                : <div className="ansage-seite-leer">Noch nichts in dieser Runde.</div>}
+            </div>
+          </aside>
+        )}
         </div>
 
         <div className="zug-fuss">
@@ -566,9 +611,15 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
               title="In den Vorrat legen — im Kampffenster abschicken, wenn du dran bist, oder hier weitermachen">
               📥 Für später</button>
           )}
-          <button className="btn-cancel" onClick={onAbbrechen}>
-            {angesagt.length > 0 ? 'Fertig' : 'Abbrechen'}
-          </button>
+          {/* Im Vollbild gibt es nichts zu schliessen — nur zu verwerfen,
+              was angefangen ist. */}
+          {eingebettet ? (weit > 0 && !gesendet && (
+            <button className="btn-cancel" onClick={onAbbrechen}>Verwerfen</button>
+          )) : (
+            <button className="btn-cancel" onClick={onAbbrechen}>
+              {angesagt.length > 0 ? 'Fertig' : 'Abbrechen'}
+            </button>
+          )}
           {gesendet ? (
             <button className="btn-save" onClick={nochEine}>📣 Noch eine Ansage</button>
           ) : schritt === 4 ? (
@@ -685,10 +736,16 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
     try { return localStorage.getItem('hb_kampfsicht_rechts') || 'ansage'; } catch { return 'ansage'; }
   });
   const setRechts = (k) => { setRechtsRoh(k); try { localStorage.setItem('hb_kampfsicht_rechts', k); } catch {} };
-  // Wer eine Ansage beginnt, sieht sie — auch wenn rechts gerade die
+  // Wer an den Zug kommt, sieht die Ansage — auch wenn rechts gerade die
   // Zauber standen.
-  const mitAnsage = !!ansageInhalt;
-  React.useEffect(() => { if (mitAnsage) setRechts('ansage'); }, [mitAnsage]);
+  const meinZug = (() => {
+    if (!kampf || kampf.phase === 'vorbereitung' || !eigenerHeld) return false;
+    const l = kampf.teilnehmer || [];
+    const i = kampf.zwischen ? l.findIndex(t => t.id === kampf.zwischen) : (+kampf.zug || 0);
+    const a = l[i];
+    return !!(a && a.art === 'held' && a.charId === eigenerHeld.id);
+  })();
+  React.useEffect(() => { if (meinZug && voll) setRechts('ansage'); }, [meinZug]);
   // Die Karte steht in einem eigenen Fenster daneben. Sie ist beim
   // Ansagen die erste Frage, aber nicht immer — und ein Raster, das die
   // Reihe aus dem Fenster schiebt, hilft niemandem.
@@ -850,8 +907,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                     <div className="ks-ansage-ruhe">
                       {fuss}
                       <p className="ks-erklaerung">
-                        Was du vorbereitest, liegt hier, bis du dran bist. Die Ansage
-                        selbst steht dann an dieser Stelle — links bleibt die Reihe im Blick.
+                        Ansagen kann, wer in diesem Kampf einen Helden führt.
                       </p>
                     </div>
                   ))}

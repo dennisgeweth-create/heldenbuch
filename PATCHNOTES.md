@@ -1,5 +1,18 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.13.1
+
+### Die Ansage im Vollbild steht offen
+
+- Im Vollbild des Kampfes ist die Ansage unter „Ansage“ **immer offen** —
+  der Knopf „Ansagen, was du tust“ fällt weg.
+- Neben den Schritten steht eine **Spalte mit dem Überblick**: was
+  gerade hinausginge, der Vorrat (mit „Abschicken“) und was du schon
+  angesagt hast. Bisher sah man das nur am Anfang oder am Ende.
+- Der Kopf der Ansage fällt im Vollbild weg (Name und Runde stehen schon
+  oben), aus „Abbrechen“ wird **Verwerfen** — es fängt von vorn an.
+- Kommst du an den Zug, springt die rechte Seite von selbst auf „Ansage“.
+
 ## v6.13.0
 
 ### Das Kampffenster als Vollbild

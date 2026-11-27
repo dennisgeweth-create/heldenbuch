@@ -2871,6 +2871,9 @@ function App() {
   // Das Kampffenster der Spieler: Vollbild (Reihe links, Ansage und Bogen
   // rechts) oder das kleine, schiebbare Fenster. Das Geraet merkt es sich.
   const [ksVoll, setKsVoll] = useEingeklappt('hb_kampfsicht_voll', true);
+  // Zaehlt jedes Verwerfen: im Vollbild bleibt die Ansage stehen, und
+  // erst ein neuer Schluessel faengt sie von vorn an.
+  const [ansageNeu, setAnsageNeu] = useState(0);
   // Was beim Server zu diesem Abenteuer als Kampf steht (Name, Runde,
   // Phase, Zahl) — fuer die Spielleitung, deren Geraet ihn nicht hat.
   const [serverKampf, setServerKampf] = useState(null);
@@ -4247,16 +4250,21 @@ function App() {
   // Die Ansage der Spieler: im Vollbild des Kampfes rechts im Fenster,
   // sonst als Dialog darueber. Dieselbe Ansage, zwei Orte.
   const ansageImVollbild = ksVoll && showKampfSicht && !isDmMode;
-  const ansageFensterBau = (eingebettet) => (
-        <AnsageFenster key={(ansageEntwurf && ansageEntwurf.id) || 'neu'} eingebettet={eingebettet}
-          held={chars.find(c => c.id === ansageFuer)} kampf={kampfSichtDaten}
+  // Im Vollbild steht sie immer offen — fuer den eigenen Helden, der
+  // gerade dran ist oder als erster im Kampf steht (ansageHeldId).
+  const ansageFensterBau = (eingebettet, fuer) => (
+        <AnsageFenster key={fuer + ':' + ((ansageEntwurf && ansageEntwurf.id) || 'neu' + ansageNeu)}
+          eingebettet={eingebettet}
+          held={chars.find(c => c.id === fuer)} kampf={kampfSichtDaten}
           helden={advChars} runde={kampfSichtDaten.runde || 1} setDefs={setDefs}
-          entwurf={ansageEntwurf} vorrat={ansageVorrat[ansageFuer] || []}
-          onParken={(e)=>vorratAendern(ansageFuer, l => [...l.filter(x => x.id !== e.id), e])}
+          entwurf={ansageEntwurf} vorrat={ansageVorrat[fuer] || []}
+          onParken={(e)=>vorratAendern(fuer, l => [...l.filter(x => x.id !== e.id), e])}
           onLaden={(e)=>setAnsageEntwurf(e)}
-          onEntwurfWeg={(id)=>vorratAendern(ansageFuer, l => l.filter(x => x.id !== id))}
-          onAbbrechen={()=>{ setAnsageFuer(null); setAnsageEntwurf(null); }} onSenden={ansageSenden}
-          onPlatz={(grad, hoeher)=>zauberplatzStreichen(ansageFuer, grad, hoeher)} />
+          onEntwurfWeg={(id)=>vorratAendern(fuer, l => l.filter(x => x.id !== id))}
+          onVorratSenden={eingebettet ? vorratSenden : undefined}
+          onAbbrechen={()=>{ setAnsageFuer(null); setAnsageEntwurf(null); setAnsageNeu(n => n + 1); }}
+          onSenden={ansageSenden}
+          onPlatz={(grad, hoeher)=>zauberplatzStreichen(fuer, grad, hoeher)} />
   );
 
   return (
@@ -7111,12 +7119,13 @@ function App() {
           onVorratWeg={(id)=>vorratAendern(ansageHeldId, l => l.filter(x => x.id !== id))}
           onReaktion={ansageHeldId ? reaktionSenden : null}
           voll={ksVoll} onVoll={()=>setKsVoll(v => !v)}
-          ansageInhalt={ksVoll && ansageFuer && kampfSichtDaten ? ansageFensterBau(true) : null}
+          ansageInhalt={ksVoll && kampfSichtDaten && (ansageFuer || ansageHeldId)
+            ? ansageFensterBau(true, ansageFuer || ansageHeldId) : null}
           onSchliessen={()=>setShowKampfSicht(false)} />
         </LeistenFenster>
       )}
 
-      {ansageFuer && kampfSichtDaten && !ansageImVollbild && ansageFensterBau(false)}
+      {ansageFuer && kampfSichtDaten && !ansageImVollbild && ansageFensterBau(false, ansageFuer)}
 
       {showKampf && isDmMode && (
         <LeistenFenster id="kampf" titel="Kampftracker" symbol="⚔"
