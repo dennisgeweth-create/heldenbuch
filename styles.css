@@ -2195,6 +2195,10 @@
     box-shadow:0 0 0 1px var(--gold-dim) inset; }
   .ks-zeile.wartet { border-color:var(--gold-dim); border-style:dashed; }
   .ks-zeile.eigen .ks-name b { color:#9cccf7; }
+  .ks-zeile.waehlbar { cursor:pointer; }
+  .ks-zeile.waehlbar:hover { background:var(--bg-hover); }
+  .ks-zeile.waehlbar:focus-visible { outline:2px solid var(--gold-dim); outline-offset:1px; }
+  .ks-zeile.gewaehlt { box-shadow:inset 3px 0 0 var(--gold), 0 0 0 1px var(--gold-dim); }
   .ks-ini { font-family:'Roboto Condensed',sans-serif; font-size:19px; color:var(--gold);
     text-align:center; font-variant-numeric:tabular-nums; }
   .ks-name { min-width:0; display:flex; flex-direction:column; gap:2px; }
@@ -2298,6 +2302,8 @@
   .ks-ansage-ruhe .ks-fuss { background:none; border:none; padding:0; }
   .ks-ansage-ruhe .ks-erklaerung { padding:0; margin:0; }
   .ks-bogen .sheet { padding:16px 20px 40px; }
+  .ks-bogen-name { padding:10px 20px 0; font-family:'Roboto Condensed',sans-serif; font-size:15px; font-weight:700; color:var(--gold); letter-spacing:0.02em; }
+  .ks-bogen-name i { font-family:'Roboto Condensed',sans-serif; font-size:12px; color:var(--text-muted); font-style:normal; }
   .ks-bogen-wechsel { padding:18px; display:flex; flex-wrap:wrap; align-items:center; gap:12px;
     font-size:13px; color:var(--text-secondary); }
   @media (max-width:800px) {

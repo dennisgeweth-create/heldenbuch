@@ -15,7 +15,8 @@
 const zustandFarbe = (label) =>
   (TP_ZUSTAENDE.find(z => z.label === label) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1]).color;
 
-const KampfSichtZeile = ({ t, karte, dran, wartet, helden, setDefs, tpOffen, eigenerHeld, wirkungen }) => {
+const KampfSichtZeile = ({ t, karte, dran, wartet, helden, setDefs, tpOffen, eigenerHeld, wirkungen,
+                           onWahl, gewaehlt }) => {
   const held = t.art === 'held';
   // Der Verbuendete kommt wie ein Gegner an — ohne Zahlen, mit grobem
   // Stand. Dass er auf der Seite der Gruppe steht, sagt der Server dazu.
@@ -40,10 +41,18 @@ const KampfSichtZeile = ({ t, karte, dran, wartet, helden, setDefs, tpOffen, eig
     ? (anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a')
     : (zustand ? zustand.color : 'var(--text-muted)');
 
+  // Im Vollbild laesst sich ein Held antippen: rechts steht dann sein Bogen.
+  const wahl = held && c && onWahl ? {
+    role: 'button', tabIndex: 0, 'aria-pressed': !!gewaehlt,
+    title: gewaehlt ? 'Sein Bogen steht rechts' : 'Den Bogen von ' + c.name + ' rechts zeigen',
+    onClick: () => onWahl(c.id),
+    onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onWahl(c.id); } },
+  } : {};
   return (
     <div className={'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '')
                     + (held ? ' held' : verbuendet ? ' verbuendet' : ' gegner')
-                    + (eigenerHeld ? ' eigen' : '')}>
+                    + (eigenerHeld ? ' eigen' : '')
+                    + (wahl.onClick ? ' waehlbar' : '') + (gewaehlt ? ' gewaehlt' : '')} {...wahl}>
       <div className="ks-ini">{t.ini === null || t.ini === undefined ? '—' : t.ini}</div>
       <div className="ks-name">
         <b>{held ? (c ? c.name : 'Held') : (t.name || 'Gegner')}<NameKuerzel karte={karte} id={t.id} /></b>
@@ -694,14 +703,25 @@ const useBreiterAls = (px) => {
   return b;
 };
 
-// ── Der eigene Bogen im Vollbild ─────────────────────────────────
-// Rechts neben der Reihe: Aktionen, Zauber, Merkmale — der echte Bogen,
-// nur dieser eine Reiter (Sheet mit `reiter`). Der Bogen zeigt den
-// gewaehlten Helden; ist das nicht der eigene im Kampf, ein Knopf dazu.
-const KampfBogen = ({ held, reiter }) => {
+// ── Der Bogen im Vollbild ────────────────────────────────────────
+// Rechts neben der Reihe: Attribute, Aktionen, Zauber, Merkmale — der
+// echte Bogen, nur dieser eine Reiter (Sheet mit `reiter`). Er zeigt den
+// gewaehlten Helden, wenn der im Kampf steht (angetippt in der Reihe);
+// sonst den eigenen, und ist der nicht offen, einen Knopf dazu.
+const KampfBogen = ({ held, reiter, imKampf }) => {
   const ctx = React.useContext(SheetCtx);
-  if (!held) return <div className="ks-leer">Du führst in diesem Kampf keinen Helden.</div>;
   if (!ctx) return null;
+  const offenHeld = (ctx.chars || []).find(c => c.id === ctx.sel);
+  if (offenHeld && (imKampf || []).includes(offenHeld.id)) {
+    return (
+      <div className="ks-bogen">
+        <div className="ks-bogen-name">📜 {offenHeld.name}
+          {held && held.id === offenHeld.id ? <i> · dein Held</i> : null}</div>
+        <Sheet reiter={reiter} />
+      </div>
+    );
+  }
+  if (!held) return <div className="ks-leer">Tippe links einen Helden an, um seinen Bogen zu sehen.</div>;
   if (ctx.sel !== held.id) {
     const offen = (ctx.chars || []).find(c => c.id === ctx.sel);
     return (
@@ -713,6 +733,7 @@ const KampfBogen = ({ held, reiter }) => {
   }
   return <div className="ks-bogen"><Sheet reiter={reiter} /></div>;
 };
+const KS_BOGEN_REITER = ['stats', 'aktionen', 'zauber', 'merkmale'];
 
 const KS_REITER = [
   {k: 'reihe',    l: '⚔ Reihe',      nurSchmal: true},
@@ -738,16 +759,12 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
     try { return localStorage.getItem('hb_kampfsicht_rechts') || 'ansage'; } catch { return 'ansage'; }
   });
   const setRechts = (k) => { setRechtsRoh(k); try { localStorage.setItem('hb_kampfsicht_rechts', k); } catch {} };
-  // Wer an den Zug kommt, sieht die Ansage — auch wenn rechts gerade die
-  // Zauber standen.
-  const meinZug = (() => {
-    if (!kampf || kampf.phase === 'vorbereitung' || !eigenerHeld) return false;
-    const l = kampf.teilnehmer || [];
-    const i = kampf.zwischen ? l.findIndex(t => t.id === kampf.zwischen) : (+kampf.zug || 0);
-    const a = l[i];
-    return !!(a && a.art === 'held' && a.charId === eigenerHeld.id);
-  })();
-  React.useEffect(() => { if (meinZug && voll) setRechts('ansage'); }, [meinZug]);
+  // Rechts wechselt nur, wer es selbst antippt — auch am eigenen Zug
+  // springt nichts um. Welcher Reiter des Bogens zuletzt stand, merkt
+  // sich das Fenster: ein Held aus der Reihe kommt in ihm.
+  const letzterBogen = React.useRef(KS_BOGEN_REITER.includes(rechts) ? rechts : 'stats');
+  if (KS_BOGEN_REITER.includes(rechts)) letzterBogen.current = rechts;
+  const ctx = React.useContext(SheetCtx);
   // Die Karte steht in einem eigenen Fenster daneben. Sie ist beim
   // Ansagen die erste Frage, aber nicht immer — und ein Raster, das die
   // Reihe aus dem Fenster schiebt, hilft niemandem.
@@ -768,6 +785,13 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
         ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held'
         : (t.name || 'Gegner'));
   const dranName = namensZug(liste[dranIdx]);
+  // Ein Held aus der Reihe: sein Bogen kommt rechts, im zuletzt
+  // gewaehlten Reiter. Sonst geschieht nichts — keine Ansage, kein Ziel.
+  const imKampf = liste.filter(t => t.art === 'held' && t.charId).map(t => t.charId);
+  const bogenWaehlen = voll && ctx && ctx.selectChar ? (id) => {
+    ctx.selectChar(id);
+    if (!KS_BOGEN_REITER.includes(rechts)) setRechts(letzterBogen.current);
+  } : null;
   const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
 
   // Reihe, Reaktionen und Ansagen — im kleinen Fenster wie links im
@@ -783,6 +807,9 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                   wartet={zwIdx >= 0 && i === dranIdx}
                   helden={helden} setDefs={setDefs} tpOffen={tpOffen}
                   eigenerHeld={t.art === 'held' && (eigeneIds || []).includes(t.charId)}
+                  onWahl={bogenWaehlen}
+                  gewaehlt={!!bogenWaehlen && t.art === 'held' && ctx.sel === t.charId
+                    && KS_BOGEN_REITER.includes(rechts)}
                   wirkungen={laufendAn(kampf.laufend, t.id, kampf.runde)} />
               ))}
         </div>
@@ -852,7 +879,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
               {(vorrat || []).length ? '✍ Neue Ansage' : '✍ Ansagen, was du tust'}</button>
           </div>
         ) : null;
-  const mitRechts = !!(onAnsage || eigenerHeld);
+  const mitRechts = !!(onAnsage || eigenerHeld || imKampf.length);
   const zeige = (breit && rechts === 'reihe') ? 'ansage' : rechts;
 
   return (
@@ -914,7 +941,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
                     </div>
                   ))}
                   {(zeige === 'stats' || zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && (
-                    <KampfBogen held={eigenerHeld} reiter={zeige} />
+                    <KampfBogen held={eigenerHeld} reiter={zeige} imKampf={imKampf} />
                   )}
                 </div>
               </div>

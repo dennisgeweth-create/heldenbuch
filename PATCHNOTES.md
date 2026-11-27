@@ -1,5 +1,17 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.14.0
+
+### Kampf im Vollbild: einen Helden antippen, sein Bogen kommt
+
+- In der Reihe links lässt sich jeder Held antippen. Rechts steht dann
+  **sein Bogen** — im Reiter, der zuletzt offen war (Attribute, Aktionen,
+  Zauber oder Merkmale), mit seinem Namen darüber. Der gewählte Held ist
+  in der Reihe golden markiert.
+- Gegner bleiben, wie sie sind: Antippen tut nichts.
+- **Am eigenen Zug springt rechts nichts mehr um.** Bisher wechselte die
+  Seite von selbst auf „Ansage“; jetzt bleibt stehen, was man gewählt hat.
+
 ## v6.13.2
 
 - Im Vollbild des Kampfes gibt es rechts auch den Reiter **Attribute** —

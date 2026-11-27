@@ -2357,6 +2357,34 @@
         }
         ReactDOM.unmountComponentAtNode(buehne);
 
+        // Einen Helden antippen: sein Bogen kommt rechts. Am eigenen Zug
+        // springt nichts um.
+        {
+          let gewaehlt = null;
+          const ctxWb = {sel: null, chars: [WB_HELD], selectChar: (id) => { gewaehlt = id; }};
+          const vollCtx = () => ReactDOM.render(React.createElement(SheetCtx.Provider, {value: ctxWb},
+            React.createElement(KampfSicht, {
+              kampf: kampfDran, helden: [WB_HELD], eigeneIds: ['wb1'],
+              tpOffen: true, eigenerHeld: WB_HELD, onAnsage: () => {}, onSchliessen: () => {},
+              vorrat: [], onVorratSenden: () => {}, onVorratWeiter: () => {}, onVorratWeg: () => {},
+              voll: true, onVoll: () => {}})), buehne);
+          try { localStorage.setItem('hb_kampfsicht_rechts', 'zauber'); } catch {}
+          vollCtx(); await ruhe(100);
+          const anT = () => ((buehne.querySelector('.ks-reiter-knopf.an') || {}).textContent || '');
+          ja('Am eigenen Zug bleibt rechts stehen, was gewählt war', /Zauber/.test(anT()), anT());
+          [...buehne.querySelectorAll('.ks-reiter-knopf')].find(b => /Ansage/.test(b.textContent)).click();
+          await ruhe(60);
+          const heldZ = buehne.querySelector('.ks-zeile.held.waehlbar');
+          ja('  … Gegner lassen sich nicht antippen', !buehne.querySelector('.ks-zeile.gegner.waehlbar'));
+          if (ja('  … ein Held in der Reihe lässt sich antippen', !!heldZ)) {
+            heldZ.click(); await ruhe(60);
+            ja('  … antippen wählt seinen Bogen', gewaehlt === 'wb1', String(gewaehlt));
+            ja('  … und rechts kommt der Bogen im zuletzt offenen Reiter', /Zauber/.test(anT()), anT());
+          }
+          ReactDOM.unmountComponentAtNode(buehne);
+          try { localStorage.removeItem('hb_kampfsicht_rechts'); } catch {}
+        }
+
         // Eingebettet: kein Dialog, kein Kopf, und die Seitenspalte.
         let vonVorrat = null;
         ReactDOM.render(React.createElement(AnsageFenster, {

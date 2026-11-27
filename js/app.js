@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.13.2';
+const HB_VERSION = 'v6.14.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -16394,7 +16394,9 @@ const KampfSichtZeile = ({
   setDefs,
   tpOffen,
   eigenerHeld,
-  wirkungen
+  wirkungen,
+  onWahl,
+  gewaehlt
 }) => {
   const held = t.art === 'held';
   const verbuendet = t.lager === 'verbuendet';
@@ -16408,9 +16410,22 @@ const KampfSichtZeile = ({
   };
   const anteil = held ? g ? Math.max(0, Math.min(1, g.hp / Math.max(1, g.hpMax))) : w ? Math.max(0, Math.min(1, w.hp / Math.max(1, w.maxHp))) : 0 : +t.balken || 0;
   const farbe = held && tpOffen && w ? anteil > 0.5 ? '#56b183' : anteil > 0.25 ? 'var(--inspiration)' : '#e05a5a' : zustand ? zustand.color : 'var(--text-muted)';
-  return React.createElement("div", {
-    className: 'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (held ? ' held' : verbuendet ? ' verbuendet' : ' gegner') + (eigenerHeld ? ' eigen' : '')
-  }, React.createElement("div", {
+  const wahl = held && c && onWahl ? {
+    role: 'button',
+    tabIndex: 0,
+    'aria-pressed': !!gewaehlt,
+    title: gewaehlt ? 'Sein Bogen steht rechts' : 'Den Bogen von ' + c.name + ' rechts zeigen',
+    onClick: () => onWahl(c.id),
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onWahl(c.id);
+      }
+    }
+  } : {};
+  return React.createElement("div", _extends({
+    className: 'ks-zeile' + (dran ? ' dran' : '') + (wartet ? ' wartet' : '') + (held ? ' held' : verbuendet ? ' verbuendet' : ' gegner') + (eigenerHeld ? ' eigen' : '') + (wahl.onClick ? ' waehlbar' : '') + (gewaehlt ? ' gewaehlt' : '')
+  }, wahl), React.createElement("div", {
     className: "ks-ini"
   }, t.ini === null || t.ini === undefined ? '—' : t.ini), React.createElement("div", {
     className: "ks-name"
@@ -17081,13 +17096,24 @@ const useBreiterAls = px => {
 };
 const KampfBogen = ({
   held,
-  reiter
+  reiter,
+  imKampf
 }) => {
   const ctx = React.useContext(SheetCtx);
+  if (!ctx) return null;
+  const offenHeld = (ctx.chars || []).find(c => c.id === ctx.sel);
+  if (offenHeld && (imKampf || []).includes(offenHeld.id)) {
+    return React.createElement("div", {
+      className: "ks-bogen"
+    }, React.createElement("div", {
+      className: "ks-bogen-name"
+    }, "\uD83D\uDCDC ", offenHeld.name, held && held.id === offenHeld.id ? React.createElement("i", null, " \xB7 dein Held") : null), React.createElement(Sheet, {
+      reiter: reiter
+    }));
+  }
   if (!held) return React.createElement("div", {
     className: "ks-leer"
-  }, "Du f\xFChrst in diesem Kampf keinen Helden.");
-  if (!ctx) return null;
+  }, "Tippe links einen Helden an, um seinen Bogen zu sehen.");
   if (ctx.sel !== held.id) {
     const offen = (ctx.chars || []).find(c => c.id === ctx.sel);
     return React.createElement("div", {
@@ -17103,6 +17129,7 @@ const KampfBogen = ({
     reiter: reiter
   }));
 };
+const KS_BOGEN_REITER = ['stats', 'aktionen', 'zauber', 'merkmale'];
 const KS_REITER = [{
   k: 'reihe',
   l: '⚔ Reihe',
@@ -17163,16 +17190,9 @@ const KampfSicht = ({
       localStorage.setItem('hb_kampfsicht_rechts', k);
     } catch {}
   };
-  const meinZug = (() => {
-    if (!kampf || kampf.phase === 'vorbereitung' || !eigenerHeld) return false;
-    const l = kampf.teilnehmer || [];
-    const i = kampf.zwischen ? l.findIndex(t => t.id === kampf.zwischen) : +kampf.zug || 0;
-    const a = l[i];
-    return !!(a && a.art === 'held' && a.charId === eigenerHeld.id);
-  })();
-  React.useEffect(() => {
-    if (meinZug && voll) setRechts('ansage');
-  }, [meinZug]);
+  const letzterBogen = React.useRef(KS_BOGEN_REITER.includes(rechts) ? rechts : 'stats');
+  if (KS_BOGEN_REITER.includes(rechts)) letzterBogen.current = rechts;
+  const ctx = React.useContext(SheetCtx);
   const [karteAuf, setKarteAuf] = useEingeklappt('hb_kampfsicht_karte_auf', false);
   if (!kampf) return null;
   const liste = kampf.teilnehmer || [];
@@ -17182,6 +17202,11 @@ const KampfSicht = ({
   const aktivIdx = zwIdx >= 0 ? zwIdx : dranIdx;
   const namensZug = t => !t ? '' : t.art === 'held' ? ((helden || []).find(h => h.id === t.charId) || {}).name || 'Held' : t.name || 'Gegner';
   const dranName = namensZug(liste[dranIdx]);
+  const imKampf = liste.filter(t => t.art === 'held' && t.charId).map(t => t.charId);
+  const bogenWaehlen = voll && ctx && ctx.selectChar ? id => {
+    ctx.selectChar(id);
+    if (!KS_BOGEN_REITER.includes(rechts)) setRechts(letzterBogen.current);
+  } : null;
   const zwName = zwIdx >= 0 ? namensZug(liste[zwIdx]) : '';
   const mitte = React.createElement("div", {
     className: "ks-mitte"
@@ -17199,6 +17224,8 @@ const KampfSicht = ({
     setDefs: setDefs,
     tpOffen: tpOffen,
     eigenerHeld: t.art === 'held' && (eigeneIds || []).includes(t.charId),
+    onWahl: bogenWaehlen,
+    gewaehlt: !!bogenWaehlen && t.art === 'held' && ctx.sel === t.charId && KS_BOGEN_REITER.includes(rechts),
     wirkungen: laufendAn(kampf.laufend, t.id, kampf.runde)
   }))), onReaktion && reaktionsSprueche(eigenerHeld).length > 0 && React.createElement("div", {
     className: "ks-reaktion"
@@ -17244,7 +17271,7 @@ const KampfSicht = ({
     className: "ks-ansage-knopf",
     onClick: onAnsage
   }, (vorrat || []).length ? '✍ Neue Ansage' : '✍ Ansagen, was du tust')) : null;
-  const mitRechts = !!(onAnsage || eigenerHeld);
+  const mitRechts = !!(onAnsage || eigenerHeld || imKampf.length);
   const zeige = breit && rechts === 'reihe' ? 'ansage' : rechts;
   return React.createElement(React.Fragment, null, React.createElement("div", _extends({
     className: 'ks-fenster' + (voll ? ' ks-voll zeigt-' + zeige + (mitRechts ? '' : ' ohne-rechts') : ''),
@@ -17300,7 +17327,8 @@ const KampfSicht = ({
     className: "ks-erklaerung"
   }, "Ansagen kann, wer in diesem Kampf einen Helden f\xFChrt."))), (zeige === 'stats' || zeige === 'aktionen' || zeige === 'zauber' || zeige === 'merkmale') && React.createElement(KampfBogen, {
     held: eigenerHeld,
-    reiter: zeige
+    reiter: zeige,
+    imKampf: imKampf
   })))) : React.createElement(React.Fragment, null, mitte, fuss)), karteAuf && kampf.karte && React.createElement(Schiebefenster, {
     schluessel: "hb_kampfsicht_karte",
     standard: {
