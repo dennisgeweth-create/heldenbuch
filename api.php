@@ -696,6 +696,29 @@ function advDmKarte(PDO $pdo, string $code): array {
 // verschwindet. Eine Viertelstunde: laenger wuerfelt niemand nach.
 const PROBE_FRIST = 900;
 
+// Was ein Fundstueck ueber Name, Anzahl, Notiz und Wert hinaus traegt:
+// Seltenheit, Gewicht, Tags und eine laengere Beschreibung. Leer heisst
+// „wie in der Datenbank" — der Browser entscheidet beim Eintragen.
+function beuteStueckMehr(array $st): array {
+    $seltenheiten = ['gewöhnlich', 'ungewöhnlich', 'selten', 'sehrSelten', 'legendär', 'artefakt'];
+    $s = (string)($st['seltenheit'] ?? '');
+    $g = str_replace(',', '.', trim((string)($st['gewicht'] ?? '')));
+    $g = ($g !== '' && is_numeric($g) && (float)$g >= 0 && (float)$g <= 10000)
+        ? (string)round((float)$g, 2) : '';
+    $tags = [];
+    foreach ((array)($st['tags'] ?? []) as $t) {
+        if (count($tags) >= 8) break;
+        $t = mb_substr(trim((string)$t), 0, 30);
+        if ($t !== '' && !in_array($t, $tags, true)) $tags[] = $t;
+    }
+    return [
+        'seltenheit'   => in_array($s, $seltenheiten, true) ? $s : '',
+        'gewicht'      => $g,
+        'beschreibung' => mb_substr(trim((string)($st['beschreibung'] ?? '')), 0, 2000),
+        'tags'         => $tags,
+    ];
+}
+
 function istDmVon(PDO $pdo, array $z, string $code, string $advId): bool {
     if (!$z['user']) return true;                       // der alte Weg leitet alles
     if ($z['rolle'] === 'admin') return true;
@@ -2573,7 +2596,7 @@ switch ($action) {
             if (!is_array($st)) continue;
             $name = mb_substr(trim((string)($st['name'] ?? '')), 0, 80);
             if ($name === '') continue;
-            $stuecke[] = [
+            $stuecke[] = array_merge([
                 'id'     => bin2hex(random_bytes(5)),
                 'name'   => $name,
                 'anzahl' => max(1, min(999, (int)($st['anzahl'] ?? 1))),
@@ -2583,7 +2606,7 @@ switch ($action) {
                 'wert'   => max(0, min(100000000, (int)($st['wert'] ?? 0))),
                 'an'     => null,
                 'anName' => '',
-            ];
+            ], beuteStueckMehr($st));
         }
         if (!$stuecke && !array_sum($muenzen)) respond(400, 'Der Fund ist leer.');
         $beute = ['id' => bin2hex(random_bytes(6)), 'zeit' => time(),
@@ -2628,6 +2651,46 @@ switch ($action) {
             ->execute([json_encode($beute, JSON_UNESCAPED_UNICODE), $code, $advId]);
         $pdo->commit();
         respond(200, 'Genommen.', ['beute' => $beute]);
+
+    // Ein Stueck, das schon daliegt, nachtraeglich aendern: Seltenheit,
+    // Gewicht, Beschreibung — was sich am Tisch eben ergibt. Nur die
+    // Spielleitung. Wem es zugeteilt ist, bleibt stehen.
+    case 'beute_stueck':
+        if (!validateCode($code)) respond(400, 'Ungültiger Code.');
+        $z = zugang($pdo, $code, $pass, $body);
+        $advId = mb_substr((string)($body['adv_id'] ?? ''), 0, 50);
+        $stId  = mb_substr((string)($body['stueck_id'] ?? ''), 0, 40);
+        if ($advId === '' || $stId === '') respond(400, 'Fehlende Daten.');
+        if (!istDmVon($pdo, $z, $code, $advId)) respond(403, 'Das darf nur die Spielleitung.');
+        $neu = $body['stueck'] ?? null;
+        if (!is_array($neu)) respond(400, 'Fehlende Daten.');
+        $name = mb_substr(trim((string)($neu['name'] ?? '')), 0, 80);
+        if ($name === '') respond(400, 'Ein Stück braucht einen Namen.');
+        $pdo->beginTransaction();
+        $st = $pdo->prepare("SELECT beute_json FROM hb_beute WHERE session_code=? AND adv_id=? FOR UPDATE");
+        $st->execute([$code, $advId]);
+        $row = $st->fetch();
+        if (!$row) respond(404, 'Es liegt nichts.');
+        $beute = json_decode($row['beute_json'], true);
+        if (!is_array($beute)) respond(404, 'Es liegt nichts.');
+        $gefunden = false;
+        foreach ($beute['stuecke'] as &$stueck) {
+            if ((string)$stueck['id'] !== $stId) continue;
+            $gefunden = true;
+            $stueck = array_merge($stueck, [
+                'name'   => $name,
+                'anzahl' => max(1, min(999, (int)($neu['anzahl'] ?? 1))),
+                'notiz'  => mb_substr(trim((string)($neu['notiz'] ?? '')), 0, 120),
+                'wert'   => max(0, min(100000000, (int)($neu['wert'] ?? 0))),
+            ], beuteStueckMehr($neu));
+        }
+        unset($stueck);
+        if (!$gefunden) respond(404, 'Das Stück liegt nicht mehr da.');
+        $pdo->prepare("UPDATE hb_beute SET beute_json=?, stand=stand+1
+                       WHERE session_code=? AND adv_id=?")
+            ->execute([json_encode($beute, JSON_UNESCAPED_UNICODE), $code, $advId]);
+        $pdo->commit();
+        respond(200, 'Geändert.', ['beute' => $beute]);
 
     case 'beute_stand':
         if (!validateCode($code)) respond(400, 'Ungültiger Code.');

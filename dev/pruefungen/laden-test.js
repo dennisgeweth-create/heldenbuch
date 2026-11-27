@@ -173,5 +173,25 @@ ist('ein neuer Gegenstand ist nichts wert', newItem().wert, 0);
 ist('der Wert vom Fund sticht die Datenbank', dbAlsGegenstand({name: 'Ring', wert: 500}, 'Ring', 1, '', 900).wert, 900);
 ist('  … ohne ihn gilt die Datenbank', dbAlsGegenstand({name: 'Ring', wert: 500}, 'Ring', 1, '', 0).wert, 500);
 
+// ── Seltenheit und mehr am Fundstueck ───────────────────────────
+ist('„selten" ist eine Seltenheit', beuteSeltenheit('selten'), 'selten');
+ist('„Sehr selten" auch', beuteSeltenheit('Sehr selten'), 'sehrSelten');
+ist('„legendaer" ohne Umlaut auch', beuteSeltenheit('legendaer'), 'legendär');
+ist('ein Satz ist keine', beuteSeltenheit('selten gesehen'), '');
+const fundS = beuteAusText('Ring des Schutzes | schimmert blau | selten | 3500 GM\nFackel | brennt selten').stuecke;
+ist('die Seltenheit faellt als eigenes Feld aus der Notiz',
+  [fundS[0].seltenheit, fundS[0].notiz, fundS[0].wert], ['selten', 'schimmert blau', 350000]);
+ist('  … im Satz bleibt sie stehen', [fundS[1].seltenheit, fundS[1].notiz], ['', 'brennt selten']);
+const ausFund = dbAlsGegenstand({name: 'Ring', rarity: 'ungewöhnlich', weight: '0.1', tags: ['Ring']},
+  'Ring', 1, 'schimmert', 0, {seltenheit: 'selten', gewicht: '0,2', beschreibung: 'Erste Zeile\n\nZweite <b>', tags: ['Magisch']});
+ist('die Seltenheit vom Fund sticht die Datenbank', ausFund.rarity, 'selten');
+ist('  … das Gewicht auch, mit Punkt', ausFund.weight, '0.2');
+ist('  … Tags kommen dazu', ausFund.tags, ['Ring', 'Magisch']);
+ist('  … die Beschreibung kommt als Text, die Notiz davor',
+  ausFund.description, '<p>schimmert</p><p>Erste Zeile</p><p>Zweite &lt;b&gt;</p>');
+const ohne = dbAlsGegenstand({name: 'Ring', rarity: 'ungewöhnlich', weight: '0.1'}, 'Ring', 1, '', 0, {seltenheit: '', gewicht: ''});
+ist('leer laesst die Datenbank gelten', [ohne.rarity, ohne.weight], ['ungewöhnlich', '0.1']);
+ist('ohne Datenbank und Angabe ist es gewoehnlich', dbAlsGegenstand(null, 'Stein', 1, '', 0).rarity, 'gewöhnlich');
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

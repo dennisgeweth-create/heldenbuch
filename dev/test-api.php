@@ -1034,6 +1034,37 @@ pruefe('und sie sind noch niemandem zugeteilt',
 $stId = (string)($stuecke[0]['id'] ?? '');
 pruefe('der Wert eines Stuecks kommt mit', ($stuecke[0]['wert'] ?? null) === 350000, kurz($r));
 pruefe('ein unsinniger Wert wird zu nichts', ($stuecke[1]['wert'] ?? null) === 0);
+pruefe('ohne Angabe ist die Seltenheit leer', ($stuecke[1]['seltenheit'] ?? null) === '');
+
+$fundMehr = $fund;
+$fundMehr['stuecke'][0] += ['seltenheit' => 'selten', 'gewicht' => '0,5', 'beschreibung' => 'Ein Ring.',
+                            'tags' => ['Magisch', 'Magisch', '']];
+$fundMehr['stuecke'][1] += ['seltenheit' => 'quatsch', 'gewicht' => 'viel'];
+$r = ruf('beute_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd', 'beute' => $fundMehr]);
+$stuecke = (array)($r['body']['beute']['stuecke'] ?? []);
+$stId = (string)($stuecke[0]['id'] ?? '');
+pruefe('Seltenheit, Gewicht, Beschreibung und Tags kommen mit',
+       ($stuecke[0]['seltenheit'] ?? '') === 'selten' && ($stuecke[0]['gewicht'] ?? '') === '0.5'
+       && ($stuecke[0]['beschreibung'] ?? '') === 'Ein Ring.' && ($stuecke[0]['tags'] ?? []) === ['Magisch'], kurz($r));
+pruefe('  … Unsinn wird zu nichts', ($stuecke[1]['seltenheit'] ?? null) === '' && ($stuecke[1]['gewicht'] ?? null) === '');
+
+$aendern = ['name' => 'Ring des Schutzes', 'anzahl' => 1, 'notiz' => 'schimmert', 'wert' => 350000,
+            'seltenheit' => 'sehrSelten', 'gewicht' => '', 'beschreibung' => 'Neu.', 'tags' => []];
+$r = ruf('beute_stueck', ['code' => $code, 'token' => $tSpieler, 'adv_id' => 'strahd',
+                          'stueck_id' => $stId, 'stueck' => $aendern]);
+pruefe('ein Spieler aendert kein Stueck (403)', $r['status'] === 403, kurz($r));
+$r = ruf('beute_stueck', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'stueck_id' => $stId, 'stueck' => $aendern]);
+$s0 = ((array)($r['body']['beute']['stuecke'] ?? []))[0] ?? [];
+pruefe('die Spielleitung aendert ein Stueck, das daliegt (200)', $r['status'] === 200
+       && ($s0['seltenheit'] ?? '') === 'sehrSelten' && ($s0['beschreibung'] ?? '') === 'Neu.'
+       && ($s0['id'] ?? '') === $stId, kurz($r));
+$r = ruf('beute_stueck', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'stueck_id' => $stId, 'stueck' => ['name' => '']]);
+pruefe('ohne Namen nicht (400)', $r['status'] === 400, kurz($r));
+$r = ruf('beute_stueck', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
+                          'stueck_id' => 'gibtsnicht', 'stueck' => $aendern]);
+pruefe('ein Stueck, das nicht daliegt (404)', $r['status'] === 404, kurz($r));
 
 $r = ruf('beute_setzen', ['code' => $code, 'token' => $tDm, 'adv_id' => 'strahd',
                           'beute' => ['muenzen' => [], 'stuecke' => []]]);

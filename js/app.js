@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.14.0';
+const HB_VERSION = 'v6.15.0';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -17688,7 +17688,113 @@ const beuteTeilen = (muenzen, zahl) => {
   return teile;
 };
 const beuteMuenzText = m => COINS.filter(c => (m || {})[c.key] > 0).map(c => m[c.key] + ' ' + c.label).join(' · ');
-const BEUTE_KI_ANWEISUNG = ['Erstelle mir eine Beuteliste für Dungeons & Dragons 5e auf Deutsch.', 'Antworte nur mit der Liste: keine Einleitung, keine Erklärung, keine', 'Tabelle, keine Überschriften, keine Fettschrift.', '', 'Eine Zeile je Eintrag, in dieser Form:', '  Titel: woher die Beute stammt        (höchstens einmal, ganz oben)', '  <Zahl> <Münzart>                     (nur Münzen in der Zeile; PM, GM, EM, SM, KM)', '  <Anzahl>x <Gegenstand> | <Notiz> | <Wert je Stück>   (Anzahl, Notiz und Wert darfst du weglassen)', '', 'Dabei gilt:', '- Gegenstände mit ihrem deutschen Namen, so wie er im Regelwerk steht:', '  „Ring des Schutzes", „Trank der Heilung", „Fackel".', '- Die Notiz hinter dem senkrechten Strich ist ein kurzer Satz für den', '  Tisch, kein Regeltext: „schimmert blau", „im Wert von 500 Gold".', '- Der Wert je Stück mit Münzart, etwa 350 GM — nur bei Stücken, die man verkaufen kann.', '- Jede Münzart in eine eigene Zeile, ohne Punkt als Tausendertrennung.', '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.', '', 'Beispiel:', 'Titel: Aus der Truhe im Keller', '340 GM', '22 SM', 'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist | 3500 GM', '8x Fackel', 'Schmuck | im Wert von 500 Gold', '', 'Und das soll gefunden werden:', ''].join('\n');
+const BEUTE_KI_ANWEISUNG = ['Erstelle mir eine Beuteliste für Dungeons & Dragons 5e auf Deutsch.', 'Antworte nur mit der Liste: keine Einleitung, keine Erklärung, keine', 'Tabelle, keine Überschriften, keine Fettschrift.', '', 'Eine Zeile je Eintrag, in dieser Form:', '  Titel: woher die Beute stammt        (höchstens einmal, ganz oben)', '  <Zahl> <Münzart>                     (nur Münzen in der Zeile; PM, GM, EM, SM, KM)', '  <Anzahl>x <Gegenstand> | <Notiz> | <Seltenheit> | <Wert je Stück>   (Anzahl, Notiz, Seltenheit und Wert darfst du weglassen)', '', 'Dabei gilt:', '- Gegenstände mit ihrem deutschen Namen, so wie er im Regelwerk steht:', '  „Ring des Schutzes", „Trank der Heilung", „Fackel".', '- Die Notiz hinter dem senkrechten Strich ist ein kurzer Satz für den', '  Tisch, kein Regeltext: „schimmert blau", „im Wert von 500 Gold".', '- Die Seltenheit nur bei magischen Stücken, als eines dieser Wörter:', '  gewöhnlich, ungewöhnlich, selten, sehr selten, legendär, Artefakt.', '- Der Wert je Stück mit Münzart, etwa 350 GM — nur bei Stücken, die man verkaufen kann.', '- Jede Münzart in eine eigene Zeile, ohne Punkt als Tausendertrennung.', '- Keine Zwischenüberschriften, keine Gruppen, keine Gesamtsumme.', '', 'Beispiel:', 'Titel: Aus der Truhe im Keller', '340 GM', '22 SM', 'Ring des Schutzes | schimmert blau, wenn Magie in der Nähe ist | selten | 3500 GM', '8x Fackel', 'Schmuck | im Wert von 500 Gold', '', 'Und das soll gefunden werden:', ''].join('\n');
+const beuteLeereZeile = () => ({
+  name: '',
+  anzahl: 1,
+  notiz: '',
+  wert: 0,
+  seltenheit: '',
+  gewicht: '',
+  beschreibung: '',
+  tags: []
+});
+const beuteTagsAus = text => [...new Set(String(text || '').split(',').map(t => t.trim()).filter(Boolean))].slice(0, 8);
+const beuteZeileRein = ({
+  auf,
+  tagsText,
+  ...r
+}) => ({
+  ...r,
+  gewicht: String(r.gewicht || '').replace(',', '.'),
+  tags: r.tags || []
+});
+const beuteAusDb = (z, t) => !t ? {} : {
+  seltenheit: z.seltenheit || t.rarity || '',
+  gewicht: z.gewicht || (t.weight ? String(t.weight) : '')
+};
+const beuteMehrDa = z => !!(String(z.gewicht || '').trim() || String(z.beschreibung || '').trim() || (z.tags || []).length);
+const seltenheitVon = k => (typeof RARITIES !== 'undefined' ? RARITIES : []).find(r => r.key === k) || null;
+const BeuteSeltenheit = ({
+  wert,
+  onWert
+}) => React.createElement("select", {
+  className: "form-select beute-selten",
+  value: wert || '',
+  "aria-label": "Seltenheit",
+  style: {
+    color: (seltenheitVon(wert) || {}).color
+  },
+  onChange: e => onWert(e.target.value)
+}, React.createElement("option", {
+  value: ""
+}, "Seltenheit \u2026"), RARITIES.map(r => React.createElement("option", {
+  key: r.key,
+  value: r.key,
+  style: {
+    color: r.color
+  }
+}, r.label)));
+const BeuteMehr = ({
+  z,
+  onZ
+}) => React.createElement("div", {
+  className: "beute-mehr"
+}, React.createElement("label", {
+  className: "beute-mehr-feld"
+}, React.createElement("span", null, "Gewicht (kg)"), React.createElement("input", {
+  className: "form-input",
+  inputMode: "decimal",
+  value: z.gewicht || '',
+  maxLength: 8,
+  placeholder: "z.B. 0,5",
+  onChange: e => onZ({
+    gewicht: e.target.value.replace(/[^0-9.,]/g, '')
+  })
+})), React.createElement("label", {
+  className: "beute-mehr-feld breit"
+}, React.createElement("span", null, "Tags, mit Komma getrennt"), React.createElement("input", {
+  className: "form-input",
+  maxLength: 200,
+  placeholder: "z.B. Magisch, Quest",
+  value: z.tagsText !== undefined ? z.tagsText : (z.tags || []).join(', '),
+  onChange: e => onZ({
+    tagsText: e.target.value,
+    tags: beuteTagsAus(e.target.value)
+  })
+})), React.createElement("label", {
+  className: "beute-mehr-feld voll"
+}, React.createElement("span", null, "Beschreibung \u2014 kommt so in den Bogen"), React.createElement("textarea", {
+  className: "form-input",
+  rows: 3,
+  maxLength: 2000,
+  value: z.beschreibung || '',
+  placeholder: "Wirkung, Geschichte, Einstimmung \u2026",
+  onChange: e => onZ({
+    beschreibung: e.target.value
+  })
+})));
+const BeuteZeileMehr = ({
+  z,
+  onZ
+}) => React.createElement(React.Fragment, null, React.createElement("div", {
+  className: "beute-neu2"
+}, React.createElement(BeuteSeltenheit, {
+  wert: z.seltenheit,
+  onWert: v => onZ({
+    seltenheit: v
+  })
+}), React.createElement("button", {
+  type: "button",
+  className: 'btn-icon beute-mehr-knopf' + (beuteMehrDa(z) ? ' da' : ''),
+  "aria-expanded": !!z.auf,
+  onClick: () => onZ({
+    auf: !z.auf
+  })
+}, z.auf ? '▾ Weniger' : '▸ Gewicht, Tags, Beschreibung', !z.auf && beuteMehrDa(z) ? ' ●' : '')), z.auf && React.createElement(BeuteMehr, {
+  z: z,
+  onZ: onZ
+}));
 const BeuteAnlegen = ({
   gegenstaende,
   onAbbrechen,
@@ -17702,12 +17808,7 @@ const BeuteAnlegen = ({
     sp: 0,
     cp: 0
   });
-  const [zeilen, setZeilen] = React.useState([{
-    name: '',
-    anzahl: 1,
-    notiz: '',
-    wert: 0
-  }]);
+  const [zeilen, setZeilen] = React.useState([beuteLeereZeile()]);
   const setZeile = (i, p) => setZeilen(z => z.map((x, j) => j === i ? {
     ...x,
     ...p
@@ -17735,22 +17836,22 @@ const BeuteAnlegen = ({
     const reihen = g.stuecke.map(st => {
       const t = dbGegenstand(gegenstaende, st.name);
       return {
+        ...beuteLeereZeile(),
         name: t && t.name || st.name,
         anzahl: st.anzahl,
         notiz: st.notiz || (t ? dbKurz(t) : ''),
         ausDb: !!t,
-        wert: st.wert || +(t && t.wert) || 0
+        wert: st.wert || +(t && t.wert) || 0,
+        ...beuteAusDb({
+          seltenheit: st.seltenheit || ''
+        }, t),
+        seltenheit: st.seltenheit || t && t.rarity || ''
       };
     });
     if (reihen.length) setZeilen(z => z.filter(x => x.name.trim()).concat(reihen.map(({
       ausDb,
       ...r
-    }) => r), [{
-      name: '',
-      anzahl: 1,
-      notiz: '',
-      wert: 0
-    }]));
+    }) => r), [beuteLeereZeile()]));
     const was = [];
     if (reihen.length) was.push(reihen.length + (reihen.length === 1 ? ' Stück' : ' Stücke'));
     if (geld) was.push(beuteMuenzText(g.muenzen));
@@ -17764,7 +17865,7 @@ const BeuteAnlegen = ({
   return React.createElement(Fenster, null, React.createElement("div", {
     className: "form-modal",
     style: {
-      maxWidth: 520
+      maxWidth: 580
     },
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
@@ -17815,8 +17916,10 @@ const BeuteAnlegen = ({
   }, "St\xFCcke"), React.createElement("div", {
     className: "beute-zeilen"
   }, zeilen.map((z, i) => React.createElement("div", {
-    className: "beute-neu",
+    className: "beute-zeile",
     key: i
+  }, React.createElement("div", {
+    className: "beute-neu"
   }, React.createElement("input", {
     className: "form-input",
     value: z.name,
@@ -17829,7 +17932,8 @@ const BeuteAnlegen = ({
       setZeile(i, {
         name: v,
         notiz: z.notiz || (t ? dbKurz(t) : ''),
-        wert: +z.wert || 0 || +(t && t.wert) || 0
+        wert: +z.wert || 0 || +(t && t.wert) || 0,
+        ...beuteAusDb(z, t)
       });
     }
   }), React.createElement(ZahlFeld, {
@@ -17859,14 +17963,12 @@ const BeuteAnlegen = ({
     className: "konz-weg",
     title: "Zeile weg",
     onClick: () => setZeilen(z2 => z2.filter((_, j) => j !== i))
-  }, "\u2715"))), React.createElement("button", {
+  }, "\u2715")), React.createElement(BeuteZeileMehr, {
+    z: z,
+    onZ: p => setZeile(i, p)
+  }))), React.createElement("button", {
     className: "bj-taste",
-    onClick: () => setZeilen(z => [...z, {
-      name: '',
-      anzahl: 1,
-      notiz: '',
-      wert: 0
-    }])
+    onClick: () => setZeilen(z => [...z, beuteLeereZeile()])
   }, "+ Noch eine Zeile")), React.createElement("div", {
     className: "form-actions",
     style: {
@@ -17881,7 +17983,7 @@ const BeuteAnlegen = ({
     onClick: () => onHinlegen({
       titel,
       muenzen,
-      stuecke
+      stuecke: stuecke.map(beuteZeileRein)
     })
   }, leer ? 'Da ist noch nichts' : 'Hinlegen'))));
 };
@@ -17911,6 +18013,83 @@ const beuteHandStart = (muenzen, helden) => {
   });
   return raus;
 };
+const BeuteStueckAendern = ({
+  stueck,
+  onFertig,
+  onAbbrechen
+}) => {
+  const [z, setZ] = React.useState(() => ({
+    ...beuteLeereZeile(),
+    ...stueck,
+    auf: true
+  }));
+  const [laeuft, setLaeuft] = React.useState(false);
+  const onZ = p => setZ(x => ({
+    ...x,
+    ...p
+  }));
+  return React.createElement("div", {
+    className: "beute-aendern"
+  }, React.createElement("div", {
+    className: "beute-neu"
+  }, React.createElement("input", {
+    className: "form-input",
+    value: z.name,
+    maxLength: 80,
+    "aria-label": "Name",
+    onChange: e => onZ({
+      name: e.target.value
+    })
+  }), React.createElement(ZahlFeld, {
+    className: "form-input beute-anzahl",
+    min: 1,
+    wert: z.anzahl,
+    onWert: v => onZ({
+      anzahl: v
+    })
+  }), React.createElement("input", {
+    className: "form-input",
+    value: z.notiz || '',
+    maxLength: 120,
+    placeholder: "Notiz",
+    onChange: e => onZ({
+      notiz: e.target.value
+    })
+  }), React.createElement(GoldFeld, {
+    className: "form-input beute-wert",
+    placeholder: "Wert GM",
+    kupfer: z.wert,
+    "aria-label": "Wert je St\xFCck in Gold",
+    onKupfer: k => onZ({
+      wert: k
+    })
+  })), React.createElement(BeuteZeileMehr, {
+    z: z,
+    onZ: onZ
+  }), React.createElement("div", {
+    className: "beute-aendern-knoepfe"
+  }, React.createElement("button", {
+    type: "button",
+    className: "btn-cancel",
+    onClick: onAbbrechen
+  }, "Abbrechen"), React.createElement("button", {
+    type: "button",
+    className: "btn-save",
+    disabled: !z.name.trim() || laeuft,
+    onClick: async () => {
+      setLaeuft(true);
+      const {
+        id,
+        an,
+        anName,
+        ...rest
+      } = beuteZeileRein(z);
+      const gut = await onFertig(rest);
+      setLaeuft(false);
+      if (gut !== false) onAbbrechen();
+    }
+  }, "\xDCbernehmen")));
+};
 const BeuteFenster = ({
   beute,
   helden,
@@ -17919,9 +18098,11 @@ const BeuteFenster = ({
   onNehmen,
   onSchliessen,
   onAbschliessen,
-  onAbraeumen
+  onAbraeumen,
+  onAendern
 }) => {
   const [hand, setHand] = React.useState(null);
+  const [aendern, setAendern] = React.useState(null);
   const stuecke = beute && beute.stuecke || [];
   const offen = stuecke.filter(s => !s.an);
   const teile = beuteTeilen(beute && beute.muenzen, helden.length);
@@ -18008,12 +18189,31 @@ const BeuteFenster = ({
     className: "beute-liste"
   }, stuecke.length === 0 && React.createElement("div", {
     className: "probe-leer"
-  }, "Nur M\xFCnzen."), stuecke.map(s => React.createElement("div", {
+  }, "Nur M\xFCnzen."), stuecke.map(s => aendern === s.id ? React.createElement(BeuteStueckAendern, {
+    key: s.id,
+    stueck: s,
+    onFertig: felder => onAendern(s.id, felder),
+    onAbbrechen: () => setAendern(null)
+  }) : React.createElement("div", {
     className: 'beute-stueck' + (s.an ? ' vergeben' : ''),
     key: s.id
   }, React.createElement("div", {
     className: "beute-was"
-  }, React.createElement("b", null, s.name, s.anzahl > 1 ? ' ×' + s.anzahl : ''), (s.notiz || (+s.wert || 0) > 0) && React.createElement("i", null, [s.notiz, (+s.wert || 0) > 0 ? 'Wert ' + preisText(s.wert) : ''].filter(Boolean).join(' · '))), s.an ? React.createElement("div", {
+  }, React.createElement("b", null, s.name, s.anzahl > 1 ? ' ×' + s.anzahl : ''), seltenheitVon(s.seltenheit) && React.createElement("span", {
+    className: "beute-selten-marke",
+    style: {
+      color: seltenheitVon(s.seltenheit).color,
+      borderColor: seltenheitVon(s.seltenheit).color
+    }
+  }, seltenheitVon(s.seltenheit).label), (s.notiz || (+s.wert || 0) > 0 || s.gewicht || (s.tags || []).length > 0) && React.createElement("i", null, [s.notiz, (+s.wert || 0) > 0 ? 'Wert ' + preisText(s.wert) : '', s.gewicht ? String(s.gewicht).replace('.', ',') + ' kg' : '', ...(s.tags || []).map(t => '#' + t)].filter(Boolean).join(' · ')), s.beschreibung && React.createElement("details", {
+    className: "beute-text"
+  }, React.createElement("summary", null, "Beschreibung"), React.createElement("div", null, s.beschreibung))), isDmMode && onAendern && React.createElement("button", {
+    type: "button",
+    className: "btn-icon beute-stift",
+    title: "St\xFCck \xE4ndern",
+    "aria-label": '„' + s.name + '“ ändern',
+    onClick: () => setAendern(s.id)
+  }, "\u270E"), s.an ? React.createElement("div", {
     className: "beute-an"
   }, React.createElement("span", null, s.anName || 'vergeben'), React.createElement("button", {
     className: "konz-weg",
@@ -29134,6 +29334,22 @@ function App() {
       appAlert('Das ging nicht: ' + (e.message || 'unbekannter Fehler'));
     }
   };
+  const beuteStueckAendern = async (stueckId, felder) => {
+    const {
+      url,
+      code,
+      pass
+    } = serverCreds();
+    try {
+      await apiBeuteStueck(url, code, pass, advId, stueckId, felder);
+      beuteStandRef.current = -1;
+      gleichFragen('beute');
+      return true;
+    } catch (e) {
+      appAlert('Das ging nicht: ' + (e.message || 'unbekannter Fehler'));
+      return false;
+    }
+  };
   const beuteWegraeumen = async () => {
     const {
       url,
@@ -29168,7 +29384,7 @@ function App() {
     const neu = charsRef.current.map(c => {
       const t = nach[c.id];
       if (!t) return c;
-      const inv = [...(c.inventory || []), ...t.stuecke.map(st => dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name), st.name, st.anzahl, st.notiz, st.wert))];
+      const inv = [...(c.inventory || []), ...t.stuecke.map(st => dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name), st.name, st.anzahl, st.notiz, st.wert, st))];
       const w = {
         ...(c.currency || {
           pp: 0,
@@ -34558,7 +34774,8 @@ function App() {
     onNehmen: beuteNehmen,
     onSchliessen: () => setBeuteOffen(false),
     onAbschliessen: beuteAbschliessen,
-    onAbraeumen: beuteWegraeumen
+    onAbraeumen: beuteWegraeumen,
+    onAendern: isDmMode ? beuteStueckAendern : null
   }), probe && React.createElement(ProbenBalken, {
     probe: probe,
     isDmMode: isDmMode,

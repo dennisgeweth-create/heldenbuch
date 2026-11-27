@@ -155,6 +155,7 @@
     const apiBesitzerSetzen = wbStumm;
     const apiBeuteNehmen = wbStumm;
     const apiBeuteSetzen = wbStumm;
+    const apiBeuteStueck = wbStumm;
     // Die Beute zaehlt ihre Anfragen — daran sieht die Pruefung des
     // Pulses, ob er die Beute sofort fragen laesst.
     const wbBeuteFragen = {n: 0};
@@ -856,13 +857,22 @@
             ein.click(); await ruhe(120);
             const feldB = document.querySelector('.liste-roh');
             const setzT = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-            setzT.call(feldB, 'Ring des Schutzes | schimmert blau | 350 GM\n8x Fackel');
+            setzT.call(feldB, 'Ring des Schutzes | schimmert blau | selten | 350 GM\n8x Fackel');
             feldB.dispatchEvent(new Event('input', {bubbles: true}));
             await ruhe(80);
             knopfMit('Übernehmen').click(); await ruhe(200);
             const werte = [...document.querySelectorAll('.beute-wert')].map(i => i.value);
             ja('Der Wert steht in der Zeile des Rings', werte[0] === '350', werte.join(' | '));
             ja('  … die Fackeln bleiben ohne', werte[1] === '', werte.join(' | '));
+            const selt = [...document.querySelectorAll('.beute-selten')].map(s => s.value);
+            ja('  … die Seltenheit des Rings ist gewählt', selt[0] === 'selten', selt.join(' | '));
+            const mehrK = document.querySelector('.beute-mehr-knopf');
+            if (ja('  … „Gewicht, Tags, Beschreibung" klappt auf', !!mehrK)) {
+              mehrK.click(); await ruhe(80);
+              ja('  … mit Gewicht, Tags und Beschreibung',
+                 !!document.querySelector('.beute-mehr textarea')
+                 && document.querySelectorAll('.beute-mehr input').length === 2);
+            }
           }
           const abb = [...document.querySelectorAll('.form-modal button')].find(b => /Abbrechen/.test(b.textContent));
           if (abb) { abb.click(); await ruhe(120); }
@@ -2383,6 +2393,45 @@
           }
           ReactDOM.unmountComponentAtNode(buehne);
           try { localStorage.removeItem('hb_kampfsicht_rechts'); } catch {}
+        }
+
+        // Die Beute: Seltenheit und mehr am Stück, und die Spielleitung
+        // ändert ein Stück, das schon daliegt.
+        {
+          let geaendert = null;
+          const fundB = {titel: 'Truhe', muenzen: {gp: 10}, stuecke: [
+            {id: 's1', name: 'Ring des Schutzes', anzahl: 1, notiz: 'schimmert', wert: 35000, an: null,
+             seltenheit: 'selten', gewicht: '0.1', beschreibung: 'Ein alter Ring.', tags: ['Magisch']}]};
+          const beuteMit = (dm) => ReactDOM.render(React.createElement(BeuteFenster, {
+            beute: fundB, helden: [WB_HELD], isDmMode: dm, darfNehmen: () => true,
+            onNehmen: () => {}, onSchliessen: () => {}, onAbschliessen: () => {}, onAbraeumen: () => {},
+            onAendern: dm ? async (id, f) => { geaendert = {id, f}; return true; } : null}), buehne);
+          beuteMit(false); await ruhe(80);
+          const zeileB = buehne.querySelector('.beute-stueck');
+          ja('Die Beute zeigt die Seltenheit', /Selten/.test((buehne.querySelector('.beute-selten-marke') || {}).textContent || ''));
+          ja('  … Gewicht und Tags', !!zeileB && /0,1 kg/.test(zeileB.textContent) && /#Magisch/.test(zeileB.textContent),
+             zeileB ? zeileB.textContent : '');
+          ja('  … und die Beschreibung zum Aufklappen', !!buehne.querySelector('.beute-text summary'));
+          ja('  … Spieler ändern nichts', !buehne.querySelector('.beute-stift'));
+          ReactDOM.unmountComponentAtNode(buehne);
+          beuteMit(true); await ruhe(80);
+          const stift = buehne.querySelector('.beute-stift');
+          if (ja('Die Spielleitung hat am Stück einen Stift', !!stift)) {
+            stift.click(); await ruhe(80);
+            const sel = buehne.querySelector('.beute-aendern .beute-selten');
+            if (ja('  … er öffnet das Stück mit seiner Seltenheit', !!sel && sel.value === 'selten')) {
+              const setzS = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+              setzS.call(sel, 'legendär'); sel.dispatchEvent(new Event('change', {bubbles: true}));
+              await ruhe(40);
+              [...buehne.querySelectorAll('.beute-aendern button')].find(b => /Übernehmen/.test(b.textContent)).click();
+              await ruhe(80);
+              ja('  … „Übernehmen" schickt die neue Seltenheit', !!geaendert && geaendert.id === 's1'
+                 && geaendert.f.seltenheit === 'legendär' && geaendert.f.beschreibung === 'Ein alter Ring.'
+                 && !('an' in geaendert.f), JSON.stringify(geaendert));
+              ja('  … und klappt wieder zu', !buehne.querySelector('.beute-aendern'));
+            }
+          }
+          ReactDOM.unmountComponentAtNode(buehne);
         }
 
         // Eingebettet: kein Dialog, kein Kopf, und die Seitenspalte.

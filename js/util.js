@@ -690,6 +690,17 @@ const beuteMuenzZeile = (zeile) => {
   return treffer ? raus : null;
 };
 
+// Eine Seltenheit, wie sie in einer Liste steht: „selten", „Sehr selten",
+// „legendär". Nur ein ganzes Feld zählt — im Satz ist „selten" ein Wort.
+const beuteSeltenheit = (text) => {
+  const w = String(text || '').toLowerCase().replace(/[.,;:]+$/, '').replace(/[\s_-]+/g, '')
+    .replace('legendaer', 'legendär').replace('gewoehnlich', 'gewöhnlich');
+  if (!w) return '';
+  const r = (typeof RARITIES !== 'undefined' ? RARITIES : [])
+    .find(x => x.key.toLowerCase() === w || x.label.toLowerCase().replace(/\s+/g, '') === w);
+  return r ? r.key : '';
+};
+
 const beuteAusText = (text) => {
   const muenzen = {pp: 0, gp: 0, ep: 0, sp: 0, cp: 0};
   const stuecke = [];
@@ -731,10 +742,12 @@ const beuteAusText = (text) => {
     // („Ring | 50 GM"), am Namen („Schmuck 500 GM") oder im Satz der
     // Notiz („im Wert von 500 Gold"). Ein Feld, das nur Preis ist, faellt
     // aus der Notiz heraus; der Satz bleibt stehen.
-    let wert = 0;
+    let wert = 0, seltenheit = '';
     if (notiz) {
       const felder = notiz.split(/\s*\|\s*/);
       const rest = felder.filter(f => {
+        const s = beuteSeltenheit(f);
+        if (s && !seltenheit) { seltenheit = s; return false; }
         const p = /[A-Za-zÄÖÜäöüß]/.test(f) ? ladenPreisKupfer(f) : null;
         if (p !== null && !wert) { wert = p; return false; }
         return true;
@@ -749,7 +762,7 @@ const beuteAusText = (text) => {
     z = z.replace(/[.,;]+$/, '').trim();
     if (!z) return;
     stuecke.push({name: z.slice(0, 80), anzahl: Math.max(1, Math.min(999, anzahl)),
-                  notiz: notiz.slice(0, 120), wert});
+                  notiz: notiz.slice(0, 120), wert, seltenheit});
   });
 
   return {titel, muenzen, stuecke};
@@ -1074,17 +1087,35 @@ const dbGegenstand = dbEintrag;
 // Beschreibung aus der Datenbank: sie gilt fuer dieses eine Stueck.
 // `wert` wie die Notiz: steht an diesem Stueck ein Preis (aus der Beute-
 // liste, aus dem Laden), gilt der — sonst der aus der Datenbank.
-const dbAlsGegenstand = (eintrag, name, anzahl, notiz, wert) => ({
-  ...newItem(),
-  ...(eintrag || {}),
-  id: 'db' + Date.now() + Math.floor(Math.random() * 1000),
-  name: (eintrag && eintrag.name) || name,
-  qty: Math.max(1, +anzahl || 1),
-  description: (notiz && notiz.trim())
-    ? notiz.trim()
-    : ((eintrag && eintrag.description) || ''),
-  wert: (+wert > 0) ? Math.round(+wert) : (+(eintrag && eintrag.wert) || 0),
-});
+// `mehr` traegt, was die Spielleitung am Fundstueck selbst eingestellt
+// hat: Seltenheit, Gewicht, Tags, eine laengere Beschreibung. Was dort
+// steht, sticht die Datenbank; was leer ist, laesst sie gelten.
+const beuteHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const beuteTextAlsHtml = (s) => String(s || '').trim().split(/\n\s*\n/)
+  .map(a => a.trim()).filter(Boolean)
+  .map(a => '<p>' + beuteHtml(a).replace(/\n/g, '<br>') + '</p>').join('');
+const dbAlsGegenstand = (eintrag, name, anzahl, notiz, wert, mehr) => {
+  const m = mehr || {};
+  const kurz = String(notiz || '').trim();
+  const lang = String(m.beschreibung || '').trim();
+  const gewicht = String(m.gewicht === undefined || m.gewicht === null ? '' : m.gewicht).trim();
+  const tags = [...new Set([...((eintrag && eintrag.tags) || []), ...(m.tags || [])])];
+  return {
+    ...newItem(),
+    ...(eintrag || {}),
+    id: 'db' + Date.now() + Math.floor(Math.random() * 1000),
+    name: (eintrag && eintrag.name) || name,
+    qty: Math.max(1, +anzahl || 1),
+    description: lang
+      ? (kurz ? '<p>' + beuteHtml(kurz) + '</p>' : '') + beuteTextAlsHtml(lang)
+      : kurz ? kurz : ((eintrag && eintrag.description) || ''),
+    wert: (+wert > 0) ? Math.round(+wert) : (+(eintrag && eintrag.wert) || 0),
+    rarity: m.seltenheit || (eintrag && eintrag.rarity) || 'gewöhnlich',
+    weight: gewicht ? gewicht.replace(',', '.') : ((eintrag && eintrag.weight) || ''),
+    tags,
+  };
+};
 // Der lange Beschreibungstext der Datenbank taugt nicht als Notiz an
 // einem Fundstueck: er traegt Auszeichnungen und ist zu lang.
 const dbKurz = (eintrag, laenge) => {

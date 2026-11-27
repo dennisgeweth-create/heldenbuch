@@ -2567,6 +2567,16 @@ function App() {
       gleichFragen('beute');
     } catch (e) { appAlert('Das ging nicht: ' + (e.message || 'unbekannter Fehler')); }
   };
+  // Ein Stück, das schon daliegt, nachträglich ändern (Spielleitung).
+  const beuteStueckAendern = async (stueckId, felder) => {
+    const {url, code, pass} = serverCreds();
+    try {
+      await apiBeuteStueck(url, code, pass, advId, stueckId, felder);
+      beuteStandRef.current = -1;
+      gleichFragen('beute');
+      return true;
+    } catch (e) { appAlert('Das ging nicht: ' + (e.message || 'unbekannter Fehler')); return false; }
+  };
   const beuteWegraeumen = async () => {
     const {url, code, pass} = serverCreds();
     try { await apiBeuteSetzen(url, code, pass, advId, null); setBeute(null); setBeuteOffen(false); beuteStandRef.current = -1; gleichFragen('beute'); }
@@ -2603,7 +2613,7 @@ function App() {
       // eine Stueck.
       const inv = [...(c.inventory || []), ...t.stuecke.map(st =>
         dbAlsGegenstand(dbGegenstand((userLibrary || {}).item, st.name),
-                        st.name, st.anzahl, st.notiz, st.wert))];
+                        st.name, st.anzahl, st.notiz, st.wert, st))];
       const w = {...(c.currency || {pp:0,gp:0,ep:0,sp:0,cp:0})};
       if (t.muenzen) for (const m of ['pp','gp','ep','sp','cp']) w[m] = (+w[m] || 0) + (t.muenzen[m] || 0);
       return {...c, inventory: inv, currency: w};
@@ -5875,7 +5885,8 @@ function App() {
         <BeuteFenster beute={beute} helden={beuteHelden} isDmMode={isDmMode}
           darfNehmen={darfSchreiben} onNehmen={beuteNehmen}
           onSchliessen={()=>setBeuteOffen(false)}
-          onAbschliessen={beuteAbschliessen} onAbraeumen={beuteWegraeumen} />
+          onAbschliessen={beuteAbschliessen} onAbraeumen={beuteWegraeumen}
+          onAendern={isDmMode ? beuteStueckAendern : null} />
       )}
 
       {probe && (

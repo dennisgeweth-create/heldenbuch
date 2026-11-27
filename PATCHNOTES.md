@@ -1,5 +1,23 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.15.0
+
+### Beute: Seltenheit und mehr gleich am Stück
+
+- Beim Hinlegen hat jedes Stück eine zweite Zeile: die **Seltenheit**
+  zum Auswählen und dahinter **Gewicht, Tags und eine Beschreibung**.
+  Steht das Stück in der Datenbank, ist das vorbelegt; was du einstellst,
+  sticht sie — und kommt beim Eintragen genau so in den Bogen.
+- **Auch danach noch:** Solange der Fund liegt, hat die Spielleitung an
+  jedem Stück einen Stift. Damit lässt sich alles ändern — Name, Anzahl,
+  Notiz, Wert, Seltenheit, Gewicht, Tags, Beschreibung. Wem es schon
+  zugeteilt ist, bleibt stehen.
+- Im Beutefenster sieht die Runde die Seltenheit in ihrer Farbe, Gewicht
+  und Tags in der Zeile darunter und die Beschreibung zum Aufklappen.
+- Eine eingefügte Liste darf die Seltenheit als eigenes Feld tragen:
+  `Ring des Schutzes | schimmert blau | selten | 3500 GM`. Die Anweisung
+  für die KI sagt das jetzt mit.
+
 ## v6.14.0
 
 ### Kampf im Vollbild: einen Helden antippen, sein Bogen kommt
