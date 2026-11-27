@@ -2411,3 +2411,17 @@ const kampfVomServer = (k, advId, enemies, nsc) => {
 // sie zu ersetzen kostet nichts.
 const leereVorbereitung = (k) => !!k && k.phase === 'vorbereitung'
   && !(k.teilnehmer || []).some(t => t && (t.art !== 'held' || (t.ini !== null && t.ini !== undefined)));
+
+// ── Das Kuerzel von der Karte am Namen ────────────────────────────
+// Am Tisch sagt man „der Zombie links", auf der Karte steht z1. Damit
+// beides zusammenfindet, steht das Kuerzel hinter dem Namen: „Zombie
+// (z1)". Nur wer auf der Karte steht, hat eines — und beim Spieler nur,
+// wen die Spielleitung zeigt (der Server laesst Verborgene weg).
+const kartenKuerzelVon = (karte, id) => {
+  const f = karte && karte.figuren && id !== undefined && id !== null ? karte.figuren[id] : null;
+  return f && f.k && f.k !== '??' ? String(f.k) : '';
+};
+const nameMitKuerzel = (name, karte, id) => {
+  const k = kartenKuerzelVon(karte, id);
+  return k ? (name || '') + ' (' + k + ')' : (name || '');
+};

@@ -2201,6 +2201,9 @@
   .ks-name b { font-family:'Roboto Condensed',sans-serif; font-size:14px; font-weight:400;
     color:var(--text-primary); }
   .ks-name i { font-style:normal; font-size:11px; color:var(--text-muted); }
+  /* Das Kuerzel von der Karte hinter dem Namen: „Zombie (z1)". */
+  .name-kuerzel { color:var(--text-muted); font-size:0.85em; font-weight:400;
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
   .ks-marken { display:flex; flex-wrap:wrap; gap:4px; margin-top:2px; }
   .ks-marke { font-family:'Roboto Condensed',sans-serif; font-size:9.5px; letter-spacing:0.04em;
     padding:1px 6px; border-radius:3px; background:var(--bg-card);

@@ -15,7 +15,7 @@
 const zustandFarbe = (label) =>
   (TP_ZUSTAENDE.find(z => z.label === label) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1]).color;
 
-const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHeld, wirkungen }) => {
+const KampfSichtZeile = ({ t, karte, dran, wartet, helden, setDefs, tpOffen, eigenerHeld, wirkungen }) => {
   const held = t.art === 'held';
   // Der Verbuendete kommt wie ein Gegner an — ohne Zahlen, mit grobem
   // Stand. Dass er auf der Seite der Gruppe steht, sagt der Server dazu.
@@ -46,7 +46,7 @@ const KampfSichtZeile = ({ t, dran, wartet, helden, setDefs, tpOffen, eigenerHel
                     + (eigenerHeld ? ' eigen' : '')}>
       <div className="ks-ini">{t.ini === null || t.ini === undefined ? '—' : t.ini}</div>
       <div className="ks-name">
-        <b>{held ? (c ? c.name : 'Held') : (t.name || 'Gegner')}</b>
+        <b>{held ? (c ? c.name : 'Held') : (t.name || 'Gegner')}<NameKuerzel karte={karte} id={t.id} /></b>
         {held && c && <i>{(c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level}</i>}
         <div className="ks-marken">
           {dran && <span className="ks-dran">am Zug</span>}
@@ -295,7 +295,7 @@ const AnsageFenster = ({ held, kampf, helden, runde, setDefs, onAbbrechen, onSen
     return {...z, [id]: true};
   });
 
-  const zielName = (t) => ansageZielName(t, helden);
+  const zielName = (t) => nameMitKuerzel(ansageZielName(t, helden), kampf && kampf.karte, t && t.id);
 
   // Angesagt ist, was der Server schon hat, plus was gerade hinausging.
   const angesagt = (() => {
@@ -685,7 +685,7 @@ const KampfSicht = ({ kampf, helden, eigeneIds, setDefs, tpOffen, onAnsage,
           {liste.length === 0
             ? <div className="ks-leer">Noch steht niemand in der Reihe.</div>
             : liste.map((t, i) => (
-                <KampfSichtZeile key={t.id || i} t={t} dran={i === aktivIdx}
+                <KampfSichtZeile key={t.id || i} t={t} karte={kampf.karte} dran={i === aktivIdx}
                   wartet={zwIdx >= 0 && i === dranIdx}
                   helden={helden} setDefs={setDefs} tpOffen={tpOffen}
                   eigenerHeld={t.art === 'held' && (eigeneIds || []).includes(t.charId)}

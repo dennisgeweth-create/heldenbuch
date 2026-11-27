@@ -1256,6 +1256,23 @@
             if (karteK) {
               karteK.click(); await ruhe(200);
               ja('Die Karte meldet sich in der Leiste an', !!eintrag('Karte'));
+              // Wer auf der Karte steht, traegt ihr Kuerzel am Namen.
+              const leerK = document.querySelector('.kk-leer .kk-leiste .bj-taste');
+              if (leerK) { leerK.click(); await ruhe(200); }
+              const markeK = document.querySelector('.kk-ablage .kk-marke');
+              const feldK = document.querySelector('.kk-feld:not(.figur)');
+              if (ja('  … eine Figur zum Setzen liegt bereit', !!markeK && !!feldK)) {
+                const wer = markeK.textContent.trim();
+                markeK.click(); await ruhe(80);
+                feldK.click(); await ruhe(200);
+                const zeileK = [...document.querySelectorAll('.kampf-zeile')].find(z =>
+                  (z.querySelector('.kampf-name') || {}).textContent && z.querySelector('.kampf-name').textContent.startsWith(wer));
+                const kz = zeileK && zeileK.querySelector('.name-kuerzel');
+                const kFeld = document.querySelector('.kk-feld.figur');
+                ja('  … gesetzt, steht ihr Kürzel hinter dem Namen im Tracker',
+                   !!kz && !!kFeld && kz.textContent.trim() === '(' + kFeld.textContent.trim() + ')',
+                   (kz ? kz.textContent : 'kein Kürzel') + ' / ' + (kFeld ? kFeld.textContent : 'kein Feld'));
+              }
               document.querySelector('.kampf-schirm .kampf-kopf-mini').click(); await ruhe(150);
               ja('  … mit dem Tracker ist auch sie versteckt', eintrag('Karte').classList.contains('zu'));
               eintrag('Karte').querySelector('.fl-knopf').click(); await ruhe(150);

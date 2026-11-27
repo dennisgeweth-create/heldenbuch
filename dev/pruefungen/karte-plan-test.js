@@ -173,5 +173,13 @@ const lib5 = {...lib0, _adventures: [lib0._adventures[1]]};
 ist('ein Abenteuer geloescht', libPatch(lib0, lib5).liste._adventures,
   {setzen: [], weg: ['a'], reihe: ['b']});
 
+// ── Das Kuerzel am Namen ──────────────────────────────────────────
+const kk = {figuren: {g1: {x: 1, y: 1, k: 'z1'}, g2: {x: 2, y: 2, k: '??'}}};
+ist('das Kuerzel von der Karte', kartenKuerzelVon(kk, 'g1'), 'z1');
+ist('  … hinter dem Namen', nameMitKuerzel('Zombie', kk, 'g1'), 'Zombie (z1)');
+ist('  … nicht auf der Karte: nur der Name', nameMitKuerzel('Wolf', kk, 'g9'), 'Wolf');
+ist('  … ohne Karte: nur der Name', nameMitKuerzel('Wolf', null, 'g1'), 'Wolf');
+ist('  … ein Platzhalter zaehlt nicht', kartenKuerzelVon(kk, 'g2'), '');
+
 console.log('\n' + gut + ' Pruefungen gut, ' + schlecht + ' schlecht.');
 process.exit(schlecht ? 1 : 0);

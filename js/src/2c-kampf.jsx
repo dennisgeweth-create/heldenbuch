@@ -1411,7 +1411,13 @@ const zugMaengel = (z) => {
 //   Beim Gegner gibt es keine Auswahl. Er hat im Heldenbuch keine
 //   Waffenliste, nur seinen Bogen aus der Sammlung — also nur Ziele, Werte
 //   und die Beschreibung.
-const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
+// Das Kuerzel von der Karte, klein hinter dem Namen: „Zombie (z1)".
+const NameKuerzel = ({ karte, id }) => {
+  const k = kartenKuerzelVon(karte, id);
+  return k ? <span className="name-kuerzel"> ({k})</span> : null;
+};
+
+const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage, karte,
                       schlangeRest, onSchlange,
                       ansagen, onAnsageWeg, onAbbrechen, onAnwenden }) => {
   const held   = t.art === 'held' ? (helden || []).find(h => h.id === t.charId) : null;
@@ -1840,7 +1846,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
       <div className="zug-fenster" onClick={e=>e.stopPropagation()}>
 
         <div className="zug-kopf">
-          <span className="zug-titel">✍ {t.name}</span>
+          <span className="zug-titel">✍ {t.name}<NameKuerzel karte={karte} id={t.id} /></span>
           <span className="zug-wer">Runde {runde}{t.unterzeile ? ' · ' + t.unterzeile : ''}</span>
           <span className="zug-tp"><b>{t.hp}</b> / {t.hpMax} TP</span>
         </div>
@@ -1921,7 +1927,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                   <button type="button" key={z.id}
                     className={'zug-ziel' + (ziele[z.id] ? ' an' : '') + (z.art === 'held' && z.lager !== 'feind' ? ' held' : '')}
                     onClick={()=>zielUm(z.id)}>
-                    <span className="zug-ziel-kopf"><b>{z.name}</b><i>RK {z.ac}</i></span>
+                    <span className="zug-ziel-kopf"><b>{z.name}<NameKuerzel karte={karte} id={z.id} /></b><i>RK {z.ac}</i></span>
                     <span className="zug-balken"><i style={{width:(anteil*100)+'%', background:farbe}} /></span>
                     <span className="zug-ziel-tp">{z.hp} / {z.hpMax} TP</span>
                   </button>
@@ -1990,7 +1996,7 @@ const ZugFenster = ({ t, liste, helden, setDefs, klassen, runde, bisher, ansage,
                   const halbiert = mitRettung && z.bestanden && wirkung.halb;
                   return (
                     <div className="zug-w-zeile" key={id}>
-                      <span className="zug-w-name">{ziel.name}</span>
+                      <span className="zug-w-name">{ziel.name}<NameKuerzel karte={karte} id={id} /></span>
                       {mitRettung && (
                         <span className="zug-schalter">
                           <button type="button" className={'nein' + (z.bestanden ? '' : ' an')}
@@ -2325,7 +2331,7 @@ const GestaltDialog = ({ t, tiere, enemies, onLaden, onVerwandeln, onAbbrechen }
   );
 };
 
-const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, onIni, onNotiz,
+const KampfZeile = ({ t, karte, dran, wartet, onWert, onFenster, onZug, onDazwischen, onIni, onNotiz,
                       onNotizFertig, onZustand, onMarke,
                       onErschoepfung, onEntfernen, onBlatt, onTodes, auf, onAufklappen,
                       zustandOffen, setZustandOffen, detailOffen, setDetailOffen,
@@ -2368,13 +2374,13 @@ const KampfZeile = ({ t, dran, wartet, onWert, onFenster, onZug, onDazwischen, o
       <div className="kampf-namensblock">
         {t.art === 'gegner' && t.vorlageId ? (
           <button className="kampf-name kampf-name-knopf" onClick={()=>onBlatt(t.vorlageId)}
-            title="Werte nachschlagen">{t.name}</button>
+            title="Werte nachschlagen">{t.name}<NameKuerzel karte={karte} id={t.id} /></button>
         ) : t.art === 'held' ? (
           <button className="kampf-name kampf-name-knopf"
             onClick={()=>setDetailOffen(detailOffen === t.id ? null : t.id)}
-            title="Werte aus dem Bogen" aria-expanded={detailOffen === t.id}>{t.name}</button>
+            title="Werte aus dem Bogen" aria-expanded={detailOffen === t.id}>{t.name}<NameKuerzel karte={karte} id={t.id} /></button>
         ) : (
-          <span className="kampf-name">{t.name}</span>
+          <span className="kampf-name">{t.name}<NameKuerzel karte={karte} id={t.id} /></span>
         )}
         {t.unterzeile && <div className="kampf-unter">{t.unterzeile}</div>}
         <div className="kampf-marken">
@@ -3928,7 +3934,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
         {zugZiel && (
           <ZugFenster t={zugZiel} liste={liste} helden={helden} setDefs={setDefs}
             klassen={advKlassen(advObj)} runde={kampf.runde} bisher={bisherImZug}
-            ansage={zugFenster.ansage} key={(zugFenster.ansage || {}).id || zugFenster.id}
+            ansage={zugFenster.ansage} key={(zugFenster.ansage || {}).id || zugFenster.id} karte={kampf.karte}
             ansagen={ansagen} onAnsageWeg={onAnsageWeg}
             schlangeRest={schlange} onSchlange={schlangeStarten}
             onAbbrechen={()=>setZugFenster(null)} onAnwenden={zugAnwenden} />
@@ -3936,7 +3942,7 @@ const KampfAnsicht = ({ kampf, setKampf, enemies, encounters, helden: heldenRoh,
 
         <div className="kampf-liste">
           {liste.map(t => (
-            <KampfZeile key={t.id} t={t}
+            <KampfZeile key={t.id} t={t} karte={kampf.karte}
               dran={!!handelnd && handelnd.id === t.id}
               wartet={!!zwischen && !!amZug && amZug.id === t.id}
               onDazwischen={!vorbereitung && (!handelnd || handelnd.id !== t.id)

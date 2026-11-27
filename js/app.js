@@ -144,7 +144,7 @@ const ListeEinfuegen = ({
     className: "liste-meldung"
   }, meldung));
 };
-const HB_VERSION = 'v6.11.1';
+const HB_VERSION = 'v6.11.2';
 const DM_MERKER = 'hb_dm_modus';
 const gegenstandZeichen = g => {
   const ic = g && g.icon;
@@ -3679,6 +3679,15 @@ const zugMaengel = z => {
   }
   return raus;
 };
+const NameKuerzel = ({
+  karte,
+  id
+}) => {
+  const k = kartenKuerzelVon(karte, id);
+  return k ? React.createElement("span", {
+    className: "name-kuerzel"
+  }, " (", k, ")") : null;
+};
 const ZugFenster = ({
   t,
   liste,
@@ -3688,6 +3697,7 @@ const ZugFenster = ({
   runde,
   bisher,
   ansage,
+  karte,
   schlangeRest,
   onSchlange,
   ansagen,
@@ -4335,7 +4345,10 @@ const ZugFenster = ({
     className: "zug-kopf"
   }, React.createElement("span", {
     className: "zug-titel"
-  }, "\u270D ", t.name), React.createElement("span", {
+  }, "\u270D ", t.name, React.createElement(NameKuerzel, {
+    karte: karte,
+    id: t.id
+  })), React.createElement("span", {
     className: "zug-wer"
   }, "Runde ", runde, t.unterzeile ? ' · ' + t.unterzeile : ''), React.createElement("span", {
     className: "zug-tp"
@@ -4416,7 +4429,10 @@ const ZugFenster = ({
       onClick: () => zielUm(z.id)
     }, React.createElement("span", {
       className: "zug-ziel-kopf"
-    }, React.createElement("b", null, z.name), React.createElement("i", null, "RK ", z.ac)), React.createElement("span", {
+    }, React.createElement("b", null, z.name, React.createElement(NameKuerzel, {
+      karte: karte,
+      id: z.id
+    })), React.createElement("i", null, "RK ", z.ac)), React.createElement("span", {
       className: "zug-balken"
     }, React.createElement("i", {
       style: {
@@ -4514,7 +4530,10 @@ const ZugFenster = ({
       key: id
     }, React.createElement("span", {
       className: "zug-w-name"
-    }, ziel.name), mitRettung && React.createElement("span", {
+    }, ziel.name, React.createElement(NameKuerzel, {
+      karte: karte,
+      id: id
+    })), mitRettung && React.createElement("span", {
       className: "zug-schalter"
     }, React.createElement("button", {
       type: "button",
@@ -4957,6 +4976,7 @@ const GestaltDialog = ({
 };
 const KampfZeile = ({
   t,
+  karte,
   dran,
   wartet,
   onWert,
@@ -5024,14 +5044,23 @@ const KampfZeile = ({
     className: "kampf-name kampf-name-knopf",
     onClick: () => onBlatt(t.vorlageId),
     title: "Werte nachschlagen"
-  }, t.name) : t.art === 'held' ? React.createElement("button", {
+  }, t.name, React.createElement(NameKuerzel, {
+    karte: karte,
+    id: t.id
+  })) : t.art === 'held' ? React.createElement("button", {
     className: "kampf-name kampf-name-knopf",
     onClick: () => setDetailOffen(detailOffen === t.id ? null : t.id),
     title: "Werte aus dem Bogen",
     "aria-expanded": detailOffen === t.id
-  }, t.name) : React.createElement("span", {
+  }, t.name, React.createElement(NameKuerzel, {
+    karte: karte,
+    id: t.id
+  })) : React.createElement("span", {
     className: "kampf-name"
-  }, t.name), t.unterzeile && React.createElement("div", {
+  }, t.name, React.createElement(NameKuerzel, {
+    karte: karte,
+    id: t.id
+  })), t.unterzeile && React.createElement("div", {
     className: "kampf-unter"
   }, t.unterzeile), React.createElement("div", {
     className: "kampf-marken"
@@ -6808,6 +6837,7 @@ const KampfAnsicht = ({
     bisher: bisherImZug,
     ansage: zugFenster.ansage,
     key: (zugFenster.ansage || {}).id || zugFenster.id,
+    karte: kampf.karte,
     ansagen: ansagen,
     onAnsageWeg: onAnsageWeg,
     schlangeRest: schlange,
@@ -6819,6 +6849,7 @@ const KampfAnsicht = ({
   }, liste.map(t => React.createElement(KampfZeile, {
     key: t.id,
     t: t,
+    karte: kampf.karte,
     dran: !!handelnd && handelnd.id === t.id,
     wartet: !!zwischen && !!amZug && amZug.id === t.id,
     onDazwischen: !vorbereitung && (!handelnd || handelnd.id !== t.id) ? () => dazwischen(t) : undefined,
@@ -16351,6 +16382,7 @@ const WALZEN_AUTOMATEN = [{
 const zustandFarbe = label => (TP_ZUSTAENDE.find(z => z.label === label) || TP_ZUSTAENDE[TP_ZUSTAENDE.length - 1]).color;
 const KampfSichtZeile = ({
   t,
+  karte,
   dran,
   wartet,
   helden,
@@ -16377,7 +16409,10 @@ const KampfSichtZeile = ({
     className: "ks-ini"
   }, t.ini === null || t.ini === undefined ? '—' : t.ini), React.createElement("div", {
     className: "ks-name"
-  }, React.createElement("b", null, held ? c ? c.name : 'Held' : t.name || 'Gegner'), held && c && React.createElement("i", null, (c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level), React.createElement("div", {
+  }, React.createElement("b", null, held ? c ? c.name : 'Held' : t.name || 'Gegner', React.createElement(NameKuerzel, {
+    karte: karte,
+    id: t.id
+  })), held && c && React.createElement("i", null, (c.race ? c.race + ' · ' : '') + c.charClass + ' ' + c.level), React.createElement("div", {
     className: "ks-marken"
   }, dran && React.createElement("span", {
     className: "ks-dran"
@@ -16673,7 +16708,7 @@ const AnsageFenster = ({
       [id]: true
     };
   });
-  const zielName = t => ansageZielName(t, helden);
+  const zielName = t => nameMitKuerzel(ansageZielName(t, helden), kampf && kampf.karte, t && t.id);
   const angesagt = (() => {
     const vomServer = (kampf && kampf.ansagen || []).filter(a => held && a.charId === held.id);
     const drin = new Set(vomServer.map(a => a.id));
@@ -17049,6 +17084,7 @@ const KampfSicht = ({
   }, "Noch steht niemand in der Reihe.") : liste.map((t, i) => React.createElement(KampfSichtZeile, {
     key: t.id || i,
     t: t,
+    karte: kampf.karte,
     dran: i === aktivIdx,
     wartet: zwIdx >= 0 && i === dranIdx,
     helden: helden,

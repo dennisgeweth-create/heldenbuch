@@ -1,5 +1,18 @@
 # ⚔ Heldenbuch — Patchnotes
 
+## v6.11.2
+
+### Das Kürzel von der Karte am Namen
+
+- Wer auf der Kampfkarte steht, trägt sein Kürzel jetzt auch hinter dem
+  Namen: **Zombie (z1)**. So findet man am Tisch zusammen, was im Tracker
+  steht und was auf der Karte.
+- Das gilt im Tracker, im Zugfenster (Kopf, Ziele, Werte), in der
+  Kampfansicht der Spieler und bei der Zielwahl einer Ansage — dort geht
+  das Kürzel auch mit an die Spielleitung.
+- Die Spieler sehen ein Kürzel nur, wenn die Karte gezeigt wird und die
+  Figur nicht verborgen ist.
+
 ## v6.11.1
 
 ### Der Tracker findet den laufenden Kampf
